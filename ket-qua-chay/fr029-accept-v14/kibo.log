@@ -1,0 +1,87 @@
+loaded: OPENAI_API_KEY
+kibo: completed cost 0.708
+[
+ {
+  "repo": "kibo",
+  "size": "vừa",
+  "model": "gpt-6-luna",
+  "status": "completed",
+  "reason": "",
+  "coverage_complete": true,
+  "cost_usd": 0.708,
+  "prompt": "fr029-agent-prompt-v14",
+  "kinds": {
+   "routes": {
+    "tp": 64,
+    "fp": 0,
+    "fn": 0,
+    "precision": 1.0,
+    "recall": 1.0
+   },
+   "models": {
+    "tp": 49,
+    "fp": 0,
+    "fn": 1,
+    "precision": 1.0,
+    "recall": 0.98
+   },
+   "http_calls": {
+    "tp": 8,
+    "fp": 0,
+    "fn": 0,
+    "precision": 1.0,
+    "recall": 1.0
+   },
+   "file_roles": {
+    "tp": 126,
+    "fp": 0,
+    "fn": 0,
+    "precision": 1.0,
+    "recall": 1.0
+   },
+   "limitations": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 0,
+    "precision": null,
+    "recall": null
+   }
+  },
+  "attribute_accuracy": {
+   "routes": {
+    "handler": "64/64",
+    "params": "57/64",
+    "request_body": "62/64",
+    "response": "64/64",
+    "status": "64/64"
+   },
+   "models": {
+    "fields": "49/49"
+   },
+   "http_calls": {
+    "library": "8/8",
+    "method": "5/8 (+3 unknown)",
+    "target": "8/8"
+   },
+   "file_roles": {
+    "role": "120/126",
+    "label": "124/126",
+    "line": "120/126"
+   },
+   "limitations": {}
+  },
+  "exact": {
+   "exact_facts": 20,
+   "exact_wrong": 0,
+   "rate": 0.0,
+   "not_evaluated": 0
+  },
+  "verdict": {
+   "routes": "đạt",
+   "models": "đạt",
+   "http_calls": "đạt",
+   "exact": "đạt",
+   "overall": "đạt"
+  }
+ }
+]

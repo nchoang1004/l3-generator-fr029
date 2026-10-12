@@ -1,0 +1,1996 @@
+#!/bin/sh
+# SpatiumDDI appliance first-boot orchestrator (#183 Phase 7 — k3s only).
+#
+# Runs on every boot. On first run: generates secrets, writes /etc/
+# spatiumddi/.env, renders /var/lib/rancher/k3s/server/manifests/
+# spatium-bootstrap.yaml (HelmChart CR that brings up the supervisor
+# pod on the local k3s). On every boot: reconciles SPATIUMDDI_VERSION
+# + APPLIANCE_VERSION in .env (so a slot upgrade picks up the new
+# tags), refreshes per-slot version sidecar, and (post-trial-boot)
+# commits the active slot as durable once k3s reports Ready.
+#
+# No docker. No docker-compose. k3s.service comes up first (After=
+# ordering in spatiumddi-firstboot.service); k3s's helm-controller
+# applies the bootstrap manifest the moment k3s is reachable.
+#
+# Output is mirrored to /var/log/spatiumddi/firstboot.log so the
+# operator can debug from the console without journalctl.
+
+set -eu
+
+LOG=/var/log/spatiumddi/firstboot.log
+ENV_FILE=/etc/spatiumddi/.env
+
+# #1003 item 2 — the installer's Time source answer, read off STATE.
+#
+# The wizard asks for it, spatium-install writes
+# /etc/chrony/sources.d/spatium-install.sources, and roughly three
+# minutes into the first boot the #154 control-plane chrony plane
+# DELETES that file and installs the platform default — because nothing
+# ever told the platform what the operator typed. An air-gapped site
+# that entered ntp.corp.internal got a working clock for three minutes
+# and then a chronyd reaching for pool.ntp.org forever, with
+# "unsynchronized" as the only symptom.
+#
+# So the answer is seeded into the api's environment here and becomes the
+# INITIAL value of platform_settings.ntp_pool_servers. Only the initial
+# one: once the row exists, the control plane is authoritative and the
+# operator's later edits in the UI must not be undone on every boot.
+#
+# Same flat `key: value` reader spatium-etc-render uses — the config is
+# deliberately flat so this needs no yaml parser this early in boot.
+STATE_CONFIG=/var/lib/spatium-state/spatium-config.yaml
+_state_cfg() {
+    [ -f "$STATE_CONFIG" ] || return 0
+    sed -n "s/^$1:[[:space:]]*//p" "$STATE_CONFIG" | head -1 \
+        | sed 's/[[:space:]]*$//; s/^"//; s/"$//; s/^'"'"'//; s/'"'"'$//'
+}
+# Is KEY present in the STATE config at all?
+#
+# #1002 — _state_cfg returns the empty string for three different facts: the
+# key is absent (a pre-#995 install), the file is absent (STATE mounted
+# `nofail` and not up yet), and the operator answered EMPTY on purpose. Only
+# the last of those is an answer, and acting on it is the whole of #1002.
+_state_cfg_has() {
+    [ -f "$STATE_CONFIG" ] || return 1
+    grep -qE "^$1:" "$STATE_CONFIG"
+}
+STAMP=/var/lib/spatiumddi/firstboot.done
+CHART_TGZ=/usr/lib/spatiumddi/charts/spatiumddi-appliance.tgz
+CONTROL_CHART_TGZ=/usr/lib/spatiumddi/charts/spatiumddi.tgz
+METALLB_CHART_TGZ=/usr/lib/spatiumddi/charts/spatiumddi-metallb.tgz
+K3S_MANIFESTS_DIR=/var/lib/rancher/k3s/server/manifests
+BOOTSTRAP_MANIFEST="$K3S_MANIFESTS_DIR/spatium-bootstrap.yaml"
+CONTROL_MANIFEST="$K3S_MANIFESTS_DIR/spatium-control.yaml"
+# #1448 — the Secret that carries SECRET_KEY + the /metrics token, created by
+# ensure_app_key_secret and NOT owned by Helm, so no helm uninstall can delete
+# it. APP_KEY_STAMP records that it exists, for the one path that cannot ask
+# the apiserver (k3s never became ready).
+APP_KEY_SECRET=spatium-control-app-keys
+CHART_APP_SECRET=spatium-control-spatiumddi-app
+APP_KEY_STAMP=/var/lib/spatiumddi/app-key-secret.done
+METALLB_MANIFEST="$K3S_MANIFESTS_DIR/spatium-metallb.yaml"
+SPATIUMDDI_VERSION_FILE=/usr/lib/spatiumddi/spatiumddi-version
+
+# ── #590 — is this node an etcd member of ANOTHER node's cluster? ────────────
+# Written only by a SUCCESSFUL spatium-cluster-join, so its presence means
+# the seed's HelmCharts govern this cluster and this node owns none of them.
+#
+# This script runs on EVERY boot with no ordering against k3s.service (see
+# the mkdir note below), so on a joined member it would otherwise re-render
+# its own single-node manifests into the auto-deploy dir while k3s is coming
+# up. k3s's deploy controller then applies them CLUSTER-WIDE, clobbering the
+# seed's releases of the same name — the Addon CR is one cluster-scoped
+# object, so whichever node writes last wins.
+#
+# Observed live on a 3-node install after a simultaneous power cut: all three
+# nodes raced, a member's spatium-bootstrap.yaml won, and its values
+# (``cnpg: false`` + ``agentLanding: true``) UNINSTALLED the CloudNativePG
+# operator on a healthy cluster and parked an unschedulable nginx pod on the
+# frontend's :80. The Cluster CR kept reporting "healthy" because nothing was
+# left running to update its status.
+#
+# spatium-cluster-join already moves these manifests aside at join time; the
+# guards below are what keep firstboot from putting them back. NOTE we only
+# ever SKIP writing — never delete. A manifest removed while k3s is running
+# fires fsnotify, k3s deletes the Addon, and the wrangler finalizer
+# UNINSTALLS the release. (do_join is safe because it stops k3s first.)
+K3S_JOIN_DROPIN="${SPATIUM_K3S_JOIN_DROPIN:-/etc/rancher/k3s/config.yaml.d/spatium-cluster.yaml}"
+node_is_cluster_member() { [ -f "$K3S_JOIN_DROPIN" ]; }
+
+# Sourced by the unit tests to reach the helpers above without running any of
+# the boot-time side effects below. Mirrors spatium-cluster-join's guard.
+if [ "${SPATIUM_FIRSTBOOT_LIB:-}" = "1" ]; then
+    return 0 2>/dev/null || exit 0
+fi
+
+mkdir -p "$(dirname "$LOG")" "$(dirname "$STAMP")"
+exec >>"$LOG" 2>&1
+echo "=== spatiumddi-firstboot $(date -Iseconds) ==="
+
+# ── Swap (created once, idempotent) ──────────────────────────────────────────
+# 2 GiB swapfile if the system has no active swap. Protects k3s
+# control-plane components (etcd-like kine, kubeapi, helm-controller)
+# from OOM under memory pressure. Sized small — operators with bigger
+# workloads grow it.
+SWAPFILE=/var/lib/spatiumddi/swapfile
+if [ "$(swapon --show=NAME --noheadings | wc -l)" = "0" ] && [ ! -f "$SWAPFILE" ]; then
+    echo "Creating 2 GiB swapfile at $SWAPFILE"
+    if fallocate -l 2G "$SWAPFILE" 2>/dev/null || \
+       dd if=/dev/zero of="$SWAPFILE" bs=1M count=2048 status=none; then
+        chmod 0600 "$SWAPFILE"
+        mkswap "$SWAPFILE" && swapon "$SWAPFILE"
+        if ! grep -q "^$SWAPFILE " /etc/fstab 2>/dev/null; then
+            echo "$SWAPFILE none swap sw 0 0" >> /etc/fstab
+        fi
+    else
+        echo "WARN: couldn't create swapfile — continuing without swap"
+    fi
+fi
+
+gen_hex()    { openssl rand -hex "${1:-32}"; }
+gen_fernet() { openssl rand 32 | base64 | tr -d '\n' | tr '+/' '-_'; }
+
+# ── Resolve SPATIUMDDI_VERSION (image tag for the chart) ─────────────────────
+# Two sources, in priority order:
+#   1. /usr/lib/spatiumddi/spatiumddi-version — written by the bake
+#      script at build time; matches the tag every preloaded image
+#      carries inside /var/lib/rancher/k3s/agent/images/*.tar.zst.
+#   2. /etc/spatiumddi/release — operator override (e.g. via
+#      cloud-init) to pin to a specific older / pre-release version.
+# Without (1), the chart's ``image: ghcr.io/.../:${SPATIUMDDI_VERSION}``
+# would resolve to ``:latest`` + try to pull from ghcr.io. Air-gap:
+# fatal. The bake stamps this sidecar precisely so the chart can pull
+# locally.
+SPATIUMDDI_VERSION="dev"
+if [ -f "$SPATIUMDDI_VERSION_FILE" ]; then
+    SPATIUMDDI_VERSION="$(cat "$SPATIUMDDI_VERSION_FILE")"
+fi
+if [ -f /etc/spatiumddi/release ]; then
+    # shellcheck disable=SC1091
+    . /etc/spatiumddi/release
+fi
+
+# ── Host-side state dirs ─────────────────────────────────────────────────────
+# /var/lib/spatiumddi/release-state — trigger files for slot upgrades,
+# host runner state sidecars. Every root ``spatiumddi-*.path`` runner acts
+# on a file dropped here, so the directory is NOT world-writable
+# (GHSA-h2j9-qrg7-grfw — it used to be 1777, which let any local account
+# drive root actions). 1770 root:$SPATIUM_HOST_GID: the supervisor's
+# pinned in-pod user and the api pod (supplementalGroups) carry that gid.
+# The sticky bit stays so the #786 semantics below are unchanged.
+# systemd-tmpfiles (spatium-release-state.conf) applies the same mode at
+# sysinit, before k3s; this is the belt to that, and what a test can see.
+SPATIUM_HOST_GID=2770
+mkdir -p /var/lib/spatiumddi/release-state /var/log/spatiumddi
+chgrp "$SPATIUM_HOST_GID" /var/lib/spatiumddi/release-state
+chmod 1770 /var/lib/spatiumddi/release-state
+# #786 — the slot-upgrade sidecars are written by the ROOT host runner but
+# must be resettable by the UNPRIVILEGED supervisor container. In a sticky
+# directory a non-owner can neither overwrite a root-owned 0644 file nor
+# unlink it, so every supervisor-side reset of a failed upgrade silently
+# no-op'd. The runner publishes them group-writable to $SPATIUM_HOST_GID
+# (they were 0666 before GHSA-h2j9-qrg7-grfw); re-mode any that predate
+# that so an upgraded appliance is repaired on its first boot.
+for _sc in /var/lib/spatiumddi/release-state/slot-upgrade-pending.state \
+           /var/lib/spatiumddi/release-state/slot-upgrade.progress; do
+    if [ -e "$_sc" ]; then
+        chgrp "$SPATIUM_HOST_GID" "$_sc" 2>/dev/null || true
+        chmod 0660 "$_sc" 2>/dev/null || true
+    fi
+done
+chmod 0755 /var/log/spatiumddi
+
+# The named group behind $SPATIUM_HOST_GID. Nothing on the host needs the
+# NAME to enforce anything (every chgrp above is numeric), but the
+# installer's admin account (uid 1000) is added to it so it keeps reading
+# the k3s kubeconfig without sudo — that file is 0640 root:$SPATIUM_HOST_GID
+# now (config.yaml.d/spatium-kubeconfig.yaml), not 0644. /etc/group is in
+# the /etc overlay, so this runs on every boot to reach existing installs.
+# Best-effort: a gid already taken by another group is left alone.
+if ! getent group "$SPATIUM_HOST_GID" >/dev/null 2>&1; then
+    groupadd -g "$SPATIUM_HOST_GID" spatium-host 2>/dev/null \
+        || echo "WARN: could not create group spatium-host (gid $SPATIUM_HOST_GID)"
+fi
+_admin_user=$(getent passwd 1000 2>/dev/null | cut -d: -f1 || true)
+_host_group=$(getent group "$SPATIUM_HOST_GID" 2>/dev/null | cut -d: -f1 || true)
+if [ -n "$_admin_user" ] && [ -n "$_host_group" ] \
+        && ! id -nG "$_admin_user" 2>/dev/null | tr ' ' '\n' | grep -qx "$_host_group"; then
+    usermod -aG "$_host_group" "$_admin_user" 2>/dev/null || true
+fi
+# The cluster-admin kubeconfig: 0640 root:$SPATIUM_HOST_GID, never 0644.
+# k3s applies config.yaml.d/spatium-kubeconfig.yaml itself whenever it
+# (re)writes the file. Two gaps that leaves, both closed here:
+#   * the drop-in ships in the image's /etc, and an existing install's
+#     /etc overlay upper may hold an OPAQUE config.yaml.d (created by the
+#     installer before the image had one), which hides it. Copy it into
+#     the merged view if it is not visible there — a no-op otherwise, so
+#     it never copies up a file the image would later want to change;
+#   * the k3s that wrote the current file may have started before the
+#     drop-in was readable. Re-mode it now, and again once k3s is ready
+#     (tighten_kubeconfig below), by which point k3s has written it.
+_KC_DROPIN=/etc/rancher/k3s/config.yaml.d/spatium-kubeconfig.yaml
+_KC_DROPIN_IMAGE=/usr/lib/etc.image/rancher/k3s/config.yaml.d/spatium-kubeconfig.yaml
+if [ ! -f "$_KC_DROPIN" ] && [ -f "$_KC_DROPIN_IMAGE" ]; then
+    mkdir -p "$(dirname "$_KC_DROPIN")" \
+        && install -m 0644 "$_KC_DROPIN_IMAGE" "$_KC_DROPIN" \
+        || echo "WARN: could not install $_KC_DROPIN"
+fi
+tighten_kubeconfig() {
+    if [ -f /etc/rancher/k3s/k3s.yaml ]; then
+        chgrp "$SPATIUM_HOST_GID" /etc/rancher/k3s/k3s.yaml 2>/dev/null || true
+        chmod 0640 /etc/rancher/k3s/k3s.yaml 2>/dev/null || true
+    fi
+}
+tighten_kubeconfig
+
+# /var/lib/spatiumddi/slot-images — OS A/B upgrade images uploaded /
+# imported through the api before the host-side slot-upgrade runner
+# applies them. The api pod mounts this as a hostPath and runs as
+# uid 1000 (app). kubelet's DirectoryOrCreate would otherwise create
+# it root:root 0755, so the api's upload write fails EACCES (#415).
+# Own it to the api uid; 0700 because the bytes stream back through
+# the api's auth gate, never directly off disk. Idempotent + on every
+# boot, so it survives A/B slot swaps and repairs an already-wrong dir.
+mkdir -p /var/lib/spatiumddi/slot-images
+chown 1000:1000 /var/lib/spatiumddi/slot-images
+chmod 0700 /var/lib/spatiumddi/slot-images
+
+# /var/lib/spatiumddi/pcaps — packet-capture .pcap artifacts (#59). The
+# worker writes captures here; the api reads them back on download — both
+# pods hostPath-mount this same single-node dir. Same uid-1000 + 0700
+# reasoning as slot-images (kubelet would create it root:root 0755 → the
+# worker's write fails EACCES). Idempotent on every boot.
+mkdir -p /var/lib/spatiumddi/pcaps
+chown 1000:1000 /var/lib/spatiumddi/pcaps
+chmod 0700 /var/lib/spatiumddi/pcaps
+
+# /var/lib/spatiumddi/backups — local-volume backup archives at the
+# driver's default path (#1160), plus restore's pre-restore safety dump.
+# The worker writes every scheduled run here and the api writes manual
+# runs, lists, downloads and restores — both pods hostPath-mount it. Same
+# uid-1000 + 0700 reasoning as the two dirs above (kubelet would create
+# it root:root 0755 and every backup write would fail EACCES). The chown
+# is not recursive: the pods write as uid 1000, so everything below is
+# theirs already. Idempotent on every boot.
+mkdir -p /var/lib/spatiumddi/backups
+chown 1000:1000 /var/lib/spatiumddi/backups
+chmod 0700 /var/lib/spatiumddi/backups
+
+# /var/lib/spatiumddi/removable — where the removable-disk mount plane
+# mounts USB backup disks (#989 item 3). Deliberately root-owned 0755
+# and NOT chowned to uid 1000, unlike its two neighbours above: this
+# directory is only ever a place to mount things IN, never a place to
+# write. Each per-disk mountpoint under it is created by
+# spatiumddi-removable-reload as root, mode 0500 while nothing is
+# mounted on it, so an ejected or yanked disk makes the path
+# unwritable at the KERNEL rather than relying on the api-side check
+# alone — the failure this must never produce is a backup that reports
+# success while writing to the appliance's own /var. Created up front
+# so the hostPath mounts (api, worker, supervisor) resolve on a node
+# that has never had a disk plugged in.
+mkdir -p /var/lib/spatiumddi/removable
+chown root:root /var/lib/spatiumddi/removable
+chmod 0755 /var/lib/spatiumddi/removable
+
+# #59 Phase 2 — appliance-host capture trigger dir under release-state.
+# The supervisor (control-plane→host) drops <cid>.request here and the
+# spatiumddi-pcap.path unit watches it; the host runner writes <cid>.pcap
+# + <cid>.state back. Owned by the supervisor's unprivileged uid (the
+# spatium user, 100:101 in the supervisor image) so it can write the
+# request + clean up afterwards; the host runner writes the pcap/state as
+# root into this dir (root writes anywhere) and the supervisor (dir owner,
+# no sticky bit) can still unlink them. Created up front so the .path unit
+# has a dir to watch from first boot.
+mkdir -p /var/lib/spatiumddi/release-state/pcap
+chown 100:101 /var/lib/spatiumddi/release-state/pcap
+chmod 0755 /var/lib/spatiumddi/release-state/pcap
+
+# Detect the host's root block device's rotational flag so the
+# supervisor pod (which can't see the host's /proc/mounts properly —
+# its container view shows ``overlay`` mounted at /) can surface
+# "ssd" / "hdd" in the Fleet UI's capabilities block. Write to a
+# sidecar in release-state; the supervisor reads it on every
+# heartbeat. ``unknown`` written on detection failure.
+{
+    detected="unknown"
+    while read -r src mount _; do
+        [ "$mount" = "/" ] || continue
+        case "$src" in
+            /dev/*)
+                name="${src#/dev/}"
+                # Strip trailing partition digits, but preserve nvme's
+                # pN suffix by stripping until a non-digit then one
+                # more strip if it ends with 'p'.
+                while [ -n "$name" ] && [ -z "${name##*[0-9]}" ]; do
+                    name="${name%?}"
+                done
+                case "$name" in *p) name="${name%p}";; esac
+                if [ -r "/sys/block/$name/queue/rotational" ]; then
+                    rot=$(cat "/sys/block/$name/queue/rotational")
+                    if [ "$rot" = "1" ]; then
+                        detected="hdd"
+                    else
+                        detected="ssd"
+                    fi
+                fi
+                ;;
+        esac
+        break
+    done < /proc/mounts
+    printf '%s\n' "$detected" > /var/lib/spatiumddi/release-state/host-storage-type
+    chmod 0644 /var/lib/spatiumddi/release-state/host-storage-type
+}
+
+# k3s's auto-deploy manifests dir. k3s creates this on first start,
+# but firstboot races k3s.service so we may get here first. Pre-
+# create with permissive perms so the supervisor / helm-controller
+# can write status sidecars.
+mkdir -p "$K3S_MANIFESTS_DIR"
+chmod 0700 "$K3S_MANIFESTS_DIR"
+
+# ── First-boot only: generate .env ───────────────────────────────────────────
+if [ ! -f "$ENV_FILE" ]; then
+    echo "Generating $ENV_FILE (first boot)"
+    umask 077
+    APPLIANCE_VERSION_VAL="0.1.0"
+    if [ -f /etc/spatiumddi/appliance-release ]; then
+        # shellcheck disable=SC1091
+        . /etc/spatiumddi/appliance-release
+        APPLIANCE_VERSION_VAL="${APPLIANCE_VERSION:-0.1.0}"
+    fi
+    APPLIANCE_HOSTNAME_VAL=$(hostname 2>/dev/null || echo "spatiumddi")
+    # Host's globally-scoped IPs — surfaced as SANs on the self-
+    # signed cert the appliance generates so browser warnings are
+    # "unknown CA" instead of "subject mismatch". Comma-separated.
+    APPLIANCE_HOST_IPS_VAL=$(ip -o addr show scope global 2>/dev/null \
+        | awk '{print $4}' | cut -d/ -f1 | paste -sd, -)
+    # spatium-install drops /etc/spatiumddi/role-config with ROLE +
+    # CONTROL_PLANE_URL + BOOTSTRAP_PAIRING_CODE for Application
+    # appliances. The .env carries them so the supervisor pod's
+    # entrypoint can source the file + propagate to the pod env.
+    # #272 — two roles: control-plane (default) + appliance. The old
+    # full-stack / frontend-core / application strings are accepted as
+    # legacy aliases (full-stack + frontend-core → control-plane,
+    # application → appliance) so a not-yet-reinstalled box still boots.
+    ROLE=control-plane
+    INSTALL_CONTROL_PLANE_URL=""
+    INSTALL_BOOTSTRAP_PAIRING_CODE=""
+    if [ -f /etc/spatiumddi/role-config ]; then
+        # #554 — PARSE, don't source. ``. role-config`` runs shell
+        # interpretation over operator-supplied values, so a
+        # CONTROL_PLANE_URL carrying ``#`` / ``&`` / space / `` ` `` /
+        # ``$(…)`` would truncate, background, or execute under set -e.
+        # role-config carries exactly three keys; extract each with sed
+        # (last occurrence wins), stripping one layer of surrounding
+        # quotes, and never evaluate the value.
+        _rc_get() {
+            sed -n "s/^$1=//p" /etc/spatiumddi/role-config | tail -n1 \
+                | sed -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'\$/\1/"
+        }
+        _RC_ROLE=$(_rc_get ROLE)
+        [ -n "$_RC_ROLE" ] && ROLE="$_RC_ROLE"
+        INSTALL_CONTROL_PLANE_URL=$(_rc_get CONTROL_PLANE_URL)
+        INSTALL_BOOTSTRAP_PAIRING_CODE=$(_rc_get BOOTSTRAP_PAIRING_CODE)
+    fi
+
+    BOOTSTRAP_PAIRING_CODE_VAL=""
+    case "$ROLE" in
+        appliance|application)
+            # Supervisor-only data-plane node — pairs with a remote
+            # control plane. The supervisor injects per-role agent keys
+            # from the control plane at role-assign time, so none are
+            # baked here.
+            ROLE=appliance
+            DNS_AGENT_KEY_VAL=""
+            DHCP_AGENT_KEY_VAL=""
+            LG_AGENT_KEY_VAL=""
+            BOOTSTRAP_PAIRING_CODE_VAL="$INSTALL_BOOTSTRAP_PAIRING_CODE"
+            CONTROL_PLANE_URL_VAL="$INSTALL_CONTROL_PLANE_URL"
+            AGENT_GROUP_VAL="default"
+            ;;
+        *)
+            # control-plane (or legacy full-stack / frontend-core). DNS,
+            # DHCP + Looking Glass are OFF at install; the operator enables
+            # them per node via the Fleet role toggle. The agent keys are
+            # still generated here so the api can validate agent
+            # registrations once those roles ARE enabled (the api needs the
+            # key server-side, the role pods need it client-side).
+            ROLE=control-plane
+            DNS_AGENT_KEY_VAL=$(gen_hex 24)
+            DHCP_AGENT_KEY_VAL=$(gen_hex 24)
+            LG_AGENT_KEY_VAL=$(gen_hex 24)
+            # #272 — leave CONTROL_PLANE_URL EMPTY on the control-plane
+            # node. Two reasons it must stay empty:
+            #   1. The supervisor's self-bootstrap path (mints the seed's
+            #      own pairing code against the in-cluster api so the seed
+            #      registers itself into Fleet) is gated on
+            #      ``not cfg.control_plane_url`` — a non-empty value here
+            #      silently disables it, so the seed never registers and
+            #      Fleet shows up empty. self-bootstrap sets
+            #      control_plane_url itself from the api response.
+            #   2. The heartbeat target no longer depends on this value:
+            #      ``heartbeat._effective_control_plane_url`` redirects any
+            #      control-plane *cluster member* to the in-cluster api
+            #      Service regardless of CONTROL_PLANE_URL, so the cp-size +
+            #      MetalLB reconcile (durable HelmChartConfig overrides)
+            #      still runs even with this empty. (An earlier draft set
+            #      this to the svc URL to force the heartbeat target — that
+            #      predated the resolver and broke #1; see issue #272.)
+            CONTROL_PLANE_URL_VAL=""
+            AGENT_GROUP_VAL="default"
+            ;;
+    esac
+    # Created 0600 BEFORE anything is written into it, so the secrets
+    # below are never readable by another account, not even briefly.
+    install -m 0600 /dev/null "$ENV_FILE"
+    cat > "$ENV_FILE" <<EOF
+# Auto-generated by spatiumddi-firstboot on $(date -Iseconds).
+# Sourced by the spatium-supervisor pod entrypoint at startup.
+# Appliance role (#170 Wave B2): $ROLE
+SPATIUMDDI_VERSION=${SPATIUMDDI_VERSION}
+POSTGRES_PASSWORD=$(gen_hex 24)
+SECRET_KEY=$(gen_hex 32)
+CREDENTIAL_ENCRYPTION_KEY=$(gen_fernet)
+DNS_AGENT_KEY=${DNS_AGENT_KEY_VAL}
+DHCP_AGENT_KEY=${DHCP_AGENT_KEY_VAL}
+LG_AGENT_KEY=${LG_AGENT_KEY_VAL}
+BOOTSTRAP_PAIRING_CODE=${BOOTSTRAP_PAIRING_CODE_VAL}
+CONTROL_PLANE_URL=${CONTROL_PLANE_URL_VAL}
+AGENT_GROUP=${AGENT_GROUP_VAL}
+APPLIANCE_ROLE=${ROLE}
+APPLIANCE_VERSION=${APPLIANCE_VERSION_VAL}
+APPLIANCE_HOSTNAME=${APPLIANCE_HOSTNAME_VAL}
+APPLIANCE_HOST_IPS=${APPLIANCE_HOST_IPS_VAL}
+EOF
+fi
+# GHSA-h2j9-qrg7-grfw — 0600 root, on EVERY boot so an appliance whose
+# .env was written 0644 is repaired. It holds POSTGRES_PASSWORD,
+# SECRET_KEY, CREDENTIAL_ENCRYPTION_KEY, the agent PSKs and the pairing
+# code. It used to be 0644 "so the supervisor's unprivileged user can read
+# it"; that user never does — the supervisor entrypoint reads it as root
+# before su-exec, and the api's diagnostics bundle already reports an
+# unreadable file instead of failing.
+if [ -f "$ENV_FILE" ]; then
+    chmod 0600 "$ENV_FILE" || echo "WARN: could not chmod 0600 $ENV_FILE"
+fi
+
+# ── Every boot: reconcile SPATIUMDDI_VERSION + APPLIANCE_VERSION ─────────────
+# A slot upgrade lands new container images on the new rootfs but
+# .env (on /var, shared across slots) still points at the OLD tag.
+# Re-sed the matching lines so the chart's ``image: ...:${VERSION}``
+# always resolves to bytes preloaded in containerd.
+if [ -f "$ENV_FILE" ]; then
+    if [ -f "$SPATIUMDDI_VERSION_FILE" ]; then
+        CURRENT_SPATIUMDDI_VERSION="$(cat "$SPATIUMDDI_VERSION_FILE")"
+        sed -i "s|^SPATIUMDDI_VERSION=.*|SPATIUMDDI_VERSION=${CURRENT_SPATIUMDDI_VERSION}|" "$ENV_FILE"
+    fi
+    if [ -f /etc/spatiumddi/appliance-release ]; then
+        # shellcheck disable=SC1091
+        . /etc/spatiumddi/appliance-release
+        CURRENT_APPLIANCE_VERSION="${APPLIANCE_VERSION:-0.1.0}"
+        sed -i "s|^APPLIANCE_VERSION=.*|APPLIANCE_VERSION=${CURRENT_APPLIANCE_VERSION}|" "$ENV_FILE"
+    fi
+    # ── Every boot: re-derive the first-boot-only identity vars ──────────
+    # APPLIANCE_HOSTNAME_VAL / APPLIANCE_HOST_IPS_VAL are assigned ONLY in the
+    # first-boot .env-generation block above, but referenced unconditionally
+    # in the control-chart HelmChart render below. On every NON-first boot
+    # (crucially, a slot upgrade — .env lives on the persistent /var partition
+    # so the gen block is skipped) they'd be unset and `set -u` aborts the
+    # whole reconcile BEFORE the image-version bump + slot commit ever run —
+    # so new container images never roll and the trial slot never commits.
+    # Re-read from .env (the value the first boot persisted), host as fallback.
+    : "${APPLIANCE_HOSTNAME_VAL:=$(grep '^APPLIANCE_HOSTNAME=' "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2-)}"
+    : "${APPLIANCE_HOSTNAME_VAL:=$(hostname 2>/dev/null || echo spatiumddi)}"
+    : "${APPLIANCE_HOST_IPS_VAL:=$(grep '^APPLIANCE_HOST_IPS=' "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2-)}"
+fi
+
+# ── Render the bootstrap HelmChart manifest ──────────────────────────────────
+# k3s's helm-controller watches /var/lib/rancher/k3s/server/manifests/
+# for ``HelmChart`` CRs + reconciles them into Helm releases at
+# startup. We base64-encode the baked chart tarball into
+# ``spec.chartContent`` so the chart applies inline (no registry
+# lookup, no chart repo — air-gap-clean).
+#
+# ``supervisor.enabled: true`` is the only operator-driven flag — the
+# control plane assigns role flags (dnsBind9.enabled, dnsPowerdns.
+# enabled, dhcpKea.enabled) later via the supervisor's lifecycle
+# module once the appliance is paired.
+#
+# We re-render on every boot. The chart bytes don't change between
+# boots on the same slot, but a slot upgrade swings in a new tgz +
+# we want the bootstrap manifest to reflect that without an extra
+# step. Atomic-rename via .new so a partial write doesn't break
+# helm-controller's parse.
+# Phase 11 (#183) — variant-aware bootstrap manifest. The install
+# wizard's ``ROLE`` selection lands in /etc/spatiumddi/.env above;
+# read it back to decide what chart(s) get installed:
+#
+#   appliance     — appliance chart only (supervisor + agent-landing).
+#                   Supervisor pairs with a remote control plane;
+#                   role pods live in the supervisor-driven
+#                   spatiumddi-appliance release.
+#   control-plane — control chart (api/frontend/db/redis/worker/
+#                   beat/migrate) PLUS the appliance chart (supervisor
+#                   enabled, role pods OFF at boot). DNS/DHCP are
+#                   enabled later per node via the Fleet role toggle —
+#                   the supervisor flips dnsBind9/dhcpKea + applies the
+#                   labels. (Legacy full-stack / frontend-core map here.)
+# ── Phase 11 wave 3 — self-signed TLS cert for the appliance UI ─────────────
+# Generated on first boot only (overwriting an operator-uploaded
+# cert would be wrong — gated on the Secret manifest not already
+# existing, in either its staged or its placed form, in
+# /var/lib/rancher/k3s/server/manifests/).
+#
+# #994 — STAGED as ``.deferred`` and renamed into place by
+# place_deferred_tls_manifest once the ``spatium`` namespace
+# exists. Written live, k3s's addon deployer reached it before
+# anything had created that namespace and logged a Warning on
+# every fresh install:
+#
+#   ApplyManifestFailed  addon/spatium-appliance-tls  ...
+#   namespaces "spatium" not found
+#
+# It retried and the Secret landed within a minute, so the only
+# cost was a red line in the Cluster → Overview events feed on
+# every first boot — but a health surface that cries wolf on a
+# healthy node is how operators learn to skim past the real one.
+#
+# The obvious fix — prepend a ``kind: Namespace`` to this manifest —
+# is NOT safe and was deliberately not taken. The namespace is
+# already in spatium-bootstrap.yaml, so it would then belong to two
+# k3s Addon object sets; wrangler prunes objects an addon previously
+# owned and no longer lists, so the two would fight over the owner
+# annotation on every resync, and removing either manifest would
+# DELETE the namespace and everything in it. One owner, ordered.
+#
+# The frontend pod mounts this Secret, and still finds it: on a
+# control-plane role the control chart is itself deferred behind the
+# CNPG webhook, which is later than this.
+#
+# Standard kubernetes.io/tls Secret keys (tls.crt / tls.key)
+# match the chart's volume mount + the in-cluster cert-deployer
+# update path that the api uses on operator upload.
+TLS_CERT_MANIFEST="$K3S_MANIFESTS_DIR/spatium-appliance-tls.yaml"
+# #994 — staged here first, and only renamed into place once the ``spatium``
+# namespace actually exists. See _render_tls_secret_manifest below.
+TLS_CERT_MANIFEST_DEFERRED="${TLS_CERT_MANIFEST}.deferred"
+# #590 — on a joined member the ``[ ! -f ]`` guard below is always TRUE (the
+# join moved the manifest aside), so every reboot would mint a fresh
+# self-signed cert and overwrite the CLUSTER's spatium-appliance-tls Secret —
+# silently replacing an operator-uploaded or ACME-issued cert with this
+# node's throwaway one. The seed owns that Secret; a member must not write it.
+if node_is_cluster_member; then
+    echo "Joined cluster member — skipping self-signed TLS Secret manifest (the seed owns spatium-appliance-tls)."
+elif [ ! -f "$TLS_CERT_MANIFEST" ] && [ ! -f "$TLS_CERT_MANIFEST_DEFERRED" ]; then
+    HN_VAL=$(grep "^APPLIANCE_HOSTNAME=" "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2-)
+    HN_VAL="${HN_VAL:-$(hostname 2>/dev/null || echo spatiumddi)}"
+    IPS_VAL=$(grep "^APPLIANCE_HOST_IPS=" "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2-)
+    # SAN list: DNS:<hostname>, DNS:localhost, IP:<each host IP>,
+    # IP:127.0.0.1. ip-of-this-host is what the operator will type
+    # into the browser, so include each one.
+    san_parts="DNS:${HN_VAL},DNS:localhost,IP:127.0.0.1"
+    if [ -n "$IPS_VAL" ]; then
+        for ip in $(echo "$IPS_VAL" | tr ',' ' '); do
+            san_parts="$san_parts,IP:$ip"
+        done
+    fi
+    TLS_TMP=$(mktemp -d)
+    chmod 0700 "$TLS_TMP"
+    openssl req -x509 -newkey rsa:2048 -nodes \
+        -keyout "$TLS_TMP/tls.key" -out "$TLS_TMP/tls.crt" \
+        -days 3650 -subj "/CN=$HN_VAL" \
+        -addext "subjectAltName=$san_parts" \
+        2>&1 | tail -2 || echo "WARN: self-signed cert generation failed"
+    if [ -s "$TLS_TMP/tls.crt" ] && [ -s "$TLS_TMP/tls.key" ]; then
+        TLS_CRT_B64=$(base64 -w0 "$TLS_TMP/tls.crt")
+        TLS_KEY_B64=$(base64 -w0 "$TLS_TMP/tls.key")
+        tmp_manifest="${TLS_CERT_MANIFEST_DEFERRED}.new"
+        cat > "$tmp_manifest" <<EOF
+# Auto-generated by spatiumddi-firstboot on first boot only.
+# Self-signed TLS cert for the appliance Web UI (https://).
+# Operators replace this via the SpatiumDDI cert manager UI —
+# the api PATCHes this Secret in-place; do NOT regenerate from
+# firstboot on subsequent boots (the ``if [ ! -f ... ]`` guard
+# above enforces this).
+apiVersion: v1
+kind: Secret
+metadata:
+  name: spatium-appliance-tls
+  namespace: spatium
+type: kubernetes.io/tls
+data:
+  tls.crt: ${TLS_CRT_B64}
+  tls.key: ${TLS_KEY_B64}
+EOF
+        mv "$tmp_manifest" "$TLS_CERT_MANIFEST_DEFERRED"
+        chmod 0600 "$TLS_CERT_MANIFEST_DEFERRED"
+        echo "Staged self-signed TLS Secret manifest at $TLS_CERT_MANIFEST_DEFERRED"
+    fi
+    rm -rf "$TLS_TMP"
+fi
+
+# Helper — read a single key out of /etc/spatiumddi/.env. Hoisted
+# from the agent-landing renderer below so the bootstrap manifest
+# dispatch (which also needs APPLIANCE_ROLE) can use it.
+_env_get() {
+    grep "^${1}=" "$ENV_FILE" 2>/dev/null | tail -1 | cut -d= -f2-
+}
+
+APPLIANCE_ROLE_VAL=$(_env_get APPLIANCE_ROLE)
+APPLIANCE_ROLE_VAL="${APPLIANCE_ROLE_VAL:-control-plane}"
+
+# Agent pre-shared keys + in-cluster API service URL for the AIO
+# control-plane node. The DNS / DHCP / Looking Glass role pods need
+# them to register against the local control plane, AND the api pod
+# needs them server-side to validate incoming agent registrations
+# (otherwise the api returns 503 "<X>_AGENT_KEY is not configured
+# on the control plane"). All come from /etc/spatiumddi/.env which
+# firstboot writes (or carries over) on every boot.
+DNS_AGENT_KEY_VAL=$(_env_get DNS_AGENT_KEY)
+INITIAL_NTP_SERVERS_VAL=$(_env_get INITIAL_NTP_SERVERS)
+DHCP_AGENT_KEY_VAL=$(_env_get DHCP_AGENT_KEY)
+LG_AGENT_KEY_VAL=$(_env_get LG_AGENT_KEY)
+# Backfill for boxes provisioned before LG_AGENT_KEY existed (issue #576).
+# It's the first agent key added after GA, so an already-installed
+# control-plane appliance that slot-upgrades into a Looking-Glass build has
+# no LG_AGENT_KEY line in its persistent (/var) .env — the first-boot
+# generation block above is skipped because .env already exists, and without
+# this the api would render LG_AGENT_KEY="" and every LG registration 503s.
+# Mint one once and PERSIST it (not just set the var): the api env must be
+# stable across boots or a fresh random key each boot would orphan an
+# already-registered collector. _env_get's ``tail -1`` makes the append
+# authoritative. Control-plane only — data-plane (appliance/application)
+# nodes intentionally keep it empty and receive it from the supervisor at
+# role-assign time.
+if [ -z "$LG_AGENT_KEY_VAL" ] && [ "$APPLIANCE_ROLE_VAL" = "control-plane" ]; then
+    LG_AGENT_KEY_VAL=$(gen_hex 24)
+    printf 'LG_AGENT_KEY=%s\n' "$LG_AGENT_KEY_VAL" >> "$ENV_FILE"
+fi
+# #1003 item 2 — the installer's Time source answer, seeded from STATE.
+#
+# Backfilled on ANY boot where the key is absent, not written once at .env
+# creation. STATE is mounted `nofail`, and systemd does not order a nofail
+# mount before local-fs.target — so if it is not up when firstboot runs,
+# _state_cfg returns empty. Writing an empty line then would record "the
+# operator declined" permanently and lose what they actually typed, with the
+# #154 plane pushing the public pool: exactly the bug item 2 exists to fix,
+# arrived at from the other side.
+#
+# So a MISSING key (or a missing file) is the retry signal, and is left
+# unwritten so a late STATE mount is recovered on the next boot.
+#
+# #1002 — an empty answer is no longer indistinguishable from that. The
+# operator who cleared the Time source field declined a time source, and the
+# installer suppressed Debian's own pool on their behalf; seeding the
+# platform default here would have the #154 chrony plane push it straight
+# back a few minutes later, which is the bug from the other side. The key
+# being PRESENT and empty is what separates the two, so that is what is
+# tested — and it travels as an explicit sentinel rather than as "" so the
+# same ambiguity cannot re-form inside the api's own settings loader (see
+# models.settings.NTP_EXPLICITLY_NONE, which must stay in step with this).
+NTP_EXPLICITLY_NONE="!none"
+if [ -z "$INITIAL_NTP_SERVERS_VAL" ]; then
+    INITIAL_NTP_SERVERS_VAL=$(_state_cfg ntp_servers)
+    if [ -n "$INITIAL_NTP_SERVERS_VAL" ]; then
+        printf 'INITIAL_NTP_SERVERS=%s\n' "$INITIAL_NTP_SERVERS_VAL" >> "$ENV_FILE"
+    elif _state_cfg_has ntp_servers; then
+        INITIAL_NTP_SERVERS_VAL="$NTP_EXPLICITLY_NONE"
+        printf 'INITIAL_NTP_SERVERS=%s\n' "$INITIAL_NTP_SERVERS_VAL" >> "$ENV_FILE"
+    fi
+fi
+# In-cluster service DNS for the api. Matches the umbrella chart's
+# release name (``spatium-control``) + the workload suffix the
+# template ``include "spatiumddi.fullname"`` produces. ClusterFirstWithHostNet
+# on the role pods means cluster DNS resolves even though the pod
+# uses hostNetwork.
+APPLIANCE_API_URL="http://spatium-control-spatiumddi-api.spatium.svc.cluster.local:8000"
+
+_render_namespace_yaml() {
+    # #983 — Pod Security Admission at ``baseline``, report-only.
+    #
+    # ``enforce`` is impossible here and always will be: the role
+    # DaemonSets bind :53 / :67 on the host (hostNetwork), the supervisor
+    # mounts host paths and runs with hostPID, and the frontend takes :80 /
+    # :443 on the node. Every one of those violates ``baseline`` on purpose,
+    # so enforcing would reject the appliance's entire reason for existing.
+    #
+    # ``warn`` + ``audit`` are still worth carrying: neither can reject a
+    # pod, and they turn "a workload quietly started wanting hostPath" from
+    # invisible into a line in the helm-controller job log and an annotation
+    # in /var/log/spatiumddi/k3s-audit.log (the apiserver audit log this
+    # appliance already writes — see config.yaml's kube-apiserver-arg).
+    # Expect standing warnings from dns-*, dhcp-kea, looking-glass,
+    # node-exporter, the supervisor and the frontend; a warning from
+    # anything ELSE is the signal.
+    #
+    # Re-rendered on every boot (firstboot rewrites this manifest each
+    # time), so this reaches appliances installed before #983 as soon as
+    # they boot the slot carrying it — no host patch needed.
+    cat <<EOF
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: spatium
+  labels:
+    pod-security.kubernetes.io/warn: baseline
+    pod-security.kubernetes.io/audit: baseline
+EOF
+}
+
+# Renders the appliance HelmChart CR. Args:
+#   $1 — chart_content_b64
+#   $2 — supervisor_enabled (true / false)
+#   $3 — role_pods_enabled (true / false) — toggles
+#        dnsBind9/dnsPowerdns/dhcpKea all together
+#   $4 — agent_landing_enabled (true / false) — only the
+#        Application variant ships the "this is a SpatiumDDI
+#        appliance" landing page on :80. The control-plane node
+#        have the real control-plane frontend on :80, so leaving
+#        agent-landing enabled there gives us a pod stuck Pending
+#        on a port conflict that would also fight the frontend for
+#        the host's :80 if scheduling ever resolved.
+_render_appliance_helmchart() {
+    local chart_b64="$1"
+    local supervisor_enabled="$2"
+    local role_pods_enabled="$3"
+    local agent_landing_enabled="$4"
+    # #277 — the CNPG operator (cloudnative-pg subchart) runs only on the
+    # control-plane node, where the spatium-control chart's CNPG Cluster
+    # lives. Data-plane appliances don't host postgres, so they skip it.
+    local cnpg_enabled="${5:-false}"
+    # role_pods_enabled=true (full-stack) needs control-plane URL +
+    # pre-shared keys + a default server group name so the BIND9 /
+    # Kea agents can bootstrap-register against the local control
+    # plane on first start. Empty for application (supervisor
+    # injects them at role-assign time) and frontend-core (no
+    # role pods anyway).
+    cat <<EOF
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: spatium-bootstrap
+  namespace: kube-system
+spec:
+  chartContent: ${chart_b64}
+  targetNamespace: spatium
+  createNamespace: false
+  valuesContent: |
+    global:
+      imageTag: ${SPATIUMDDI_VERSION}
+      imagePullPolicy: Never
+    supervisor:
+      enabled: ${supervisor_enabled}
+    dnsBind9:
+      enabled: ${role_pods_enabled}
+      controlPlaneUrl: ${APPLIANCE_API_URL}
+      agentKey: ${DNS_AGENT_KEY_VAL}
+      serverGroupName: default
+    dnsPowerdns:
+      enabled: false
+    dhcpKea:
+      enabled: ${role_pods_enabled}
+      controlPlaneUrl: ${APPLIANCE_API_URL}
+      agentKey: ${DHCP_AGENT_KEY_VAL}
+      serverGroupName: default
+    agentLanding:
+      enabled: ${agent_landing_enabled}
+    # #277 — CloudNativePG operator (manages the control plane's
+    # postgres Cluster + streaming replicas + failover). Only the
+    # control-plane node enables it.
+    cnpg:
+      enabled: ${cnpg_enabled}
+    # #272 — MetalLB is NO LONGER part of this chart. It moved to its own
+    # spatium-metallb HelmChart in the metallb-system namespace (see
+    # _render_metallb_helmchart). The seed supervisor flips its enable +
+    # writes the pool via the spatium-metallb HelmChartConfig.
+EOF
+}
+
+# #272 — render the spatium-metallb HelmChart (MetalLB in its own
+# metallb-system namespace). The upstream MetalLB chart hardcodes
+# ``namespace: {{ .Release.Namespace }}``, so the ONLY way to land it in
+# metallb-system is a separate HelmChart release targeting that ns.
+# Always applied (createNamespace: true makes metallb-system), but the
+# chart's defaults keep MetalLB DISABLED + the CRD sub-subchart off (we
+# pre-load CRDs via place_metallb_crds). The seed supervisor enables it
+# + writes the pool through the spatium-metallb HelmChartConfig when the
+# operator sets a control-plane VIP. No valuesContent needed — the
+# wrapper chart's own values.yaml carries the image pins (v0.15.3),
+# crds.enabled=false, and the per-role nodeSelector.
+_render_metallb_helmchart() {
+    local chart_b64="$1"
+    cat <<EOF
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: spatium-metallb
+  namespace: kube-system
+spec:
+  chartContent: ${chart_b64}
+  targetNamespace: metallb-system
+  createNamespace: true
+EOF
+}
+
+# #272 — pre-load the MetalLB CRDs as a k3s auto-deploy manifest so they
+# exist cluster-wide BEFORE the operator ever enables MetalLB. MetalLB
+# always starts disabled on the appliance and is turned on via a helm
+# UPGRADE of the spatium-bootstrap release; helm can't establish the
+# metallb subchart's CRDs before applying the IPAddressPool /
+# L2Advertisement CRs in that same release ("no matches for kind
+# IPAddressPool"). So we keep the CRDs out of helm entirely
+# (metallb.crds.enabled=false in the valuesContent above) and lay them
+# down here — k3s applies everything in its manifests dir at boot, well
+# before the operator could enable MetalLB. The baked file is vendored
+# from the metallb 0.16.0 chart (its {{ .Release.Namespace }} already
+# substituted to ``spatium``).
+place_metallb_crds() {
+    local src=/usr/local/share/spatiumddi/metallb-crds.yaml
+    if [ -r "$src" ]; then
+        install -m 0644 "$src" "$K3S_MANIFESTS_DIR/spatium-metallb-crds.yaml"
+        echo "Placed MetalLB CRDs at $K3S_MANIFESTS_DIR/spatium-metallb-crds.yaml"
+    else
+        echo "WARN: $src missing — MetalLB CRDs not pre-loaded; enabling MetalLB later will fail."
+    fi
+}
+
+# Issue #566 decision D1 — pre-load the frr-k8s CRDs (frrk8s.metallb.io
+# group: FRRConfiguration / FRRNodeState / BGPSessionState) the SAME
+# way place_metallb_crds pre-loads the metallb.io group above. BGP mode
+# starts disabled (frrk8s.enabled=false) and is turned on later by the
+# seed supervisor writing the spatium-metallb HelmChartConfig once an
+# operator configures a BGP peer; the frr-k8s subchart's OWN nested
+# CRDs dependency stays off (frr-k8s.crds.enabled=false in
+# charts/spatiumddi-metallb/values.yaml) to avoid a double-owner
+# conflict, so without this pre-load enabling BGP mode later 404s with
+# "no matches for kind FRRConfiguration".
+place_metallb_frrk8s_crds() {
+    local src=/usr/local/share/spatiumddi/frrk8s-crds.yaml
+    if [ -r "$src" ]; then
+        install -m 0644 "$src" "$K3S_MANIFESTS_DIR/spatium-metallb-frrk8s-crds.yaml"
+        echo "Placed frr-k8s CRDs at $K3S_MANIFESTS_DIR/spatium-metallb-frrk8s-crds.yaml"
+    else
+        echo "WARN: $src missing — frr-k8s CRDs not pre-loaded; enabling MetalLB BGP mode later will fail."
+    fi
+}
+
+# Renders the control-plane HelmChart CR for the control-plane
+# role. Args:
+#   $1 — chart_content_b64
+#   $2 — dns/dhcp agents enabled in umbrella (frontend-core=false,
+#        full-stack=false because the appliance chart owns them)
+_render_control_helmchart() {
+    local chart_b64="$1"
+    # #1003 item 4 — size api + worker HERE, so the first render is the final one.
+    #
+    # firstboot rendered the chart with the values-file defaults (api 512Mi) and
+    # the supervisor's first heartbeat then re-rendered it sized to the node
+    # (1960Mi on a 4 GiB VM). Every install therefore paid for a second
+    # helm-install Job, a second migrate Job, and an api + worker rollout with a
+    # transient readiness Unhealthy — three minutes into a box that was already
+    # up. The supervisor still owns the value afterwards; this just stops the
+    # first render being knowingly wrong.
+    #
+    # MIRRORS k8s_api.control_plane_resources(). Two implementations of one
+    # formula is a drift risk, so agent/supervisor/tests/test_control_plane_sizing.py
+    # computes both and requires them to agree — the same way #992 pins this
+    # script's role-chart values to the Python.
+    _mem_total_mib() {
+        awk '/^MemTotal:/ {print int($2/1024); exit}' /proc/meminfo 2>/dev/null || true
+    }
+    _clamp_mib() {  # total, numerator, denominator, lo, hi
+        local v=$(( $1 * $2 / $3 ))
+        [ "$v" -lt "$4" ] && v="$4"
+        [ "$v" -gt "$5" ] && v="$5"
+        printf '%s' "$v"
+    }
+    local MEM_TOTAL_MIB BUDGET_MIB API_MEM_MIB WORKER_MEM_MIB WORKER_CONCURRENCY
+    local POSTGRES_MEM_MIB POSTGRES_SHARED_BUFFERS_MB POSTGRES_MEM_REQUEST_MIB
+    local API_SIZING_YAML WORKER_SIZING_YAML POSTGRES_SIZING_YAML POSTGRES_PARAMETERS_YAML
+    MEM_TOTAL_MIB=$(_mem_total_mib)
+    API_MEM_MIB=""
+    WORKER_MEM_MIB=""
+    WORKER_CONCURRENCY=""
+    POSTGRES_MEM_MIB=""
+    POSTGRES_SHARED_BUFFERS_MB=""
+    POSTGRES_MEM_REQUEST_MIB=""
+    if [ -n "$MEM_TOTAL_MIB" ] && [ "$MEM_TOTAL_MIB" -gt 0 ] 2>/dev/null; then
+        # #1115 — a whole-node budget: _PLATFORM_RESERVE_MIB = 2048 for k3s,
+        # the supervisor, the bind9/kea DaemonSets and the CNPG operator, then
+        # the remainder split api 1/2, worker 1/4, Postgres 1/4 as integer
+        # ratios; clamps 1024..8192, 1024..4096 and 1024..4096. Postgres'
+        # floor is the chart's own 1Gi. The Postgres limit is rendered HERE,
+        # not left to the supervisor, because a resources change on a formed
+        # CloudNativePG cluster is a rolling restart: the Cluster must be
+        # created with its final size.
+        BUDGET_MIB=$(( MEM_TOTAL_MIB - 2048 ))
+        if [ "$BUDGET_MIB" -lt 0 ]; then BUDGET_MIB=0; fi
+        API_MEM_MIB=$(_clamp_mib "$BUDGET_MIB" 1 2 1024 8192)
+        WORKER_MEM_MIB=$(_clamp_mib "$BUDGET_MIB" 1 4 1024 4096)
+        POSTGRES_MEM_MIB=$(_clamp_mib "$BUDGET_MIB" 1 4 1024 4096)
+        # _POSTGRES_SHARED_BUFFERS_SHARE = 1/4 of the Postgres cap (Postgres'
+        # guidance; the chart's 256MB-of-1Gi is the same ratio).
+        POSTGRES_SHARED_BUFFERS_MB=$(( POSTGRES_MEM_MIB / 4 ))
+        # _POSTGRES_MEM_REQUEST_MIN_MIB = 256 (the chart's own request).
+        # CloudNativePG's admission webhook refuses a Cluster whose memory
+        # request is below shared_buffers, so the request follows it and
+        # never drops below the chart's.
+        POSTGRES_MEM_REQUEST_MIB=$POSTGRES_SHARED_BUFFERS_MB
+        if [ "$POSTGRES_MEM_REQUEST_MIB" -lt 256 ]; then POSTGRES_MEM_REQUEST_MIB=256; fi
+        # _WORKER_SMALL_NODE_MIB = 12288.
+        if [ "$MEM_TOTAL_MIB" -le 12288 ]; then WORKER_CONCURRENCY=2; else WORKER_CONCURRENCY=4; fi
+        # >&2, NOT bare echo. THIS FUNCTION'S STDOUT IS THE MANIFEST: the
+        # caller runs it inside `{ ... } > "$tmp"`, so anything printed here
+        # is captured into spatium-control.yaml. The first line happens to
+        # contain ": " and so parsed as a junk top-level key on the HelmChart
+        # CR — survivable, and why every test still passed. The second has no
+        # colon, which makes the document UNPARSEABLE: k3s cannot decode it,
+        # spatium-control never installs, and the control plane never comes
+        # up, with a parse error in the k3s log as the only symptom.
+        # firstboot does `exec >>"$LOG" 2>&1` and the caller redirects only
+        # stdout, so stderr is still the log.
+        echo "Sizing control plane for ${MEM_TOTAL_MIB} MiB (budget ${BUDGET_MIB} MiB after the platform reserve): api=${API_MEM_MIB}Mi worker=${WORKER_MEM_MIB}Mi concurrency=${WORKER_CONCURRENCY} postgres=${POSTGRES_MEM_MIB}Mi shared_buffers=${POSTGRES_SHARED_BUFFERS_MB}MB request=${POSTGRES_MEM_REQUEST_MIB}Mi" >&2
+    else
+        echo "MemTotal unreadable — leaving the chart's default control-plane sizing in place" >&2
+    fi
+    # Rendered into the values block below. Empty string = emit nothing, so an
+    # unreadable MemTotal leaves the chart's defaults untouched rather than
+    # emitting a malformed `memory: Mi`.
+    API_SIZING_YAML=""
+    WORKER_SIZING_YAML=""
+    POSTGRES_SIZING_YAML=""
+    POSTGRES_PARAMETERS_YAML=""
+    if [ -n "$API_MEM_MIB" ]; then
+        API_SIZING_YAML=$(printf '      resources:\n        limits:\n          memory: "%sMi"' \
+            "$API_MEM_MIB")
+        WORKER_SIZING_YAML=$(printf '      concurrency: %s\n      resources:\n        limits:\n          memory: "%sMi"' \
+            "$WORKER_CONCURRENCY" "$WORKER_MEM_MIB")
+        POSTGRES_SIZING_YAML=$(printf '      resources:\n        requests:\n          memory: "%sMi"\n        limits:\n          memory: "%sMi"' \
+            "$POSTGRES_MEM_REQUEST_MIB" "$POSTGRES_MEM_MIB")
+        POSTGRES_PARAMETERS_YAML=$(printf '        parameters:\n          shared_buffers: "%sMB"' \
+            "$POSTGRES_SHARED_BUFFERS_MB")
+    fi
+    # #983 — first of two gates on naming ``spatium-control-plane`` here.
+    # This one is cheap and early: no appliance chart tarball means the chart
+    # that RENDERS the class is not going into the auto-deploy dir at all.
+    #
+    # It is not sufficient on its own — a tarball that exists proves nothing
+    # about whether its release SUCCEEDED — so ``release_control_manifest``
+    # re-checks against the live cluster before the manifest is applied. Both
+    # matter: this one keeps a known-hopeless value out of the file, that one
+    # catches the failure this one cannot see.
+    local cp_priority_class=""
+    if [ -f "$CHART_TGZ" ]; then
+        cp_priority_class="spatium-control-plane"
+    fi
+    cat <<EOF
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: spatium-control
+  namespace: kube-system
+spec:
+  chartContent: ${chart_b64}
+  targetNamespace: spatium
+  createNamespace: false
+  # #1299 — a failed release is UPGRADED again ('retry'), never uninstalled.
+  #
+  # #1042/#1044 kept the CRD default ('reinstall') and relied on the app
+  # Secret's 'helm.sh/resource-policy: keep' to carry SECRET_KEY through the
+  # uninstall half. But 'helm uninstall' keeps only what the release's LAST
+  # stored revision annotates, and after a slot rollback to a release older
+  # than #1044 that revision is the old chart's, which has no 'keep': the
+  # reinstall deleted the Secret, the install's 'lookup' found nothing, and
+  # 'randAlphaNum 64' minted a new SECRET_KEY, orphaning everything
+  # encrypted at rest (#1042's consequences, again). 'abort' was rejected in
+  # #1042 because it waits for an operator; 'retry' (helm-controller v0.17.7
+  # and klipper-helm v0.13.3, from k3s v1.36.4+k3s1) does not wait: it runs
+  # 'helm upgrade' on a failed release, and deletes nothing.
+  #
+  # A HelmChartConfig's failurePolicy overrides this one, and its CRD
+  # default is 'reinstall', so pin_control_failure_policy sets 'retry' there
+  # too. That is the half that governs the appliance; see it for the path.
+  failurePolicy: retry
+  valuesContent: |
+    image:
+      tag: "${SPATIUMDDI_VERSION}"
+      pullPolicy: IfNotPresent
+    # #1448 — SECRET_KEY lives in a Secret this chart does not own
+    # (ensure_app_key_secret creates it), so no helm uninstall can delete it.
+    # Both lines carry the marker: _strip_control_app_secret removes them if
+    # that Secret could not be ensured, and the chart then keeps managing its
+    # own ${CHART_APP_SECRET} as before.
+    auth:  # spatium:app-key-secret
+      existingSecret: "${APP_KEY_SECRET}"  # spatium:app-key-secret
+    # #272 Phase 1 — gate every control-plane workload onto nodes
+    # carrying ``spatium.io/role-control-plane=true``. Install-time
+    # bakes the label for full-stack + frontend-core variants (see
+    # spatium-install); the supervisor re-asserts it on every
+    # heartbeat. application appliances never carry the label and
+    # so never schedule control-plane workloads even if joined to
+    # the cluster.
+    global:
+      controlPlaneNodeSelector:
+        spatium.io/role-control-plane: "true"
+      # #983 — rank the control-plane workloads. ``spatium-control-plane``
+      # is rendered by the spatiumddi-appliance chart (spatium-bootstrap),
+      # which firstboot writes into the auto-deploy dir BEFORE this one
+      # (the control chart is held back as ``.deferred`` until the CNPG
+      # webhook is up), so the class exists by the time any pod here names
+      # it. That ordering is load-bearing: the apiserver REFUSES a pod
+      # naming a PriorityClass that does not exist. Empty when the
+      # appliance chart is absent — see the guard above.
+      priorityClassName: "${cp_priority_class}"
+    # Appliance overrides — collapse the frontend to a single
+    # replica with hostNetwork on the node IP so http://<ip>/
+    # serves the SpatiumDDI UI. klipper-lb is disabled in our
+    # k3s config + NodePort defaults exclude :80, so hostNetwork
+    # is the cleanest path. dnsPolicy: ClusterFirstWithHostNet
+    # is set by the chart template so service DNS still resolves
+    # (pod talks to api via the in-cluster ClusterIP through
+    # kube-proxy iptables). TLS on :443 from first boot — see
+    # the self-signed cert generation below; the Secret named
+    # ``spatium-appliance-tls`` is created in the spatium
+    # namespace BEFORE the chart applies, so the frontend pod's
+    # subPath mount finds it on first scheduling.
+    frontend:
+      replicas: 1  # spatium:cp-size
+      # #590 — replicas tracks the control-plane node count exactly, so
+      # spread one per node and never stack two on the seed. Inert at
+      # replicas: 1. hostNetwork makes this doubly true: a second frontend
+      # on the same node would collide on :80/:443 anyway.
+      podAntiAffinity: hard
+      # #590 — a dead control-plane node must free this replica in
+      # seconds, not the k8s default 300 s. Set here (not in the chart
+      # defaults) because pinning both taint keys suppresses the
+      # DefaultTolerationSeconds admission plugin, which a BYO-Kubernetes
+      # install still wants.
+      tolerations:
+        - key: node.kubernetes.io/unreachable
+          operator: Exists
+          effect: NoExecute
+          tolerationSeconds: 20
+        - key: node.kubernetes.io/not-ready
+          operator: Exists
+          effect: NoExecute
+          tolerationSeconds: 20
+      hostNetwork: true
+      # #272 Phase 7c — control-plane VIP. Empty on a fresh install
+      # (hostNetwork frontend, no VIP); the seed supervisor patches this
+      # marked line from platform_settings when the operator sets a VIP
+      # in Fleet → Control plane. A non-empty value supersedes
+      # hostNetwork (the chart drops it + flips the Service to a
+      # LoadBalancer) and threads the VIP into the api's
+      # APPLIANCE_EXTRA_CERT_SANS so the served cert validates on it.
+      controlPlaneVIP: ""  # spatium:metallb-vip
+      controlPlaneVIPPool: spatium-control-plane
+      # #1005 — stated, not left to the chart default, so the supervisor's
+      # first heartbeat has nothing to add. Same reasoning as the #1003
+      # item 4 sizing above: every key the supervisor owns must already be
+      # here, or its no-op guard cannot fire and the install still pays for
+      # a second helm revision. #285 Phase 6 fills this from
+      # platform_settings once an operator scopes the Web UI; empty = open.
+      loadBalancerSourceRanges: []
+      tls:
+        enabled: true
+        secretName: spatium-appliance-tls
+    # Phase 11 wave 3 — flip the api into appliance-mode so the
+    # cert upload / activate endpoints write to the Kubernetes
+    # Secret instead of the docker-compose volume + SIGHUP path.
+    # Phase 11 wave 4 — enable the api ServiceAccount + Role so
+    # the kubeapi-driven surfaces (pod listing for the Fleet UI's
+    # Pods tab, TLS Secret patching for the Cert Manager UI) can
+    # authenticate against the in-cluster kubeapi.
+    # Appliance is single-node — collapse api/worker to 1 replica
+    # each + disable HPA (no horizontal scaling on a single host).
+    api:
+      # #1003 item 4 — sized from this node's RAM, matching what the
+      # supervisor would otherwise re-render on its first heartbeat.
+${API_SIZING_YAML}
+      replicas: 1  # spatium:cp-size
+      # #590 — one api per control-plane node. Without this a promote
+      # could land every api pod on the seed, so losing the seed left no
+      # ready api anywhere and the whole cluster served 502s. Inert at
+      # replicas: 1.
+      podAntiAffinity: hard
+      # #590 — a dead control-plane node must free this replica in
+      # seconds, not the k8s default 300 s. Set here (not in the chart
+      # defaults) because pinning both taint keys suppresses the
+      # DefaultTolerationSeconds admission plugin, which a BYO-Kubernetes
+      # install still wants.
+      tolerations:
+        - key: node.kubernetes.io/unreachable
+          operator: Exists
+          effect: NoExecute
+          tolerationSeconds: 20
+        - key: node.kubernetes.io/not-ready
+          operator: Exists
+          effect: NoExecute
+          tolerationSeconds: 20
+      autoscaling:
+        enabled: false
+      env:
+        - name: APPLIANCE_MODE
+          value: "true"
+        # Agent pre-shared keys — the api validates incoming
+        # registrations from DNS / DHCP / Looking Glass agents against
+        # these. Without them the api returns 503 "<X>_AGENT_KEY is not
+        # configured on the control plane" and the role pods crash-loop.
+        # Sourced from /etc/spatiumddi/.env which firstboot stamps
+        # on first boot. LG_AGENT_KEY additionally feeds
+        # settings.lg_agent_key, which the supervisor ships in its
+        # heartbeat role-assignment so the running collector DaemonSet
+        # gets the matching client-side key (issue #576).
+        - name: DNS_AGENT_KEY
+          value: "${DNS_AGENT_KEY_VAL}"
+        - name: DHCP_AGENT_KEY
+          value: "${DHCP_AGENT_KEY_VAL}"
+        - name: LG_AGENT_KEY
+          value: "${LG_AGENT_KEY_VAL}"
+        # #1003 item 2 — the installer's Time source answer. Seeds the
+        # INITIAL platform_settings.ntp_pool_servers so the #154 chrony
+        # plane pushes what the operator typed instead of the platform
+        # default, which is what used to overwrite it three minutes into
+        # the first boot. Ignored once the settings row exists.
+        - name: INITIAL_NTP_SERVERS
+          value: "${INITIAL_NTP_SERVERS_VAL}"
+        # #272 HA — stable identity for the self-signed Web UI cert.
+        # The api Deployment runs N replicas (one per control-plane
+        # node), all sharing one cluster TLS Secret. WITHOUT these the
+        # cert bootstrap falls back to the POD name/IP, so every replica
+        # regenerates a cert for its own ephemeral identity and clobbers
+        # the Secret — the operator-reported "3 certificates" churn.
+        # These env values are identical for every replica (the host's
+        # hostname + globally-scoped IPs, computed once at firstboot),
+        # so the first node's cert is generated once and every replica
+        # just re-deploys it. Operators add other node IPs as SANs via a
+        # CSR. (The control-plane VIP, when one is set on promote, is
+        # threaded separately as APPLIANCE_EXTRA_CERT_SANS.)
+        - name: APPLIANCE_HOSTNAME
+          value: "${APPLIANCE_HOSTNAME_VAL}"
+        - name: APPLIANCE_HOST_IPS
+          value: "${APPLIANCE_HOST_IPS_VAL}"
+      serviceAccount:
+        enabled: true
+      # #296 Phase A-H — the rolling-upgrade orchestrator needs three
+      # extra RBAC grants beyond the basic appliance set: namespace-
+      # scoped read/list of Deployments + Jobs (chart-bump rollout
+      # poll), patch on CNPG Cluster CR (cordon-triggered switchover
+      # via nodeMaintenanceWindow), create/get/list/update/patch on
+      # coordination.k8s.io Leases (cluster-wide single-upgrader mutex);
+      # cluster-scoped get/list/watch/patch on Nodes (cordon + plan
+      # enumeration), get/list/watch on Pods, create on pods/eviction
+      # (drain); and namespace-scoped get/list/watch/create/update/
+      # patch on helm.cattle.io/HelmChartConfigs in kube-system (image
+      # tag bump after every node is on the new slot). Without this the
+      # /api/v1/upgrades/preflight endpoint reads back 403 on every
+      # kubeapi-touching check and the operator UI surfaces
+      # "lease held by '<unreachable>'" / "kubeapi node list returned
+      # 403" instead of real cluster state. Always on for appliance
+      # installs since the rolling-upgrade flow IS the appliance's
+      # upgrade path; docker/k8s installs leave this off by default.
+      upgradeOrchestratorRBAC:
+        enabled: true
+      # #890 — the Services screen lists and rollout-restarts the chart's
+      # own workloads. ``serviceControl`` (the SERVICE_CONTROL_ENABLED env)
+      # is deliberately NOT set here: ``appliance_mode`` already implies
+      # the gate in app/config.py, because the appliance has shipped the
+      # same control at POST /appliance/containers/{name}/{action} since
+      # #134 and an opt-in would take away a capability rather than add
+      # one. The RBAC half has no such history, so it is granted here —
+      # without it the api can patch a Deployment (the base Role allows
+      # that for the TLS-Secret rollover) but cannot list any workload,
+      # and the Services screen would report an empty inventory on the one
+      # deployment where control is on by default.
+      serviceControlRBAC:
+        enabled: true
+      # Appliance bind mounts. /var/lib/spatiumddi-host/release-state
+      # backs the setup-complete flag, slot-upgrade triggers, and the
+      # maintenance flag; without this the wizard's "Finish setup"
+      # POST 500s with EACCES at
+      # /var/lib/spatiumddi-host/release-state/setup-complete.flag.
+      # /var/log/spatiumddi-host carries the slot-upgrade log the OS
+      # Versions card tails; /etc/spatiumddi-host carries the host
+      # env the Fleet UI reads for deployment_kind detection.
+      applianceHostMounts:
+        enabled: true
+    worker:
+      # #1003 item 4 — see the api block above.
+${WORKER_SIZING_YAML}
+      # #983 Phase 2 — alert evaluation runs in the WORKER, not the api, so
+      # the node_pressure PSI rule needs a ServiceAccount here or it
+      # evaluates to nothing forever while sitting enabled in the Alerts UI.
+      # The appliance is the ONLY place that rule can fire (it gates on
+      # appliance_mode), so leaving this off would make the rule dead
+      # everywhere it matters.
+      #
+      # Much narrower than the api's: nodes read + nodes/stats, and none of
+      # the eviction / node-patch / Secret-write the orchestrator role
+      # carries. See charts/spatiumddi/templates/worker-rbac.yaml.
+      serviceAccount:
+        enabled: true
+      replicas: 1  # spatium:cp-size
+      # #590 — one worker per control-plane node; see api.podAntiAffinity.
+      podAntiAffinity: hard
+      # #590 — a dead control-plane node must free this replica in
+      # seconds, not the k8s default 300 s. Set here (not in the chart
+      # defaults) because pinning both taint keys suppresses the
+      # DefaultTolerationSeconds admission plugin, which a BYO-Kubernetes
+      # install still wants.
+      tolerations:
+        - key: node.kubernetes.io/unreachable
+          operator: Exists
+          effect: NoExecute
+          tolerationSeconds: 20
+        - key: node.kubernetes.io/not-ready
+          operator: Exists
+          effect: NoExecute
+          tolerationSeconds: 20
+    # #277 — PostgreSQL runs under CloudNativePG on every appliance, so
+    # the data layer scales with the control-plane cluster: 1 instance on
+    # a single node, growing to 3/5/7 (primary + streaming replicas with
+    # automatic failover) as nodes are promoted. The CNPG operator itself
+    # ships from the spatiumddi-appliance chart (cnpg.enabled). A fresh
+    # install is always a single control-plane node, so instances starts
+    # at 1; the seed supervisor patches the ``# spatium:cp-size`` marked
+    # lines (instances + api/frontend/worker replicas) to the committed
+    # member count on promote/demote, and helm-controller upgrades.
+    postgresql:
+      kind: cnpg
+      # #1115 — the instance memory limit, sized from this node's RAM with
+      # the api and worker above (a quarter of the budget, 1–4 GiB), so the
+      # Cluster is CREATED with it: a resources change on a formed cluster
+      # is a CloudNativePG rolling restart, and the supervisor's first
+      # heartbeat would otherwise roll a database that had just come up.
+${POSTGRES_SIZING_YAML}
+      cnpg:
+        instances: 1  # spatium:cp-size
+        # #1115 — shared_buffers follows the limit at a quarter (Postgres'
+        # guidance; the chart's 256MB-of-1Gi is the same ratio).
+${POSTGRES_PARAMETERS_YAML}
+        # #590 — one Postgres instance per control-plane node. CNPG's
+        # default ``preferred`` anti-affinity let two of three instances
+        # stack on the seed during a 1→3 promote (the members weren't
+        # labelled yet), so a single node loss would have taken the
+        # primary and a replica together. Inert at instances: 1.
+        podAntiAffinityType: required
+    # #272 Phase 3 — Redis runs under Sentinel on every appliance so the
+    # cache/queue layer is HA like postgres: each replica pairs a
+    # redis-server with a redis-sentinel that elects a master + fails
+    # over automatically, and the app/worker/beat resolve the live
+    # master through a sentinel:// URL. replicas tracks the control-plane
+    # size via the same ``# spatium:cp-size`` marker — 1 on a single
+    # node (degenerate but functional), 3/5/7 with real quorum + failover
+    # after promote (the seed supervisor patches it alongside CNPG).
+    redis:
+      kind: sentinel
+      sentinel:
+        replicas: 1  # spatium:cp-size
+    # #1005 — likewise stated rather than defaulted. #787 turns this on from
+    # the control-plane node count (a download can only miss when more than
+    # one api replica serves them), and it LATCHES on, so the supervisor
+    # writes it explicitly in both states; a fresh single-node install is
+    # the ``false`` half of that and belongs here.
+    slotImageMirror:
+      enabled: false
+    # DNS / DHCP agents from the umbrella chart are NOT used on the
+    # appliance — the appliance chart (templates/dns-bind9.yaml etc.)
+    # owns the role pods with hostNetwork + per-role node labels.
+    dnsAgents:
+      enabled: false
+    dhcpAgents:
+      enabled: false
+EOF
+}
+
+# #590 — a joined member renders NOTHING into the auto-deploy dir. Routed
+# through a separate variable so $APPLIANCE_ROLE_VAL keeps its real value for
+# the agent-landing page render further down.
+BOOTSTRAP_ROLE="$APPLIANCE_ROLE_VAL"
+if node_is_cluster_member; then
+    BOOTSTRAP_ROLE="joined-member"
+fi
+
+case "$BOOTSTRAP_ROLE" in
+    joined-member)
+        echo "Joined cluster member — skipping bootstrap manifest render; the seed's releases govern this cluster."
+        ;;
+    appliance|application)
+        if [ ! -f "$CHART_TGZ" ]; then
+            echo "WARN: $CHART_TGZ missing — supervisor pod won't auto-deploy. Is the chart baked?"
+        else
+            echo "Rendering $BOOTSTRAP_MANIFEST from $CHART_TGZ (role=appliance)"
+            CHART_B64=$(base64 -w0 "$CHART_TGZ")
+            tmp="${BOOTSTRAP_MANIFEST}.new"
+            {
+                echo "# Auto-generated by spatiumddi-firstboot — do not hand-edit."
+                _render_namespace_yaml
+                echo "---"
+                _render_appliance_helmchart "$CHART_B64" "true" "false" "true"
+            } > "$tmp"
+            mv "$tmp" "$BOOTSTRAP_MANIFEST"
+            chmod 0600 "$BOOTSTRAP_MANIFEST"
+            rm -f "$CONTROL_MANIFEST"
+        fi
+        ;;
+    control-plane|full-stack|frontend-core)
+        # #272 — lay down the MetalLB CRDs unconditionally (the seed is a
+        # control-plane node; CRDs are cluster-scoped so doing it here
+        # covers any node later promoted into the cluster).
+        place_metallb_crds
+        # #566 decision D1 — same reasoning, frrk8s.metallb.io group.
+        place_metallb_frrk8s_crds
+        # #272 — render the spatium-metallb HelmChart (MetalLB in its own
+        # metallb-system namespace). Applied always but starts DISABLED;
+        # the seed supervisor enables it + writes the pool via the
+        # spatium-metallb HelmChartConfig when the operator sets a VIP.
+        # Only the control-plane seed renders it — it's a cluster-wide
+        # resource (kube-system), so promoted nodes inherit it via etcd.
+        if [ ! -f "$METALLB_CHART_TGZ" ]; then
+            echo "WARN: $METALLB_CHART_TGZ missing — MetalLB won't deploy; the control-plane VIP can't be enabled."
+        else
+            echo "Rendering $METALLB_MANIFEST from $METALLB_CHART_TGZ (metallb-system)"
+            METALLB_CHART_B64=$(base64 -w0 "$METALLB_CHART_TGZ")
+            tmp="${METALLB_MANIFEST}.new"
+            {
+                echo "# Auto-generated by spatiumddi-firstboot — do not hand-edit."
+                _render_metallb_helmchart "$METALLB_CHART_B64"
+            } > "$tmp"
+            mv "$tmp" "$METALLB_MANIFEST"
+            chmod 0600 "$METALLB_MANIFEST"
+        fi
+        # Both variants need the control-plane chart (api/frontend/db
+        # /redis/worker/beat/migrate). full-stack ADDITIONALLY needs
+        # the appliance chart with role pods enabled (supervisor
+        # disabled — no remote control plane to pair against, this
+        # box IS the control plane).
+        if [ ! -f "$CONTROL_CHART_TGZ" ]; then
+            echo "WARN: $CONTROL_CHART_TGZ missing — control plane won't auto-deploy. Did the bake step run?"
+        else
+            echo "Rendering $CONTROL_MANIFEST (deferred) from $CONTROL_CHART_TGZ (role=$APPLIANCE_ROLE_VAL)"
+            CONTROL_CHART_B64=$(base64 -w0 "$CONTROL_CHART_TGZ")
+            # #277 — DEFER placing the control chart into the manifests
+            # dir. It creates a CNPG ``Cluster`` CR, which the operator's
+            # mutating webhook (mcluster.cnpg.io) must admit. The operator
+            # ships in the spatium-bootstrap chart below; if k3s applies
+            # the control chart before that operator + its webhook are
+            # ready, the helm install fails calling the webhook and
+            # retries — each retry rolls every workload (api/worker/migrate
+            # churn) until it converges. Writing to ``*.deferred`` (k3s
+            # only watches ``*.yaml``) holds it back; the post-readyz step
+            # at the end of firstboot waits for the webhook, then moves it
+            # into place so the Cluster CR is admitted on the first try.
+            tmp="${CONTROL_MANIFEST}.new"
+            {
+                echo "# Auto-generated by spatiumddi-firstboot — do not hand-edit."
+                _render_namespace_yaml
+                echo "---"
+                _render_control_helmchart "$CONTROL_CHART_B64"
+            } > "$tmp"
+            mv "$tmp" "${CONTROL_MANIFEST}.deferred"
+            chmod 0600 "${CONTROL_MANIFEST}.deferred"
+        fi
+        if [ -f "$CHART_TGZ" ]; then
+            # #272 — the control-plane node renders the appliance chart
+            # so the supervisor pod is present (the supervisor is the
+            # source of truth for per-role node labels, reconciled every
+            # heartbeat against /etc/spatiumddi-host/role-config:ROLE).
+            #
+            # DNS / DHCP role pods are DISABLED at boot — the operator
+            # enables them per node via the Fleet role toggle, at which
+            # point the supervisor flips dnsBind9/dhcpKea enabled in
+            # this same bootstrap chart + applies the node labels. So a
+            # fresh control plane never silently runs DNS/DHCP.
+            role_pods_enabled="false"
+            echo "Rendering $BOOTSTRAP_MANIFEST from $CHART_TGZ (role=$APPLIANCE_ROLE_VAL, supervisor enabled, role_pods=$role_pods_enabled)"
+            CHART_B64=$(base64 -w0 "$CHART_TGZ")
+            tmp="${BOOTSTRAP_MANIFEST}.new"
+            {
+                echo "# Auto-generated by spatiumddi-firstboot — do not hand-edit."
+                _render_namespace_yaml
+                echo "---"
+                _render_appliance_helmchart "$CHART_B64" "true" "$role_pods_enabled" "false" "true"
+            } > "$tmp"
+            mv "$tmp" "$BOOTSTRAP_MANIFEST"
+            chmod 0600 "$BOOTSTRAP_MANIFEST"
+        else
+            echo "WARN: $CHART_TGZ missing — supervisor pod won't auto-deploy."
+            rm -f "$BOOTSTRAP_MANIFEST"
+        fi
+        ;;
+    *)
+        echo "WARN: unknown APPLIANCE_ROLE=$APPLIANCE_ROLE_VAL; refusing to render a bootstrap manifest. Re-run spatium-install."
+        ;;
+esac
+
+# ── Render agent landing page ───────────────────────────────────────────────
+# Static "this is a SpatiumDDI appliance" page served on :80 by the
+# agent-landing nginx pod (chart template:
+# templates/agent-landing.yaml). Template lives at
+# /usr/local/share/spatiumddi/agent-landing/index.html.in; firstboot
+# substitutes hostname + control-plane URL + version, writes the
+# result to /var/lib/spatiumddi/agent-landing/index.html where the
+# pod mounts it via hostPath.
+#
+# Reset umask before the write — the .env-secrets path above set 077
+# which would leave the file 0600 (root-readable only) + nginx
+# would 403 it.
+umask 022
+LANDING_TEMPLATE=/usr/local/share/spatiumddi/agent-landing/index.html.in
+LANDING_DIR=/var/lib/spatiumddi/agent-landing
+if [ -r "$LANDING_TEMPLATE" ]; then
+    mkdir -p "$LANDING_DIR"
+    chmod 0755 "$LANDING_DIR"
+    # Pull CONTROL_PLANE_URL / APPLIANCE_HOSTNAME / SPATIUMDDI_VERSION
+    # out of /etc/spatiumddi/.env (the same file firstboot just
+    # wrote or refreshed above). grep|cut so we don't have to
+    # ``source`` a file that might carry shell-special chars.
+    HN=$(_env_get APPLIANCE_HOSTNAME)
+    HN="${HN:-$(hostname 2>/dev/null || echo unknown)}"
+    CPU=$(_env_get CONTROL_PLANE_URL)
+    CPU="${CPU:-(not set)}"
+    VER=$(_env_get SPATIUMDDI_VERSION)
+    VER="${VER:-(unknown)}"
+    sed \
+        -e "s|__HOSTNAME__|${HN}|g" \
+        -e "s|__CONTROL_PLANE_URL__|${CPU}|g" \
+        -e "s|__APPLIANCE_VERSION__|${VER}|g" \
+        "$LANDING_TEMPLATE" > "$LANDING_DIR/index.html"
+    chmod 0644 "$LANDING_DIR/index.html"
+    echo "Rendered $LANDING_DIR/index.html"
+fi
+
+# ── Phase 8 — refresh per-slot version sidecar ──────────────────────────────
+# Best-effort: a failure here doesn't block — the api just falls back
+# to "unknown" for the slot the operator hasn't booted into recently.
+if [ -x /usr/local/bin/spatium-upgrade-slot ] && [ -e /etc/spatiumddi/role-config ]; then
+    /usr/local/bin/spatium-upgrade-slot sync-versions || \
+        echo "WARN: sync-versions failed — OS Image card will show 'unknown' for slot versions"
+fi
+
+# #983 — release the deferred control manifest, dropping the PriorityClass
+# reference if the class is not actually there.
+#
+# The control chart names ``spatium-control-plane``, which is rendered by a
+# DIFFERENT release: spatium-bootstrap, from the spatiumddi-appliance chart.
+# Render time can only check that that chart's tarball exists. If its release
+# then fails — a bad values patch, a helm-controller wedge, a broken bake —
+# every control-plane Deployment is still ACCEPTED by the apiserver and the
+# ReplicaSet controller cannot create a single pod for it. Pre-#983 that
+# failure left the operator a working UI to diagnose the supervisor with; it
+# must not now take the UI down as well, and because the manifest would
+# already be applied it could not self-heal on its own.
+#
+# So: ask the cluster. A missing class — or an apiserver we cannot reach to
+# ask, which is the "k3s never came ready" release path below — falls back to
+# no class at all. Unranked is exactly the pre-#983 behaviour and is always
+# schedulable, and nothing is lost permanently: firstboot re-renders this
+# manifest from scratch on every boot, so the ranking comes back on the first
+# boot where bootstrap is healthy.
+#
+# #1123 — this is the SECOND line now, not the first. Unranking the control
+# chart alone does not keep the UI up when the CNPG operator also has to be
+# re-created: the operator ships in spatium-bootstrap and names the same class,
+# so its pods are refused too, and the control chart's install then fails on
+# the operator's webhook. reassert_control_plane_class runs before this on the
+# readyz path and has spatium-bootstrap put the class back when the class is
+# all that is missing; stripping is what remains when it cannot (bootstrap not
+# deployed or its install Job not completed, the apiserver not answering, the
+# class not back in time).
+_strip_control_priority_class() {
+    # Tolerant of indentation on purpose — the pattern has to keep matching
+    # what _render_control_helmchart emits, and that pairing is asserted by
+    # appliance/tests/test_firstboot_pod_posture.py.
+    sed -i -E 's/^([[:space:]]*)priorityClassName: "spatium-control-plane"$/\1priorityClassName: ""/' "$1"
+}
+
+# #1299 — pin 'failurePolicy: retry' on the control release's HelmChartConfig.
+#
+# This is the policy helm-controller applies: a HelmChartConfig's failurePolicy
+# overrides its HelmChart's, and the CRD defaults it to 'reinstall', so the
+# HelmChartConfig the supervisor creates (valuesContent only) has meant
+# 'reinstall' whatever _render_control_helmchart says.
+#
+# It is also the half that survives a slot switch. The HelmChart is rewritten
+# by whichever slot boots, and its job runs before this script places its own
+# (place_deferred_control_manifest waits for the CNPG webhook). On the forward
+# boot after a rollback to 2026.09.04-1, helm-controller re-ran the HelmChart
+# the old release had left (its chart, whose app Secret has no 'keep') with
+# this release's klipper-helm; that upgrade failed, the job helm-controller
+# then re-created found the release 'failed' and, under 'reinstall',
+# uninstalled it. Helm keeps only what the last stored revision annotates, so
+# the app Secret was deleted and the install minted a new SECRET_KEY.
+#
+# Nothing an older release runs rewrites a HelmChartConfig's failurePolicy:
+# its supervisor and api only merge-patch valuesContent. So once this release
+# has booted, the job for a stale HelmChart runs under 'retry' as well, on
+# either slot. An older helm-controller hands 'retry' to a klipper-helm that
+# knows only 'reinstall', which treats it as 'abort': a failed control release
+# on such a rolled-back slot waits for an operator instead of being
+# reinstalled, which is what keeps SECRET_KEY.
+#
+# Idempotent, quick, never fatal: an apiserver that does not answer leaves it
+# for the next boot. Inert on a node that does not carry the control chart.
+pin_control_failure_policy() {
+    [ -f "${CONTROL_MANIFEST}.deferred" ] || [ -f "$CONTROL_MANIFEST" ] || return 0
+    local cur
+    if ! cur=$(/usr/local/bin/k3s kubectl --request-timeout=10s -n kube-system \
+            get helmchartconfig spatium-control --ignore-not-found \
+            -o 'jsonpath={.metadata.name}/{.spec.failurePolicy}' 2>/dev/null); then
+        echo "WARN: could not read HelmChartConfig kube-system/spatium-control; failurePolicy not pinned this boot." >&2
+        return 0
+    fi
+    case "$cur" in
+        spatium-control/retry)
+            return 0
+            ;;
+        "")
+            if printf '%s\n' "apiVersion: helm.cattle.io/v1" "kind: HelmChartConfig" \
+                    "metadata:" "  name: spatium-control" "  namespace: kube-system" \
+                    "spec:" "  failurePolicy: retry" \
+                    | /usr/local/bin/k3s kubectl --request-timeout=10s create -f - >/dev/null 2>&1; then
+                echo "Pinned failurePolicy retry on HelmChartConfig kube-system/spatium-control (created)."
+                return 0
+            fi
+            # Raced the supervisor's create: fall through to the patch.
+            ;;
+    esac
+    if /usr/local/bin/k3s kubectl --request-timeout=10s -n kube-system \
+            patch helmchartconfig spatium-control \
+            --type merge -p '{"spec":{"failurePolicy":"retry"}}' >/dev/null 2>&1; then
+        echo "Pinned failurePolicy retry on HelmChartConfig kube-system/spatium-control (was '${cur#*/}')."
+    else
+        echo "WARN: could not pin failurePolicy on HelmChartConfig kube-system/spatium-control; retried next boot." >&2
+    fi
+    return 0
+}
+
+release_control_manifest() {
+    local deferred="${CONTROL_MANIFEST}.deferred"
+    [ -f "$deferred" ] || return 0
+    if ! /usr/local/bin/k3s kubectl get priorityclass spatium-control-plane \
+            >/dev/null 2>&1; then
+        echo "WARN: PriorityClass spatium-control-plane is absent, or the apiserver could not be reached." >&2
+        echo "      Releasing the control chart WITHOUT it — a pod naming a PriorityClass that does" >&2
+        echo "      not exist cannot be created at all, which would take the Web UI down alongside" >&2
+        echo "      the spatium-bootstrap release instead of leaving it up to diagnose with." >&2
+        echo "      Check: k3s kubectl -n kube-system get helmchart spatium-bootstrap" >&2
+        echo "      The ranking returns on the first boot where that release is healthy." >&2
+        _strip_control_priority_class "$deferred"
+    fi
+    mv -f "$deferred" "$CONTROL_MANIFEST"
+    chmod 0600 "$CONTROL_MANIFEST"
+}
+
+# #554 — is this a TRIAL boot (running slot != durable default)? Blocking
+# the slot commit on a host-migrate failure only matters during a trial
+# boot; on a steady-state boot there's nothing to commit, so a persistent
+# host-migrate failure should log + continue rather than exit 1 on EVERY
+# boot (which leaves the firstboot unit perpetually `failed`).
+is_trial_boot() {
+    local gbd=/boot/efi root_uuid root_dev cur saved
+    [ -f "$gbd/grub/grubenv" ] || return 1
+    root_uuid=$(awk 'BEGIN{RS=" "} /^root=UUID=/{print substr($0,11)}' /proc/cmdline 2>/dev/null | head -1)
+    [ -n "$root_uuid" ] || return 1
+    root_dev=$(blkid -U "$root_uuid" 2>/dev/null) || return 1
+    cur=$(lsblk -no PARTLABEL "$root_dev" 2>/dev/null | tr 'A-Z' 'a-z' | head -1)
+    case "$cur" in root_a) cur=slot_a ;; root_b) cur=slot_b ;; *) return 1 ;; esac
+    saved=$(grub-editenv "$gbd/grub/grubenv" list 2>/dev/null | awk -F= '/^saved_entry=/{print $2}')
+    [ -n "$saved" ] && [ "$saved" != "$cur" ]
+}
+
+# ── #395 host-migration reconcile ────────────────────────────────────────────
+# MUST run before the readyz wait so a failed grub render blocks the slot
+# commit. The current boot already loaded via grub (we're here), so a bad
+# render only risks the NEXT boot — covered by .bak + the health-gate.
+# sync-versions ran just above, so slot-versions.json is fresh for the
+# renderer's per-slot labels.
+if [ -x /usr/local/bin/spatium-host-migrate ]; then
+    if ! /usr/local/bin/spatium-host-migrate; then
+        echo "ERROR: host-migration reconcile failed." >&2
+        # Still release any deferred control manifest so the control plane
+        # comes up regardless.
+        release_control_manifest || true
+        if is_trial_boot; then
+            # Trial boot: a bad grub render risks the next reboot, so do NOT
+            # commit — exit non-zero so commit_slot_if_healthy never runs and
+            # the A/B one-shot reverts on the next reboot.
+            echo "       trial boot: NOT committing this slot; next reboot reverts." >&2
+            exit 1
+        fi
+        # Steady-state boot: nothing to commit. Log + continue so we don't
+        # leave the firstboot unit `failed` on every boot (#554).
+        echo "       steady-state boot: nothing to commit; continuing." >&2
+    fi
+fi
+
+# #1630 — every image this slot bakes must be in containerd. Every pod on
+# the appliance runs ``imagePullPolicy: Never``, so a baked tarball k3s did
+# not import is a workload that never starts (``ErrImageNeverPull``).
+# Nothing reported it: a slot upgrade's first boot lost seven tarballs to a
+# stale containerd ingest, the DNS and DHCP agents' among them, and the node
+# served no DNS and no DHCP until it was torn down. k3s retries a failed
+# tarball only when the file changes again.
+#
+# ``verify --repair`` waits for k3s's start-up import to finish (the kubelet
+# starts after it). It then checks k3s's own record of what it imported and
+# what containerd holds. Whatever is missing it re-imports through k3s,
+# clearing a stale ingest first. Returns non-zero only when an image is still
+# missing after that. Runs on every boot, and is bounded well inside this
+# unit's start timeout (2 min for the kubelet, 3 for the re-import). The
+# kubelet is up long before this point on any boot that got here.
+check_slot_images() {
+    if [ ! -x /usr/local/bin/spatium-k3s-images ]; then
+        echo "WARN: /usr/local/bin/spatium-k3s-images is missing — this slot's images were not checked." >&2
+        return 0
+    fi
+    if /usr/local/bin/spatium-k3s-images verify --repair; then
+        return 0
+    fi
+    echo "ERROR: this slot's images are not all in containerd, even after a re-import (above)." >&2
+    return 1
+}
+
+# #1630 — a TRIAL boot does not commit while one of the slot's images is
+# missing. Committing made the swap durable with, for instance, the DNS and
+# DHCP agents unable to start on this node. Not committing leaves the
+# previous slot as the durable default, so the next reboot reverts to it,
+# the same path a failed host-migrate reconcile takes (#554). A steady-state
+# boot has nothing to commit: the miss is logged and the boot goes on.
+slot_images_allow_commit() {
+    check_slot_images && return 0
+    if is_trial_boot; then
+        echo "       trial boot: NOT committing this slot; next reboot reverts." >&2
+        return 1
+    fi
+    echo "       steady-state boot: nothing to commit; continuing." >&2
+    return 0
+}
+
+# ── Readiness wait + slot commit ─────────────────────────────────────────────
+# Phase 8c — commit the active slot as the durable default after a
+# successful trial boot. spatium-upgrade-slot set-next-boot writes a
+# one-shot saved_entry to grubenv via grub-reboot; that's auto-cleared
+# on this boot. If THIS boot is healthy, we make the swap permanent
+# via grub-set-default. If anything fails before this point, the
+# previous slot's saved_entry stays in grubenv → next reboot reverts.
+commit_slot_if_healthy() {
+    local grub_boot_dir=/boot/efi
+    if [ ! -f "${grub_boot_dir}/grub/grubenv" ]; then
+        return 0
+    fi
+    local root_uuid="" current_slot=""
+    root_uuid=$(awk 'BEGIN{RS=" "} /^root=UUID=/{print substr($0,11)}' /proc/cmdline 2>/dev/null | head -1)
+    if [ -n "$root_uuid" ]; then
+        local root_dev
+        root_dev=$(blkid -U "$root_uuid" 2>/dev/null)
+        if [ -n "$root_dev" ]; then
+            current_slot=$(lsblk -no PARTLABEL "$root_dev" 2>/dev/null | tr 'A-Z' 'a-z' | head -1)
+        fi
+    fi
+    case "$current_slot" in
+        root_a) current_slot=slot_a ;;
+        root_b) current_slot=slot_b ;;
+        *)      return 0 ;;
+    esac
+    local saved
+    saved=$(grub-editenv "${grub_boot_dir}/grub/grubenv" list 2>/dev/null \
+            | awk -F= '/^saved_entry=/{print $2}')
+    if [ "$saved" = "$current_slot" ]; then
+        echo "  slot $current_slot is already the durable default — nothing to commit."
+        return 0
+    fi
+    echo "  trial boot detected (booted=$current_slot, durable=${saved:-unset})."
+    echo "  k3s reports Ready — committing $current_slot as the new default."
+    if grub-set-default --boot-directory="$grub_boot_dir" "$current_slot" \
+        >> "$LOG" 2>&1; then
+        # #441 — the upgrade is now durable. Kick off a version-aware image
+        # prune to drop releases OLDER than the two slots (keeps BOTH slots
+        # bootable for rollback + the running set). Fired async via systemd
+        # (--no-block) so a slow rmi never blocks firstboot / risks its
+        # start timeout; gated on the commit actually succeeding so we never
+        # prune when the slot didn't become durable (a revert is still
+        # possible). The weekly timer is the backstop.
+        systemctl start --no-block spatiumddi-image-prune.service \
+            >> "$LOG" 2>&1 || true
+    else
+        echo "  WARN: grub-set-default failed — slot NOT committed, skipping prune" >> "$LOG"
+    fi
+}
+
+# #277 — place the deferred control chart only AFTER the CNPG operator
+# webhook has endpoints, so the Cluster CR is admitted on the first
+# helm attempt (no failed-install rolling churn). Best-effort: if the
+# webhook never comes up (operator broken), apply anyway after the
+# timeout so the rest of the control plane still deploys + helm-
+# controller retries. No-op when there's no deferred manifest (the
+# appliance/application roles never write one).
+# #994 — place the staged self-signed TLS Secret only AFTER the ``spatium``
+# namespace exists, so k3s's addon deployer does not log an
+# ApplyManifestFailed Warning on every fresh install for a manifest that was
+# always going to succeed on the retry. The namespace comes from
+# spatium-bootstrap.yaml, applied by the same deployer moments earlier.
+#
+# Best-effort in both directions: if the namespace never appears we place it
+# anyway (k3s retries, which is exactly the pre-#994 behaviour — never worse),
+# and a boot that never reaches here leaves the file staged for the next one,
+# where the ``[ ! -f ... ]`` guard sees it and does not mint a second cert.
+place_deferred_tls_manifest() {
+    [ -f "$TLS_CERT_MANIFEST_DEFERRED" ] || return 0
+    # #590 — the seed owns spatium-appliance-tls. A member that placed it
+    # would overwrite the CLUSTER's shared cert (possibly operator-uploaded
+    # or ACME-issued) with this node's throwaway self-signed one. The writer
+    # above is already guarded, but staging opens a second door: a boot
+    # interrupted between staging and placement leaves the file behind, and
+    # if the node is joined before the next boot this function would place
+    # it. spatium-cluster-join's manifest-aside glob now sweeps ``.deferred``
+    # too; this is the belt to that braces, since the guard is one line and
+    # the failure is silent.
+    if node_is_cluster_member; then
+        echo "Joined cluster member — discarding the staged TLS Secret manifest (the seed owns spatium-appliance-tls)."
+        rm -f "$TLS_CERT_MANIFEST_DEFERRED"
+        return 0
+    fi
+    local up=0
+    for _ in $(seq 1 24); do   # up to 2 min
+        if /usr/local/bin/k3s kubectl get namespace spatium >/dev/null 2>&1; then
+            up=1
+            break
+        fi
+        sleep 5
+    done
+    if [ "$up" != 1 ]; then
+        echo "WARN: namespace spatium not present after 2 min — placing the TLS Secret manifest" >&2
+        echo "      anyway; k3s's addon deployer retries until the namespace exists." >&2
+    fi
+    mv -f "$TLS_CERT_MANIFEST_DEFERRED" "$TLS_CERT_MANIFEST"
+    chmod 0600 "$TLS_CERT_MANIFEST"
+    echo "Placed self-signed TLS Secret manifest at $TLS_CERT_MANIFEST"
+}
+
+# #1123 — put spatium-control-plane back BEFORE the control chart is released.
+#
+# release_control_manifest's degraded path covers the CONTROL chart only. The
+# same class is named by spatium-bootstrap's own workloads — the CloudNativePG
+# operator (``cnpg.priorityClassName`` in the spatiumddi-appliance chart) and
+# the supervisor DaemonSet — and nothing degrades those. With the class gone,
+# the operator's pods cannot be re-created once they are lost (a node loss
+# evicts them within ~20 s on a cluster; a drain or a pressure eviction does it
+# on one node): the ReplicaSet is refused at admission, cnpg-webhook-service
+# has no endpoints, the control chart's Cluster CR is refused by the mutating
+# webhook, and helm-controller's default ``reinstall`` policy uninstalls
+# spatium-control on every retry. The UI never comes up, unranked or not.
+#
+# The class is spatium-bootstrap's own object, so that release is what puts it
+# back: re-running its helm-install Job (the lever spatiumddi-helm-stuck-recover
+# already pulls) upgrades a deployed release in place, and the upgrade creates
+# whatever object of the release is missing. Guarded so it only ever acts on
+# the one state it exists for:
+#   * an explicit NotFound — an apiserver that did not answer proves nothing;
+#   * spatium-bootstrap ``deployed`` — a first boot's release is still
+#     installing, and creates the class itself during the webhook wait below;
+#   * its install Job COMPLETED — the one state in which a re-run is ours to
+#     start. A running Job is mid-helm (deleting it leaves the release
+#     pending-upgrade); a retrying, failed or just-created one is
+#     helm-controller's own run. The release check cannot tell those apart:
+#     after a failed or interrupted upgrade Helm keeps the previous revision
+#     ``deployed`` (it supersedes a revision only once the next one succeeds)
+#     while klipper-helm acts on the latest, so deleting that Job would fire
+#     the reinstall policy in the middle of a boot. That state is left to
+#     helm-controller's retries and helm-stuck-recover; this only waits.
+# Silent unless it acts. The not-deployed case is EVERY first boot — the
+# release is still installing and creates the class itself during the webhook
+# wait below — so a WARN there would be a false alarm on every install; if the
+# class is still missing when the chart is released, release_control_manifest
+# says so, and points at spatium-bootstrap.
+# Bounded, and never fatal: when the class does not come back the control
+# chart is still released unranked below, exactly as before.
+reassert_control_plane_class() {
+    local out up
+    node_is_cluster_member && return 0
+    [ -f "${CONTROL_MANIFEST}.deferred" ] || [ -f "$CONTROL_MANIFEST" ] || return 0
+    out=$(/usr/local/bin/k3s kubectl get priorityclass spatium-control-plane -o name 2>&1) && return 0
+    case "$out" in
+        *NotFound*|*"not found"*) ;;
+        *) return 0 ;;
+    esac
+    /usr/local/bin/k3s kubectl -n spatium get secret \
+        -l owner=helm,name=spatium-bootstrap,status=deployed -o name 2>/dev/null \
+        | grep -q . || return 0
+    if [ "$(/usr/local/bin/k3s kubectl -n kube-system get job helm-install-spatium-bootstrap \
+            -o jsonpath='{.status.succeeded}' 2>/dev/null)" = 1 ]; then
+        echo "PriorityClass spatium-control-plane is absent — re-running the spatium-bootstrap release to re-create it…"
+        /usr/local/bin/k3s kubectl -n kube-system delete job helm-install-spatium-bootstrap \
+            --ignore-not-found --wait=false >/dev/null 2>&1 || true
+    else
+        echo "PriorityClass spatium-control-plane is absent — spatium-bootstrap's install Job has not completed; waiting for helm-controller's own run…"
+    fi
+    up=0
+    for _ in $(seq 1 36); do   # up to 3 min
+        if /usr/local/bin/k3s kubectl get priorityclass spatium-control-plane >/dev/null 2>&1; then
+            up=1
+            break
+        fi
+        sleep 5
+    done
+    if [ "$up" != 1 ]; then
+        echo "WARN: spatium-bootstrap did not re-create PriorityClass spatium-control-plane within 3 min." >&2
+        return 0
+    fi
+    echo "PriorityClass spatium-control-plane re-created by spatium-bootstrap."
+    # Every create refused while the class was gone put its controller on the
+    # ReplicaSet / StatefulSet / DaemonSet controllers' exponential backoff —
+    # up to ~16 min before the next attempt. An update event re-queues it now;
+    # the annotation is metadata only and changes no pod template.
+    /usr/local/bin/k3s kubectl -n spatium annotate replicasets,statefulsets,daemonsets --all \
+        "spatium.io/priority-class-reasserted=$(date -u +%Y-%m-%dT%H:%M:%SZ)" --overwrite \
+        >/dev/null 2>&1 || true
+}
+
+# #1448 — keep SECRET_KEY out of Helm's hands.
+#
+# The chart's own Secret (${CHART_APP_SECRET}) is deleted by a helm uninstall
+# unless the STORED release manifest marks it ``keep``, and 2026.09.04-1's does
+# not (#1042 added it later). So on the first upgrade from that release, a
+# failed first ``spatium-control`` install on the new slot made helm-controller
+# uninstall with the old manifest, delete the Secret, and mint a new key on the
+# reinstall: every credential encrypted at rest became unreadable (#1445).
+#
+# This copies secret-key (and metrics-token, generated when the source lacks it,
+# as 2026.09.04-1's does) into ${APP_KEY_SECRET}, which carries no Helm
+# ownership metadata, BEFORE the control chart that points at it is released.
+# A fresh install, with neither Secret, generates both values here.
+#
+# It NEVER overwrites: an existing ${APP_KEY_SECRET} is the key, full stop. And
+# it never generates a key while the chart's own Secret exists without one; that
+# is refused, because a new key there is the bug this exists to prevent.
+# Returns non-zero when it could not make sure the Secret exists; the caller
+# then strips ``auth.existingSecret`` so the chart keeps its own Secret.
+ensure_app_key_secret() {
+    local kc="/usr/local/bin/k3s kubectl -n spatium"
+    # Initialised: this script runs under ``set -u``, where a bare ``local
+    # token`` is unset and the metrics-token check below would abort it.
+    local found="" key="" token=""
+    found=$($kc get secret "$APP_KEY_SECRET" --ignore-not-found -o name 2>/dev/null) || return 1
+    if [ -n "$found" ]; then
+        date -Iseconds > "$APP_KEY_STAMP"
+        return 0
+    fi
+    found=$($kc get secret "$CHART_APP_SECRET" --ignore-not-found -o name 2>/dev/null) || return 1
+    if [ -n "$found" ]; then
+        key=$($kc get secret "$CHART_APP_SECRET" -o jsonpath='{.data.secret-key}' 2>/dev/null) || return 1
+        token=$($kc get secret "$CHART_APP_SECRET" -o jsonpath='{.data.metrics-token}' 2>/dev/null) || return 1
+        if [ -z "$key" ]; then
+            echo "WARN: ${CHART_APP_SECRET} exists but carries no secret-key; not generating one (#1448)." >&2
+            return 1
+        fi
+        echo "Copying SECRET_KEY from ${CHART_APP_SECRET} into ${APP_KEY_SECRET} (#1448)"
+    else
+        echo "Generating SECRET_KEY into ${APP_KEY_SECRET} (fresh install, #1448)"
+        key=$(openssl rand -hex 32 | tr -d '\n' | base64 | tr -d '\n')
+    fi
+    [ -n "$token" ] || token=$(openssl rand -hex 24 | tr -d '\n' | base64 | tr -d '\n')
+    # Values go through stdin as base64, never argv, so they never show in a
+    # process listing. ``create`` (not ``apply``) fails if the Secret appeared
+    # meanwhile, so a race can only ever keep the existing key.
+    if ! printf '%s\n' \
+        "apiVersion: v1" \
+        "kind: Secret" \
+        "metadata:" \
+        "  name: ${APP_KEY_SECRET}" \
+        "  namespace: spatium" \
+        "  labels:" \
+        "    app.kubernetes.io/name: spatiumddi" \
+        "    app.kubernetes.io/component: app-keys" \
+        "type: Opaque" \
+        "data:" \
+        "  secret-key: ${key}" \
+        "  metrics-token: ${token}" \
+        | $kc create -f - >/dev/null 2>&1; then
+        found=$($kc get secret "$APP_KEY_SECRET" --ignore-not-found -o name 2>/dev/null) || return 1
+        [ -n "$found" ] || return 1
+    fi
+    # Read it back: the copy must be byte-identical to the source key.
+    [ "$($kc get secret "$APP_KEY_SECRET" -o jsonpath='{.data.secret-key}' 2>/dev/null)" = "$key" ] \
+        || { echo "WARN: ${APP_KEY_SECRET} read back with a different secret-key (#1448)." >&2; return 1; }
+    date -Iseconds > "$APP_KEY_STAMP"
+}
+
+_strip_control_app_secret() {
+    sed -i '/# spatium:app-key-secret$/d' "$1"
+}
+
+place_deferred_control_manifest() {
+    local deferred="${CONTROL_MANIFEST}.deferred"
+    [ -f "$deferred" ] || return 0
+    echo "Waiting for the CNPG operator webhook before applying the control chart…"
+    local up=0
+    for _ in $(seq 1 48); do   # up to 4 min
+        if /usr/local/bin/k3s kubectl get endpoints -n spatium cnpg-webhook-service \
+                -o jsonpath='{.subsets[*].addresses[*].ip}' 2>/dev/null | grep -q '[0-9]'; then
+            up=1
+            break
+        fi
+        sleep 5
+    done
+    if [ "$up" = 1 ]; then
+        echo "CNPG webhook ready — applying control chart."
+    else
+        echo "WARN: CNPG webhook not ready after 4 min — applying control chart anyway (helm-controller retries)." >&2
+    fi
+    if ! ensure_app_key_secret; then
+        echo "WARN: could not ensure ${APP_KEY_SECRET}; releasing the control chart with its own" >&2
+        echo "      ${CHART_APP_SECRET} as before (#1448). Retried on the next boot." >&2
+        _strip_control_app_secret "$deferred"
+    fi
+    release_control_manifest
+}
+
+# Wait for k3s to come up + helm-controller to apply the bootstrap
+# manifest. ``kubectl get --raw=/readyz`` is the canonical readiness
+# probe; once it returns 200 the supervisor pod can be scheduled.
+# Up to 5 min — first boot has to pull no images (everything's in
+# containerd via the airgap-import path) but k3s itself + helm-
+# controller + the supervisor pod still need to settle.
+echo "Waiting for k3s /readyz …"
+export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
+ready=0
+for _ in $(seq 1 60); do
+    if /usr/local/bin/k3s kubectl get --raw=/readyz 2>/dev/null | grep -q '^ok'; then
+        ready=1
+        break
+    fi
+    sleep 5
+done
+if [ "$ready" = 1 ]; then
+    tighten_kubeconfig
+    date -Iseconds > "$STAMP"
+    IP=$(ip -4 -o addr show scope global | awk '{print $4}' | cut -d/ -f1 | head -1)
+    echo "Ready: k3s up on ${IP:-<appliance-ip>}; supervisor pod auto-deploys via $BOOTSTRAP_MANIFEST"
+    # #1299 — first, while this boot's control chart is still held back.
+    pin_control_failure_policy
+    place_deferred_tls_manifest
+    reassert_control_plane_class || true
+    place_deferred_control_manifest
+    slot_images_allow_commit || exit 1
+    commit_slot_if_healthy
+    # #779 — immediate first verdict on Web UI firewall reachability, so a
+    # missing accept rule (#776's failure) is volunteered right here in the
+    # firstboot log next to the URL we just promised, instead of surfacing
+    # as a silent browser timeout. The systemd timer re-checks every 5 min
+    # (plus after every firewall apply); the console shows a blocked
+    # verdict on the identity row's Web UI URL and in the health verdict.
+    # Never fails firstboot — the finding lands in the state file + log
+    # either way.
+    /usr/local/bin/spatiumddi-webui-selfcheck || true
+    exit 0
+fi
+echo "WARN: k3s /readyz did not respond within 5 minutes." >&2
+echo "      Check 'systemctl status k3s' + 'journalctl -u k3s'." >&2
+# k3s never became ready, but don't strand the deferred control chart —
+# place it so a later k3s recovery (or manual restart) still deploys the
+# control plane. helm-controller will retry the webhook on its own. #983 —
+# the class lookup necessarily fails here (no apiserver), so this path always
+# releases unranked; the next boot restores it.
+#
+# #994 — same for the staged TLS Secret: place it unconditionally rather than
+# leaving the appliance with no Web UI cert at all because k3s was slow. The
+# namespace wait inside would just burn another 2 min against an apiserver we
+# already know is not answering, so skip straight to the rename. k3s applies
+# it whenever it recovers, and the Warning this staging exists to avoid is
+# the least of the operator's problems on this path.
+if [ -f "$TLS_CERT_MANIFEST_DEFERRED" ] && ! node_is_cluster_member; then
+    mv -f "$TLS_CERT_MANIFEST_DEFERRED" "$TLS_CERT_MANIFEST"
+    chmod 0600 "$TLS_CERT_MANIFEST"
+    echo "      placed the staged TLS Secret manifest anyway ($TLS_CERT_MANIFEST)." >&2
+fi
+# #1448 — no apiserver, so ensure_app_key_secret cannot run. Point the chart at
+# the key Secret only if an earlier boot confirmed it exists; otherwise keep the
+# chart on its own Secret, since releasing ``auth.existingSecret`` without the
+# copy is exactly the path that loses the key.
+if [ -f "${CONTROL_MANIFEST}.deferred" ] && [ ! -f "$APP_KEY_STAMP" ]; then
+    _strip_control_app_secret "${CONTROL_MANIFEST}.deferred"
+fi
+release_control_manifest || true
+exit 1

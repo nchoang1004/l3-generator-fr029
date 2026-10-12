@@ -1,0 +1,9 @@
+README.md
+architecture.mmd
+architecture.svg
+result.json
+tech-specs/CUA-HANG-API/api/API-SHOP-FULL-CUA-HANG-API-v1.md
+tech-specs/LUU-TRU/schema/TBL-SHOP-FULL-LUU-TRU.md
+
+model_not_run: Giới hạn MODEL_NOT_RUN
+slice_scope: Giới hạn SLICE_SCOPE

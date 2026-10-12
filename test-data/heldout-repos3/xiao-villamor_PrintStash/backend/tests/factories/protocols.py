@@ -1,0 +1,747 @@
+"""Call signatures for the session-bound `make_*` fixtures.
+
+`partial(build_model, session)` is opaque to a type checker: it returns a plain
+callable, so annotating a fixture with it gives a test writer no autocomplete and
+pyright no way to catch a misspelled keyword. These protocols restore both. They
+describe each builder **as the fixture exposes it** — the same signature minus
+the leading session — which is why they live beside the builders rather than
+being generated from them.
+
+Annotate a test's parameter with the protocol whenever the extra clarity is worth
+it (`make_model: MakeModel`); the fixtures work without it. Keep a protocol in
+step with its builder in the same commit — a stale one is worse than none, since
+it type-checks a signature that no longer exists.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Protocol
+
+from printstash_core.mesh.measurements import VolumeMeasurement
+from printstash_core.search.passages import SearchSubject, SubjectType
+
+from app.db.models import (
+    ArtifactDerivative,
+    ArtifactProvenanceLink,
+    CaptureUploadSlot,
+    Collection,
+    CollectionPermission,
+    CollectionRole,
+    CollectionTagLink,
+    DerivativeGroupRegeneration,
+    DerivativeKind,
+    DerivativeState,
+    Document,
+    DocumentKind,
+    EmbeddingSpace,
+    ExternalLibrary,
+    FilamentProfile,
+    File,
+    FileRevisionStatus,
+    FileTagLink,
+    FileType,
+    GeometryFingerprint,
+    InboxItem,
+    InboxItemState,
+    InboxSourceKind,
+    IndexGeneration,
+    InferenceEndpoint,
+    IngestionScratchWindow,
+    IngestRequest,
+    IngestRequestKind,
+    Job,
+    JobKind,
+    JobState,
+    MeshFingerprintContinuation,
+    Metadata,
+    Model,
+    ModelProvenanceSource,
+    ModelSourceCover,
+    MultipartBuild,
+    MultipartBuildAttempt,
+    MultipartBuildConfirmation,
+    MultipartBuildPart,
+    MultipartModel,
+    MultipartModelStar,
+    MultipartPart,
+    OwnedStorageObject,
+    PassageVector,
+    Printer,
+    PrinterFile,
+    PrinterProfile,
+    PrinterProvider,
+    PrinterStatus,
+    PrintJob,
+    PrintJobState,
+    ProvenanceCapture,
+    SearchGenerationLease,
+    SearchIndexFailure,
+    SearchLexicalPosting,
+    SearchLexicalState,
+    SearchLexicalTerm,
+    ShareLink,
+    SimilarityCandidate,
+    SimilarityCandidateObservation,
+    SimilarityReviewDecision,
+    SimilarityRun,
+    StorageConnection,
+    StorageConnectionPurpose,
+    StoragePublicationLocator,
+    SubjectCaption,
+    SystemConfig,
+    Tag,
+    User,
+    UserSearchPreferences,
+    VaultAuditEvent,
+    VaultAuditPolicy,
+    VaultAuditRun,
+    VaultGeneration,
+    VaultMigrationObject,
+    VaultMigrationRun,
+    WorkExecutor,
+    WorkFence,
+)
+from app.db.models.search import (
+    SearchDependency,
+    SearchPassage,
+    SearchProjectionRequest,
+    SearchReconciliationState,
+)
+from app.db.models.search_expansion import SearchExpansion, SearchExpansionTerm
+from app.db.projections import ContentSource
+
+
+class MakeUser(Protocol):
+    def __call__(
+        self,
+        username: str | None = None,
+        *,
+        superuser: bool = False,
+        active: bool = True,
+        password: str = ...,
+        **overrides: Any,
+    ) -> User: ...
+
+
+class MakeSystemConfig(Protocol):
+    def __call__(
+        self,
+        *,
+        storage_backend: str | None = None,
+        storage_provider: str | None = None,
+        s3_root: str | None = None,
+        **overrides: Any,
+    ) -> SystemConfig: ...
+
+
+class MakeStorageConnection(Protocol):
+    def __call__(
+        self,
+        name: str | None = None,
+        *,
+        purpose: StorageConnectionPurpose = StorageConnectionPurpose.BACKUP,
+        manual_backup_enabled: bool = True,
+        automatic_backup_enabled: bool = True,
+        **overrides: Any,
+    ) -> StorageConnection: ...
+
+
+class HeadersFor(Protocol):
+    def __call__(self, user: User, *, scope: str | None = None) -> dict[str, str]: ...
+
+
+class UserHeaders(Protocol):
+    def __call__(
+        self,
+        username: str | None = None,
+        *,
+        is_superuser: bool = False,
+        scope: str = "write",
+        password: str = ...,
+    ) -> dict[str, str]: ...
+
+
+class GrantRole(Protocol):
+    def __call__(
+        self,
+        user: User,
+        collection: Collection,
+        role: CollectionRole = ...,
+    ) -> CollectionPermission: ...
+
+
+class MakeModel(Protocol):
+    def __call__(
+        self,
+        name: str = "Bracket",
+        *,
+        collection: Collection | None = None,
+        trashed: bool | datetime = False,
+        **overrides: Any,
+    ) -> Model: ...
+
+
+class MakeMultipartModel(Protocol):
+    def __call__(
+        self,
+        name: str = "Multipart bracket",
+        *,
+        collection: Collection | None = None,
+        **overrides: Any,
+    ) -> MultipartModel: ...
+
+
+class MakeMultipartModelStar(Protocol):
+    def __call__(
+        self,
+        user: User,
+        multipart_model: MultipartModel,
+        **overrides: Any,
+    ) -> MultipartModelStar: ...
+
+
+class MakeMetadata(Protocol):
+    def __call__(
+        self,
+        file: File,
+        *,
+        volume: VolumeMeasurement | None = None,
+        **overrides: Any,
+    ) -> Metadata: ...
+
+
+class MakeFile(Protocol):
+    def __call__(
+        self,
+        model: Model,
+        *,
+        file_type: FileType | None = None,
+        filename: str | None = None,
+        recommended: bool = False,
+        status: FileRevisionStatus | None = None,
+        trashed: bool | datetime = False,
+        external: bool = False,
+        metadata: dict[str, Any] | None = None,
+        **overrides: Any,
+    ) -> File: ...
+
+
+class MakeCollection(Protocol):
+    def __call__(
+        self,
+        name: str = "Parts",
+        *,
+        parent: Collection | None = None,
+        trashed: bool | datetime = False,
+        **overrides: Any,
+    ) -> Collection: ...
+
+
+class TagCollection(Protocol):
+    def __call__(self, collection: Collection, tag: Tag) -> CollectionTagLink: ...
+
+
+class TagFile(Protocol):
+    def __call__(self, file: File, tag: Tag) -> FileTagLink: ...
+
+
+class MakePrinter(Protocol):
+    def __call__(
+        self,
+        name: str | None = None,
+        *,
+        provider: PrinterProvider = ...,
+        status: PrinterStatus = ...,
+        trashed: bool = False,
+        **overrides: Any,
+    ) -> Printer: ...
+
+
+class MakePrinterFile(Protocol):
+    def __call__(
+        self,
+        printer: Printer,
+        *,
+        file: File | None = None,
+        remote_filename: str | None = None,
+        **overrides: Any,
+    ) -> PrinterFile: ...
+
+
+class MakePrintJob(Protocol):
+    def __call__(
+        self,
+        file: File,
+        *,
+        printer: Printer | None = None,
+        state: PrintJobState = ...,
+        **overrides: Any,
+    ) -> PrintJob: ...
+
+
+class MakeProvenanceSource(Protocol):
+    def __call__(
+        self,
+        model: Model,
+        *,
+        provider: str = "printables",
+        source_item_id: str | None = "123456",
+        canonical_url: str | None = None,
+        tags: list[str] | None = None,
+        **overrides: Any,
+    ) -> ModelProvenanceSource: ...
+
+
+class MakeCapture(Protocol):
+    def __call__(
+        self,
+        source: ModelProvenanceSource,
+        *,
+        captured_at: datetime | None = None,
+        snapshot: dict[str, Any] | None = None,
+        **overrides: Any,
+    ) -> ProvenanceCapture: ...
+
+
+class MakeArtifactLink(Protocol):
+    def __call__(
+        self, file: File, source: ModelProvenanceSource, **overrides: Any
+    ) -> ArtifactProvenanceLink: ...
+
+
+class MakeCover(Protocol):
+    def __call__(
+        self, source: ModelProvenanceSource, **overrides: Any
+    ) -> ModelSourceCover: ...
+
+
+class MakeInboxItem(Protocol):
+    def __call__(
+        self,
+        owner: User,
+        *,
+        state: InboxItemState = ...,
+        source_kind: InboxSourceKind = ...,
+        manifest: dict[str, Any] | None = None,
+        **overrides: Any,
+    ) -> InboxItem: ...
+
+
+class MakeCaptureSlot(Protocol):
+    def __call__(
+        self,
+        item: InboxItem,
+        *,
+        role: str = "file",
+        uploaded: bool = False,
+        **overrides: Any,
+    ) -> CaptureUploadSlot: ...
+
+
+class MakeExternalLibrary(Protocol):
+    def __call__(
+        self,
+        root: Path | str,
+        *,
+        name: str | None = None,
+        scanning: bool = False,
+        root_identity: str | None = None,
+        **overrides: Any,
+    ) -> ExternalLibrary: ...
+
+
+class MakeJob(Protocol):
+    def __call__(
+        self,
+        *,
+        kind: str = JobKind.WORK_HOUSEKEEPING,
+        state: JobState = ...,
+        owner: User | None = None,
+        subject: str | None = None,
+        finished: bool | None = None,
+        **overrides: Any,
+    ) -> Job: ...
+
+
+class MakeIngestRequest(Protocol):
+    def __call__(
+        self,
+        owner: User,
+        *,
+        kind: IngestRequestKind = ...,
+        state: JobState = ...,
+        **overrides: Any,
+    ) -> IngestRequest: ...
+
+
+class MakeDerivativeGroupRegeneration(Protocol):
+    def __call__(
+        self, definition: JobKind, kind: DerivativeKind, **overrides: Any
+    ) -> DerivativeGroupRegeneration: ...
+
+
+class MakeDerivative(Protocol):
+    def __call__(
+        self,
+        file: File,
+        kind: str,
+        *,
+        state: DerivativeState = ...,
+        recipe_version: int | None = None,
+        exhausted: bool = False,
+        **overrides: Any,
+    ) -> ArtifactDerivative: ...
+
+
+class MakeMeshContinuation(Protocol):
+    def __call__(
+        self, file: File, *, job: Job | None = None, **overrides: Any
+    ) -> MeshFingerprintContinuation: ...
+
+
+class MakeWorkFence(Protocol):
+    def __call__(
+        self,
+        name: str,
+        *,
+        holder: str = "another-executor",
+        expired: bool = False,
+        **overrides: Any,
+    ) -> WorkFence: ...
+
+
+class MakeWorkExecutor(Protocol):
+    def __call__(
+        self,
+        executor_id: str | None = None,
+        *,
+        stale: bool = False,
+        **overrides: Any,
+    ) -> WorkExecutor: ...
+
+
+class MakeDocument(Protocol):
+    def __call__(
+        self,
+        name: str = "manual",
+        *,
+        kind: DocumentKind = ...,
+        trashed: bool = False,
+        **overrides: Any,
+    ) -> Document: ...
+
+
+class MakeStoragePublicationLocator(Protocol):
+    def __call__(
+        self,
+        *,
+        backend: str = "local",
+        namespace: str = "local/test",
+        key: str | None = None,
+        **overrides: Any,
+    ) -> StoragePublicationLocator: ...
+
+
+class MakeOwnedStorageObject(Protocol):
+    def __call__(
+        self,
+        *,
+        backend: str = "local",
+        namespace: str = "local/test",
+        key: str = "files/test.stl",
+        object_kind: str = "artifact",
+        state: Any = ...,
+        token: str | None = "test-token",
+        size_bytes: int | None = 1,
+        sha256: str | None = None,
+        provider_ref: str | None = None,
+        etag: str | None = None,
+        version_id: str | None = None,
+        **overrides: Any,
+    ) -> OwnedStorageObject: ...
+
+
+class MakeShareLink(Protocol):
+    def __call__(
+        self,
+        model: Model,
+        *,
+        token: str = ...,
+        expired: bool = False,
+        revoked: bool = False,
+        **overrides: Any,
+    ) -> ShareLink: ...
+
+
+class AGcodeArtifact(Protocol):
+    def __call__(
+        self, name: str = "Cube", *, dispatchable: bool = False, **overrides: Any
+    ) -> File: ...
+
+
+class APrinterWithAQueue(Protocol):
+    def __call__(
+        self, *, depth: int = 2, **overrides: Any
+    ) -> tuple[Printer, list[File]]: ...
+
+
+__all__ = [
+    "AGcodeArtifact",
+    "APrinterWithAQueue",
+    "GrantRole",
+    "HeadersFor",
+    "MakeArtifactLink",
+    "MakeCapture",
+    "MakeCaptureSlot",
+    "MakeCollection",
+    "MakeCover",
+    "MakeDocument",
+    "MakeExternalLibrary",
+    "MakeFile",
+    "MakeMetadata",
+    "MakeInboxItem",
+    "MakeModel",
+    "MakeMultipartModel",
+    "MakeMultipartModelStar",
+    "MakeOwnedStorageObject",
+    "MakeStoragePublicationLocator",
+    "MakePrintJob",
+    "MakePrinter",
+    "MakePrinterFile",
+    "MakeProvenanceSource",
+    "MakeShareLink",
+    "MakeUser",
+    "MakeJob",
+    "MakeIngestRequest",
+    "MakeDerivative",
+    "MakeDerivativeGroupRegeneration",
+    "MakeWorkFence",
+    "MakeWorkExecutor",
+    "TagCollection",
+    "TagFile",
+    "UserHeaders",
+]
+
+
+class MakeMultipartPart(Protocol):
+    def __call__(
+        self, composition: MultipartModel, name: str = "Leg", **overrides: Any
+    ) -> MultipartPart: ...
+
+
+class MakeMultipartBuild(Protocol):
+    def __call__(
+        self, composition: MultipartModel, **overrides: Any
+    ) -> MultipartBuild: ...
+
+
+class MakeMultipartBuildPart(Protocol):
+    def __call__(
+        self, build: MultipartBuild, model: Model, **overrides: Any
+    ) -> MultipartBuildPart: ...
+
+
+class MakeMultipartBuildAttempt(Protocol):
+    def __call__(
+        self, part: MultipartBuildPart, job: PrintJob, **overrides: Any
+    ) -> MultipartBuildAttempt: ...
+
+
+class MakeMultipartBuildConfirmation(Protocol):
+    def __call__(
+        self, attempt: MultipartBuildAttempt, **overrides: Any
+    ) -> MultipartBuildConfirmation: ...
+
+
+class MakeAuditPolicy(Protocol):
+    def __call__(
+        self, requested_by: User, *, mode: str = "quick", **overrides: Any
+    ) -> VaultAuditPolicy: ...
+
+
+class MakeAuditEvent(Protocol):
+    def __call__(self, run: VaultAuditRun, **overrides: Any) -> VaultAuditEvent: ...
+
+
+class MakeCapacityReservation(Protocol):
+    def __call__(self, *, expired: bool = False, **overrides: Any) -> Any: ...
+
+
+class MakeStorageInventorySample(Protocol):
+    def __call__(self, **overrides: Any) -> Any: ...
+
+
+class MakeCapacityLock(Protocol):
+    def __call__(self, **overrides: Any) -> Any: ...
+
+
+class MakeVaultMigration(Protocol):
+    def __call__(self, **overrides: Any) -> VaultMigrationRun: ...
+
+
+class MakeVaultMigrationObject(Protocol):
+    def __call__(
+        self, run: VaultMigrationRun, **overrides: Any
+    ) -> VaultMigrationObject: ...
+
+
+class MakeVaultGeneration(Protocol):
+    def __call__(self, run: VaultMigrationRun, **overrides: Any) -> VaultGeneration: ...
+
+
+class MakeGeometryFingerprint(Protocol):
+    def __call__(
+        self, file: File, *, leased: bool = False, **overrides: Any
+    ) -> GeometryFingerprint: ...
+
+
+class MakeSimilarityRun(Protocol):
+    def __call__(
+        self,
+        actor: User,
+        *,
+        model_ids: tuple[int, ...] = (),
+        active: bool = True,
+        **overrides: Any,
+    ) -> SimilarityRun: ...
+
+
+class MakeSimilarityCandidate(Protocol):
+    def __call__(
+        self, first: Model, second: Model, **overrides: Any
+    ) -> SimilarityCandidate: ...
+
+
+class MakeSimilarityObservation(Protocol):
+    def __call__(
+        self,
+        candidate: SimilarityCandidate,
+        first: GeometryFingerprint,
+        second: GeometryFingerprint,
+        **overrides: Any,
+    ) -> SimilarityCandidateObservation: ...
+
+
+class MakeSimilarityDecision(Protocol):
+    def __call__(
+        self, candidate: SimilarityCandidate, actor: User, **overrides: Any
+    ) -> SimilarityReviewDecision: ...
+
+
+class MakeEmbeddingSpace(Protocol):
+    def __call__(self, **overrides: Any) -> EmbeddingSpace: ...
+
+
+class MakeIndexGeneration(Protocol):
+    def __call__(
+        self, space: EmbeddingSpace, *, active: bool = True, **overrides: Any
+    ) -> IndexGeneration: ...
+
+
+class MakeInferenceEndpoint(Protocol):
+    def __call__(
+        self, *, kind: str = "embedding", **overrides: Any
+    ) -> InferenceEndpoint: ...
+
+
+class MakeSearchPassage(Protocol):
+    def __call__(self, subject: SearchSubject, **overrides: Any) -> SearchPassage: ...
+
+
+class MakeSearchExpansion(Protocol):
+    def __call__(self, passage: SearchPassage, **overrides: Any) -> SearchExpansion: ...
+
+
+class MakeSearchExpansionTerm(Protocol):
+    def __call__(
+        self, expansion: SearchExpansion, term: str = "bike", **overrides: Any
+    ) -> SearchExpansionTerm: ...
+
+
+class MakeSubjectCaption(Protocol):
+    def __call__(self, subject: SearchSubject, **overrides: Any) -> SubjectCaption: ...
+
+
+class MakePassageVector(Protocol):
+    def __call__(
+        self,
+        generation: IndexGeneration,
+        file: File | None = None,
+        *,
+        component_index: int = 0,
+        passage: SearchPassage | None = None,
+        **overrides: Any,
+    ) -> PassageVector: ...
+
+
+class MakeSearchIndexFailure(Protocol):
+    def __call__(
+        self, generation: IndexGeneration, passage: SearchPassage, **overrides: Any
+    ) -> SearchIndexFailure: ...
+
+
+class MakeSearchGenerationLease(Protocol):
+    def __call__(
+        self, generation: IndexGeneration, **overrides: Any
+    ) -> SearchGenerationLease: ...
+
+
+class MakeSearchDependency(Protocol):
+    def __call__(
+        self, subject: SearchSubject, source: ContentSource, **overrides: Any
+    ) -> SearchDependency: ...
+
+
+class MakeSearchReconciliationState(Protocol):
+    def __call__(
+        self, kind: SubjectType, **overrides: Any
+    ) -> SearchReconciliationState: ...
+
+
+class MakeSearchLexicalState(Protocol):
+    def __call__(self, **overrides: Any) -> SearchLexicalState: ...
+
+
+class MakeSearchLexicalTerm(Protocol):
+    def __call__(
+        self, term: str = "bracket", **overrides: Any
+    ) -> SearchLexicalTerm: ...
+
+
+class MakeSearchLexicalPosting(Protocol):
+    def __call__(
+        self, passage: SearchPassage, term: str = "bracket", **overrides: Any
+    ) -> SearchLexicalPosting: ...
+
+
+class MakeUserSearchPreferences(Protocol):
+    def __call__(self, user: User, **overrides: Any) -> UserSearchPreferences: ...
+
+
+class MakeSearchProjectionRequest(Protocol):
+    def __call__(
+        self, source: ContentSource, **overrides: Any
+    ) -> SearchProjectionRequest: ...
+
+
+class MakeIngestionScratchWindow(Protocol):
+    def __call__(
+        self,
+        *,
+        directory: Path | None = None,
+        job: Job | None = None,
+        execution_epoch: str | None = None,
+        **overrides: Any,
+    ) -> IngestionScratchWindow: ...
+
+
+class MakeFilamentProfile(Protocol):
+    def __call__(
+        self, name: str | None = None, *, material: str = "PLA", **overrides: Any
+    ) -> FilamentProfile: ...
+
+
+class MakePrinterProfile(Protocol):
+    def __call__(self, name: str | None = None, **overrides: Any) -> PrinterProfile: ...

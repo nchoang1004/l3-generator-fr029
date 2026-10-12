@@ -1,0 +1,602 @@
+"""Postgres-backed :class:`ClaimEngine`.
+
+SQL notes
+---------
+*upsert*: The ``ON CONFLICT (kind, entity_id) DO UPDATE`` target is a
+schema-qualified table (e.g. ``"primer"."leases"``).  Within the
+``DO UPDATE SET`` clause Postgres allows referencing the *existing*
+row by the **unqualified** table name (``leases.next_attempt_at``).
+We avoid that ambiguity entirely by aliasing the insert target with
+``AS le`` and using ``le.next_attempt_at`` for the existing row.
+``EXCLUDED.next_attempt_at`` refers to the *proposed* value from the
+INSERT (i.e. ``COALESCE($4, now())``).
+
+*claim_due*: delegates to :func:`primer.claim.sql.build_claim_query`,
+which composes one CTE per adapter via UNION ALL and then drives a
+single ``UPDATE … RETURNING``.  The query is built once at engine
+construction time.
+
+*heartbeat*: uses ``UNNEST($1::text[], $2::text[])`` to bulk-match
+``(kind, entity_id)`` pairs and only touches rows owned by the
+caller (``claimed_by = $3``).  Returns the confirmed pairs.
+
+*release*: runs inside a single Postgres transaction so the lease
+mutation and the adapter's ``on_release`` entity-side update are
+atomic.  ``drop_lease=True`` → DELETE; otherwise clears claim fields,
+resets ``next_attempt_at`` from ``requeue_after``, bumps
+``attempt_count`` / ``last_error`` on failure.
+
+*mark_resumable*: ``INSERT … ON CONFLICT DO UPDATE`` that sets
+priority and resets ``next_attempt_at = now()``, then notifies the
+``claim_ready`` channel.  Uses the ``AS le`` alias trick (same as
+upsert).
+
+*watch_ready*: acquires a **dedicated** connection from the pool and
+keeps it for the generator's lifetime.  The ``claim_ready`` listener
+callback calls ``queue.put_nowait(payload)`` — asyncpg invokes the
+callback from within the event-loop read loop, so ``put_nowait`` is
+safe without ``call_soon_threadsafe``.  A lost connection surfaces as a
+``ListenConnectionLost`` out of the generator (see :meth:`PostgresClaimEngine.watch_ready`).
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+from collections.abc import AsyncIterator, Sequence
+from datetime import datetime
+from typing import Any
+
+from primer.int.claim import (
+    CLAIM_PRIORITY_FRESH, CLAIM_PRIORITY_RESUME, ClaimAdapter, ClaimEngine, ClaimKind, Lease,
+    ReleaseOutcome,
+)
+from primer.claim.sql import build_claim_query
+from primer.model.except_ import ListenConnectionLost
+from primer.storage._ddl import CONCURRENT_CREATE_RACE
+from primer.observability import tracing as _tracing
+import primer.observability.metrics as _metrics
+
+logger = logging.getLogger(__name__)
+
+
+class PostgresClaimEngine(ClaimEngine):
+    """Postgres-backed claim engine.
+
+    Parameters
+    ----------
+    storage_provider:
+        An initialised :class:`~primer.storage.postgres.PostgresStorageProvider`.
+        Must expose ``.pool`` (asyncpg pool) and ``.leases_table``
+        (schema-qualified name) and ``.schema`` (bare schema name).
+    adapters:
+        Mapping of :class:`ClaimKind` → :class:`ClaimAdapter` instances.
+        Adapters whose eligibility SQL references their entity table are
+        included in the ``claim_due`` CTE composition.
+    """
+
+    def __init__(
+        self,
+        *,
+        storage_provider: Any,
+        adapters: dict[ClaimKind, ClaimAdapter],
+        lease_ttl_seconds: int = 60,
+    ) -> None:
+        self._storage = storage_provider
+        self._adapters = adapters
+        self._table = storage_provider.leases_table
+        # Lease TTL (seconds) fed into the claim_due + heartbeat SQL intervals.
+        # Defaults to 60s for a standalone engine; the worker pool overrides it
+        # from WorkerConfig.lease_ttl_seconds at start() so the
+        # lease_ttl >= 2*heartbeat validator actually governs the engine
+        # (arch review A-I1).
+        self.lease_ttl_seconds = lease_ttl_seconds
+        # Build once; claim_due uses it on every call (the common,
+        # unfiltered case - kinds=None).
+        self._claim_query = build_claim_query(
+            adapters,
+            self._table,
+            schema=storage_provider.schema,
+        )
+        # Phase 3 stage 7a (01a0518b) pool-class separation: claim_due's
+        # optional kinds filter needs a DIFFERENT compiled query (a
+        # different CTE/UNION subset), not a runtime WHERE clause bolted
+        # onto the shared one - so cache one compiled query per distinct
+        # kind-subset actually requested, keyed by frozenset(kinds).
+        # Real callers only ever ask for a small, fixed number of
+        # subsets (e.g. "everything but TOOL_CALL" / "TOOL_CALL only"),
+        # so this cache never grows unbounded. Seeded with the
+        # already-built unfiltered query for the None key.
+        self._claim_query_cache: dict[frozenset[ClaimKind] | None, str] = {
+            None: self._claim_query,
+        }
+        # Entity tables are created lazily by the storage layer on first write.
+        # The claim query JOINs them unconditionally, so on a fresh DB (before
+        # any chat/harness/trigger exists) the JOIN target is missing and the
+        # whole query fails with UndefinedTableError. Ensure they exist once,
+        # on the first claim, with the same standard (id, data jsonb, ...) shape
+        # the storage layer uses.
+        self._entity_tables = sorted(
+            {a.entity_table for a in adapters.values()}
+        )
+        self._entity_tables_ensured = False
+
+    def _claim_query_for(self, kinds: list[ClaimKind] | None) -> str:
+        """The compiled claim_due query for ``kinds`` (None = every adapter).
+
+        Builds + caches a query scoped to the given kind subset on first
+        use; every later call with an equal subset hits the cache.
+        """
+        if kinds is None:
+            return self._claim_query
+        key = frozenset(kinds)
+        cached = self._claim_query_cache.get(key)
+        if cached is not None:
+            return cached
+        scoped_adapters = {
+            kind: adapter for kind, adapter in self._adapters.items()
+            if kind in key
+        }
+        query = build_claim_query(
+            scoped_adapters, self._table, schema=self._storage.schema,
+        )
+        self._claim_query_cache[key] = query
+        return query
+
+    def _qualified_entity(self, table: str) -> str:
+        schema = self._storage.schema
+        return f'"{schema}"."{table}"' if schema else f'"{table}"'
+
+    async def _ensure_entity_tables(self, conn: Any) -> None:
+        for table in self._entity_tables:
+            qualified = self._qualified_entity(table)
+            try:
+                await conn.execute(
+                    f"CREATE TABLE IF NOT EXISTS {qualified} ("
+                    "id text PRIMARY KEY, "
+                    "data jsonb NOT NULL, "
+                    "created_at timestamptz NOT NULL DEFAULT now(), "
+                    "updated_at timestamptz NOT NULL DEFAULT now()"
+                    ")"
+                )
+            except CONCURRENT_CREATE_RACE:
+                # A peer process is creating the same entity table; treat
+                # as already created (see primer.storage._ddl). Each execute
+                # is its own autocommit statement, so a race on one table
+                # does not poison the others.
+                pass
+            # Create any adapter-declared backing indexes for this table.
+            # Each is CREATE INDEX IF NOT EXISTS (idempotent); a peer racing
+            # the same index raises CONCURRENT_CREATE_RACE, which we swallow.
+            for adapter in self._adapters.values():
+                if adapter.entity_table != table:
+                    continue
+                for ddl in adapter.entity_indexes(qualified):
+                    try:
+                        await conn.execute(ddl)
+                    except CONCURRENT_CREATE_RACE:
+                        pass
+        self._entity_tables_ensured = True
+
+    # ------------------------------------------------------------------
+    # upsert
+    # ------------------------------------------------------------------
+
+    async def upsert(
+        self,
+        kind: ClaimKind,
+        entity_id: str,
+        *,
+        priority: int = CLAIM_PRIORITY_FRESH,
+        next_attempt_at: datetime | None = None,
+    ) -> None:
+        """Insert or update a lease row.
+
+        On conflict (kind, entity_id):
+        - Always update ``priority_score`` to the new value.
+        - Update ``next_attempt_at`` only when ``$4`` is non-NULL;
+          otherwise preserve the existing value (``le.next_attempt_at``).
+
+        The ``AS le`` alias on the INSERT target is used to reference
+        the *existing* row in the DO UPDATE SET clause, avoiding any
+        ambiguity with the unqualified table name in schema-qualified
+        contexts.
+        """
+        async with self._storage.pool.acquire() as conn:
+            await conn.execute(
+                f"INSERT INTO {self._table} AS le (kind, entity_id, priority_score, next_attempt_at)"
+                f" VALUES ($1, $2, $3, COALESCE($4, now()))"
+                f" ON CONFLICT (kind, entity_id) DO UPDATE"
+                f"   SET priority_score   = EXCLUDED.priority_score,"
+                f"       next_attempt_at  = COALESCE($4, le.next_attempt_at)",
+                kind.value, entity_id, priority, next_attempt_at,
+            )
+            await conn.execute(
+                "SELECT pg_notify($1, $2)",
+                "claim_ready",
+                f"{kind.value}:{entity_id}",
+            )
+
+    # ------------------------------------------------------------------
+    # delete_lease
+    # ------------------------------------------------------------------
+
+    async def delete_lease(self, kind: ClaimKind, entity_id: str) -> None:
+        """Remove the lease row for (kind, entity_id).  No-op if missing."""
+        async with self._storage.pool.acquire() as conn:
+            await conn.execute(
+                f"DELETE FROM {self._table} WHERE kind = $1 AND entity_id = $2",
+                kind.value, entity_id,
+            )
+
+    # ------------------------------------------------------------------
+    # has_live_lease
+    # ------------------------------------------------------------------
+
+    async def has_lease(self, kind: ClaimKind, entity_id: str) -> bool:
+        """Whether a lease ROW exists for ``(kind, entity_id)``, claimed or not.
+
+        See :meth:`~primer.int.claim.ClaimEngine.has_lease`: an armed lease nobody has
+        claimed yet counts, which is the whole difference from :meth:`has_live_lease`.
+        """
+        async with self._storage.pool.acquire() as conn:
+            row = await conn.fetchrow(
+                f"SELECT 1 FROM {self._table} WHERE kind = $1 AND entity_id = $2",
+                kind.value, entity_id,
+            )
+        return row is not None
+
+    async def lease_exists(self, kind: ClaimKind, entity_ids: Sequence[str]) -> set[str]:
+        """The subset of ``entity_ids`` with a lease ROW of ``kind``, claimed or not, in one query.
+
+        See :meth:`~primer.int.claim.ClaimEngine.lease_exists`.
+        """
+        ids = list(dict.fromkeys(entity_ids))
+        if not ids:
+            return set()
+        async with self._storage.pool.acquire() as conn:
+            rows = await conn.fetch(
+                f"SELECT entity_id FROM {self._table} "
+                f"WHERE kind = $1 AND entity_id = ANY($2::text[])",
+                kind.value, ids,
+            )
+        return {r["entity_id"] for r in rows}
+
+    async def prune_dead_leases(self, kind: ClaimKind) -> int:
+        """Delete the unheld lease rows of ``kind`` whose entity is missing or finished.
+
+        One statement. "Finished" is the adapter's :meth:`~primer.int.claim.ClaimAdapter.dead_lease_sql`;
+        "missing" is a LEFT JOIN miss against the entity table. A kind whose adapter defines no predicate
+        is not pruned at all, so the missing-entity rule cannot delete a lease whose entity this engine
+        has no business judging. A held lease (claimed and unexpired) is never touched.
+
+        The candidates come from ONE join of the leases to the entity table (a hash join on a large
+        table; the earlier form hashed the entity table twice, once per OR'd sub-select, 420 ms against
+        105 ms on 60k tasks and 85k leases), and the outer DELETE re-states the held-lease predicate so
+        that, under READ COMMITTED, a heartbeat that extends a lapsed lease while this statement waits on
+        the row lock is re-evaluated and the lease survives.
+
+        The entity table is read under the statement's own snapshot: an entity reset from finished to
+        queued by a concurrent writer inside that window loses its lease row. Nothing restores it today
+        (a planned reconciler rule that re-arms a QUEUED task with no lease row is not built), but no
+        production writer resets a finished task to queued either: the adapter's retry branch only
+        requeues a live one, and ``durably_mark_tool_call_task_resumable``, which can flip a FAILED row
+        from a stale GATED snapshot, has no production caller yet.
+        """
+        adapter = self._adapters.get(kind)
+        dead = adapter.dead_lease_sql() if adapter is not None else None
+        if adapter is None or dead is None:
+            return 0
+        entity = self._qualified_entity(adapter.entity_table)
+        async with self._storage.pool.acquire() as conn:
+            if not self._entity_tables_ensured:
+                await self._ensure_entity_tables(conn)
+            rows = await conn.fetch(
+                f"WITH doomed AS ("
+                f"  SELECT l.entity_id FROM {self._table} l"
+                f"    LEFT JOIN {entity} e ON e.id = l.entity_id"
+                f"   WHERE l.kind = $1"
+                f"     AND (l.claimed_by IS NULL OR l.expires_at < now())"
+                f"     AND (e.id IS NULL OR ({dead})))"
+                f" DELETE FROM {self._table} l USING doomed d"
+                f" WHERE l.kind = $1 AND l.entity_id = d.entity_id"
+                f"   AND (l.claimed_by IS NULL OR l.expires_at < now())"
+                f" RETURNING 1",
+                kind.value,
+            )
+        return len(rows)
+
+    async def has_live_lease(self, kind: ClaimKind, entity_id: str) -> bool:
+        """Whether a worker holds an unexpired lease on (kind, entity_id) right now.
+
+        ``expires_at`` is pushed forward by every heartbeat, so this stays true for as
+        long as the worker is alive and false within one lease TTL of it dying — which
+        is exactly the line the stuck-session sweeper needs to draw.
+        """
+        async with self._storage.pool.acquire() as conn:
+            row = await conn.fetchrow(
+                f"SELECT 1 FROM {self._table} "
+                f"WHERE kind = $1 AND entity_id = $2 "
+                f"AND claimed_by IS NOT NULL AND expires_at > now()",
+                kind.value, entity_id,
+            )
+        return row is not None
+
+    # ------------------------------------------------------------------
+    # claim_due
+    # ------------------------------------------------------------------
+
+    async def claim_due(
+        self, worker_id: str, *, max_count: int, kinds: list[ClaimKind] | None = None,
+    ) -> list[Lease]:
+        """Atomically claim up to *max_count* due leases.
+
+        Uses the pre-compiled UNION ALL CTE query that joins each
+        adapter's entity table for eligibility filtering. ``kinds``
+        (default None = every registered kind) selects a differently
+        -scoped compiled query via :meth:`_claim_query_for`.
+        """
+        _tracer = _tracing.get_tracer("primer.claim")
+        with _tracer.start_as_current_span("claim.due") as _span:
+            async with self._storage.pool.acquire() as conn:
+                if not self._entity_tables_ensured:
+                    await self._ensure_entity_tables(conn)
+                rows = await conn.fetch(
+                    self._claim_query_for(kinds),
+                    max_count,
+                    worker_id,
+                    # TTL in seconds (string cast to interval in the query,
+                    # $3). Configured via WorkerConfig.lease_ttl_seconds.
+                    str(self.lease_ttl_seconds),
+                )
+            leases = [
+                Lease(
+                    kind=ClaimKind(r["kind"]),
+                    entity_id=r["entity_id"],
+                    claimed_by=worker_id,
+                    claimed_at=r["claimed_at"],
+                    expires_at=r["expires_at"],
+                    attempt_count=r["attempt_count"],
+                    last_error=r["last_error"],
+                )
+                for r in rows
+            ]
+            _span.set_attribute("claim.count", len(leases))
+            for lease in leases:
+                # claimed_at is the moment of claiming; we don't have
+                # next_attempt_at in the returned Lease, so we observe 0
+                # as the latency placeholder for Postgres-claimed leases.
+                _metrics.claim_enqueue_latency_seconds.labels(
+                    lease.kind.value
+                ).observe(0.0)
+                _span.add_event("claim_assigned", {"kind": lease.kind.value})
+            return leases
+
+    # ------------------------------------------------------------------
+    # heartbeat
+    # ------------------------------------------------------------------
+
+    async def heartbeat(
+        self,
+        worker_id: str,
+        kind_ids: list[tuple[ClaimKind, str]],
+    ) -> list[tuple[ClaimKind, str]]:
+        """Refresh the TTL for every (kind, entity_id) pair we own.
+
+        Uses ``UNNEST`` to pass all pairs in one round-trip.  Only rows
+        whose ``claimed_by`` matches ``worker_id`` are touched; the
+        ``RETURNING`` clause reports which rows were actually updated so
+        the caller knows which pairs were confirmed.
+
+        Returns an empty list immediately when ``kind_ids`` is empty.
+        """
+        if not kind_ids:
+            return []
+        kinds = [k.value for k, _ in kind_ids]
+        ids = [eid for _, eid in kind_ids]
+        async with self._storage.pool.acquire() as conn:
+            rows = await conn.fetch(
+                f"UPDATE {self._table}"
+                f"   SET last_heartbeat_at = now(),"
+                # TTL parameterised ($4) so the refreshed expiry uses the
+                # configured lease_ttl_seconds, not a hardcoded 60s.
+                f"       expires_at = now() + ($4 || ' seconds')::interval"
+                f" WHERE (kind, entity_id) IN"
+                f"       (SELECT * FROM UNNEST($1::text[], $2::text[]))"
+                f"   AND claimed_by = $3"
+                f" RETURNING kind, entity_id",
+                kinds, ids, worker_id, str(self.lease_ttl_seconds),
+            )
+        return [(ClaimKind(r["kind"]), r["entity_id"]) for r in rows]
+
+    # ------------------------------------------------------------------
+    # release
+    # ------------------------------------------------------------------
+
+    async def release(self, lease: Lease, *, outcome: ReleaseOutcome) -> None:
+        """Release a lease, optionally calling the adapter's on_release hook.
+
+        Both the lease mutation and the adapter's ``on_release`` call
+        run inside a single Postgres transaction so entity-state and
+        lease-state changes are atomic.
+
+        Parameters
+        ----------
+        lease:
+            The lease returned by :meth:`claim_due`.
+        outcome:
+            Controls whether to drop the row (``drop_lease=True``) or
+            reset it for re-queuing, and carries success / error
+            metadata used to update ``attempt_count`` / ``last_error``.
+        """
+        requeue_secs = (
+            outcome.requeue_after.total_seconds()
+            if outcome.requeue_after is not None
+            else 0
+        )
+        wake_signal = None
+        async with self._storage.pool.acquire() as conn:
+            async with conn.transaction():
+                if outcome.drop_lease:
+                    owned = await conn.fetchval(
+                        f"DELETE FROM {self._table}"
+                        f" WHERE kind = $1 AND entity_id = $2 AND claimed_by = $3"
+                        f" RETURNING 1",
+                        lease.kind.value, lease.entity_id, lease.claimed_by,
+                    )
+                else:
+                    owned = await conn.fetchval(
+                        f"UPDATE {self._table}"
+                        f"   SET claimed_by        = NULL,"
+                        f"       claimed_at         = NULL,"
+                        f"       last_heartbeat_at  = NULL,"
+                        f"       expires_at         = NULL,"
+                        f"       next_attempt_at    = CASE WHEN $8 THEN next_attempt_at"
+                        f"                                 ELSE now() + ($3 || ' seconds')::interval END,"
+                        f"       attempt_count      = CASE WHEN $7 THEN attempt_count"
+                        f"                                 WHEN $4 THEN 0"
+                        f"                                 ELSE attempt_count + 1 END,"
+                        f"       last_error         = CASE WHEN $7 THEN last_error"
+                        f"                                 WHEN $4 THEN NULL"
+                        f"                                 ELSE $5 END"
+                        f" WHERE kind = $1 AND entity_id = $2 AND claimed_by = $6"
+                        f" RETURNING 1",
+                        lease.kind.value, lease.entity_id,
+                        str(requeue_secs), outcome.success, outcome.last_error,
+                        lease.claimed_by,
+                        # entity_noop is a lease-only hand-back: it must not look like a run, so it
+                        # leaves attempt_count/last_error alone and, without an explicit requeue
+                        # delay, next_attempt_at too (the row keeps its place in line).
+                        outcome.entity_noop,
+                        outcome.entity_noop and outcome.requeue_after is None,
+                    )
+                # Fence: if no row matched our claimed_by, the lease was
+                # re-claimed by another worker (or deleted). Skip on_release
+                # so a stale worker cannot clobber the new owner's state.
+                if owned is None:
+                    logger.warning(
+                        "claim release skipped: lease %s/%s no longer owned by %r "
+                        "(presumed re-claimed)",
+                        lease.kind.value, lease.entity_id, lease.claimed_by,
+                    )
+                    return
+                adapter = self._adapters.get(lease.kind)
+                if adapter is not None and not outcome.entity_noop:
+                    wake_signal = await adapter.on_release(
+                        conn, lease.entity_id, outcome=outcome,
+                    )
+        # 01a0518b review: fired ONLY after the `async with conn.transaction()`
+        # block above has exited (committed) - see PostReleaseWake's own
+        # docstring for why an adapter can't call the eventual wake code
+        # from inside that transaction.
+        if wake_signal is not None and self._post_release_hook is not None:
+            await self._post_release_hook(wake_signal)
+
+    # ------------------------------------------------------------------
+    # mark_resumable
+    # ------------------------------------------------------------------
+
+    async def mark_resumable(
+        self, kind: ClaimKind, entity_id: str, *, priority: int = CLAIM_PRIORITY_RESUME,
+    ) -> None:
+        """Upsert a lease as resumable (low priority) and broadcast a notification.
+
+        If a row already exists its ``priority_score`` is lowered to
+        ``priority`` and ``next_attempt_at`` is reset to ``now()`` so
+        the row becomes immediately claimable.  If no row exists a new
+        one is inserted with the given priority.
+
+        ``AS le`` aliases the INSERT target so ``DO UPDATE SET`` can
+        reference the existing row via ``le.*`` to avoid ambiguity with
+        schema-qualified names.
+
+        After the upsert a ``pg_notify('claim_ready', ...)`` wakes any
+        :meth:`watch_ready` consumers.
+        """
+        async with self._storage.pool.acquire() as conn:
+            await conn.execute(
+                f"INSERT INTO {self._table} AS le"
+                f"  (kind, entity_id, priority_score, next_attempt_at)"
+                f" VALUES ($1, $2, $3, now())"
+                f" ON CONFLICT (kind, entity_id) DO UPDATE"
+                f"   SET priority_score  = EXCLUDED.priority_score,"
+                f"       next_attempt_at = now()",
+                kind.value, entity_id, priority,
+            )
+            await conn.execute(
+                "SELECT pg_notify($1, $2)",
+                "claim_ready",
+                f"{kind.value}:{entity_id}",
+            )
+
+    # ------------------------------------------------------------------
+    # watch_ready
+    # ------------------------------------------------------------------
+
+    async def watch_ready(self) -> AsyncIterator[tuple[ClaimKind, str]]:  # type: ignore[override]
+        """Yield (ClaimKind, entity_id) tuples as they arrive via LISTEN/NOTIFY.
+
+        Opens a **dedicated** connection from the pool and keeps it for
+        the generator's lifetime (LISTEN is per-connection state in
+        Postgres).  The asyncpg listener callback is invoked from within
+        the event-loop's read loop, so ``queue.put_nowait`` is safe
+        without ``loop.call_soon_threadsafe``.
+
+        The generator cleans up by removing the listener and releasing
+        the connection when it is closed (``aclose()`` or the enclosing
+        ``async for`` exits).
+
+        If the server connection is lost (a Postgres restart or failover, a
+        network blip) the generator raises :class:`ListenConnectionLost` once
+        every wake received before the loss has been yielded. asyncpg never raises
+        into the NOTIFY queue itself, so without that the watcher would park on
+        a dead connection forever. The caller re-subscribes by calling
+        ``watch_ready()`` again (``WorkerPool._engine_bus_loop`` does); wakes
+        sent in the meantime are lost, which only costs the claim loop's poll
+        interval because ``claim_ready`` is a hint, not the record of a claim.
+        """
+        queue: asyncio.Queue[str | None] = asyncio.Queue()
+
+        def _on_notify(
+            conn: Any,
+            pid: int,
+            channel: str,
+            payload: str,
+        ) -> None:
+            queue.put_nowait(payload)
+
+        def _on_termination(_conn: Any) -> None:
+            # asyncpg's only signal that the server connection is gone.
+            queue.put_nowait(None)
+
+        conn = await self._storage.pool.acquire()
+        try:
+            conn.add_termination_listener(_on_termination)
+            try:
+                await conn.add_listener("claim_ready", _on_notify)
+                while True:
+                    payload = await queue.get()
+                    if payload is None:
+                        raise ListenConnectionLost(
+                            "claim_ready LISTEN connection was terminated"
+                        )
+                    kind_str, entity_id = payload.split(":", 1)
+                    yield (ClaimKind(kind_str), entity_id)
+            finally:
+                # After a loss, asyncpg has already released the connection
+                # and every method on it raises InterfaceError. That must not
+                # replace the exception in flight (a CancelledError at
+                # shutdown), and one failing step must not skip the next, so
+                # each is guarded on its own.
+                try:
+                    conn.remove_termination_listener(_on_termination)
+                except Exception as exc:  # noqa: BLE001
+                    logger.debug(
+                        "claim_ready remove_termination_listener failed: %s", exc,
+                    )
+                try:
+                    await conn.remove_listener("claim_ready", _on_notify)
+                except Exception as exc:  # noqa: BLE001
+                    logger.debug("claim_ready remove_listener failed: %s", exc)
+        finally:
+            await self._storage.pool.release(conn)

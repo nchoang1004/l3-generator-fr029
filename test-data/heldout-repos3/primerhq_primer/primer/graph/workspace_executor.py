@@ -1,0 +1,782 @@
+"""Workspace-backed graph executor.
+
+State persistence is git-versioned through the workspace's
+:class:`primer.workspace.state.StateRepo`. Every turn end (each
+superstep + the final ENDED transition) commits the updated graph
+state to the workspace's ``.state/`` repo via
+:meth:`StateRepo.commit_arbitrary`. Callers can inspect the history
+with standard git tooling::
+
+    git -C .state log -- graphs/<gsid>/
+    git -C .state log --grep='X-Primer-Graph: <gsid>'
+
+Per-node message histories live at::
+
+    .state/graphs/<gsid>/nodes/<node_id>/messages.jsonl
+
+Graph-level state at::
+
+    .state/graphs/<gsid>/state.json
+
+If a :class:`AgentSession` is supplied via ``workspace_session``,
+EVERY agent in the graph is augmented before invocation:
+
+* the session's :attr:`AgentSession.system_prompt_fragment` is
+  appended to the agent's ``system_prompt`` (so the LLM sees
+  workspace-tool documentation),
+* the session's workspace tools are composed into each per-node
+  :class:`ToolExecutionManager` (so the LLM can actually call
+  ``read``, ``write``, ``exec``, etc).
+
+When ``workspace_session`` is omitted the executor still works as
+a plain git-backed graph runner without workspace integration.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+from collections.abc import AsyncIterator, Awaitable, Callable
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+from primer.agent.tool_manager import ToolExecutionManager
+from primer.graph.base import DEFAULT_MAX_PARALLEL_NODES, _BaseGraphExecutor
+from primer.graph.router import RouterRegistry
+from primer.model.chat import Message, StreamEvent, ToolResultPart
+from primer.model.graph import (
+    Graph,
+    NodeRuntimeState,
+    _GraphNodeRef,
+    _ToolCallNode,
+    build_execution_context,
+)
+from primer.model.principal import PrincipalRef
+from primer.model.workspace_session import SessionStatus
+from primer.observability.turn_log_writer import (
+    TurnLogWriter,
+    WorkspaceTurnLogWriter,
+)
+
+
+if TYPE_CHECKING:
+    from primer.int.artifact_storage import ArtifactStorage
+    from primer.int.llm import LLM
+    from primer.model.agent import Agent
+    from primer.model_profile import ResolvedModel
+    from primer.workspace.session import AgentSession
+    from primer.workspace.local.state import LocalStateRepo
+
+
+logger = logging.getLogger(__name__)
+
+
+# Trailer prefix used for graph-state commits so callers can grep for
+# "this graph's history" via ``git log --grep='X-Primer-Graph: <gsid>'``.
+_TRAILER_GRAPH = "X-Primer-Graph"
+_TRAILER_OP = "X-Primer-Op"
+
+
+class WorkspaceGraphExecutor(_BaseGraphExecutor):
+    """Workspace-backed graph executor with git-versioned state.
+
+    Per-node message histories AND graph-level state are persisted
+    under ``<state_repo.path>/graphs/<graph_session_id>/`` and
+    committed to the state repo on every superstep boundary.
+
+    Optional workspace augmentation: pass ``workspace_session`` to
+    have every agent in the graph receive the session's
+    ``system_prompt_fragment`` + workspace tools.
+    """
+
+    def __init__(
+        self,
+        *,
+        graph: Graph,
+        agent_resolver: Callable[[str], Awaitable["Agent"]],
+        llm_resolver: Callable[..., Awaitable[tuple["LLM", "ResolvedModel"]]],
+        # Called as (agent) normally and (agent, profile_id) only when a
+        # node overrides the agent default, so single-argument resolvers
+        # stay valid.
+        state_repo: "LocalStateRepo",
+        graph_session_id: str,
+        workspace_session: "AgentSession | None" = None,
+        tool_manager_resolver: Callable[
+            ["Agent"], Awaitable[ToolExecutionManager]
+        ] | None = None,
+        graph_resolver: Callable[[str], Awaitable[Graph]] | None = None,
+        router_registry: RouterRegistry | None = None,
+        principal: str | None = None,
+        identity: "PrincipalRef | None" = None,
+        graph_input: Any = None,
+        tool_manager: ToolExecutionManager | None = None,
+        owns_session_lifecycle: bool = False,
+        toolset_resolver: Callable[[str], Awaitable[Any]] | None = None,
+        approval_resolver: Any | None = None,
+        max_parallel_nodes: int = DEFAULT_MAX_PARALLEL_NODES,
+        artifact_storage: "ArtifactStorage | None" = None,
+        turn_no: int | None = None,
+        tool_calls_as_claims_enabled: bool = False,
+    ) -> None:
+        wrapped_agent_resolver = self._wrap_agent_resolver(
+            agent_resolver, workspace_session
+        )
+        wrapped_tool_manager_resolver = self._wrap_tool_manager_resolver(
+            tool_manager_resolver, workspace_session, identity
+        )
+        super().__init__(
+            graph=graph,
+            agent_resolver=wrapped_agent_resolver,
+            llm_resolver=llm_resolver,
+            tool_manager_resolver=wrapped_tool_manager_resolver,
+            graph_resolver=graph_resolver,
+            router_registry=router_registry,
+            principal=principal,
+            max_parallel_nodes=max_parallel_nodes,
+            artifact_storage=artifact_storage,
+            turn_no=turn_no,
+            tool_calls_as_claims_enabled=tool_calls_as_claims_enabled,
+        )
+        self._state_repo = state_repo
+        self._graph_session_id = graph_session_id
+        self._workspace_session = workspace_session
+        self._identity = identity
+        # Override the base's in-memory context with real workspace ids so node
+        # templates can reference {{ ctx.artifact_dir }} etc. Subgraph children
+        # get their own scope automatically: _build_sub_executor constructs the
+        # child with the nested graph_session_id, so this runs per level.
+        self._execution_context = build_execution_context(
+            surface="workspace",
+            workspace_id=(
+                workspace_session.workspace_id
+                if workspace_session is not None
+                else None
+            ),
+            session_id=graph_session_id,
+            graph_id=graph.id,
+            principal=principal,
+            identity=identity,
+        )
+        # Only the top-level (worker-built) executor owns the on-disk
+        # session holder's lifecycle. Subgraph child executors share the
+        # parent's holder (see ``_build_sub_executor``) and must NOT end
+        # it when their own run terminates, or they would kill the holder
+        # out from under the still-running parent graph.
+        self._owns_session_lifecycle = owns_session_lifecycle
+        # Resolves a toolset_id -> ToolsetProvider so a tool_call node can
+        # invoke internal-toolset tools (web__web_search, system__...), not
+        # just workspace tools. None -> tool_call reaches workspace tools only.
+        self._toolset_resolver = toolset_resolver
+        # Approval resolver so a gated tool_call node fires the approval gate
+        # (parks for human approval). None -> tool_call nodes run ungated.
+        self._approval_resolver = approval_resolver
+
+        # Per-superstep commit batching: node-turn message writes accumulate
+        # here (rel_path -> cumulative file content) and are flushed in the
+        # next ``_save_state`` so an N-node superstep is ONE commit, not N+1.
+        # Every park / boundary / terminal exit calls ``_save_state`` before
+        # handing off, so a buffered write is never stranded. ``_turn_tags``
+        # records the node#iteration pairs folded into the next commit so the
+        # batched commit message keeps per-node attribution.
+        self._pending_node_writes: dict[str, str] = {}
+        self._pending_node_turn_tags: list[str] = []
+
+        # Turn-log writers: bypass the git-backed state_repo.commit
+        # path and write directly to .state/graphs/<gsid>/turns.jsonl
+        # (graph-level) and .state/graphs/<gsid>/nodes/<nid>/turns.jsonl
+        # (per-node). Turn logs are observability data — high write rate,
+        # no audit-trail value, so they live outside the git history.
+        #
+        # LocalStateRepo exposes a ``path`` attribute (a ``pathlib.Path``
+        # pointing at the on-host .state directory); the writers below do
+        # direct file I/O through it. SandboxStateRepo (container/k8s)
+        # only exposes ``state_path`` (a remote path string) — direct
+        # host-side file I/O is not applicable. For sandbox backends we
+        # fall back to NoopTurnLogWriter; the functional state (commits,
+        # session files) still lands correctly via state_repo.commit.
+        from primer.observability.turn_log_writer import NoopTurnLogWriter
+
+        _local_path: Path | None = getattr(state_repo, "path", None)
+
+        if _local_path is not None:
+            state_root = _local_path / "graphs" / graph_session_id
+
+            def _make_append_line(rel_path: Path):
+                target = rel_path
+
+                async def _append(line: bytes) -> None:
+                    def _do() -> None:
+                        target.parent.mkdir(parents=True, exist_ok=True)
+                        with target.open("ab") as fh:
+                            fh.write(line)
+
+                    await asyncio.to_thread(_do)
+
+                return _append
+
+            def _make_read_existing(rel_path: Path):
+                target = rel_path
+
+                async def _read() -> bytes:
+                    def _do() -> bytes:
+                        if not target.exists():
+                            return b""
+                        return target.read_bytes()
+
+                    return await asyncio.to_thread(_do)
+
+                return _read
+
+            def _factory(node_id: str) -> TurnLogWriter:
+                target = state_root / "nodes" / node_id / "turns.jsonl"
+                return WorkspaceTurnLogWriter(
+                    append_line=_make_append_line(target),
+                    read_existing=_make_read_existing(target),
+                )
+
+            self._turn_log_factory = _factory
+            graph_target = state_root / "turns.jsonl"
+            self._graph_turn_log: TurnLogWriter = WorkspaceTurnLogWriter(
+                append_line=_make_append_line(graph_target),
+                read_existing=_make_read_existing(graph_target),
+            )
+        else:
+            # Sandbox (container/k8s) backend: turn-log I/O is not wired
+            # for the remote path. Use no-op writers; functional state
+            # still commits correctly via state_repo.commit_arbitrary.
+            self._turn_log_factory = lambda node_id: NoopTurnLogWriter()
+            self._graph_turn_log = NoopTurnLogWriter()
+        # Spec §4.3 — when set (typically by pool.py from
+        # ``session.metadata['graph_input']``), this overrides the
+        # ``messages`` list passed to :meth:`invoke` and becomes
+        # :attr:`GraphContext.initial_input`. The Begin node materialises
+        # its NodeOutput from this value (dict / str / list / Any).
+        self._graph_input: Any = graph_input
+        # Cache the original (unwrapped) resolvers so subgraph children
+        # can re-wrap them with their own context if needed.
+        self._raw_agent_resolver = agent_resolver
+        self._raw_tool_manager_resolver = tool_manager_resolver
+        # Spec B §2.3 — ToolCall nodes dispatch through this manager.
+        # Production callers (pool.py) wire a workspace-bound manager
+        # built from the session + provider registry; when absent we
+        # fall back to a workspace-only manager constructed lazily from
+        # ``workspace_session`` on first ToolCall.
+        self._tool_manager: ToolExecutionManager | None = tool_manager
+
+    # ---- Public properties ----------------------------------------------
+
+    @property
+    def state_repo(self) -> "LocalStateRepo":
+        return self._state_repo
+
+    @property
+    def graph_session_id(self) -> str:
+        return self._graph_session_id
+
+    @property
+    def state_root(self) -> Path | None:
+        """Absolute path to the per-graph state subtree, or None for sandbox repos.
+
+        Read-only convenience: ``<state_repo.path>/graphs/<gsid>`` for
+        :class:`~primer.workspace.local.state.LocalStateRepo` backends.
+        Returns ``None`` for :class:`~primer.workspace.sandbox.state.SandboxStateRepo`
+        (container/k8s) backends where the state lives inside the container.
+        Tests that only run against local workspaces may still assert on this.
+        """
+        local_path: Path | None = getattr(self._state_repo, "path", None)
+        if local_path is None:
+            return None
+        return local_path / "graphs" / self._graph_session_id
+
+    # ---- Augmentation wrappers -------------------------------------------
+
+    @staticmethod
+    def _wrap_agent_resolver(
+        base: Callable[[str], Awaitable["Agent"]],
+        workspace_session: "AgentSession | None",
+    ) -> Callable[[str], Awaitable["Agent"]]:
+        """Append the workspace's ``system_prompt_fragment`` to every agent."""
+        if workspace_session is None:
+            return base
+
+        async def _resolve(agent_id: str) -> "Agent":
+            agent = await base(agent_id)
+            composite_system_prompt = list(agent.system_prompt) + [
+                workspace_session.system_prompt_fragment
+            ]
+            # Copy the agent and replace ONLY the system prompt. This used to rebuild it
+            # from seven named fields, so every other one (max_tool_turns,
+            # max_output_tokens, ...) silently reset to its default for every node of a
+            # workspace-bound graph (the same defect as WorkspaceAgentExecutor's).
+            return agent.model_copy(
+                update={"system_prompt": composite_system_prompt}, deep=True,
+            )
+
+        return _resolve
+
+    @staticmethod
+    def _wrap_tool_manager_resolver(
+        base: Callable[["Agent"], Awaitable[ToolExecutionManager]] | None,
+        workspace_session: "AgentSession | None",
+        identity: "PrincipalRef | None" = None,
+    ) -> Callable[["Agent"], Awaitable[ToolExecutionManager]] | None:
+        """Compose the workspace's tools onto every per-node tool manager."""
+        if workspace_session is None:
+            return base
+
+        async def _resolve(agent: "Agent") -> ToolExecutionManager:
+            # System fallback so the RBAC tool floor never sees a None
+            # invoker (which fails closed and denies every toolset call);
+            # the worker-built graph path always supplies a real identity.
+            who = identity or PrincipalRef.system()
+            if base is not None:
+                # Derive, never rebuild: the outer manager carries the
+                # agent's tool allowlist, the approval resolver and the
+                # provider registry, and rebuilding from scratch here is
+                # exactly how graph nodes came to offer every tool in
+                # every granted toolset with no gate able to fire.
+                outer = await base(agent)
+                return outer.rebind_workspace(
+                    workspace_session, initiated_by=who,
+                )
+            return ToolExecutionManager.for_workspace(
+                toolset_providers={},
+                session=workspace_session,
+                initiated_by=who,
+            )
+
+        return _resolve
+
+    # ---- Public invoke override ------------------------------------------
+
+    async def invoke(
+        self,
+        messages: list[Message],
+    ) -> AsyncIterator[StreamEvent]:
+        """Stream graph execution events.
+
+        Spec §4.3 — when ``graph_input`` was supplied at construction
+        time (typically by the worker reading
+        ``session.metadata['graph_input']``), it seeds
+        :attr:`GraphContext.initial_input` instead of ``messages``. The
+        Begin node materialises its NodeOutput from that value;
+        callers that pass a non-empty ``messages`` list when
+        ``graph_input`` is also set get the metadata value (metadata
+        wins — this is the documented precedence in spec §4.2:
+        ``graph_input`` is preferred over ``initial_instructions``).
+        """
+        await self._ensure_artifact_dir()
+        if self._graph_input is not None:
+            seed: Any = self._graph_input
+        else:
+            seed = messages
+        async for ev in super().invoke(seed):  # type: ignore[arg-type]
+            yield ev
+
+    # ---- Subclass hooks --------------------------------------------------
+
+    async def _dispatch_toolcall(
+        self,
+        node: "_ToolCallNode",
+        arguments: dict[str, Any],
+        *,
+        bypass_approval: bool = False,
+    ) -> ToolResultPart:
+        """Dispatch a ToolCall node via the workspace's ``ToolExecutionManager``.
+
+        Spec B §2.3 step 2. Builds a :class:`ToolCallPart` with a fresh
+        uuid id and forwards to :meth:`ToolExecutionManager.execute`.
+
+        ``bypass_approval`` is threaded through to the manager so the
+        resume path (Phase 6 Task 6.3) can re-dispatch a previously
+        yielded ToolCall without re-firing the approval gate.
+
+        ``self._tool_manager`` is the manager the worker passes in when
+        building this executor. When absent, we build a manager lazily
+        from ``self._workspace_session``. The node's ``tool_id`` is a
+        scoped id (``toolset__bare``); when it names a non-workspace
+        toolset and a ``toolset_resolver`` is wired, that toolset's
+        provider is resolved and registered so internal-toolset tools
+        (``web__web_search``, ``system__...``) dispatch -- otherwise the
+        manager only carries workspace tools. When neither a manager nor
+        a workspace_session is available the call raises so the ToolCall
+        fails with ``tool_execution_failed`` rather than hanging.
+        """
+        import uuid
+        from primer.agent.tool_manager import WORKSPACE_TOOLSET_ID, _SCOPE_SEPARATOR
+        from primer.model.chat import ToolCallPart
+
+        # Determine the toolset this node needs from its scoped tool_id. A
+        # workspace-scoped id (``workspace__*``) or one with no resolvable
+        # toolset needs no extra provider; a non-workspace toolset id
+        # (``web__``, ``system__``, ...) needs THAT toolset's provider
+        # registered on the manager to dispatch.
+        needs_toolset: str | None = None
+        if self._toolset_resolver is not None and _SCOPE_SEPARATOR in node.tool_id:
+            candidate = node.tool_id.split(_SCOPE_SEPARATOR, 1)[0]
+            if candidate and candidate != WORKSPACE_TOOLSET_ID:
+                needs_toolset = candidate
+
+        manager = self._tool_manager
+        # A cached / injected manager may be reused only if it already covers
+        # the toolset this node needs. The manager cached below is
+        # workspace-ONLY (no non-workspace providers); reusing it for a later
+        # node that names a different toolset would make that tool resolve to
+        # "unknown tool ...; not registered with any toolset or workspace".
+        # Rebuild whenever the needed toolset isn't already registered.
+        if (
+            manager is not None
+            and needs_toolset is not None
+            and needs_toolset not in manager.toolset_providers
+        ):
+            manager = None
+
+        if manager is None:
+            if self._workspace_session is None:
+                raise RuntimeError(
+                    f"WorkspaceGraphExecutor has neither a tool_manager "
+                    f"nor a workspace_session wired; cannot invoke tool "
+                    f"{node.tool_id!r}"
+                )
+            # Resolve the toolset for a scoped, non-workspace tool_id so
+            # internal-toolset tools are dispatchable from a tool_call node.
+            toolset_providers: dict[str, Any] = {}
+            if needs_toolset is not None:
+                toolset_providers[needs_toolset] = await self._toolset_resolver(
+                    needs_toolset
+                )
+            manager = ToolExecutionManager.for_workspace(
+                toolset_providers=toolset_providers,
+                session=self._workspace_session,
+                approval_resolver=self._approval_resolver,
+                # Authorise the RBAC tool floor as this graph run's invoker
+                # (system fallback when unknown); the worker-built path
+                # threads a real identity via ``self._identity``.
+                initiated_by=self._identity or PrincipalRef.system(),
+            )
+            # Cache only the workspace-only manager; a per-toolset manager
+            # must not leak to a later tool_call naming a different toolset.
+            if not toolset_providers:
+                self._tool_manager = manager
+
+        call = ToolCallPart(
+            id=str(uuid.uuid4()),
+            name=node.tool_id,
+            arguments=arguments,
+        )
+        return await manager.execute(
+            call,
+            principal=self._principal,
+            bypass_approval=bypass_approval,
+        )
+
+    async def _dispatch_toolcall_with_bypass(
+        self,
+        node: "_ToolCallNode",
+        arguments: dict[str, Any],
+    ) -> ToolResultPart:
+        """Resume-path dispatch with ``bypass_approval=True``.
+
+        Spec B §2.3 step 3 / Phase 6 Task 6.3. After operator approval,
+        the resume path drains pending ToolCalls by routing through this
+        hook so the underlying :class:`ToolExecutionManager` skips its
+        approval gate and runs the tool directly.
+        """
+        return await self._dispatch_toolcall(
+            node, arguments, bypass_approval=True,
+        )
+
+    async def _load_node_history(self, node_id: str) -> list[Message]:
+        rel_path = self._state_rel(f"nodes/{node_id}/messages.jsonl")
+        data = await self._state_repo.read_state_file(rel_path)
+        if data is None:
+            return []
+        out: list[Message] = []
+        for line in data.decode("utf-8").splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            out.append(Message.model_validate_json(line))
+        return out
+
+    async def _persist_node_turn(
+        self,
+        node_id: str,
+        iteration: int,
+        new_messages: list[Message],
+    ) -> None:
+        """Buffer a node's appended jsonl; the next ``_save_state`` commits it.
+
+        Node turns within a superstep are folded into that superstep's single
+        state commit (one commit per superstep instead of N+1). Callers grep
+        history per node via ``git log -- graphs/<gsid>/nodes/<node_id>/``
+        as before; the commit message lists the node#iteration turns it
+        carries (``X-Primer-Graph-Node-Turns``).
+
+        Reads the existing content from the pending buffer first (a prior
+        turn for the same node this superstep) then from the repo via
+        :meth:`StateRepo.read_state_file`, so it works on both local and
+        sandbox (container/k8s) backends.
+        """
+        rel_path = self._state_rel(f"nodes/{node_id}/messages.jsonl")
+
+        if rel_path in self._pending_node_writes:
+            existing = self._pending_node_writes[rel_path]
+        else:
+            raw_existing = await self._state_repo.read_state_file(rel_path)
+            existing = raw_existing.decode("utf-8") if raw_existing else ""
+        if existing and not existing.endswith("\n"):
+            existing += "\n"
+        appended = (
+            existing
+            + "\n".join(m.model_dump_json() for m in new_messages)
+            + "\n"
+        )
+
+        # Buffer instead of committing; flushed in the next _save_state.
+        self._pending_node_writes[rel_path] = appended
+        self._pending_node_turn_tags.append(f"{node_id}#{iteration}")
+
+    async def _save_state(
+        self,
+        *,
+        iteration: int,
+        node_states: dict[str, NodeRuntimeState],
+        status: SessionStatus,
+        ended_reason: str | None = None,
+        ended_detail: str | None = None,
+    ) -> None:
+        """Write graph-level state.json AND git-commit it."""
+        rel_state = self._state_rel("state.json")
+        payload = {
+            "iteration": iteration,
+            "status": status.value,
+            "ended_reason": ended_reason,
+            "ended_detail": ended_detail,
+            "node_states": {
+                nid: {
+                    "status": ns.status.value,
+                    "last_run_iteration": ns.last_run_iteration,
+                    "last_run_at": (
+                        ns.last_run_at.isoformat() if ns.last_run_at else None
+                    ),
+                    "error": ns.error,
+                }
+                for nid, ns in node_states.items()
+            },
+        }
+        body = json.dumps(payload, indent=2)
+        trailers = {
+            _TRAILER_GRAPH: self._graph_session_id,
+            _TRAILER_OP: "state",
+            "X-Primer-Graph-Status": status.value,
+        }
+        if ended_reason:
+            trailers["X-Primer-Graph-Ended-Reason"] = ended_reason
+        if ended_detail:
+            trailers["X-Primer-Graph-Ended-Detail"] = ended_detail
+        # Flush any buffered node-turn writes from this superstep into the
+        # SAME commit as the state write, then clear the buffer.
+        files = {rel_state: body}
+        summary = (
+            f"graph {self._graph_session_id}: state @ iter {iteration} "
+            f"({status.value})"
+        )
+        if self._pending_node_writes:
+            files.update(self._pending_node_writes)
+            trailers["X-Primer-Graph-Node-Turns"] = ",".join(
+                self._pending_node_turn_tags
+            )
+            summary += f" +{len(self._pending_node_writes)} node turn(s)"
+        await self._state_repo.commit_arbitrary(
+            summary=summary,
+            files=files,
+            trailers=trailers,
+        )
+        self._pending_node_writes = {}
+        self._pending_node_turn_tags = []
+
+        # Mirror the agent executor: when the graph reaches its terminal
+        # ENDED save, transition the on-disk session holder slot to ENDED
+        # too. Without this the workspace-level session views
+        # (get/list_workspace_session, which read the holder) report a
+        # finished graph as perpetually "running". Only the owning
+        # (top-level) executor does this; subgraph children share the
+        # holder and must leave it to the parent. Parks save with WAITING
+        # (not ENDED), so a parked graph's holder is left intact for
+        # resume. Best-effort: a holder write failure must not crash the
+        # graph's terminal commit.
+        if (
+            status == SessionStatus.ENDED
+            and self._owns_session_lifecycle
+            and self._workspace_session is not None
+        ):
+            holder_reason = "completed" if ended_reason == "completed" else "failed"
+            try:
+                await self._workspace_session.set_status(
+                    SessionStatus.ENDED,
+                    ended_reason=holder_reason,
+                )
+            except Exception:  # noqa: BLE001 -- best-effort holder sync
+                # Swallowing is the deliberate policy (same as dispatch.py's
+                # _sync_agent_session_ended: the scheduler row is
+                # authoritative, the holder is a secondary view). But nothing
+                # else repairs a graph's holder - the dispatch-side mirror
+                # finds no `.session` on this executor - so this line is the
+                # only trace of why a finished graph reads "running" forever.
+                # It must carry the cause.
+                logger.warning(
+                    "WorkspaceGraphExecutor: failed to end holder session "
+                    "%r on graph terminal (reason=%r)",
+                    getattr(self._workspace_session, "session_id", "?"),
+                    holder_reason,
+                    exc_info=True,
+                )
+
+    async def _build_sub_executor(
+        self,
+        parent_node: _GraphNodeRef,
+        sub_graph: Graph,
+        *,
+        instance_suffix: str = "",
+    ) -> "WorkspaceGraphExecutor":
+        """Build a child executor with its own state subtree.
+
+        Child uses ``<parent_gsid>__<parent_node_id><instance_suffix>`` as its
+        graph_session_id so its files live at
+        ``graphs/<parent_gsid>__<node_id><instance_suffix>/`` and commits stay
+        attributable. ``instance_suffix`` (e.g. ``"[0]"``) keeps concurrent
+        fan-out instances of the same node in SEPARATE state subtrees instead
+        of clobbering one shared ``state.json`` / ``nodes/`` tree. ``::`` is
+        avoided in the path because Windows treats colons specially in NTFS
+        streams.
+        """
+        sub_gsid = f"{self._graph_session_id}__{parent_node.id}{instance_suffix}"
+        child = WorkspaceGraphExecutor(
+            graph=sub_graph,
+            agent_resolver=self._raw_agent_resolver,
+            llm_resolver=self._llm_resolver,
+            state_repo=self._state_repo,
+            graph_session_id=sub_gsid,
+            workspace_session=self._workspace_session,
+            tool_manager_resolver=self._raw_tool_manager_resolver,
+            graph_resolver=self._graph_resolver,
+            router_registry=self._router_registry,
+            principal=self._principal,
+            identity=self._identity,
+            toolset_resolver=self._toolset_resolver,
+            approval_resolver=self._approval_resolver,
+            # Inherit the parent's per-superstep fan-out cap (BE5).
+            max_parallel_nodes=self._max_parallel_nodes,
+            artifact_storage=self._artifact_storage,
+            # 01a0518b: a subgraph node's child graph runs WITHIN the same
+            # session turn as its parent - inherit turn_no unchanged, same
+            # reasoning as a nested subagent call (see run_agent_turn's
+            # own turn_no docstring).
+            turn_no=self._turn_no,
+            # 7a gate review: tool_calls_as_claims_enabled is deliberately
+            # HARDCODED OFF for subgraph children, NOT inherited - a
+            # subgraph child's ToolWaitPark propagates out of its own
+            # invoke() (via _stream_subgraph_node's `async for` /
+            # `await`) into the PARENT's _stream_node's OWN `except
+            # ToolWaitPark` arm, where `node` is the _GraphNodeRef
+            # dispatching the SUBGRAPH, not an _AgentNodeRef - the arm's
+            # `isinstance(node, _AgentNodeRef)` guard raises "structurally
+            # impossible" RuntimeError from INSIDE the except block. That
+            # RuntimeError propagates out of _stream_node uncaught by any
+            # sibling except clause, killing the asyncio.Task before it
+            # ever queues a _NodeDone - the superstep's `while done_count
+            # < len(tasks)` consumer then blocks forever waiting for a
+            # sentinel that will never arrive. Scope-cut, same class as
+            # the nested-subagent turn's own exclusion above: real
+            # subgraph support needs the parent's OWN dispatch to
+            # recognize a re-raised child ToolWaitPark and thread its
+            # batch through as belonging to the SUBGRAPH node, not fail
+            # closed here first. Tracked as a follow-up, not built now.
+            tool_calls_as_claims_enabled=False,
+        )
+        # bind_coalesce_state (boundary d) is post-construction, not a
+        # constructor param - same coalesce_state as the parent, same
+        # reasoning as turn_no/the flag above: the child shares this
+        # session turn, not a fresh one of its own.
+        child.bind_coalesce_state(self._coalesce_state)
+        return child
+
+    # ---- Public helpers --------------------------------------------------
+
+    async def _ensure_artifact_dir(self) -> None:
+        """Best-effort create ``<workspace_root>/artifacts/<gsid>/``.
+
+        Local repos only: the workspace root is the ``.state`` repo's parent.
+        Sandbox/container repos expose no local path (``getattr`` returns None)
+        and rely on create-on-write (the workspace write tool mkdirs parents).
+        Never fatal -- a failure here must not abort the graph.
+        """
+        state_path: Path | None = getattr(self._state_repo, "path", None)
+        if state_path is None:
+            return
+        artifact_dir = state_path.parent / "artifacts" / self._graph_session_id
+        try:
+            await asyncio.to_thread(
+                artifact_dir.mkdir, parents=True, exist_ok=True
+            )
+        except OSError as exc:  # noqa: BLE001 -- best-effort, never fatal
+            logger.warning(
+                "graph %s: best-effort artifact dir create failed: %s",
+                self._graph_session_id,
+                exc,
+            )
+
+    async def load_state(self) -> dict | None:
+        """Return the persisted ``state.json`` payload, or ``None`` if absent."""
+        rel_path = self._state_rel("state.json")
+        data = await self._state_repo.read_state_file(rel_path)
+        if data is None:
+            return None
+        return json.loads(data.decode("utf-8"))
+
+    async def write_graph_binding(self) -> None:
+        """Snapshot the graph definition under ``<state_root>/graph.json``.
+
+        Committed in the same way as state writes so the graph
+        topology that drove an execution is recoverable from history.
+        """
+        rel = self._state_rel("graph.json")
+        body = self._graph.model_dump_json(indent=2)
+        await self._state_repo.commit_arbitrary(
+            summary=(
+                f"graph {self._graph_session_id}: bind graph {self._graph.id!r}"
+            ),
+            files={rel: body},
+            trailers={
+                _TRAILER_GRAPH: self._graph_session_id,
+                _TRAILER_OP: "bind",
+            },
+        )
+
+    # ---- Internals -------------------------------------------------------
+
+    def _messages_path(self, node_id: str) -> Path | None:
+        """Return the host-FS path for a node's messages.jsonl, or None.
+
+        Returns ``None`` for sandbox (container/k8s) backends where state
+        lives inside the container, not on the host filesystem.
+        """
+        root = self.state_root
+        if root is None:
+            return None
+        return root / "nodes" / node_id / "messages.jsonl"
+
+    def _state_rel(self, filename: str) -> str:
+        """Return a state-repo-relative path for ``filename`` under the graph dir.
+
+        Always returns ``graphs/<graph_session_id>/<filename>`` regardless of
+        the backend type. Works for both :class:`~primer.workspace.local.state.
+        LocalStateRepo` (host-FS) and :class:`~primer.workspace.sandbox.state.
+        SandboxStateRepo` (container/k8s).
+        """
+        return f"graphs/{self._graph_session_id}/{filename}"
+
+
+__all__ = ["WorkspaceGraphExecutor"]

@@ -1,0 +1,414 @@
+"""fresh_session dispatchers — Spec §5.2, §5.3, Plan §5.3."""
+
+from __future__ import annotations
+
+import json
+from datetime import datetime, timezone
+
+import pytest
+
+from primer.model.trigger import (
+    AgentFreshSubConfig,
+    GraphFreshSubConfig,
+    Subscription,
+)
+from primer.model.workspace_session import (
+    AgentSessionBinding,
+    GraphSessionBinding,
+    SessionStatus,
+    WorkspaceSession,
+)
+from primer.trigger.subscribers import DispatchDeps
+from primer.trigger.subscribers.agent_fresh_session import (
+    AgentFreshSessionDispatcher,
+)
+from primer.trigger.subscribers.graph_fresh_session import (
+    GraphFreshSessionDispatcher,
+)
+
+
+def _agent_sub(workspace_id, agent_id, parallelism="skip") -> Subscription:
+    return Subscription(
+        id="sb-1",
+        trigger_id="tr-1",
+        config=AgentFreshSubConfig(
+            workspace_id=workspace_id, agent_id=agent_id,
+        ),
+        parallelism=parallelism,
+        enabled=True,
+        created_at=datetime.now(timezone.utc),
+    )
+
+
+def _graph_sub(workspace_id, graph_id, parallelism="queue") -> Subscription:
+    return Subscription(
+        id="sb-1",
+        trigger_id="tr-1",
+        config=GraphFreshSubConfig(
+            workspace_id=workspace_id, graph_id=graph_id,
+        ),
+        parallelism=parallelism,
+        enabled=True,
+        created_at=datetime.now(timezone.utc),
+    )
+
+
+# ---------------------------------------------------------------------------
+# agent_fresh_session
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_agent_fresh_creates_session(
+    fake_storage_provider, fake_claim_engine, fake_scheduler,
+    fake_workspace_registry, seeded_workspace, seeded_agent,
+):
+    """Happy path — fresh session, agent binding, payload as initial instructions."""
+    deps = DispatchDeps(
+        storage_provider=fake_storage_provider,
+        claim_engine=fake_claim_engine,
+        scheduler=fake_scheduler,
+        workspace_registry=fake_workspace_registry,
+    )
+    res = await AgentFreshSessionDispatcher().dispatch(
+        _agent_sub(seeded_workspace.id, seeded_agent.id),
+        rendered_payload="run a check",
+        fire_context={
+            "trigger_id": "tr-1",
+            "fired_at": "2026-06-01T09:00:00+00:00",
+        },
+        fire_id="fire-tr-1-100",
+        deps=deps,
+    )
+    assert res.ok and not res.skipped
+    assert res.artefact_id is not None
+
+    sessions = fake_storage_provider.get_storage(WorkspaceSession)
+    sess = await sessions.get(res.artefact_id)
+    assert sess is not None
+    assert isinstance(sess.binding, AgentSessionBinding)
+    assert sess.binding.agent_id == seeded_agent.id
+    assert sess.workspace_id == seeded_workspace.id
+    assert sess.initial_instructions == "run a check"
+    assert sess.status == SessionStatus.RUNNING
+    assert sess.metadata.get("subscription_id") == "sb-1"
+    assert sess.metadata.get("trigger_id") == "tr-1"
+    assert sess.metadata.get("fire_id") == "fire-tr-1-100"
+    assert sess.metadata.get("fired_at") == "2026-06-01T09:00:00+00:00"
+
+    # Regression guard: the dispatcher MUST allocate the on-disk session
+    # slot (via start_workspace_session -> live_workspace.start_session),
+    # not just persist the scheduler-visible row. Without the slot the
+    # worker's workspace.get_session(sid) returns None and the agent turn
+    # never runs (the session silently ends with no transcript). Assert the
+    # fake workspace recorded a start_session for THIS session id.
+    live_ws = fake_workspace_registry.workspaces.get(seeded_workspace.id)
+    assert live_ws is not None, "no on-disk slot allocated for the workspace"
+    assert [s["id"] for s in live_ws.started_slots] == [res.artefact_id], (
+        "dispatcher did not allocate the on-disk session slot for the "
+        "fired session (slot allocation is what makes it runnable)"
+    )
+    # The slot's initial instructions match the rendered payload.
+    assert live_ws.started_slots[0]["instructions"] == "run a check"
+
+
+@pytest.mark.asyncio
+async def test_agent_fresh_skips_when_subscription_busy(
+    fake_storage_provider, fake_claim_engine, fake_scheduler,
+    fake_workspace_registry, seeded_workspace, seeded_agent,
+):
+    """``skip`` + a still-running prior session → no new session, no error."""
+    sessions = fake_storage_provider.get_storage(WorkspaceSession)
+    existing = WorkspaceSession(
+        id="se-existing",
+        workspace_id=seeded_workspace.id,
+        binding=AgentSessionBinding(agent_id=seeded_agent.id),
+        status=SessionStatus.RUNNING,
+        turn_status="running",
+        metadata={"subscription_id": "sb-1"},
+        created_at=datetime.now(timezone.utc),
+    )
+    await sessions.create(existing)
+
+    deps = DispatchDeps(
+        storage_provider=fake_storage_provider,
+        claim_engine=fake_claim_engine,
+        scheduler=fake_scheduler,
+        workspace_registry=fake_workspace_registry,
+    )
+    res = await AgentFreshSessionDispatcher().dispatch(
+        _agent_sub(seeded_workspace.id, seeded_agent.id, parallelism="skip"),
+        rendered_payload="check",
+        fire_context={"trigger_id": "tr-1"},
+        fire_id="fire-tr-1-101",
+        deps=deps,
+    )
+    assert res.ok and res.skipped
+    assert res.error_code == "skipped_subscription_busy"
+
+    # Only the pre-seeded row exists; no new session landed.
+    all_sessions = list(sessions._data.values())  # noqa: SLF001
+    assert {s.id for s in all_sessions} == {"se-existing"}
+
+
+@pytest.mark.asyncio
+async def test_agent_fresh_queue_creates_even_when_busy(
+    fake_storage_provider, fake_claim_engine, fake_scheduler,
+    fake_workspace_registry, seeded_workspace, seeded_agent,
+):
+    """``queue`` still creates a fresh session when a prior one is in flight."""
+    sessions = fake_storage_provider.get_storage(WorkspaceSession)
+    existing = WorkspaceSession(
+        id="se-existing",
+        workspace_id=seeded_workspace.id,
+        binding=AgentSessionBinding(agent_id=seeded_agent.id),
+        status=SessionStatus.RUNNING,
+        turn_status="running",
+        metadata={"subscription_id": "sb-1"},
+        created_at=datetime.now(timezone.utc),
+    )
+    await sessions.create(existing)
+
+    deps = DispatchDeps(
+        storage_provider=fake_storage_provider,
+        claim_engine=fake_claim_engine,
+        scheduler=fake_scheduler,
+        workspace_registry=fake_workspace_registry,
+    )
+    res = await AgentFreshSessionDispatcher().dispatch(
+        _agent_sub(seeded_workspace.id, seeded_agent.id, parallelism="queue"),
+        rendered_payload="check",
+        fire_context={"trigger_id": "tr-1"},
+        fire_id="fire-tr-1-102",
+        deps=deps,
+    )
+    assert res.ok and not res.skipped
+    assert res.artefact_id != "se-existing"
+
+
+# ---------------------------------------------------------------------------
+# graph_fresh_session
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_graph_fresh_parses_payload_as_json(
+    fake_storage_provider, fake_claim_engine, fake_scheduler,
+    fake_workspace_registry, seeded_workspace, seeded_graph,
+):
+    """Happy path — payload parses as JSON, lands in metadata.graph_input."""
+    deps = DispatchDeps(
+        storage_provider=fake_storage_provider,
+        claim_engine=fake_claim_engine,
+        scheduler=fake_scheduler,
+        workspace_registry=fake_workspace_registry,
+    )
+    res = await GraphFreshSessionDispatcher().dispatch(
+        _graph_sub(seeded_workspace.id, seeded_graph.id),
+        rendered_payload=json.dumps({"tenant_id": "acme"}),
+        fire_context={"trigger_id": "tr-1"},
+        fire_id="fire-tr-1-200",
+        deps=deps,
+    )
+    assert res.ok
+    sessions = fake_storage_provider.get_storage(WorkspaceSession)
+    sess = await sessions.get(res.artefact_id)
+    assert isinstance(sess.binding, GraphSessionBinding)
+    assert sess.binding.graph_id == seeded_graph.id
+    # The factory folds graph_input onto metadata for GraphSessionBinding;
+    # the dispatcher also stamps it directly so both routes carry it.
+    assert sess.metadata.get("graph_input") == {"tenant_id": "acme"}
+
+    # Regression guard: the graph dispatcher MUST allocate the on-disk
+    # graph-holder slot (start_workspace_session uses a synthetic
+    # ``graph:<id>`` agent binding) or the worker's
+    # workspace.get_session(sid) returns None and the graph never runs.
+    live_ws = fake_workspace_registry.workspaces.get(seeded_workspace.id)
+    assert live_ws is not None, "no on-disk slot allocated for the workspace"
+    assert [s["id"] for s in live_ws.started_slots] == [res.artefact_id], (
+        "graph dispatcher did not allocate the on-disk session slot"
+    )
+
+
+@pytest.mark.asyncio
+async def test_graph_fresh_invalid_json_payload(
+    fake_storage_provider, fake_claim_engine, fake_scheduler,
+    fake_workspace_registry, seeded_workspace, seeded_graph,
+):
+    """Non-JSON payload → structured ``graph_input_invalid`` error, no session."""
+    deps = DispatchDeps(
+        storage_provider=fake_storage_provider,
+        claim_engine=fake_claim_engine,
+        scheduler=fake_scheduler,
+        workspace_registry=fake_workspace_registry,
+    )
+    res = await GraphFreshSessionDispatcher().dispatch(
+        _graph_sub(seeded_workspace.id, seeded_graph.id),
+        rendered_payload="not json",
+        fire_context={"trigger_id": "tr-1"},
+        fire_id="fire-tr-1-201",
+        deps=deps,
+    )
+    assert res.ok is False
+    assert res.error_code == "graph_input_invalid"
+    sessions = fake_storage_provider.get_storage(WorkspaceSession)
+    assert list(sessions._data.values()) == []  # noqa: SLF001
+
+
+@pytest.mark.asyncio
+async def test_graph_fresh_rejects_non_object_payload(
+    fake_storage_provider, fake_claim_engine, fake_scheduler,
+    fake_workspace_registry, seeded_workspace, seeded_graph,
+):
+    """A JSON scalar/array doesn't qualify as graph_input either."""
+    deps = DispatchDeps(
+        storage_provider=fake_storage_provider,
+        claim_engine=fake_claim_engine,
+        scheduler=fake_scheduler,
+        workspace_registry=fake_workspace_registry,
+    )
+    res = await GraphFreshSessionDispatcher().dispatch(
+        _graph_sub(seeded_workspace.id, seeded_graph.id),
+        rendered_payload='"a string"',
+        fire_context={"trigger_id": "tr-1"},
+        fire_id="fire-tr-1-202",
+        deps=deps,
+    )
+    assert res.ok is False
+    assert res.error_code == "graph_input_invalid"
+
+
+# ---------------------------------------------------------------------------
+# skip-gate liveness — a session that never ran a turn must not wedge its
+# subscription forever (observed: a `turn_no == 0` row held a cron trigger
+# closed for 14h; every fire skipped silently and the job simply stopped).
+# ---------------------------------------------------------------------------
+
+
+def _seed_session(sid, workspace_id, agent_id, **over):
+    from datetime import timedelta
+    base = dict(
+        id=sid,
+        workspace_id=workspace_id,
+        binding=AgentSessionBinding(agent_id=agent_id),
+        status=SessionStatus.RUNNING,
+        turn_status="idle",
+        metadata={"subscription_id": "sb-1"},
+        created_at=datetime.now(timezone.utc) - timedelta(hours=2),
+        turn_no=0,
+    )
+    base.update(over)
+    return WorkspaceSession(**base)
+
+
+def test_never_started_session_stops_holding_the_gate_after_grace(
+    seeded_workspace, seeded_agent,
+):
+    from primer.trigger.subscribers import session_holds_skip_gate
+    stuck = _seed_session("se-stuck", seeded_workspace.id, seeded_agent.id)
+    assert session_holds_skip_gate(stuck) is False
+
+
+def test_never_started_session_still_holds_the_gate_within_grace(
+    seeded_workspace, seeded_agent,
+):
+    """A freshly created session is mid-claim, not stuck - it must still block."""
+    from primer.trigger.subscribers import session_holds_skip_gate
+    fresh = _seed_session(
+        "se-fresh", seeded_workspace.id, seeded_agent.id,
+        created_at=datetime.now(timezone.utc),
+    )
+    assert session_holds_skip_gate(fresh) is True
+
+
+def test_long_running_turn_holds_the_gate_regardless_of_age(
+    seeded_workspace, seeded_agent,
+):
+    """The bound is on NEVER STARTING, never on duration.
+
+    A started turn may legitimately run for hours (a graph build, a long exec). Firing a
+    second session beside it would let two runs write the same workspace state.
+    """
+    from datetime import timedelta
+
+    from primer.trigger.subscribers import session_holds_skip_gate
+    working = _seed_session(
+        "se-working", seeded_workspace.id, seeded_agent.id,
+        turn_no=3, turn_status="running",
+        created_at=datetime.now(timezone.utc) - timedelta(days=1),
+    )
+    assert session_holds_skip_gate(working) is True
+
+
+def test_first_turn_parked_on_a_human_holds_the_gate_past_the_grace(
+    seeded_workspace, seeded_agent,
+):
+    """A park does not bump turn_no, so a first turn waiting on an approval reads turn 0.
+    It is waiting, not lost: a second session beside it would duplicate the work."""
+    from primer.trigger.subscribers import session_holds_skip_gate
+    for status in ("parked", "resumable"):
+        waiting = _seed_session(
+            f"se-{status}", seeded_workspace.id, seeded_agent.id,
+            parked_status=status,
+            parked_event_key="tool_approval:se-x:call_0",
+        )
+        assert session_holds_skip_gate(waiting) is True, status
+
+
+def test_cleared_park_does_not_shelter_a_session_that_never_ran(
+    seeded_workspace, seeded_agent,
+):
+    """Control: only an ACTIVE park exempts a turn-0 session from the grace."""
+    from primer.trigger.subscribers import session_holds_skip_gate
+    cleared = _seed_session(
+        "se-cleared", seeded_workspace.id, seeded_agent.id,
+        parked_status=None, parked_event_key="tool_approval:se-x:call_0",
+    )
+    assert session_holds_skip_gate(cleared) is False
+
+
+def test_cancel_requested_releases_the_gate(seeded_workspace, seeded_agent):
+    """Cancel is a flag the worker reads on its next step; a session that never started
+    has nobody to read it, so cancel must reopen the gate by itself."""
+    from primer.trigger.subscribers import session_holds_skip_gate
+    cancelled = _seed_session(
+        "se-cancelled", seeded_workspace.id, seeded_agent.id,
+        turn_no=5, cancel_requested=True,
+    )
+    assert session_holds_skip_gate(cancelled) is False
+
+
+def test_ended_session_never_holds_the_gate(seeded_workspace, seeded_agent):
+    from primer.trigger.subscribers import session_holds_skip_gate
+    done = _seed_session(
+        "se-done", seeded_workspace.id, seeded_agent.id,
+        status=SessionStatus.ENDED, turn_no=2,
+    )
+    assert session_holds_skip_gate(done) is False
+
+
+@pytest.mark.asyncio
+async def test_graph_fresh_fires_past_a_stuck_never_started_session(
+    fake_storage_provider, fake_claim_engine, fake_scheduler,
+    fake_workspace_registry, seeded_workspace, seeded_graph,
+):
+    """End-to-end: the wedged-subscription bug. A stale turn_no==0 row must not skip."""
+    sessions = fake_storage_provider.get_storage(WorkspaceSession)
+    await sessions.create(
+        _seed_session("se-stuck", seeded_workspace.id, "ag-x")
+    )
+    deps = DispatchDeps(
+        storage_provider=fake_storage_provider,
+        claim_engine=fake_claim_engine,
+        scheduler=fake_scheduler,
+        workspace_registry=fake_workspace_registry,
+    )
+    res = await GraphFreshSessionDispatcher().dispatch(
+        _graph_sub(seeded_workspace.id, seeded_graph.id, parallelism="skip"),
+        rendered_payload="{}",
+        fire_context={"trigger_id": "tr-1"},
+        fire_id="fire-tr-1-102",
+        deps=deps,
+    )
+    assert res.ok and not res.skipped, res.error_message
+    assert res.artefact_id is not None

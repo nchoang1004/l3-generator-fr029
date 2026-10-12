@@ -1,0 +1,278 @@
+"""Build the lowlevel MCP :class:`Server` with primer's handlers wired up.
+
+Spec §3. Exposes :func:`build_mcp_server` — the factory used by the
+ASGI mount (Phase 5) to construct one ``Server`` instance per process.
+Handler bodies are intentionally thin: argument validation lives
+inside the SDK's request-params model (``CallToolRequestParams``),
+authorisation lives in :mod:`primer.mcp.dispatch`, and observability
+lives in :func:`primer.agent.tool_manager.invoke_one`. This module's
+job is to glue those three together and surface MCP-protocol-shaped
+responses.
+
+mcp>=2.0 dropped the ``@server.list_tools()`` / ``@server.call_tool()``
+decorator API in favour of constructor-passed ``on_list_tools`` /
+``on_call_tool`` callables taking ``(ctx: ServerRequestContext, params)``
+and returning the SDK's own ``*Result`` model (see
+``mcp.server.lowlevel.server``'s module docstring). ``ctx`` is unused
+here — primer's own per-request identity threads through the
+``current_*`` ContextVars below, set by the auth gate
+(:func:`primer.api._app_mcp._make_mcp_auth_gate`) before the SDK's
+session manager invokes these handlers, not through the SDK's request
+context object.
+
+ContextVars are populated by the auth gate before the SDK's request
+runner enters the handler. They default to ``None`` for tests / dev
+loops that exercise the handlers without an authenticated request.
+"""
+
+from __future__ import annotations
+
+import time
+from contextvars import ContextVar
+from typing import TYPE_CHECKING, Any
+from collections.abc import Callable
+
+import jsonschema
+from mcp.server.lowlevel import Server
+from mcp.shared.exceptions import MCPError
+from mcp.types import (
+    CallToolRequestParams,
+    CallToolResult,
+    INVALID_PARAMS,
+    ListToolsResult,
+    METHOD_NOT_FOUND,
+    PaginatedRequestParams,
+    TextContent,
+    Tool as McpTool,
+)
+
+from primer.mcp.audit import log_invoke
+from primer.mcp.dispatch import NotExposed, invoke_exposed, list_exposed_tools
+from primer.mcp.exposure import ExposureDeps
+from primer.mcp.safety import tool_scoped_id
+
+if TYPE_CHECKING:
+    from primer.model.principal import Principal
+
+
+# ---- Per-request context ---------------------------------------------------
+#
+# The auth gate (Phase 5) sets these before the StreamableHTTP session
+# manager dispatches into the SDK; the handlers read them back here so
+# the audit + provider-call chain knows who the caller is. The defaults
+# are ``None`` so unit tests and the dev REPL can call the handlers
+# directly without a fully-built auth context.
+current_principal: ContextVar[str | None] = ContextVar(
+    "primer_mcp_principal", default=None,
+)
+current_api_token_id: ContextVar[str | None] = ContextVar(
+    "primer_mcp_api_token_id", default=None,
+)
+# The auth gate (Phase 5) also stashes the typed ``Principal`` (carrying
+# ``.role``) here so the dispatch layer can enforce role gates without
+# re-resolving identity. ``current_principal`` stays the bare-username
+# string consumed by the provider-call + audit chain.
+current_actor: ContextVar["Principal | None"] = ContextVar(
+    "primer_mcp_actor", default=None,
+)
+# The auth gate also stashes the authenticated bearer token's scopes
+# here so the dispatch layer can enforce the ``mcp`` scope when a tool
+# call is dispatched (the scope floor moved from connect-time into
+# dispatch so any authenticated caller may connect). The value is
+# captured for the credential that opened the session. ``None`` is the
+# sentinel for a cookie session (``api_token is None``) -- full user
+# authority, no scope check. A concrete (possibly empty) list means a
+# bearer token.
+current_api_token_scopes: ContextVar["list[str] | None"] = ContextVar(
+    "primer_mcp_api_token_scopes", default=None,
+)
+
+
+async def _input_validation_error(
+    deps: ExposureDeps, name: str, arguments: dict,
+) -> str | None:
+    """Check ``arguments`` against the exposed tool's ``inputSchema``.
+
+    mcp 1.x validated tool arguments against ``inputSchema`` inside the
+    SDK before dispatch; 2.x dropped that. Primer's pydantic layer still
+    rejects malformed arguments further down (no correctness/security
+    gap -- confirmed during the #226 migration review by both the lead
+    and Dev-Backend), but the error SHAPE regressed: a caller got a deep
+    tool-execution error instead of a protocol-level one, without the
+    tool ever running. This restores that shape as an optional DX
+    polish, re-checked here rather than cached: the schema is whatever
+    ``_list`` would currently advertise for this tool, so a caller who
+    just re-fetched ``tools/list`` sees a call rejected against the
+    exact same shape.
+
+    Returns the human-readable validation message, or ``None`` when the
+    arguments are valid, the tool declares no schema, or the tool is not
+    found here at all -- an unresolvable name is ``_call``'s job to
+    reject as not-exposed (JSON-RPC method-not-found), not this
+    function's, so a lookup miss is silently treated as "nothing to
+    validate against" rather than surfaced as a validation failure.
+    """
+    for tool, _provider in await list_exposed_tools(deps):
+        if tool_scoped_id(tool) != name:
+            continue
+        schema = tool.args_schema
+        if not schema:
+            return None
+        try:
+            jsonschema.validate(instance=arguments, schema=schema)
+        except jsonschema.exceptions.ValidationError as exc:
+            return exc.message
+        except jsonschema.exceptions.SchemaError:
+            # The tool's own advertised schema is malformed -- a
+            # provider bug, not the caller's fault. Do not block every
+            # call to this tool on it; proceed as if there were no
+            # schema to check (dispatch's own pydantic layer is still
+            # the real backstop either way).
+            return None
+        return None
+    return None
+
+
+def build_mcp_server(deps_factory: Callable[[], ExposureDeps]) -> Server:
+    """Construct a :class:`Server` instance with primer's handlers attached.
+
+    The ``deps_factory`` callable is invoked per-request so the handler
+    body always sees a fresh :class:`ExposureDeps` (the storage +
+    registry references it bundles are themselves long-lived, but
+    binding them through a factory keeps the seam testable and avoids
+    capturing the wrong references when the factory is closured over
+    fields that change after process start).
+    """
+
+    async def _list(ctx: Any, params: PaginatedRequestParams | None) -> ListToolsResult:
+        """Map primer's exposed tools onto the MCP ``Tool`` schema.
+
+        No pagination: every exposed tool is returned in one page, same
+        as before this handler took a ``params.cursor`` it doesn't read.
+        """
+        del ctx, params
+        deps = deps_factory()
+        exposed = await list_exposed_tools(deps)
+        out: list[McpTool] = []
+        for tool, _provider in exposed:
+            out.append(
+                McpTool(
+                    name=tool_scoped_id(tool),
+                    description=tool.description or "",
+                    inputSchema=(
+                        tool.args_schema
+                        or {"type": "object", "properties": {}}
+                    ),
+                )
+            )
+        return ListToolsResult(tools=out)
+
+    async def _call(ctx: Any, params: CallToolRequestParams) -> CallToolResult:
+        """Dispatch a single ``tools/call`` request.
+
+        Error mapping:
+
+        * :class:`NotExposed` → JSON-RPC ``method-not-found`` so the
+          client treats the tool name as unknown. Operators see the
+          rich ``reason`` only in the audit log.
+        * A malformed argument shape → protocol-level ``isError=True``
+          BEFORE dispatch (see :func:`_input_validation_error` below).
+        * Any other exception from the dispatcher / provider → returned
+          as an MCP-level ``isError=True`` result, which is the SDK's
+          convention for tool-execution failures the client should
+          surface to the user without aborting the session.
+        """
+        del ctx
+        name = params.name
+        arguments = params.arguments or {}
+        deps = deps_factory()
+        principal = current_principal.get()
+        api_token_id = current_api_token_id.get()
+        actor = current_actor.get()
+        api_token_scopes = current_api_token_scopes.get()
+        t0 = time.monotonic()
+        error_code: str | None = None
+        ok = False
+        try:
+            try:
+                bad_input = await _input_validation_error(deps, name, arguments)
+                if bad_input is not None:
+                    error_code = "invalid_arguments"
+                    return CallToolResult(
+                        isError=True,
+                        content=[TextContent(
+                            type="text",
+                            text=f"Input validation error: {bad_input}",
+                        )],
+                    )
+                result = await invoke_exposed(
+                    scoped_id=name,
+                    arguments=arguments,
+                    principal=principal,
+                    actor=actor,
+                    api_token_scopes=api_token_scopes,
+                    deps=deps,
+                )
+            except NotExposed as exc:
+                error_code = "not_exposed"
+                # Spec §13: surfaces as method-not-found to the client.
+                # The exc.reason is included for ops-only triage via the
+                # audit log; the wire-level message stays generic so we
+                # do not leak which tools exist behind the allowlist.
+                raise MCPError(
+                    code=METHOD_NOT_FOUND,
+                    message=f"tool {name!r} not exposed",
+                ) from exc
+            except MCPError:
+                # Already protocol-shaped; let the SDK propagate.
+                error_code = "mcp_error"
+                raise
+            except Exception as exc:  # noqa: BLE001 -- surface as isError
+                error_code = "dispatch_failed"
+                return CallToolResult(
+                    isError=True,
+                    content=[TextContent(type="text", text=str(exc))],
+                )
+            ok = not result.is_error
+            return CallToolResult(
+                isError=result.is_error,
+                content=[
+                    TextContent(type="text", text=result.output or ""),
+                ],
+            )
+        finally:
+            log_invoke(
+                principal=principal,
+                api_token_id=api_token_id,
+                scoped_id=name,
+                ok=ok,
+                duration_ms=(time.monotonic() - t0) * 1000.0,
+                error_code=error_code,
+            )
+            from primer.events.recorder import actor_of, recorder_for
+
+            await recorder_for(deps.storage_provider).emit(
+                "mcp.tool_called",
+                actor=actor_of(principal),
+                payload={
+                    "tool": name,
+                    "ok": ok,
+                    "error_code": error_code,
+                },
+            )
+
+    # Silence unused-import warnings on INVALID_PARAMS — kept in scope
+    # so future handlers (e.g. session-init validation) can reuse the
+    # same import block without re-touching this file.
+    _ = INVALID_PARAMS
+
+    return Server("primer", on_list_tools=_list, on_call_tool=_call)
+
+
+__all__ = [
+    "build_mcp_server",
+    "current_principal",
+    "current_api_token_id",
+    "current_actor",
+    "current_api_token_scopes",
+]

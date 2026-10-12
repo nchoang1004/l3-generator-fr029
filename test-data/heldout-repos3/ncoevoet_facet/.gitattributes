@@ -1,0 +1,13 @@
+# Keep shell scripts LF-only so they stay executable inside Linux containers.
+# A CRLF shebang (`#!/bin/sh\r`) makes the kernel look for an interpreter named
+# "/bin/sh\r" and fail with "no such file or directory" — which silently breaks
+# the Docker entrypoint on Windows checkouts.
+*.sh text eol=lf
+docker-entrypoint.sh text eol=lf
+
+# Binary image fixtures. Marked explicitly so a Windows checkout with
+# core.autocrlf=true can never fall back to the NUL-byte heuristic and rewrite
+# a byte inside one -- the tests assert on their exact NCLX metadata.
+*.hif binary
+*.heic binary
+*.heif binary

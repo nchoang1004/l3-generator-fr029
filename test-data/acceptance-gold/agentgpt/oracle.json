@@ -1,0 +1,3196 @@
+{
+  "oracle": {
+    "target": "reworkd_platform.web.application:get_app()",
+    "python": "3.11.9",
+    "packages": {
+      "fastapi": "0.98.0",
+      "starlette": "0.27.0",
+      "pydantic": "1.10.13",
+      "pydantic-core": null,
+      "pydantic-settings": null
+    },
+    "env": [
+      "HOME=C:/Users/dell/AppData/Local/Temp/claude/d--VSF-l3-generator-l3/498cf361-d49d-460b-a09e-b56fd4418970/scratchpad/oracle-venv-agentgpt",
+      "REWORKD_PLATFORM_ENVIRONMENT=development",
+      "REWORKD_PLATFORM_OPENAI_API_KEY=dummy",
+      "USERPROFILE=C:/Users/dell/AppData/Local/Temp/claude/d--VSF-l3-generator-l3/498cf361-d49d-460b-a09e-b56fd4418970/scratchpad/oracle-venv-agentgpt"
+    ]
+  },
+  "routes": [
+    {
+      "kind": "Route",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "path": "/api/openapi.json",
+      "mount_prefix": null,
+      "name": "openapi",
+      "endpoint_module": "fastapi.applications",
+      "endpoint_qualname": "FastAPI.setup.<locals>.openapi",
+      "endpoint_file": null,
+      "endpoint_first_line": 233
+    },
+    {
+      "kind": "Route",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "path": "/api/docs",
+      "mount_prefix": null,
+      "name": "swagger_ui_html",
+      "endpoint_module": "fastapi.applications",
+      "endpoint_qualname": "FastAPI.setup.<locals>.swagger_ui_html",
+      "endpoint_file": null,
+      "endpoint_first_line": 244
+    },
+    {
+      "kind": "Route",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "path": "/docs/oauth2-redirect",
+      "mount_prefix": null,
+      "name": "swagger_ui_redirect",
+      "endpoint_module": "fastapi.applications",
+      "endpoint_qualname": "FastAPI.setup.<locals>.swagger_ui_redirect",
+      "endpoint_file": null,
+      "endpoint_first_line": 262
+    },
+    {
+      "kind": "Route",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "path": "/api/redoc",
+      "mount_prefix": null,
+      "name": "redoc_html",
+      "endpoint_module": "fastapi.applications",
+      "endpoint_qualname": "FastAPI.setup.<locals>.redoc_html",
+      "endpoint_file": null,
+      "endpoint_first_line": 272
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "GET"
+      ],
+      "path": "/api/monitoring/health",
+      "mount_prefix": null,
+      "name": "health_check",
+      "endpoint_module": "reworkd_platform.web.api.monitoring.views",
+      "endpoint_qualname": "health_check",
+      "endpoint_file": "reworkd_platform/web/api/monitoring/views.py",
+      "endpoint_first_line": 6,
+      "status_code": null,
+      "response_model": null,
+      "response_class": "UJSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "GET"
+      ],
+      "path": "/api/monitoring/error",
+      "mount_prefix": null,
+      "name": "error_check",
+      "endpoint_module": "reworkd_platform.web.api.monitoring.views",
+      "endpoint_qualname": "error_check",
+      "endpoint_file": "reworkd_platform/web/api/monitoring/views.py",
+      "endpoint_first_line": 15,
+      "status_code": null,
+      "response_model": null,
+      "response_class": "UJSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "POST"
+      ],
+      "path": "/api/agent/start",
+      "mount_prefix": null,
+      "name": "start_tasks",
+      "endpoint_module": "reworkd_platform.web.api.agent.views",
+      "endpoint_qualname": "start_tasks",
+      "endpoint_file": "reworkd_platform/web/api/agent/views.py",
+      "endpoint_first_line": 34,
+      "status_code": null,
+      "response_model": "NewTasksResponse",
+      "response_class": "UJSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "POST"
+      ],
+      "path": "/api/agent/analyze",
+      "mount_prefix": null,
+      "name": "analyze_tasks",
+      "endpoint_module": "reworkd_platform.web.api.agent.views",
+      "endpoint_qualname": "analyze_tasks",
+      "endpoint_file": "reworkd_platform/web/api/agent/views.py",
+      "endpoint_first_line": 45,
+      "status_code": null,
+      "response_model": "Analysis",
+      "response_class": "UJSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "POST"
+      ],
+      "path": "/api/agent/execute",
+      "mount_prefix": null,
+      "name": "execute_tasks",
+      "endpoint_module": "reworkd_platform.web.api.agent.views",
+      "endpoint_qualname": "execute_tasks",
+      "endpoint_file": "reworkd_platform/web/api/agent/views.py",
+      "endpoint_first_line": 57,
+      "status_code": null,
+      "response_model": null,
+      "response_class": "UJSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "POST"
+      ],
+      "path": "/api/agent/create",
+      "mount_prefix": null,
+      "name": "create_tasks",
+      "endpoint_module": "reworkd_platform.web.api.agent.views",
+      "endpoint_qualname": "create_tasks",
+      "endpoint_file": "reworkd_platform/web/api/agent/views.py",
+      "endpoint_first_line": 71,
+      "status_code": null,
+      "response_model": "NewTasksResponse",
+      "response_class": "UJSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "POST"
+      ],
+      "path": "/api/agent/summarize",
+      "mount_prefix": null,
+      "name": "summarize",
+      "endpoint_module": "reworkd_platform.web.api.agent.views",
+      "endpoint_qualname": "summarize",
+      "endpoint_file": "reworkd_platform/web/api/agent/views.py",
+      "endpoint_first_line": 86,
+      "status_code": null,
+      "response_model": null,
+      "response_class": "UJSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "POST"
+      ],
+      "path": "/api/agent/chat",
+      "mount_prefix": null,
+      "name": "chat",
+      "endpoint_module": "reworkd_platform.web.api.agent.views",
+      "endpoint_qualname": "chat",
+      "endpoint_file": "reworkd_platform/web/api/agent/views.py",
+      "endpoint_first_line": 103,
+      "status_code": null,
+      "response_model": null,
+      "response_class": "UJSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "GET"
+      ],
+      "path": "/api/agent/tools",
+      "mount_prefix": null,
+      "name": "get_user_tools",
+      "endpoint_module": "reworkd_platform.web.api.agent.views",
+      "endpoint_qualname": "get_user_tools",
+      "endpoint_file": "reworkd_platform/web/api/agent/views.py",
+      "endpoint_first_line": 131,
+      "status_code": null,
+      "response_model": "ToolsResponse",
+      "response_class": "UJSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "GET"
+      ],
+      "path": "/api/models",
+      "mount_prefix": null,
+      "name": "get_models",
+      "endpoint_module": "reworkd_platform.web.api.models.views",
+      "endpoint_qualname": "get_models",
+      "endpoint_file": "reworkd_platform/web/api/models/views.py",
+      "endpoint_first_line": 26,
+      "status_code": null,
+      "response_model": "typing.List[reworkd_platform.web.api.models.views.ModelWithAccess]",
+      "response_class": "UJSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "GET"
+      ],
+      "path": "/api/auth/organization/{name}",
+      "mount_prefix": null,
+      "name": "organizations",
+      "endpoint_module": "reworkd_platform.web.api.auth.views",
+      "endpoint_qualname": "organizations",
+      "endpoint_file": "reworkd_platform/web/api/auth/views.py",
+      "endpoint_first_line": 16,
+      "status_code": null,
+      "response_model": "OrganizationUsers",
+      "response_class": "UJSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "GET"
+      ],
+      "path": "/api/auth/{provider}",
+      "mount_prefix": null,
+      "name": "oauth_install",
+      "endpoint_module": "reworkd_platform.web.api.auth.views",
+      "endpoint_qualname": "oauth_install",
+      "endpoint_file": "reworkd_platform/web/api/auth/views.py",
+      "endpoint_first_line": 25,
+      "status_code": null,
+      "response_model": "str",
+      "response_class": "UJSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "GET"
+      ],
+      "path": "/api/auth/{provider}/uninstall",
+      "mount_prefix": null,
+      "name": "oauth_uninstall",
+      "endpoint_module": "reworkd_platform.web.api.auth.views",
+      "endpoint_qualname": "oauth_uninstall",
+      "endpoint_file": "reworkd_platform/web/api/auth/views.py",
+      "endpoint_first_line": 35,
+      "status_code": null,
+      "response_model": "typing.Dict[str, typing.Any]",
+      "response_class": "UJSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "GET"
+      ],
+      "path": "/api/auth/{provider}/callback",
+      "mount_prefix": null,
+      "name": "oauth_callback",
+      "endpoint_module": "reworkd_platform.web.api.auth.views",
+      "endpoint_qualname": "oauth_callback",
+      "endpoint_file": "reworkd_platform/web/api/auth/views.py",
+      "endpoint_first_line": 46,
+      "status_code": null,
+      "response_model": null,
+      "response_class": "UJSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "GET"
+      ],
+      "path": "/api/auth/sid/info",
+      "mount_prefix": null,
+      "name": "sid_info",
+      "endpoint_module": "reworkd_platform.web.api.auth.views",
+      "endpoint_qualname": "sid_info",
+      "endpoint_file": "reworkd_platform/web/api/auth/views.py",
+      "endpoint_first_line": 62,
+      "status_code": null,
+      "response_model": "typing.Dict[str, typing.Any]",
+      "response_class": "UJSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "GET"
+      ],
+      "path": "/api/metadata",
+      "mount_prefix": null,
+      "name": "extract_metadata",
+      "endpoint_module": "reworkd_platform.web.api.metadata",
+      "endpoint_qualname": "extract_metadata",
+      "endpoint_file": "reworkd_platform/web/api/metadata.py",
+      "endpoint_first_line": 20,
+      "status_code": null,
+      "response_model": "Metadata",
+      "response_class": "UJSONResponse",
+      "include_in_schema": true
+    }
+  ],
+  "openapi": {
+    "openapi": "3.0.2",
+    "info": {
+      "title": "Reworkd Platform API",
+      "version": "0.1.0"
+    },
+    "paths": {
+      "/api/monitoring/health": {
+        "get": {
+          "tags": [
+            "monitoring"
+          ],
+          "summary": "Health Check",
+          "description": "Checks the health of a project.\n\nIt returns 200 if the project is healthy.",
+          "operationId": "health_check_api_monitoring_health_get",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/monitoring/error": {
+        "get": {
+          "tags": [
+            "monitoring"
+          ],
+          "summary": "Error Check",
+          "description": "Checks that errors are being correctly logged.",
+          "operationId": "error_check_api_monitoring_error_get",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/agent/start": {
+        "post": {
+          "tags": [
+            "agent"
+          ],
+          "summary": "Start Tasks",
+          "operationId": "start_tasks_api_agent_start_post",
+          "parameters": [
+            {
+              "required": false,
+              "schema": {
+                "title": "X-Organization-Id",
+                "type": "string"
+              },
+              "name": "x-organization-id",
+              "in": "header"
+            }
+          ],
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentRunCreate"
+                },
+                "example": {
+                  "goal": "Create business plan for a bagel company",
+                  "modelSettings": {
+                    "customModelName": "gpt-3.5-turbo"
+                  }
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/NewTasksResponse"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ]
+        }
+      },
+      "/api/agent/analyze": {
+        "post": {
+          "tags": [
+            "agent"
+          ],
+          "summary": "Analyze Tasks",
+          "operationId": "analyze_tasks_api_agent_analyze_post",
+          "parameters": [
+            {
+              "required": false,
+              "schema": {
+                "title": "X-Organization-Id",
+                "type": "string"
+              },
+              "name": "x-organization-id",
+              "in": "header"
+            }
+          ],
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentTaskAnalyze"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Analysis"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ]
+        }
+      },
+      "/api/agent/execute": {
+        "post": {
+          "tags": [
+            "agent"
+          ],
+          "summary": "Execute Tasks",
+          "operationId": "execute_tasks_api_agent_execute_post",
+          "parameters": [
+            {
+              "required": false,
+              "schema": {
+                "title": "X-Organization-Id",
+                "type": "string"
+              },
+              "name": "x-organization-id",
+              "in": "header"
+            }
+          ],
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentTaskExecute"
+                },
+                "example": {
+                  "goal": "Perform tasks accurately",
+                  "task": "Write code to make a platformer",
+                  "analysis": {
+                    "reasoning": "I like to write code.",
+                    "action": "code",
+                    "arg": ""
+                  }
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ]
+        }
+      },
+      "/api/agent/create": {
+        "post": {
+          "tags": [
+            "agent"
+          ],
+          "summary": "Create Tasks",
+          "operationId": "create_tasks_api_agent_create_post",
+          "parameters": [
+            {
+              "required": false,
+              "schema": {
+                "title": "X-Organization-Id",
+                "type": "string"
+              },
+              "name": "x-organization-id",
+              "in": "header"
+            }
+          ],
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentTaskCreate"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/NewTasksResponse"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ]
+        }
+      },
+      "/api/agent/summarize": {
+        "post": {
+          "tags": [
+            "agent"
+          ],
+          "summary": "Summarize",
+          "operationId": "summarize_api_agent_summarize_post",
+          "parameters": [
+            {
+              "required": false,
+              "schema": {
+                "title": "X-Organization-Id",
+                "type": "string"
+              },
+              "name": "x-organization-id",
+              "in": "header"
+            }
+          ],
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentSummarize"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ]
+        }
+      },
+      "/api/agent/chat": {
+        "post": {
+          "tags": [
+            "agent"
+          ],
+          "summary": "Chat",
+          "operationId": "chat_api_agent_chat_post",
+          "parameters": [
+            {
+              "required": false,
+              "schema": {
+                "title": "X-Organization-Id",
+                "type": "string"
+              },
+              "name": "x-organization-id",
+              "in": "header"
+            }
+          ],
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentChat"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ]
+        }
+      },
+      "/api/agent/tools": {
+        "get": {
+          "tags": [
+            "agent"
+          ],
+          "summary": "Get User Tools",
+          "operationId": "get_user_tools_api_agent_tools_get",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ToolsResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/models": {
+        "get": {
+          "tags": [
+            "models"
+          ],
+          "summary": "Get Models",
+          "operationId": "get_models_api_models_get",
+          "parameters": [
+            {
+              "required": false,
+              "schema": {
+                "title": "X-Organization-Id",
+                "type": "string"
+              },
+              "name": "x-organization-id",
+              "in": "header"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "title": "Response Get Models Api Models Get",
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/ModelWithAccess"
+                    }
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ]
+        }
+      },
+      "/api/auth/organization/{name}": {
+        "get": {
+          "tags": [
+            "auth"
+          ],
+          "summary": "Organizations",
+          "operationId": "organizations_api_auth_organization__name__get",
+          "parameters": [
+            {
+              "required": true,
+              "schema": {
+                "title": "Name",
+                "type": "string"
+              },
+              "name": "name",
+              "in": "path"
+            },
+            {
+              "required": false,
+              "schema": {
+                "title": "X-Organization-Id",
+                "type": "string"
+              },
+              "name": "x-organization-id",
+              "in": "header"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/OrganizationUsers"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ]
+        }
+      },
+      "/api/auth/{provider}": {
+        "get": {
+          "tags": [
+            "auth"
+          ],
+          "summary": "Oauth Install",
+          "description": "Install an OAuth App",
+          "operationId": "oauth_install_api_auth__provider__get",
+          "parameters": [
+            {
+              "description": "OAuth Provider",
+              "required": true,
+              "schema": {
+                "title": "Provider",
+                "type": "string",
+                "description": "OAuth Provider"
+              },
+              "name": "provider",
+              "in": "path"
+            },
+            {
+              "required": false,
+              "schema": {
+                "title": "Redirect",
+                "type": "string",
+                "default": "http://localhost:3000"
+              },
+              "name": "redirect",
+              "in": "query"
+            },
+            {
+              "required": false,
+              "schema": {
+                "title": "X-Organization-Id",
+                "type": "string"
+              },
+              "name": "x-organization-id",
+              "in": "header"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "title": "Response Oauth Install Api Auth  Provider  Get",
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ]
+        }
+      },
+      "/api/auth/{provider}/uninstall": {
+        "get": {
+          "tags": [
+            "auth"
+          ],
+          "summary": "Oauth Uninstall",
+          "operationId": "oauth_uninstall_api_auth__provider__uninstall_get",
+          "parameters": [
+            {
+              "description": "OAuth Provider",
+              "required": true,
+              "schema": {
+                "title": "Provider",
+                "type": "string",
+                "description": "OAuth Provider"
+              },
+              "name": "provider",
+              "in": "path"
+            },
+            {
+              "required": false,
+              "schema": {
+                "title": "X-Organization-Id",
+                "type": "string"
+              },
+              "name": "x-organization-id",
+              "in": "header"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "title": "Response Oauth Uninstall Api Auth  Provider  Uninstall Get",
+                    "type": "object"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ]
+        }
+      },
+      "/api/auth/{provider}/callback": {
+        "get": {
+          "tags": [
+            "auth"
+          ],
+          "summary": "Oauth Callback",
+          "description": "Callback for OAuth App",
+          "operationId": "oauth_callback_api_auth__provider__callback_get",
+          "parameters": [
+            {
+              "description": "OAuth Provider",
+              "required": true,
+              "schema": {
+                "title": "Provider",
+                "type": "string",
+                "description": "OAuth Provider"
+              },
+              "name": "provider",
+              "in": "path"
+            },
+            {
+              "required": false,
+              "schema": {
+                "title": "Code",
+                "type": "string"
+              },
+              "name": "code",
+              "in": "query"
+            },
+            {
+              "required": false,
+              "schema": {
+                "title": "State",
+                "type": "string"
+              },
+              "name": "state",
+              "in": "query"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/auth/sid/info": {
+        "get": {
+          "tags": [
+            "auth"
+          ],
+          "summary": "Sid Info",
+          "operationId": "sid_info_api_auth_sid_info_get",
+          "parameters": [
+            {
+              "required": false,
+              "schema": {
+                "title": "X-Organization-Id",
+                "type": "string"
+              },
+              "name": "x-organization-id",
+              "in": "header"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "title": "Response Sid Info Api Auth Sid Info Get",
+                    "type": "object"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          },
+          "security": [
+            {
+              "HTTPBearer": []
+            }
+          ]
+        }
+      },
+      "/api/metadata": {
+        "get": {
+          "tags": [
+            "metadata"
+          ],
+          "summary": "Extract Metadata",
+          "operationId": "extract_metadata_api_metadata_get",
+          "parameters": [
+            {
+              "required": true,
+              "schema": {
+                "title": "Url",
+                "type": "string"
+              },
+              "name": "url",
+              "in": "query"
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/Metadata"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "components": {
+      "schemas": {
+        "AgentChat": {
+          "title": "AgentChat",
+          "required": [
+            "goal",
+            "run_id",
+            "message"
+          ],
+          "type": "object",
+          "properties": {
+            "goal": {
+              "title": "Goal",
+              "type": "string"
+            },
+            "model_settings": {
+              "title": "Model Settings",
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ModelSettings"
+                }
+              ],
+              "default": {
+                "model": "gpt-3.5-turbo",
+                "temperature": 0.9,
+                "max_tokens": 500,
+                "language": "English"
+              }
+            },
+            "run_id": {
+              "title": "Run Id",
+              "type": "string"
+            },
+            "message": {
+              "title": "Message",
+              "type": "string"
+            },
+            "results": {
+              "title": "Results",
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "default": []
+            }
+          }
+        },
+        "AgentRunCreate": {
+          "title": "AgentRunCreate",
+          "required": [
+            "goal"
+          ],
+          "type": "object",
+          "properties": {
+            "goal": {
+              "title": "Goal",
+              "type": "string"
+            },
+            "model_settings": {
+              "title": "Model Settings",
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ModelSettings"
+                }
+              ],
+              "default": {
+                "model": "gpt-3.5-turbo",
+                "temperature": 0.9,
+                "max_tokens": 500,
+                "language": "English"
+              }
+            }
+          }
+        },
+        "AgentSummarize": {
+          "title": "AgentSummarize",
+          "required": [
+            "goal",
+            "run_id"
+          ],
+          "type": "object",
+          "properties": {
+            "goal": {
+              "title": "Goal",
+              "type": "string"
+            },
+            "model_settings": {
+              "title": "Model Settings",
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ModelSettings"
+                }
+              ],
+              "default": {
+                "model": "gpt-3.5-turbo",
+                "temperature": 0.9,
+                "max_tokens": 500,
+                "language": "English"
+              }
+            },
+            "run_id": {
+              "title": "Run Id",
+              "type": "string"
+            },
+            "results": {
+              "title": "Results",
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "default": []
+            }
+          }
+        },
+        "AgentTaskAnalyze": {
+          "title": "AgentTaskAnalyze",
+          "required": [
+            "goal",
+            "run_id",
+            "task"
+          ],
+          "type": "object",
+          "properties": {
+            "goal": {
+              "title": "Goal",
+              "type": "string"
+            },
+            "model_settings": {
+              "title": "Model Settings",
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ModelSettings"
+                }
+              ],
+              "default": {
+                "model": "gpt-3.5-turbo",
+                "temperature": 0.9,
+                "max_tokens": 500,
+                "language": "English"
+              }
+            },
+            "run_id": {
+              "title": "Run Id",
+              "type": "string"
+            },
+            "task": {
+              "title": "Task",
+              "type": "string"
+            },
+            "tool_names": {
+              "title": "Tool Names",
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "default": []
+            }
+          }
+        },
+        "AgentTaskCreate": {
+          "title": "AgentTaskCreate",
+          "required": [
+            "goal",
+            "run_id"
+          ],
+          "type": "object",
+          "properties": {
+            "goal": {
+              "title": "Goal",
+              "type": "string"
+            },
+            "model_settings": {
+              "title": "Model Settings",
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ModelSettings"
+                }
+              ],
+              "default": {
+                "model": "gpt-3.5-turbo",
+                "temperature": 0.9,
+                "max_tokens": 500,
+                "language": "English"
+              }
+            },
+            "run_id": {
+              "title": "Run Id",
+              "type": "string"
+            },
+            "tasks": {
+              "title": "Tasks",
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "default": []
+            },
+            "last_task": {
+              "title": "Last Task",
+              "type": "string"
+            },
+            "result": {
+              "title": "Result",
+              "type": "string"
+            },
+            "completed_tasks": {
+              "title": "Completed Tasks",
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "default": []
+            }
+          }
+        },
+        "AgentTaskExecute": {
+          "title": "AgentTaskExecute",
+          "required": [
+            "goal",
+            "run_id",
+            "task",
+            "analysis"
+          ],
+          "type": "object",
+          "properties": {
+            "goal": {
+              "title": "Goal",
+              "type": "string"
+            },
+            "model_settings": {
+              "title": "Model Settings",
+              "allOf": [
+                {
+                  "$ref": "#/components/schemas/ModelSettings"
+                }
+              ],
+              "default": {
+                "model": "gpt-3.5-turbo",
+                "temperature": 0.9,
+                "max_tokens": 500,
+                "language": "English"
+              }
+            },
+            "run_id": {
+              "title": "Run Id",
+              "type": "string"
+            },
+            "task": {
+              "title": "Task",
+              "type": "string"
+            },
+            "analysis": {
+              "$ref": "#/components/schemas/Analysis"
+            }
+          }
+        },
+        "Analysis": {
+          "title": "Analysis",
+          "required": [
+            "reasoning",
+            "arg",
+            "action"
+          ],
+          "type": "object",
+          "properties": {
+            "reasoning": {
+              "title": "Reasoning",
+              "type": "string"
+            },
+            "arg": {
+              "title": "Arg",
+              "type": "string"
+            },
+            "action": {
+              "title": "Action",
+              "type": "string"
+            }
+          },
+          "description": "Arguments for the analysis function of a tool. OpenAI functions will resolve these values but leave out the action."
+        },
+        "HTTPValidationError": {
+          "title": "HTTPValidationError",
+          "type": "object",
+          "properties": {
+            "detail": {
+              "title": "Detail",
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/ValidationError"
+              }
+            }
+          }
+        },
+        "Metadata": {
+          "title": "Metadata",
+          "type": "object",
+          "properties": {
+            "title": {
+              "title": "Title",
+              "type": "string",
+              "description": "Title of the page"
+            },
+            "hostname": {
+              "title": "Hostname",
+              "type": "string",
+              "description": "Hostname of the page"
+            },
+            "favicon": {
+              "title": "Favicon",
+              "type": "string",
+              "description": "Favicon of the page"
+            }
+          }
+        },
+        "ModelSettings": {
+          "title": "ModelSettings",
+          "type": "object",
+          "properties": {
+            "model": {
+              "title": "Model",
+              "enum": [
+                "gpt-3.5-turbo",
+                "gpt-3.5-turbo-16k",
+                "gpt-4"
+              ],
+              "type": "string",
+              "default": "gpt-3.5-turbo"
+            },
+            "custom_api_key": {
+              "title": "Custom Api Key",
+              "type": "string"
+            },
+            "temperature": {
+              "title": "Temperature",
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "type": "number",
+              "default": 0.9
+            },
+            "max_tokens": {
+              "title": "Max Tokens",
+              "minimum": 0.0,
+              "type": "integer",
+              "default": 500
+            },
+            "language": {
+              "title": "Language",
+              "type": "string",
+              "default": "English"
+            }
+          }
+        },
+        "ModelWithAccess": {
+          "title": "ModelWithAccess",
+          "required": [
+            "name",
+            "max_tokens"
+          ],
+          "type": "object",
+          "properties": {
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "max_tokens": {
+              "title": "Max Tokens",
+              "type": "integer"
+            },
+            "has_access": {
+              "title": "Has Access",
+              "type": "boolean",
+              "description": "Whether the user has access to this model",
+              "default": false
+            }
+          }
+        },
+        "NewTasksResponse": {
+          "title": "NewTasksResponse",
+          "required": [
+            "run_id",
+            "newTasks"
+          ],
+          "type": "object",
+          "properties": {
+            "run_id": {
+              "title": "Run Id",
+              "type": "string"
+            },
+            "newTasks": {
+              "title": "Newtasks",
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "OrgUser": {
+          "title": "OrgUser",
+          "required": [
+            "id",
+            "role",
+            "user"
+          ],
+          "type": "object",
+          "properties": {
+            "id": {
+              "title": "Id",
+              "type": "string"
+            },
+            "role": {
+              "title": "Role",
+              "type": "string"
+            },
+            "user": {
+              "$ref": "#/components/schemas/UserBase"
+            }
+          }
+        },
+        "OrganizationRole": {
+          "title": "OrganizationRole",
+          "required": [
+            "id",
+            "role",
+            "organization_id"
+          ],
+          "type": "object",
+          "properties": {
+            "id": {
+              "title": "Id",
+              "type": "string"
+            },
+            "role": {
+              "title": "Role",
+              "type": "string"
+            },
+            "organization_id": {
+              "title": "Organization Id",
+              "type": "string"
+            }
+          }
+        },
+        "OrganizationUsers": {
+          "title": "OrganizationUsers",
+          "required": [
+            "id",
+            "name",
+            "users"
+          ],
+          "type": "object",
+          "properties": {
+            "id": {
+              "title": "Id",
+              "type": "string"
+            },
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "users": {
+              "title": "Users",
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/OrgUser"
+              }
+            }
+          }
+        },
+        "ToolModel": {
+          "title": "ToolModel",
+          "required": [
+            "name",
+            "description",
+            "color"
+          ],
+          "type": "object",
+          "properties": {
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "description": {
+              "title": "Description",
+              "type": "string"
+            },
+            "color": {
+              "title": "Color",
+              "type": "string"
+            },
+            "image_url": {
+              "title": "Image Url",
+              "type": "string"
+            }
+          }
+        },
+        "ToolsResponse": {
+          "title": "ToolsResponse",
+          "required": [
+            "tools"
+          ],
+          "type": "object",
+          "properties": {
+            "tools": {
+              "title": "Tools",
+              "type": "array",
+              "items": {
+                "$ref": "#/components/schemas/ToolModel"
+              }
+            }
+          }
+        },
+        "UserBase": {
+          "title": "UserBase",
+          "required": [
+            "id"
+          ],
+          "type": "object",
+          "properties": {
+            "id": {
+              "title": "Id",
+              "type": "string"
+            },
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "email": {
+              "title": "Email",
+              "type": "string"
+            },
+            "image": {
+              "title": "Image",
+              "type": "string"
+            },
+            "organization": {
+              "$ref": "#/components/schemas/OrganizationRole"
+            }
+          }
+        },
+        "ValidationError": {
+          "title": "ValidationError",
+          "required": [
+            "loc",
+            "msg",
+            "type"
+          ],
+          "type": "object",
+          "properties": {
+            "loc": {
+              "title": "Location",
+              "type": "array",
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  }
+                ]
+              }
+            },
+            "msg": {
+              "title": "Message",
+              "type": "string"
+            },
+            "type": {
+              "title": "Error Type",
+              "type": "string"
+            }
+          }
+        }
+      },
+      "securitySchemes": {
+        "HTTPBearer": {
+          "type": "http",
+          "scheme": "bearer"
+        }
+      }
+    }
+  },
+  "mounted_openapi": {},
+  "models": [
+    {
+      "name": "OrgUser",
+      "module": "reworkd_platform.db.crud.organization",
+      "file": "reworkd_platform/db/crud/organization.py",
+      "class_line": 18,
+      "fields": [
+        {
+          "name": "id",
+          "alias": "id",
+          "annotation": "<class 'str'>",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        },
+        {
+          "name": "role",
+          "alias": "role",
+          "annotation": "<class 'str'>",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        },
+        {
+          "name": "user",
+          "alias": "user",
+          "annotation": "<class 'reworkd_platform.schemas.user.UserBase'>",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        }
+      ]
+    },
+    {
+      "name": "OrganizationUsers",
+      "module": "reworkd_platform.db.crud.organization",
+      "file": "reworkd_platform/db/crud/organization.py",
+      "class_line": 24,
+      "fields": [
+        {
+          "name": "id",
+          "alias": "id",
+          "annotation": "<class 'str'>",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        },
+        {
+          "name": "name",
+          "alias": "name",
+          "annotation": "<class 'str'>",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        },
+        {
+          "name": "users",
+          "alias": "users",
+          "annotation": "typing.List[reworkd_platform.db.crud.organization.OrgUser]",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        }
+      ]
+    },
+    {
+      "name": "AgentChat",
+      "module": "reworkd_platform.schemas.agent",
+      "file": "reworkd_platform/schemas/agent.py",
+      "class_line": 74,
+      "fields": [
+        {
+          "name": "goal",
+          "alias": "goal",
+          "annotation": "<class 'str'>",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        },
+        {
+          "name": "model_settings",
+          "alias": "model_settings",
+          "annotation": "<class 'reworkd_platform.schemas.agent.ModelSettings'>",
+          "required": false,
+          "allow_none": false,
+          "default": "ModelSettings(model='gpt-3.5-turbo', custom_api_key=None, temperature=0.9, max_tokens=500, language='English')"
+        },
+        {
+          "name": "run_id",
+          "alias": "run_id",
+          "annotation": "<class 'str'>",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        },
+        {
+          "name": "message",
+          "alias": "message",
+          "annotation": "<class 'str'>",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        },
+        {
+          "name": "results",
+          "alias": "results",
+          "annotation": "typing.List[str]",
+          "required": false,
+          "allow_none": false,
+          "default": "[]"
+        }
+      ]
+    },
+    {
+      "name": "AgentRun",
+      "module": "reworkd_platform.schemas.agent",
+      "file": "reworkd_platform/schemas/agent.py",
+      "class_line": 48,
+      "fields": [
+        {
+          "name": "goal",
+          "alias": "goal",
+          "annotation": "<class 'str'>",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        },
+        {
+          "name": "model_settings",
+          "alias": "model_settings",
+          "annotation": "<class 'reworkd_platform.schemas.agent.ModelSettings'>",
+          "required": false,
+          "allow_none": false,
+          "default": "ModelSettings(model='gpt-3.5-turbo', custom_api_key=None, temperature=0.9, max_tokens=500, language='English')"
+        },
+        {
+          "name": "run_id",
+          "alias": "run_id",
+          "annotation": "<class 'str'>",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        }
+      ]
+    },
+    {
+      "name": "AgentRunCreate",
+      "module": "reworkd_platform.schemas.agent",
+      "file": "reworkd_platform/schemas/agent.py",
+      "class_line": 43,
+      "fields": [
+        {
+          "name": "goal",
+          "alias": "goal",
+          "annotation": "<class 'str'>",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        },
+        {
+          "name": "model_settings",
+          "alias": "model_settings",
+          "annotation": "<class 'reworkd_platform.schemas.agent.ModelSettings'>",
+          "required": false,
+          "allow_none": false,
+          "default": "ModelSettings(model='gpt-3.5-turbo', custom_api_key=None, temperature=0.9, max_tokens=500, language='English')"
+        }
+      ]
+    },
+    {
+      "name": "AgentSummarize",
+      "module": "reworkd_platform.schemas.agent",
+      "file": "reworkd_platform/schemas/agent.py",
+      "class_line": 70,
+      "fields": [
+        {
+          "name": "goal",
+          "alias": "goal",
+          "annotation": "<class 'str'>",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        },
+        {
+          "name": "model_settings",
+          "alias": "model_settings",
+          "annotation": "<class 'reworkd_platform.schemas.agent.ModelSettings'>",
+          "required": false,
+          "allow_none": false,
+          "default": "ModelSettings(model='gpt-3.5-turbo', custom_api_key=None, temperature=0.9, max_tokens=500, language='English')"
+        },
+        {
+          "name": "run_id",
+          "alias": "run_id",
+          "annotation": "<class 'str'>",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        },
+        {
+          "name": "results",
+          "alias": "results",
+          "annotation": "typing.List[str]",
+          "required": false,
+          "allow_none": false,
+          "default": "[]"
+        }
+      ]
+    },
+    {
+      "name": "AgentTaskAnalyze",
+      "module": "reworkd_platform.schemas.agent",
+      "file": "reworkd_platform/schemas/agent.py",
+      "class_line": 52,
+      "fields": [
+        {
+          "name": "goal",
+          "alias": "goal",
+          "annotation": "<class 'str'>",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        },
+        {
+          "name": "model_settings",
+          "alias": "model_settings",
+          "annotation": "<class 'reworkd_platform.schemas.agent.ModelSettings'>",
+          "required": false,
+          "allow_none": false,
+          "default": "ModelSettings(model='gpt-3.5-turbo', custom_api_key=None, temperature=0.9, max_tokens=500, language='English')"
+        },
+        {
+          "name": "run_id",
+          "alias": "run_id",
+          "annotation": "<class 'str'>",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        },
+        {
+          "name": "task",
+          "alias": "task",
+          "annotation": "<class 'str'>",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        },
+        {
+          "name": "tool_names",
+          "alias": "tool_names",
+          "annotation": "typing.List[str]",
+          "required": false,
+          "allow_none": false,
+          "default": "[]"
+        }
+      ]
+    },
+    {
+      "name": "AgentTaskCreate",
+      "module": "reworkd_platform.schemas.agent",
+      "file": "reworkd_platform/schemas/agent.py",
+      "class_line": 63,
+      "fields": [
+        {
+          "name": "goal",
+          "alias": "goal",
+          "annotation": "<class 'str'>",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        },
+        {
+          "name": "model_settings",
+          "alias": "model_settings",
+          "annotation": "<class 'reworkd_platform.schemas.agent.ModelSettings'>",
+          "required": false,
+          "allow_none": false,
+          "default": "ModelSettings(model='gpt-3.5-turbo', custom_api_key=None, temperature=0.9, max_tokens=500, language='English')"
+        },
+        {
+          "name": "run_id",
+          "alias": "run_id",
+          "annotation": "<class 'str'>",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        },
+        {
+          "name": "tasks",
+          "alias": "tasks",
+          "annotation": "typing.List[str]",
+          "required": false,
+          "allow_none": false,
+          "default": "[]"
+        },
+        {
+          "name": "last_task",
+          "alias": "last_task",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "result",
+          "alias": "result",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "completed_tasks",
+          "alias": "completed_tasks",
+          "annotation": "typing.List[str]",
+          "required": false,
+          "allow_none": false,
+          "default": "[]"
+        }
+      ]
+    },
+    {
+      "name": "AgentTaskExecute",
+      "module": "reworkd_platform.schemas.agent",
+      "file": "reworkd_platform/schemas/agent.py",
+      "class_line": 58,
+      "fields": [
+        {
+          "name": "goal",
+          "alias": "goal",
+          "annotation": "<class 'str'>",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        },
+        {
+          "name": "model_settings",
+          "alias": "model_settings",
+          "annotation": "<class 'reworkd_platform.schemas.agent.ModelSettings'>",
+          "required": false,
+          "allow_none": false,
+          "default": "ModelSettings(model='gpt-3.5-turbo', custom_api_key=None, temperature=0.9, max_tokens=500, language='English')"
+        },
+        {
+          "name": "run_id",
+          "alias": "run_id",
+          "annotation": "<class 'str'>",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        },
+        {
+          "name": "task",
+          "alias": "task",
+          "annotation": "<class 'str'>",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        },
+        {
+          "name": "analysis",
+          "alias": "analysis",
+          "annotation": "<class 'reworkd_platform.web.api.agent.analysis.Analysis'>",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        }
+      ]
+    },
+    {
+      "name": "ModelSettings",
+      "module": "reworkd_platform.schemas.agent",
+      "file": "reworkd_platform/schemas/agent.py",
+      "class_line": 28,
+      "fields": [
+        {
+          "name": "model",
+          "alias": "model",
+          "annotation": "typing.Literal['gpt-3.5-turbo', 'gpt-3.5-turbo-16k', 'gpt-4']",
+          "required": false,
+          "allow_none": false,
+          "default": "'gpt-3.5-turbo'"
+        },
+        {
+          "name": "custom_api_key",
+          "alias": "custom_api_key",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "temperature",
+          "alias": "temperature",
+          "annotation": "<class 'reworkd_platform.schemas.agent.ConstrainedFloatValue'>",
+          "required": false,
+          "allow_none": false,
+          "default": "0.9"
+        },
+        {
+          "name": "max_tokens",
+          "alias": "max_tokens",
+          "annotation": "<class 'reworkd_platform.schemas.agent.ConstrainedIntValue'>",
+          "required": false,
+          "allow_none": false,
+          "default": "500"
+        },
+        {
+          "name": "language",
+          "alias": "language",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": false,
+          "default": "'English'"
+        }
+      ]
+    },
+    {
+      "name": "NewTasksResponse",
+      "module": "reworkd_platform.schemas.agent",
+      "file": "reworkd_platform/schemas/agent.py",
+      "class_line": 79,
+      "fields": [
+        {
+          "name": "run_id",
+          "alias": "run_id",
+          "annotation": "<class 'str'>",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        },
+        {
+          "name": "new_tasks",
+          "alias": "newTasks",
+          "annotation": "typing.List[str]",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        }
+      ]
+    },
+    {
+      "name": "RunCount",
+      "module": "reworkd_platform.schemas.agent",
+      "file": "reworkd_platform/schemas/agent.py",
+      "class_line": 84,
+      "fields": [
+        {
+          "name": "count",
+          "alias": "count",
+          "annotation": "<class 'int'>",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        },
+        {
+          "name": "first_run",
+          "alias": "first_run",
+          "annotation": "<class 'datetime.datetime'>",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "last_run",
+          "alias": "last_run",
+          "annotation": "<class 'datetime.datetime'>",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        }
+      ]
+    },
+    {
+      "name": "OrganizationRole",
+      "module": "reworkd_platform.schemas.user",
+      "file": "reworkd_platform/schemas/user.py",
+      "class_line": 6,
+      "fields": [
+        {
+          "name": "id",
+          "alias": "id",
+          "annotation": "<class 'str'>",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        },
+        {
+          "name": "role",
+          "alias": "role",
+          "annotation": "<class 'str'>",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        },
+        {
+          "name": "organization_id",
+          "alias": "organization_id",
+          "annotation": "<class 'str'>",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        }
+      ]
+    },
+    {
+      "name": "UserBase",
+      "module": "reworkd_platform.schemas.user",
+      "file": "reworkd_platform/schemas/user.py",
+      "class_line": 12,
+      "fields": [
+        {
+          "name": "id",
+          "alias": "id",
+          "annotation": "<class 'str'>",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        },
+        {
+          "name": "name",
+          "alias": "name",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "email",
+          "alias": "email",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "image",
+          "alias": "image",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "organization",
+          "alias": "organization",
+          "annotation": "<class 'reworkd_platform.schemas.user.OrganizationRole'>",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        }
+      ]
+    },
+    {
+      "name": "Settings",
+      "module": "reworkd_platform.settings",
+      "file": "reworkd_platform/settings.py",
+      "class_line": 34,
+      "fields": [
+        {
+          "name": "host",
+          "alias": "host",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": false,
+          "default": "'127.0.0.1'"
+        },
+        {
+          "name": "port",
+          "alias": "port",
+          "annotation": "<class 'int'>",
+          "required": false,
+          "allow_none": false,
+          "default": "8000"
+        },
+        {
+          "name": "workers_count",
+          "alias": "workers_count",
+          "annotation": "<class 'int'>",
+          "required": false,
+          "allow_none": false,
+          "default": "1"
+        },
+        {
+          "name": "reload",
+          "alias": "reload",
+          "annotation": "<class 'bool'>",
+          "required": false,
+          "allow_none": false,
+          "default": "True"
+        },
+        {
+          "name": "environment",
+          "alias": "environment",
+          "annotation": "typing.Literal['development', 'production']",
+          "required": false,
+          "allow_none": false,
+          "default": "'development'"
+        },
+        {
+          "name": "log_level",
+          "alias": "log_level",
+          "annotation": "typing.Literal['NOTSET', 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'FATAL']",
+          "required": false,
+          "allow_none": false,
+          "default": "'INFO'"
+        },
+        {
+          "name": "secret_signing_key",
+          "alias": "secret_signing_key",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": false,
+          "default": "'JF52S66x6WMoifP5gZreiguYs9LYMn0lkXqgPYoNMD0='"
+        },
+        {
+          "name": "openai_api_base",
+          "alias": "openai_api_base",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": false,
+          "default": "'https://api.openai.com/v1'"
+        },
+        {
+          "name": "openai_api_key",
+          "alias": "openai_api_key",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": false,
+          "default": "'<Should be updated via env>'"
+        },
+        {
+          "name": "openai_api_version",
+          "alias": "openai_api_version",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": false,
+          "default": "'2023-08-01-preview'"
+        },
+        {
+          "name": "azure_openai_deployment_name",
+          "alias": "azure_openai_deployment_name",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": false,
+          "default": "'<Should be updated via env if using azure>'"
+        },
+        {
+          "name": "helicone_api_base",
+          "alias": "helicone_api_base",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": false,
+          "default": "'https://oai.hconeai.com/v1'"
+        },
+        {
+          "name": "helicone_api_key",
+          "alias": "helicone_api_key",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "replicate_api_key",
+          "alias": "replicate_api_key",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "serp_api_key",
+          "alias": "serp_api_key",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "frontend_url",
+          "alias": "frontend_url",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": false,
+          "default": "'http://localhost:3000'"
+        },
+        {
+          "name": "allowed_origins_regex",
+          "alias": "allowed_origins_regex",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "db_host",
+          "alias": "db_host",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": false,
+          "default": "'localhost'"
+        },
+        {
+          "name": "db_port",
+          "alias": "db_port",
+          "annotation": "<class 'int'>",
+          "required": false,
+          "allow_none": false,
+          "default": "3308"
+        },
+        {
+          "name": "db_user",
+          "alias": "db_user",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": false,
+          "default": "'reworkd_platform'"
+        },
+        {
+          "name": "db_pass",
+          "alias": "db_pass",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": false,
+          "default": "'reworkd_platform'"
+        },
+        {
+          "name": "db_base",
+          "alias": "db_base",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": false,
+          "default": "'reworkd_platform'"
+        },
+        {
+          "name": "db_echo",
+          "alias": "db_echo",
+          "annotation": "<class 'bool'>",
+          "required": false,
+          "allow_none": false,
+          "default": "False"
+        },
+        {
+          "name": "db_ca_path",
+          "alias": "db_ca_path",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "pinecone_api_key",
+          "alias": "pinecone_api_key",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "pinecone_index_name",
+          "alias": "pinecone_index_name",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "pinecone_environment",
+          "alias": "pinecone_environment",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "sentry_dsn",
+          "alias": "sentry_dsn",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "sentry_sample_rate",
+          "alias": "sentry_sample_rate",
+          "annotation": "<class 'float'>",
+          "required": false,
+          "allow_none": false,
+          "default": "1.0"
+        },
+        {
+          "name": "kafka_bootstrap_servers",
+          "alias": "kafka_bootstrap_servers",
+          "annotation": "typing.Union[str, typing.List[str]]",
+          "required": false,
+          "allow_none": false,
+          "default": "[]"
+        },
+        {
+          "name": "kafka_username",
+          "alias": "kafka_username",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "kafka_password",
+          "alias": "kafka_password",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "kafka_ssal_mechanism",
+          "alias": "kafka_ssal_mechanism",
+          "annotation": "typing.Literal['PLAIN', 'SCRAM-SHA-256']",
+          "required": false,
+          "allow_none": false,
+          "default": "'PLAIN'"
+        },
+        {
+          "name": "pusher_app_id",
+          "alias": "pusher_app_id",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "pusher_key",
+          "alias": "pusher_key",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "pusher_secret",
+          "alias": "pusher_secret",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "pusher_cluster",
+          "alias": "pusher_cluster",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "ff_mock_mode_enabled",
+          "alias": "ff_mock_mode_enabled",
+          "annotation": "<class 'bool'>",
+          "required": false,
+          "allow_none": false,
+          "default": "False"
+        },
+        {
+          "name": "max_loops",
+          "alias": "max_loops",
+          "annotation": "<class 'int'>",
+          "required": false,
+          "allow_none": false,
+          "default": "25"
+        },
+        {
+          "name": "sid_client_id",
+          "alias": "sid_client_id",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "sid_client_secret",
+          "alias": "sid_client_secret",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "sid_redirect_uri",
+          "alias": "sid_redirect_uri",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        }
+      ]
+    },
+    {
+      "name": "Analysis",
+      "module": "reworkd_platform.web.api.agent.analysis",
+      "file": "reworkd_platform/web/api/agent/analysis.py",
+      "class_line": 15,
+      "fields": [
+        {
+          "name": "reasoning",
+          "alias": "reasoning",
+          "annotation": "<class 'str'>",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        },
+        {
+          "name": "arg",
+          "alias": "arg",
+          "annotation": "<class 'str'>",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        },
+        {
+          "name": "action",
+          "alias": "action",
+          "annotation": "<class 'str'>",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        }
+      ]
+    },
+    {
+      "name": "AnalysisArguments",
+      "module": "reworkd_platform.web.api.agent.analysis",
+      "file": "reworkd_platform/web/api/agent/analysis.py",
+      "class_line": 6,
+      "fields": [
+        {
+          "name": "reasoning",
+          "alias": "reasoning",
+          "annotation": "<class 'str'>",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        },
+        {
+          "name": "arg",
+          "alias": "arg",
+          "annotation": "<class 'str'>",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        }
+      ]
+    },
+    {
+      "name": "WrappedAzureChatOpenAI",
+      "module": "reworkd_platform.web.api.agent.model_factory",
+      "file": "reworkd_platform/web/api/agent/model_factory.py",
+      "class_line": 20,
+      "fields": [
+        {
+          "name": "cache",
+          "alias": "cache",
+          "annotation": "<class 'bool'>",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "verbose",
+          "alias": "verbose",
+          "annotation": "<class 'bool'>",
+          "required": false,
+          "allow_none": false,
+          "default": "None"
+        },
+        {
+          "name": "callbacks",
+          "alias": "callbacks",
+          "annotation": "typing.Union[typing.List[langchain.callbacks.base.BaseCallbackHandler], langchain.callbacks.base.BaseCallbackManager, NoneType]",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "callback_manager",
+          "alias": "callback_manager",
+          "annotation": "<class 'langchain.callbacks.base.BaseCallbackManager'>",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "tags",
+          "alias": "tags",
+          "annotation": "typing.List[str]",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "metadata",
+          "alias": "metadata",
+          "annotation": "typing.Dict[str, typing.Any]",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "client",
+          "alias": "client",
+          "annotation": "typing.Any",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "model_name",
+          "alias": "model",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": false,
+          "default": "'gpt-3.5-turbo'"
+        },
+        {
+          "name": "temperature",
+          "alias": "temperature",
+          "annotation": "<class 'float'>",
+          "required": false,
+          "allow_none": false,
+          "default": "0.7"
+        },
+        {
+          "name": "model_kwargs",
+          "alias": "model_kwargs",
+          "annotation": "typing.Dict[str, typing.Any]",
+          "required": false,
+          "allow_none": false,
+          "default": "None"
+        },
+        {
+          "name": "openai_api_key",
+          "alias": "openai_api_key",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": false,
+          "default": "''"
+        },
+        {
+          "name": "openai_api_base",
+          "alias": "openai_api_base",
+          "annotation": "<class 'str'>",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        },
+        {
+          "name": "openai_organization",
+          "alias": "openai_organization",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": false,
+          "default": "''"
+        },
+        {
+          "name": "openai_proxy",
+          "alias": "openai_proxy",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": false,
+          "default": "''"
+        },
+        {
+          "name": "request_timeout",
+          "alias": "request_timeout",
+          "annotation": "typing.Union[float, typing.Tuple[float, float], NoneType]",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "max_retries",
+          "alias": "max_retries",
+          "annotation": "<class 'int'>",
+          "required": false,
+          "allow_none": false,
+          "default": "6"
+        },
+        {
+          "name": "streaming",
+          "alias": "streaming",
+          "annotation": "<class 'bool'>",
+          "required": false,
+          "allow_none": false,
+          "default": "False"
+        },
+        {
+          "name": "n",
+          "alias": "n",
+          "annotation": "<class 'int'>",
+          "required": false,
+          "allow_none": false,
+          "default": "1"
+        },
+        {
+          "name": "max_tokens",
+          "alias": "max_tokens",
+          "annotation": "<class 'int'>",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "tiktoken_model_name",
+          "alias": "tiktoken_model_name",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "deployment_name",
+          "alias": "deployment_name",
+          "annotation": "<class 'str'>",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        },
+        {
+          "name": "model_version",
+          "alias": "model_version",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": false,
+          "default": "''"
+        },
+        {
+          "name": "openai_api_type",
+          "alias": "openai_api_type",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": false,
+          "default": "''"
+        },
+        {
+          "name": "openai_api_version",
+          "alias": "openai_api_version",
+          "annotation": "<class 'str'>",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        }
+      ]
+    },
+    {
+      "name": "WrappedChatOpenAI",
+      "module": "reworkd_platform.web.api.agent.model_factory",
+      "file": "reworkd_platform/web/api/agent/model_factory.py",
+      "class_line": 11,
+      "fields": [
+        {
+          "name": "cache",
+          "alias": "cache",
+          "annotation": "<class 'bool'>",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "verbose",
+          "alias": "verbose",
+          "annotation": "<class 'bool'>",
+          "required": false,
+          "allow_none": false,
+          "default": "None"
+        },
+        {
+          "name": "callbacks",
+          "alias": "callbacks",
+          "annotation": "typing.Union[typing.List[langchain.callbacks.base.BaseCallbackHandler], langchain.callbacks.base.BaseCallbackManager, NoneType]",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "callback_manager",
+          "alias": "callback_manager",
+          "annotation": "<class 'langchain.callbacks.base.BaseCallbackManager'>",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "tags",
+          "alias": "tags",
+          "annotation": "typing.List[str]",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "metadata",
+          "alias": "metadata",
+          "annotation": "typing.Dict[str, typing.Any]",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "client",
+          "alias": "client",
+          "annotation": "typing.Any",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "model_name",
+          "alias": "model",
+          "annotation": "typing.Literal['gpt-3.5-turbo', 'gpt-3.5-turbo-16k', 'gpt-4']",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        },
+        {
+          "name": "temperature",
+          "alias": "temperature",
+          "annotation": "<class 'float'>",
+          "required": false,
+          "allow_none": false,
+          "default": "0.7"
+        },
+        {
+          "name": "model_kwargs",
+          "alias": "model_kwargs",
+          "annotation": "typing.Dict[str, typing.Any]",
+          "required": false,
+          "allow_none": false,
+          "default": "None"
+        },
+        {
+          "name": "openai_api_key",
+          "alias": "openai_api_key",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "openai_api_base",
+          "alias": "openai_api_base",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "openai_organization",
+          "alias": "openai_organization",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "openai_proxy",
+          "alias": "openai_proxy",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "request_timeout",
+          "alias": "request_timeout",
+          "annotation": "typing.Union[float, typing.Tuple[float, float], NoneType]",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "max_retries",
+          "alias": "max_retries",
+          "annotation": "<class 'int'>",
+          "required": false,
+          "allow_none": false,
+          "default": "6"
+        },
+        {
+          "name": "streaming",
+          "alias": "streaming",
+          "annotation": "<class 'bool'>",
+          "required": false,
+          "allow_none": false,
+          "default": "False"
+        },
+        {
+          "name": "n",
+          "alias": "n",
+          "annotation": "<class 'int'>",
+          "required": false,
+          "allow_none": false,
+          "default": "1"
+        },
+        {
+          "name": "max_tokens",
+          "alias": "max_tokens",
+          "annotation": "<class 'int'>",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        },
+        {
+          "name": "tiktoken_model_name",
+          "alias": "tiktoken_model_name",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        }
+      ]
+    },
+    {
+      "name": "TaskOutputParser",
+      "module": "reworkd_platform.web.api.agent.task_output_parser",
+      "file": "reworkd_platform/web/api/agent/task_output_parser.py",
+      "class_line": 8,
+      "fields": [
+        {
+          "name": "completed_tasks",
+          "alias": "completed_tasks",
+          "annotation": "typing.List[str]",
+          "required": false,
+          "allow_none": false,
+          "default": "[]"
+        }
+      ]
+    },
+    {
+      "name": "ToolModel",
+      "module": "reworkd_platform.web.api.agent.views",
+      "file": "reworkd_platform/web/api/agent/views.py",
+      "class_line": 120,
+      "fields": [
+        {
+          "name": "name",
+          "alias": "name",
+          "annotation": "<class 'str'>",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        },
+        {
+          "name": "description",
+          "alias": "description",
+          "annotation": "<class 'str'>",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        },
+        {
+          "name": "color",
+          "alias": "color",
+          "annotation": "<class 'str'>",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        },
+        {
+          "name": "image_url",
+          "alias": "image_url",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        }
+      ]
+    },
+    {
+      "name": "ToolsResponse",
+      "module": "reworkd_platform.web.api.agent.views",
+      "file": "reworkd_platform/web/api/agent/views.py",
+      "class_line": 127,
+      "fields": [
+        {
+          "name": "tools",
+          "alias": "tools",
+          "annotation": "typing.List[reworkd_platform.web.api.agent.views.ToolModel]",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        }
+      ]
+    },
+    {
+      "name": "Metadata",
+      "module": "reworkd_platform.web.api.metadata",
+      "file": "reworkd_platform/web/api/metadata.py",
+      "class_line": 14,
+      "fields": [
+        {
+          "name": "title",
+          "alias": "title",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "hostname",
+          "alias": "hostname",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        },
+        {
+          "name": "favicon",
+          "alias": "favicon",
+          "annotation": "<class 'str'>",
+          "required": false,
+          "allow_none": true,
+          "default": "None"
+        }
+      ]
+    },
+    {
+      "name": "ModelWithAccess",
+      "module": "reworkd_platform.web.api.models.views",
+      "file": "reworkd_platform/web/api/models/views.py",
+      "class_line": 13,
+      "fields": [
+        {
+          "name": "name",
+          "alias": "name",
+          "annotation": "<class 'str'>",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        },
+        {
+          "name": "max_tokens",
+          "alias": "max_tokens",
+          "annotation": "<class 'int'>",
+          "required": true,
+          "allow_none": false,
+          "default": null
+        },
+        {
+          "name": "has_access",
+          "alias": "has_access",
+          "annotation": "<class 'bool'>",
+          "required": false,
+          "allow_none": false,
+          "default": "False"
+        }
+      ]
+    }
+  ]
+}

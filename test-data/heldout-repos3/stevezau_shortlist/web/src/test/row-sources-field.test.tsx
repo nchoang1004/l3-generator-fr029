@@ -1,0 +1,137 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { useState } from "react";
+import { MemoryRouter } from "react-router";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import { RowSourcesField } from "@/components/rows/row-sources-field";
+import type { Settings } from "@/lib/types";
+
+const { getSettings } = vi.hoisted(() => ({ getSettings: vi.fn() }));
+
+vi.mock("@/lib/api", () => ({
+  api: { getSettings: () => getSettings() },
+}));
+
+function renderField(value: string[], onChange: (next: string[]) => void) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter>
+        <RowSourcesField value={value} onChange={onChange} />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
+/** The real thing: a parent that actually holds the row's draft, as the row editor does. */
+function renderLive(initial: string[]) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  function Harness() {
+    const [value, setValue] = useState(initial);
+    return <RowSourcesField value={value} onChange={setValue} />;
+  }
+  render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter>
+        <Harness />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
+const aiSwitch = () =>
+  screen.getByLabelText(/Enable Web search — what to watch next for this row/i);
+
+describe("RowSourcesField", () => {
+  beforeEach(() => {
+    getSettings.mockReset();
+    getSettings.mockResolvedValue({} as Settings);
+  });
+
+  it("shows the inherit message and no source switches when empty (global default)", () => {
+    renderField([], () => {});
+    expect(screen.getByText(/uses the sources you enabled in/i)).toBeTruthy();
+    expect(screen.queryByLabelText(/for this row/i)).toBeNull();
+  });
+
+  it("links the inherit message to where the global sources are set, under their name since the Settings split", () => {
+    renderField([], () => {});
+    expect(
+      screen.getByRole("link", { name: "Settings → Defaults → Title sources" }),
+    ).toHaveAttribute("href", "/settings/defaults#sources");
+  });
+
+  it("reveals per-source switches when the row overrides sources", () => {
+    renderField(["tmdb_similar"], () => {});
+    // The custom mode renders a switch per known source, each labelled "…for this row".
+    expect(
+      screen.getByLabelText(/Enable TMDB — similar titles for this row/i),
+    ).toBeTruthy();
+    expect(
+      screen.getByLabelText(/Enable Trakt — related titles for this row/i),
+    ).toBeTruthy();
+  });
+
+  it("keeps a source whose dependency isn't met (intent) and shows what's needed — never strips it", async () => {
+    // No curator and no backend key, but the row carries llm_web. Intent model: it's kept (not
+    // stripped), the toggle stays usable and ON, and a note explains the missing dependency (fixed
+    // globally, not per-row). The note names the BACKEND, not the AI provider — Exa needs no AI, so
+    // leading with "needs an AI provider" pointed at the wrong gap.
+    const onChange = vi.fn();
+    renderField(["tmdb_similar", "llm_web"], onChange);
+
+    await waitFor(() => expect(aiSwitch()).not.toBeDisabled());
+    expect(aiSwitch()).toBeChecked(); // still on — intent preserved
+    expect(onChange).not.toHaveBeenCalled(); // NOT auto-stripped
+    expect(
+      screen.getByText(/Needs Claude, GPT, or Gemini/i),
+    ).toBeInTheDocument();
+  });
+
+  it("shows no AI-source dependency note once its backend is fully set up", async () => {
+    getSettings.mockResolvedValue({ "curator.provider": "anthropic" });
+    const onChange = vi.fn();
+    renderField(["llm_web"], onChange);
+
+    await waitFor(() => expect(aiSwitch()).not.toBeDisabled());
+    expect(
+      screen.queryByText(/Needs an AI provider to choose titles/i),
+    ).toBeNull();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("locks the switches until it knows which sources this setup can run", () => {
+    getSettings.mockReturnValue(new Promise(() => {})); // settings still in flight
+    renderField(["tmdb_similar"], () => {});
+    // Briefly-live toggles let an owner turn on a source their setup can't actually run.
+    expect(aiSwitch()).toBeDisabled();
+    expect(
+      screen.getByLabelText(/Enable TMDB — similar titles for this row/i),
+    ).toBeDisabled();
+  });
+
+  it("says the row has fallen back to the global set when Custom is left with nothing ticked", async () => {
+    renderLive(["tmdb_similar"]);
+
+    await userEvent.click(
+      screen.getByLabelText(/Enable TMDB — similar titles for this row/i),
+    );
+
+    // It used to snap silently back to the global view, switches and all.
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      /falls back to the sources you switched on in Settings → Defaults → Title sources/i,
+    );
+    expect(
+      screen.getByRole("link", { name: "Settings → Defaults → Title sources" }),
+    ).toHaveAttribute("href", "/settings/defaults#sources");
+    expect(
+      screen.getByLabelText(/Enable TMDB — similar titles for this row/i),
+    ).toBeTruthy();
+  });
+});

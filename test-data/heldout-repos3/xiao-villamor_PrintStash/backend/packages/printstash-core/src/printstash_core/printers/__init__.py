@@ -1,0 +1,67 @@
+"""Public printer-provider contract surface."""
+
+from .catalog import (
+    PROVIDER_DEFINITIONS,
+    SETUP_OPTIONS,
+    ConfigField,
+    ConfigValueKind,
+    ProviderDefinition,
+    SetupOption,
+    catalog_document,
+)
+from .contracts import (
+    ArtifactCaptureClient,
+    PrinterClient,
+    ProviderFactory,
+    SnapshotCallback,
+)
+from .models import (
+    BambuConfig,
+    Capability,
+    ElegooCentauriConfig,
+    MaterialSlotSnapshot,
+    MoonrakerConfig,
+    OctoPrintConfig,
+    PrintArtifactFormat,
+    PrinterConfig,
+    PrinterSnapshot,
+    PrintSnapshot,
+    ProviderCapabilities,
+    ProviderError,
+    ProviderId,
+    PrusaLinkConfig,
+    TemperatureSnapshot,
+    ToolSnapshot,
+)
+from .registry import ProviderRegistry
+
+__all__ = [
+    "ArtifactCaptureClient",
+    "BambuConfig",
+    "Capability",
+    "ConfigField",
+    "ConfigValueKind",
+    "ElegooCentauriConfig",
+    "MoonrakerConfig",
+    "MaterialSlotSnapshot",
+    "OctoPrintConfig",
+    "PrintArtifactFormat",
+    "PROVIDER_DEFINITIONS",
+    "PrinterClient",
+    "PrinterConfig",
+    "PrinterSnapshot",
+    "PrintSnapshot",
+    "ProviderCapabilities",
+    "ProviderDefinition",
+    "ProviderError",
+    "ProviderFactory",
+    "ProviderId",
+    "ProviderRegistry",
+    "PrusaLinkConfig",
+    "SETUP_OPTIONS",
+    "SetupOption",
+    "SnapshotCallback",
+    "TemperatureSnapshot",
+    "ToolSnapshot",
+    "catalog_document",
+]

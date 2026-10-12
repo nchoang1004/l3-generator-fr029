@@ -1,0 +1,252 @@
+# Libs
+# import json  # JSON
+
+from fastapi import APIRouter  # , HTTPException  # FastAPI
+
+# Application
+# from core.redis_async import redis  # Core: Redis
+from schemas.price import PriceItem, PriceCategory  # Schema: Price
+from scrap.tgju import (
+    get_currency_prices,
+    get_gold_prices,
+    get_oil_prices,
+)  # Scrap: TGJU
+
+# Router
+router = APIRouter(
+    prefix="/price",
+    tags=["Price"],
+)
+
+
+@router.get("/currency", response_model=list[PriceItem])
+async def currency():
+    """
+    ### Example:
+
+    Here I put an example for you.
+
+    ```json
+    [
+        {
+            "title": "دلار",
+            "price": "1,872,000",
+            "key": "price_dollar_rl",
+            "status": "low",
+            "low_price": "1,868,800",
+            "high_price": "1,892,000"
+        },
+        {
+            "title": "یورو",
+            "price": "2,133,000",
+            "key": "price_eur",
+            "status": "low",
+            "low_price": "2,129,600",
+            "high_price": "2,156,300"
+        },
+        {
+            "title": "درهم امارات",
+            "price": "511,680",
+            "key": "price_aed",
+            "status": "low",
+            "low_price": "510,860",
+            "high_price": "520,240"
+        },
+        {
+            "title": "دینار کویت",
+            "price": "6,051,300",
+            "key": "price_kwd",
+            "status": "low",
+            "low_price": "6,024,800",
+            "high_price": "6,097,600"
+        },
+        {
+            "title": "روبل روسیه",
+            "price": "23,960",
+            "key": "price_rub",
+            "status": "low",
+            "low_price": "23,920",
+            "high_price": "24,220"
+        }
+    ]
+    ```
+    """
+
+    # data = await redis.get("tgju:currency")
+
+    # if data == None:
+    #     raise HTTPException(
+    #         status_code=503,
+    #         detail="Currency price cache is unavailable.",
+    #     )
+
+    # prices = json.loads(data)
+
+    # response = [PriceItem.model_validate(item) for item in prices]
+
+    # return response
+
+    return await get_currency_prices()
+
+
+@router.get("/gold", response_model=list[PriceCategory])
+async def gold():
+    """
+    ### Example:
+
+    Here I put an example for you.
+
+    ```json
+    [
+        {
+            "title": "قیمت طلا",
+            "prices": [
+                {
+                    "title": "طلای 18 عیار / 750",
+                    "price": "180,523,000",
+                    "key": "geram18",
+                    "status": "low",
+                    "low_price": "178,690,000",
+                    "high_price": "182,568,000"
+                },
+                {
+                    "title": "طلای 18 عیار / 740",
+                    "price": "178,116,000",
+                    "key": "gold_740k",
+                    "status": "low",
+                    "low_price": "176,308,000",
+                    "high_price": "180,134,000"
+                },
+                {
+                    "title": "طلای ۲۴ عیار",
+                    "price": "240,695,000",
+                    "key": "geram24",
+                    "status": "low",
+                    "low_price": "238,251,000",
+                    "high_price": "243,422,000"
+                },
+                {
+                    "title": "طلای دست دوم",
+                    "price": "178,116,050",
+                    "key": "gold_mini_size",
+                    "status": "low",
+                    "low_price": "176,307,540",
+                    "high_price": "180,134,120"
+                }
+            ]
+        }
+    ]
+    ```
+    """
+
+    # data = await redis.get("tgju:gold")
+
+    # if data == None:
+    #     raise HTTPException(
+    #         status_code=503,
+    #         detail="Gold price cache is unavailable.",
+    #     )
+
+    # prices = json.loads(data)
+
+    # response = [PriceCategory.model_validate(item) for item in prices]
+
+    # return response
+
+    return await get_gold_prices()
+
+
+@router.get("/oil", response_model=list[PriceCategory])
+async def oil():
+    """
+    ### Example:
+
+    Here I put an example for you.
+
+    ```json
+    [
+      {
+        "title": "نفت و انرژی",
+        "prices": [
+          {
+            "title": "نفت برنت",
+            "price": "98.341",
+            "key": "energy-brent-oil",
+            "status": "high",
+            "low_price": "96.803",
+            "high_price": "99.162"
+          },
+          {
+            "title": "نفت خام (WTI)",
+            "price": "94.349",
+            "key": "energy-crude-oil",
+            "status": "high",
+            "low_price": "92.206",
+            "high_price": "94.585"
+          }
+        ]
+      },
+      {
+        "title": "نفت آمریکا",
+        "prices": []
+      },
+      {
+        "title": "نفت ایران",
+        "prices": []
+      },
+      {
+        "title": "انرژی",
+        "prices": [
+          {
+            "title": "برق بریتانیا",
+            "price": "141.78",
+            "key": "commodities-gbrelepri-com",
+            "status": "high",
+            "low_price": "141.78",
+            "high_price": "141.78"
+          },
+          {
+            "title": "انرژی بادی",
+            "price": "23.67",
+            "key": "انرژی-باد",
+            "status": null,
+            "low_price": "23.64",
+            "high_price": "23.78"
+          },
+          {
+            "title": "انرژی هسته ای",
+            "price": "46.32",
+            "key": "nuclear_energy",
+            "status": "high",
+            "low_price": "46.32",
+            "high_price": "46.68"
+          },
+          {
+            "title": "انرژی خورشیدی",
+            "price": "48.04",
+            "key": "solar_energy",
+            "status": "high",
+            "low_price": "48.04",
+            "high_price": "48.04"
+          }
+        ]
+      }
+    ]
+    ```
+    """
+
+    # data = await redis.get("tgju:oil")
+
+    # if data == None:
+    #     raise HTTPException(
+    #         status_code=503,
+    #         detail="Oil price cache is unavailable.",
+    #     )
+
+    # prices = json.loads(data)
+
+    # response = [PriceCategory.model_validate(item) for item in prices]
+
+    # return response
+
+    return await get_oil_prices()

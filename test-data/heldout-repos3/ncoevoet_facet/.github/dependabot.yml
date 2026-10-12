@@ -1,0 +1,97 @@
+version: 2
+updates:
+  # ---- Python (root: requirements.txt + pyproject.toml) ----
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "build(deps)"
+    groups:
+      python-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    ignore:
+      # Transitive sub-dependencies whose version is dictated by a parent's exact
+      # pin/range: pydantic-core by pydantic, mpmath by sympy, tokenizers by
+      # transformers. Bumping them on their own in requirements.lock.txt makes the
+      # lock unresolvable (`pip install -r requirements.lock.txt` fails outright,
+      # breaking the Docker build) — the whole #59 group was uninstallable for this
+      # reason. Let the parent bump carry them; add any new offender the same way.
+      - dependency-name: "pydantic-core"
+      - dependency-name: "mpmath"
+      - dependency-name: "tokenizers"
+      # sympy is dictated by the Docker BASE IMAGE's torch, not by this repo, and
+      # the two locks disagree deliberately: 1.13.1 for the torch 2.6.0 legacy CUDA
+      # image (which requires it exactly) and 1.14.0 for the torch 2.11.0 CUDA and
+      # CPU images (which require >=1.13.3). Bumping either makes pip settle the
+      # conflict by REPLACING the base image's torch with a PyPI build — a dry-run
+      # of the 1.13.1 lock against the 2.11.0 base plans torch 2.6.0 plus 13 CUDA
+      # 12.4 wheels. This pin moves only when the base image does (issue #119).
+      - dependency-name: "sympy"
+      # Majors are a deliberate, verified upgrade — never auto-propose them.
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
+
+  # ---- Angular client (client/: package.json + package-lock.json) ----
+  - package-ecosystem: "npm"
+    directory: "/client"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "build(deps)"
+      prefix-development: "build(deps-dev)"
+    groups:
+      angular:
+        patterns:
+          - "@angular*"
+          - "angular-eslint"
+        update-types:
+          - "minor"
+          - "patch"
+      npm-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+    ignore:
+      # Majors are a deliberate, verified upgrade — never auto-propose them. Covers
+      # the Angular 21->22 framework migration (a lone @angular/* major breaks
+      # lockstep peer resolution) and typescript (pinned <6.0 by Angular's peers).
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
+
+  # ---- GitHub Actions workflows ----
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "ci(deps)"
+    groups:
+      actions-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # ---- Docker base images (Dockerfile) ----
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "build(deps)"
+    ignore:
+      # CUDA/cudnn/torch combo is hand-matched to the GPU stack — never auto-bump.
+      - dependency-name: "pytorch/pytorch"
+      # Base-image majors are a deliberate build decision — keep majors pinned,
+      # take only patch/minor rebuilds (e.g. alpine security rebuilds of node).
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"

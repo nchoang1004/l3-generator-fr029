@@ -1,0 +1,390 @@
+# Provider Support
+
+Printer compatibility and storage compatibility use the same evidence rule:
+automated protocol tests do not silently become a hardware or appliance
+certification claim.
+
+PrintStash is Moonraker/Klipper-first. Other printer providers can exist, but
+they must make unsupported actions explicit in the API and UI.
+
+## Material and tool state
+
+Every provider supports operator-managed tools and material feeds in PrintStash.
+Printer groups remain stable routing/location labels and are never treated as
+loaded-filament state. Unknown material state remains schedulable for backward
+compatibility; a proven material or nozzle mismatch requires confirmation for a
+direct/manual print and is excluded from safe automatic routing. Color is shown
+as an advisory only.
+
+- Bambu LAN reports AMS trays, empty trays, the external spool feed, colors, and
+  the installed nozzle when firmware includes it. Incremental MQTT reports are
+  merged with the last full state. Provider state becomes stale while offline.
+- Moonraker reports the single active Spoolman spool ID configured through its
+  integration. PrintStash resolves material/color only when the same spool is
+  available from PrintStash's configured Spoolman inventory. This state is
+  labelled externally tracked because it is operator/macro managed, not a
+  physical filament sensor.
+- PrusaLink, OctoPrint, and Elegoo feeds are manual in this release.
+
+Provider synchronization can be disabled per printer. Manual state is never
+deleted by a provider failure and remains valid until an operator changes it.
+
+## Moonraker / Klipper
+
+Support level: stable.
+
+Current behavior:
+
+- live printer status over WebSocket
+- upload Vault G-code to Moonraker
+- optionally start a just-uploaded file
+- pause, resume, and cancel active prints
+- sync remote G-code file inventory
+- start an already-present remote G-code file
+- import matching print-history entries into a model's print history
+
+Recommended smoke test:
+
+1. Register a Moonraker printer with its reachable LAN URL.
+2. Open the printer detail page and verify status changes.
+3. Sync printer files.
+4. Send a small known-good G-code file without auto-start.
+5. Start, pause, resume, and cancel only on a printer where that is safe.
+
+## Bambu LAN
+
+Support level: beta.
+
+Current behavior:
+
+- local status polling
+- upload plain-text Vault G-code over LAN FTPS
+- explicitly start a just-uploaded G-code file; upload alone never starts it
+- pause, resume, and cancel controls
+- record externally-started jobs with the task, subtask, project, profile,
+  plate, layer, nozzle, and G-code identity fields the printer actually reports
+- best-effort archive of an external G-code or project 3MF while it remains in
+  the printer's FTPS cache; the history labels whether the exact artifact was
+  archived or only printer-reported metadata is available
+
+Safety rules:
+
+- PrintStash checks that the printer is idle before a Bambu Vault send.
+- Start requires the user to select **Start print immediately** in the send
+  dialog; the default is upload-only.
+- Upload and start remain beta until validated against more firmware versions.
+
+Not supported:
+
+- remote file inventory
+- delete remote files
+- raw G-code controls
+- measured filament consumption
+- cloud printer control
+
+External-job recovery is deliberately evidence-based. MQTT does not provide a
+complete slicer profile, so PrintStash never invents scale, orientation, wall,
+infill, or support settings. Cache entries can disappear before retrieval, and
+cloud-originated jobs may not expose a LAN path at all; those jobs remain useful
+metadata-only history. FTPS cache capture is bounded by
+`VAULT_BAMBU_EXTERNAL_CAPTURE_MAX_MB` (256 MiB by default; `0` disables it). Bambu's
+FTPS endpoint uses a device-local self-signed certificate, so the stored SHA-256
+proves the captured bytes stay unchanged after ingestion, not the authenticity
+of their transport.
+
+The API exposes this through provider capabilities and diagnostics. The UI labels
+Bambu LAN as beta and disables unsupported actions.
+
+## PrusaLink
+
+Support level: beta.
+
+PrintStash connects directly to PrusaLink on the local network; it does not
+send printer credentials or jobs through Prusa Connect cloud. Supported:
+
+- HTTP Digest username/password authentication on modern PrusaLink
+- legacy `X-Api-Key` authentication
+- storage discovery across Raspberry Pi (`/local` or `/sdcard`) and Buddy
+  firmware (`/usb`) layouts, including Core One
+- polled printer/job status and temperatures
+- streamed Vault upload and explicit start for plain-text G-code and validated
+  PrusaSlicer binary G-code (`.bgcode`)
+- remote G-code inventory and deletion
+- pause, resume, and cancel controls
+
+Raw G-code commands and measured filament consumption are not supported.
+BGCODE is validated locally before transfer, keeps its `.bgcode` suffix, and is
+uploaded as `application/octet-stream`; upload never implies start. Other
+providers remain plain-text-only until their capability contract declares
+otherwise. The integrated [BGCODE v1 toolpath preview](bgcode-preview.md)
+converts a temporary copy; downloads and printer uploads retain the original bytes.
+Physical-printer coverage is still expanding, so supervise first prints after
+adding or updating a PrusaLink device.
+
+## OctoPrint
+
+Support level: beta.
+
+PrintStash connects to an OctoPrint/OctoPi instance on the local network
+using an `X-Api-Key`. Supported:
+
+- polled printer/job status and temperatures
+- G-code upload and explicit start of an existing file
+- remote G-code inventory and deletion
+- pause, resume, and cancel controls
+
+Raw G-code commands and measured filament consumption are not supported.
+Physical-printer coverage is still expanding, so supervise first prints after
+adding or updating an OctoPrint device.
+
+## Elegoo Neptune 4 family
+
+Neptune 4, 4 Pro, 4 Plus, and 4 Max use the Moonraker provider through a
+dedicated setup preset. This intentionally avoids a second implementation of
+the same Klipper/Moonraker protocol. PrintStash does not install or update
+Elegoo firmware and sends no vendor-specific maintenance macros.
+
+Other Elegoo families are not implied by this Neptune preset; native Centauri
+support is documented separately below.
+
+## Elegoo Centauri Carbon
+
+Support level: beta.
+
+- Original Centauri Carbon: local SDCP v3 over WebSocket port 3030; no
+  authentication. Saving the mainboard ID is needed for reliable command paths:
+  firmware announcements become intermittent while idle and may be absent while
+  idle, paused, or errored. HTTP upload itself does not use the ID.
+- Centauri Carbon 2: authenticated local MQTT on port 1883. Enable **LAN Only**
+  in printer network settings and enter the access code shown by the printer.
+- Both models: live status, temperatures, progress, upload, start of a file
+  already on printer storage, pause, resume, and cancel.
+- Upload runs over plain HTTP (CC1: chunked multipart POST, 1 MiB chunks; CC2:
+  chunked PUT with `Content-Range`), independent of the SDCP/MQTT control
+  channel used for status and print control.
+
+File inventory/deletion, raw G-code, print-history import, and measured
+consumption are not advertised. Original Carbon file-list probes can terminate
+its printer daemon when sent with an empty payload; Carbon 2's documented
+file-list request does not answer on validated firmware. PrintStash therefore
+never probes those operations.
+
+Upload is advertised for both models, but only CC1's path has any real-world
+confirmation. A community report (PR #62) first exercised `pycentauri` 0.9.1's
+`upload_cc1()` and control-enabled connection directly, then ran PrintStash
+0.11.3 from source in an isolated instance against the same physical CC1. Live
+status/model detection and an upload-only Vault send completed through
+PrintStash's service layer, credential retrieval, capability gate, and ingest
+to send path; an independent SDCP listing confirmed the file on printer
+storage and the printer remained idle. Start, pause/resume/cancel, and
+reconnect-while-paused were not exercised because that printer could not start
+a job due to a separate hardware filament-runout fault, so this is still a
+partial hardware smoke rather than a complete Validation Log entry. CC2's
+upload path (`upload_cc2`, PUT with `Content-Range`) has no real-hardware report.
+
+## Hardware Validation Log
+
+Automated tests cover protocol logic against mocked transports; they don't
+prove a given printer model/firmware combination actually behaves this way.
+Entries below are added only after someone runs the relevant smoke test (see
+per-provider sections above, and the Printers section of
+[`manual-testing.md`](./manual-testing.md)) against real hardware — this is
+not a checklist to pre-fill.
+
+| Provider | Model | Firmware | Date | Tester | Result | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| _(none yet)_ | | | | | | |
+
+Before tagging a release that touches a provider, either add a row here from
+a real test or carry forward the "still needs real-world hardware
+validation" note in `docs/known-limitations.md` — don't leave it silently
+implied as done.
+
+The issue #69 MQTT fixes and issue #70 external-artifact capture still need a
+real Bambu firmware validation entry before either can be described as stable.
+
+## Diagnostics
+
+Use:
+
+```bash
+curl http://localhost:8000/api/v1/printers/<printer-id>/diagnostics
+```
+
+The response reports provider support level, capabilities, unsupported actions,
+configuration checks, and live-status connectivity checks without returning stored
+secrets.
+
+## Model-Level History
+
+Moonraker print-history import is model-scoped. PrintStash matches recent
+Moonraker history entries to the model's known G-code filenames, records new
+matches as `printer_history` jobs, and skips already-imported remote filenames.
+
+## Storage And Library-source Compatibility
+
+Storage actions report separate guarantees for `catalog_purge`,
+`physical_delete`, `automatic_retention` and `gc_witness`. Guarded Vault catalog
+removal requires confirmation and retains bytes that cannot be safely deleted.
+Library source originals remain read-only. A backup with no supported exact
+deletion operation keeps both its archive and ownership record; its row explains
+why automatic retention is unavailable.
+
+The provider catalogue reports each use separately. Installing the optional
+dependency, compiling its transport service and supporting a use are prerequisites
+for configuring it; they do not prove endpoint behavior. A connection probe
+reports which access or listing operation it exercised. GC still verifies the
+archive and current independence evidence during approval and finalization.
+
+Administrator-facing reason codes include `storage_dependency_missing`,
+`storage_service_not_compiled`, `storage_use_unsupported`,
+`storage_exact_delete_unavailable`, `storage_retention_unsupported` and
+`storage_independent_backup_required`. The UI translates these into the action
+available and the bytes that remain.
+
+There are three storage roles:
+
+- **Managed Vault storage** contains bytes PrintStash owns and may eventually
+  delete through capability and ownership checks.
+- **Library sources** contain user-owned bytes PrintStash indexes but never
+  deletes. S3, WebDAV, SFTP and Google Drive sources are read-only.
+- **Backup destinations** receive replicas after the local archive commits.
+  They never inherit managed-Vault deletion authority.
+
+`Contract` means the production client runs against a real service over a real
+loopback/network socket in the automated suite. `Operator validation` means the
+same release has been exercised on the named public service or appliance.
+
+| Interface or service | Role | Automated evidence | Operator validation | Claim |
+| --- | --- | --- | --- | --- |
+| POSIX local filesystem | Managed and mounted source | Integration tests cover create-only publication, identity, pinned reads, root replacement and missing/empty roots | Default development and Compose path | Stable on a local filesystem; runtime tier still decides destructive capability |
+| Mounted SMB/NFS/FUSE | Mounted source; managed storage is possible but may lose Verified semantics | Fail-closed filesystem classification and root-marker tests; no real SMB/NFS server in the contract lane | No appliance matrix yet | Supported as a mounted source; rely on scheduled scans and measured tier |
+| S3-compatible, SeaweedFS | Managed, read-only source and backup destination | Real service contract covers native managed storage; Library sources and new backup profiles use OpenDAL | CI service only | Protocol-contract validated |
+| Amazon S3 | Managed, read-only source and backup destination | Native managed adapter plus OpenDAL unit cases for region/address style/version identity | No release validation log yet | Compatible by protocol, not live-service certified |
+| Other S3-compatible services (MinIO, R2, B2, Wasabi, NAS object stores) | Managed, read-only source and backup destination | Native managed-storage contract plus OpenDAL source/replica tests | No complete public-service matrix | Beta compatibility; configure exact region, endpoint and address style |
+| Nextcloud WebDAV | Managed and read-only source | Real Nextcloud contract through the production OpenDAL adapter, including paged source discovery | Containerized contract service | Protocol-contract validated; appliance deployment remains beta |
+| Generic WebDAV | Managed and read-only source | Pinned Nextcloud and WsgiDAV contracts plus adapter edge cases | Conditional cleanup evidence matrix | Beta protocol compatibility |
+| OpenSSH SFTP | Managed, read-only source and backup destination | Real OpenSSH contract through the production adapter; remote-only API backup probe, listing, verification and byte-matching restore | Containerized contract service | Protocol-contract validated |
+| NAS SFTP | Managed, read-only source and backup destination | OpenSSH protocol contract | No model/firmware matrix | Beta protocol compatibility; pinned host key required |
+| Google Drive | Read-only source and backup destination | OpenDAL configuration, discovery, hash-verified restore and fail-closed retention tests | No live Google account validation | Beta; automatic remote retention and Vault-GC witness are disabled |
+
+| Unraid, Synology DSM, TrueNAS SCALE, OpenMediaVault, QNAP QTS/QuTS, CasaOS/ZimaOS, Proxmox VE | Mounted source or host for a remote profile | The interface contracts above | No complete appliance validation rows | Installation recipes, not certification |
+
+GC approval requires a recently verified, compatible backup with current evidence
+of a failure domain independent of the Vault. Storage locator hashes and profile
+names do not prove independence. Recognized S3 endpoints conservatively group
+targets by provider; separate buckets, regions, or accounts at that provider do
+not establish an independent failure domain. The existing native S3 backup
+destination remains the supported witness path.
+
+For custom endpoints, administrators can inspect `GET /api/v1/storage/targets`
+and declare a domain with `PUT /api/v1/storage/targets/{target_ref}/failure-domain`
+and a body such as `{"failure_domain":"off-site-nas"}`. Use the same domain name
+for targets sharing hardware, a site, or another dependency whose failure could
+lose both copies. Missing declarations leave custom targets ineligible. A
+declaration is bound to the returned target identity and cannot override known
+shared storage. Delete that declaration through the same path to withdraw it.
+
+Changing a target or its declaration invalidates previously approved GC evidence.
+Approved plans created before this evidence was recorded need a new preview and
+approval. Historical backups remain listable and recoverable; upgrading does not
+backfill independence claims or change ownership and archive locators.
+
+The [Library Sources guide](./library-sources.md) gives platform recipes and a
+disposable-data validation checklist. First-party platform citations are
+recorded in [the NAS evidence note](./research/nas-library-source-evidence.md).
+
+### Storage validation log
+
+Add a row only after recording the exact provider/appliance, version,
+filesystem, protocol, auth mode and the release-validation checklist result.
+
+| Provider or appliance | Version/model | Protocol/filesystem | Date | Tester | Result | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| SeaweedFS contract container | Pinned CI image | S3 | 2026-08-31 | Automated contract | Pass | Production native S3 managed-storage path; OpenDAL source/backup validation remains pending |
+| Nextcloud contract container | Pinned CI image | WebDAV | 2026-08-31 | Automated contract | Pass | Production OpenDAL adapter, including discovery cursor |
+| OpenSSH contract container | Pinned CI image | SFTP | 2026-08-31 | Automated contract | Pass | Production adapter and pinned-host-key rejection |
+| _(no physical NAS validation yet)_ | | | | | | |
+
+
+### Backup deletion and retention
+
+Backup recovery and backup deletion have separate requirements. An archive can remain listable and recoverable while its destination cannot safely delete its exact owned object. Such deletion requests return `409 backup_exact_delete_unsupported`, even when the administrator confirms storage risk. Bytes and ownership evidence remain intact.
+
+OpenDAL backup destinations require an immutable object version and compiled version-deletion support. Empty and S3 `null` versions are mutable and do not qualify. Native S3 backups also require an immutable version. An ETag identifies content and can recur after replacement, so it cannot authorize delayed exact deletion. Enable bucket versioning before creating archives; enabling it later does not add immutable versions to existing receipts. Automatic retention leaves unsupported replicas in place without repeating provider-error warnings. The backup operation explanation remains visible until the destination supports safe deletion.
+
+### Remote transport contracts
+
+Remote Library sources and backup replicas share typed streaming adapters:
+OpenDAL for S3, WebDAV and Google Drive, and AsyncSSH for SFTP. Closing a reader
+or directory iterator releases its acquired handles, including on early exit,
+cancellation and transport failure. Source reads preserve available metadata,
+reject incomplete content, and verify stability before indexing.
+
+Replica publication is distinct from managed create-only publication. WebDAV
+uses a staged no-overwrite MOVE; SFTP uses exclusive creation, which prevents a
+competing writer from replacing the winner but can expose the winning upload
+before completion. Google Drive remains a replica/source transport and does not
+promise atomic managed creation. Exact deletion remains a separate, narrowly
+advertised operation. These contracts do not promote provider maturity.
+
+The full image smoke tests recover remote-only S3 and SFTP backups through the
+API and compare restored Artifact bytes. The lite image reports unavailable
+optional transports while retaining native Local and S3 Vault adapters.
+
+### Bounded remote discovery
+
+Remote sources keep the 1,000-entry processing page, 2 GiB content slice,
+15-minute slice and configured pacing. Provider operations receive the remaining
+slice deadline. Setup probes inspect one source entry or an isolated Vault probe
+prefix instead of enumerating unrelated content.
+
+S3 uses native incremental continuation. WebDAV parses a streamed depth-one XML
+response, and SFTP uses AsyncSSH's incremental directory iterator. Observations
+are committed in bounded batches to a database inventory. Processing starts only
+after enumeration completes; subsequent pages read the inventory without opening
+the remote directory again. An interrupted incomplete directory restarts
+conservatively. Completed directories and committed processing pages survive a
+restart. Failed, cancelled or incomplete discovery never authorizes absence
+reconciliation. Inventories are released after completion; abandoned inventories
+expire after 30 days and their cursors fail closed.
+
+This is a discovery snapshot, not a provider-wide transaction. A metadata-poor
+transport cannot prove that equal-size bytes remained unchanged during a read.
+All available markers and exact lengths are checked; markerless sources are
+hashed on every scan. Connection pooling is not introduced.
+
+See [directory benchmark results](remote-discovery-benchmarks.md) for measured
+requests, connections, transferred bytes, temporary storage and memory.
+
+
+### WebDAV cleanup evidence
+
+Pinned Nextcloud and WsgiDAV contracts exercise conditional deletion, quarantine
+moves, replacement races, lost-client-response recovery and lock expiry.
+WsgiDAV's filesystem ETag can collide across equal-size rapid replacements, and
+Nextcloud's tested configuration does not implement LOCK. Physical deletion and
+automatic retention remain disabled; see the [measured cleanup evidence](webdav-cleanup-evidence.md).
+
+## Storage product presets
+
+The [storage catalogue](./storage-providers.md) includes beta presets for
+Synology, TrueNAS, QNAP and Unraid mounted folders; Synology and QNAP WebDAV;
+MinIO, Garage, SeaweedFS and Hetzner Object Storage S3; Hetzner Storage Box
+SFTP/WebDAV; and Koofr WebDAV. The selected transport and credentials are explicit.
+Mounted NAS paths are mounted by the host and bound into the PrintStash container.
+Existing files use the mounted Library source workflow, while mounted backup
+folders use the existing mounted destination workflow.
+
+Evidence is transport-specific: local filesystem, pinned SeaweedFS, Nextcloud and
+OpenSSH contract tests exercise the adapters. These tests do not certify NAS
+hardware, each object-store implementation, or a hosted account. Probe each
+configured endpoint and intended role. The runtime image must include the chosen
+transport dependency. Delivery support never promotes a deletion safety tier.
+
+Google Drive retains its beta read-only Library source and backup replica roles;
+managed Drive Vault storage remains unavailable. This catalogue and preset scope
+closes the current provider-expansion issue. Direct SMB, Azure Blob, GCS, new
+consumer OAuth onboarding and new consumer-drive roles remain demand-gated future
+features that require separate issues and provider-specific evidence before they
+can enter the catalogue.

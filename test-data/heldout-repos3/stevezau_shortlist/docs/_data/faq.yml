@@ -1,0 +1,89 @@
+# Landing-page FAQ. Questions are worded the way people actually type them into a
+# search box, because this list also becomes the page's FAQPage structured data:
+# these answers are what a search engine or an AI assistant will quote back.
+#
+# Keep them plain and short. No em dashes, no jargon, and no phrasing that sounds
+# like a brochure. Every answer must match /faq, which is the fuller version.
+#
+# `pinned: true` puts a question first on the landing page, open, under its `short` wording with
+# its `short_a` answer: these are the two questions that disqualify a reader, so they are answered
+# before anything else. The structured data on /faq/ keeps `q` and `a`.
+
+- q: Can I give each Plex user recommendations based on what they watched?
+  a: >-
+    Yes, that is exactly what Shortlist does. It reads each person's own Plex history, finds films and
+    shows in your library they haven't seen but are likely to want, and puts them in rows on that
+    person's Plex home screen: "Picked for You", "Because you watched", "Watch it again", seasonal picks and more.
+    Everyone gets different rows. Sharing filters hide them from other accounts, with exceptions for
+    the server owner and Plex restriction profiles. It runs on a schedule you set, usually overnight.
+
+- q: Can you make a Plex collection visible to only one user?
+  a: >-
+    Not directly, but you can get there. Plex has no per-user collections. What it does have is the
+    ability to hide things by **label**. Give the collection a label, then set every *other* account to
+    hide that label, and one person is left able to see it. You need Plex Media Server
+    **1.43.2.10687 or newer**, because older versions ignore that setting on the Home and Recommended
+    shelves. Shortlist applies the sharing filters before promoting the row to Home. An unpromoted collection
+    can still appear in Collections until those filters apply; the server owner and Plex restriction
+    profiles have exceptions.
+
+- q: Do I need an AI or OpenAI key to use Shortlist?
+  pinned: true
+  short: Does it need an AI key?
+  short_a: >-
+    No. Shortlist picks the titles itself, and the suggestions come from TMDB, which is free. An AI
+    model is optional: Claude, GPT, Gemini, or one you run yourself such as Ollama, llama.cpp, LM
+    Studio, vLLM or LocalAI. If you add one, it writes the short reason next to each pick and can
+    search the web for recent titles TMDB doesn't return. That web search is off until you turn it on.
+  a: >-
+    No. Shortlist works with no AI and no key. It picks the titles itself, and the suggestions come
+    from TMDB, which is free. Adding an AI model is optional. If you do add one (Claude, GPT, Gemini,
+    or something you run yourself like Ollama, llama.cpp, LM Studio, vLLM or LocalAI) it writes the
+    short reason next to each pick and can search the web for recent titles TMDB doesn't return. That
+    web search is off until you turn it on.
+
+- q: Will the AI recommend films I don't actually have?
+  a: >-
+    No. The AI only ever chooses from titles already confirmed to be in your library and not yet
+    watched by that person. Anything else it suggests is thrown away and logged, so a made-up title
+    can't reach anyone's row.
+
+- q: Does Shortlist conflict with Kometa?
+  a: >-
+    No, they are built to run side by side. Shortlist changes collection contents, names and artwork only for collections it made itself,
+    which carry its own `shortlist_*` label. Everything else on your server, including every Kometa
+    collection, keeps those properties. Row placement can move other shelves while preserving their
+    relative order. It is the same story with your sharing settings: Shortlist
+    reads what is there and adds only its own entries, leaving the rest alone.
+
+- q: What can the server owner see?
+  a: >-
+    Not everyone's rows on your own Home screen — Shortlist puts each person's row only on their
+    side, so nobody else's row lands on yours. Where you do see them all is the library's Collections
+    tab, and the Recommended shelf if you leave that on for a row, because Plex cannot hide anything
+    from the account that owns the server. That is a Plex limitation rather than a Shortlist choice.
+    If it bothers you, take the rows off the Recommended shelf, or watch on a Plex Home user and keep
+    the admin account for admin.
+
+- q: What happens to my Plex settings if I uninstall?
+  a: >-
+    Use Shortlist's in-app uninstall flow before removing the container. It previews restoring saved
+    sharing settings and deleting Shortlist collections, then reports any accounts it could not
+    restore. Deleting the Docker container alone does not clean up Plex. You can also try the whole thing first without touching anything: set
+    `SHORTLIST_DRY_RUN=1` and it will show you every change it would make while writing nothing.
+
+- q: What do I need to run it?
+  a: >-
+    Plex Media Server **1.43.2.10687 or newer**, Plex Pass on the admin account, a free TMDB key, and
+    somewhere to run one Docker container. Tautulli, Radarr, Sonarr, Trakt, MDBList and an AI key are
+    all optional. Images run on both Intel and ARM machines.
+
+- q: Does Shortlist work with Jellyfin or Emby?
+  pinned: true
+  short: Is it Plex-only?
+  short_a: >-
+    Yes, and it will stay that way. Each row is kept private with a Plex feature for hiding things by
+    label, and Jellyfin and Emby have nothing equivalent to build it on.
+  a: >-
+    No, it is Plex only. The way each row is kept private relies on a Plex feature for hiding things by
+    label, and there is nothing equivalent in Jellyfin or Emby to build it on.

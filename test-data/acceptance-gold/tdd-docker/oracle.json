@@ -1,0 +1,633 @@
+{
+  "oracle": {
+    "target": "app.main:app",
+    "python": "3.12.6",
+    "packages": {
+      "fastapi": "0.115.12",
+      "starlette": "0.46.2",
+      "pydantic": "2.13.5",
+      "pydantic-core": "2.46.5",
+      "pydantic-settings": "2.8.1"
+    },
+    "env": [
+      "DATABASE_URL=sqlite://:memory:",
+      "HOME=C:/Users/dell/AppData/Local/Temp/claude/d--VSF-l3-generator-l3/498cf361-d49d-460b-a09e-b56fd4418970/scratchpad/tmp-tdd",
+      "TEMP=C:/Users/dell/AppData/Local/Temp/claude/d--VSF-l3-generator-l3/498cf361-d49d-460b-a09e-b56fd4418970/scratchpad/tmp-tdd",
+      "TMP=C:/Users/dell/AppData/Local/Temp/claude/d--VSF-l3-generator-l3/498cf361-d49d-460b-a09e-b56fd4418970/scratchpad/tmp-tdd",
+      "USERPROFILE=C:/Users/dell/AppData/Local/Temp/claude/d--VSF-l3-generator-l3/498cf361-d49d-460b-a09e-b56fd4418970/scratchpad/tmp-tdd"
+    ]
+  },
+  "routes": [
+    {
+      "kind": "Route",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "path": "/openapi.json",
+      "mount_prefix": null,
+      "name": "openapi",
+      "endpoint_module": "fastapi.applications",
+      "endpoint_qualname": "FastAPI.setup.<locals>.openapi",
+      "endpoint_file": null,
+      "endpoint_first_line": 1003
+    },
+    {
+      "kind": "Route",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "path": "/docs",
+      "mount_prefix": null,
+      "name": "swagger_ui_html",
+      "endpoint_module": "fastapi.applications",
+      "endpoint_qualname": "FastAPI.setup.<locals>.swagger_ui_html",
+      "endpoint_file": null,
+      "endpoint_first_line": 1014
+    },
+    {
+      "kind": "Route",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "path": "/docs/oauth2-redirect",
+      "mount_prefix": null,
+      "name": "swagger_ui_redirect",
+      "endpoint_module": "fastapi.applications",
+      "endpoint_qualname": "FastAPI.setup.<locals>.swagger_ui_redirect",
+      "endpoint_file": null,
+      "endpoint_first_line": 1032
+    },
+    {
+      "kind": "Route",
+      "methods": [
+        "GET",
+        "HEAD"
+      ],
+      "path": "/redoc",
+      "mount_prefix": null,
+      "name": "redoc_html",
+      "endpoint_module": "fastapi.applications",
+      "endpoint_qualname": "FastAPI.setup.<locals>.redoc_html",
+      "endpoint_file": null,
+      "endpoint_first_line": 1042
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "GET"
+      ],
+      "path": "/ping",
+      "mount_prefix": null,
+      "name": "pong",
+      "endpoint_module": "app.api.ping",
+      "endpoint_qualname": "pong",
+      "endpoint_file": "app/api/ping.py",
+      "endpoint_first_line": 8,
+      "status_code": null,
+      "response_model": null,
+      "response_class": "JSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "GET"
+      ],
+      "path": "/summaries/{id}/",
+      "mount_prefix": null,
+      "name": "read_summary",
+      "endpoint_module": "app.api.summaries",
+      "endpoint_qualname": "read_summary",
+      "endpoint_file": "app/api/summaries.py",
+      "endpoint_first_line": 18,
+      "status_code": null,
+      "response_model": "app.models.tortoise.TextSummary",
+      "response_class": "JSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "GET"
+      ],
+      "path": "/summaries/",
+      "mount_prefix": null,
+      "name": "read_all_summaries",
+      "endpoint_module": "app.api.summaries",
+      "endpoint_qualname": "read_all_summaries",
+      "endpoint_file": "app/api/summaries.py",
+      "endpoint_first_line": 27,
+      "status_code": null,
+      "response_model": "typing.List[tortoise.contrib.pydantic.creator.app.models.tortoise.TextSummary]",
+      "response_class": "JSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "POST"
+      ],
+      "path": "/summaries/",
+      "mount_prefix": null,
+      "name": "create_summary",
+      "endpoint_module": "app.api.summaries",
+      "endpoint_qualname": "create_summary",
+      "endpoint_file": "app/api/summaries.py",
+      "endpoint_first_line": 32,
+      "status_code": 201,
+      "response_model": "SummaryResponseSchema",
+      "response_class": "JSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "PUT"
+      ],
+      "path": "/summaries/{id}/",
+      "mount_prefix": null,
+      "name": "update_summary",
+      "endpoint_module": "app.api.summaries",
+      "endpoint_qualname": "update_summary",
+      "endpoint_file": "app/api/summaries.py",
+      "endpoint_first_line": 44,
+      "status_code": null,
+      "response_model": "app.models.tortoise.TextSummary",
+      "response_class": "JSONResponse",
+      "include_in_schema": true
+    },
+    {
+      "kind": "APIRoute",
+      "methods": [
+        "DELETE"
+      ],
+      "path": "/summaries/{id}/",
+      "mount_prefix": null,
+      "name": "delete_summary",
+      "endpoint_module": "app.api.summaries",
+      "endpoint_qualname": "delete_summary",
+      "endpoint_file": "app/api/summaries.py",
+      "endpoint_first_line": 55,
+      "status_code": null,
+      "response_model": "SummaryResponseSchema",
+      "response_class": "JSONResponse",
+      "include_in_schema": true
+    }
+  ],
+  "openapi": {
+    "openapi": "3.1.0",
+    "info": {
+      "title": "FastAPI",
+      "version": "0.1.0"
+    },
+    "paths": {
+      "/ping": {
+        "get": {
+          "summary": "Pong",
+          "operationId": "pong_ping_get",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {}
+                }
+              }
+            }
+          }
+        }
+      },
+      "/summaries/{id}/": {
+        "get": {
+          "tags": [
+            "summaries"
+          ],
+          "summary": "Read Summary",
+          "operationId": "read_summary_summaries__id___get",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "title": "Id"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/TextSummary"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "put": {
+          "tags": [
+            "summaries"
+          ],
+          "summary": "Update Summary",
+          "operationId": "update_summary_summaries__id___put",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "title": "Id"
+              }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SummaryUpdatePayloadSchema"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/TextSummary"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "delete": {
+          "tags": [
+            "summaries"
+          ],
+          "summary": "Delete Summary",
+          "operationId": "delete_summary_summaries__id___delete",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "exclusiveMinimum": 0,
+                "title": "Id"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/SummaryResponseSchema"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/summaries/": {
+        "get": {
+          "tags": [
+            "summaries"
+          ],
+          "summary": "Read All Summaries",
+          "operationId": "read_all_summaries_summaries__get",
+          "responses": {
+            "200": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "items": {
+                      "$ref": "#/components/schemas/TextSummary"
+                    },
+                    "type": "array",
+                    "title": "Response Read All Summaries Summaries  Get"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "post": {
+          "tags": [
+            "summaries"
+          ],
+          "summary": "Create Summary",
+          "operationId": "create_summary_summaries__post",
+          "requestBody": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SummaryPayloadSchema"
+                }
+              }
+            },
+            "required": true
+          },
+          "responses": {
+            "201": {
+              "description": "Successful Response",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/SummaryResponseSchema"
+                  }
+                }
+              }
+            },
+            "422": {
+              "description": "Validation Error",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "components": {
+      "schemas": {
+        "HTTPValidationError": {
+          "properties": {
+            "detail": {
+              "items": {
+                "$ref": "#/components/schemas/ValidationError"
+              },
+              "type": "array",
+              "title": "Detail"
+            }
+          },
+          "type": "object",
+          "title": "HTTPValidationError"
+        },
+        "SummaryPayloadSchema": {
+          "properties": {
+            "url": {
+              "type": "string",
+              "minLength": 1,
+              "format": "uri",
+              "title": "Url"
+            }
+          },
+          "type": "object",
+          "required": [
+            "url"
+          ],
+          "title": "SummaryPayloadSchema"
+        },
+        "SummaryResponseSchema": {
+          "properties": {
+            "url": {
+              "type": "string",
+              "minLength": 1,
+              "format": "uri",
+              "title": "Url"
+            },
+            "id": {
+              "type": "integer",
+              "title": "Id"
+            }
+          },
+          "type": "object",
+          "required": [
+            "url",
+            "id"
+          ],
+          "title": "SummaryResponseSchema"
+        },
+        "SummaryUpdatePayloadSchema": {
+          "properties": {
+            "url": {
+              "type": "string",
+              "minLength": 1,
+              "format": "uri",
+              "title": "Url"
+            },
+            "summary": {
+              "type": "string",
+              "title": "Summary"
+            }
+          },
+          "type": "object",
+          "required": [
+            "url",
+            "summary"
+          ],
+          "title": "SummaryUpdatePayloadSchema"
+        },
+        "TextSummary": {
+          "properties": {
+            "id": {
+              "type": "integer",
+              "maximum": 2147483647.0,
+              "minimum": -2147483648.0,
+              "title": "Id"
+            },
+            "url": {
+              "type": "string",
+              "title": "Url"
+            },
+            "summary": {
+              "type": "string",
+              "title": "Summary"
+            },
+            "created_at": {
+              "type": "string",
+              "format": "date-time",
+              "title": "Created At",
+              "readOnly": true
+            }
+          },
+          "additionalProperties": false,
+          "type": "object",
+          "required": [
+            "id",
+            "url",
+            "summary",
+            "created_at"
+          ],
+          "title": "TextSummary"
+        },
+        "ValidationError": {
+          "properties": {
+            "loc": {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  }
+                ]
+              },
+              "type": "array",
+              "title": "Location"
+            },
+            "msg": {
+              "type": "string",
+              "title": "Message"
+            },
+            "type": {
+              "type": "string",
+              "title": "Error Type"
+            }
+          },
+          "type": "object",
+          "required": [
+            "loc",
+            "msg",
+            "type"
+          ],
+          "title": "ValidationError"
+        }
+      }
+    }
+  },
+  "mounted_openapi": {},
+  "models": [
+    {
+      "name": "Settings",
+      "module": "app.config",
+      "file": "app/config.py",
+      "class_line": 10,
+      "fields": [
+        {
+          "name": "environment",
+          "alias": null,
+          "annotation": "<class 'str'>",
+          "required": false,
+          "default": "'dev'"
+        },
+        {
+          "name": "testing",
+          "alias": null,
+          "annotation": "<class 'bool'>",
+          "required": false,
+          "default": "0"
+        },
+        {
+          "name": "database_url",
+          "alias": null,
+          "annotation": "<class 'pydantic.networks.AnyUrl'>",
+          "required": false,
+          "default": "None"
+        }
+      ]
+    },
+    {
+      "name": "SummaryPayloadSchema",
+      "module": "app.models.pydantic",
+      "file": "app/models/pydantic.py",
+      "class_line": 4,
+      "fields": [
+        {
+          "name": "url",
+          "alias": null,
+          "annotation": "<class 'pydantic.networks.AnyHttpUrl'>",
+          "required": true,
+          "default": null
+        }
+      ]
+    },
+    {
+      "name": "SummaryResponseSchema",
+      "module": "app.models.pydantic",
+      "file": "app/models/pydantic.py",
+      "class_line": 8,
+      "fields": [
+        {
+          "name": "url",
+          "alias": null,
+          "annotation": "<class 'pydantic.networks.AnyHttpUrl'>",
+          "required": true,
+          "default": null
+        },
+        {
+          "name": "id",
+          "alias": null,
+          "annotation": "<class 'int'>",
+          "required": true,
+          "default": null
+        }
+      ]
+    },
+    {
+      "name": "SummaryUpdatePayloadSchema",
+      "module": "app.models.pydantic",
+      "file": "app/models/pydantic.py",
+      "class_line": 12,
+      "fields": [
+        {
+          "name": "url",
+          "alias": null,
+          "annotation": "<class 'pydantic.networks.AnyHttpUrl'>",
+          "required": true,
+          "default": null
+        },
+        {
+          "name": "summary",
+          "alias": null,
+          "annotation": "<class 'str'>",
+          "required": true,
+          "default": null
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,1196 @@
+"""Candidate discovery from one or more configurable sources.
+
+Every source returns "titles this person might like"; the pool is the union, deduped by
+(tmdb_id, media_type) with seed provenance kept. Which sources run is owner-configurable, so the
+recommendation engine is not locked to TMDB's per-seed similarity. Sources today:
+
+* ``tmdb_similar`` — TMDB /recommendations + /similar for each seed (the recall baseline).
+* ``tmdb_discover`` — TMDB /discover in the genres a person's history skews toward (widens recall).
+* ``trakt`` — Trakt's related-titles graph for each seed.
+* ``llm_web`` — a live web search proposes titles to watch next, each resolved via TMDB search.
+  Backed by the model's own web-search tool (Claude/GPT/Gemini) or an external provider (Exa),
+  chosen by ``web_search_provider`` — an external backend is the only path for a local Ollama
+  model, which cannot search on its own. This is the
+  only AI-powered source: the providers are used to FIND titles, never to rank them.
+"""
+
+from __future__ import annotations
+
+import json
+import math
+from collections import Counter
+from dataclasses import dataclass, field
+
+from loguru import logger
+
+from shortlist.engine.clients.search import SearchResult, TitleCandidate, extracts_titles
+from shortlist.engine.clients.tmdb import Cache, NullCache, TmdbClient
+from shortlist.engine.curator.base import (
+    build_web_pick_prompt,
+    build_web_query_for_title,
+    build_web_rag_prompt,
+    try_parse_web_titles,
+)
+from shortlist.engine.models import MAX_ROW_SIZE, Attribution, Candidate, MediaType, Seed
+from shortlist.engine.web_guidance import Guidance
+
+# One cached web search PER recent title (Exa bills per search): cache the RESULTS by (media, tmdb_id)
+# so a title many users watched is searched once server-wide.
+#
+# 7 days, and the number is a freshness/cost trade, not a technical limit. A cached search cannot
+# contain anything released after it was made, so the TTL is the worst-case blind spot for new
+# releases and new seasons. Measured 2026-09-05: re-running 2-day-old searches returned titles 2
+# years OLDER on average and agreed with the cached set only ~54% of the time, so re-buying sooner
+# than this mostly re-rolls Exa's own variance rather than surfacing news — which is why it is not
+# lower. It was 14 days until the same date; that only ever got measured against 2-day-old entries,
+# which cannot detect staleness (little is released in 2 days), and the error is asymmetric — too
+# long is invisible (nobody reports the title they never saw) while too short shows up on the bill.
+WEB_SEARCH_CACHE_TTL_S = 7 * 24 * 3600
+_WEB_SEARCH_PER_TITLE = 5  # results per per-title search (many titles → keep each lean for the RAG)
+_WEB_SEARCH_MAX_TITLES = 10  # default number of recent titles to search; overridden by recent_count
+_WEB_SEARCH_RAG_CAP = 40  # cap the unioned results handed to the web-search LLM so the RAG prompt stays bounded
+# The same cap for the STRUCTURED path, and far higher on purpose. `_WEB_SEARCH_RAG_CAP` is small
+# because each entry is an 800-character article block; a TitleCandidate is a title, a year and a
+# media type — roughly 15 tokens — so 300 of them cost less prompt than 40 prose blocks. That is the
+# point of the structured path: the curator picks from everything the searches found instead of from
+# a rationed slice of it.
+_WEB_PICK_CAP = 300
+# A normal reply is ~2,500 characters, so real failures are kept whole; a runaway one must not bloat the run trace.
+_UNPARSED_REPLY_CAP = 20_000
+# A search that came back nearly empty is cached BRIEFLY rather than for the usual fortnight. Exa's
+# `deep-lite` is measurably variable — three identical calls returned 36, 45 and 38 usable titles,
+# sharing only 45% — so a thin draw should not be served to every user for a whole week. But refusing to
+# cache it at all is worse: a seed that genuinely has little written about it would then be a fresh
+# billable search for every user, every night, forever. A day is long enough to cover one nightly run
+# across the whole roster and short enough that tomorrow tries again.
+_MIN_CACHEABLE_TITLES = 3
+_THIN_CACHE_TTL_S = 24 * 3600
+# Bumped from `websearch:` when the cached shape changed from a bare result list to {results,titles}.
+# Old entries are never read again and age out on their own TTL.
+_WEB_SEARCH_CACHE_PREFIX = "websearch2"
+
+# Every candidate source the engine knows how to run. The owner can enable any subset globally
+# (settings ``candidates.sources``) or per row (``collections.candidate_sources``); an unknown value
+# is simply ignored by ``gather_candidates``, but the API validates against this set for good errors.
+KNOWN_SOURCES = ("tmdb_similar", "tmdb_discover", "trakt", "llm_web")
+# `web_search_mode` values that mean "search through the external backend the context carries". The
+# engine deliberately does NOT distinguish Exa from SearXNG: which client to build is the server's
+# decision (context_builder), and every provider looks the same through `WebSearchProvider`.
+EXTERNAL_SEARCH_MODES = ("exa", "searxng")
+DEFAULT_SOURCES = ("tmdb_similar",)
+_DISCOVER_TOP_GENRES = 3  # how many of a person's dominant genres to widen into
+# How many titles the web-search LLM proposes (each resolved to TMDB, then verified). Derived from
+# the largest legal row, so this source can fill one on its own — it was a flat 20 against a row that
+# may be 40, so an owner who enabled `llm_web` ALONE and asked for 40 titles could never get more
+# than 20, with nothing saying why. Only the proposal count moves: `k` is asked for in ONE completion
+# (`curator.recommend_web` / the RAG's single `complete`), never one call per title, and the per-seed
+# web searches are driven by `recent_count` instead — so this costs output tokens for the extra
+# titles, not extra requests.
+_LLM_WEB_K = MAX_ROW_SIZE
+LLM_WEB_K = _LLM_WEB_K  # public, for the server's prompt preview
+_TRACE_SEEDS_SAMPLE = 12  # per source, how many seeds' queries to record in the trace (display only)
+_TRACE_RETURNS_SAMPLE = 25  # per seed, how many returned titles to record in the trace (display only —
+# the UI shows the first few and lets you expand the rest, so this is the ceiling on what "expand" reveals)
+
+
+@dataclass
+class GatherStats:
+    """AI cost incurred while gathering candidates, so a run can show WHERE its tokens went.
+
+    Keyed by source because only the AI-powered source (``llm_web``) costs tokens — the TMDB/Trakt
+    sources add nothing here. ``exa_searches`` is tracked separately on purpose: Exa bills per search
+    request, not per token, so it must never be folded into a token total.
+
+    ``exa_cache_hits`` counts searches served from the shared 14-day cache instead of billed. It's
+    tracked next to ``exa_searches`` so a run can show "1 searched · 793 from cache" — without it a
+    fully-cached run reads ``exa_searches: 1`` and is indistinguishable from a run that searched
+    nothing, which is precisely how a warm cache gets misread as a broken source.
+    """
+
+    tokens_by_source: dict[str, int] = field(default_factory=dict)
+    # The output share of those tokens. Providers bill output at several times the input rate (5x on
+    # Claude Haiku), so one total hides where the money goes.
+    output_tokens: int = 0
+    exa_searches: int = 0
+    exa_cache_hits: int = 0
+    # A diagnostic record of WHAT each source queried and returned this gather — the raw material of
+    # the per-user run trace (``UserRunReport.trace``). Always populated (it's a few bounded lists of
+    # strings, negligible next to the network calls a gather makes) and purely for display; the engine
+    # never reads it back. Shape: {"sources": [{source, status, contributed, sample, detail}],
+    # "web": {mode, searches, rag_system, rag_user, proposed, resolved}}.
+    trace: dict = field(default_factory=dict)
+
+    def add_tokens(self, source: str, n: int, output: int = 0) -> None:
+        """Add a source's token spend, `output` of it being output (a no-op for 0, e.g. NullCurator or a
+        skipped call)."""
+        if n:
+            self.tokens_by_source[source] = self.tokens_by_source.get(source, 0) + n
+            self.output_tokens += output
+
+
+def _clear_last_tokens(curator) -> None:
+    """Zero this thread's token count before an LLM call, so a call that FAILS reads back 0.
+
+    Every provider's error path returns without writing ``last_tokens`` — and the per-thread value is
+    whatever this worker thread's previous call left there, usually another person's. Read after a
+    failed call, it billed that earlier call a second time.
+    """
+    if hasattr(curator, "last_tokens"):
+        curator.last_tokens = 0
+    if hasattr(curator, "last_output_tokens"):
+        curator.last_output_tokens = 0
+
+
+def _web_search_capable(curator, search, mode: str) -> bool:
+    """Whether the ``llm_web`` source can actually run for this curator + search backend under ``mode``.
+
+    Gates ``attempted``: a source that CANNOT run (e.g. Ollama with no external backend) must not
+    register as attempted, or the "every source failed" check would misread an incapable setup as a
+    failure.
+    """
+    if mode in EXTERNAL_SEARCH_MODES:
+        if search is None:
+            return False
+        # A backend alone is not enough — something has to turn results into titles. Exa does that
+        # itself (`outputSchema`), so it runs with no AI at all; SearXNG returns raw snippets that
+        # only a model can read. Without this split, SearXNG with no AI provider registered as
+        # ATTEMPTED and returned nothing, which is exactly what this function exists to prevent.
+        return extracts_titles(search) or getattr(curator, "can_complete", True)
+    return getattr(curator, "supports_native_web_search", False)
+
+
+def web_recommendations(
+    curator,
+    search,
+    mode: str,
+    profile,
+    seeds: list[Seed],
+    k: int,
+    stats: GatherStats,
+    *,
+    cache: Cache | None = None,
+    recent_count: int = _WEB_SEARCH_MAX_TITLES,
+    guidance: Guidance | None = None,
+) -> list[dict]:
+    """Titles to watch next from a web search, as ``[{title, year, media}]`` for TMDB resolution.
+
+    ``mode`` names the ONE backend to search with:
+
+    * ``native`` — the provider's own web-search tool (Claude/GPT/Gemini only).
+    * ``exa`` / ``searxng`` — the external backend the server built for us. Identical branches here;
+      which client it is was decided in ``context_builder.make_search_client``. Either is the only
+      path for a local Ollama model, which has no web search of its own.
+
+    There was a fourth mode, ``auto``, which unioned native with whichever external was configured.
+    It was removed in 1.3 (owner decision): it was the default, so it was what almost everyone ran,
+    and the name told them nothing about the only thing it uniquely did. Migration 0063 pins each
+    install to the backend it was actually using.
+
+    ``recent_count`` caps how many recent titles the external path searches (one cached search each).
+    ``stats`` accumulates this source's token spend (and searches) for per-run AI accounting —
+    read ``last_tokens`` right after each LLM call, before the next one overwrites it.
+    ``guidance`` is this row's AI instructions (#138), handed to whichever prompt the backend sends.
+    """
+    web_trace: dict = {"mode": mode}
+    stats.trace["web"] = web_trace
+    if mode in EXTERNAL_SEARCH_MODES:
+        if search is None:
+            return []
+        recs = _web_via_search(
+            curator,
+            search,
+            profile,
+            seeds,
+            k,
+            stats,
+            web_trace,
+            cache=cache,
+            recent_count=recent_count,
+            guidance=guidance,
+        )
+    elif not getattr(curator, "supports_native_web_search", False):
+        return []
+    else:
+        _clear_last_tokens(curator)
+        recs = curator.recommend_web(profile, seeds, k, guidance=guidance)
+        stats.add_tokens("llm_web", getattr(curator, "last_tokens", 0), getattr(curator, "last_output_tokens", 0))
+    recs = _drop_watched_proposals(recs, seeds, profile, web_trace)
+    # Cap here, not before the filter: the keyless path hands back every extracted title so that
+    # dropping watched ones eats into the surplus rather than into the row. A no-op for the model
+    # paths, which never return more than k.
+    recs = recs[:k]
+    web_trace["proposed"] = [_rec_label(r) for r in recs]
+    return recs
+
+
+def _drop_watched_proposals(recs: list[dict], seeds: list[Seed], profile, web_trace: dict | None = None) -> list[dict]:
+    """Drop proposals naming a title this person has already watched.
+
+    Both prompts say not to recommend one, and the structured path additionally removes seed titles
+    from the candidate list before the model ever sees them — and the model proposes them anyway. On
+    a live 30-seed run it returned six: Ted Lasso, Reacher, Slow Horses, Mr. Robot, The Capture and
+    Star Trek: Strange New Worlds, all watched, all from its own knowledge rather than the list.
+
+    Nothing broken reaches a row — `filter_candidates` drops watched titles downstream — but 6 of 40
+    proposals were spent on titles that could never be used, and they read as real suggestions in the
+    run trace. Filtering here covers every mode, native included, in the one place they converge.
+
+    Matched against the whole HISTORY, not just this pool's seeds. Filtering on seeds alone left one
+    leak on the live re-run: pools carry their own seed subset, so a title seeded in one pool is not
+    seeded in another, and "Mr. Robot" came back as a proposal in the pool that had not seeded it.
+    """
+    watched = {s.title.strip().lower() for s in seeds if getattr(s, "title", "")}
+    for watch in getattr(profile, "history", None) or []:
+        title = getattr(watch, "title", "")
+        if title:
+            watched.add(title.strip().lower())
+    kept = [r for r in recs if str(r.get("title", "")).strip().lower() not in watched]
+    dropped = len(recs) - len(kept)
+    if dropped and web_trace is not None:
+        # Recorded rather than silent: a model that spends a quarter of its answer on already-watched
+        # titles is a prompt problem, and this is the number that would show it.
+        web_trace["already_watched"] = dropped
+    return kept
+
+
+def _rec_label(rec: dict) -> str:
+    """A web recommendation as a display string: ``"Title (2024) [show]"`` — for the run trace."""
+    year = rec.get("year")
+    media = rec.get("media") or "movie"
+    return f"{rec.get('title', '?')}{f' ({year})' if year else ''} [{media}]"
+
+
+def _capped_reply(reply: str) -> str:
+    """An unparseable model reply as kept in the run trace: whole up to the cap, else its head plus its length."""
+    if len(reply) <= _UNPARSED_REPLY_CAP:
+        return reply
+    return f"{reply[:_UNPARSED_REPLY_CAP]}\n… [truncated; reply was {len(reply)} characters]"
+
+
+def _web_via_search(
+    curator,
+    search,
+    profile,
+    seeds: list[Seed],
+    k: int,
+    stats: GatherStats,
+    web_trace: dict | None = None,
+    *,
+    cache: Cache | None = None,
+    recent_count: int = _WEB_SEARCH_MAX_TITLES,
+    guidance: Guidance | None = None,
+) -> list[dict]:
+    """External-search path: one CACHED web search per recent title, then the curator picks from the
+    union. Caching by (media, tmdb_id) means a title many users watched is searched once server-wide —
+    Exa bills per search, so this is what keeps the per-title approach affordable across a big roster.
+
+    ``web_trace`` (optional) collects a display record of the queries sent, whether each was cached,
+    the RAG prompt handed to the curator, and the titles it proposed — the raw material of the run
+    trace. Purely diagnostic; nothing here reads it back.
+    """
+    cache = cache or NullCache()
+    trace_queries: list[dict] = []
+    per_seed: list[list[SearchResult]] = []
+    per_seed_titles: list[list[TitleCandidate]] = []
+    failed_seeds: list[str] = []
+    seen_urls: set[str] = set()
+    # The provider is part of the key: Exa returns page text and SearXNG returns engine snippets, so
+    # serving one from the other's entry would make a backend switch invisible for the whole 14-day
+    # TTL. (Pre-1.1 `exasearch:` keys simply age out — nothing reads them again.)
+    provider = getattr(search, "name", "exa")
+    per_query = getattr(search, "results_per_query", _WEB_SEARCH_PER_TITLE)
+    # Exa extracts the recommended titles server-side inside the price of the search; SearXNG has no
+    # synthesis of its own, so its snippets still go to the curator as prose. One code path, two
+    # shapes, decided per provider rather than per setting.
+    structured = extracts_titles(search)
+    if web_trace is not None:
+        # Which backend actually ran. Under `auto` the mode alone can't say, so the trace would
+        # otherwise credit the wrong one on a server that configured the other.
+        web_trace["provider"] = provider
+        web_trace["structured"] = structured
+    searched = seeds[: max(1, recent_count)]
+    for seed in searched:
+        key = f"{_WEB_SEARCH_CACHE_PREFIX}:{provider}:{seed.media_type.value}:{seed.tmdb_id}"
+        query = build_web_query_for_title(seed.title)
+        cached = cache.get(key)
+        if cached is not None:
+            stats.exa_cache_hits += 1  # served from the shared cache — not billed (see GatherStats)
+            payload = json.loads(cached)
+            # A cache row is data from outside this function's control: it outlives the process and
+            # survives upgrades, so a malformed one must not take down the whole source for this user
+            # (the caller's guard would disable `llm_web` for them entirely).
+            if not isinstance(payload, dict):
+                logger.warning("llm_web: ignoring a malformed cache entry for {!r}", seed.title)
+                payload = {}
+        else:
+            stats.exa_searches += 1  # a real (uncached) search — count the billable request
+            try:
+                payload = _search_one_seed(search, query, per_query, structured)
+            except Exception as e:
+                # One seed's failure must not cost the other nine. Exa's deeper modes take ~10s
+                # against a 100s ceiling at its CDN, and a request that exceeds it comes back as an
+                # HTML 524 — observed repeatedly while measuring. Without this, that single response
+                # raises out of the loop and the caller disables `llm_web` for this user entirely,
+                # discarding every seed that had already searched successfully.
+                logger.warning("llm_web: search failed for {!r} ({}); continuing", seed.title, type(e).__name__)
+                failed_seeds.append(seed.title)
+                per_seed.append([])
+                per_seed_titles.append([])
+                continue
+            cache.set(key, json.dumps(payload), _cache_ttl(payload, structured))
+        items = payload.get("results") or []
+        found = _titles_from_cache_payload(payload)
+        # Whichever shape this seed produced, sampled — the trace is stored per user per run.
+        returned = [t.title for t in found] if found else [i["title"] for i in items]
+        trace_queries.append(
+            {
+                "seed": seed.title,
+                "query": query,
+                "cached": cached is not None,
+                "returned": returned[:_TRACE_RETURNS_SAMPLE],
+            }
+        )
+        per_seed.append(_dedupe_by_url(items, seen_urls))
+        per_seed_titles.append(found)
+    # Tolerating one dead seed must not quietly tolerate a dead BACKEND. If every search failed, the
+    # source really is down, and the caller's "every source failed" check has to see that rather than
+    # read an empty return as "the web had nothing to suggest tonight".
+    if failed_seeds and len(failed_seeds) == len(searched):
+        raise RuntimeError(f"every web search failed ({len(failed_seeds)} seeds)")
+    results = _interleave(per_seed)
+    candidates = _drop_seed_titles(_dedupe_titles(_interleave(per_seed_titles)), seeds)
+    if web_trace is not None:
+        web_trace["searches"] = trace_queries
+        # Sampled like every other trace list. The prompt may carry 300 candidates; the trace is
+        # stored per user per run and rendered in a browser, so it takes a readable sample of them.
+        web_trace["extracted"] = [_title_label(t) for t in candidates[:_TRACE_RETURNS_SAMPLE]]
+        if failed_seeds:
+            # A lost search is a SILENT loss without this. Tolerating one dead seed (above) is right,
+            # but a run that quietly drops most of them looks identical in the trace to one where the
+            # web simply had little to say. Measured on the first real 46-user run: 23 of 36 searches
+            # died on timeout and the trace recorded none of it — the only evidence was a log line,
+            # which rotates and never reaches the "How we picked" page.
+            web_trace["failed_seeds"] = failed_seeds
+    # Prefer the structured list when the provider produced one: it costs a fraction of the prompt
+    # and carries every seed's findings rather than a capped slice. An extraction that came back
+    # empty — a mode that declined to synthesise, a shape change — still has the snippets, so this
+    # degrades to exactly the path that shipped before rather than to nothing.
+    if candidates:
+        system, user = build_web_pick_prompt(profile, candidates[:_WEB_PICK_CAP], k, guidance=guidance)
+    elif results:
+        system, user = build_web_rag_prompt(profile, results[:_WEB_SEARCH_RAG_CAP], k, guidance=guidance)
+    else:
+        return []
+    # No model to ask: Exa's `outputSchema` already returned clean titles, so hand those straight to
+    # the pipeline, which ranks and explains every candidate in code anyway. Before this, the Exa
+    # branch of `_web_search_capable` was unreachable — `gather_candidates` refused the whole source
+    # without a real curator — so Exa-without-AI produced nothing. It did NOT bill: a claim that it
+    # cost $7.94 a night was made and retracted — that figure is run 18's real, productive spend
+    # under Claude (see docs/reference/settings.md). Only Exa reaches here with candidates; SearXNG returns
+    # snippets something must still read, and native search IS the model.
+    if not getattr(curator, "can_complete", True):
+        return _titles_as_proposals(candidates, web_trace, reason="no AI provider configured")
+    _clear_last_tokens(curator)
+    reply = curator.complete(system, user)
+    parsed = try_parse_web_titles(reply, k)
+    titles = parsed or []
+    if parsed is None and web_trace is not None:
+        # The parse warning logs only a preview; the full reply is what shows where it went wrong.
+        web_trace["unparsed_reply"] = _capped_reply(reply)
+    stats.add_tokens("llm_web", getattr(curator, "last_tokens", 0), getattr(curator, "last_output_tokens", 0))
+    # Same fallback for a model that answered with nothing usable — rate-limited, timed out, or
+    # replying in prose. Degrading to Exa's own extraction beats losing the searches we just paid for.
+    if not titles and candidates:
+        return _titles_as_proposals(candidates, web_trace, reason="the model returned no usable titles")
+    if web_trace is not None:
+        web_trace["rag_system"] = system
+        web_trace["rag_user"] = user
+    # `proposed` is recorded by the caller, once, AFTER already-watched titles are dropped — so the
+    # trace shows what the run actually used rather than what the model first said.
+    return titles
+
+
+def _titles_as_proposals(candidates: list[TitleCandidate], web_trace: dict | None, *, reason: str) -> list[dict]:
+    """Exa's extracted titles as proposals, skipping the model entirely.
+
+    The list is already interleaved across seeds, deduplicated and stripped of seed titles, so the
+    first k are a spread rather than one seed's haul. Downstream is unchanged: they resolve against
+    TMDB, get filtered to the library, and are ranked and explained by `picker`, which needs no LLM.
+    """
+    if web_trace is not None:
+        web_trace["unpicked"] = reason
+    # NOT `candidates[:k]`: the caller drops already-watched proposals AFTER this returns, and run 18
+    # measured about 1 in 10 of them watched. Slicing first would hand back k and deliver k-1 while
+    # hundreds of unwatched candidates went unused. The model path cannot do this — it only ever
+    # returns k — but this one has the whole list.
+    return [{"title": c.title, "year": c.year, "media": c.media} for c in candidates]
+
+
+def _dedupe_by_url(items: list[dict], seen_urls: set[str]) -> list[SearchResult]:
+    """One seed's snippets as SearchResults, dropping any URL another seed already contributed.
+
+    ``seen_urls`` is shared across seeds and mutated here — ten "what to watch after X" searches hit
+    a lot of the same articles. Deduped only when there IS a url: Exa maps a missing one to ``""``,
+    and treating that as a key would collapse every url-less snippet into one, losing real context.
+    """
+    kept: list[SearchResult] = []
+    for it in items:
+        url = it["url"]
+        if url and url in seen_urls:
+            continue
+        if url:
+            seen_urls.add(url)
+        kept.append(SearchResult(title=it["title"], url=url, text=it["text"]))
+    return kept
+
+
+def _search_one_seed(search, query: str, per_query: int, structured: bool) -> dict:
+    """One seed's search, as the JSON-serialisable shape the cache stores.
+
+    ``{"results": [...], "titles": [...]}`` for every provider — SearXNG simply contributes an empty
+    ``titles``. Keeping one shape means the cached entry says what it holds without the reader having
+    to know which backend wrote it.
+    """
+    if structured:
+        hits, found = search.search_detailed(query, num_results=per_query)
+    else:
+        hits, found = search.search(query, num_results=per_query), []
+    return {
+        "results": [{"title": r.title, "url": r.url, "text": r.text} for r in hits],
+        "titles": [{"title": t.title, "year": t.year, "media": t.media} for t in found],
+    }
+
+
+def _cache_ttl(payload: dict, structured: bool) -> int:
+    """How long this seed's search should be reused for.
+
+    Everything is cached — the alternative is re-billing a search for every user every night — but a
+    thin draw only lasts a day rather than a fortnight. Exa's `deep-lite` genuinely varies run to
+    run, so a search that found almost nothing is more likely to be a bad draw than a fact about the
+    title, and tomorrow gets to try again. A rich draw is what the fortnight is for.
+    """
+    thin = len(payload.get("titles") or []) < _MIN_CACHEABLE_TITLES if structured else not payload.get("results")
+    return _THIN_CACHE_TTL_S if thin else WEB_SEARCH_CACHE_TTL_S
+
+
+def _titles_from_cache_payload(payload: dict) -> list[TitleCandidate]:
+    """Rebuild TitleCandidates from a cached (or freshly built) seed payload."""
+    out: list[TitleCandidate] = []
+    for t in payload.get("titles") or []:
+        title = str(t.get("title") or "").strip()
+        if not title:
+            continue
+        year = t.get("year")
+        out.append(
+            TitleCandidate(
+                title=title,
+                year=int(year) if isinstance(year, int) else None,
+                media="show" if t.get("media") == "show" else "movie",
+            )
+        )
+    return out
+
+
+def _dedupe_titles(candidates: list[TitleCandidate]) -> list[TitleCandidate]:
+    """Drop repeats across seeds, keeping the first (best-ranked) mention of each title.
+
+    Ten seeds searched for "what to watch after X" name a lot of the same titles, and a prompt that
+    lists Silo nine times spends its budget saying one thing. Keyed on title+media, not the year —
+    sources disagree about a series' year far more often than they disagree about its name.
+    """
+    seen: set[tuple[str, str]] = set()
+    out: list[TitleCandidate] = []
+    for c in candidates:
+        key = (c.title.strip().lower(), c.media)
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(c)
+    return out
+
+
+def _drop_seed_titles(candidates: list[TitleCandidate], seeds: list[Seed]) -> list[TitleCandidate]:
+    """Remove the titles this search was ABOUT from the titles it suggests.
+
+    An article headed "shows like Severance" names Severance, and the extraction dutifully lists it —
+    verified live, where the curator then proposed Severance to someone whose seed it was. The row
+    never shows it (the pipeline drops anything already watched further down), so the cost is quieter
+    than a wrong row: it burns one of the k proposal slots and reads as a bogus suggestion in the run
+    trace. Both prompts already say not to; this makes it true rather than requested.
+
+    Matched on the seed's title, not its id, because that is all the extraction gives us back.
+    """
+    watched = {s.title.strip().lower() for s in seeds if getattr(s, "title", "")}
+    return [c for c in candidates if c.title.strip().lower() not in watched]
+
+
+def _title_label(candidate: TitleCandidate) -> str:
+    """A TitleCandidate as a display string for the run trace."""
+    year = f" ({candidate.year})" if candidate.year else ""
+    return f"{candidate.title}{year} [{candidate.media}]"
+
+
+def _interleave[T](per_seed: list[list[T]]) -> list[T]:
+    """Round-robin the per-seed result lists into one, best-first within each seed.
+
+    The RAG prompt is capped (``_WEB_SEARCH_RAG_CAP``), and the cap used to fall on a list built by
+    appending each seed's results in turn — so the first few seeds consumed the whole budget and the
+    later ones were searched, cached, counted, then silently dropped before the curator saw them.
+    That got worse the MORE results a backend returned: at 10 per search only 4 of 10 recent watches
+    reached the prompt, against 8 at Exa's 5. Taking one result per seed per pass means the cap is
+    shared, so every seed is represented and a wider page adds depth instead of crowding others out.
+
+    Used for both shapes — prose snippets and extracted TitleCandidates — because the reasoning is
+    the same either way: whatever the cap is, every seed should be represented under it.
+    """
+    merged: list[T] = []
+    for rank in range(max((len(s) for s in per_seed), default=0)):
+        for seed_results in per_seed:
+            if rank < len(seed_results):
+                merged.append(seed_results[rank])
+    return merged
+
+
+def _seed_genre_ids(tmdb: TmdbClient, seed: Seed) -> set[int]:
+    """The seed's own genres, for `genre_coherence`. Cached by the client; a failure just means
+    "no opinion" — never a dead source."""
+    try:
+        return set(tmdb.genre_ids_for(seed.tmdb_id, seed.media_type))
+    except Exception as e:
+        logger.debug("could not read genres for seed {} ({})", seed.title, type(e).__name__)
+        return set()
+
+
+#: Empirical-Bayes shrinkage strength for the genre profile — on the order of half of TMDB's ~19
+#: movie genres. A flat additive constant cannot serve both ends of this range: tuned to steady a
+#: 3-watch estimate it swamps a 30-watch one, and tuned for 30 it barely touches 3. `n / (n + K)`
+#: does both with one number, trusting a 3-watch history for 23% of the estimate and a 30-watch one
+#: for 75%. NOT VALIDATED against live data — check with scripts/replay_eval.py before moving it.
+GENRE_SHRINK_K = 10.0
+#: +/- 2 in log2, i.e. a 4x ratio. Past this a genre with almost no presence in the library stops
+#: carrying information and starts carrying noise.
+GENRE_LOG_CLAMP = 2.0
+
+
+def genre_avoidance_profile(user_counts: dict[str, int], pool_counts: dict[str, int]) -> dict[str, float]:
+    """Per-genre shrunk log2(userShare / poolShare), clamped. Negative means avoided.
+
+    This is Hardie's Log Ratio, and the reason it needs shrinking is that Shortlist's histories are
+    exactly the size where a raw ratio misleads: someone who has watched three things has a 33%
+    "share" in each of them, which is not evidence of a preference. So the estimate is pulled toward
+    the population it is being compared against, by an amount that depends on how much evidence there
+    actually is.
+
+    `pool_counts` must come from the LIBRARY this person can see, never from the candidate pool. The
+    candidate pool is built from their own seeds, so comparing their taste against it compares them
+    with an echo of themselves — and an avoided genre is under-represented in both halves, which is
+    exactly the signal being measured cancelling itself out.
+
+    Returns both signs; only the negative half is used for scoring (see `candidate_genre_penalty`).
+    Liking something is already expressed by the seeds that produced the candidate.
+    """
+    n = sum(user_counts.values())
+    pool_total = sum(pool_counts.values())
+    if n == 0 or pool_total == 0:
+        return {}
+    trust = n / (n + GENRE_SHRINK_K)
+    profile: dict[str, float] = {}
+    for genre, pool_n in pool_counts.items():
+        pool_share = pool_n / pool_total
+        if pool_share <= 0:
+            continue
+        user_share = user_counts.get(genre, 0) / n
+        shrunk = trust * user_share + (1 - trust) * pool_share
+        profile[genre] = max(-GENRE_LOG_CLAMP, min(GENRE_LOG_CLAMP, math.log2(shrunk / pool_share)))
+    return profile
+
+
+def candidate_genre_penalty(genres: list[str], profile: dict[str, float]) -> float:
+    """This candidate's avoidance signal: the mean of its genres' log ratios, negative half only.
+
+    A genre missing from the profile is one the library does not stock, so we have nothing to compare
+    against and it contributes 0.0 — neutral, never a penalty. Guessing in either direction here
+    would put a thumb on the scale for titles whose genres happen to be unrecorded.
+    """
+    if not genres or not profile:
+        return 0.0
+    return sum(min(0.0, profile.get(g, 0.0)) for g in genres) / len(genres)
+
+
+TOP_CAST_N = 5
+#: Summed IDF at which cast overlap counts as "as related as it gets". With the smoothed IDF below,
+#: one shared lead who appears in 1 of 50 pooled titles scores ~4.2 and saturates alone, while the
+#: prolific-actor case (40 of 50) scores ~1.2 and contributes barely a third — which is the whole
+#: point of discounting. NOT VALIDATED against live data; check with scripts/replay_eval.py.
+CAST_NORMALIZER = 3.0
+
+
+def mark_franchise_members(pool: list[Candidate], tmdb: TmdbClient) -> None:
+    """Flag any pooled MOVIE that shares a TMDB collection with one of its own seeds.
+
+    Seed-side, not candidate-side, and that is the difference between one call per SEED and one per
+    CANDIDATE: asking every pooled title whether it belongs to a collection is hundreds of detail
+    calls, where asking the handful of seeds and then fetching each collection's member list is a
+    couple of dozen — and the membership test that follows is a set lookup, not a request.
+
+    A no-op for shows. TMDB has no `belongs_to_collection` for TV, so there is nothing to look up,
+    and pretending otherwise would mean querying a namespace that does not exist.
+    """
+    seed_collections: dict[int, tuple[int, str]] = {}
+    for candidate in pool:
+        if candidate.media_type is not MediaType.MOVIE:
+            continue
+        for seed in candidate.seeds:
+            if seed.tmdb_id in seed_collections or seed.media_type is not MediaType.MOVIE:
+                continue
+            try:
+                collection = tmdb.details(seed.tmdb_id, MediaType.MOVIE).get("belongs_to_collection")
+            except Exception as exc:
+                logger.debug("franchise: could not read seed {} ({})", seed.tmdb_id, type(exc).__name__)
+                continue
+            if isinstance(collection, dict) and "id" in collection:
+                seed_collections[seed.tmdb_id] = (collection["id"], collection.get("name", ""))
+
+    members: dict[int, set[int]] = {}
+    for collection_id, _name in seed_collections.values():
+        if collection_id not in members:
+            try:
+                members[collection_id] = tmdb.collection_members(collection_id)
+            except Exception as exc:
+                logger.debug("franchise: could not read collection {} ({})", collection_id, type(exc).__name__)
+                members[collection_id] = set()
+
+    for candidate in pool:
+        if candidate.media_type is not MediaType.MOVIE:
+            continue
+        for seed in candidate.seeds:
+            entry = seed_collections.get(seed.tmdb_id)
+            if entry and candidate.tmdb_id in members.get(entry[0], set()):
+                candidate.in_seed_franchise = True
+                candidate.attributions.append(Attribution("franchise", seed.title, seed.tmdb_id, entry[1]))
+                break
+
+
+def cast_idf(pool_cast_lists: list[set[str]]) -> dict[str, float]:
+    """Smoothed inverse document frequency over THIS pool's cast lists.
+
+    The failure this exists to prevent: a prolific actor appearing in 40 unrelated titles makes all
+    40 look related to each other, and to anything else they are in. Weighting each shared name by
+    how rare it is in the set being compared is the textbook fix.
+
+    Scoping the corpus to the current pool is correct here, not a compromise — unlike the genre
+    baseline, which must NOT use the pool because it is built from the person's own seeds. Here the
+    pool IS the set of things being compared to one another, which is exactly what a document
+    frequency is measured over.
+    """
+    n = len(pool_cast_lists)
+    if n == 0:
+        return {}
+    df: Counter[str] = Counter()
+    for cast in pool_cast_lists:
+        df.update(cast)
+    return {actor: math.log((1 + n) / (1 + count)) + 1 for actor, count in df.items()}
+
+
+def cast_overlap_score(seed_cast: set[str], candidate_cast: set[str], idf: dict[str, float]) -> float:
+    """0..1 for how much MEANINGFUL cast two titles share — rare names count, ubiquitous ones barely."""
+    shared = seed_cast & candidate_cast
+    if not shared:
+        return 0.0
+    return min(1.0, sum(idf.get(actor, 0.0) for actor in shared) / CAST_NORMALIZER)
+
+
+def enrich_cast_affinity(ranked: list[Candidate], tmdb: TmdbClient, seeds: list[Seed]) -> None:
+    """Stamp `cast_overlap` on an ALREADY-BOUNDED list of candidates, in place.
+
+    Cast overlap needs BOTH sides' cast lists, unlike the franchise signal which only needs the
+    seeds'. That makes it the one signal here with a real per-candidate cost, so it must run after
+    the pool has been cut — bounded by `candidates_pre_rank` (a few dozen) rather than the raw gather
+    (hundreds). Same "cheap cut, then a bounded expensive re-rank" layering `cut_for_recency` uses.
+
+    ORDERS, NEVER SELECTS. This mutates scores and nothing else: no candidate is added and none is
+    removed, so it can change the row's order but can never change what was eligible for it. The same
+    discipline `TestRankAgainstPoolOrdersOnly` enforces elsewhere, and for the same reason — a
+    re-ranking step that quietly changes membership is invisible in a diff and catastrophic in a row.
+    """
+    if not ranked or not seeds:
+        return
+    casts: dict[tuple[int, MediaType], set[str]] = {}
+
+    def cast_for(tmdb_id: int, media_type: MediaType) -> set[str]:
+        key = (tmdb_id, media_type)
+        if key not in casts:
+            try:
+                casts[key] = set(tmdb.top_cast(tmdb_id, media_type, TOP_CAST_N))
+            except Exception as exc:
+                logger.debug("cast: could not read {} ({})", tmdb_id, type(exc).__name__)
+                casts[key] = set()
+        return casts[key]
+
+    # Idempotent: drop any cast attribution we left last time before adding this one. Candidates are
+    # SHARED objects, and both cut sites enrich — `_candidate_pool` on the pool's own cut, and
+    # `RowPolicy.cut_at_recency` on an overlapping subset for a row that overrides recency. Appending
+    # blindly made a reason read "shares Zendaya with Dune, and shares Zendaya with Dune", and a
+    # third row stacked a third copy. Ordering the call sites would be the fragile fix; being
+    # idempotent lets either run in any order, which is what "ORDERS, NEVER SELECTS" already implies.
+    candidate_casts = [cast_for(c.tmdb_id, c.media_type) for c in ranked]
+    idf = cast_idf([c for c in candidate_casts if c])
+    for candidate, own_cast in zip(ranked, candidate_casts, strict=True):
+        if not own_cast:
+            continue
+        best = 0.0
+        best_seed: Seed | None = None
+        best_actor = ""
+        for seed in candidate.seeds:
+            shared = own_cast & cast_for(seed.tmdb_id, seed.media_type)
+            if not shared:
+                continue
+            score = cast_overlap_score(own_cast, cast_for(seed.tmdb_id, seed.media_type), idf)
+            if score > best:
+                best, best_seed = score, seed
+                best_actor = max(shared, key=lambda a: idf.get(a, 0.0))
+        candidate.cast_overlap = best
+        # REPLACE, never delete-then-maybe-replace. Dropping the old attribution up front lost the
+        # reason whenever the rebuild could not run — a transient TMDB failure between the two
+        # enrichment call sites left the cast BOOST applied (`cast_overlap` survives) while the row
+        # stopped explaining it. Same hazard plex-safety rule 3 codifies for filters: never clear
+        # something before you know what replaces it.
+        candidate.attributions = [a for a in candidate.attributions if a.signal != "cast"]
+        if best_seed is not None and best > 0:
+            # The single highest-IDF shared name, because "shares Timothée Chalamet with Dune" is an
+            # explanation and a list of five co-stars is not.
+            candidate.attributions.append(Attribution("cast", best_seed.title, best_seed.tmdb_id, best_actor))
+
+
+def stamp_genre_penalties(
+    tmdb: TmdbClient,
+    candidates: list[Candidate],
+    seeds: list[Seed],
+    library_genre_counts: dict[str, int],
+) -> None:
+    """Measure this person's genre avoidance and stamp it on every candidate, in place.
+
+    The person's own mix comes from their SEEDS, not their raw history: `WatchedItem` carries no
+    genres, and seeds are already this codebase's operational stand-in for "what this person likes"
+    everywhere else in this module. It also caps the sample at `max_seeds`, so a 2000-watch account
+    and a 30-watch one are compared on the same footing.
+
+    Both sides must speak the same vocabulary or nothing matches. Candidates carry TMDB genre NAMES
+    (mapped through `genre_names`), and Plex's `<Genre>` tags come from its metadata agent, which for
+    the Plex Movie agent is TMDB-derived — so "Horror" and "Science Fiction" line up. Where they do
+    NOT, the mismatch degrades to silence rather than error: a genre missing from the profile scores
+    0.0, so an unfamiliar vocabulary costs the signal, never the ranking.
+    """
+    if not library_genre_counts or not seeds or not candidates:
+        return
+    genre_maps: dict[MediaType, dict[int, str]] = {}
+    user_counts: Counter[str] = Counter()
+    for seed in seeds:
+        if seed.media_type not in genre_maps:
+            genre_maps[seed.media_type] = tmdb.genre_names(seed.media_type)
+        names = genre_maps[seed.media_type]
+        # Weighted by how much they actually watched it. A show binged 40 episodes deep says more
+        # about their taste than something they sampled once, and `Seed.weight` already carries
+        # exactly that judgement (watch count x recency decay) for the rest of the engine.
+        weight = max(1, round(seed.weight))
+        for gid in _seed_genre_ids(tmdb, seed):
+            if gid in names:
+                user_counts[names[gid]] += weight
+    profile = genre_avoidance_profile(dict(user_counts), dict(library_genre_counts))
+    if not profile:
+        return
+    for candidate in candidates:
+        candidate.genre_penalty = candidate_genre_penalty(candidate.genres, profile)
+
+
+def genre_coherence(seed_genre_ids: set[int], candidate_genre_ids: list[int]) -> float:
+    """How much a candidate stays inside the seed's genres, 0.5..1.0.
+
+    Position in TMDB's list is not enough on its own. `The Pitt` is tagged simply "Drama", and so is
+    almost everything it suggests — but Torchwood and The Sandman are ALSO "Sci-Fi & Fantasy", and
+    that foreign genre is the whole difference between a medical drama and a fantasy series. TMDB
+    still recommends them, fairly high up; nothing in position or rating says they don't belong.
+
+    Measured on genres the candidate has that the seed does NOT, as a share of its own genres — not
+    on overlap, which cannot discriminate when every title shares the one broad genre. Floored at
+    0.5 so this shades the ranking rather than dominating it, and returns 1.0 (no opinion) whenever
+    either side has no genres recorded.
+    """
+    if not seed_genre_ids or not candidate_genre_ids:
+        return 1.0
+    foreign = set(candidate_genre_ids) - seed_genre_ids
+    return 1.0 - 0.5 * (len(foreign) / len(set(candidate_genre_ids)))
+
+
+def gather_candidates(
+    tmdb: TmdbClient,
+    seeds: list[Seed],
+    *,
+    sources: list[str] | None = None,
+    curator=None,
+    profile=None,
+    trakt=None,
+    search=None,
+    web_search_mode: str = "native",
+    web_search_cache: Cache | None = None,
+    recent_count: int = _WEB_SEARCH_MAX_TITLES,
+    stats: GatherStats | None = None,
+    season_items: dict[MediaType, list[dict]] | None = None,
+    season_source: str = "season",
+    web_guidance: Guidance | None = None,
+) -> list[Candidate]:
+    """Pool candidates from every enabled source, deduped by (tmdb_id, media_type).
+
+    ``season_items`` is a seasonal row's season, as the TMDB list items the server's libraries hold
+    (`seasons.SeasonTitles.in_library`). When given, they join the pool as the ``season`` source whatever
+    ``sources`` says — they are what the row is made of. ``season_source`` names that source: an AI row's
+    theme (#138) is read the same way and reports as ``theme``.
+
+    ``curator``/``profile`` are only needed by the ``llm_web`` source and ``trakt`` by the Trakt
+    source; the TMDB sources ignore them. ``search``/``web_search_mode`` drive the ``llm_web``
+    source's external-search backend (Exa) — ``search`` is None when no key is configured.
+    ``web_guidance`` is the row's AI instructions for that source's prompt (#138); None = built-in.
+
+    Pass a ``stats`` (a :class:`GatherStats`) to have the AI token spend of the ``llm_web`` source
+    (and Exa searches) accumulated into it, for per-run AI accounting.
+    """
+    enabled = set(sources) if sources else set(DEFAULT_SOURCES)
+    stats = stats if stats is not None else GatherStats()
+    pool: dict[tuple[int, MediaType], Candidate] = {}
+    attempted: set[str] = set()
+    failures: dict[str, str] = {}  # source -> why it failed; named in the raise when ALL of them do
+    genre_maps: dict[MediaType, dict[int, str]] = {}
+
+    def genres_for(media_type: MediaType) -> dict[int, str]:
+        if media_type not in genre_maps:
+            genre_maps[media_type] = tmdb.genre_names(media_type)
+        return genre_maps[media_type]
+
+    # The best MEASURED affinity per title. Kept separately from `Candidate.affinity` because the
+    # field's default (1.0) is "no ranking information", which is indistinguishable from a source
+    # claiming a perfect match — so a title that tmdb_discover also found would otherwise have its
+    # measured position overwritten by that neutral default and sail back to the top of the row.
+    measured: dict[tuple[int, MediaType], float] = {}
+
+    def add(item: dict, media_type: MediaType, source: str, affinity: float | None = None) -> Candidate:
+        key = (item["id"], media_type)
+        if key not in pool:
+            date = item.get("release_date") or item.get("first_air_date") or ""
+            gmap = genres_for(media_type)
+            pool[key] = Candidate(
+                tmdb_id=item["id"],
+                title=item.get("title") or item.get("name") or "",
+                media_type=media_type,
+                year=int(date[:4]) if len(date) >= 4 and date[:4].isdigit() else None,
+                genres=[gmap[g] for g in item.get("genre_ids", []) if g in gmap],
+                rating=float(item.get("vote_average") or 0.0),
+                vote_count=int(item.get("vote_count") or 0),
+                poster_path=item.get("poster_path") or "",
+                overview=item.get("overview") or "",
+                language=str(item.get("original_language") or "").lower(),
+            )
+        # Artwork folds like the rest: `merge()` (Trakt, and any other non-TMDB source) has no poster
+        # to give and runs BEFORE the TMDB-backed sources, so a title both found would otherwise keep
+        # the poster-less copy's "" and buy the path again with a detail call in `request_missing` —
+        # while a list response carrying it was already in hand. Same rule `accumulate` uses.
+        pool[key].poster_path = pool[key].poster_path or (item.get("poster_path") or "")
+        pool[key].overview = pool[key].overview or (item.get("overview") or "")
+        # Language folds the same way, and for the same reason: `merge()` (Trakt) runs first and has
+        # none to give, so a title both sources found would otherwise keep the unknown "" and be
+        # judged as preferred when TMDB knew perfectly well it was not.
+        pool[key].language = pool[key].language or str(item.get("original_language") or "").lower()
+        # A title two sources both found belongs to both — it competes in each one's share, and
+        # keeps the STRONGEST claim any of them made for it. A source with nothing to claim
+        # (`affinity is None`) adds itself to `sources` but never touches the score.
+        pool[key].sources.add(source)
+        if affinity is not None:
+            measured[key] = max(measured.get(key, 0.0), affinity)
+            pool[key].affinity = measured[key]
+        return pool[key]
+
+    def merge(tmdb_id: int, title: str, media_type: MediaType, year, genres, source: str) -> Candidate:
+        """Merge a candidate described by explicit fields (non-TMDB sources) into the pool."""
+        key = (tmdb_id, media_type)
+        if key not in pool:
+            pool[key] = Candidate(
+                tmdb_id=tmdb_id, title=title, media_type=media_type, year=year, genres=list(genres or [])
+            )
+        pool[key].sources.add(source)
+        return pool[key]
+
+    # Fetch each media type's genre map once up front (used to name every candidate, whatever source
+    # produced it) — never per seed.
+    for media_type in {s.media_type for s in seeds}:
+        genres_for(media_type)
+
+    # Per-source, per-seed "what we asked for → what came back" records for the trace, so the operator
+    # can follow a TMDB/Trakt query the same way they can an AI web search. Each returned title carries
+    # its tmdb_id so the disposition pass (in _candidate_pool) can mark it kept/dropped precisely, not
+    # by fuzzy title match. Bounded to a sample.
+    seed_queries: dict[str, list[dict]] = {}
+    # How many searches each source ACTUALLY ran, per media — counted before the sample cap below.
+    # Without it the trace reported the size of its own display sample as the number of searches, so
+    # a run that queried 30 seeds could show "searched 12" and look like a much narrower run than it
+    # was. A trace that misstates the engine is worse than no trace.
+    searched: dict[tuple[str, str], int] = {}
+
+    def _record_query(source: str, label: str, media: str, returned: list[tuple[int, str]]) -> None:
+        searched[(source, media)] = searched.get((source, media), 0) + 1
+        rows = seed_queries.setdefault(source, [])
+        if len(rows) >= _TRACE_SEEDS_SAMPLE:
+            return
+        rows.append(
+            {
+                "seed": label,
+                "media": media,
+                "returned": [{"tmdb_id": tid, "title": title} for tid, title in returned[:_TRACE_RETURNS_SAMPLE]],
+                "total": len(returned),
+            }
+        )
+
+    def _record_seed_query(source: str, seed: Seed, returned: list[tuple[int, str]]) -> None:
+        _record_query(source, seed.title, seed.media_type.value, returned)
+
+    if "tmdb_similar" in enabled:
+        attempted.add("tmdb_similar")
+        try:
+            for seed in seeds:
+                seed_genres = _seed_genre_ids(tmdb, seed)
+                returned: list[tuple[int, str]] = []
+                for item, affinity in tmdb.suggestions(seed.tmdb_id, seed.media_type):
+                    coherence = genre_coherence(seed_genres, item.get("genre_ids") or [])
+                    add(item, seed.media_type, "tmdb_similar", affinity * coherence).seeds.append(seed)
+                    returned.append((int(item.get("id") or 0), item.get("title") or item.get("name") or ""))
+                _record_seed_query("tmdb_similar", seed, returned)
+        except Exception as e:
+            # The only source that used to have no isolation: a TMDB hiccup here killed the user's
+            # whole run, discarding the pools every other source had already gathered.
+            failures["tmdb_similar"] = f"{type(e).__name__}: {e}"
+            logger.warning("tmdb_similar source failed ({}); continuing with the other sources", type(e).__name__)
+
+    if "tmdb_discover" in enabled:
+        attempted.add("tmdb_discover")
+        try:
+            discover_genres: dict[str, list[str]] = {}
+            for media_type in {s.media_type for s in seeds}:
+                # No seed provenance — this is "in genres you like", not "because you watched X".
+                genre_ids = _dominant_genre_ids(tmdb, seeds, media_type)
+                gmap = genres_for(media_type)
+                genre_names = [gmap[g] for g in genre_ids if g in gmap]
+                discover_genres[media_type.value] = genre_names
+                returned = []
+                for item in tmdb.discover(media_type, genre_ids):
+                    add(item, media_type, "tmdb_discover")
+                    returned.append((int(item.get("id") or 0), item.get("title") or item.get("name") or ""))
+                # Record the returns so the trace can expand this source title-by-title like the others.
+                # The "seed" here is the genre set it widened into, not a watched title.
+                _record_query("tmdb_discover", " · ".join(genre_names) or "your genres", media_type.value, returned)
+            stats.trace["discover_genres"] = discover_genres  # the top genres discover widened into, per type
+        except Exception as e:
+            # Discover is a supplementary "widen" source: a TMDB hiccup here must never discard the
+            # tmdb_similar pool already gathered for this user. Degrade to "no widening", not a failure.
+            failures["tmdb_discover"] = f"{type(e).__name__}: {e}"
+            logger.warning("tmdb_discover source failed ({}); continuing with the other sources", type(e).__name__)
+
+    if "trakt" in enabled and trakt is not None:
+        attempted.add("trakt")
+        try:
+            for seed in seeds:
+                returned = []
+                for item in trakt.related(seed.tmdb_id, seed.media_type):
+                    # Related-to-a-seed, so keep the provenance (a real "because you watched X").
+                    cand = merge(
+                        item["tmdb_id"], item["title"], seed.media_type, item.get("year"), item.get("genres"), "trakt"
+                    )
+                    cand.seeds.append(seed)
+                    returned.append((int(item["tmdb_id"]), item["title"]))
+                _record_seed_query("trakt", seed, returned)
+        except Exception as e:
+            failures["trakt"] = f"{type(e).__name__}: {e}"
+            logger.warning("trakt source failed ({}); continuing with the other sources", type(e).__name__)
+
+    # Whether this source can run is `_web_search_capable`'s question ALONE — it used to also require
+    # a real (non-Null) curator, which quietly outranked it and made that function's Exa branch dead
+    # code. Exa returns extracted titles, so Exa with no AI provider is a complete setup.
+    # `curator is not None` stays: `_web_search_capable` reads capabilities off the curator with
+    # getattr defaults, and None would read as capable.
+    if (
+        "llm_web" in enabled
+        and curator is not None
+        and profile is not None
+        and _web_search_capable(curator, search, web_search_mode)
+    ):
+        attempted.add("llm_web")
+        try:
+            # Web search (the provider's own tool, or an external search provider like Exa) proposes
+            # titles to watch next; each is resolved to a real TMDB id and (later) library-verified,
+            # so a hallucinated title simply resolves to nothing rather than reaching a row.
+            resolved: list[str] = []
+            unresolved: list[str] = []
+            # Each resolved proposal WITH its tmdb_id + media, so the disposition pass can mark whether it
+            # made this library's shortlist (kept) or fell out (already watched / not in library / lost the
+            # ranking cut) — the same fate every TMDB/Trakt return carries. `resolved`/`unresolved` stay as
+            # bare labels for the "hallucinated, no match" strike-through; this is the richer join key.
+            proposals: list[dict] = []
+            for rec in web_recommendations(
+                curator,
+                search,
+                web_search_mode,
+                profile,
+                seeds,
+                _LLM_WEB_K,
+                stats,
+                cache=web_search_cache,
+                recent_count=recent_count,
+                guidance=web_guidance,
+            ):
+                media_type = MediaType.SHOW if rec.get("media") == "show" else MediaType.MOVIE
+                found = tmdb.search(rec["title"], media_type, year=rec.get("year"))
+                if found:
+                    add(found, media_type, "llm_web")
+                    resolved.append(_rec_label(rec))
+                    proposals.append({"title": _rec_label(rec), "tmdb_id": int(found["id"]), "media": media_type.value})
+                else:
+                    unresolved.append(_rec_label(rec))  # proposed but no TMDB match — a likely hallucination
+            web = stats.trace.setdefault("web", {})
+            web["resolved"] = resolved
+            web["unresolved"] = unresolved
+            web["proposals"] = proposals
+        except Exception as e:
+            failures["llm_web"] = f"{type(e).__name__}: {e}"
+            logger.warning("llm_web source failed ({}); continuing with the other sources", type(e).__name__)
+
+    if season_items is not None:
+        season_skipped = ""
+        for media_type, items in season_items.items():
+            if not items:
+                continue
+            # Counted once it has titles to offer: a season with nothing here is no working source, so with
+            # every other source down the pool fails loudly below instead of passing as a quiet empty.
+            attempted.add(season_source)
+            try:
+                genres_for(media_type)
+            except Exception as e:
+                # Genre NAMES are what a person's excluded genres are checked against, so an unnamed title
+                # would slip past one. This kind of title sits the night out; the other kind still builds.
+                logger.warning(
+                    "season source: no {} genre list ({}); left out tonight", media_type.value, type(e).__name__
+                )
+                season_skipped = f"no {media_type.value} genre list ({type(e).__name__})"
+                continue
+            # No seed: these are in the pool because of the calendar, not because of a watch. What makes
+            # them PERSONAL is this weight — how far each title stays inside the genres this person
+            # watches most, the same 0.5..1.0 `genre_coherence` tmdb_similar already applies per seed.
+            # Ranked on rating alone, two people's 15-film Christmas rows overlapped 48% on a real
+            # server; with this weight, 13%.
+            try:
+                theirs = set(_dominant_genre_ids(tmdb, seeds, media_type))
+            except Exception as e:
+                # A failed lookup costs the weight, never the titles: unweighted is still the season.
+                logger.debug("season source: could not read seed genres ({})", type(e).__name__)
+                theirs = set()
+            returned = []
+            for item in items:
+                # Only a title the season alone found takes this weight. One a seeded source already
+                # measured keeps that measurement: raising it to the genre fit and then multiplying by
+                # its seed put a kids' animation watcher's weak match for a cannibal horror at the top
+                # of their Halloween row, measured on a real server.
+                already = (item["id"], media_type) in measured
+                fit = None if already else genre_coherence(theirs, item.get("genre_ids") or [])
+                add(item, media_type, season_source, fit)
+                returned.append((int(item.get("id") or 0), item.get("title") or item.get("name") or ""))
+            _record_query(
+                season_source,
+                f"the {season_source}'s titles in your libraries",
+                media_type.value,
+                returned,
+            )
+        if season_skipped and not any(season_source in candidate.sources for candidate in pool.values()):
+            failures[season_source] = season_skipped
+
+    # One source down is a degradation the other sources absorb. EVERY source down is not: we know
+    # nothing about this person tonight, and returning an empty pool would report a cheerful "ok"
+    # while quietly leaving yesterday's row in place. Fail loudly instead — the caller isolates it
+    # to this one user, and the run report names them.
+    if attempted and set(failures) == attempted and not pool:
+        detail = "; ".join(f"{source}: {why}" for source, why in sorted(failures.items()))
+        raise RuntimeError(f"every candidate source failed — no candidates gathered ({detail})")
+
+    # Per-source contribution, so a run's log shows WHERE candidates came from — e.g.
+    # "candidates · tmdb_similar 142, trakt 63, tmdb_discover 40 → 187 unique". A title found by two
+    # sources counts under each (its .sources set), so the parts sum to more than the unique total.
+    by_source = Counter(source for cand in pool.values() for source in cand.sources)
+    breakdown = ", ".join(f"{source} {count}" for source, count in by_source.most_common())
+    logger.debug("candidates · {} → {} unique from {} seeds", breakdown or "none", len(pool), len(seeds))
+    # A per-source line for the run trace: every source we tried, whether it worked, and how many
+    # pooled candidates it contributed (a title several sources found counts under each).
+    stats.trace["sources"] = [
+        {
+            "source": source,
+            "status": "failed" if source in failures else "ok",
+            "contributed": by_source.get(source, 0),
+            "detail": failures.get(source, ""),
+            # Per-seed "searched for X → got these back" sample; only the seeded TMDB/Trakt sources
+            # have one (discover queries by genre, llm_web records its own queries under `web`).
+            "queries": seed_queries.get(source, []),
+            # The REAL number of searches this source ran, per media — `queries` above is a capped
+            # display sample, so the UI must not count it and call that the answer.
+            "searched": {media: n for (src, media), n in searched.items() if src == source},
+        }
+        for source in sorted(attempted)
+    ]
+    return list(pool.values())
+
+
+def _dominant_genre_ids(tmdb: TmdbClient, seeds: list[Seed], media_type: MediaType) -> list[int]:
+    """The genres this person's seeds skew toward, weighted by each seed's recency/frequency."""
+    counts: Counter[int] = Counter()
+    for seed in seeds:
+        if seed.media_type is not media_type:
+            continue
+        for gid in tmdb.genre_ids_for(seed.tmdb_id, seed.media_type):
+            counts[gid] += seed.weight
+    return [gid for gid, _ in counts.most_common(_DISCOVER_TOP_GENRES)]
+
+
+def filter_candidates(
+    candidates: list[Candidate],
+    library_index: dict[MediaType, dict[int, int]],
+    *,
+    watched_tmdb_ids: set[tuple[int, MediaType]],
+    excluded_genres: set[str],
+    dropped: list[tuple[Candidate, str]] | None = None,
+) -> list[Candidate]:
+    """Intersect with the library and drop watched/excluded titles.
+
+    Titles are identified by (tmdb_id, media_type), never by id alone: TMDB ids are unique only
+    WITHIN a namespace, so movie 550 and TV 550 are different titles. Keying on the bare id makes
+    watching a film silently blacklist the show that happens to share its number.
+
+    Args:
+        candidates: The pooled TMDB candidates.
+        library_index: media_type -> {tmdb_id -> ratingKey} built once per run.
+        watched_tmdb_ids: (tmdb_id, media_type) this user has already watched.
+        excluded_genres: Per-user genre exclusions (case-insensitive).
+        dropped: Optional out-list; each dropped candidate is appended as ``(candidate, reason)`` for
+            the run trace. Purely observational — it never changes which candidates are kept.
+    """
+    excluded = {g.lower() for g in excluded_genres}
+    kept = []
+    for c in candidates:
+        rating_key = library_index.get(c.media_type, {}).get(c.tmdb_id)
+        if rating_key is None:
+            if dropped is not None:
+                dropped.append((c, "not_in_your_libraries"))
+            continue
+        if (c.tmdb_id, c.media_type) in watched_tmdb_ids:
+            if dropped is not None:
+                dropped.append((c, "already_watched"))
+            continue
+        if excluded and any(g.lower() in excluded for g in c.genres):
+            if dropped is not None:
+                dropped.append((c, "excluded_genre"))
+            continue
+        c.rating_key = rating_key
+        kept.append(c)
+    return kept

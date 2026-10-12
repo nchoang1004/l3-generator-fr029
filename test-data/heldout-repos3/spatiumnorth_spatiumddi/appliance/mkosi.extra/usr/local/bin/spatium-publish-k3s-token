@@ -1,0 +1,53 @@
+#!/bin/bash
+# spatium-publish-k3s-token — copy the local k3s cluster join token to
+# the release-state sidecar the supervisor reads (#272 Phase 7b).
+#
+# The supervisor pod can't read /var/lib/rancher/k3s/server/token (not
+# bind-mounted, and we don't want to mount the k3s server dir into a
+# pod). Instead this host-side oneshot copies the token into
+# /var/lib/spatiumddi/release-state/k3s-join-token, which IS in the
+# supervisor's release-state bind mount. The supervisor reports it on
+# heartbeat; the control plane's promote endpoint reads the primary's
+# token to hand to joiners.
+#
+# Runs After=k3s.service on every boot. The token is created by k3s
+# during server init, which can lag the service start, so we poll for
+# it briefly. Every k3s server in the cluster shares the same join
+# token, so publishing on each node is correct + harmless.
+set -uo pipefail
+
+TOKEN_FILE=/var/lib/rancher/k3s/server/token
+SIDECAR=/var/lib/spatiumddi/release-state/k3s-join-token
+DEADLINE=$(( $(date +%s) + 60 ))
+
+# Appliance only — the sidecar dir is the supervisor's bind-mount source.
+[ -d /var/lib/spatiumddi/release-state ] || exit 0
+
+while [ "$(date +%s)" -lt "$DEADLINE" ]; do
+    if [ -r "$TOKEN_FILE" ]; then
+        # #555 — write via a RANDOM-named temp (mktemp creates it fresh at
+        # 0600 and won't write through a symlink an attacker pre-planted at
+        # the predictable ``$SIDECAR.new`` name in the release-state dir,
+        # which was 1777 until GHSA-h2j9-qrg7-grfw — the token is
+        # cluster-admin-equivalent). The FINAL sidecar stays 0644 on
+        # purpose: the supervisor's unprivileged process user (uid 100
+        # spatium, su-exec'd from root by the entrypoint) must read it
+        # through the release-state bind mount. A 0600-root sidecar is
+        # invisible to that user → read_k3s_join_token() returns None → the
+        # seed never reports its token → promote 409s. Its "other" read bit
+        # no longer reaches other host accounts: the directory is 1770
+        # root:2770, so only root and gid-2770 members can traverse to it.
+        tmp="$(mktemp "$SIDECAR.XXXXXX" 2>/dev/null)" || { sleep 3; continue; }
+        if tr -d '\r\n' < "$TOKEN_FILE" > "$tmp" 2>/dev/null; then
+            chmod 0644 "$tmp"
+            mv -f "$tmp" "$SIDECAR"
+        else
+            rm -f "$tmp"
+        fi
+        exit 0
+    fi
+    sleep 3
+done
+# No token after the window — not a server node yet, or k3s wedged.
+# Leave any prior sidecar intact; the supervisor reports None.
+exit 0

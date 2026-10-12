@@ -1,0 +1,108 @@
+name: spatiumddi-agent-dns-technitium
+
+# ── Standalone Technitium DNS agent compose file ───────────────────────
+#
+# For running a Technitium DNS Server agent on a machine *without* the
+# SpatiumDDI control plane. Mirror of
+# ``docker-compose.agent-dns-bind9.yml`` / ``docker-compose.agent-dns-
+# powerdns.yml`` for the third authoritative driver — pick whichever
+# image matches the server group's driver in the control plane.
+#
+# Zone + record state lives entirely in Technitium's own store under
+# ``/etc/dns`` inside the container's bound volume — there is no
+# external database dependency (same shape as PowerDNS's embedded LMDB).
+#
+# Quickstart:
+#
+#   export CONTROL_PLANE_URL=https://spatium.example.com
+#   export DNS_AGENT_KEY=$(openssl rand -hex 32)
+#   # Register the key on the control plane first (Settings → Agent
+#   # Keys) so the agent can bootstrap. Create the matching
+#   # DNSServerGroup with driver="technitium" via the UI or REST API.
+#
+#   docker compose -f docker-compose.agent-dns-technitium.yml up -d
+#
+# For multi-server Technitium groups, run this compose file on each
+# additional VM with DNS_HOSTNAME set to a unique server name and the
+# same AGENT_GROUP — the control plane wires them into the same
+# Technitium-driver group automatically.
+#
+# Mixing drivers in one group is rejected by the control plane. To run
+# BIND9 / PowerDNS / Technitium side-by-side, create separate groups.
+#
+# ──────────────────────────────────────────────────────────────────────
+
+services:
+  dns-technitium:
+    image: ghcr.io/spatiumnorth/dns-technitium:${SPATIUMDDI_VERSION:-latest}
+    restart: unless-stopped
+    hostname: ${DNS_HOSTNAME:-dns-technitium}
+    networks:
+      - spatiumddi-agent
+    environment:
+      # ── Required ──────────────────────────────────────────────────
+      # URL of the SpatiumDDI control plane API (remote).
+      CONTROL_PLANE_URL: ${CONTROL_PLANE_URL:?CONTROL_PLANE_URL required}
+      # Pre-shared key registered on the control plane first.
+      DNS_AGENT_KEY: ${DNS_AGENT_KEY:?DNS_AGENT_KEY required}
+
+      # ── Registration ──────────────────────────────────────────────
+      # Server name used for auto-registration. MUST be unique across
+      # the deployment.
+      SERVER_NAME: ${DNS_HOSTNAME:-dns-technitium}
+      AGENT_GROUP: ${DNS_AGENT_GROUP:-default}
+      AGENT_ROLES: ${DNS_AGENT_ROLES:-authoritative}
+      # AGENT_DRIVER is baked into the image (technitium); no override.
+
+      # ── TLS ───────────────────────────────────────────────────────
+      # The control plane's certificate is verified (#1220). A cert from a
+      # public CA needs nothing here. For a private CA or a self-signed
+      # cert, mount that CA (the commented volume below) and set
+      # TLS_CA_PATH=/etc/ssl/spatium-ca.crt in .env.
+      # SPATIUM_INSECURE_SKIP_TLS_VERIFY=1 turns verification off: lab use
+      # only, since anyone on the network path can then read the agent key.
+      # TLS_CA_PATH wins if both are set.
+      TLS_CA_PATH: "${TLS_CA_PATH:-}"
+      SPATIUM_INSECURE_SKIP_TLS_VERIFY: "${SPATIUM_INSECURE_SKIP_TLS_VERIFY:-0}"
+    volumes:
+      # Private-CA / self-signed control plane: the CA TLS_CA_PATH names.
+      # - ./spatium-ca.crt:/etc/ssl/spatium-ca.crt:ro
+      - dns_technitium_state:/var/lib/spatium-dns-agent
+      # Technitium's own config + zone store. Keep this volume — losing
+      # it means losing every zone the agent has applied, plus the
+      # daemon's admin account (the agent's cached API token would then
+      # point at a re-initialised daemon and need to re-provision).
+      - dns_technitium_config:/etc/dns
+      - dns_technitium_logs:/var/log/technitium
+    ports:
+      # DNS — UDP and TCP. The host-port default (1053) is lab-friendly
+      # to avoid colliding with systemd-resolved on 53 *and* avahi-mDNS
+      # on 5353. For a real DNS server use port 53 directly, typically
+      # with ``network_mode: host`` so clients can reach it without
+      # DNAT.
+      - "${DNS_HOST_PORT:-1053}:53/udp"
+      - "${DNS_HOST_PORT:-1053}:53/tcp"
+      # No DoT / DoH / DoQ ports published here. The daemon serves all
+      # three natively (issue #741 — no dnsdist-style sidecar needed) and
+      # will listen on whatever the group is configured for in the UI,
+      # but Compose cannot publish a port conditionally, so binding them
+      # unconditionally would break ``up -d`` on any host already using
+      # them — for a feature that ships off by default.
+      #
+      # This file is the STANDALONE agent, so it can't use the
+      # ``docker-compose.dns-encrypted.yml`` overlay (that one targets the
+      # full-stack file's service names). Add the mappings by hand instead
+      # — container-side ports must MATCH the UI values, since the agent
+      # configures the daemon from the database, not from here:
+      #   - "${DNS_DOT_HOST_PORT:-1853}:853/tcp"   # DoT
+      #   - "${DNS_DOQ_HOST_PORT:-1853}:853/udp"   # DoQ — UDP, so no clash
+      #   - "${DNS_DOH_HOST_PORT:-8443}:443/tcp"   # DoH
+
+networks:
+  spatiumddi-agent:
+    driver: bridge
+
+volumes:
+  dns_technitium_state:
+  dns_technitium_config:
+  dns_technitium_logs:

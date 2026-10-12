@@ -1,0 +1,1481 @@
+#!/usr/bin/env python3
+"""Phase 8b — atomic A/B slot upgrade (issue #138).
+
+Operator CLI for writing a new image to the inactive A/B slot and
+flipping GRUB to boot it on next start. The grub-flip + boot-counting
++ auto-rollback half lives in Phase 8c; THIS tool handles the
+foundation: detect slots, fetch image, verify checksum, write to
+inactive slot.
+
+Subcommands:
+  status                 — Show current vs inactive slot + versions
+  apply <URL|FILE>       — Download (if URL) + verify + write to inactive
+                           slot. Does NOT reboot or flip default boot.
+  set-next-boot <slot>   — Mark slot A or B as the next-boot target
+                           (requires Phase 8c grub-flip — stubbed here)
+  rollback               — Set inactive slot as next boot (Phase 8c)
+
+The current slot is detected from /proc/cmdline's root=UUID=... by
+looking up the matching partition via blkid. Inactive slot is the
+OTHER partition carrying a root_a / root_b PARTLABEL on the same disk.
+
+Matched on the PARTLABEL, not the GPT type code — which is what makes
+it architecture-independent: the root type is 8304 on x86-64 and 8305
+on arm64 (#1026), and the labels are the same on both.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import http.client
+import json
+import os
+import platform
+import re
+import shutil
+import ssl
+import subprocess
+import sys
+import time
+import urllib.error
+import urllib.request
+from datetime import datetime, timezone
+from pathlib import Path
+
+
+# Standard slot locations on a Phase 8a appliance install. These are
+# GPT partition names set by `sgdisk -c4:root_A -c5:root_B` in
+# spatium-install — distinct from the ext4 filesystem labels, which
+# ``_relabel_slot_filesystem`` below keeps in step with these (#1045).
+SLOT_PARTLABELS = {"root_a", "root_b"}
+
+
+def run(cmd: list[str], check: bool = True, capture: bool = True) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        cmd,
+        check=check,
+        capture_output=capture,
+        text=True,
+    )
+
+
+def parse_cmdline_root_uuid() -> str | None:
+    """Pull the `root=UUID=...` value out of /proc/cmdline."""
+    try:
+        cmdline = Path("/proc/cmdline").read_text()
+    except OSError:
+        return None
+    m = re.search(r"root=UUID=([0-9a-fA-F-]+)", cmdline)
+    return m.group(1) if m else None
+
+
+def find_slot_partitions() -> list[dict[str, str]]:
+    """Enumerate the A/B slot partitions on the active disk.
+
+    Returns a list of dicts: {device, uuid, partlabel, fslabel}.
+    """
+    try:
+        out = run(["lsblk", "-J", "-o", "NAME,PATH,UUID,PARTLABEL,LABEL,PARTTYPE,FSTYPE"]).stdout
+    except subprocess.CalledProcessError:
+        return []
+    import json
+    data = json.loads(out)
+
+    slots: list[dict[str, str]] = []
+
+    def walk(node: dict) -> None:
+        partlabel = (node.get("partlabel") or "").lower()
+        if partlabel in SLOT_PARTLABELS:
+            slots.append({
+                "device": node.get("path") or "",
+                "uuid": node.get("uuid") or "",
+                "partlabel": partlabel,
+                "fslabel": node.get("label") or "",
+            })
+        for child in node.get("children") or []:
+            walk(child)
+
+    for top in data.get("blockdevices") or []:
+        walk(top)
+    return slots
+
+
+def detect_active_inactive() -> tuple[dict[str, str], dict[str, str]] | None:
+    slots = find_slot_partitions()
+    if len(slots) != 2:
+        return None
+    active_uuid = parse_cmdline_root_uuid()
+    if not active_uuid:
+        return None
+    active_uuid = active_uuid.lower()
+    active = next((s for s in slots if s["uuid"].lower() == active_uuid), None)
+    inactive = next((s for s in slots if s["uuid"].lower() != active_uuid), None)
+    if not active or not inactive:
+        return None
+    return active, inactive
+
+
+def host_architecture() -> str | None:
+    """This machine's architecture as ``amd64`` / ``arm64`` (#1026).
+
+    Normalised to the names the build stamps into
+    ``/etc/spatiumddi/appliance-release`` and the control plane stores,
+    so the comparison is between like and like. None for anything
+    unrecognised, which never counts as a mismatch — a refusal on a
+    string we failed to parse would block upgrades on a port nobody has
+    built yet, which is the opposite of the protection wanted here.
+    """
+    raw = (platform.machine() or "").strip().lower()
+    return {
+        "x86_64": "amd64",
+        "amd64": "amd64",
+        "aarch64": "arm64",
+        "arm64": "arm64",
+    }.get(raw)
+
+
+# #1202 — the image tag a slot's workloads run: its baked
+# ``SPATIUMDDI_VERSION`` (bake-images.sh writes it, firstboot pins the chart
+# to it). NOT always the APPLIANCE_VERSION the release file carries: a
+# release stamps both with one value, but a nightly's appliance version is
+# ``0.0.0-nightly-YYYYMMDD+sha`` while its images are tagged
+# ``nightly-YYYYMMDD`` (.github/workflows/nightly.yml passes the two apart).
+_IMAGE_TAG_REL = "usr/lib/spatiumddi/spatiumddi-version"
+
+
+def _read_image_tag(root: Path) -> str:
+    """The baked image tag under ``root`` ("" when absent or unreadable)."""
+    try:
+        return (root / _IMAGE_TAG_REL).read_text().strip()
+    except OSError:
+        return ""
+
+
+def slot_probe(slot: dict[str, str]) -> tuple[dict[str, str] | None, str]:
+    """Mount the slot read-only ONCE and read both what it is and what it
+    runs: ``(release fields, image tag)``.
+
+    The fields are ``slot_release_fields``' answer (the parsed ``KEY=value``
+    pairs, ``{}`` when the slot mounts but carries no release file, None
+    when it cannot be mounted at all). The image tag is the slot's baked
+    ``SPATIUMDDI_VERSION`` ("" when absent), which is what the image prune
+    must keep for that slot (#1202). One mount serves every caller — the
+    version label, the #1026 architecture check and the image tag all read
+    the same slot, and probing twice would mean mounting twice.
+    """
+    mountpoint = Path(f"/run/spatium-slot-probe-{slot['partlabel']}")
+    mountpoint.mkdir(parents=True, exist_ok=True)
+    try:
+        try:
+            run(["mount", "-o", "ro", slot["device"], str(mountpoint)])
+        except subprocess.CalledProcessError:
+            return None, ""
+        tag = _read_image_tag(mountpoint)
+        for rel in (
+            "etc/spatiumddi/appliance-release",
+            "usr/lib/etc.image/spatiumddi/appliance-release",
+        ):
+            p = mountpoint / rel
+            if not p.exists():
+                continue
+            fields: dict[str, str] = {}
+            for line in p.read_text().splitlines():
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, _, value = line.partition("=")
+                fields[key.strip()] = value.strip().strip('"')
+            return fields, tag
+        return {}, tag
+    finally:
+        try:
+            run(["umount", str(mountpoint)], check=False)
+        except Exception:
+            # Best-effort cleanup — if umount fails the kernel will reap
+            # the mount on process exit; we don't want a failure here to
+            # mask the actual return value from the try body.
+            pass
+        try:
+            mountpoint.rmdir()
+        except OSError:
+            # Same: cleanup-only. Leaving the empty probe dir behind is
+            # cosmetic — it's under /run, a tmpfs reclaimed on reboot.
+            pass
+
+
+def slot_release_fields(slot: dict[str, str]) -> dict[str, str] | None:
+    """Mount the slot read-only and parse its appliance-release file.
+
+    Returns the parsed ``KEY=value`` pairs, ``{}`` when the slot mounts
+    but carries no release file (empty / staging slot), or None when it
+    cannot be mounted at all. ``slot_probe``'s first half, for the callers
+    that only want the fields.
+    """
+    return slot_probe(slot)[0]
+
+
+def _version_label(slot: dict[str, str], fields: dict[str, str] | None) -> str:
+    """``slot_version_label`` over fields already read (no second mount)."""
+    if not slot.get("fslabel"):
+        return "unknown"
+    if fields is None:
+        return "unreadable"
+    version = fields.get("APPLIANCE_VERSION")
+    return version if version else "unstamped"
+
+
+def slot_version_label(slot: dict[str, str]) -> str:
+    """The slot's APPLIANCE_VERSION, or a sentinel describing why not.
+
+    The three sentinels (``unknown`` / ``unreadable`` / ``unstamped``)
+    are load-bearing: they reach ``slot-versions.json``, the Fleet card,
+    the console and the GRUB menu titles, and the UI's ``slotVersion``
+    helper renders them as "—".
+    """
+    if not slot.get("fslabel"):
+        return "unknown"
+    return _version_label(slot, slot_release_fields(slot))
+
+
+
+def slot_versions_key(slot: dict[str, str]) -> str:
+    """Map a slot dict to its key in ``slot-versions.json``."""
+    return "slot_a" if slot["partlabel"].lower() == "root_a" else "slot_b"
+
+
+def cmd_status(_args) -> int:
+    pair = detect_active_inactive()
+    if not pair:
+        print("ERROR: couldn't detect A/B slots — is this an appliance install?",
+              file=sys.stderr)
+        return 2
+    active, inactive = pair
+    # The ACTIVE slot's version is read from the booted
+    # /etc/spatiumddi/appliance-release directly. Never probe it with
+    # slot_version_label(): that device is already mounted rw at /, so a
+    # second read-only mount of it is refused and the slot would always
+    # render "unreadable" (#788).
+    #
+    # Deliberately does NOT call sync_slot_versions(): ``status`` is the
+    # command operators run to check on an upgrade, and it must stay
+    # read-only. Persisting a probe taken while an apply is mid-dd would
+    # overwrite the good slot-versions.json with "unreadable" — the very
+    # string this fix exists to stop showing — and that sidecar feeds the
+    # Fleet card, the console and the GRUB menu titles. Use
+    # ``sync-versions`` to refresh it.
+    print(f"Active slot:    {active['partlabel']:8}  {active['device']:14}  "
+          f"version={_read_active_appliance_version()}")
+    print(f"Inactive slot:  {inactive['partlabel']:8}  {inactive['device']:14}  "
+          f"version={slot_version_label(inactive)}")
+    return 0
+
+
+# Issue #386 Part C — structured per-phase progress for the Fleet UI.
+# The host wrapper (spatiumddi-slot-upgrade) owns the terminal steps
+# (queued / arming / reboot-pending / failed); this script writes the
+# in-apply steps (downloading + pct, verifying, writing, bootloader).
+# The supervisor reads this sidecar (it lives in release-state, which is
+# bind-mounted into the supervisor) and ships it on the heartbeat.
+_PROGRESS_FILE = Path("/var/lib/spatiumddi/release-state/slot-upgrade.progress")
+
+
+def _write_progress(step: str, pct: int | None = None, detail: str = "") -> None:
+    """Atomically write the progress sidecar. Best-effort — never let a
+    progress-write failure abort the upgrade itself."""
+    try:
+        _PROGRESS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        payload = json.dumps(
+            {
+                "step": step,
+                "pct": pct,
+                "detail": detail,
+                "at": datetime.now(timezone.utc).isoformat(),
+            }
+        )
+        tmp = _PROGRESS_FILE.with_name(_PROGRESS_FILE.name + ".new")
+        tmp.write_text(payload, encoding="utf-8")
+        tmp.replace(_PROGRESS_FILE)
+    except OSError:
+        # Progress reporting is cosmetic — a write failure must never
+        # abort the slot apply itself, so swallow it.
+        pass
+
+
+# #1216 — a download that ends early must be seen, and survived.
+#
+# ``http.client`` returns a SHORT body without complaint when the peer
+# closes the connection before Content-Length bytes arrived (its own
+# comment: "Ideally, we would raise IncompleteRead if the content-length
+# wasn't satisfied, but it might break compatibility"). That is exactly
+# what a node sees when the frontend pod serving its download is replaced
+# mid-transfer, e.g. in the rollout #1215 triggers during a rolling
+# upgrade: the kubelet kills nginx when its grace period ends and the
+# image on disk simply stops. The sha256 check then refused the partial
+# file, correctly, but the apply failed as "checksum mismatch", which
+# sends the operator looking for a corrupt image. So the bytes are
+# counted against Content-Length, and a transfer that ends early, drops
+# or stalls is retried with backoff before the apply gives up.
+_FETCH_ATTEMPTS = 5
+_FETCH_BACKOFF_SECONDS = (5, 10, 20, 40)  # before attempts 2, 3, 4, 5
+# Per blocking read, not per download: a transfer that stops moving for
+# this long is a stall, and a stall is retried like a drop (the wrapper's
+# 45 min cap is the backstop, not the detector).
+_FETCH_READ_TIMEOUT_SECONDS = 120
+# Server-side trouble worth another attempt. A 4xx is an answer (a bad
+# token, a deleted image) and is never retried.
+_RETRYABLE_HTTP_STATUS = frozenset({408, 429, 500, 502, 503, 504})
+
+
+class DownloadIncomplete(Exception):
+    """The server closed the transfer before ``expected`` bytes arrived."""
+
+    def __init__(self, received: int, expected: int) -> None:
+        super().__init__(f"received {received} of {expected} bytes")
+        self.received = received
+        self.expected = expected
+
+
+class DownloadFailed(Exception):
+    """Every attempt to fetch the image failed; ``cmd_apply`` returns 6."""
+
+
+class _LocalWriteError(RuntimeError):
+    """Writing the staged file failed (a full disk, say). A retry cannot
+    help, so this is never treated as a transfer problem."""
+
+
+class _UnusableRange(Exception):
+    """The server answered a resume with a 206 that does not continue the
+    partial file. The partial file is discarded, so the next attempt asks
+    for the whole image."""
+
+    def __init__(self, have: int, content_range: str | None) -> None:
+        super().__init__(
+            f"the server answered a resume from byte {have} with "
+            f"Content-Range {content_range or '(none)'}; starting over"
+        )
+
+
+_CONTENT_RANGE_RE = re.compile(r"\s*bytes\s+(\d+)-\d+/(\d+)\s*$", re.IGNORECASE)
+
+
+def _content_range(value: str | None) -> tuple[int, int] | None:
+    """``(first byte, whole file's length)`` of a ``Content-Range: bytes
+    a-b/n`` header, else None."""
+    m = _CONTENT_RANGE_RE.match(value or "")
+    return (int(m.group(1)), int(m.group(2))) if m else None
+
+
+def _fetch_http_once(
+    src: str, dst: Path, *, ctx: ssl.SSLContext | None, report: bool, attempt: int
+) -> None:
+    """One HTTP attempt into ``dst``.
+
+    A partial ``dst`` left by an earlier attempt of THIS fetch is resumed
+    with ``Range``: kept and appended to when the server answers 206 from
+    exactly that offset, rewritten from the start when it answers 200 (the
+    multi-node path proxies the mirror with a plain GET, so it always
+    does). Any other 206 discards it and raises _UnusableRange. Raises
+    DownloadIncomplete on a short body, counted against the whole file.
+    """
+    have = dst.stat().st_size if dst.exists() else 0
+    req = urllib.request.Request(src)
+    if have:
+        req.add_header("Range", f"bytes={have}-")
+    with urllib.request.urlopen(req, context=ctx, timeout=_FETCH_READ_TIMEOUT_SECONDS) as r:
+        status = getattr(r, "status", 200)
+        try:
+            length = int(r.headers.get("Content-Length") or 0)
+        except (TypeError, ValueError):
+            length = 0
+        if status == 206:
+            # Kept only when it continues the partial file: it starts at the
+            # byte asked for, and names the whole file's length to count the
+            # bytes against. Written from byte 0, any other range passes for
+            # the whole image and the checksum fails it as a mismatch (rc 3),
+            # the misreport #1216 removes. So it is discarded instead, and the
+            # next attempt asks for the whole image (no Range).
+            content_range = r.headers.get("Content-Range")
+            span = _content_range(content_range)
+            if span is None or span[0] != have:
+                dst.unlink(missing_ok=True)
+                raise _UnusableRange(have, content_range)
+            mode, done, total = ("ab" if have else "wb"), have, span[1]
+        else:
+            mode, done, total = "wb", 0, length
+        try:
+            f = open(dst, mode)
+        except OSError as exc:
+            raise _LocalWriteError(f"cannot write {dst}: {exc}") from exc
+        try:
+            last_pct = -5
+            while True:
+                chunk = r.read(1024 * 1024)
+                if not chunk:
+                    break
+                try:
+                    f.write(chunk)
+                except OSError as exc:
+                    raise _LocalWriteError(f"cannot write {dst}: {exc}") from exc
+                done += len(chunk)
+                if report and total > 0:
+                    pct = int(done * 100 / total)
+                    if pct - last_pct >= 2 or pct >= 100:
+                        last_pct = pct
+                        detail = f"{done // (1024 * 1024)} / {total // (1024 * 1024)} MB"
+                        if attempt > 1:
+                            detail += f" (attempt {attempt} of {_FETCH_ATTEMPTS})"
+                        _write_progress("downloading", pct, detail)
+        finally:
+            # Closing flushes the last buffered bytes, so it can meet a full
+            # disk too. Only the file's own calls are wrapped: an error from
+            # r.read() is transfer trouble, and is retried.
+            try:
+                f.close()
+            except OSError as exc:
+                raise _LocalWriteError(f"cannot write {dst}: {exc}") from exc
+        if total and done < total:
+            raise DownloadIncomplete(done, total)
+
+
+def fetch_to(src: str, dst: Path, *, insecure: bool = False, report: bool = False) -> None:
+    """Copy from URL or local file path into dst.
+
+    ``insecure`` (#386 Part A) skips TLS cert-verification — used ONLY
+    for the appliance's own self-served upgrade-image URL behind its
+    self-signed web cert, and only when the caller will verify the bytes
+    against an expected sha256. ``report`` (#386 Part C) emits download
+    percentage into the progress sidecar from the Content-Length header.
+
+    An HTTP download must arrive WHOLE (#1216): a short, dropped or
+    stalled transfer, or a 408/429/5xx answer, is retried up to
+    ``_FETCH_ATTEMPTS`` times with backoff, and only a transfer that never
+    completes raises DownloadFailed. A 4xx answer, a certificate that
+    cannot be verified and a local write error are raised at once.
+    """
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    if not src.startswith(("http://", "https://")):
+        srcpath = Path(src)
+        if not srcpath.exists():
+            raise FileNotFoundError(f"image source not found: {src}")
+        print(f"  copying {srcpath}")
+        shutil.copy2(srcpath, dst)
+        return
+    ctx: ssl.SSLContext | None = None
+    if insecure and src.startswith("https://"):
+        print("  (TLS cert verification disabled for this self-served fetch)")
+        ctx = ssl._create_unverified_context()
+    print(f"  fetching {src}")
+    # Resume only within this fetch: a partial file from an earlier run may
+    # belong to a different image.
+    dst.unlink(missing_ok=True)
+    last: Exception | None = None
+    for attempt in range(1, _FETCH_ATTEMPTS + 1):
+        if attempt > 1:
+            delay = _FETCH_BACKOFF_SECONDS[min(attempt - 2, len(_FETCH_BACKOFF_SECONDS) - 1)]
+            print(f"  download attempt {attempt - 1} of {_FETCH_ATTEMPTS} failed ({last}); "
+                  f"retrying in {delay}s")
+            if report:
+                _write_progress(
+                    "downloading", None,
+                    f"download interrupted ({last}); retrying in {delay}s "
+                    f"(attempt {attempt} of {_FETCH_ATTEMPTS})",
+                )
+            time.sleep(delay)
+        try:
+            _fetch_http_once(src, dst, ctx=ctx, report=report, attempt=attempt)
+            if attempt > 1:
+                print(f"  download completed on attempt {attempt} of {_FETCH_ATTEMPTS}")
+            return
+        except urllib.error.HTTPError as exc:
+            # First: HTTPError subclasses URLError.
+            if exc.code == 416 and dst.exists():
+                # Our Range asked past the end of what the server has: the
+                # partial file cannot be continued, so start it over.
+                exc.close()
+                dst.unlink(missing_ok=True)
+                last = exc
+                continue
+            if exc.code not in _RETRYABLE_HTTP_STATUS:
+                raise
+            exc.close()
+            last = exc
+        except ssl.SSLCertVerificationError:
+            # A certificate the node cannot verify is configuration (an
+            # unknown CA, an expired or mismatched certificate), not a
+            # dropped transfer, so a retry cannot fix it. Only a verified
+            # fetch meets this: the self-served one is unverified.
+            raise
+        except urllib.error.URLError as exc:
+            # urlopen wraps the certificate failure above in URLError.
+            if isinstance(exc.reason, ssl.SSLCertVerificationError):
+                raise
+            last = exc
+        except (DownloadIncomplete, _UnusableRange, http.client.HTTPException, OSError) as exc:
+            # OSError covers a reset, any other TLS error and the read
+            # timeout; http.client.HTTPException covers IncompleteRead on a
+            # chunked body and a malformed response.
+            last = exc
+    received = dst.stat().st_size if dst.exists() else 0
+    raise DownloadFailed(
+        f"download interrupted after {_FETCH_ATTEMPTS} attempts ({last}); "
+        f"{received} bytes on disk"
+    )
+
+
+def _fetch_image(src: str, staged: Path, *, insecure: bool) -> int:
+    """Fetch the image into ``staged``: 0 on success, 6 when the transfer
+    never completed (#1216).
+
+    rc 6 is its own code so the wrapper can say what happened: the
+    download was cut and retries did not recover it, and nothing was
+    written. Reported as "checksum mismatch" (rc 3) it read as a corrupt
+    image. The partial file is removed; the message carries its size.
+    """
+    try:
+        fetch_to(src, staged, insecure=insecure, report=True)
+    except DownloadFailed as exc:
+        print(f"ERROR: {exc}. Nothing was written to the inactive slot.", file=sys.stderr)
+        staged.unlink(missing_ok=True)
+        return 6
+    return 0
+
+
+def sha256_file(path: Path) -> str:
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(8 * 1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def cmd_apply(args) -> int:
+    if os.geteuid() != 0:
+        print("ERROR: must run as root (writes to a block device)", file=sys.stderr)
+        return 2
+
+    pair = detect_active_inactive()
+    if not pair:
+        print("ERROR: couldn't detect A/B slots", file=sys.stderr)
+        return 2
+    active, inactive = pair
+    target_dev = inactive["device"]
+    print(f"Writing image into INACTIVE slot {inactive['partlabel']} ({target_dev})")
+    print(f"(Active slot stays untouched: {active['partlabel']} {active['device']})")
+
+    # SSH host key + hostname continuity across slot swaps is handled
+    # structurally by the STATE partition + spatium-etc-render (#276):
+    # both live on STATE, which the slot dd never touches, and the
+    # render service restores them into /etc on every boot. The earlier
+    # #272 Phase 1 per-apply bandaids (SSH-key migration into
+    # /var/persist/etc/ssh, hostname stamp into the new slot's
+    # /etc.image) are no longer needed and have been removed.
+
+    # Issue #386 Part A — relaxing TLS verification is only safe when we
+    # also verify the downloaded bytes against an expected hash. Refuse
+    # ``--insecure`` without one rather than fetch an unauthenticated,
+    # unverified image onto a block device.
+    insecure = getattr(args, "insecure", False)
+    expected_sha256 = (getattr(args, "expected_sha256", None) or "").strip().lower()
+    # A ``--checksum`` sidecar is fetched over the SAME channel as the image,
+    # so with TLS verification off a MITM can serve a matching malicious
+    # image+sidecar pair — it's no verification at all (#551). Only an
+    # out-of-band ``--expected-sha256`` literal makes ``--insecure`` safe.
+    if insecure and not expected_sha256:
+        print(
+            "ERROR: --insecure requires --expected-sha256 (an out-of-band "
+            "literal hash; a --checksum sidecar fetched over the same "
+            "unverified channel provides no real protection)",
+            file=sys.stderr,
+        )
+        return 2
+
+    workdir = Path("/var/lib/spatiumddi/slot-staging")
+    workdir.mkdir(parents=True, exist_ok=True)
+    staged = workdir / "slot.raw.xz"
+
+    # Fetch.
+    _write_progress("downloading", 0, f"fetching {args.image}")
+    rc = _fetch_image(args.image, staged, insecure=insecure)
+    if rc:
+        return rc
+
+    # Verify SHA256 against an expected literal (#386 — passed by the
+    # control plane for self-served images, no second fetch) or a sidecar
+    # checksum file (legacy / external URLs).
+    if expected_sha256 or args.checksum:
+        _write_progress("verifying", None, "verifying sha256")
+        if not expected_sha256:
+            sha_path = workdir / "slot.sha256"
+            fetch_to(args.checksum, sha_path, insecure=insecure)
+            expected_sha256 = sha_path.read_text().strip().split()[0].lower()
+        actual = sha256_file(staged)
+        if expected_sha256 != actual.lower():
+            print(
+                f"ERROR: checksum mismatch (expected {expected_sha256}, got {actual})",
+                file=sys.stderr,
+            )
+            return 3
+        print(f"  checksum OK: {actual}")
+
+    # Decompress + dd directly into the inactive partition. xz can
+    # stream-decompress so we don't need disk space for an intermediate
+    # uncompressed file.
+    _write_progress("writing", None, f"writing image to {inactive['partlabel']}")
+    print(f"  writing → {target_dev}")
+    xz = subprocess.Popen(["xz", "--decompress", "--stdout", str(staged)],
+                          stdout=subprocess.PIPE)
+    subprocess.run(["dd", f"of={target_dev}", "bs=4M", "conv=fsync",
+                     "status=progress"],
+                    stdin=xz.stdout, check=True)
+    xz.wait()
+    if xz.returncode != 0:
+        print("ERROR: xz exited non-zero", file=sys.stderr)
+        return 4
+
+    _write_progress("bootloader", None, "updating bootloader + slot versions")
+    print("  flushing kernel buffers + re-reading filesystem metadata…")
+    subprocess.run(["partprobe", _parent_disk(target_dev)], check=False)
+    subprocess.run(["udevadm", "settle"], check=False)
+    staged.unlink(missing_ok=True)
+
+    # The dd overwrote the partition with the slot image's ext4
+    # filesystem. That filesystem's UUID was baked at slot-image build
+    # time and is the SAME for every slot dd'd from the same image —
+    # which means slot_a and slot_b end up with identical filesystem
+    # UUIDs after a re-apply. ``spatium-upgrade-slot status`` (and
+    # ``set-next-boot``) key off UUID to identify which slot is which,
+    # so a UUID collision wedges the script with
+    # "couldn't detect A/B slots". Randomise the freshly-written
+    # filesystem's UUID before reading it so each slot stays unique.
+    print(f"  randomising filesystem UUID on {target_dev} (tune2fs -U random)…")
+    subprocess.run(["tune2fs", "-U", "random", target_dev], check=False)
+    # ...and the SAME argument applies to the filesystem LABEL, which is
+    # baked to `root_a` for both slots by build-slot-image.sh because it
+    # builds one image for both (#1045). Left alone, slot B comes out of
+    # its first upgrade labelled `root_a` and no partition on the disk
+    # carries `root_b` again, ever.
+    #
+    # Nothing on the boot path notices: grub.cfg renders `root=UUID=` and
+    # fstab has no root entry (only var / state / ESP, none of which a slot
+    # upgrade rewrites). What notices is the INSTALLER — spatium-install's
+    # `_layout_is_reusable` looked for a `root_b` label and silently stopped
+    # offering the #995 "Keep /var" reinstall. That side now matches slots
+    # by PARTLABEL so an already-duplicated disk still works; this is the
+    # fix for the cause rather than the symptom.
+    relabelled = _relabel_slot_filesystem(target_dev, inactive["partlabel"])
+
+    # Repair a disk written before that fix: the ACTIVE slot keeps whatever
+    # label a pre-#1045 upgrade left on it, and only becomes a target on a
+    # later upgrade. Safe to do live — it is one superblock field, on no
+    # boot path, and nothing reads it between here and the reboot; worst
+    # case the kernel's cached superblock wins and the label reverts, which
+    # is exactly the state we are already in. Never fatal for the same
+    # reason.
+    # The condition is the disagreement alone. An earlier draft required a
+    # truthy fslabel first, which skipped the repair on a slot carrying NO
+    # label at all — and "no label" is a missing label, the very thing being
+    # repaired, not a value to be cautious about. find_slot_partitions always
+    # sets the key (to "" when blkid reports none), so there is no third
+    # "unknown" state to protect here.
+    repaired_active = True
+    if active["fslabel"] != active["partlabel"]:
+        print(
+            f"  repairing active slot's filesystem label "
+            f"({active['fslabel'] or '(none)'} → {active['partlabel']}, #1045)…"
+        )
+        repaired_active = _relabel_slot_filesystem(
+            active["device"], active["partlabel"]
+        )
+
+    # udev tag files cache the UUID *and* the LABEL, so one settle covers
+    # every metadata change above — which is why it comes after BOTH
+    # relabels and not just the target's: a stale /dev/disk/by-label link
+    # for the active slot would otherwise survive until the next reboot.
+    for _dev in {target_dev, active["device"]}:
+        subprocess.run(["udevadm", "trigger", "--settle", _dev], check=False)
+
+    # Non-fatal, but not silent either. A label that provably did not stick
+    # is a real consequence the operator can act on — and a warning buried
+    # in a line that is followed by "upgrade complete" is one nobody reads,
+    # which is the #882 reporting lesson.
+    if not relabelled or not repaired_active:
+        print(
+            "  NOTE: a slot filesystem label could not be set (#1045). The "
+            "upgrade itself is unaffected — nothing boots by this label — "
+            "but a later reinstall of this box may not offer to keep /var. "
+            "`tune2fs -L <root_a|root_b> <slot device>` fixes it by hand.",
+            file=sys.stderr,
+        )
+
+    # Re-read the partition's now-unique UUID. PARTLABEL is preserved because
+    # it lives in the GPT header, not the filesystem — which is exactly the
+    # reasoning that missed the filesystem LABEL (#1045):
+    # that one IS inside the image, and is set explicitly above.
+    new_uuid = _blkid_uuid(target_dev)
+    if new_uuid:
+        # Refresh our cached view so set-next-boot reflects the new UUID.
+        inactive["uuid"] = new_uuid
+
+    # Read the freshly-written slot's release fields once: the version
+    # feeds the sidecar + grub.cfg title, the architecture feeds the
+    # #1026 refusal below.
+    written = slot_release_fields(inactive)
+    new_version = (
+        "unreadable" if written is None else (written.get("APPLIANCE_VERSION") or "unstamped")
+    )
+
+    # #1026 — THE LAST LINE OF DEFENCE, and the position is the point.
+    #
+    # The control plane refuses a known architecture mismatch before it
+    # ever stamps desired state, but it can only refuse what it knows: an
+    # image uploaded without a declared architecture, or fetched from an
+    # operator-pasted external URL, reaches here unlabelled. This is the
+    # first moment the REAL bytes can be asked what they are.
+    #
+    # It runs AFTER the dd and BEFORE the bootloader is touched, which is
+    # the only window that is both possible and safe. Earlier is not
+    # possible — the architecture lives in a file inside an ext4
+    # filesystem inside a non-seekable xz stream, so reading it means
+    # decompressing the image, which is exactly what the dd just did.
+    # Later is not safe. The inactive slot is a SPARE: leaving a
+    # wrong-arch rootfs in it costs nothing, because the node keeps
+    # running on the active slot and the next apply overwrites it. What
+    # cannot be undone is pointing the bootloader at it — that is a node
+    # that does not come back, on hardware that may be in another
+    # building.
+    host_arch = host_architecture()
+    image_arch = (written or {}).get("APPLIANCE_ARCH") or None
+    if host_arch and image_arch and host_arch != image_arch:
+        msg = (
+            f"architecture mismatch: image is {image_arch}, this node is "
+            f"{host_arch}. Refusing to make {inactive['partlabel']} bootable "
+            "— it would not come back. The active slot is untouched."
+        )
+        print(f"ERROR: {msg}", file=sys.stderr)
+        _write_progress("failed", None, msg)
+        return 5
+
+    # Sync the sidecar FIRST so the renderer reads correct per-slot labels
+    # when it re-renders grub.cfg below. (Previously sync_slot_versions was
+    # called last; it must now precede the render — #395.)
+    sync_slot_versions()
+
+    # #395 — prefer the full renderer (one source of truth; can ship grub
+    # STRUCTURE changes such as #393's spatium_verbose=2 branch, not just
+    # UUID/label). Fall back to the surgical patches if the renderer is
+    # missing or returns non-zero (pre-#395 ESP, or a render-path bug)
+    # so apply never leaves grub.cfg unstamped.
+    rendered = False
+    # Pass the UUIDs we KNOW (probed via blkid directly off the devices) so
+    # the renderer doesn't re-discover them through the possibly-stale
+    # udev/lsblk cache after the tune2fs UUID randomisation (#551).
+    render_cmd = ["spatium-grub-render"]
+    slot_uuids = {
+        active.get("partlabel", ""): active.get("uuid", ""),
+        inactive.get("partlabel", ""): new_uuid or inactive.get("uuid", ""),
+    }
+    ra_uuid, rb_uuid = slot_uuids.get("root_a"), slot_uuids.get("root_b")
+    if ra_uuid and rb_uuid:
+        render_cmd += ["--root-a-uuid", ra_uuid, "--root-b-uuid", rb_uuid]
+    try:
+        rc = subprocess.run(render_cmd, check=False).returncode
+        rendered = (rc == 0)
+    except FileNotFoundError:
+        rendered = False
+    if not rendered:
+        print("  spatium-grub-render unavailable/failed — using surgical patches as fallback")
+        if new_uuid:
+            _patch_grub_cfg_slot_uuid(inactive["partlabel"], new_uuid)
+        if new_version and new_version not in ("unstamped", "unreadable", "unknown"):
+            _patch_grub_cfg_slot_label(inactive["partlabel"], new_version)
+
+    # Hostname continuity across the slot swap is handled by the STATE
+    # partition + spatium-etc-render (#276): render sets the kernel
+    # hostname from STATE before k3s starts, so the empty
+    # /etc.image/hostname in the new slot no longer matters. The #272
+    # Phase 1 ``_stamp_lower_hostname`` bandaid has been removed.
+
+    # #272 Phase 1 audit — refresh the persistent /var partition's
+    # k3s airgap-image cache from the new slot's rootfs. Each baked
+    # slot ships its own ``/var/lib/rancher/k3s/agent/images/*.tar.zst``
+    # (the chart-aligned image tags for THIS slot's APPLIANCE_VERSION).
+    # The slot's tarballs sit on the slot's rootfs; once the slot
+    # boots, the persistent ``/var`` mount shadows them, so k3s scans
+    # the OLD (pre-upgrade) tarballs from the persistent /var and
+    # imports stale image tags. Any pod with ``imagePullPolicy:
+    # Never`` (every pod on the appliance) then fails ErrImageNeverPull
+    # because the chart now requests ``:<new-version>`` tags that the
+    # imported tarballs don't carry. Mount the new slot, copy its
+    # bake set across, unmount — k3s on next reboot scans /var, finds
+    # the new tarballs, imports them, the chart's tags resolve.
+    _refresh_baked_images(target_dev)
+
+    # #999 Part C2 — grub.cfg was just re-rendered (or patched) on the
+    # PRIMARY ESP. Mirror it before reporting success.
+    _sync_mirror_esp()
+
+    print()
+    print("✓ Image written to inactive slot.")
+    print()
+    print(f"  Active (current boot):  {active['partlabel']} {active['device']}")
+    print(f"  Inactive (just wrote):  {inactive['partlabel']} {target_dev}")
+    if new_uuid:
+        print(f"  New filesystem UUID:    {new_uuid} (patched into grub.cfg)")
+    print()
+    print("Next steps:")
+    print(f"  spatium-upgrade-slot set-next-boot")
+    print("  reboot")
+    return 0
+
+
+# #1630 — the suffix a tarball carries while it is being copied into the
+# images dir. The running k3s watches that dir and imports, 2 s after any
+# event, every file whose name ends in one of wharfie's tarball extensions
+# (``.tar``, ``.tar.zst``, ``.tgz``, …) or ``.txt`` (k3s
+# pkg/agent/containerd/watcher.go ``isFileSupported``). ``.part`` is none
+# of them, so the watcher skips the file until the rename puts the whole
+# of it in place under its real name.
+_PART_SUFFIX = ".part"
+
+
+def _install_atomically(src: Path, final: Path) -> None:
+    """Copy ``src`` to ``final`` so no reader ever sees a partial ``final``:
+    copy (content + mtime, like ``copy2``) to a hidden ``.part`` sibling,
+    fsync it, then rename it over ``final`` (#1630)."""
+    tmp = final.with_name(f".{final.name}{_PART_SUFFIX}")
+    try:
+        shutil.copy2(src, tmp)
+        with open(tmp, "rb") as fh:
+            os.fsync(fh.fileno())
+        os.replace(tmp, final)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
+
+
+def _refresh_baked_images(target_dev: str) -> None:
+    """Copy the new slot's baked image tarballs to the persistent /var
+    partition's k3s airgap-images dir. See cmd_apply for the
+    architecture background.
+
+    #1630 — each tarball lands atomically (``_install_atomically``). The
+    old slot's k3s keeps running through the apply and its image watcher
+    imports whatever appears in this dir. Copied in place, it read every
+    tarball while it was still being written: those imports fail
+    ("short read", "window size exceeded", "rle symbol … >= max"), and
+    one cut off inside a tarball's ``index.json`` leaves a containerd
+    ingest under the shared ref ``tar-index.json`` that fails every
+    shorter ``index.json`` imported after it, on the next boot included
+    (``unexpected commit size 3071, expected 374``). The node then came up
+    on the new slot without its DNS and DHCP agents' images. Now the
+    watcher sees each file once, whole, under its real name.
+
+    Best-effort: a mount failure just leaves the persistent /var with
+    its previous tarballs and the operator gets ErrImageNeverPull on
+    boot — same failure mode as before this fix, no regression.
+    """
+    mountpoint = Path("/tmp/spatium-slot-mnt")
+    dest = Path("/var/lib/rancher/k3s/agent/images")
+    try:
+        mountpoint.mkdir(parents=True, exist_ok=True)
+        rc = subprocess.run(
+            ["mount", "-o", "ro", target_dev, str(mountpoint)],
+            check=False,
+        ).returncode
+        if rc != 0:
+            print(f"  WARN: couldn't mount {target_dev} to refresh baked images")
+            return
+        try:
+            src = mountpoint / "var/lib/rancher/k3s/agent/images"
+            if not src.is_dir():
+                print(f"  WARN: no baked-image dir at {src}")
+                return
+            dest.mkdir(parents=True, exist_ok=True)
+            # A copy an earlier apply was killed in the middle of.
+            for stale in dest.glob(f".*{_PART_SUFFIX}"):
+                stale.unlink(missing_ok=True)
+            copied = 0
+            for tarball in sorted(src.glob("*.tar.zst")):
+                _install_atomically(tarball, dest / tarball.name)
+                copied += 1
+            # The renames must survive the reboot that follows the apply.
+            dir_fd = os.open(dest, os.O_RDONLY)
+            try:
+                os.fsync(dir_fd)
+            finally:
+                os.close(dir_fd)
+            print(f"  refreshed {copied} baked tarballs → {dest}")
+        finally:
+            subprocess.run(["umount", str(mountpoint)], check=False)
+    except OSError as exc:
+        print(f"  WARN: baked-image refresh skipped ({exc})", file=sys.stderr)
+
+
+def _parent_disk(part_dev: str) -> str:
+    """Return the whole-disk device holding a partition.
+
+    ``basename(dev).rstrip("0123456789p")`` (the old inline form) is wrong
+    on exactly the media the appliance supports: ``/dev/nvme0n1p5`` →
+    ``/dev/nvme0n`` and ``/dev/mmcblk0p5`` → ``/dev/mmcblk`` (#551). Ask
+    lsblk for the real parent (``pkname``); fall back to a suffix-strip
+    that handles both the ``p<N>`` separator (nvme/mmcblk/loop) and the
+    bare-``<N>`` form (sd/vd/hd/xvd).
+    """
+    try:
+        out = subprocess.run(
+            ["lsblk", "-no", "pkname", part_dev],
+            capture_output=True, text=True, check=False,
+        ).stdout.strip()
+        first = out.splitlines()[0].strip() if out else ""
+        if first:
+            return "/dev/" + first
+    except (FileNotFoundError, OSError):
+        # lsblk missing or failed — deliberately fall through to the
+        # suffix-strip below, which needs no external tool.
+        pass
+    base = os.path.basename(part_dev)
+    if re.search(r"\dp\d+$", base):  # nvme0n1p5 / mmcblk0p5 / loop0p1
+        return "/dev/" + re.sub(r"p\d+$", "", base)
+    return "/dev/" + re.sub(r"\d+$", "", base)  # sda5 / vdb3
+
+
+def _relabel_slot_filesystem(device: str, partlabel: str) -> bool:
+    """Set ``device``'s ext4 label to ``partlabel``, its own GPT name (#1045).
+
+    Derived from the PARTLABEL rather than from a literal on purpose: the GPT
+    name is what genuinely identifies a slot, it is what ``find_slot_partitions``
+    already matches on, and it cannot be overwritten by a ``dd`` of a
+    filesystem image — which is the whole reason the filesystem label drifts.
+
+    Never fatal. The label is on no boot path (``root=UUID=`` on the kernel
+    cmdline, and fstab carries no root entry), and spatium-install matches the
+    slots by PARTLABEL, so a failure here costs nothing that is not already
+    the status quo. Returns whether the label now reads as intended.
+    """
+    if not device or partlabel not in SLOT_PARTLABELS:
+        return False
+    print(f"  labelling {device} filesystem '{partlabel}' (tune2fs -L)…")
+    proc = subprocess.run(
+        ["tune2fs", "-L", partlabel, device],
+        capture_output=True, text=True, check=False,
+    )
+    if proc.returncode != 0:
+        # stderr, not stdout: tune2fs reports a refusal there, and an
+        # unexplained "label not applied" is the thing that wastes an hour.
+        print(
+            f"  WARNING: could not label {device} '{partlabel}' "
+            f"(rc={proc.returncode}): {(proc.stderr or proc.stdout).strip()}",
+            file=sys.stderr,
+        )
+        return False
+    # Read it back off the device. On a MOUNTED filesystem tune2fs goes
+    # through FS_IOC_SETFSLABEL and the kernel owns the write, so this is
+    # also the only thing that distinguishes "applied" from "accepted and
+    # silently dropped".
+    actual = _blkid_label(device)
+    if actual != partlabel:
+        print(
+            f"  WARNING: {device} still reads LABEL={actual or '(none)'} "
+            f"after labelling it '{partlabel}'",
+            file=sys.stderr,
+        )
+        return False
+    return True
+
+
+def _blkid_label(device: str) -> str | None:
+    """Return the filesystem LABEL of the given block device, or None.
+
+    ``-p`` bypasses blkid's cache: the cache is exactly what is stale right
+    after a ``dd`` plus a relabel, and reading it would report the value we
+    are trying to verify has changed.
+    """
+    try:
+        proc = subprocess.run(
+            ["blkid", "-p", "-s", "LABEL", "-o", "value", device],
+            capture_output=True, text=True, check=True,
+        )
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return None
+    return proc.stdout.strip() or None
+
+
+def _blkid_uuid(device: str) -> str | None:
+    """Return the filesystem UUID of the given block device, or None
+    if blkid fails (uninitialised filesystem, missing tool, etc.)."""
+    try:
+        proc = subprocess.run(
+            ["blkid", "-s", "UUID", "-o", "value", device],
+            capture_output=True, text=True, check=True,
+        )
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return None
+    uuid = proc.stdout.strip()
+    return uuid or None
+
+
+_UUID_RE = re.compile(
+    r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'
+)
+
+
+def _sync_mirror_esp() -> None:
+    """Push the primary ESP onto the mirror member's, if there is one
+    (#999 Part C2).
+
+    The ESP cannot be an md member — firmware reads it before any md
+    driver exists — so a mirrored install carries TWO independent ESPs
+    and nothing in the kernel keeps them in step. Everything this script
+    just wrote (the new kernel + initrd land on the slot, but grub.cfg
+    and grubenv live on the ESP) would otherwise exist on the primary
+    only, and pulling that disk would leave the survivor booting the OLD
+    kernel from a stale menu. A mirror that protected the data and lost
+    the appliance.
+
+    A no-op on a single-disk appliance, so it is called unconditionally.
+    Never fatal: the upgrade itself has succeeded by this point, and
+    failing it here would be a worse outcome than a warning plus a
+    degraded-redundancy report on the next heartbeat.
+    """
+    try:
+        rc = subprocess.run(
+            ["/usr/local/bin/spatiumddi-esp-sync"], check=False
+        ).returncode
+    except OSError as exc:
+        print(f"WARN: could not run spatiumddi-esp-sync: {exc}", file=sys.stderr)
+        return
+    if rc != 0:
+        print(
+            "WARN: the mirror member's ESP was NOT updated — it would boot the "
+            "previous kernel if the primary disk is lost. Run "
+            "'spatiumddi-esp-sync' once the disk is reachable.",
+            file=sys.stderr,
+        )
+
+
+def _patch_grub_cfg_slot_uuid(partlabel: str, new_uuid: str,
+                              cfg_path: str = "/boot/efi/grub/grub.cfg") -> None:
+    """Rewrite the slot_<x> menuentry's UUID references to new_uuid.
+
+    Finds the `menuentry ... --id=slot_<x> { ... }` block in grub.cfg
+    and replaces every UUID inside the block body (covers both the
+    `search --fs-uuid <UUID>` and the `root=UUID=<UUID>` reference)
+    with the just-applied filesystem UUID.
+
+    Idempotent: re-stamps even when grub.cfg already has the right
+    value (cheap no-op rewrite of the same content). Safe when
+    grub.cfg is missing — silently skips.
+    """
+    if not new_uuid:
+        return
+    try:
+        cfg = Path(cfg_path).read_text()
+    except OSError as exc:
+        print(f"WARN: couldn't read {cfg_path}: {exc} — grub.cfg not updated",
+              file=sys.stderr)
+        return
+    slot_id = "slot_" + partlabel[-1].lower()  # root_a → slot_a, root_b → slot_b
+    block_re = re.compile(
+        r'(menuentry [^\n]*--id=' + re.escape(slot_id) + r'[^\n]*\{)(.*?)(\n\})',
+        re.DOTALL,
+    )
+
+    patched_count = 0
+
+    def replace_block(match: re.Match[str]) -> str:
+        nonlocal patched_count
+        head, body, tail = match.groups()
+        new_body, n = _UUID_RE.subn(new_uuid, body)
+        patched_count += n
+        return head + new_body + tail
+
+    # Patch EVERY menuentry for this slot, not just the first (#551): the
+    # slot has more than one entry (``--id=slot_a``, ``--id=slot_a_verbose``,
+    # the rescue entry), all keyed off the same partition. count=1 left the
+    # verbose + rescue entries pointing at the pre-upgrade UUID → unbootable
+    # when the fallback path (no spatium-grub-render) runs. The block_re is
+    # anchored to slot_id so the OTHER slot's entries are never touched.
+    new_cfg = block_re.sub(replace_block, cfg)
+    if patched_count == 0:
+        print(f"WARN: couldn't locate {slot_id} menuentry in {cfg_path}; "
+              "grub.cfg not updated", file=sys.stderr)
+        return
+    if new_cfg == cfg:
+        # Already had the right UUID — nothing to do.
+        return
+    print(f"  patching grub.cfg: {slot_id} UUID → {new_uuid} "
+          f"({patched_count} reference{'s' if patched_count != 1 else ''})")
+    try:
+        Path(cfg_path).write_text(new_cfg)
+    except OSError as exc:
+        print(f"WARN: couldn't write {cfg_path}: {exc}", file=sys.stderr)
+
+
+# Pattern that matches the SpatiumDDI Appliance menuentry title line and
+# captures the (optional) version chunk. The version chunk is everything
+# between "SpatiumDDI Appliance " and " (slot X" — we replace it as a
+# unit so re-stamping is idempotent regardless of whether a version was
+# present before.
+_SLOT_LABEL_RE = re.compile(
+    r'(menuentry ")SpatiumDDI Appliance(?: [^"(]*?)?( \(slot [AB][^"]*"[^\n]*--id=slot_)([ab])(\b)',
+)
+
+
+def _patch_grub_cfg_slot_label(partlabel: str, version: str,
+                               cfg_path: str = "/boot/efi/grub/grub.cfg") -> None:
+    """Re-stamp the menuentry title for slot_<x> to include ``version``.
+
+    ``menuentry "SpatiumDDI Appliance (slot A)" --id=slot_a {`` becomes
+    ``menuentry "SpatiumDDI Appliance 2026.05.12-2 (slot A)" --id=slot_a {``.
+    Operator skimming the grub menu sees which release lives on each
+    slot — useful for triage when the system is half-upgraded or
+    standing at the menu after a failed health check.
+
+    Idempotent re-stamping: matches both the original
+    "SpatiumDDI Appliance (slot X)" form and the already-stamped
+    "SpatiumDDI Appliance <version> (slot X)" form, replaces the
+    version chunk in-place.
+    """
+    if not version:
+        return
+    try:
+        cfg = Path(cfg_path).read_text()
+    except OSError as exc:
+        print(f"WARN: couldn't read {cfg_path}: {exc} — grub.cfg label not updated",
+              file=sys.stderr)
+        return
+    target_letter = partlabel[-1].lower()  # root_a → "a"
+
+    def replace(match: re.Match[str]) -> str:
+        head, mid, letter, tail = match.groups()
+        if letter != target_letter:
+            return match.group(0)
+        return f'{head}SpatiumDDI Appliance {version}{mid}{letter}{tail}'
+
+    new_cfg = _SLOT_LABEL_RE.sub(replace, cfg)
+    if new_cfg == cfg:
+        return
+    print(f"  patching grub.cfg: slot_{target_letter} label → "
+          f"SpatiumDDI Appliance {version} (slot {target_letter.upper()})")
+    try:
+        Path(cfg_path).write_text(new_cfg)
+    except OSError as exc:
+        print(f"WARN: couldn't write {cfg_path}: {exc}", file=sys.stderr)
+
+
+# Sidecar the api container reads to surface per-slot version on the
+# OS Image card. Host path is /var/lib/spatiumddi/release-state/; the
+# api container bind-mounts that at /var/lib/spatiumddi-host/release-
+# state/. Updated by sync_slot_versions() called from cmd_apply and
+# cmd_status, plus on every boot by spatiumddi-firstboot.
+_SLOT_VERSIONS_FILE = Path("/var/lib/spatiumddi/release-state/slot-versions.json")
+# #1202 — each slot's image tag (see _IMAGE_TAG_REL), for spatiumddi-image-prune.
+_SLOT_IMAGE_TAGS_FILE = Path("/var/lib/spatiumddi/release-state/slot-image-tags.json")
+_ACTIVE_ROOT = Path("/")
+_ACTIVE_RELEASE_FILE = Path("/etc/spatiumddi/appliance-release")
+
+
+def _read_active_appliance_version() -> str:
+    """Parse APPLIANCE_VERSION= from /etc/spatiumddi/appliance-release.
+
+    This file lives on the currently-booted slot, so it always reports
+    the active slot's installed version. Returns "unstamped" if the
+    file doesn't exist (pre-Phase-8 install with no release stamp).
+    """
+    if not _ACTIVE_RELEASE_FILE.exists():
+        return "unstamped"
+    try:
+        for line in _ACTIVE_RELEASE_FILE.read_text().splitlines():
+            if line.startswith("APPLIANCE_VERSION="):
+                return line.split("=", 1)[1].strip().strip('"').strip("'")
+    except OSError:
+        return "unreadable"
+    return "unstamped"
+
+
+def sync_slot_versions() -> dict[str, str]:
+    """Probe both slots' installed versions and write the sidecar.
+
+    Active slot's version comes from the booted /etc/spatiumddi/
+    appliance-release directly (no mount needed). Inactive slot's
+    version requires a temporary read-only mount via ``slot_version_label``.
+
+    Returns the {slot_a: ver, slot_b: ver} dict that was just written
+    (so callers can log it). On any failure to write the sidecar,
+    logs a warning + returns the in-memory map anyway — the caller's
+    UI degrades gracefully when the sidecar's missing.
+    """
+    pair = detect_active_inactive()
+    if not pair:
+        return {}
+    active, inactive = pair
+
+    versions: dict[str, str] = {}
+    versions[slot_versions_key(active)] = _read_active_appliance_version()
+    # One mount of the inactive slot yields its version label AND its baked
+    # image tag (#1202); a slot with no filesystem label is never mounted.
+    fields, inactive_tag = slot_probe(inactive) if inactive.get("fslabel") else (None, "")
+    versions[slot_versions_key(inactive)] = _version_label(inactive, fields)
+
+    # #1202 — the image tag each slot runs, beside (not inside) the version
+    # sidecar: spatiumddi-image-prune keeps a slot's images by the tag they
+    # carry, which for a nightly is not the appliance version above. A sibling
+    # file leaves slot-versions.json exactly as every reader of it expects.
+    tags = {slot_versions_key(active): _read_image_tag(_ACTIVE_ROOT),
+            slot_versions_key(inactive): inactive_tag}
+
+    _write_sidecar(_SLOT_VERSIONS_FILE, versions)
+    _write_sidecar(_SLOT_IMAGE_TAGS_FILE, {k: v for k, v in tags.items() if v})
+    return versions
+
+
+def _write_sidecar(path: Path, data: dict[str, str]) -> None:
+    """Atomic JSON write (.new + rename); a failure warns and never raises —
+    the readers degrade gracefully when a sidecar is missing."""
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(".new")
+        tmp.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n")
+        tmp.replace(path)
+    except OSError as exc:
+        print(f"WARN: couldn't write {path}: {exc}", file=sys.stderr)
+
+
+def cmd_sync_versions(_args) -> int:
+    """Refresh /var/lib/spatiumddi/release-state/slot-versions.json.
+
+    Called by spatiumddi-firstboot at every boot so the OS Image card
+    + Fleet view never go stale, and by spatium-upgrade-slot's own
+    apply path after a successful dd.
+    """
+    versions = sync_slot_versions()
+    if not versions:
+        print("ERROR: couldn't detect A/B slots", file=sys.stderr)
+        return 2
+    for slot, ver in sorted(versions.items()):
+        print(f"  {slot}: {ver}")
+    return 0
+
+
+GRUB_BOOT_DIR = "/boot/efi"   # Phase 8c — grub.cfg + grubenv live on ESP
+GRUBENV = Path("/boot/efi/grub/grubenv")
+
+
+def _read_grubenv_default() -> str:
+    """Return current saved_entry from grubenv (e.g. 'slot_a'). Falls
+    back to 'slot_a' if grubenv is missing or unparseable."""
+    if not GRUBENV.exists():
+        return "slot_a"
+    try:
+        proc = subprocess.run(
+            ["grub-editenv", str(GRUBENV), "list"],
+            capture_output=True, text=True, check=True,
+        )
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return "slot_a"
+    for line in proc.stdout.splitlines():
+        if line.startswith("saved_entry="):
+            return line.split("=", 1)[1].strip()
+    return "slot_a"
+
+
+def cmd_set_next_boot(args) -> int:
+    """Set the inactive slot as the next boot's default — ONE SHOT.
+
+    Uses `grub-reboot` which sets saved_entry to the target for the
+    next boot only; after that boot, grub auto-reverts to the previous
+    saved_entry. The safety net: if the new slot fails to boot (kernel
+    panic, /health/live timeout, etc.) the system falls back to the
+    last-good slot automatically — no operator intervention needed.
+
+    spatiumddi-firstboot.service is responsible for COMMITTING the
+    new slot via `grub-set-default` once /health/live confirms the
+    upgraded slot is healthy. Without that commit, even a successful
+    boot reverts to the previous slot on next reboot.
+    """
+    if os.geteuid() != 0:
+        print("ERROR: must run as root (writes to grubenv)", file=sys.stderr)
+        return 2
+
+    pair = detect_active_inactive()
+    if not pair:
+        print("ERROR: couldn't detect A/B slots", file=sys.stderr)
+        return 2
+    active, inactive = pair
+
+    target = args.slot or inactive["partlabel"]
+    target = target.lower()
+    if target not in ("slot_a", "root_a", "a"):
+        if target not in ("slot_b", "root_b", "b"):
+            print(f"ERROR: unknown slot '{args.slot}', expected root_a/slot_a/A or root_b/slot_b/B",
+                  file=sys.stderr)
+            return 2
+        target = "slot_b"
+    else:
+        target = "slot_a"
+
+    print(f"Setting next-boot to {target} (one-shot — will auto-revert if boot fails)")
+    try:
+        subprocess.run(
+            ["grub-reboot", "--boot-directory=" + GRUB_BOOT_DIR, target],
+            check=True,
+        )
+    except (FileNotFoundError, subprocess.CalledProcessError) as exc:
+        print(f"ERROR: grub-reboot failed: {exc}", file=sys.stderr)
+        return 3
+    current = _read_grubenv_default()
+    # #999 Part C2 — grubenv lives on the ESP, which is NOT mirrored.
+    # Without this the mirror member would boot the previously-armed slot.
+    _sync_mirror_esp()
+    print(f"  grubenv saved_entry now = {current} (next boot only)")
+    print()
+    print(f"Active slot stays {active['partlabel']} until you `reboot`.")
+    print(f"On reboot you'll boot into {target}; if /health/live passes,")
+    print(f"spatiumddi-firstboot will commit it as the new default. If not,")
+    print(f"the next reboot after that falls back to {active['partlabel']}.")
+    return 0
+
+
+def cmd_rollback(_args) -> int:
+    """Flip the persistent default to the inactive slot — durable.
+
+    Different from set-next-boot: this commits the swap (grub-set-default)
+    so every future boot uses the new slot until another rollback or
+    upgrade. Use this when you want to permanently revert to a known-
+    good previous slot, not just try it once.
+    """
+    if os.geteuid() != 0:
+        print("ERROR: must run as root (writes to grubenv)", file=sys.stderr)
+        return 2
+
+    pair = detect_active_inactive()
+    if not pair:
+        print("ERROR: couldn't detect A/B slots", file=sys.stderr)
+        return 2
+    active, inactive = pair
+    target = "slot_a" if inactive["partlabel"] == "root_a" else "slot_b"
+    print(f"Committing rollback: default boot → {target} ({inactive['device']})")
+    try:
+        subprocess.run(
+            ["grub-set-default", "--boot-directory=" + GRUB_BOOT_DIR, target],
+            check=True,
+        )
+    except (FileNotFoundError, subprocess.CalledProcessError) as exc:
+        print(f"ERROR: grub-set-default failed: {exc}", file=sys.stderr)
+        return 3
+    print(f"  grubenv saved_entry = {_read_grubenv_default()}")
+    print()
+    print(f"Run `reboot` when ready to switch.")
+    return 0
+
+
+def cmd_set_default(args) -> int:
+    """Durably set ANY slot as the default boot — generalised
+    ``rollback`` that takes the target slot as an argument.
+
+    Unlike ``rollback`` (which always targets the inactive slot),
+    this accepts the slot explicitly. Two main uses:
+
+      * **Commit a trial boot.** Operator booted via ``set-next-boot``
+        and validated; calling ``set-default <current_slot>`` makes
+        the trial durable so subsequent reboots stay on the new slot.
+      * **Durable revert.** Operator wants to go back to the previous
+        slot for good; ``set-default <previous_slot>`` is the explicit
+        spelling of ``rollback``.
+
+    grub-set-default writes ``saved_entry`` to grubenv — survives
+    reboots until another set-default / rollback / upgrade rewrites it.
+    """
+    if os.geteuid() != 0:
+        print("ERROR: must run as root (writes to grubenv)", file=sys.stderr)
+        return 2
+
+    target = (args.slot or "").lower()
+    if target in ("slot_a", "root_a", "a"):
+        target = "slot_a"
+    elif target in ("slot_b", "root_b", "b"):
+        target = "slot_b"
+    else:
+        print(
+            f"ERROR: unknown slot '{args.slot}', expected slot_a / slot_b / a / b",
+            file=sys.stderr,
+        )
+        return 2
+
+    print(f"Setting durable default boot to {target}")
+    try:
+        subprocess.run(
+            ["grub-set-default", "--boot-directory=" + GRUB_BOOT_DIR, target],
+            check=True,
+        )
+    except (FileNotFoundError, subprocess.CalledProcessError) as exc:
+        print(f"ERROR: grub-set-default failed: {exc}", file=sys.stderr)
+        return 3
+    _sync_mirror_esp()
+    print(f"  grubenv saved_entry = {_read_grubenv_default()}")
+    return 0
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    sub = parser.add_subparsers(dest="cmd", required=True)
+
+    sub.add_parser("status", help="show active + inactive slot details")
+
+    apply_p = sub.add_parser("apply", help="write a slot image to the inactive slot")
+    apply_p.add_argument("image", help="URL or local file path to a slot .raw.xz image")
+    apply_p.add_argument("--checksum", help="URL or path to a SHA-256 sidecar file")
+    # Issue #386 Part A.
+    apply_p.add_argument(
+        "--expected-sha256",
+        dest="expected_sha256",
+        help="expected SHA-256 hex of the image (verify against this literal — no "
+        "second fetch). Takes precedence over --checksum.",
+    )
+    apply_p.add_argument(
+        "--insecure",
+        action="store_true",
+        help="skip TLS cert verification for an https:// fetch (self-served upgrade "
+        "image behind the appliance's self-signed cert). Requires --expected-sha256 "
+        "or --checksum so the bytes are still verified.",
+    )
+
+    nxt = sub.add_parser("set-next-boot",
+                         help="set the next boot to a slot ONCE (grub-reboot — auto-reverts on failure)")
+    nxt.add_argument("slot", nargs="?", default=None,
+                     help="slot_a / slot_b / a / b — defaults to the inactive slot")
+
+    sub.add_parser("rollback",
+                   help="durably set the inactive slot as default (grub-set-default — commits the swap)")
+
+    set_default = sub.add_parser(
+        "set-default",
+        help="durably set the named slot as the default (grub-set-default). "
+             "Use to commit a trial boot or to explicitly revert.",
+    )
+    set_default.add_argument(
+        "slot",
+        help="slot_a / slot_b / a / b — the slot to make the durable default",
+    )
+
+    sub.add_parser("sync-versions",
+                   help="refresh /var/lib/spatiumddi/release-state/slot-versions.json "
+                        "(both slots' installed APPLIANCE_VERSION) and slot-image-tags.json "
+                        "(the image tag each slot runs, #1202). Called by "
+                        "spatiumddi-firstboot at every boot + at the end of apply.")
+
+    args = parser.parse_args()
+    return {
+        "status": cmd_status,
+        "apply": cmd_apply,
+        "set-next-boot": cmd_set_next_boot,
+        "rollback": cmd_rollback,
+        "set-default": cmd_set_default,
+        "sync-versions": cmd_sync_versions,
+    }[args.cmd](args)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

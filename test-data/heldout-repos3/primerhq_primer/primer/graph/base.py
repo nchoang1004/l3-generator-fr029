@@ -1,0 +1,2216 @@
+"""Shared base class for graph executors.
+
+The :class:`_BaseGraphExecutor` is intentionally non-public (leading
+underscore in the name); concrete executors are
+:class:`primer.graph.GraphExecutor` (storage-backed) and
+:class:`primer.graph.WorkspaceGraphExecutor` (workspace-backed).
+
+Behaviour:
+
+* Pregel-style superstep loop -- compute the ready set, run all
+  ready nodes concurrently, evaluate outgoing edges, recompute the
+  ready set, increment the iteration counter.
+* Per-node LLM dispatch goes through :func:`primer.agent.loop.run_agent_turn`
+  so tool dispatch inside a graph node is identical to a standalone
+  agent's tool dispatch (multi-turn loops, error mapping, etc).
+* Live streaming -- every event from every concurrently-running node
+  is wrapped in :class:`ExtendedEvent(_GraphNodeEvent(...))` and
+  pushed to a per-superstep :class:`asyncio.Queue` so the caller's
+  iterator yields events as they happen rather than at the end of
+  the superstep.
+* Subgraph execution -- :class:`_GraphNodeRef` nodes recurse via the
+  subclass's :meth:`_build_sub_executor` hook. Sub-events are
+  re-wrapped with the parent node's id so taps still see "subgraph
+  X is running".
+* Edge evaluation -- static edges always fire; conditional edges
+  consult the registered router (JSON-path or callable).
+* Cycle bound -- aborts with ``ended_reason="max_iterations_exceeded"``
+  when ``graph.max_iterations`` is hit.
+* State persistence happens at superstep boundaries through the
+  subclass's hooks; concrete executors decide whether each save is
+  a plain file write or a git-versioned commit.
+
+Subclasses provide four abstract hooks:
+
+* :meth:`_load_node_history`
+* :meth:`_persist_node_turn`
+* :meth:`_save_state`
+* :meth:`_build_sub_executor`
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+import uuid
+from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator, Awaitable, Callable
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from typing import TYPE_CHECKING, Any
+
+from primer.agent.loop import run_agent_turn
+from primer.agent.tool_manager import ToolExecutionManager
+from primer.graph.router import RouterRegistry
+from primer.model.chat import (
+    ExtendedEvent,
+    Message,
+    StreamEvent,
+    ToolResultPart,
+    ToolTurnCapReached,
+    TurnStreamFailure,
+    _GraphNodeEvent,
+)
+from primer.model.except_ import ConfigError
+from primer.model.graph import (
+    FanOutSpec,
+    Graph,
+    GraphContext,
+    NodeOutput,
+    NodeRuntimeState,
+    NodeRuntimeStatus,
+    _CallableRouter,
+    _ConditionalEdge,
+    _GraphNodeRef,
+    _JsonPathRouter,
+    _StaticEdge,
+    _ToolCallNode,
+    build_execution_context,
+)
+from primer.model.problem_details import ProblemDetails
+from primer.model.turn_log import (
+    TurnLogCompleted,
+    TurnLogFailed,
+    TurnLogStarted,
+    TurnLogSuperstepEnded,
+    TurnLogSuperstepStarted,
+)
+from primer.model.workspace_session import SessionStatus
+from primer.model.yield_ import ToolWaitPark, YieldToWorker
+from primer.observability.turn_log_writer import (
+    NoopTurnLogWriter,
+    TurnLogWriter,
+    safe_append as _safe_graph_turn_log,
+    to_problem_details,
+)
+
+
+if TYPE_CHECKING:
+    from primer.int.artifact_storage import ArtifactStorage
+    from primer.int.llm import LLM
+    from primer.model.agent import Agent
+    from primer.model.chat import ToolResultPart
+    from primer.model_profile import ResolvedModel
+    from primer.model.yield_ import YieldCancelled, YieldTimeout
+    from primer.session.persistence import _CoalesceState
+
+
+logger = logging.getLogger(__name__)
+
+
+# Module-level value types and pure helpers live in _node_refs; they are
+# re-exported here so ``from primer.graph.base import _PendingToolCall`` (and
+# the many tests / callers that import these names) keep working unchanged.
+from primer.graph._node_refs import (  # noqa: E402
+    _EndOutputResult,
+    _FanInOutputResult,
+    _FanoutDrainState,
+    _FanoutInstance,
+    _FanoutSourceInvalid,
+    _GraphEndOutputEvent,
+    _GraphErrorEvent,
+    _GraphToolCallYield,
+    _GraphTransitionEvent,
+    _NodeDone,
+    _PendingAgentYield,
+    _PendingToolCall,
+    _PendingToolWait,
+    _RoutingFailed,
+    _ToolApprovalRejected,
+    _ToolCallOutputResult,
+    _ToolDispatchBarrier,
+    _is_value_yield_toolcall,
+    _map_toolcall_result,
+    _resume_value_yield_toolcall,
+    _materialise_begin_output,
+    _render_end_output,
+    _render_fanin_output,
+    _resolve_fanout_spec,
+    _resolve_initial_ready_node,
+    _resolve_toolcall_arguments,
+    await_tool_dispatch_barrier,
+)
+from primer.graph._checkpoint import _CheckpointMixin  # noqa: E402
+from primer.graph._agent_node import _AgentNodeMixin  # noqa: E402
+from primer.graph._node_identity import (  # noqa: E402
+    reset_current_graph_node_id,
+    set_current_graph_node_id,
+)
+from primer.graph._routing import _RoutingMixin  # noqa: E402
+# ``_SubgraphFailed`` is raised by ``_NodeDispatchMixin._stream_subgraph_node``;
+# it lives alongside that mixin and is re-exported here so existing references
+# to ``primer.graph.base._SubgraphFailed`` keep resolving unchanged.
+from primer.graph._node_dispatch import (  # noqa: E402
+    _NodeDispatchMixin,
+    _SubgraphFailed,
+)
+
+# Default per-superstep admission bound on concurrently-running nodes. A wide
+# fan-out (map/broadcast) still runs every ready node, just at most this many
+# at once — each node is an LLM loop + workspace persistence, so an unbounded
+# fan-out would otherwise spawn unbounded concurrent agent tasks. Deployments
+# override this via ``WorkerConfig.max_parallel_nodes`` (threaded through the
+# worker executor builders); direct/test callers can pass the constructor kwarg.
+DEFAULT_MAX_PARALLEL_NODES: int = 16
+
+
+class _BaseGraphExecutor(
+    _CheckpointMixin,
+    _AgentNodeMixin,
+    _RoutingMixin,
+    _NodeDispatchMixin,
+    ABC,
+):
+    """Pregel-style graph runtime base class with live event streaming."""
+
+    def __init__(
+        self,
+        *,
+        graph: Graph,
+        agent_resolver: Callable[[str], Awaitable["Agent"]],
+        llm_resolver: Callable[..., Awaitable[tuple["LLM", "ResolvedModel"]]],
+        # Called as (agent) normally and (agent, profile_id) only when a
+        # node overrides the agent default, so single-argument resolvers
+        # stay valid.
+        tool_manager_resolver: Callable[
+            ["Agent"], Awaitable[ToolExecutionManager]
+        ] | None = None,
+        graph_resolver: Callable[[str], Awaitable[Graph]] | None = None,
+        router_registry: RouterRegistry | None = None,
+        principal: str | None = None,
+        max_parallel_nodes: int = DEFAULT_MAX_PARALLEL_NODES,
+        artifact_storage: "ArtifactStorage | None" = None,
+        turn_no: int | None = None,
+        tool_calls_as_claims_enabled: bool = False,
+    ) -> None:
+        self._graph = graph
+        self._agent_resolver = agent_resolver
+        # Per-superstep concurrency cap for node-task execution (BE5). Clamp
+        # to >=1 so a misconfigured 0/negative can never deadlock the loop.
+        self._max_parallel_nodes = max(1, int(max_parallel_nodes))
+        self._llm_resolver = llm_resolver
+        self._tool_manager_resolver = tool_manager_resolver
+        self._graph_resolver = graph_resolver
+        self._router_registry = router_registry or RouterRegistry()
+        self._principal = principal
+        # Forwarded to run_agent_turn by _AgentNodeMixin so artifact-backed
+        # parts resolve to inline bytes before the LLM sees them. None is a
+        # no-op -- see hydrate_prompt_parts.
+        self._artifact_storage = artifact_storage
+        # 01a0518b: the enclosing session turn's own turn number, forwarded
+        # to run_agent_turn by _AgentNodeMixin so the tool-dispatch seam can
+        # scope any ToolCallTask rows it creates. None is a no-op for
+        # callers that haven't opted into tool_calls_as_claims.
+        self._turn_no = turn_no
+        # 01a0518b: TOP-LEVEL ONLY - neither a subgraph node (_GraphNodeRef)
+        # nor a nested SUBAGENT turn (system__invoke_agent) inherits this;
+        # both are hardcoded off at their respective _build_sub_executor /
+        # run_agent_turn call sites (7a gate review: a subgraph child's own
+        # ToolWaitPark would otherwise propagate into the PARENT's
+        # _stream_node dispatch as an unrecognized non-agent-node park and
+        # deadlock the superstep - see WorkspaceGraphExecutor.
+        # _build_sub_executor's own comment for the full trace).
+        self._tool_calls_as_claims_enabled = tool_calls_as_claims_enabled
+        # 01a0518b (graph-surface boundary d): the per-turn _CoalesceState
+        # _agent_node.py's mixin needs to build a NODE-QUALIFIED
+        # resolve_scoped_call closure fresh at each dispatch (unlike the
+        # chat/workspace surface's single turn-wide resolver, keyed
+        # (None, raw_id), the graph surface's coalesce_state.scoped_call_ids
+        # is keyed (node_id, raw_id) - concurrent fan-out siblings reuse raw
+        # provider ids). Bound post-construction via bind_coalesce_state, same
+        # lifecycle/reasoning as _BaseAgentExecutor.bind_scoped_call_resolver
+        # (dispatch.py builds coalesce_state AFTER the executor already
+        # exists). None is a no-op for callers that haven't opted in.
+        self._coalesce_state: "_CoalesceState | None" = None
+        # Ambient run context exposed to node templates as ``ctx``. The base
+        # executor is surface-agnostic, so default to an in-memory context;
+        # WorkspaceGraphExecutor overrides this with real workspace ids.
+        self._execution_context = build_execution_context()
+        # Lookup helpers built once at construction.
+        self._nodes_by_id = {n.id: n for n in graph.nodes}
+        self._edges_by_from: dict[str, list] = {}
+        self._edges_by_to: dict[str, list] = {}
+        # Source node ids that own a callable-router out-edge. A callable
+        # router's target is unknown statically (it can return any node id at
+        # run time), so it is NOT recorded in ``_edges_by_to``. Instead the
+        # FanIn ready-set treats any such source as a *potential* upstream
+        # while it is still live (admitted-but-not-yet-resolved): see
+        # ``_fanin_ready``. Without this a FanIn fed by a callable router
+        # could fire before that branch completed.
+        self._callable_router_sources: set[str] = set()
+        for e in graph.edges:
+            self._edges_by_from.setdefault(e.from_node, []).append(e)
+            # Only static + json-path conditional edges have statically-known
+            # ``to_node``s; callable-router targets are tracked separately
+            # (see ``_callable_router_sources`` above).
+            if isinstance(e, _StaticEdge):
+                self._edges_by_to.setdefault(e.to_node, []).append(e)
+            elif isinstance(e, _ConditionalEdge):
+                if isinstance(e.router, _JsonPathRouter):
+                    for branch in e.router.branches:
+                        self._edges_by_to.setdefault(branch.to_node, []).append(e)
+                    if e.router.default_to is not None:
+                        self._edges_by_to.setdefault(
+                            e.router.default_to, []
+                        ).append(e)
+                elif isinstance(e.router, _CallableRouter):
+                    self._callable_router_sources.add(e.from_node)
+        # FanOut bookkeeping (Spec B §2.1):
+        # ``_pending_fanout`` -- staged instances awaiting drain after the
+        #   FanOut's own completion within the current superstep.
+        # ``_fanout_instances`` -- map of synthesized_id -> _FanoutInstance for
+        #   the executor's per-instance dispatch path.
+        # ``_fanout_target_expected_count`` -- per fan-out target id, the
+        #   expected number of synthesized instances (for FanIn ready-set).
+        self._pending_fanout: dict[str, list[_FanoutInstance]] = {}
+        self._fanout_instances: dict[str, _FanoutInstance] = {}
+        self._fanout_target_expected_count: dict[str, int] = {}
+        # FanOutSpec on_failure policy bookkeeping (Spec B §1.4 / §2.5):
+        # ``_instance_to_spec`` -- per synthesized_id, the spawning FanOut id
+        #   + the FanOutSpec that produced it. Lets the per-node result
+        #   handler look up the spec's ``on_failure`` and the corresponding
+        #   ``_fanout_drain_state`` entry.
+        # ``_fanout_drain_state`` -- per ``f"{fanout_node_id}__{target_id}"``
+        #   key (one FanOut may have multiple specs to different targets),
+        #   tracks completed_count / any_failed / first_failure so the outer
+        #   loop can decide at end-of-superstep whether to terminate
+        #   ``failed`` (drain_then_fail) or continue (collect).
+        self._instance_to_spec: dict[str, tuple[str, FanOutSpec]] = {}
+        self._fanout_drain_state: dict[str, _FanoutDrainState] = {}
+        # Phase 6 — mid-graph pause/resume bookkeeping (Spec B §2.3 step 3).
+        # ``_pending_toolcalls`` accumulates ToolCall nodes that raised
+        # :class:`YieldToWorker` during a superstep; the executor saves a
+        # checkpoint, re-raises ``YieldToWorker`` upward (the worker parks
+        # the session), and ``resume_from_checkpoint`` drains the list on
+        # the resume path with ``bypass_approval=True``.
+        self._pending_toolcalls: list[_PendingToolCall] = []
+        # ``_pending_agent_yields`` accumulates agent nodes that raised
+        # :class:`YieldToWorker` (ask_user / approval gate) during a
+        # superstep; same park/checkpoint/resume flow as ToolCalls, but
+        # resumed by rebuilding the node's agent turn (see
+        # ``_resume_agent_node``).
+        self._pending_agent_yields: list[_PendingAgentYield] = []
+        # ``_pending_tool_waits`` accumulates agent nodes that raised
+        # :class:`~primer.model.yield_.ToolWaitPark` during a superstep -
+        # the graph-surface sibling of the two lists above (01a0518b
+        # boundary d). A superstep can suspend on ANY MIX of all three;
+        # see ``_build_pending_park_yield``/the tool_wait-only park path
+        # in ``_checkpoint.py`` for how the mix decides which outer
+        # exception the executor raises.
+        self._pending_tool_waits: list[_PendingToolWait] = []
+        # ``_context`` and ``_ready_set`` are populated by :meth:`invoke`
+        # at the top of each superstep and kept on the executor so
+        # :meth:`snapshot_state` can serialise them mid-flight. ``None``
+        # before the first superstep / after termination.
+        self._context: GraphContext | None = None
+        # 01a0812c: the single source of truth for "nodes that still need
+        # a superstep dispatch or have an in-flight (possibly parked) turn
+        # that hasn't reached a terminal outcome yet" - maintained
+        # incrementally (add on admission, discard on settle - success or
+        # failure, never a park) rather than by set arithmetic at read
+        # time. Four prior fix rounds each patched a variant of "ready
+        # minus an accumulating exclusion set computed at read time" and
+        # each patch introduced a new bug (see the ready-set discard/add
+        # sites throughout this class + resume_from_checkpoint) - the
+        # replacement is this field having no second, separately-
+        # accumulating set that could ever go stale relative to it.
+        self._ready_set: set[str] = set()
+        # 01a0812c: sticky terminal-reason fields, set once (first
+        # un-suppressed failure wins) the moment ``any_failed`` fires in
+        # _run_superstep_loop's classification loop, and round-tripped
+        # through snapshot_state/restore_state exactly like _ready_set -
+        # so a failure discovered in the same superstep as an unrelated
+        # park is not silently discarded when that park raises (any_failed
+        # itself is a pure per-call local of _run_superstep_loop and does
+        # NOT survive the exception unwind on its own). Mirrors the
+        # ended_reason/ended_detail local pair's own asymmetry exactly:
+        # reason is unconditional once a failure is un-suppressed, detail
+        # is conditional (only set when the failing node's own
+        # ``done.ended_detail`` is populated) - see the write site for why
+        # two fields, not one tuple.
+        self._pending_ended_reason: str | None = None
+        self._pending_ended_detail: str | None = None
+        # Node ids that have entered the ready set at least once this run.
+        # Used by ``_fanin_ready`` to decide whether a callable-router source
+        # is a *live* potential upstream (admitted but not yet resolved) that
+        # a FanIn must wait for, vs. a branch that never activated (which must
+        # NOT block the FanIn). Not part of the serialised checkpoint: a
+        # callable-router source that already produced output no longer
+        # blocks (its routing decision is settled), and resume only re-admits
+        # nodes that are pending anyway.
+        self._admitted: set[str] = set()
+        # One-shot guard: once a ``max_iterations`` hit has been rerouted via
+        # ``graph.on_max_iterations``, the cap no longer trips (so the finalize
+        # tail can run to completion without re-triggering).
+        self._max_iter_routed: bool = False
+        self._node_states: dict[str, NodeRuntimeState] = {}
+
+        # Turn-log emission. Subclasses (WorkspaceGraphExecutor /
+        # GraphExecutor) override the factory and graph-level writer in
+        # their __init__ to wire real backends; the base defaults emit
+        # no-ops so legacy callers and graph unit tests run without
+        # side effect.
+        self._turn_log_factory: Callable[[str], TurnLogWriter] = (
+            lambda node_id: NoopTurnLogWriter()
+        )
+        self._graph_turn_log: TurnLogWriter = NoopTurnLogWriter()
+        # Per-node writers are cached for the lifetime of the executor
+        # so a node that runs across multiple supersteps keeps writing
+        # to the same monotonic seq stream. Without this cache, every
+        # superstep restarts seq=1 -- breaks since_seq pagination and
+        # collides StorageTurnLogWriter.id which embeds the seq.
+        self._node_turn_logs: dict[str, TurnLogWriter] = {}
+        # Set by `_run_superstep_loop` at each iteration boundary so
+        # `_stream_node` can stamp the active superstep on its events.
+        self._current_superstep_id: str | None = None
+
+    def bind_coalesce_state(self, coalesce_state: "_CoalesceState | None") -> None:
+        """Bind the per-turn ``_CoalesceState`` (01a0518b, graph boundary d).
+
+        Post-construction setter, same lifecycle and reasoning as
+        :meth:`primer.agent.base._BaseAgentExecutor.bind_scoped_call_resolver`:
+        ``primer.session.dispatch`` builds this executor BEFORE its own
+        ``coalesce_state`` exists, so it cannot be constructor-injected.
+        Re-bound EVERY turn (dispatch.py calls this once per
+        ``run_one_session_turn`` invocation, right after its own fresh
+        ``coalesce_state`` is created) -- never cached across turns.
+        ``_agent_node.py``'s mixin reads ``self._coalesce_state`` to build
+        a NODE-QUALIFIED resolver fresh at each node dispatch (never
+        cached across nodes either -- see ``_stream_agent_node`` /
+        ``_resume_agent_node``). ``None`` is the correct default for
+        every caller that hasn't opted into ``tool_calls_as_claims``.
+        """
+        self._coalesce_state = coalesce_state
+
+    @property
+    def graph(self) -> Graph:
+        return self._graph
+
+    async def resume_from_checkpoint(
+        self,
+        checkpoint: dict[str, Any],
+        *,
+        resumed_tcid: str | None = None,
+        agent_tool_result: "Message | None" = None,
+        toolcall_payload: "dict[str, Any] | YieldTimeout | YieldCancelled | None" = None,
+        resolved_tool_wait: "dict[str, list[ToolResultPart]] | None" = None,
+        resume_session_id: str | None = None,
+        resolve_provider: "Callable[[str], Awaitable[Any]] | None" = None,
+    ) -> AsyncIterator[StreamEvent]:
+        """Restore from a checkpoint and continue graph execution.
+
+        ``resumed_tcid`` selects which pending human-interaction entry the
+        human just replied to. When ``None`` (the legacy single-park /
+        direct-test path) every pending ToolCall is drained at once. When
+        set, only the matching entry is resumed (a pending ToolCall via
+        bypass re-dispatch, or a pending agent-node yield via
+        ``_resume_agent_node`` with ``agent_tool_result``); if other
+        human-interaction nodes are still pending afterwards, the executor
+        re-raises a :class:`YieldToWorker` so the worker re-parks on the
+        remaining keys (drain-until-empty for full concurrency).
+
+        Spec B §2.3 step 3 / Phase 6. Called by the worker after the
+        operator approves a yielded ToolCall. The executor:
+
+        1. Repopulates its mid-flight state via :meth:`restore_state`.
+        2. Re-dispatches every pending ToolCall with ``bypass_approval=True``,
+           via :meth:`_dispatch_toolcall_with_bypass` (so the approval
+           gate doesn't fire again).
+        3. Records each result into ``context.nodes`` (or stamps an
+           error NodeOutput on failure / rejection / timeout).
+        4. Marks the pending nodes ENDED in node_states.
+        5. Computes the next ready set from the just-completed nodes and
+           continues :meth:`_run_superstep_loop` to drain the rest of the
+           graph.
+
+        Subclasses that need to surface rejection/timeout exceptions
+        from the worker (e.g. when the operator rejects the approval)
+        should catch them in :meth:`_dispatch_toolcall_with_bypass` and
+        re-raise as a domain exception the resume drain knows about —
+        Phase 6 Task 6.4 handles this via the synthetic
+        :class:`ToolApprovalRejected` exception.
+
+        ``resolved_tool_wait`` (01a0518b boundary d, graph third-list):
+        maps a pending tool_wait entry's ``node_id`` to its assembled
+        ``ToolResultPart`` list, for every batch the CALLER has already
+        determined is fully terminal. The executor cannot check readiness
+        itself (no storage access to ``ToolCallTask`` rows) — the worker-
+        layer resume coordinator reads ``graph_checkpoint['pending_tool_
+        waits']`` directly (before this method's own :meth:`restore_state`
+        call even runs) to build this dict, one entry per ready node. A
+        node with SEVERAL concurrent fan-out siblings each parked on their
+        own ``ToolWaitPark`` in the same superstep can wake PARTIALLY —
+        node A's last sibling fires while node B's batch is still
+        mid-flight — so an absent key is not an error, it just means that
+        node's entry stays in ``self._pending_tool_waits`` for the
+        drain-until-empty re-park below, exactly like an un-replied
+        ``_PendingAgentYield``.
+
+        ``resume_session_id`` / ``resolve_provider``: the session being
+        resumed and the provider registry's ``get_toolset``, for the
+        ``ResumeContext`` a value-yielding tool_call node's resume hook
+        receives. This class supplies neither: at top level the worker builds
+        ``WorkspaceGraphExecutor`` with ``graph_session_id=session.id``, but
+        that attribute exists only on ``WorkspaceGraphExecutor`` (not on this
+        base class) and a sub-executor gets a derived ``<gsid>__<node>`` id,
+        so the worker that drives the resume passes the session id
+        explicitly. Both default ``None`` for a caller with no session or
+        registry.
+        """
+        self.restore_state(checkpoint)
+
+        context = self._context
+        if context is None:
+            # Defence in depth: an empty / new checkpoint has no context;
+            # treat as a no-op completion.
+            return
+        node_states = self._node_states
+
+        # Select which pending entries to resume this cycle. Legacy
+        # (resumed_tcid None): every pending ToolCall. Per-entry: only the
+        # matching tcid; the rest stay pending for the re-park below.
+        tc_all = list(self._pending_toolcalls)
+        ay_all = list(self._pending_agent_yields)
+        tw_all = list(self._pending_tool_waits)
+        if resumed_tcid is None:
+            tc_pending = tc_all
+            ay_pending = ay_all
+        else:
+            tc_pending = [e for e in tc_all if e.tool_call_id == resumed_tcid]
+            ay_pending = [e for e in ay_all if e.tool_call_id == resumed_tcid]
+        # tool_wait selection is readiness-based (resolved_tool_wait), not
+        # resumed_tcid-based — a batch has no single "replying tcid", it
+        # has N sibling task ids. See the docstring above.
+        tw_pending = [
+            e for e in tw_all if e.node_id in (resolved_tool_wait or {})
+        ]
+        # Remove the resumed entries; keep the rest on the executor so the
+        # re-park snapshot still carries them.
+        self._pending_toolcalls = [e for e in tc_all if e not in tc_pending]
+        self._pending_agent_yields = [e for e in ay_all if e not in ay_pending]
+        self._pending_tool_waits = [e for e in tw_all if e not in tw_pending]
+        completed_ids: list[str] = []
+        for entry in tc_pending:
+            node_def = self._resolve_node_def(entry.node_id)
+            if not isinstance(node_def, _ToolCallNode):
+                # Topology drifted between checkpoint + resume; surface
+                # as a node failure so the outer loop terminates cleanly.
+                node_states[entry.node_id] = NodeRuntimeState(
+                    status=NodeRuntimeStatus.FAILED,
+                    last_run_iteration=context.iteration,
+                    last_run_at=datetime.now(timezone.utc),
+                    error=(
+                        f"resume: pending ToolCall node id {entry.node_id!r} "
+                        f"resolves to {type(node_def).__name__!r}, not _ToolCallNode"
+                    ),
+                )
+                completed_ids.append(entry.node_id)
+                # 01a0812c: this node just settled (FAILED) - remove it
+                # from the live ready-set invariant now, at the write
+                # site, rather than tracking it in a second exclusion set
+                # to subtract later. See _ready_set's own docstring.
+                self._ready_set.discard(entry.node_id)
+                continue
+            if _is_value_yield_toolcall(entry):
+                # Value-yielding tool_call node (e.g. ``system__ask_user``):
+                # the node's RESULT is the operator's reply, not a re-run of
+                # the tool. Run the tool's resume hook on the operator payload
+                # and feed the hook output back as the tool result -- mirrors
+                # how an agent-node ask_user yield is resumed via its hook.
+                try:
+                    result = await _resume_value_yield_toolcall(
+                        tool_name=entry.tool_name or "",
+                        resume_metadata=entry.resume_metadata or {},
+                        tool_call_id=entry.tool_call_id,
+                        payload=toolcall_payload,
+                        session_id=resume_session_id,
+                        resolve_provider=resolve_provider,
+                    )
+                except Exception as exc:  # noqa: BLE001 -- map to node failure
+                    fail_out = NodeOutput(
+                        text="", parsed=None, history=[],
+                        iteration=context.iteration, error=str(exc),
+                        ended_detail="tool_execution_failed",
+                    )
+                    context.nodes[entry.node_id] = fail_out
+                    node_states[entry.node_id] = NodeRuntimeState(
+                        status=NodeRuntimeStatus.FAILED,
+                        last_run_iteration=context.iteration,
+                        last_run_at=datetime.now(timezone.utc),
+                        error=str(exc),
+                    )
+                    yield _GraphErrorEvent(  # type: ignore[misc]
+                        code="tool_execution_failed", message=str(exc),
+                        node_id=entry.node_id,
+                    )
+                    # Balanced exit for this resumed node (parked → resumed →
+                    # failed). The superstep loop deferred this node's exit on
+                    # park; emit it here with status="failed".
+                    yield _GraphTransitionEvent(  # type: ignore[misc]
+                        node_id=entry.node_id,
+                        node_kind=self._node_kind_for(entry.node_id),
+                        phase="exit",
+                        status="failed",
+                    )
+                    await self._save_state(
+                        iteration=context.iteration, node_states=node_states,
+                        status=SessionStatus.ENDED, ended_reason="failed",
+                        ended_detail="tool_execution_failed",
+                    )
+                    return
+                mapped = _map_toolcall_result(
+                    result, output_schema=node_def.output_schema
+                )
+                if mapped.error_code is not None:
+                    fail_out = NodeOutput(
+                        text=mapped.text, parsed=None, history=[],
+                        iteration=context.iteration,
+                        error=mapped.error_message or mapped.error_code,
+                        ended_detail=mapped.error_code,
+                    )
+                    context.nodes[entry.node_id] = fail_out
+                    node_states[entry.node_id] = NodeRuntimeState(
+                        status=NodeRuntimeStatus.FAILED,
+                        last_run_iteration=context.iteration,
+                        last_run_at=datetime.now(timezone.utc),
+                        error=mapped.error_message or mapped.error_code,
+                    )
+                    yield _GraphErrorEvent(  # type: ignore[misc]
+                        code=mapped.error_code,
+                        message=mapped.error_message or mapped.error_code,
+                        node_id=entry.node_id,
+                    )
+                    # Balanced exit for this resumed node (parked → resumed →
+                    # failed). The superstep loop deferred this node's exit on
+                    # park; emit it here with status="failed".
+                    yield _GraphTransitionEvent(  # type: ignore[misc]
+                        node_id=entry.node_id,
+                        node_kind=self._node_kind_for(entry.node_id),
+                        phase="exit",
+                        status="failed",
+                    )
+                    await self._save_state(
+                        iteration=context.iteration, node_states=node_states,
+                        status=SessionStatus.ENDED, ended_reason="failed",
+                        ended_detail=mapped.error_code,
+                    )
+                    return
+                context.nodes[entry.node_id] = NodeOutput(
+                    text=mapped.text, parsed=mapped.parsed, history=[],
+                    iteration=context.iteration,
+                )
+                node_states[entry.node_id] = NodeRuntimeState(
+                    status=NodeRuntimeStatus.ENDED,
+                    last_run_iteration=context.iteration,
+                    last_run_at=datetime.now(timezone.utc),
+                )
+                completed_ids.append(entry.node_id)
+                # 01a0812c: settled (ENDED) - see the discard above.
+                self._ready_set.discard(entry.node_id)
+                continue
+            try:
+                result = await self._dispatch_toolcall_with_bypass(
+                    node_def, entry.arguments
+                )
+            except YieldToWorker as yld:
+                # Two-phase park: the approval gate sat on a *yielding* tool.
+                # The operator APPROVED (phase 1), so the bypassed re-dispatch
+                # ran the real tool - which itself yields for its own event
+                # (timer/file/graph/human). Do NOT swallow this as a node
+                # failure: re-record the node as a pending ToolCall on the
+                # NEW event key (phase 2) so the drain-until-empty check below
+                # re-parks via _build_pending_park_yield(). Mirrors the normal
+                # dispatch path's YieldToWorker handling in _stream_node.
+                self._pending_toolcalls.append(
+                    _PendingToolCall(
+                        node_id=entry.node_id,
+                        tool_call_id=yld.tool_call_id,
+                        parked_event_key=yld.yielded.event_key,
+                        arguments=entry.arguments,
+                        tool_name=yld.yielded.tool_name,
+                        resume_metadata=dict(
+                            yld.yielded.resume_metadata or {}
+                        ),
+                    )
+                )
+                continue
+            except _ToolApprovalRejected as rej:
+                # Spec B §4.8 / Phase 6 Task 6.4 — operator rejected, the
+                # approval timed out, or the approval was cancelled; stamp
+                # the node as a failure with the specific ended_detail
+                # rej.ended_detail_code resolves (01a08be8: previously
+                # always the generic "tool_execution_failed", which made a
+                # declined approval byte-identical to an actual tool crash
+                # in ended_detail — the two are now distinguishable).
+                fail_out = NodeOutput(
+                    text="",
+                    parsed=None,
+                    history=[],
+                    iteration=context.iteration,
+                    error=str(rej),
+                    ended_detail=rej.ended_detail_code,
+                )
+                context.nodes[entry.node_id] = fail_out
+                node_states[entry.node_id] = NodeRuntimeState(
+                    status=NodeRuntimeStatus.FAILED,
+                    last_run_iteration=context.iteration,
+                    last_run_at=datetime.now(timezone.utc),
+                    error=str(rej),
+                )
+                # Spec B §4.8 — emit a terminal error event so taps see
+                # the rejection, then mark the graph failed.
+                yield _GraphErrorEvent(  # type: ignore[misc]
+                    code=rej.ended_detail_code,
+                    message=str(rej),
+                    node_id=entry.node_id,
+                )
+                # Balanced exit for this resumed node (parked-for-approval →
+                # resumed → rejected). The superstep loop deferred this node's
+                # exit on park; emit it here with status="failed".
+                yield _GraphTransitionEvent(  # type: ignore[misc]
+                    node_id=entry.node_id,
+                    node_kind=self._node_kind_for(entry.node_id),
+                    phase="exit",
+                    status="failed",
+                )
+                await self._save_state(
+                    iteration=context.iteration,
+                    node_states=node_states,
+                    status=SessionStatus.ENDED,
+                    ended_reason="failed",
+                    ended_detail=rej.ended_detail_code,
+                )
+                return
+            except Exception as exc:  # noqa: BLE001 -- map all to node failure
+                fail_out = NodeOutput(
+                    text="",
+                    parsed=None,
+                    history=[],
+                    iteration=context.iteration,
+                    error=str(exc),
+                    ended_detail="tool_execution_failed",
+                )
+                context.nodes[entry.node_id] = fail_out
+                node_states[entry.node_id] = NodeRuntimeState(
+                    status=NodeRuntimeStatus.FAILED,
+                    last_run_iteration=context.iteration,
+                    last_run_at=datetime.now(timezone.utc),
+                    error=str(exc),
+                )
+                yield _GraphErrorEvent(  # type: ignore[misc]
+                    code="tool_execution_failed",
+                    message=str(exc),
+                    node_id=entry.node_id,
+                )
+                # Balanced exit for this resumed node (parked → resumed →
+                # failed). The superstep loop deferred this node's exit on
+                # park; emit it here with status="failed".
+                yield _GraphTransitionEvent(  # type: ignore[misc]
+                    node_id=entry.node_id,
+                    node_kind=self._node_kind_for(entry.node_id),
+                    phase="exit",
+                    status="failed",
+                )
+                await self._save_state(
+                    iteration=context.iteration,
+                    node_states=node_states,
+                    status=SessionStatus.ENDED,
+                    ended_reason="failed",
+                    ended_detail="tool_execution_failed",
+                )
+                return
+            # Map the result through the same path as the normal
+            # _stream_node ToolCall handler so schema-validation failures
+            # surface consistently.
+            mapped = _map_toolcall_result(
+                result, output_schema=node_def.output_schema
+            )
+            if mapped.error_code is not None:
+                fail_out = NodeOutput(
+                    text=mapped.text,
+                    parsed=None,
+                    history=[],
+                    iteration=context.iteration,
+                    error=mapped.error_message or mapped.error_code,
+                    ended_detail=mapped.error_code,
+                )
+                context.nodes[entry.node_id] = fail_out
+                node_states[entry.node_id] = NodeRuntimeState(
+                    status=NodeRuntimeStatus.FAILED,
+                    last_run_iteration=context.iteration,
+                    last_run_at=datetime.now(timezone.utc),
+                    error=mapped.error_message or mapped.error_code,
+                )
+                yield _GraphErrorEvent(  # type: ignore[misc]
+                    code=mapped.error_code,
+                    message=mapped.error_message or mapped.error_code,
+                    node_id=entry.node_id,
+                )
+                # Balanced exit for this resumed node (parked → resumed →
+                # failed schema-validation). The superstep loop deferred this
+                # node's exit on park; emit it here with status="failed".
+                yield _GraphTransitionEvent(  # type: ignore[misc]
+                    node_id=entry.node_id,
+                    node_kind=self._node_kind_for(entry.node_id),
+                    phase="exit",
+                    status="failed",
+                )
+                await self._save_state(
+                    iteration=context.iteration,
+                    node_states=node_states,
+                    status=SessionStatus.ENDED,
+                    ended_reason="failed",
+                    ended_detail=mapped.error_code,
+                )
+                return
+            tc_out = NodeOutput(
+                text=mapped.text,
+                parsed=mapped.parsed,
+                history=[],
+                iteration=context.iteration,
+            )
+            context.nodes[entry.node_id] = tc_out
+            node_states[entry.node_id] = NodeRuntimeState(
+                status=NodeRuntimeStatus.ENDED,
+                last_run_iteration=context.iteration,
+                last_run_at=datetime.now(timezone.utc),
+            )
+            completed_ids.append(entry.node_id)
+            # 01a0812c: settled (ENDED) - see the discard above.
+            self._ready_set.discard(entry.node_id)
+
+        # Resume the selected agent-node yields: continue each node's turn
+        # with the human's answer / decision injected as the tool result.
+        for ay in ay_pending:
+            # 01a0518f: publish ay.node_id (already fan-out-instance-
+            # qualified, e.g. "worker[0]") for the duration of this
+            # node's resume - a resumed turn's own tool calls can hit
+            # the approval gate again, and its event_key needs the same
+            # disambiguation a fresh dispatch gets. See
+            # primer.graph._node_identity.
+            token = set_current_graph_node_id(ay.node_id)
+            try:
+                try:
+                    # 01a06933: _resume_agent_node is an async generator
+                    # (forwards the resumed turn's own events instead of
+                    # discarding them) -- its final NodeOutput can't ride
+                    # its own `return`, so it lands in out_holder once the
+                    # generator is fully drained. Forwarding each event on
+                    # via our own `yield` here is what lets 01a0690a's
+                    # resume-drain tap (worker/graph_resume.py) actually
+                    # see them; they were never reachable at all before.
+                    out_holder: dict = {}
+                    async for _ev in self._resume_agent_node(
+                        ay, agent_tool_result if agent_tool_result is not None
+                        else Message(role="tool", parts=[
+                            ToolResultPart(id=ay.tool_call_id, output="")]),
+                        out_holder,
+                    ):
+                        yield _ev
+                    out = out_holder["output"]
+                except YieldToWorker as yld:
+                    # 01a06ca4: two-phase park, agent-node flavor (mirrors
+                    # the tc_pending branch above for _ToolCallNode) - the
+                    # resumed node's OWN continuation yielded AGAIN (e.g. a
+                    # second ask_user, or a fresh approval gate) before
+                    # finishing. Re-record it as a pending agent yield on
+                    # the NEW event key so the drain-until-empty check
+                    # below re-parks via _build_pending_park_yield() - built
+                    # from THIS executor's live _pending_agent_yields, not
+                    # the checkpoint this resume started from (already
+                    # consumed by restore_state() at the top of this
+                    # method; the live in-memory lists are the source of
+                    # truth for the rest of this drain). Must come before
+                    # `except Exception` below - YieldToWorker IS an
+                    # Exception subclass, and without this branch it fell
+                    # into that one, silently turning a legitimate re-park
+                    # into a node FAILURE.
+                    #
+                    # scoped_tool_call_id is left unset here deliberately:
+                    # worker/graph_resume.py's own repark catch
+                    # (stash_graph_scoped_ids) backfills it from the SAME
+                    # resume-drain _CoalesceState that already minted it
+                    # when this yield's ToolCallStart streamed past the tap
+                    # a moment ago, above (01a0690a's stash-don't-recompute
+                    # doctrine, unchanged by this fix).
+                    #
+                    # frames/leaf: mirrors _node_dispatch.py's first-park
+                    # constructor byte-for-byte. The resumed outer turn can
+                    # make a FRESH nested invoke_agent call that itself
+                    # yields - the tool engine attaches yld.frames the same
+                    # way regardless of dispatch-vs-resume - so dropping
+                    # them here would silently truncate the subagent chain
+                    # on the NEXT resume: the worker would skip the
+                    # continuation walk and splice the answer straight into
+                    # the outer turn as the invoke_agent result. Empty
+                    # frames (the node's own ask_user / approval gate) keep
+                    # this identical to the pre-fix park.
+                    from primer.worker.frames import frames_to_jsonable
+                    nested_frames = list(getattr(yld, "frames", None) or [])
+                    self._pending_agent_yields.append(
+                        _PendingAgentYield(
+                            node_id=ay.node_id,
+                            tool_call_id=yld.tool_call_id,
+                            event_key=yld.yielded.event_key,
+                            tool_name=yld.yielded.tool_name,
+                            resume_metadata=dict(yld.yielded.resume_metadata or {}),
+                            llm_messages=list(yld.llm_messages or []),
+                            iteration=ay.iteration,
+                            frames=frames_to_jsonable(nested_frames) if nested_frames else [],
+                            leaf=yld.yielded.to_jsonable() if nested_frames else None,
+                        )
+                    )
+                    continue
+                except ToolWaitPark as twp:
+                    # 01a0518b boundary d (graph third-list): the resumed
+                    # human-gate node's OWN continuation dispatched a
+                    # claims batch before finishing (tool_calls_as_claims
+                    # is on for this executor) - must come before `except
+                    # Exception` below for the same loud-over-silent
+                    # reason as the YieldToWorker arm above: ToolWaitPark
+                    # is a plain Exception subclass (deliberately not a
+                    # YieldToWorker one), so an unwired catch site here
+                    # would silently record this as a node FAILURE instead
+                    # of a legitimate re-park. Mirrors the tw_pending
+                    # loop's own identical arm below.
+                    self._pending_tool_waits.append(
+                        _PendingToolWait(
+                            node_id=ay.node_id,
+                            outstanding_task_ids=list(
+                                twp.outstanding_task_ids
+                            ),
+                            notifying_results=[
+                                (scoped_id, result.model_dump(mode="json"))
+                                for scoped_id, result in twp.notifying_results
+                            ],
+                            llm_messages=list(twp.llm_messages or []),
+                            iteration=ay.iteration,
+                            call_ids=dict(twp.call_ids),
+                        )
+                    )
+                    continue
+                except Exception as exc:  # noqa: BLE001 -- map to node failure
+                    # 01a070d6: a TurnStreamFailure means the LLM stream
+                    # itself is why this resumed turn failed - "tool_
+                    # execution_failed" would be an actively wrong label
+                    # for it (nothing about a tool ran), and ended_detail_
+                    # code always resolves to something usable, never None.
+                    #
+                    # 01a08be8: deliberately no _ToolApprovalRejected branch
+                    # here - it cannot reach this loop. The only two raise
+                    # sites (invoke_graph.py, worker/graph_resume.py) both
+                    # gate on `agent_tool_result is None` before monkey-
+                    # patching _dispatch_toolcall_with_bypass, which is
+                    # called ONLY by the tc_pending loop above. An agent-node
+                    # yield's rejection is instead fed in as a normal
+                    # tool-result Message via `agent_tool_result` (see the
+                    # `async for _ev in self._resume_agent_node(...)` call
+                    # above) - _resume_agent_node never calls
+                    # _dispatch_toolcall_with_bypass, so it has no path to
+                    # raise this exception.
+                    detail = (
+                        exc.ended_detail_code
+                        if isinstance(exc, (TurnStreamFailure, ToolTurnCapReached))
+                        else "tool_execution_failed"
+                    )
+                    fail_out = NodeOutput(
+                        text="", parsed=None, history=[],
+                        iteration=context.iteration, error=str(exc),
+                        ended_detail=detail,
+                    )
+                    context.nodes[ay.node_id] = fail_out
+                    node_states[ay.node_id] = NodeRuntimeState(
+                        status=NodeRuntimeStatus.FAILED,
+                        last_run_iteration=context.iteration,
+                        last_run_at=datetime.now(timezone.utc),
+                        error=str(exc),
+                    )
+                    yield _GraphErrorEvent(  # type: ignore[misc]
+                        code=detail, message=str(exc),
+                        node_id=ay.node_id,
+                    )
+                    # Balanced exit for this resumed agent-yield node (parked →
+                    # resumed → failed). The superstep loop deferred this node's
+                    # exit on park; emit it here with status="failed".
+                    yield _GraphTransitionEvent(  # type: ignore[misc]
+                        node_id=ay.node_id,
+                        node_kind=self._node_kind_for(ay.node_id),
+                        phase="exit",
+                        status="failed",
+                    )
+                    await self._save_state(
+                        iteration=context.iteration, node_states=node_states,
+                        status=SessionStatus.ENDED, ended_reason="failed",
+                        ended_detail=detail,
+                    )
+                    return
+                context.nodes[ay.node_id] = out
+                node_states[ay.node_id] = NodeRuntimeState(
+                    status=NodeRuntimeStatus.ENDED,
+                    last_run_iteration=context.iteration,
+                    last_run_at=datetime.now(timezone.utc),
+                )
+                completed_ids.append(ay.node_id)
+                # 01a0812c: settled (ENDED) - see the tc_pending discards
+                # above.
+                self._ready_set.discard(ay.node_id)
+            finally:
+                reset_current_graph_node_id(token)
+
+        # Resume the selected tool_wait entries (01a0518b boundary d,
+        # graph third-list): continue each ready node's turn with its
+        # assembled batch results injected as the tool-role message.
+        # _resume_agent_node only ever reads .node_id / .llm_messages /
+        # .iteration off its ``pending`` argument (confirmed by close
+        # reading of that method's body) - a ``_PendingToolWait`` duck-
+        # types into it directly, no dedicated resume method needed.
+        for tw in tw_pending:
+            token = set_current_graph_node_id(tw.node_id)
+            try:
+                try:
+                    out_holder = {}
+                    tool_result_msg = Message(
+                        role="tool",
+                        parts=list((resolved_tool_wait or {})[tw.node_id]),
+                    )
+                    async for _ev in self._resume_agent_node(
+                        tw, tool_result_msg, out_holder,
+                    ):
+                        yield _ev
+                    out = out_holder["output"]
+                except YieldToWorker as yld:
+                    # The resumed node's own continuation hit a HUMAN gate
+                    # (approval / ask_user) - mirrors the ay_pending loop's
+                    # own YieldToWorker handling above. Re-record as a
+                    # pending agent yield (not tool_wait): a co-pending
+                    # human gate always wins the re-park choice below
+                    # (_build_pending_park_exception), same as a first
+                    # dispatch.
+                    from primer.worker.frames import frames_to_jsonable
+                    nested_frames = list(getattr(yld, "frames", None) or [])
+                    self._pending_agent_yields.append(
+                        _PendingAgentYield(
+                            node_id=tw.node_id,
+                            tool_call_id=yld.tool_call_id,
+                            event_key=yld.yielded.event_key,
+                            tool_name=yld.yielded.tool_name,
+                            resume_metadata=dict(
+                                yld.yielded.resume_metadata or {}
+                            ),
+                            llm_messages=list(yld.llm_messages or []),
+                            iteration=tw.iteration,
+                            frames=(
+                                frames_to_jsonable(nested_frames)
+                                if nested_frames else []
+                            ),
+                            leaf=(
+                                yld.yielded.to_jsonable()
+                                if nested_frames else None
+                            ),
+                        )
+                    )
+                    continue
+                except ToolWaitPark as twp:
+                    # The resumed node's own continuation dispatched
+                    # ANOTHER claims batch before finishing (a second
+                    # tool-calling round in the same multi-turn node) -
+                    # re-record as a pending tool_wait so the
+                    # drain-until-empty check below re-parks on it. 7a
+                    # gate review (verdict R2-1): row creation for this
+                    # NEW batch does NOT happen "the same way a first-park
+                    # ToolWaitPark's does" on its own - that claim was
+                    # FALSE (the repark path used to be a pure re-write,
+                    # no new rows, because this arm was production-
+                    # unreachable before item 3's coalesce_state fix made
+                    # it reachable). The worker-layer resume adapter
+                    # (worker/graph_resume.py's resume_graph_from_
+                    # checkpoint) now explicitly materializes rows for
+                    # this repark's own pending_tool_waits via the SAME
+                    # shared materialize_pending_tool_wait_rows helper
+                    # dispatch.py's own park catches use, right where it
+                    # already stashes this repark's scoped ids.
+                    self._pending_tool_waits.append(
+                        _PendingToolWait(
+                            node_id=tw.node_id,
+                            outstanding_task_ids=list(
+                                twp.outstanding_task_ids
+                            ),
+                            notifying_results=[
+                                (scoped_id, result.model_dump(mode="json"))
+                                for scoped_id, result in twp.notifying_results
+                            ],
+                            llm_messages=list(twp.llm_messages or []),
+                            iteration=tw.iteration,
+                            call_ids=dict(twp.call_ids),
+                        )
+                    )
+                    continue
+                except Exception as exc:  # noqa: BLE001 -- map to node failure
+                    # 01a08be8: mirrors the ay_pending loop's identical
+                    # TurnStreamFailure-aware resolution above — a
+                    # TurnStreamFailure means the LLM stream itself is why
+                    # this resumed tool_wait node failed, not a tool.
+                    #
+                    # Also deliberately no _ToolApprovalRejected branch,
+                    # same reason as ay_pending above: this loop resumes via
+                    # _resume_agent_node (fed by resolved_tool_wait), which
+                    # never calls _dispatch_toolcall_with_bypass — the only
+                    # method the two _rejecting_dispatch monkeypatches
+                    # (invoke_graph.py, worker/graph_resume.py) ever
+                    # replace, and both gate that patch on
+                    # `agent_tool_result is None`, which does not apply to
+                    # a tool_wait batch's resolution path either.
+                    detail = (
+                        exc.ended_detail_code
+                        if isinstance(exc, (TurnStreamFailure, ToolTurnCapReached))
+                        else "tool_execution_failed"
+                    )
+                    fail_out = NodeOutput(
+                        text="", parsed=None, history=[],
+                        iteration=context.iteration, error=str(exc),
+                        ended_detail=detail,
+                    )
+                    context.nodes[tw.node_id] = fail_out
+                    node_states[tw.node_id] = NodeRuntimeState(
+                        status=NodeRuntimeStatus.FAILED,
+                        last_run_iteration=context.iteration,
+                        last_run_at=datetime.now(timezone.utc),
+                        error=str(exc),
+                    )
+                    yield _GraphErrorEvent(  # type: ignore[misc]
+                        code=detail, message=str(exc),
+                        node_id=tw.node_id,
+                    )
+                    yield _GraphTransitionEvent(  # type: ignore[misc]
+                        node_id=tw.node_id,
+                        node_kind=self._node_kind_for(tw.node_id),
+                        phase="exit",
+                        status="failed",
+                    )
+                    await self._save_state(
+                        iteration=context.iteration, node_states=node_states,
+                        status=SessionStatus.ENDED, ended_reason="failed",
+                        ended_detail=detail,
+                    )
+                    return
+                context.nodes[tw.node_id] = out
+                node_states[tw.node_id] = NodeRuntimeState(
+                    status=NodeRuntimeStatus.ENDED,
+                    last_run_iteration=context.iteration,
+                    last_run_at=datetime.now(timezone.utc),
+                )
+                completed_ids.append(tw.node_id)
+                # 01a0812c: settled (ENDED) - see the tc_pending discards
+                # above.
+                self._ready_set.discard(tw.node_id)
+            finally:
+                reset_current_graph_node_id(token)
+
+        # graph_transition EXIT for each resumed node that finished this
+        # cycle. The superstep loop SKIPS the exit emit when a node parks
+        # (``if item.suspended: continue``, ~base.py:982) with the comment
+        # "their exit lands on the resume path" — this loop is that resume
+        # path. Status is derived from the node's stamped runtime state
+        # (the same source the loop's _NodeDone outcome reflects): ENDED →
+        # "completed", anything else (FAILED, e.g. the topology-drift branch
+        # that also appends to ``completed_ids``) → "failed". The early-return
+        # failure paths above emit their own status="failed" exit and never
+        # reach here. Emitted before the re-park check so a node that
+        # genuinely finished this cycle still gets its balanced exit even if a
+        # sibling re-parks.
+        for nid in completed_ids:
+            _rt = node_states.get(nid)
+            _status = (
+                "completed"
+                if _rt is not None and _rt.status == NodeRuntimeStatus.ENDED
+                else "failed"
+            )
+            yield _GraphTransitionEvent(  # type: ignore[misc]
+                node_id=nid,
+                node_kind=self._node_kind_for(nid),
+                phase="exit",
+                status=_status,
+            )
+
+        # 01a0812c / 01a08016 (absorbed into this task): compute + fold
+        # THIS resume's own completed_ids' successors into self._ready_set
+        # BEFORE checking whether other pending entries remain and
+        # re-parking - not after. Ordering correction found live (this
+        # block used to sit after the re-park check, on this branch's
+        # merge-base): a re-park exits via `raise` immediately below, so
+        # if the edge-walk ran AFTER that check, a node's OWN successor
+        # (e.g. A resolves, A -> C, while sibling B is still pending)
+        # would never be computed at all before the function exits -
+        # A's whole downstream branch silently vanishes, invisible even
+        # to the checkpoint the re-park persists (self._ready_set would
+        # never have gained C in the first place). Each
+        # ``completed_ids.append`` above already discarded that node from
+        # ``self._ready_set`` at the moment it settled (see the discard
+        # sites in the tc/ay/tw_pending loops above) - what's left in
+        # ``self._ready_set`` at this point is exactly the
+        # parked-and-not-yet-resolved entries plus anything an EARLIER
+        # partial resume of this same drain already folded in.
+        if completed_ids:
+            try:
+                next_ready = await self._compute_next_ready(
+                    set(completed_ids), context
+                )
+            except _RoutingFailed as exc:
+                yield _GraphErrorEvent(  # type: ignore[misc]
+                    code="routing_failed",
+                    message=str(exc),
+                    node_id=exc.source_node_id,
+                )
+                await self._save_state(
+                    iteration=context.iteration,
+                    node_states=node_states,
+                    status=SessionStatus.ENDED,
+                    ended_reason="failed",
+                    ended_detail="routing_failed",
+                )
+                return
+            # Drain any fan-out plans spawned by the drained ToolCalls.
+            for fanout_id, instances in list(self._pending_fanout.items()):
+                for inst in instances:
+                    self._fanout_instances[inst.synthesized_id] = inst
+                    next_ready.add(inst.synthesized_id)
+                del self._pending_fanout[fanout_id]
+            # NOTE: context.iteration is bumped further down, only once we
+            # know this superstep is actually fully drained (past the
+            # pending-recheck below) - see the comment there. Do not move
+            # the bump up here: R2-4 (test_iteration_bumps_once_per_
+            # drained_superstep_not_per_partial_resume) requires a
+            # still-partial resume (a sibling still pending) to leave
+            # context.iteration untouched even though this resume's own
+            # completed_ids's successors get computed and folded in.
+            # Union, not replace: self._ready_set can already hold a
+            # successor folded in by an EARLIER partial resume of this
+            # same drain (e.g. C, admitted by A's own edge-walk on a
+            # PRIOR resume while sibling B was still pending) that is
+            # neither settled NOR itself tracked in any pending list -
+            # THIS resume's own next_ready (computed from THIS resume's
+            # completed_ids only) says nothing about that earlier fold,
+            # so a bare assignment would silently drop it. Do not
+            # "simplify" this to `self._ready_set = next_ready` - that
+            # exact change was tried, reviewed, ruled "provably safe",
+            # and then falsified live by test_node_a_before_node_b_
+            # partial_wake and test_cyclic_loop_back_across_two_partial_
+            # resumes_still_dispatches, both of which silently lost a
+            # node under it.
+            self._ready_set |= next_ready
+
+        # Full concurrency: if other human-interaction nodes OR tool_wait
+        # batches (01a0518b boundary d - a fan-out sibling's batch can
+        # still be mid-flight after a PARTIAL wake) are still pending,
+        # re-park on the remaining keys instead of advancing the graph -
+        # self._ready_set already carries this resume's own fold (above),
+        # so the re-parked checkpoint does not lose it.
+        if (
+            self._pending_toolcalls
+            or self._pending_agent_yields
+            or self._pending_tool_waits
+        ):
+            await self._save_state(
+                iteration=context.iteration,
+                node_states=node_states,
+                status=SessionStatus.WAITING,
+            )
+            raise self._build_pending_park_exception()
+
+        # This superstep is now confirmed fully drained (the pending-recheck
+        # above did not re-park): bump context.iteration exactly once for
+        # it here, not per partial resume - see the NOTE above the fold
+        # block for why this can't live there.
+        if completed_ids:
+            context.iteration += 1
+
+        # Persist the drained-state snapshot so observers can see the
+        # ToolCalls finished before the next superstep starts.
+        await self._save_state(
+            iteration=context.iteration,
+            node_states=node_states,
+            status=SessionStatus.RUNNING,
+        )
+
+        async for ev in self._run_superstep_loop(
+            context=context,
+            node_states=node_states,
+            ended_reason_in=self._pending_ended_reason,
+            ended_detail_in=self._pending_ended_detail,
+        ):
+            yield ev
+
+    # ---- Subclass hooks --------------------------------------------------
+
+    @abstractmethod
+    async def _load_node_history(self, node_id: str) -> list[Message]:
+        """Return the accumulated message history for ``node_id``."""
+
+    @abstractmethod
+    async def _persist_node_turn(
+        self,
+        node_id: str,
+        iteration: int,
+        new_messages: list[Message],
+    ) -> None:
+        """Append ``new_messages`` to the node's history."""
+
+    @abstractmethod
+    async def _save_state(
+        self,
+        *,
+        iteration: int,
+        node_states: dict[str, NodeRuntimeState],
+        status: SessionStatus,
+        ended_reason: str | None = None,
+        ended_detail: str | None = None,
+    ) -> None:
+        """Persist graph-level state between supersteps."""
+
+    async def _build_sub_executor(
+        self,
+        parent_node: _GraphNodeRef,
+        sub_graph: Graph,
+        *,
+        instance_suffix: str = "",
+    ) -> "_BaseGraphExecutor":
+        """Build a child executor for a subgraph node.
+
+        ``instance_suffix`` (e.g. ``"[0]"``) disambiguates concurrent fan-out
+        instances of the SAME subgraph node so their child state does not
+        collide; it is empty for a plain (non-fan-out) subgraph node.
+
+        Default raises :class:`ConfigError`; concrete classes that
+        support subgraph composition override this.
+        """
+        raise ConfigError(
+            f"subgraph node {parent_node.id!r} not supported by "
+            f"{type(self).__name__}: subclass must override _build_sub_executor"
+        )
+
+    async def _dispatch_toolcall(
+        self,
+        node: "_ToolCallNode",
+        arguments: dict[str, Any],
+    ) -> "ToolResultPart":
+        """Dispatch a ToolCall node's tool. Default raises NotImplementedError.
+
+        Concrete executors override:
+
+        * :class:`primer.graph.WorkspaceGraphExecutor` wires the workspace
+          session's :class:`ToolExecutionManager`.
+        * :class:`primer.graph.GraphExecutor` exposes a
+          ``tool_dispatcher`` constructor arg for tests / non-workspace
+          callers that supply their own dispatch surface.
+        """
+        raise NotImplementedError(
+            f"_dispatch_toolcall must be overridden to invoke tool "
+            f"{node.tool_id!r}"
+        )
+
+    async def _dispatch_toolcall_with_bypass(
+        self,
+        node: "_ToolCallNode",
+        arguments: dict[str, Any],
+    ) -> "ToolResultPart":
+        """Re-dispatch a previously-yielded ToolCall with ``bypass_approval=True``.
+
+        Spec B §2.3 step 3 / Phase 6 — invoked by
+        :meth:`resume_from_checkpoint` to drain pending ToolCalls after
+        operator approval, skipping the approval gate so the tool's
+        underlying handler runs directly.
+
+        Default implementation falls back to :meth:`_dispatch_toolcall`
+        (no bypass) — subclasses with a real approval-aware dispatch
+        surface should override to thread ``bypass_approval=True``
+        through to their underlying manager.
+        """
+        return await self._dispatch_toolcall(node, arguments)
+
+    # ---- Public surface --------------------------------------------------
+
+    async def invoke(
+        self,
+        messages: "list[Message] | Any",
+    ) -> AsyncIterator[StreamEvent]:
+        """Execute the graph; stream events live as they happen.
+
+        Concurrent nodes within a superstep stream their events
+        through a shared :class:`asyncio.Queue`; the caller sees
+        events in arrival order, interleaved across nodes. Each
+        event is wrapped in
+        :class:`ExtendedEvent(_GraphNodeEvent(...))` carrying the
+        ``node_id`` and ``iteration`` so consumers can demultiplex.
+
+        ``messages`` historically was a ``list[Message]``; spec §4.3
+        widens the input to ``Any`` so callers (e.g. the workspace
+        executor relaying ``session.metadata['graph_input']``) can pass
+        dict / str / list / any JSON-serialisable value. Begin-firing
+        branches on the runtime type to shape the right NodeOutput.
+        """
+        node_states: dict[str, NodeRuntimeState] = {
+            n.id: NodeRuntimeState(status=NodeRuntimeStatus.PENDING)
+            for n in self._graph.nodes
+        }
+        # Preserve non-list inputs verbatim so Begin can materialise its
+        # NodeOutput from dict / str / Any.
+        if isinstance(messages, list):
+            initial_input: Any = list(messages)
+        else:
+            initial_input = messages
+        context = GraphContext(
+            initial_input=initial_input,
+            iteration=0,
+            nodes={},
+            ctx=self._execution_context,
+        )
+        ready: set[str] = {_resolve_initial_ready_node(self._graph)}
+        self._admitted = set(ready)
+        self._max_iter_routed = False
+        # Phase 6 — expose mid-flight state on the executor so
+        # :meth:`snapshot_state` can capture it the moment a ToolCall
+        # yields for approval. Kept in sync after every superstep
+        # boundary (and after applying per-node results).
+        self._context = context
+        self._ready_set = ready
+        self._node_states = node_states
+
+        async for ev in self._run_superstep_loop(
+            context=context,
+            node_states=node_states,
+            ended_reason_in=self._pending_ended_reason,
+            ended_detail_in=self._pending_ended_detail,
+        ):
+            yield ev
+
+    async def _run_superstep_loop(
+        self,
+        *,
+        context: GraphContext,
+        node_states: dict[str, NodeRuntimeState],
+        ended_reason_in: str | None,
+        ended_detail_in: str | None,
+    ) -> AsyncIterator[StreamEvent]:
+        """Pregel superstep loop — extracted so :meth:`resume_from_checkpoint`
+        can re-enter at the same point after the approval-yield round-trip.
+
+        Spec B §2.3 step 3 / Phase 6. ``context``, ``node_states`` are
+        passed by reference (the executor's instance attrs hold the same
+        objects) so the snapshot path always sees up-to-date state.
+        ``self._ready_set`` (not a separately-threaded parameter, 01a0812c)
+        is the same story: both callers (:meth:`invoke`, freshly-seeded;
+        :meth:`resume_from_checkpoint`, restored + discard/fold-updated)
+        already sync it before calling in, so this method reads it
+        directly rather than accepting a value that could ever diverge
+        from it.
+        """
+        ended_reason = ended_reason_in
+        ended_detail = ended_detail_in
+
+        while self._ready_set:
+            # 01a0812c (M5): a failure discovered in an EARLIER superstep
+            # (this call, or a prior resume of the SAME park) is sticky -
+            # seeded via ended_reason_in from self._pending_ended_reason.
+            # fail_fast means STOP, not just eventually-report-correctly:
+            # once seeded, do not admit self._ready_set's contents for a
+            # fresh dispatch. `break`, not `return` - a `return` would
+            # skip the post-loop tail below (self._last_ended_reason /
+            # self._last_ended_detail exposure for a parent subgraph, and
+            # the final `_save_state(status=ENDED, ...)` call), silently
+            # stranding the run in a state a parent can't observe as
+            # failed and never persisting the terminal row. This is
+            # exactly the class of silent-skip bug that produced every
+            # prior round's regression - if a future refactor reaches for
+            # `return` here as the "simpler" exit, that is the bug this
+            # comment exists to stop.
+            #
+            # Placed first, before the max_iterations check: a seeded
+            # failure always wins over a cycle-bound reroute.
+            #
+            # Scoped out of v1, deliberately: a resumed continuation can
+            # still raise a NEW park after a failure is already seeded
+            # (self._pending_ended_reason non-None) - e.g. the one
+            # pending entry resume_from_checkpoint's drain is still
+            # finishing raises YieldToWorker/ToolWaitPark again
+            # mid-continuation. This is not special-cased: the re-park
+            # proceeds normally (existing machinery, untouched) and this
+            # check simply doesn't fire again until the NEXT resume,
+            # since resume_from_checkpoint returns via the re-park branch
+            # before ever reaching this loop. Net effect: one needless
+            # round-trip (a doomed session waits on a tool call it didn't
+            # strictly need to) rather than ending failed the instant it
+            # could have - accepted, not a bug.
+            if ended_reason is not None:
+                break
+
+            # Cycle bound check. Spec §5.4 maps this to ended_reason='failed'
+            # with the detail code carried separately so the public contract
+            # has a single failure reason and a finite set of codes.
+            if (
+                self._graph.max_iterations is not None
+                and context.iteration >= self._graph.max_iterations
+                and not self._max_iter_routed
+            ):
+                route_to = self._graph.on_max_iterations
+                if route_to is not None and route_to in self._nodes_by_id:
+                    # Graceful landing: route once to the configured node
+                    # (typically a finalize/report node) instead of failing.
+                    # ``_max_iter_routed`` keeps the cap from re-tripping while
+                    # the (acyclic) finalize tail runs to an End.
+                    self._max_iter_routed = True
+                    logger.warning(
+                        "graph %s hit max_iterations=%s; routing to "
+                        "on_max_iterations=%r instead of failing",
+                        self._graph.id, self._graph.max_iterations, route_to,
+                    )
+                    # Deliberate hard reset, not a union: this reroute
+                    # abandons the normal graph flow entirely (whatever
+                    # was in self._ready_set before is no longer wanted)
+                    # in favour of jumping straight to one finalize node -
+                    # unlike every other self._ready_set mutation in this
+                    # method, which is additive/incremental.
+                    self._ready_set = {route_to}
+                    self._admitted.add(route_to)
+                    continue
+                yield _GraphErrorEvent(  # type: ignore[misc]
+                    code="max_iterations_exceeded",
+                    message=f"graph ran for {context.iteration} iterations",
+                    node_id=None,
+                )
+                ended_reason = "failed"
+                ended_detail = "max_iterations_exceeded"
+                break
+
+            # Mark all ready nodes RUNNING and snapshot state. Emit one
+            # graph_transition ENTER per node so the session log records the
+            # node boundary (spec §2.6 / plan Task 3.1). The event flows
+            # through translate_stream_event -> WorkspaceMessageWriter.append
+            # on the same append+tick path every other record uses; no extra
+            # tick publisher. node_kind comes from the resolved node def's
+            # ``kind`` discriminator. Sorted for deterministic stream order.
+            for nid in sorted(self._ready_set):
+                node_states[nid] = NodeRuntimeState(
+                    status=NodeRuntimeStatus.RUNNING,
+                    last_run_iteration=context.iteration,
+                    last_run_at=datetime.now(timezone.utc),
+                )
+                yield _GraphTransitionEvent(  # type: ignore[misc]
+                    node_id=nid,
+                    node_kind=self._node_kind_for(nid),
+                    phase="enter",
+                    status=None,
+                )
+            await self._save_state(
+                iteration=context.iteration,
+                node_states=node_states,
+                status=SessionStatus.RUNNING,
+            )
+
+            # Emit superstep_started + open per-node writers. Stamped on
+            # ``self._current_superstep_id`` so child node writers can
+            # carry the same id.
+            superstep_id = f"ss-{context.iteration}-{uuid.uuid4().hex[:6]}"
+            self._current_superstep_id = superstep_id
+            ss_started_at = datetime.now(timezone.utc)
+            await _safe_graph_turn_log(
+                self._graph_turn_log,
+                TurnLogSuperstepStarted(
+                    seq=0,
+                    ts=ss_started_at,
+                    iteration=context.iteration,
+                    superstep_id=superstep_id,
+                    ready_node_ids=sorted(self._ready_set),
+                ),
+            )
+
+            # Run all ready nodes concurrently. Each pushes its events
+            # live to the shared queue; we drain them as they arrive
+            # and yield to the caller. _NodeDone sentinels track
+            # completion + per-node final result.
+            #
+            # Spec B §2.4 — Multi-End independent termination: every
+            # End fires independently when reached. There is no
+            # "first End wins" / "lex-smallest tie-break" any more.
+            # The outer loop terminates naturally when the ready set
+            # drains AND no nodes are in-flight; the sort here is kept
+            # purely for deterministic stream ordering.
+            #
+            # Stable per-iteration snapshot of self._ready_set (01a0812c):
+            # this superstep's dispatch BATCH is fixed at this instant,
+            # even though self._ready_set itself keeps mutating (discard
+            # on settle, below) for the rest of this iteration - a
+            # same-superstep addition (e.g. a drained fan-out plan) must
+            # not retroactively join THIS iteration's already-spawned
+            # tasks; it lands in self._ready_set for the next `while`
+            # iteration only.
+            ready_ordered = sorted(self._ready_set)
+            queue: "asyncio.Queue[StreamEvent | _NodeDone | _ToolDispatchBarrier]" = (
+                asyncio.Queue()
+            )
+
+            # Per-node turn-log writers + start timestamps. Writers
+            # are cached on self._node_turn_logs so a node that fires
+            # in multiple supersteps keeps the same monotonic seq
+            # stream; the cache miss path is the only one that calls
+            # the factory. Closing is deferred to end-of-run.
+            node_started_at: dict[str, datetime] = {}
+            for nid in ready_ordered:
+                w = self._node_turn_logs.get(nid)
+                if w is None:
+                    w = self._turn_log_factory(nid)
+                    self._node_turn_logs[nid] = w
+                started_at = datetime.now(timezone.utc)
+                node_started_at[nid] = started_at
+                await _safe_graph_turn_log(
+                    w,
+                    TurnLogStarted(
+                        seq=0,
+                        ts=started_at,
+                        node_id=nid,
+                        iteration=context.iteration,
+                        superstep_id=superstep_id,
+                        model=None,
+                        input_message_count=0,
+                    ),
+                )
+
+            # Per-superstep admission bound (BE5). All ready nodes still run —
+            # the semaphore only caps how many execute *at once* so a wide
+            # fan-out (map/broadcast) can't spawn unbounded concurrent agent
+            # tasks (each an LLM loop + workspace persistence). Nodes in a
+            # superstep are independent, so bounding to >=1 never deadlocks.
+            # A fresh semaphore per superstep keeps the bound local to it.
+            node_semaphore = asyncio.Semaphore(self._max_parallel_nodes)
+
+            async def _run_node_bounded(
+                nid: str,
+                sem: asyncio.Semaphore = node_semaphore,
+            ) -> None:
+                async with sem:
+                    await self._stream_node(nid, context, queue)
+
+            tasks: list[asyncio.Task] = [
+                asyncio.create_task(_run_node_bounded(nid))
+                for nid in ready_ordered
+            ]
+            results: dict[str, _NodeDone] = {}
+            done_count = 0
+            try:
+                while done_count < len(tasks):
+                    item = await queue.get()
+                    if isinstance(item, _ToolDispatchBarrier):
+                        # 01a0518b (seam-split A-graph surface). Resolved the
+                        # INSTANT this sentinel is dequeued, never yielded
+                        # further (it isn't a StreamEvent) — see
+                        # _ToolDispatchBarrier's own docstring for why this
+                        # exact point is the correct one: reaching this line
+                        # for item N is only possible once item N-1's own
+                        # `yield` below was resumed, which only happens
+                        # after dispatch.py's translate_stream_event+append
+                        # for item N-1 already ran to completion.
+                        if not item.future.done():
+                            item.future.set_result(None)
+                        continue
+                    if isinstance(item, _NodeDone):
+                        results[item.node_id] = item
+                        done_count += 1
+                        # Emit completed / failed for this node as soon
+                        # as its _NodeDone lands. Skip emission for the
+                        # suspended sentinel (approval-yield path,
+                        # Spec B §2.3 step 3): the node is parked, not
+                        # done; its real completion event lands on the
+                        # resume-from-checkpoint path.
+                        if item.suspended:
+                            continue
+                        # graph_transition EXIT for this node (spec §2.6 /
+                        # plan Task 3.1). status mirrors the _NodeDone
+                        # outcome: 'failed' when an error is attached,
+                        # 'completed' otherwise. Suspended nodes are skipped
+                        # above so their exit lands on resume, not here.
+                        yield _GraphTransitionEvent(  # type: ignore[misc]
+                            node_id=item.node_id,
+                            node_kind=self._node_kind_for(item.node_id),
+                            phase="exit",
+                            status="failed" if item.error is not None
+                            else "completed",
+                        )
+                        w = self._node_turn_logs.get(item.node_id)
+                        started_at = node_started_at.get(
+                            item.node_id, datetime.now(timezone.utc),
+                        )
+                        if w is not None:
+                            duration_ms = max(
+                                0,
+                                int((
+                                    datetime.now(timezone.utc) - started_at
+                                ).total_seconds() * 1000),
+                            )
+                            if item.error is None:
+                                await _safe_graph_turn_log(
+                                    w,
+                                    TurnLogCompleted(
+                                        seq=0,
+                                        ts=datetime.now(timezone.utc),
+                                        node_id=item.node_id,
+                                        iteration=context.iteration,
+                                        superstep_id=superstep_id,
+                                        duration_ms=duration_ms,
+                                    ),
+                                )
+                            else:
+                                # Two shapes reach here: a real
+                                # BaseException (line ~2112) or a
+                                # pre-stringified error (FanOut /
+                                # template / End nodes). Route the
+                                # former through to_problem_details so
+                                # NetworkError -> 504, AuthenticationError
+                                # -> 401, etc., land in the UI; keep
+                                # the latter wrapped in a generic 500.
+                                if isinstance(item.error, BaseException):
+                                    error_envelope = to_problem_details(
+                                        item.error,
+                                    )
+                                    if item.ended_detail and (
+                                        error_envelope.extensions is not None
+                                    ):
+                                        error_envelope.extensions[
+                                            "ended_detail"
+                                        ] = item.ended_detail
+                                else:
+                                    error_envelope = ProblemDetails(
+                                        type="/errors/graph-node-failed",
+                                        title="Graph node failed",
+                                        status=500,
+                                        detail=str(item.error),
+                                        extensions={
+                                            "ended_detail": (
+                                                item.ended_detail
+                                            ),
+                                        },
+                                    )
+                                await _safe_graph_turn_log(
+                                    w,
+                                    TurnLogFailed(
+                                        seq=0,
+                                        ts=datetime.now(timezone.utc),
+                                        node_id=item.node_id,
+                                        iteration=context.iteration,
+                                        superstep_id=superstep_id,
+                                        duration_ms=duration_ms,
+                                        error=error_envelope,
+                                    ),
+                                )
+                    else:
+                        yield item
+            finally:
+                # Belt-and-braces: tasks should all have completed by now,
+                # but if the caller closed the iterator early, cancel.
+                for t in tasks:
+                    if not t.done():
+                        t.cancel()
+                for t in tasks:
+                    try:
+                        await t
+                    except (asyncio.CancelledError, Exception):
+                        # Swallow cancellation (we cancelled them) and any
+                        # task-body error during cleanup, but let
+                        # SystemExit / KeyboardInterrupt / GeneratorExit
+                        # propagate so the process can shut down cleanly.
+                        pass
+                # Emit superstep_ended + close per-node writers.
+                # Happens BEFORE the per-node results loop / termination
+                # decisions so the graph-level log captures every
+                # superstep even on a break that follows.
+                completed_node_ids = sorted(
+                    nid for nid, d in results.items()
+                    if d.error is None and not d.suspended
+                )
+                failed_node_ids = sorted(
+                    nid for nid, d in results.items()
+                    if d.error is not None
+                )
+                await _safe_graph_turn_log(
+                    self._graph_turn_log,
+                    TurnLogSuperstepEnded(
+                        seq=0,
+                        ts=datetime.now(timezone.utc),
+                        iteration=context.iteration,
+                        superstep_id=superstep_id,
+                        completed_node_ids=completed_node_ids,
+                        failed_node_ids=failed_node_ids,
+                        duration_ms=max(
+                            0,
+                            int((
+                                datetime.now(timezone.utc) - ss_started_at
+                            ).total_seconds() * 1000),
+                        ),
+                    ),
+                )
+                # Per-node writers stay open across supersteps -- they
+                # are closed by _close_turn_logs() when the run ends.
+                self._current_superstep_id = None
+
+            # Apply per-node results to the supersteps' node_states +
+            # graph context, decide whether to terminate.
+            #
+            # Spec B §2.4 — End nodes no longer short-circuit the
+            # outer loop; they only emit their _GraphEndOutputEvent and
+            # produce a NodeOutput. The loop terminates when the ready
+            # set drains naturally (the `while ready:` predicate).
+            any_failed = False
+            # Error events to yield AFTER the per-node loop (yielding
+            # inside the loop while we mutate node_states would be fine,
+            # but emitting once we've classified everything keeps the
+            # ordering predictable: results first, then the terminal error).
+            error_events: list[_GraphErrorEvent] = []
+            for nid in ready_ordered:
+                done = results.get(nid)
+                # Spec B §2.3 step 3 / Phase 6 — a suspended ToolCall has
+                # already been recorded into ``_pending_toolcalls``; leave
+                # its status as RUNNING (set above by the pre-run snapshot)
+                # and skip context updates. The post-superstep block
+                # detects pending entries and propagates YieldToWorker.
+                if done is not None and done.suspended:
+                    continue
+                # 01a0812c: every branch reached from here on settles this
+                # node ONE way or another this superstep - an ordinary
+                # FAILED, a suppressed-fanout FAILED (its own sub-branch
+                # below, which still sets node_states[nid] to FAILED
+                # before its own continue), or ENDED. The suspended guard
+                # above is the ONLY branch that must NOT settle (a park,
+                # not a completion). Discard at the write site instead of
+                # tracking a second exclusion set to subtract later - see
+                # self._ready_set's own docstring in __init__.
+                self._ready_set.discard(nid)
+                if done is None or done.error is not None:
+                    err_text = (
+                        str(done.error) if done is not None else "no result"
+                    )
+                    node_states[nid] = NodeRuntimeState(
+                        status=NodeRuntimeStatus.FAILED,
+                        last_run_iteration=context.iteration,
+                        last_run_at=datetime.now(timezone.utc),
+                        error=err_text,
+                    )
+                    # Spec B §2.5 — when this failed node is a fan-out
+                    # instance whose spawning spec has on_failure != fail_fast,
+                    # SUPPRESS the immediate failure: bump the drain state and
+                    # let the superstep continue. For ``collect`` we also
+                    # stamp NodeOutput.error and append to the aggregator.
+                    inst_spec = self._instance_to_spec.get(nid)
+                    if inst_spec is not None and inst_spec[1].on_failure != "fail_fast":
+                        fanout_id, spec = inst_spec
+                        drain_key = f"{fanout_id}__{spec.target_node_id or ''}"
+                        # Fall back to scanning when the spec is a tee (target
+                        # is in target_node_ids and nid identifies one of them).
+                        if drain_key not in self._fanout_drain_state:
+                            # Recover the target id from the synthesized id's
+                            # _FanoutInstance entry (tee path: synthesized_id ==
+                            # target_node_id; broadcast/map: target_node_id is
+                            # the bare target).
+                            inst_lookup = self._fanout_instances.get(nid)
+                            if inst_lookup is not None:
+                                drain_key = (
+                                    f"{fanout_id}__{inst_lookup.target_node_id}"
+                                )
+                        drain = self._fanout_drain_state.get(drain_key)
+                        if drain is not None:
+                            drain.completed_count += 1
+                            drain.any_failed = True
+                            if drain.first_failure is None:
+                                drain.first_failure = (
+                                    nid, done.ended_detail or "node_failed",
+                                )
+                            # ``collect`` mode: stamp NodeOutput.error so
+                            # downstream FanIn templates can branch on n.error,
+                            # and append to the aggregator list so the FanIn
+                            # ready-set still counts the failed instance.
+                            if spec.on_failure == "collect":
+                                fail_output = NodeOutput(
+                                    text="",
+                                    parsed=None,
+                                    history=[],
+                                    iteration=context.iteration,
+                                    error=(
+                                        str(done.error)
+                                        if done is not None and done.error is not None
+                                        else (done.ended_detail if done else "node_failed")
+                                    ),
+                                    ended_detail=(
+                                        done.ended_detail
+                                        if done is not None and done.ended_detail is not None
+                                        else "node_failed"
+                                    ),
+                                )
+                                context.nodes[nid] = fail_output
+                                inst_obj = self._fanout_instances.get(nid)
+                                if inst_obj is not None:
+                                    agg = context.nodes.get(inst_obj.target_node_id)
+                                    agg_list: list[NodeOutput | None] = (
+                                        list(agg) if isinstance(agg, list) else []  # type: ignore[arg-type]
+                                    )
+                                    if inst_obj.fanout_index is not None:
+                                        target_len = inst_obj.fanout_index + 1
+                                        while len(agg_list) < target_len:
+                                            agg_list.append(None)
+                                        agg_list[inst_obj.fanout_index] = fail_output
+                                    else:
+                                        # tee: append (no leading-None pad).
+                                        agg_list.append(fail_output)
+                                    # Keep the list positionally aligned: a slot
+                                    # that has not reported yet stays ``None`` at
+                                    # its own index. Compacting here would shift
+                                    # later results onto the wrong index and make
+                                    # the FanIn ready-set undercount. The FanIn
+                                    # template / consumer reads by position.
+                                    context.nodes[inst_obj.target_node_id] = (
+                                        agg_list
+                                    )
+                            continue
+                    any_failed = True
+                    # 01a0812c: persist that an un-suppressed failure
+                    # occurred so it survives a park - any_failed and
+                    # ended_reason/ended_detail below are pure locals of
+                    # THIS call to _run_superstep_loop, discarded if a
+                    # park raises before the `if any_failed:` check
+                    # further down ever runs (the pending-park branch is
+                    # checked FIRST). Sticky: first un-suppressed failure
+                    # wins, never overwritten by a later one - mirrors
+                    # ended_reason's own `if ended_reason is None:`
+                    # pattern below. Mirrors ended_reason/ended_detail's
+                    # own conditional structure exactly, not a blanket
+                    # "set both here": reason is unconditional (matches
+                    # how the `if any_failed:` fallback below always
+                    # eventually produces SOME reason even with no
+                    # specific detail), detail is set only inside the
+                    # SAME conditional ended_detail is - setting both
+                    # unconditionally would manufacture a detail value
+                    # (e.g. coercing None) that today's code never
+                    # produces, changing observable behavior for callers
+                    # that branch on ended_detail.
+                    if self._pending_ended_reason is None:
+                        self._pending_ended_reason = "failed"
+                    # When the failure carries a spec §5.4 code (e.g. End-node
+                    # output validation), propagate it so the executor's
+                    # final state records both reason="failed" and the code,
+                    # and emit a terminal _GraphErrorEvent for taps to see.
+                    if done is not None and done.ended_detail is not None:
+                        ended_reason = "failed"
+                        ended_detail = done.ended_detail
+                        if self._pending_ended_detail is None:
+                            self._pending_ended_detail = done.ended_detail
+                        error_events.append(
+                            _GraphErrorEvent(
+                                code=done.ended_detail,
+                                message=err_text,
+                                node_id=nid,
+                            )
+                        )
+                    continue
+                if done.output is not None:
+                    context.nodes[nid] = done.output
+                    # Fan-out instance: also append to the aggregator list at
+                    # the target's bare id, preserving index order via
+                    # pad-with-None for out-of-order completion.
+                    inst = self._fanout_instances.get(nid)
+                    if inst is not None:
+                        agg = context.nodes.get(inst.target_node_id)
+                        agg_list = list(agg) if isinstance(agg, list) else []  # type: ignore[arg-type]
+                        if inst.fanout_index is not None:
+                            # Indexed (broadcast/map): place at its own slot,
+                            # padding with None for out-of-order completion.
+                            target_len = inst.fanout_index + 1
+                            while len(agg_list) < target_len:
+                                agg_list.append(None)
+                            agg_list[inst.fanout_index] = done.output
+                        else:
+                            # tee: one run per named target -> just append.
+                            # Padding here would leave a leading None
+                            # (nodes.<target>[0] == None).
+                            agg_list.append(done.output)
+                        # Keep the list positionally aligned (see the collect
+                        # path above): an instance that has not reported stays
+                        # ``None`` at its index; never compact, or later
+                        # results shift onto the wrong index.
+                        context.nodes[inst.target_node_id] = agg_list
+                        # Spec B §2.5 — count successful instances against the
+                        # drain state too so drain_then_fail / collect modes
+                        # know when every sibling has reported in.
+                        inst_spec_ok = self._instance_to_spec.get(nid)
+                        if inst_spec_ok is not None:
+                            fanout_id_ok, spec_ok = inst_spec_ok
+                            drain_key_ok = (
+                                f"{fanout_id_ok}__{inst.target_node_id}"
+                            )
+                            drain_ok = self._fanout_drain_state.get(drain_key_ok)
+                            if drain_ok is not None:
+                                drain_ok.completed_count += 1
+                node_states[nid] = NodeRuntimeState(
+                    status=NodeRuntimeStatus.ENDED,
+                    last_run_iteration=context.iteration,
+                    last_run_at=datetime.now(timezone.utc),
+                )
+
+            # Persist superstep results so each turn-end is recoverable
+            # (and, in the workspace executor, git-committed).
+            await self._save_state(
+                iteration=context.iteration,
+                node_states=node_states,
+                status=SessionStatus.RUNNING,
+            )
+
+            # Spec B §2.3 step 3 / Phase 6 — if any ToolCall(s) yielded
+            # for approval this superstep, save the checkpoint via the
+            # subclass hook + raise YieldToWorker so the worker can park
+            # the session. The first pending entry's parked_event_key
+            # becomes the wake-up key; subsequent entries are drained on
+            # the resume path. ``_save_state`` is called with
+            # ``SessionStatus.WAITING`` so the persisted state reflects
+            # the paused world.
+            if (
+                self._pending_toolcalls
+                or self._pending_agent_yields
+                or self._pending_tool_waits
+            ):
+                # 01a0812c: NO self._ready_set reset here (deleted, not
+                # adapted - this was the round-4 BLOCKER's exact
+                # mechanism). By this point in the classification loop
+                # above, self._ready_set has ALREADY been correctly
+                # discarded-from for every node that settled THIS
+                # superstep; what remains is exactly the parked entries
+                # plus anything not yet folded in. Resetting to the raw
+                # ready_ordered snapshot here would stomp those discards
+                # and re-admit same-superstep settlers for re-dispatch on
+                # a later resume - the exact bug this design exists to
+                # eliminate. Keep context / node_states up to date on the
+                # executor for the snapshot.
+                self._context = context
+                self._node_states = node_states
+                await self._save_state(
+                    iteration=context.iteration,
+                    node_states=node_states,
+                    status=SessionStatus.WAITING,
+                )
+                # Park on the full pending set (tool_call approvals +
+                # agent-node yields + tool_wait batches, 01a0518b boundary
+                # d). A co-pending human gate always wins the choice below
+                # (_build_pending_park_exception); a tool_wait-only mix
+                # parks as a flattened ToolWaitPark instead. Any one key
+                # firing wakes the session, which resumes that node/batch
+                # and re-parks on the rest.
+                raise self._build_pending_park_exception()
+
+            if any_failed:
+                # ended_reason / ended_detail may already be set by the
+                # per-node handler above (e.g. End-node failure carries a
+                # spec §5.4 code); only fall back when nothing's been set.
+                if ended_reason is None:
+                    ended_reason = "failed"
+                for ev in error_events:
+                    yield ev  # type: ignore[misc]
+                break
+
+            # Spec B §2.5 — drain_then_fail: once every instance for a
+            # (FanOut, target) pair has reported, if any failed terminate
+            # the graph ``failed`` with ``fanin_upstream_failed``. We check
+            # every drain state because multiple FanOut specs can target
+            # different ids; the first one that signals failure wins.
+            drain_failure: tuple[str, str] | None = None
+            for drain in self._fanout_drain_state.values():
+                if (
+                    drain.on_failure == "drain_then_fail"
+                    and drain.any_failed
+                    and drain.completed_count >= drain.expected_count
+                    and drain.first_failure is not None
+                ):
+                    drain_failure = drain.first_failure
+                    break
+            if drain_failure is not None:
+                failed_nid, _failed_detail = drain_failure
+                yield _GraphErrorEvent(  # type: ignore[misc]
+                    code="fanin_upstream_failed",
+                    message=(
+                        f"fan-out worker {failed_nid!r} failed; aborting "
+                        "after draining sibling workers"
+                    ),
+                    node_id=failed_nid,
+                )
+                ended_reason = "failed"
+                ended_detail = "fanin_upstream_failed"
+                break
+
+            # Compute next ready set by evaluating outgoing edges.
+            try:
+                next_ready = await self._compute_next_ready(
+                    set(ready_ordered), context
+                )
+            except _RoutingFailed as exc:
+                logger.warning(
+                    "GraphExecutor: routing failed",
+                    extra={
+                        "graph_id": self._graph.id,
+                        "node_id": exc.source_node_id,
+                        "error": str(exc),
+                    },
+                )
+                yield _GraphErrorEvent(  # type: ignore[misc]
+                    code="routing_failed",
+                    message=str(exc),
+                    node_id=exc.source_node_id,
+                )
+                ended_reason = "failed"
+                ended_detail = "routing_failed"
+                break
+            except ConfigError as exc:
+                logger.warning(
+                    "GraphExecutor: edge evaluation failed",
+                    extra={"graph_id": self._graph.id, "error": str(exc)},
+                )
+                ended_reason = "failed"
+                break
+
+            # Drain any pending fan-out plans into the next-ready set.
+            # Spec B §2.1 — each synthesized instance becomes a node in the
+            # next superstep; per-instance dispatch resolves the underlying
+            # target node and renders its template with fanout_* in scope
+            # (Task 2.4).
+            for fanout_id, instances in list(self._pending_fanout.items()):
+                for inst in instances:
+                    self._fanout_instances[inst.synthesized_id] = inst
+                    next_ready.add(inst.synthesized_id)
+                del self._pending_fanout[fanout_id]
+
+            # 01a0812c: additive, not a bare reset - union is the default
+            # pattern for every successor-fold site in this class (see
+            # resume_from_checkpoint's own fold, which learned the hard
+            # way that "provably empty" claims on this function don't
+            # survive contact with a real run). This ONE site is the
+            # exception: self._ready_set IS provably empty here, not just
+            # "likely" - a bare `self._ready_set = next_ready` would be
+            # exactly as correct as this union, by construction, not by
+            # inference:
+            #   1. self._ready_set has exactly ONE admission site besides
+            #      this one that can fire mid-loop: none. The full list of
+            #      every place this executor ever adds to self._ready_set
+            #      is: invoke()'s initial seed and resume_from_checkpoint's
+            #      own fold (both BEFORE this while loop is entered), the
+            #      max_iterations hard reset a few lines up (a `continue`
+            #      that restarts the loop with a completely fresh
+            #      ready_ordered snapshot next iteration, so it never
+            #      reaches this line either), and this fold itself. Grep
+            #      ``self\._ready_set`` in this file to re-verify; nothing
+            #      else ever calls .add()/|= on it.
+            #   2. ready_ordered (a few lines up) is `sorted(self._ready_set)`
+            #      taken as a snapshot - by definition it captures every
+            #      member self._ready_set has AT THAT INSTANT, regardless
+            #      of which of the sites in (1) put them there.
+            #   3. Every nid in that snapshot is discarded by the
+            #      classification loop above UNLESS it parks (the
+            #      must-not-settle guard skips the discard for a park).
+            #   4. If ANYTHING parked, the pending-park check a few lines
+            #      up already raised and returned - this line is
+            #      unreachable that iteration. So by the time control
+            #      reaches this line, every nid from the snapshot in (2)
+            #      settled and was discarded in (3); nothing from the
+            #      snapshot survives.
+            #   5. Nothing between the snapshot (2) and this line adds
+            #      anything to self._ready_set (only discards happen in
+            #      that span) - so self._ready_set is empty here, full
+            #      stop, not "probably".
+            # Kept as a union anyway (not "simplified" to a bare
+            # assignment) because a union that's empirically a no-op is
+            # free, while a bare assignment is a live footgun for the
+            # next person who adds a 7th admission site to this class and
+            # doesn't re-derive this whole proof first. See
+            # test_ready_set_is_actually_empty_at_every_loop_tail_fold
+            # in tests/graph/test_tool_wait_graph_park.py, which pins (2)-(5)
+            # empirically across a multi-resume, same-superstep-collision
+            # run (the topology round 4's BLOCKER needed) rather than
+            # leaving this proof unverified by execution - the standard
+            # this function has earned after four rounds of "provably
+            # safe" static reasoning conflicting with what actually ran.
+            self._ready_set |= next_ready
+            context.iteration += 1
+
+        if ended_reason is None:
+            ended_reason = "completed"
+
+        # Expose the terminal outcome so a parent subgraph node can detect a
+        # failed child: a node-execution failure ends the run "failed" without
+        # yielding a terminal _GraphErrorEvent, so the event stream alone is
+        # not enough to tell success from failure.
+        self._last_ended_reason = ended_reason
+        self._last_ended_detail = ended_detail
+
+        await self._save_state(
+            iteration=context.iteration,
+            node_states=node_states,
+            status=SessionStatus.ENDED,
+            ended_reason=ended_reason,
+            ended_detail=ended_detail,
+        )
+
+        # Close every per-node writer + the graph-level writer now that
+        # the run has ended. A subsequent invoke() on the same executor
+        # is not supported (graph executors are single-shot), so this
+        # is safe to do here rather than in __aexit__-style cleanup.
+        await self._close_turn_logs()
+
+    @property
+    def last_done_reason(self) -> str | None:
+        """Terminal sentinel for the session dispatch, or None mid-run.
+
+        The dispatch path consumes the streaming invoke() directly (the
+        _GraphTurnDriver shim is unwrapped there), so the outcome has to
+        be readable off the executor itself. Reporting nothing here is
+        how a failed graph ended its session 'completed': dispatch's
+        default for an executor with no last_done_reason is a clean stop.
+        """
+        outcome = getattr(self, "_last_ended_reason", None)
+        if outcome is None:
+            return None
+        return "graph_ended" if outcome == "completed" else "graph_failed"
+
+    async def _close_turn_logs(self) -> None:
+        """Close every node + graph-level turn-log writer. Idempotent."""
+        for w in list(self._node_turn_logs.values()):
+            try:
+                await w.aclose()
+            except Exception:  # noqa: BLE001
+                logger.exception("turn_log aclose failed; continuing")
+        self._node_turn_logs.clear()
+        try:
+            await self._graph_turn_log.aclose()
+        except Exception:  # noqa: BLE001
+            logger.exception("graph turn_log aclose failed; continuing")
+
+    # ---- Stream-event wrapping -------------------------------------------
+
+    @staticmethod
+    def _wrap_event(
+        event: StreamEvent,
+        node_id: str,
+        iteration: int,
+    ) -> StreamEvent:
+        return ExtendedEvent(
+            extended=_GraphNodeEvent(
+                node_id=node_id,
+                iteration=iteration,
+                inner_type=event.type,
+                inner_payload=event.model_dump(mode="json"),
+            )
+        )
+
+
+__all__ = ["_BaseGraphExecutor"]

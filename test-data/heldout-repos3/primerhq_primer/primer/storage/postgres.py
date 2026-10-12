@@ -1,0 +1,1709 @@
+"""Postgres-backed :class:`StorageProvider` and :class:`Storage[T]`.
+
+Generic-over-model implementation backed by JSONB tables. Every model
+class registered via :meth:`PostgresStorageProvider.get_storage` lives
+in its own table:
+
+.. code-block:: sql
+
+    CREATE TABLE IF NOT EXISTS <schema>.<table> (
+        id          text PRIMARY KEY,
+        data        jsonb NOT NULL,
+        created_at  timestamptz NOT NULL DEFAULT now(),
+        updated_at  timestamptz NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS <table>_data_gin
+        ON <schema>.<table> USING gin (data jsonb_path_ops);
+
+The ``id`` column is hoisted out of the JSON document so it can be
+the table's primary key with the obvious B-tree index. Everything
+else lives under ``data`` (Pydantic's ``model_dump(mode="json")``
+output minus ``id``). The GIN index makes containment-style
+predicate scans fast; ``WHERE`` fragments produced by
+:mod:`primer.storage._predicate` use ``data->>'field'`` paths that
+remain index-friendly when combined with that GIN.
+
+A GIN over ``jsonb_path_ops`` does NOT, however, help the scalar
+``data->>'field' = $1`` equality fragments the predicate translator
+emits. A small set of fields queried on hot paths therefore gets a
+dedicated B-tree expression index on the extracted scalar (see
+``_HOT_FIELD_INDEXES``): ``apitoken.token_hash`` (bearer auth, every
+request), ``sessions.status`` (recovery + live-session sweeps), and
+``channel.(provider_id, external_id)`` (inbound routing). They are
+created with plain ``CREATE INDEX IF NOT EXISTS`` in the transactional
+table-create path, not ``CONCURRENTLY`` (which cannot run in a
+transaction); see ``_HOT_FIELD_INDEXES`` for the lock tradeoff on
+pre-existing large tables.
+
+Pagination supports both styles required by :class:`primer.int.Storage`:
+
+* :class:`primer.model.storage.OffsetPage` -> SQL ``LIMIT/OFFSET`` plus
+  a separate ``COUNT(*)`` for the response's ``total``.
+* :class:`primer.model.storage.CursorPage` -> keyset seek using the
+  ``ORDER BY`` keys + the primary key as the tiebreaker. Cursors are
+  opaque base64 JSON; their structure is internal to this module.
+"""
+
+from __future__ import annotations
+
+import base64
+import json
+import logging
+import re
+from contextlib import asynccontextmanager
+from datetime import UTC, datetime
+from collections.abc import Mapping, Sequence
+from typing import Any, TypeVar
+
+import asyncpg
+
+from primer.storage._ddl import (
+    CONCURRENT_CREATE_RACE,
+    execute_create_idempotent,
+)
+from pydantic import BaseModel, ValidationError
+
+from primer.int.document_content import (
+    FulltextHit,
+    ContentListEntry,
+    ContentRow,
+    DocumentContentStore,
+)
+from primer.events.registry import kind_for_model
+from primer.int.event_store import EventStore
+from primer.int.storage import Storage
+from primer.int.storage_provider import StorageProvider
+from primer.model.common import Identifiable, dump_for_storage
+from primer.model.event import Event
+from primer.model.system_state import SystemState
+from primer.model.except_ import (
+    BadRequestError,
+    ConfigError,
+    ConflictError,
+    NotFoundError,
+    ProviderError,
+    ServerError,
+)
+from primer.model.provider import PostgresConfig
+from primer.model.storage import (
+    CursorPage,
+    CursorPageResponse,
+    OffsetPage,
+    OffsetPageResponse,
+    OrderBy,
+    PageRequest,
+    Predicate,
+)
+from primer.storage._pg_pool import keepalive_init_hook, warn_unenforced_pool_options
+from primer.storage._patch import (
+    PatchSpecError,
+    canonical_fixup,
+    check_known_fields,
+    compile_postgres,
+    normalise_where,
+    validate_patch,
+)
+from primer.storage._cursor import (
+    _decode_cursor,
+    _encode_cursor_for,
+    _resolve_dotted,
+)
+from primer.storage._predicate import _PredicateTranslator, render_order_by
+
+
+logger = logging.getLogger(__name__)
+
+
+ModelT = TypeVar("ModelT", bound=Identifiable)
+
+
+# Identifier whitelist. Postgres identifiers can be much richer when
+# double-quoted, but we restrict to the safe ASCII subset to keep
+# table names predictable, comparable across deployments, and free
+# of any quoting surprises.
+_IDENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def _sanitize_identifier(name: str, *, kind: str) -> str:
+    """Validate that ``name`` is a safe SQL identifier.
+
+    Raises :class:`ConfigError` if not. Used for schema names. (Table
+    names are derived from class names, which are valid identifiers
+    by construction in any well-formed Python program.)
+    """
+    if not _IDENT_RE.match(name):
+        raise ConfigError(
+            f"{kind} {name!r} must match {_IDENT_RE.pattern} (safe SQL identifier subset)"
+        )
+    return name
+
+
+def _table_name_for(model_class: type[BaseModel]) -> str:
+    """Derive a table name from a model class.
+
+    Convention: class name lowercased. ``Document`` -> ``"document"``,
+    ``LLMProvider`` -> ``"llmprovider"``. Applications that want
+    a different mapping (pluralisation, namespacing) can wrap
+    ``get_storage`` in their own factory; this convention is
+    deterministic and obvious.
+
+    One historic exception: the ``Session`` model is stored in a
+    ``sessions`` (plural) table. The scheduler layer
+    (``primer.scheduler.postgres``) hard-codes ``sessions`` in its
+    JOINs and FK constraints, and the scheduler unit tests assume the
+    same name. Mapping ``Session`` -> ``sessions`` here keeps both
+    sides in sync without rewriting every SQL string in the scheduler.
+    """
+    name = model_class.__name__.lower()
+    if name in ("session", "workspacesession"):
+        return "sessions"
+    return name
+
+
+def _escape_like(value: str) -> str:
+    """Escape SQL ``LIKE`` metacharacters in a value bound as a literal prefix.
+
+    Escapes the escape char first, then ``%`` and ``_``, so the value matches
+    LITERALLY under a ``LIKE $N ESCAPE '\\'`` clause. Used by the content
+    store's prefix listing so a path prefix containing ``%`` or ``_`` does not
+    over-match.
+    """
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+# ===========================================================================
+# Provider
+# ===========================================================================
+
+
+class PostgresStorageProvider(StorageProvider):
+    """Storage provider backed by a single Postgres database.
+
+    Owns the asyncpg connection pool. Multiple :class:`PostgresStorage`
+    handles created via :meth:`get_storage` share the same pool. The
+    provider does NOT eagerly create tables -- table DDL runs on
+    first use of each model's handle so unused models don't pollute
+    the schema.
+    """
+
+    def __init__(self, config: PostgresConfig) -> None:
+        self._config = config
+        self._schema = _sanitize_identifier(config.db_schema, kind="schema")
+        self._pool: asyncpg.Pool | None = None
+        self._handles: dict[type[Identifiable], PostgresStorage[Any]] = {}
+
+    @property
+    def pool(self) -> asyncpg.Pool:
+        """The shared asyncpg pool. Raises if not :meth:`initialize`-d."""
+        if self._pool is None:
+            raise ConfigError(
+                "PostgresStorageProvider used before initialize()"
+            )
+        return self._pool
+
+    @property
+    def schema(self) -> str:
+        """Sanitised schema name where tables are created."""
+        return self._schema
+
+    @property
+    def rate_limit_lease_table(self) -> str:
+        """Schema-qualified table name for coordinator rate-limiter leases."""
+        return f'"{self._schema}"."rate_limit_lease"'
+
+    @property
+    def leader_lease_table(self) -> str:
+        """Schema-qualified table name for coordinator leadership leases."""
+        return f'"{self._schema}"."leader_lease"'
+
+    @property
+    def leases_table(self) -> str:
+        """Schema-qualified table name for claim-engine leases."""
+        return f'"{self._schema}"."leases"'
+
+    @property
+    def system_state_table(self) -> str:
+        """Schema-qualified table name for the system-state singleton."""
+        return f'"{self._schema}"."system_state"'
+
+    async def initialize(self) -> None:
+        if self._pool is not None:
+            return
+        cfg = self._config
+        warn_unenforced_pool_options(cfg.pool, pool_name="storage")
+        try:
+            self._pool = await asyncpg.create_pool(
+                host=cfg.hostname,
+                port=cfg.port,
+                user=cfg.username,
+                password=cfg.password.get_secret_value(),
+                database=cfg.database,
+                min_size=cfg.pool.min_size,
+                max_size=cfg.pool.max_size,
+                timeout=cfg.pool.acquire_timeout,
+                max_inactive_connection_lifetime=cfg.pool.max_idle,
+                command_timeout=cfg.pool.acquire_timeout,
+                # Kernel TCP keepalive on every connection, so an idle LISTEN
+                # connection whose peer vanished without a FIN or RST is
+                # detected instead of staying deaf. None when switched off.
+                init=keepalive_init_hook(cfg.pool, pool_name="storage"),
+            )
+        except Exception as exc:
+            raise ProviderError(
+                f"failed to open Postgres connection pool: {exc}",
+                cause=exc,
+            ) from exc
+
+        # Make sure the target schema exists. This is the only DDL the
+        # provider runs eagerly; per-model tables are deferred to first
+        # use of the handle.
+        # All CREATE statements below run as autocommit (no enclosing
+        # transaction) and tolerate the cold-start race -- when several
+        # processes boot against a fresh schema at once they contend on the
+        # system catalogs even with IF NOT EXISTS (see primer.storage._ddl).
+        # Each statement is attempted independently so a race on one does
+        # not skip the rest.
+        async with self._pool.acquire() as conn:
+            await execute_create_idempotent(
+                conn, f'CREATE SCHEMA IF NOT EXISTS "{self._schema}"'
+            )
+            # Coordinator lease tables live in the same schema as the
+            # rest of primer so two deployments sharing a Postgres
+            # cluster with distinct db_schema settings keep their
+            # leases isolated. Coordinator backends read these names
+            # off the provider via .rate_limit_lease_table / .leader_lease_table.
+            await execute_create_idempotent(
+                conn,
+                f'CREATE TABLE IF NOT EXISTS "{self._schema}"."rate_limit_lease" ('
+                f'  lease_id   TEXT PRIMARY KEY,'
+                f'  key        TEXT NOT NULL,'
+                f'  owner_id   TEXT NOT NULL,'
+                f'  claimed_at TIMESTAMPTZ NOT NULL,'
+                f'  expires_at TIMESTAMPTZ NOT NULL'
+                f')',
+            )
+            await execute_create_idempotent(
+                conn,
+                f'CREATE INDEX IF NOT EXISTS rate_limit_lease_key_active '
+                f'ON "{self._schema}"."rate_limit_lease" (key, expires_at)',
+            )
+            await execute_create_idempotent(
+                conn,
+                f'CREATE TABLE IF NOT EXISTS "{self._schema}"."leader_lease" ('
+                f'  role       TEXT PRIMARY KEY,'
+                f'  owner_id   TEXT NOT NULL,'
+                f'  claimed_at TIMESTAMPTZ NOT NULL,'
+                f'  expires_at TIMESTAMPTZ NOT NULL'
+                f')',
+            )
+            await execute_create_idempotent(
+                conn,
+                f'CREATE TABLE IF NOT EXISTS "{self._schema}"."leases" ('
+                f'  kind              TEXT NOT NULL,'
+                f'  entity_id         TEXT NOT NULL,'
+                f'  claimed_by        TEXT,'
+                f'  claimed_at        TIMESTAMPTZ,'
+                f'  last_heartbeat_at TIMESTAMPTZ,'
+                f'  expires_at        TIMESTAMPTZ,'
+                f'  next_attempt_at   TIMESTAMPTZ NOT NULL DEFAULT now(),'
+                f'  priority_score    INTEGER NOT NULL DEFAULT 100,'
+                f'  attempt_count     INTEGER NOT NULL DEFAULT 0,'
+                f'  last_error        TEXT,'
+                f'  PRIMARY KEY (kind, entity_id)'
+                f')',
+            )
+            await execute_create_idempotent(
+                conn,
+                f'CREATE INDEX IF NOT EXISTS leases_claim_order '
+                f'ON "{self._schema}"."leases" (priority_score, next_attempt_at) '
+                f'WHERE claimed_by IS NULL',
+            )
+            await execute_create_idempotent(
+                conn,
+                f'CREATE TABLE IF NOT EXISTS "{self._schema}"."system_state" ('
+                f'  id                     TEXT PRIMARY KEY DEFAULT \'singleton\','
+                f'  bootstrap_completed_at TIMESTAMPTZ,'
+                f'  schema_version         INTEGER NOT NULL DEFAULT 1,'
+                f'  last_migration_at      TIMESTAMPTZ,'
+                f'  session_secret         TEXT,'
+                f'  sso_jit_enabled        BOOLEAN NOT NULL DEFAULT false,'
+                f'  sso_default_access     TEXT,'
+                f'  default_agent_id       TEXT'
+                f')',
+            )
+            # Schema-evolution: add session_secret column on pre-existing
+            # tables. Idempotent: only adds when missing.
+            await conn.execute(
+                f'ALTER TABLE "{self._schema}"."system_state" '
+                f'ADD COLUMN IF NOT EXISTS session_secret TEXT'
+            )
+            await conn.execute(
+                f'ALTER TABLE "{self._schema}"."system_state" '
+                f'ADD COLUMN IF NOT EXISTS sso_jit_enabled '
+                f'BOOLEAN NOT NULL DEFAULT false'
+            )
+            await conn.execute(
+                f'ALTER TABLE "{self._schema}"."system_state" '
+                f'ADD COLUMN IF NOT EXISTS sso_default_access TEXT'
+            )
+            await conn.execute(
+                f'ALTER TABLE "{self._schema}"."system_state" '
+                f'ADD COLUMN IF NOT EXISTS default_agent_id TEXT'
+            )
+            await conn.execute(
+                f'INSERT INTO "{self._schema}"."system_state" (id) '
+                f"VALUES ('singleton') ON CONFLICT DO NOTHING"
+            )
+        logger.info(
+            "PostgresStorageProvider initialised (schema=%r, host=%s:%d)",
+            self._schema,
+            cfg.hostname,
+            cfg.port,
+        )
+
+    async def aclose(self) -> None:
+        if self._pool is None:
+            return
+        await self._pool.close()
+        self._pool = None
+        self._handles.clear()
+        logger.info("PostgresStorageProvider closed")
+
+    def get_storage(self, model_class: type[ModelT]) -> Storage[ModelT]:
+        cached = self._handles.get(model_class)
+        if cached is not None:
+            return cached
+        handle = PostgresStorage[ModelT](
+            provider=self,
+            model_class=model_class,
+        )
+        self._handles[model_class] = handle
+        return handle
+
+    async def ping(self) -> None:
+        """One ``SELECT 1`` on a pooled connection.
+
+        Goes through ``pool.acquire()`` rather than inspecting pool
+        state, because a pool object that still exists says nothing
+        about whether the server behind it is reachable.
+        """
+        async with self.pool.acquire() as conn:
+            await conn.fetchval("SELECT 1")
+
+    async def get_system_state(self) -> SystemState:
+        """Return the singleton ``system_state`` row."""
+        sql = (
+            f'SELECT id, bootstrap_completed_at, schema_version, '
+            f'       last_migration_at, session_secret, '
+            f'       sso_jit_enabled, sso_default_access, default_agent_id '
+            f'FROM {self.system_state_table} WHERE id = $1'
+        )
+        async with self.pool.acquire() as conn:
+            row = await conn.fetchrow(sql, "singleton")
+        if row is None:
+            # Shouldn't happen after initialize(), but return a safe default.
+            return SystemState()
+        return SystemState(
+            id=row["id"],
+            bootstrap_completed_at=row["bootstrap_completed_at"],
+            schema_version=row["schema_version"],
+            last_migration_at=row["last_migration_at"],
+            session_secret=row["session_secret"],
+            sso_jit_enabled=row["sso_jit_enabled"],
+            sso_default_access=row["sso_default_access"],
+            default_agent_id=row["default_agent_id"],
+        )
+
+    async def set_bootstrap_completed(self, ts: datetime) -> None:
+        """Stamp ``bootstrap_completed_at`` on the singleton row."""
+        sql = (
+            f'UPDATE {self.system_state_table} '
+            f'SET bootstrap_completed_at = $1 WHERE id = $2'
+        )
+        async with self.pool.acquire() as conn:
+            await conn.execute(sql, ts, "singleton")
+
+    async def set_schema_version(
+        self, version: int, *, migrated_at: datetime | None = None,
+    ) -> None:
+        """Stamp ``schema_version`` and ``last_migration_at``."""
+        ts = migrated_at or datetime.now(UTC)
+        sql = (
+            f'UPDATE {self.system_state_table} '
+            f'SET schema_version = $1, last_migration_at = $2 WHERE id = $3'
+        )
+        async with self.pool.acquire() as conn:
+            await conn.execute(sql, version, ts, "singleton")
+
+    async def set_session_secret(self, secret: str) -> None:
+        """Persist the cookie-signing HMAC secret on the singleton row."""
+        sql = (
+            f'UPDATE {self.system_state_table} '
+            f'SET session_secret = $1 WHERE id = $2'
+        )
+        async with self.pool.acquire() as conn:
+            await conn.execute(sql, secret, "singleton")
+
+    async def set_sso_jit_enabled(self, enabled: bool) -> None:
+        """Persist whether SSO just-in-time user provisioning is enabled."""
+        sql = (
+            f'UPDATE {self.system_state_table} '
+            f'SET sso_jit_enabled = $1 WHERE id = $2'
+        )
+        async with self.pool.acquire() as conn:
+            await conn.execute(sql, enabled, "singleton")
+
+    async def set_default_agent_id(self, agent_id: str | None) -> None:
+        """Set (or clear, with None) the system default agent."""
+        sql = (
+            f'UPDATE {self.system_state_table} '
+            f'SET default_agent_id = $1 WHERE id = $2'
+        )
+        async with self.pool.acquire() as conn:
+            await conn.execute(sql, agent_id, "singleton")
+
+    async def set_sso_default_access(self, access: str | None) -> None:
+        """Persist the default access level granted to JIT-provisioned users."""
+        sql = (
+            f'UPDATE {self.system_state_table} '
+            f'SET sso_default_access = $1 WHERE id = $2'
+        )
+        async with self.pool.acquire() as conn:
+            await conn.execute(sql, access, "singleton")
+
+    def get_content_store(self) -> "PostgresDocumentContentStore":
+        """Return the document-body store bound to this provider's pool."""
+        return PostgresDocumentContentStore(self.pool, self._schema)
+
+    def get_event_store(self) -> "PostgresEventStore":
+        """Return the event-log store bound to this provider's pool."""
+        return PostgresEventStore(self.pool, self._schema)
+
+    async def _ensure_events_schema(self) -> None:
+        """Lazily create the event-log tables once per provider.
+
+        The storage write path appends CRUD events for registered
+        kinds; tests construct providers without running the
+        lifespan's explicit ``ensure_schema``, so the seam ensures it
+        on first need and caches the fact.
+        """
+        if getattr(self, "_events_schema_ready", False):
+            return
+        await self.get_event_store().ensure_schema()
+        self._events_schema_ready = True
+
+    @asynccontextmanager
+    async def transaction(self):
+        """Acquire a pooled connection and open a transaction on it.
+
+        Yields the connection so the caller threads it as the ``conn`` kwarg
+        to :class:`Storage` and :class:`DocumentContentStore` writes; every
+        write then runs inside this single ``asyncpg`` transaction, which
+        commits on clean exit and rolls back on any exception. This is the
+        backend-agnostic atomic-write entry point used by ``DocumentService``;
+        the SQLite provider offers a matching ``transaction()`` over its
+        single shared connection.
+        """
+        async with self.pool.acquire() as conn:
+            async with conn.transaction():
+                yield conn
+
+
+# ===========================================================================
+# Per-model handle
+# ===========================================================================
+
+
+# Module-level cache of "we've ensured the table exists for this class
+# on this provider". Keyed by (provider id, model class). Avoids a
+# round-trip to Postgres on every operation while staying correct when
+# the same provider is shared across handles.
+_table_ensured: set[tuple[int, type[BaseModel]]] = set()
+
+
+# ---------------------------------------------------------------------------
+# Hot-field expression indexes
+# ---------------------------------------------------------------------------
+#
+# The per-table GIN index keeps containment-style scans fast, but a GIN over
+# ``data jsonb_path_ops`` does NOT accelerate the scalar ``data->>'field' = $1``
+# equality fragments that ``_PredicateTranslator`` emits -- those still fall
+# back to a sequential scan. A handful of fields are queried on hot paths and
+# benefit from a dedicated B-tree expression index on the extracted scalar:
+#
+#   * ``apitoken.token_hash``        -- looked up on EVERY bearer-authenticated
+#                                       request (auth middleware ``_find_by_hash``).
+#   * ``sessions.status``            -- scanned by startup recovery + the
+#                                       parked/live-session sweeps.
+#   * ``channel.provider_id`` +
+#     ``channel.external_id``        -- channel binding / inbound-routing lookup
+#                                       keyed by ``(provider_id, external_id)``.
+#
+# These mirror the JSONB expression-index style already used for the
+# ``channelcorrelation`` UNIQUE index in ``primer.channel.correlation`` --
+# ``((data->>'field'))`` -- and are created with plain
+# ``CREATE INDEX IF NOT EXISTS`` (NOT ``CONCURRENTLY``) inside the same
+# transactional ``_ensure_table`` block as the base table + GIN index.
+#
+# Why plain, not CONCURRENTLY: ``CREATE INDEX CONCURRENTLY`` cannot run inside
+# a transaction block, and the table-create path here is deliberately
+# transactional (table + indexes commit atomically, which is also what the
+# cold-start race handling in ``primer.storage._ddl`` relies on). On a fresh
+# table the index build is instant and takes no meaningful lock because the
+# table is empty. The tradeoff: applying one of these indexes for the first
+# time to an ALREADY-LARGE pre-existing table takes a brief ``ACCESS
+# EXCLUSIVE``-equivalent lock for the duration of the build. For a large
+# production table, pre-create the index out-of-band with
+# ``CREATE INDEX CONCURRENTLY IF NOT EXISTS`` (same name + expression) before
+# the upgrade; the ``IF NOT EXISTS`` here then becomes a no-op. See
+# ``docs/dev/architecture/storage.md``.
+#
+# Keyed by table name (post ``_table_name_for`` mapping, so the session model
+# lands under ``sessions``). Each entry is ``(index_suffix, unique, expr)``
+# where the final index name is ``<table>_<suffix>``.
+_HOT_FIELD_INDEXES: dict[str, list[tuple[str, bool, str]]] = {
+    "apitoken": [
+        ("token_hash_uniq", True, "((data->>'token_hash'))"),
+    ],
+    "sessions": [
+        ("status", False, "((data->>'status'))"),
+    ],
+    "channel": [
+        (
+            "provider_external",
+            False,
+            "((data->>'provider_id'), (data->>'external_id'))",
+        ),
+    ],
+    "useridentity": [
+        ("provider_subject_uniq", True, "((data->>'provider_id'), (data->>'subject'))"),
+    ],
+    "webhookdelivery": [
+        # Startup webhook recovery filters status='pending' on every boot;
+        # without this the sweep seq-scans every delivery ever received (and
+        # OffsetPage adds a COUNT(*) per page over that scan). Table name is
+        # the lowercased class name -- see _table_name_for.
+        #
+        # NOTE: delivery rows are never pruned, so this table grows with
+        # lifetime webhook volume. The index keeps the boot sweep off a full
+        # scan, but a retention/prune policy is still owed as a follow-up.
+        ("status", False, "((data->>'status'))"),
+    ],
+    "toolapprovalrecord": [
+        # 01a068da: makes a decision queryable by the gate that produced
+        # it, and -- the reason this is UNIQUE, not a plain lookup index --
+        # is the mechanism that lets the respond-time write and the
+        # resume-time fallback write both target the same gate without
+        # ever landing two rows for it: whichever insert loses the race
+        # hits this constraint and is treated as an expected no-op (see
+        # ToolApprovalRecord's own docstring). Postgres treats NULL as
+        # distinct from every other NULL under a unique index, so the
+        # many pre-migration records with no gate_event_key at all do not
+        # collide with each other or with anything else.
+        ("gate_event_key_uniq", True, "((data->>'gate_event_key'))"),
+    ],
+}
+
+
+def _hot_field_index_ddl(table: str, qualified: str) -> list[str]:
+    """Return the ``CREATE INDEX IF NOT EXISTS`` statements for *table*'s hot
+    fields (empty when the table has none registered)."""
+    out: list[str] = []
+    for suffix, unique, expr in _HOT_FIELD_INDEXES.get(table, ()):
+        kind = "UNIQUE INDEX" if unique else "INDEX"
+        out.append(
+            f'CREATE {kind} IF NOT EXISTS "{table}_{suffix}" '
+            f"ON {qualified} {expr}"
+        )
+    return out
+
+
+async def _append_crud_event(
+    conn: Any,
+    schema: str,
+    *,
+    event_type: str,
+    entity_kind: str,
+    entity_id: str,
+    payload_json: str,
+) -> None:
+    """Append one CRUD event on ``conn`` inside the caller's transaction.
+
+    The payload is the row's own JSON dump, so the event carries
+    exactly what was stored.
+    """
+    await conn.execute(
+        f'INSERT INTO "{schema}".events '
+        "(event_type, actor, entity_kind, entity_id, payload) "
+        "VALUES ($1, 'system', $2, $3, $4::jsonb)",
+        event_type, entity_kind, entity_id, payload_json,
+    )
+
+
+class PostgresStorage(Storage[ModelT]):
+    """Per-model :class:`Storage` handle backed by a JSONB table."""
+
+    def __init__(
+        self,
+        provider: PostgresStorageProvider,
+        model_class: type[ModelT],
+    ) -> None:
+        self._provider = provider
+        self._model = model_class
+        self._table = _table_name_for(model_class)
+        # Quoted, schema-qualified table reference for inline SQL.
+        self._qualified = f'"{provider.schema}"."{self._table}"'
+
+    # ---------- DDL --------------------------------------------------------
+
+    async def _ensure_table(self) -> None:
+        cache_key = (id(self._provider), self._model)
+        if cache_key in _table_ensured:
+            return
+        ddl_table = (
+            f'CREATE TABLE IF NOT EXISTS {self._qualified} ('
+            'id text PRIMARY KEY, '
+            'data jsonb NOT NULL, '
+            'created_at timestamptz NOT NULL DEFAULT now(), '
+            'updated_at timestamptz NOT NULL DEFAULT now()'
+            ')'
+        )
+        ddl_index = (
+            f'CREATE INDEX IF NOT EXISTS '
+            f'"{self._table}_data_gin" '
+            f'ON {self._qualified} USING gin (data jsonb_path_ops)'
+        )
+        # Plain (non-CONCURRENTLY) B-tree expression indexes on the hot
+        # equality fields for this table, if any. Created in the same
+        # transaction as the base table so they commit atomically and
+        # tolerate the cold-start race the same way the GIN index does.
+        ddl_hot = _hot_field_index_ddl(self._table, self._qualified)
+        try:
+            async with self._provider.pool.acquire() as conn:
+                async with conn.transaction():
+                    await conn.execute(ddl_table)
+                    await conn.execute(ddl_index)
+                    for ddl in ddl_hot:
+                        await conn.execute(ddl)
+        except CONCURRENT_CREATE_RACE as exc:
+            # Concurrent-creation race (see primer.storage._ddl): another
+            # process won the race and created the table + index atomically
+            # in one transaction, so the object exists now -- treat as
+            # ensured rather than crashing startup.
+            logger.debug(
+                "ensure_table race on %s (%s); treating as already created",
+                self._qualified, type(exc).__name__,
+            )
+        except Exception as exc:
+            raise ProviderError(
+                f"failed to create table {self._qualified}: {exc}",
+                cause=exc,
+            ) from exc
+        _table_ensured.add(cache_key)
+
+    # ---------- Serialisation ---------------------------------------------
+
+    def _to_row(self, entity: ModelT) -> tuple[str, str]:
+        # Dump the full model, then strip ``id`` from the JSONB payload
+        # (the column carries it). ``dump_for_storage`` performs a
+        # ``mode="json"`` dump and unmasks SecretStr fields back to
+        # their plaintext values so credentials round-trip correctly --
+        # the default ``model_dump(mode="json")`` would replace every
+        # SecretStr with ``"**********"``.
+        dumped = dump_for_storage(entity)
+        entity_id = dumped.pop("id")
+        return entity_id, json.dumps(dumped)
+
+    def _from_row(self, row: asyncpg.Record) -> ModelT:
+        # Reconstruct the model from id + data JSONB. asyncpg returns
+        # JSONB columns as text by default (we don't register a
+        # codec); parse here.
+        data = row["data"]
+        if isinstance(data, str):
+            data = json.loads(data)
+        data["id"] = row["id"]
+        return self._model.model_validate(data)
+
+    # ---------- get / create / update / delete ----------------------------
+
+    @asynccontextmanager
+    async def _acquire_or_use(self, conn: Any | None):
+        """Yield a usable connection.
+
+        When ``conn`` is supplied, yield it as-is so the caller's open
+        transaction is reused. Otherwise acquire one from the pool for
+        the duration of the block.
+        """
+        if conn is not None:
+            yield conn
+        else:
+            async with self._provider.pool.acquire() as acquired:
+                yield acquired
+
+    async def get(self, id: str, *, conn: Any | None = None) -> ModelT | None:
+        await self._ensure_table()
+        sql = f'SELECT id, data FROM {self._qualified} WHERE id = $1'
+        try:
+            async with self._acquire_or_use(conn) as c:
+                row = await c.fetchrow(sql, id)
+        except Exception as exc:
+            raise self._wrap_db_error(exc) from exc
+        if row is None:
+            return None
+        return self._from_row(row)
+
+    async def create(self, entity: ModelT, *, conn: Any | None = None) -> ModelT:
+        await self._ensure_table()
+        event_kind = kind_for_model(self._model)
+        if event_kind is not None:
+            await self._provider._ensure_events_schema()
+        entity_id, data_json = self._to_row(entity)
+        sql = (
+            f'INSERT INTO {self._qualified} (id, data) '
+            f'VALUES ($1, $2::jsonb) '
+            f'RETURNING id, data'
+        )
+        try:
+            async with self._acquire_or_use(conn) as c:
+                if event_kind is None:
+                    row = await c.fetchrow(sql, entity_id, data_json)
+                else:
+                    async with c.transaction():
+                        row = await c.fetchrow(sql, entity_id, data_json)
+                        await _append_crud_event(
+                            c, self._provider.schema,
+                            event_type=f"{event_kind}.created",
+                            entity_kind=event_kind, entity_id=entity_id,
+                            payload_json=data_json,
+                        )
+        except asyncpg.UniqueViolationError as exc:
+            raise ConflictError(
+                f"{self._model.__name__} with id {entity_id!r} already exists",
+                cause=exc,
+            ) from exc
+        except Exception as exc:
+            raise self._wrap_db_error(exc) from exc
+        return self._from_row(row)
+
+    async def update(self, entity: ModelT, *, conn: Any | None = None) -> ModelT:
+        await self._ensure_table()
+        event_kind = kind_for_model(self._model)
+        if event_kind is not None:
+            await self._provider._ensure_events_schema()
+        entity_id, data_json = self._to_row(entity)
+        sql = (
+            f'UPDATE {self._qualified} '
+            f'SET data = $2::jsonb, updated_at = now() '
+            f'WHERE id = $1 '
+            f'RETURNING id, data'
+        )
+        try:
+            async with self._acquire_or_use(conn) as c:
+                if event_kind is None:
+                    row = await c.fetchrow(sql, entity_id, data_json)
+                else:
+                    async with c.transaction():
+                        row = await c.fetchrow(sql, entity_id, data_json)
+                        if row is not None:
+                            await _append_crud_event(
+                                c, self._provider.schema,
+                                event_type=f"{event_kind}.updated",
+                                entity_kind=event_kind, entity_id=entity_id,
+                                payload_json=data_json,
+                            )
+        except Exception as exc:
+            raise self._wrap_db_error(exc) from exc
+        if row is None:
+            raise NotFoundError(
+                f"{self._model.__name__} with id {entity_id!r} not found"
+            )
+        return self._from_row(row)
+
+    async def update_unless(
+        self, entity: ModelT, *, field: str, forbidden: Any,
+        conn: Any | None = None,
+    ) -> ModelT | None:
+        # The guard is part of the UPDATE's own WHERE clause, evaluated
+        # by Postgres against the row's CURRENT data in the same
+        # statement as the write - atomic by construction (MVCC), no
+        # separate lock needed. `forbidden` is compared as text, same
+        # as every other field-equality predicate this storage layer
+        # compiles (see storage/_predicate.py's `data->>'field'`).
+        await self._ensure_table()
+        event_kind = kind_for_model(self._model)
+        if event_kind is not None:
+            await self._provider._ensure_events_schema()
+        entity_id, data_json = self._to_row(entity)
+        sql = (
+            f'UPDATE {self._qualified} '
+            f'SET data = $2::jsonb, updated_at = now() '
+            f'WHERE id = $1 AND (data->>$3) IS DISTINCT FROM $4 '
+            f'RETURNING id, data'
+        )
+        try:
+            async with self._acquire_or_use(conn) as c:
+                if event_kind is None:
+                    row = await c.fetchrow(sql, entity_id, data_json, field, forbidden)
+                else:
+                    async with c.transaction():
+                        row = await c.fetchrow(
+                            sql, entity_id, data_json, field, forbidden,
+                        )
+                        if row is not None:
+                            await _append_crud_event(
+                                c, self._provider.schema,
+                                event_type=f"{event_kind}.updated",
+                                entity_kind=event_kind, entity_id=entity_id,
+                                payload_json=data_json,
+                            )
+                if row is None:
+                    # Ambiguous on its own: no id, or guard rejected. This
+                    # probe only disambiguates WHICH exception/return
+                    # shape to give the caller - it does not affect
+                    # whether the write above was safe, that was already
+                    # decided atomically by the WHERE clause.
+                    exists = await c.fetchval(
+                        f'SELECT 1 FROM {self._qualified} WHERE id = $1',
+                        entity_id,
+                    )
+        except Exception as exc:
+            raise self._wrap_db_error(exc) from exc
+        if row is None:
+            if not exists:
+                raise NotFoundError(
+                    f"{self._model.__name__} with id {entity_id!r} not found"
+                )
+            return None
+        return self._from_row(row)
+
+    async def patch_if(
+        self,
+        id: str,
+        patch: Mapping[str, Any] | None = None,
+        *,
+        where: Mapping[str, Sequence[Any]],
+        set_paths: Mapping[tuple[str, ...], Any] | None = None,
+        conn: Any | None = None,
+    ) -> ModelT | None:
+        # The new document is ONE expression over the row's own ``data`` column, and the guard is
+        # part of the UPDATE's WHERE: Postgres evaluates both against the row's current version
+        # (re-checked after a concurrent writer commits), so there is no read-modify-write and no
+        # separate lock. See primer.storage._patch for the semantics and the compiler.
+        patch_d, paths_d, where_d = validate_patch(patch, set_paths, where)
+        check_known_fields(self._model, patch_d, paths_d)
+        where_d = normalise_where(self._model, where_d)
+        await self._ensure_table()
+        event_kind = kind_for_model(self._model)
+        if event_kind is not None:
+            await self._provider._ensure_events_schema()
+        set_expr, where_sql, params = compile_postgres(
+            patch_d, paths_d, where_d, first_param=2,
+        )
+        guard = f' AND {where_sql}' if where_sql else ''
+        sql = (
+            f'UPDATE {self._qualified} '
+            f'SET data = {set_expr}, updated_at = now() '
+            f'WHERE id = $1{guard} '
+            f'RETURNING id, data'
+        )
+        entity: ModelT | None = None
+        try:
+            async with self._acquire_or_use(conn) as c:
+                # Always in a transaction (a savepoint when the caller's is open): the document the
+                # write produced is validated against the model BEFORE it commits, so a patch that
+                # leaves the row unreadable is rolled back instead of poisoning every later read.
+                async with c.transaction():
+                    row = await c.fetchrow(sql, id, *params)
+                    if row is not None:
+                        stored = row["data"]
+                        stored = json.loads(stored) if isinstance(stored, str) else dict(stored)
+                        entity = self._from_row(row)
+                        # The caller's JSON is not necessarily the model's canonical form ("5" for an int,
+                        # a +00:00 timestamp, a validator-normalised value). Rewrite what the patch touched
+                        # to the canonical dump, under the row lock this transaction already holds, so a
+                        # guard built from a read (raw_generation) always matches what is stored.
+                        fixup = canonical_fixup(entity, stored, patch_d, paths_d)
+                        if fixup:
+                            fix_expr, _, fix_params = compile_postgres(fixup, {}, {}, first_param=2)
+                            row = await c.fetchrow(
+                                f'UPDATE {self._qualified} SET data = {fix_expr}, updated_at = now() '
+                                f'WHERE id = $1 RETURNING id, data',
+                                id, *fix_params,
+                            )
+                            entity = self._from_row(row)
+                        if event_kind is not None:
+                            await _append_crud_event(
+                                c, self._provider.schema,
+                                event_type=f"{event_kind}.updated",
+                                entity_kind=event_kind, entity_id=id,
+                                payload_json=row["data"],
+                            )
+                if row is None:
+                    # Disambiguates the shape of the answer only; the write was already decided
+                    # atomically by the WHERE clause above.
+                    exists = await c.fetchval(
+                        f'SELECT 1 FROM {self._qualified} WHERE id = $1', id,
+                    )
+        except (PatchSpecError, ValidationError):
+            # A malformed spec or a leaf the model drops (PatchSpecError), or a patch that leaves the row unreadable
+            # (ValidationError): the caller's mistake, reported as itself. Any OTHER ValueError (a corrupt stored
+            # document, a driver quirk) is a backend failure and is wrapped below.
+            raise
+        except Exception as exc:
+            raise self._wrap_db_error(exc) from exc
+        if entity is None:
+            if not exists:
+                raise NotFoundError(
+                    f"{self._model.__name__} with id {id!r} not found"
+                )
+            return None
+        return entity
+
+    async def delete(self, id: str, *, conn: Any | None = None) -> None:
+        await self._ensure_table()
+        event_kind = kind_for_model(self._model)
+        if event_kind is not None:
+            await self._provider._ensure_events_schema()
+        sql = f'DELETE FROM {self._qualified} WHERE id = $1'
+        try:
+            async with self._acquire_or_use(conn) as c:
+                if event_kind is None:
+                    result = await c.execute(sql, id)
+                else:
+                    async with c.transaction():
+                        result = await c.execute(sql, id)
+                        if not result.endswith(" 0"):
+                            await _append_crud_event(
+                                c, self._provider.schema,
+                                event_type=f"{event_kind}.deleted",
+                                entity_kind=event_kind, entity_id=id,
+                                payload_json=json.dumps({"id": id}),
+                            )
+        except Exception as exc:
+            raise self._wrap_db_error(exc) from exc
+        # asyncpg returns the command tag string e.g. "DELETE 1" / "DELETE 0".
+        if result.endswith(" 0"):
+            raise NotFoundError(
+                f"{self._model.__name__} with id {id!r} not found"
+            )
+
+    # ---------- list / find ------------------------------------------------
+
+    async def list(
+        self,
+        page: PageRequest,
+        *,
+        order_by: list[OrderBy] | None = None,
+    ) -> OffsetPageResponse[ModelT] | CursorPageResponse[ModelT]:
+        return await self._paged(predicate=None, page=page, order_by=order_by)
+
+    async def find(
+        self,
+        predicate: Predicate | None,
+        page: PageRequest,
+        *,
+        order_by: list[OrderBy] | None = None,
+    ) -> OffsetPageResponse[ModelT] | CursorPageResponse[ModelT]:
+        return await self._paged(predicate=predicate, page=page, order_by=order_by)
+
+    async def _paged(
+        self,
+        *,
+        predicate: Predicate | None,
+        page: PageRequest,
+        order_by: list[OrderBy] | None,
+    ) -> OffsetPageResponse[ModelT] | CursorPageResponse[ModelT]:
+        await self._ensure_table()
+
+        translator = _PredicateTranslator(self._model)
+        where_sql = "TRUE"
+        if predicate is not None:
+            where_sql, _ = translator.translate(predicate)
+
+        order_clause = render_order_by(self._model, order_by)
+
+        if isinstance(page, OffsetPage):
+            return await self._page_offset(
+                translator=translator,
+                where_sql=where_sql,
+                order_clause=order_clause,
+                page=page,
+            )
+        if isinstance(page, CursorPage):
+            return await self._page_cursor(
+                translator=translator,
+                where_sql=where_sql,
+                order_clause=order_clause,
+                order_by=order_by,
+                page=page,
+            )
+        raise BadRequestError(f"unknown PageRequest variant {type(page).__name__!r}")
+
+    # ---------- offset pagination -----------------------------------------
+
+    async def _page_offset(
+        self,
+        *,
+        translator: _PredicateTranslator,
+        where_sql: str,
+        order_clause: str,
+        page: OffsetPage,
+    ) -> OffsetPageResponse[ModelT]:
+        # Bind LIMIT and OFFSET as parameters (cheap, planner-friendly).
+        limit_ph = translator.append_param(page.length)
+        offset_ph = translator.append_param(page.offset)
+        params = translator._params  # noqa: SLF001 -- intentional sibling-module access
+
+        select_sql = (
+            f'SELECT id, data FROM {self._qualified} '
+            f'WHERE {where_sql} {order_clause} '
+            f'LIMIT {limit_ph} OFFSET {offset_ph}'
+        )
+        # The COUNT(*) re-uses the WHERE clause's params (everything
+        # except LIMIT/OFFSET). Slice the first N params to match.
+        count_params = params[: -2]
+        count_sql = (
+            f'SELECT count(*) FROM {self._qualified} WHERE {where_sql}'
+        )
+
+        try:
+            async with self._provider.pool.acquire() as conn:
+                rows = await conn.fetch(select_sql, *params)
+                total = await conn.fetchval(count_sql, *count_params)
+        except Exception as exc:
+            raise self._wrap_db_error(exc) from exc
+
+        items = [self._from_row(r) for r in rows]
+        return OffsetPageResponse[self._model](  # type: ignore[name-defined]
+            offset=page.offset,
+            length=len(items),
+            total=int(total) if total is not None else None,
+            items=items,
+        )
+
+    # ---------- cursor pagination -----------------------------------------
+
+    async def _page_cursor(
+        self,
+        *,
+        translator: _PredicateTranslator,
+        where_sql: str,
+        order_clause: str,
+        order_by: list[OrderBy] | None,
+        page: CursorPage,
+    ) -> CursorPageResponse[ModelT]:
+        cursor_clause = ""
+        if page.cursor is not None:
+            cursor_state = _decode_cursor(page.cursor)
+            cursor_clause = self._render_cursor_filter(
+                translator=translator,
+                cursor_state=cursor_state,
+            )
+
+        full_where = where_sql
+        if cursor_clause:
+            full_where = f"({where_sql}) AND ({cursor_clause})"
+
+        # Fetch length+1 to detect whether more pages exist.
+        limit_ph = translator.append_param(page.length + 1)
+        params = translator._params  # noqa: SLF001
+
+        select_sql = (
+            f'SELECT id, data FROM {self._qualified} '
+            f'WHERE {full_where} {order_clause} '
+            f'LIMIT {limit_ph}'
+        )
+
+        try:
+            async with self._provider.pool.acquire() as conn:
+                rows = await conn.fetch(select_sql, *params)
+        except Exception as exc:
+            raise self._wrap_db_error(exc) from exc
+
+        has_more = len(rows) > page.length
+        if has_more:
+            rows = rows[: page.length]
+        items = [self._from_row(r) for r in rows]
+
+        next_cursor: str | None = None
+        if has_more and items:
+            next_cursor = _encode_cursor_for(items[-1], order_by)
+
+        return CursorPageResponse[self._model](  # type: ignore[name-defined]
+            next_cursor=next_cursor,
+            items=items,
+        )
+
+    def _render_cursor_filter(
+        self,
+        *,
+        translator: _PredicateTranslator,
+        cursor_state: dict[str, Any],
+    ) -> str:
+        """Render the ``WHERE`` fragment that seeks past the cursor.
+
+        Cursor state shape: ``{"keys": [{"field": str, "value": Any,
+        "direction": "asc"|"desc"}, ..., {"field": "id", "value": str,
+        "direction": "asc"}]}`` -- the implicit ``id ASC`` tiebreaker
+        is always present.
+
+        The seek condition for ``ORDER BY a ASC, b DESC, id ASC`` past
+        ``(av, bv, idv)`` is the standard lexicographic expansion::
+
+            (a > av) OR
+            (a = av AND b < bv) OR
+            (a = av AND b = bv AND id > idv)
+        """
+        keys = cursor_state.get("keys", [])
+        if not keys:
+            raise BadRequestError("cursor missing 'keys'")
+
+        clauses: list[str] = []
+        for prefix_len in range(len(keys)):
+            parts: list[str] = []
+            # Equality on the first prefix_len keys (NULL-safe).
+            for k in keys[:prefix_len]:
+                parts.append(self._cursor_key_eq(translator, k))
+            # Strict "past this key" on the prefix_len-th key (NULL-safe).
+            parts.append(self._cursor_key_gt(translator, keys[prefix_len]))
+            clauses.append("(" + " AND ".join(parts) + ")")
+        return "(" + " OR ".join(clauses) + ")"
+
+    def _cursor_key_exprs(self, k: dict[str, Any]) -> tuple[str, str]:
+        """Return ``(null_flag_expr, typed_value_expr)`` for a cursor key.
+
+        The null-flag expression yields ``true``/``false``; the value
+        expression is the typed field expression (so non-text seek keys
+        cast the left side to match the bound Python value -- asyncpg
+        rejects a bool/int bind against a bare text ``data->>'k'``).
+        """
+        from primer.storage._predicate import (  # local import to avoid cycle
+            _render_field_expr,
+            _render_typed_field_expr,
+        )
+
+        if k["field"] == "id":
+            return "false", "id"
+        raw = _render_field_expr(self._model, k["field"])
+        return (
+            f"({raw} IS NULL)",
+            _render_typed_field_expr(self._model, k["field"]),
+        )
+
+    def _cursor_key_eq(
+        self, translator: _PredicateTranslator, k: dict[str, Any]
+    ) -> str:
+        """Equality of a cursor key, NULL-safe (both-null counts as equal)."""
+        null_expr, val_expr = self._cursor_key_exprs(k)
+        if k.get("is_null"):
+            return f"({null_expr} = true)"
+        ph = translator.append_param(k["value"])
+        return f"(({null_expr} = false) AND ({val_expr} = {ph}))"
+
+    def _cursor_key_gt(
+        self, translator: _PredicateTranslator, k: dict[str, Any]
+    ) -> str:
+        """Strict "past this key" in the key's own direction, NULL-safe.
+
+        Ordering tuple is ``(field IS NULL ASC, value <dir>)`` (NULLS
+        LAST), so a non-null cursor key is passed by a NULL row OR a
+        same-flag row strictly past it; a null cursor key sorts last and
+        can only be passed via the id tiebreaker, contributing no value
+        comparison here.
+        """
+        null_expr, val_expr = self._cursor_key_exprs(k)
+        if k.get("is_null"):
+            return "(false)"
+        sql_op = ">" if k["direction"] == "asc" else "<"
+        ph = translator.append_param(k["value"])
+        return (
+            f"(({null_expr} = true) OR "
+            f"(({null_expr} = false) AND ({val_expr} {sql_op} {ph})))"
+        )
+
+    # ---------- error mapping ---------------------------------------------
+
+    def _wrap_db_error(self, exc: Exception) -> Exception:
+        """Map asyncpg exceptions onto the primer exception hierarchy."""
+        if isinstance(exc, asyncpg.UniqueViolationError):
+            return ConflictError(str(exc), cause=exc)
+        if isinstance(exc, asyncpg.PostgresError):
+            return ServerError(f"Postgres error: {exc}", cause=exc)
+        return ProviderError(f"storage backend error: {exc}", cause=exc)
+
+
+# ===========================================================================
+# Document content store
+# ===========================================================================
+
+
+def _wrap_content_error(exc: Exception, *, op: str) -> Exception:
+    """Map asyncpg exceptions onto the primer exception hierarchy for the
+    document content store. Mirrors :meth:`PostgresStorage._wrap_db_error`;
+    a UNIQUE violation (path collision) becomes :class:`ConflictError`."""
+    if isinstance(exc, asyncpg.UniqueViolationError):
+        return ConflictError(
+            f"document_content path conflict during {op}: {exc}", cause=exc,
+        )
+    if isinstance(exc, asyncpg.PostgresError):
+        return ServerError(
+            f"Postgres error during document_content.{op}: {exc}", cause=exc,
+        )
+    return ProviderError(
+        f"document_content backend error during {op}: {exc}", cause=exc,
+    )
+
+
+class PostgresDocumentContentStore(DocumentContentStore):
+    """Postgres-backed document body store keyed by stable document id.
+
+    Holds bodies in a ``<schema>.document_content`` table with a
+    ``UNIQUE(collection_id, path)`` index, making it authoritative for
+    path<->id resolution and path uniqueness. Shares the provider's
+    asyncpg pool.
+
+    The ``conn`` kwarg threads a caller-supplied connection so a write can
+    join an open transaction; when omitted a connection is acquired from
+    the pool for the duration of the call (same idiom as
+    :class:`PostgresStorage`).
+    """
+
+    def __init__(self, pool: asyncpg.Pool, schema: str) -> None:
+        self._pool = pool
+        self._schema = schema
+        self._qualified = f'"{schema}".document_content'
+
+    @asynccontextmanager
+    async def _acquire_or_use(self, conn: Any | None):
+        """Yield a usable connection: the caller's if supplied, else a
+        pooled one for the duration of the block."""
+        if conn is not None:
+            yield conn
+        else:
+            async with self._pool.acquire() as acquired:
+                yield acquired
+
+    async def ensure_schema(self) -> None:
+        ddl_table = (
+            f'CREATE TABLE IF NOT EXISTS {self._qualified} ('
+            'document_id   text PRIMARY KEY, '
+            'collection_id text NOT NULL, '
+            'path          text NOT NULL, '
+            'content       text NOT NULL, '
+            'updated_at    timestamptz NOT NULL DEFAULT now()'
+            ')'
+        )
+        ddl_uniq = (
+            'CREATE UNIQUE INDEX IF NOT EXISTS document_content_coll_path '
+            f'ON {self._qualified} (collection_id, path)'
+        )
+        ddl_coll = (
+            'CREATE INDEX IF NOT EXISTS document_content_coll '
+            f'ON {self._qualified} (collection_id)'
+        )
+        # Expression index: no sync needed, and it covers rows that
+        # predate it. websearch_to_tsquery at query time accepts arbitrary
+        # user text without raising.
+        ddl_fts = (
+            'CREATE INDEX IF NOT EXISTS document_content_fts '
+            f'ON {self._qualified} USING GIN '
+            "(to_tsvector('english', content))"
+        )
+        try:
+            async with self._pool.acquire() as conn:
+                async with conn.transaction():
+                    await conn.execute(ddl_table)
+                    await conn.execute(ddl_uniq)
+                    await conn.execute(ddl_coll)
+                    await conn.execute(ddl_fts)
+        except (
+            asyncpg.DuplicateTableError,
+            asyncpg.DuplicateObjectError,
+            asyncpg.UniqueViolationError,
+        ) as exc:
+            # IF NOT EXISTS is not race-safe in Postgres: it checks the
+            # catalog, so two processes can both pass the check and then
+            # collide creating the table's implicit row type in pg_type.
+            # Every pod runs this on boot and a rollout starts them
+            # together, so the loser used to take an unhandled error
+            # straight out of the lifespan and exit before serving.
+            # Losing means the schema is there, which is all the caller
+            # asked for.
+            logger.debug(
+                "document_content schema created concurrently by another "
+                "process; continuing (%s)", type(exc).__name__,
+            )
+        except Exception as exc:
+            raise _wrap_content_error(exc, op="ensure_schema") from exc
+
+    async def search_fulltext(
+        self,
+        collection_id: str,
+        query: str,
+        *,
+        path_prefix: str | None = None,
+        limit: int = 20,
+        conn: Any | None = None,
+    ) -> list[FulltextHit]:
+        if not query.strip():
+            return []
+        sql = (
+            "SELECT path, "
+            "ts_headline('english', content, "
+            "websearch_to_tsquery('english', $2), "
+            "'MaxFragments=1, MaxWords=18, MinWords=6, "
+            "StartSel=\"\", StopSel=\"\"') AS excerpt, "
+            "ts_rank(to_tsvector('english', content), "
+            "websearch_to_tsquery('english', $2)) AS score "
+            f"FROM {self._qualified} "
+            "WHERE collection_id = $1 "
+            "AND to_tsvector('english', content) "
+            "@@ websearch_to_tsquery('english', $2) "
+            "AND ($3::text IS NULL OR path LIKE $3 || '%') "
+            "ORDER BY score DESC LIMIT $4"
+        )
+        try:
+            async with self._acquire_or_use(conn) as c:
+                rows = await c.fetch(sql, collection_id, query,
+                                     path_prefix, limit)
+        except Exception as exc:
+            raise _wrap_content_error(exc, op="search_fulltext") from exc
+        return [
+            FulltextHit(path=r["path"], excerpt=r["excerpt"],
+                        score=float(r["score"]))
+            for r in rows
+        ]
+
+    async def get(self, document_id: str, *, conn: Any | None = None) -> str | None:
+        sql = f'SELECT content FROM {self._qualified} WHERE document_id = $1'
+        try:
+            async with self._acquire_or_use(conn) as c:
+                row = await c.fetchrow(sql, document_id)
+        except Exception as exc:
+            raise _wrap_content_error(exc, op="get") from exc
+        return None if row is None else row["content"]
+
+    async def get_by_path(
+        self, collection_id: str, path: str, *, conn: Any | None = None
+    ) -> ContentRow | None:
+        sql = (
+            'SELECT document_id, collection_id, path, content '
+            f'FROM {self._qualified} WHERE collection_id = $1 AND path = $2'
+        )
+        try:
+            async with self._acquire_or_use(conn) as c:
+                row = await c.fetchrow(sql, collection_id, path)
+        except Exception as exc:
+            raise _wrap_content_error(exc, op="get_by_path") from exc
+        if row is None:
+            return None
+        return ContentRow(
+            document_id=row["document_id"],
+            collection_id=row["collection_id"],
+            path=row["path"],
+            content=row["content"],
+        )
+
+    async def resolve_id(
+        self, collection_id: str, path: str, *, conn: Any | None = None
+    ) -> str | None:
+        sql = (
+            f'SELECT document_id FROM {self._qualified} '
+            f'WHERE collection_id = $1 AND path = $2'
+        )
+        try:
+            async with self._acquire_or_use(conn) as c:
+                row = await c.fetchrow(sql, collection_id, path)
+        except Exception as exc:
+            raise _wrap_content_error(exc, op="resolve_id") from exc
+        return None if row is None else row["document_id"]
+
+    async def upsert(
+        self,
+        *,
+        document_id: str,
+        collection_id: str,
+        path: str,
+        content: str,
+        conn: Any | None = None,
+    ) -> None:
+        sql = (
+            f'INSERT INTO {self._qualified} '
+            '(document_id, collection_id, path, content, updated_at) '
+            'VALUES ($1, $2, $3, $4, now()) '
+            'ON CONFLICT (document_id) DO UPDATE SET '
+            'collection_id = EXCLUDED.collection_id, '
+            'path = EXCLUDED.path, '
+            'content = EXCLUDED.content, '
+            'updated_at = now()'
+        )
+        try:
+            async with self._acquire_or_use(conn) as c:
+                await c.execute(sql, document_id, collection_id, path, content)
+        except Exception as exc:
+            raise _wrap_content_error(exc, op="upsert") from exc
+
+    async def delete(self, document_id: str, *, conn: Any | None = None) -> None:
+        sql = f'DELETE FROM {self._qualified} WHERE document_id = $1'
+        try:
+            async with self._acquire_or_use(conn) as c:
+                await c.execute(sql, document_id)
+        except Exception as exc:
+            raise _wrap_content_error(exc, op="delete") from exc
+
+    async def move(
+        self, document_id: str, new_path: str, *, conn: Any | None = None
+    ) -> None:
+        sql = (
+            f'UPDATE {self._qualified} SET path = $1, updated_at = now() '
+            f'WHERE document_id = $2'
+        )
+        try:
+            async with self._acquire_or_use(conn) as c:
+                result = await c.execute(sql, new_path, document_id)
+        except Exception as exc:
+            raise _wrap_content_error(exc, op="move") from exc
+        # asyncpg returns the command tag e.g. "UPDATE 1" / "UPDATE 0".
+        if result.endswith(" 0"):
+            raise NotFoundError(
+                f"document_content with document_id {document_id!r} not found"
+            )
+
+    async def list(
+        self, collection_id: str, *, prefix: str | None = None
+    ) -> list[ContentListEntry]:
+        sql = (
+            'SELECT document_id, path, length(content) AS size '
+            f'FROM {self._qualified} WHERE collection_id = $1'
+        )
+        params: list[Any] = [collection_id]
+        if prefix is not None:
+            # Escape LIKE metacharacters in the bound prefix so a `%`/`_`
+            # in the path prefix matches LITERALLY rather than as a wildcard
+            # (would otherwise over-match). The escape char is backslash.
+            sql += " AND path LIKE $2 || '%' ESCAPE '\\'"
+            params.append(_escape_like(prefix))
+        try:
+            async with self._pool.acquire() as conn:
+                rows = await conn.fetch(sql, *params)
+        except Exception as exc:
+            raise _wrap_content_error(exc, op="list") from exc
+        return [
+            ContentListEntry(
+                document_id=r["document_id"], path=r["path"], size=int(r["size"])
+            )
+            for r in rows
+        ]
+
+
+
+class PostgresEventStore(EventStore):
+    """Postgres-backed platform event log.
+
+    A ``<schema>.events`` BIGSERIAL append-only table plus the
+    ``<schema>.event_cursors`` consumption state, sharing the
+    provider's asyncpg pool. The ``conn`` kwarg on :meth:`append`
+    threads a caller-supplied connection so the event commits
+    atomically with the write it describes (same idiom as
+    :class:`PostgresDocumentContentStore`).
+    """
+
+    def __init__(self, pool: asyncpg.Pool, schema: str) -> None:
+        self._pool = pool
+        self._schema = schema
+        self._qualified = f'"{schema}".events'
+        self._qualified_cursors = f'"{schema}".event_cursors'
+
+    @asynccontextmanager
+    async def _acquire_or_use(self, conn: Any | None):
+        if conn is not None:
+            yield conn
+        else:
+            async with self._pool.acquire() as acquired:
+                yield acquired
+
+    async def ensure_schema(self) -> None:
+        ddl_table = (
+            f'CREATE TABLE IF NOT EXISTS {self._qualified} ('
+            'id             bigserial PRIMARY KEY, '
+            'event_type     text NOT NULL, '
+            'occurred_at    timestamptz NOT NULL DEFAULT now(), '
+            'actor          text NOT NULL, '
+            'entity_kind    text, '
+            'entity_id      text, '
+            'workspace_id   text, '
+            'session_id     text, '
+            'correlation_id text, '
+            'payload        jsonb NOT NULL'
+            ')'
+        )
+        ddl_type = (
+            'CREATE INDEX IF NOT EXISTS events_type '
+            f'ON {self._qualified} (event_type)'
+        )
+        ddl_entity = (
+            'CREATE INDEX IF NOT EXISTS events_entity '
+            f'ON {self._qualified} (entity_kind, entity_id)'
+        )
+        ddl_occurred = (
+            'CREATE INDEX IF NOT EXISTS events_occurred '
+            f'ON {self._qualified} (occurred_at)'
+        )
+        ddl_cursors = (
+            f'CREATE TABLE IF NOT EXISTS {self._qualified_cursors} ('
+            'subscriber_id text PRIMARY KEY, '
+            'cursor        bigint NOT NULL, '
+            'updated_at    timestamptz NOT NULL DEFAULT now()'
+            ')'
+        )
+        async with self._pool.acquire() as conn:
+            async with conn.transaction():
+                await conn.execute(ddl_table)
+                await conn.execute(ddl_type)
+                await conn.execute(ddl_entity)
+                await conn.execute(ddl_occurred)
+                await conn.execute(ddl_cursors)
+
+    async def append(
+        self,
+        *,
+        event_type: str,
+        actor: str = "system",
+        payload: dict[str, Any] | None = None,
+        entity_kind: str | None = None,
+        entity_id: str | None = None,
+        workspace_id: str | None = None,
+        session_id: str | None = None,
+        correlation_id: str | None = None,
+        occurred_at: datetime | None = None,
+        conn: Any | None = None,
+    ) -> int:
+        sql = (
+            f'INSERT INTO {self._qualified} '
+            '(event_type, occurred_at, actor, entity_kind, entity_id, '
+            ' workspace_id, session_id, correlation_id, payload) '
+            'VALUES ($1, COALESCE($2, now()), $3, $4, $5, $6, $7, $8, '
+            '$9::jsonb) RETURNING id'
+        )
+        async with self._acquire_or_use(conn) as c:
+            row = await c.fetchrow(
+                sql, event_type, occurred_at, actor, entity_kind,
+                entity_id, workspace_id, session_id, correlation_id,
+                json.dumps(payload or {}),
+            )
+        return int(row["id"])
+
+    @staticmethod
+    def _row_to_event(row: Any) -> Event:
+        payload = row["payload"]
+        if isinstance(payload, str):
+            payload = json.loads(payload)
+        return Event(
+            id=int(row["id"]),
+            event_type=row["event_type"],
+            occurred_at=row["occurred_at"],
+            actor=row["actor"],
+            entity_kind=row["entity_kind"],
+            entity_id=row["entity_id"],
+            workspace_id=row["workspace_id"],
+            session_id=row["session_id"],
+            correlation_id=row["correlation_id"],
+            payload=payload,
+        )
+
+    async def read_after(
+        self,
+        after_id: int,
+        *,
+        limit: int = 200,
+        event_type_prefix: str | None = None,
+        entity_kind: str | None = None,
+        entity_id: str | None = None,
+        workspace_id: str | None = None,
+        since: datetime | None = None,
+    ) -> list[Event]:
+        where = ["id > $1"]
+        params: list[Any] = [after_id]
+
+        def _bind(clause: str, value: Any) -> None:
+            params.append(value)
+            where.append(clause.format(n=len(params)))
+
+        if event_type_prefix is not None:
+            _bind("event_type LIKE ${n}", event_type_prefix
+                  .replace("\\", "\\\\")
+                  .replace("%", r"\%").replace("_", r"\_") + "%")
+        if entity_kind is not None:
+            _bind("entity_kind = ${n}", entity_kind)
+        if entity_id is not None:
+            _bind("entity_id = ${n}", entity_id)
+        if workspace_id is not None:
+            _bind("workspace_id = ${n}", workspace_id)
+        if since is not None:
+            _bind("occurred_at >= ${n}", since)
+        params.append(max(0, limit))
+        sql = (
+            'SELECT id, event_type, occurred_at, actor, entity_kind, '
+            'entity_id, workspace_id, session_id, correlation_id, payload '
+            f'FROM {self._qualified} WHERE ' + " AND ".join(where)
+            + f' ORDER BY id ASC LIMIT ${len(params)}'
+        )
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(sql, *params)
+        return [self._row_to_event(r) for r in rows]
+
+    async def max_id(self) -> int:
+        async with self._pool.acquire() as conn:
+            value = await conn.fetchval(
+                f'SELECT MAX(id) FROM {self._qualified}',
+            )
+        return int(value) if value is not None else 0
+
+    async def prune(self, *, older_than: datetime, keep_after_id: int) -> int:
+        async with self._pool.acquire() as conn:
+            tag = await conn.execute(
+                f'DELETE FROM {self._qualified} '
+                'WHERE occurred_at < $1 AND id <= $2',
+                older_than, keep_after_id,
+            )
+        try:
+            return int(tag.rsplit(" ", 1)[-1])
+        except (ValueError, AttributeError):
+            return 0
+
+    # -- cursors ----------------------------------------------------------
+
+    async def get_cursor(self, subscriber_id: str) -> int | None:
+        async with self._pool.acquire() as conn:
+            value = await conn.fetchval(
+                f'SELECT cursor FROM {self._qualified_cursors} '
+                'WHERE subscriber_id = $1',
+                subscriber_id,
+            )
+        return int(value) if value is not None else None
+
+    async def set_cursor(self, subscriber_id: str, event_id: int) -> None:
+        async with self._pool.acquire() as conn:
+            await conn.execute(
+                f'INSERT INTO {self._qualified_cursors} '
+                '(subscriber_id, cursor, updated_at) '
+                'VALUES ($1, $2, now()) '
+                'ON CONFLICT (subscriber_id) DO UPDATE SET '
+                'cursor = excluded.cursor, updated_at = excluded.updated_at',
+                subscriber_id, event_id,
+            )
+
+    async def delete_cursor(self, subscriber_id: str) -> None:
+        async with self._pool.acquire() as conn:
+            await conn.execute(
+                f'DELETE FROM {self._qualified_cursors} '
+                'WHERE subscriber_id = $1',
+                subscriber_id,
+            )
+
+    async def active_cursor_floor(self) -> int | None:
+        async with self._pool.acquire() as conn:
+            value = await conn.fetchval(
+                f'SELECT MIN(cursor) FROM {self._qualified_cursors}',
+            )
+        return int(value) if value is not None else None

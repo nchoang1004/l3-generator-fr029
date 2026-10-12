@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Facet scoring_config.json",
+  "description": "Structural validation for the v4.0 category-centric scoring config. Top level stays open (additionalProperties true) so new sections don't break old validators; known sections are type-checked and each category is validated strictly to catch typos and wrong types.",
+  "type": "object",
+  "required": ["categories"],
+  "properties": {
+    "categories": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "priority"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "priority": { "type": "number" },
+          "filters": { "type": "object" },
+          "modifiers": { "type": "object" },
+          "tags": { "type": "object" },
+          "weights": {
+            "type": "object",
+            "additionalProperties": { "type": "number" }
+          }
+        }
+      }
+    },
+    "scoring_contexts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["label_key", "promote", "excluded", "suggest_from_moments"],
+        "additionalProperties": false,
+        "properties": {
+          "label_key": { "type": "string", "minLength": 1 },
+          "promote": { "type": "array", "items": { "type": "string" } },
+          "excluded": { "type": "array", "items": { "type": "string" } },
+          "suggest_from_moments": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "viewer": {
+      "type": "object",
+      "properties": {
+        "cull": {
+          "type": "object",
+          "properties": {
+            "allow_trash": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "hdr_pq_tonemap": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "method": { "enum": ["hable", "clip"] },
+        "white_point": {
+          "type": "object",
+          "properties": {
+            "mode": { "enum": ["percentile", "max", "fixed"] },
+            "percentile": { "type": "number", "minimum": 0, "maximum": 100 },
+            "min_nits": { "type": "number", "minimum": 0 },
+            "max_nits": { "type": "number", "minimum": 0 },
+            "fixed_nits": { "type": "number", "minimum": 0 }
+          }
+        },
+        "chroma_preserve": { "enum": ["per_channel", "max_channel"] }
+      }
+    },
+    "processing": { "type": "object" },
+    "scoring": { "type": "object" },
+    "thresholds": { "type": "object" },
+    "normalization": { "type": "object" },
+    "burst_detection": { "type": "object" },
+    "duplicate_detection": { "type": "object" },
+    "face_detection": { "type": "object" },
+    "face_clustering": { "type": "object" },
+    "capsules": { "type": "object" },
+    "performance": { "type": "object" },
+    "maintenance": { "type": "object" },
+    "critique": { "type": "object" },
+    "auto_cull": { "type": "object" },
+    "distortion_attributes": { "type": "object" },
+    "skin_tone": { "type": "object" },
+    "iqa_extended": {
+      "type": "object",
+      "properties": {
+        "qrealign": { "enum": [true, false, "auto"] },
+        "aesthetic_v25": { "type": "boolean" },
+        "deqa": { "type": "boolean" }
+      }
+    },
+    "ocr": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "languages": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        },
+        "min_confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "full_resolution": { "type": "boolean" }
+      }
+    },
+    "immich": {
+      "type": "object",
+      "properties": {
+        "url": { "type": "string" },
+        "api_key": { "type": "string" },
+        "timeout_seconds": { "type": "number" },
+        "path_map": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "facet_prefix": { "type": "string" },
+              "immich_prefix": { "type": "string" }
+            }
+          }
+        },
+        "push": {
+          "type": "object",
+          "properties": {
+            "ratings": { "type": "boolean" },
+            "favorites": { "type": "boolean" },
+            "rejected": { "type": "boolean" },
+            "top_picks_album": { "type": "string" },
+            "top_picks_min_rating": { "type": "number" }
+          }
+        },
+        "webhook": {
+          "type": "object",
+          "properties": {
+            "token_env": { "type": "string" },
+            "header": { "type": "string" },
+            "max_pending": { "type": "integer", "minimum": 1 }
+          }
+        }
+      }
+    },
+    "vlm_backend": {
+      "type": "object",
+      "properties": {
+        "type": { "enum": ["local", "ollama", "openai_compatible"] }
+      }
+    },
+    "xmp_export": { "type": "object" }
+  }
+}

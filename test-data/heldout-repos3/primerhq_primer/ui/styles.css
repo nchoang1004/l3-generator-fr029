@@ -1,0 +1,5858 @@
+/* Primer Web Console — design tokens & base styles */
+
+:root {
+  /* Monospace stack — theme-independent. Consumers use var(--font-mono,
+     monospace); defining it here upgrades them from the generic fallback to
+     IBM Plex Mono (matching the .mono class). */
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  /* UI face: IBM Plex Sans, per the designer identity (new-ui handoff,
+     2026-08-23). Mono stays IBM Plex Mono. */
+  --font-ui: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+
+  /* Studio type / spacing / radius scale (FC2). Theme-independent, so declared
+     once on the base :root. Names the recurring magic numbers the FE port-map
+     flagged (≈10.5/11.5/12.5px type; 4/8/12/14px spacing; 6/9/12px radii) as
+     reusable tokens for the st-* utilities and Studio inline styles. */
+  --fs-11: 11px;
+  --fs-12: 12px;
+  --fs-13: 13px;
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 14px;
+  --r-6: 6px;
+  --r-9: 9px;
+  --r-12: 12px;
+  /* Designer token additions (new-ui handoff): radii the prototype
+     uses, the brand constant, and the touch-target size every
+     interactive control sizes against (the touch-target guard
+     enforces it). */
+  --r-4: 4px;
+  --r-8: 8px;
+  --r-10: 10px;
+  --brand-green: #61d46a;
+  --hit: 36px;
+}
+
+/* Designer identity (new-ui handoff 2026-08-23): ink / paper / primer
+   green, DARK-FIRST - the un-stamped document is dark, which is why
+   the bare :root shares this block. */
+:root,
+:root[data-theme="dark"] {
+  --bg: oklch(0.16 0.005 155);
+  --bg-1: oklch(0.19 0.005 155);
+  --bg-2: oklch(0.225 0.006 155);
+  --bg-hover: oklch(0.245 0.007 155);
+  --bg-active: oklch(0.28 0.008 155);
+  --bg-elev: oklch(0.215 0.006 155);
+  --border: oklch(0.29 0.008 155);
+  --border-strong: oklch(0.39 0.01 155);
+  --text: oklch(0.95 0.006 130);
+  --text-2: oklch(0.75 0.01 140);
+  --text-3: oklch(0.64 0.012 140);
+  --text-4: oklch(0.585 0.012 140);
+  --accent: oklch(0.78 0.18 145);
+  --accent-2: oklch(0.84 0.15 145);
+  --accent-dim: oklch(0.78 0.18 145 / 0.13);
+  --accent-border: oklch(0.78 0.18 145 / 0.4);
+  --accent-fg: oklch(0.17 0.02 155);
+  --attention: oklch(0.72 0.17 45);
+  --attention-dim: oklch(0.72 0.17 45 / 0.13);
+  --attention-border: oklch(0.72 0.17 45 / 0.45);
+  --attention-fg: oklch(0.16 0.03 45);
+  --green: oklch(0.78 0.15 155); --green-dim: oklch(0.78 0.15 155 / 0.13);
+  --red: oklch(0.69 0.19 22);    --red-dim: oklch(0.69 0.19 22 / 0.14);
+  --amber: oklch(0.83 0.14 92);  --amber-dim: oklch(0.83 0.14 92 / 0.14);
+  --blue: oklch(0.74 0.11 240);  --blue-dim: oklch(0.74 0.11 240 / 0.14);
+  --violet: oklch(0.73 0.13 300);--violet-dim: oklch(0.73 0.13 300 / 0.14);
+  --teal: oklch(0.78 0.11 200);  --teal-dim: oklch(0.78 0.11 200 / 0.14);
+  --pink: oklch(0.74 0.13 350);  --pink-dim: oklch(0.74 0.13 350 / 0.14);
+  --scrim: oklch(0 0 0 / 0.55);
+  --shadow: 0 1px 0 oklch(0 0 0 / 0.35), 0 14px 40px -12px oklch(0 0 0 / 0.6);
+  --shadow-sm: 0 1px 0 oklch(0 0 0 / 0.3);
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --bg: oklch(0.972 0.004 110);
+  --bg-1: oklch(0.988 0.003 110);
+  --bg-2: oklch(0.952 0.005 110);
+  --bg-hover: oklch(0.935 0.006 110);
+  --bg-active: oklch(0.91 0.007 110);
+  --bg-elev: oklch(0.995 0.002 110);
+  --border: oklch(0.89 0.008 120);
+  --border-strong: oklch(0.78 0.01 130);
+  --text: oklch(0.19 0.008 160);
+  --text-2: oklch(0.41 0.01 150);
+  --text-3: oklch(0.51 0.012 150);
+  /* Contrast guard: designer value 0.55 sat at 4.45:1 on --bg; one
+     step deeper clears AA without a visible shift. */
+  --text-4: oklch(0.54 0.012 150);
+  --accent: oklch(0.53 0.14 148);
+  --accent-2: oklch(0.6 0.14 147);
+  --accent-dim: oklch(0.53 0.14 148 / 0.11);
+  --accent-border: oklch(0.53 0.14 148 / 0.4);
+  --accent-fg: oklch(0.99 0.003 110);
+  --attention: oklch(0.56 0.19 42);
+  --attention-dim: oklch(0.56 0.19 42 / 0.11);
+  --attention-border: oklch(0.56 0.19 42 / 0.45);
+  --attention-fg: oklch(0.99 0.003 110);
+  --green: oklch(0.52 0.13 152); --green-dim: oklch(0.52 0.13 152 / 0.11);
+  --red: oklch(0.54 0.2 24);     --red-dim: oklch(0.54 0.2 24 / 0.1);
+  --amber: oklch(0.58 0.12 90);  --amber-dim: oklch(0.58 0.12 90 / 0.14);
+  --blue: oklch(0.5 0.13 240);   --blue-dim: oklch(0.5 0.13 240 / 0.1);
+  --violet: oklch(0.5 0.14 300); --violet-dim: oklch(0.5 0.14 300 / 0.1);
+  --teal: oklch(0.5 0.1 200);    --teal-dim: oklch(0.5 0.1 200 / 0.11);
+  --pink: oklch(0.55 0.15 350);  --pink-dim: oklch(0.55 0.15 350 / 0.1);
+  --scrim: oklch(0.25 0.01 150 / 0.4);
+  --shadow: 0 1px 0 oklch(0.2 0.02 150 / 0.05), 0 14px 40px -14px oklch(0.2 0.02 150 / 0.25);
+  --shadow-sm: 0 1px 0 oklch(0.2 0.02 150 / 0.05);
+  color-scheme: light;
+}
+
+/* density */
+:root { --row-h: 36px; --sidebar-w: 248px; --topbar-h: 48px; }
+:root[data-density="compact"] { --row-h: 30px; --hit: 32px; }
+:root[data-density="comfortable"] { --row-h: 40px; }
+
+/* ---------------------------------------------------------------------------
+   Studio additions (PR-B). Three tokens the port-map identifies as missing,
+   plus the Studio-scoped layout classes (st-*). The colour/spacing token set
+   is otherwise pixel-identical to the prototype, so we reuse the existing
+   tokens above rather than duplicating them.
+
+   --teal / --teal-dim     : graph_transition activity chip colour.
+   --frow-h                : file-tree row height (tighter than --row-h).
+   Because the Studio mounts data-density on its OWN root <div> (not :root),
+   --frow-h is declared on both :root and the [data-density] attribute so it
+   resolves whether the attribute lands on <html> or on .st-root.
+--------------------------------------------------------------------------- */
+/* --teal moved into the per-theme blocks with the designer tokens. */
+:root { --frow-h: 30px; }
+:root[data-density="compact"],
+[data-density="compact"] { --frow-h: 24px; }
+:root[data-density="comfortable"],
+[data-density="comfortable"] { --frow-h: 30px; }
+
+/* Studio root shell: slim sub-header row + body. Renders as IN-SHELL page
+   content (inside the app .main / .page-body), so it fills its container
+   rather than the whole viewport. The .studio-page chrome reset below strips
+   the empty page-header + page-body padding so this can size to 100%. Owns its
+   own data-theme/-density. */
+/* Flex column, NOT a grid with a fixed row list. The child count varies:
+   studioV2 mounts an AttentionBar between the topbar and the body, and the
+   plain shell does not. A `grid-template-rows: 44px 1fr` sized for two
+   children silently pushed the third into an implicit `auto` row, which
+   collapsed .st-body to its content height and left ~550px of dead space
+   above it. Flex sizes by child, so adding a fourth row later cannot
+   reintroduce that class of bug. */
+.st-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+/* In-shell chrome reset: when the Studio is the active page, collapse the
+   shared empty page-header and drop the page-body padding so the Studio fills
+   the scroll area edge-to-edge under the app Topbar. */
+.app.studio-page .main { overflow: hidden; }
+.app.studio-page .page-header { display: none; }
+.app.studio-page .page-body { padding: 0; height: 100%; min-height: 0; }
+
+/* Phones swap .st-body for StudioMobile, whose content root is a plain .col
+   (with the bottom tab bar as a sibling .row.mobile-only). Scoped to direct
+   children so the generic .col utility is untouched everywhere else. */
+.st-root > .col {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Slim content sub-header (top row). Fixed height as a flex item -- it used to
+   inherit this from the .st-root grid row. */
+.st-topbar {
+  flex: 0 0 var(--st-subhead-h, 44px);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  background: var(--bg-1);
+  border-bottom: 1px solid var(--border);
+  position: relative;
+  z-index: 30;
+  /* Without this the row is floored at min-content (~502px: the workspace pill
+     plus five 44px touch targets), so it overflowed every phone viewport. The
+     touch targets must keep their 44px (see tests/ui/test_touch_target_audit.py),
+     so the workspace pill is the element that gives. */
+  min-width: 0;
+}
+.st-ws-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  /* Lets the workspace-id label actually use its ellipsis when the topbar is
+     narrower than the full id. */
+  min-width: 0;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg-2);
+  cursor: pointer;
+  font-weight: 600;
+}
+.st-ws-btn:hover { border-color: var(--accent-border); }
+.st-ws-menu {
+  position: absolute;
+  top: 38px;
+  left: 0;
+  width: 230px;
+  background: var(--bg-1);
+  border: 1px solid var(--border-strong);
+  border-radius: 9px;
+  box-shadow: var(--shadow);
+  padding: 5px;
+  z-index: 40;
+}
+.st-ws-menu-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.st-ws-menu-row:hover { background: var(--bg-hover); }
+.st-palette-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 9px 5px 11px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--text-3);
+  background: var(--bg-2);
+  font-size: 12px;
+  cursor: pointer;
+  min-width: 190px;
+}
+.st-palette-trigger:hover { border-color: var(--border-strong); color: var(--text-2); }
+.st-palette-trigger kbd {
+  margin-left: auto;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  color: var(--text-2);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+.st-hbtn {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  background: var(--bg-2);
+  border-radius: 6px;
+  color: var(--text-2);
+  cursor: pointer;
+}
+.st-hbtn:hover { border-color: var(--border-strong); color: var(--text); }
+.st-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  display: grid;
+  place-items: center;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  color: var(--text-2);
+}
+
+/* Body: 3 content columns + 2 resize-handle tracks. The .st-resize handles
+   are grid CHILDREN ([left][handle][center][handle][right]), so the template
+   must declare FIVE tracks — with only three, auto-placement pushed
+   st-col-center into the right column, wrapped st-col-right onto an implicit
+   second row, and collapsed SD_GraphRunView's canvas column to 0 width.
+   Widths are CSS custom props so the handles can write --st-left-w /
+   --st-right-w inline on the grid element. At ≤639px the handles are
+   display:none (desktop-only) and the mobile override re-declares 1fr. */
+.st-body {
+  /* Takes every row the topbar and the (optional) attention bar leave behind.
+     min-height:0 keeps the inner scrollers from inflating it past the shell. */
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: var(--st-left-w, 248px) 5px minmax(0, 1fr) 5px var(--st-right-w, 332px);
+  min-height: 0;
+}
+.st-col {
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.st-col-left { background: var(--bg-1); border-right: 1px solid var(--border); }
+.st-col-center { background: var(--bg); }
+.st-col-right { background: var(--bg-1); border-left: 1px solid var(--border); }
+
+/* Task (studio-ux fix 1): the debug sidebar's "collapsed" state used to
+   only hide the inner debug-sidebar-body — the OUTER .st-col-right grid
+   TRACK stayed at the full --st-right-w, so the center column never
+   reclaimed the space. Collapsed now renders as a thin ~40px rail (icon +
+   badge only — see studio-activity.jsx); the grid container's own
+   template must shrink the right track to match. The collapsed class
+   lives on the CHILD (.studio-activity-root), not on .st-body itself,
+   hence :has(). Desktop-only: below 640px .st-col-right is an off-canvas
+   fixed drawer (see the max-width:639px block) where this override's
+   higher specificity would otherwise squeeze the mobile single-column
+   body's grid-template-columns even though the drawer itself is
+   invisible there. */
+@media (min-width: 640px) {
+  /* Closed rail is 0-width (driven by --st-right-w on .st-root — set to 0 when
+     s.debugOpen is false). Also hide the resize handle and the column's left
+     border so nothing lingers at the screen edge; the panel is opened from the
+     header "Workspace events" toggle, not a thin edge rail. */
+  .st-body:has(.studio-activity-root.is-collapsed) [data-testid="studio-resize-right"] {
+    display: none;
+  }
+  .st-body:has(.studio-activity-root.is-collapsed) .st-col-right {
+    border-left: none;
+  }
+  .studio-activity-root.is-collapsed { width: 0; min-width: 0; overflow: hidden; }
+}
+
+/* Column resize handles (left/right). 5px hit area straddling the border. */
+.st-resize {
+  position: relative;
+  z-index: 5;
+  width: 5px;
+  margin: 0 -3px;
+  cursor: col-resize;
+  background: transparent;
+}
+.st-resize:hover, .st-resize.is-active { background: var(--accent-border); }
+
+/* Terminal splitter (horizontal). 5px hit area straddling the panel's top
+   border; row-resize cursor. Mirrors .st-resize, rotated to the Y axis. */
+.st-term-resize {
+  position: relative;
+  z-index: 5;
+  flex: 0 0 5px;
+  height: 5px;
+  margin: -3px 0;
+  cursor: row-resize;
+  background: transparent;
+}
+.st-term-resize:hover, .st-term-resize.is-active { background: var(--accent-border); }
+
+/* Collapsible sidebar sections (VS Code style). */
+.st-section { display: flex; flex-direction: column; min-height: 0; }
+.st-section + .st-section { border-top: 1px solid var(--border); }
+.st-section-h {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 8px 0 10px;
+  text-transform: uppercase;
+  font-size: 10.5px;
+  letter-spacing: 0.07em;
+  font-weight: 700;
+  color: var(--text-3);
+  cursor: pointer;
+  user-select: none;
+  flex: 0 0 auto;
+}
+.st-section-h:hover { color: var(--text); }
+.st-section-count {
+  margin-left: auto;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  color: var(--text-4);
+}
+.st-section-body { overflow: auto; flex: 1; min-height: 0; }
+
+/* FC2 Studio utility classes — collapse the most-recurring inline patterns in
+   studio-sidebar.jsx / studio-activity.jsx. Zero visual change intended: each
+   declaration matches the inline styles it replaces. */
+.st-row { display: flex; align-items: center; }
+.st-section-label {
+  flex: 1;
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-2);
+}
+.st-panel-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 var(--sp-3);
+  flex-shrink: 0;
+}
+.st-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* Studio right-rail: User Interaction section (Action Required + inform_user).
+   AUTO-RESIZE: the section is content-sized, so it stays compact when empty
+   (just the "No pending interactions." line) and GROWS to fit its items when
+   an ask_user input or an inform_user message lands — up to ~50vh, after which
+   the item list scrolls internally. `flex-shrink: 0` keeps the activity feed
+   below from squeezing it once populated. The empty-state text must never be
+   clipped (a flat px cap previously squeezed it behind overflow:hidden). */
+.st-action-required {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-bottom: 1px solid var(--border);
+}
+.st-action-required.is-empty { max-height: none; }
+.st-action-required.has-items { max-height: 50vh; }
+.st-action-empty {
+  padding: 16px 14px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-4);
+  text-align: center;
+}
+
+/* Center tab bar. */
+.st-tabbar {
+  display: flex;
+  align-items: stretch;
+  height: 36px;
+  background: var(--bg-1);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  flex: 0 0 auto;
+}
+/* "Close all" — pinned to the right edge (sticky) so it stays reachable when
+   the tab strip overflows horizontally. */
+.st-tabs-close-all {
+  position: sticky;
+  right: 0;
+  margin-left: auto;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 10px;
+  border: none;
+  border-left: 1px solid var(--border);
+  background: var(--bg-1);
+  color: var(--text-4);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.st-tabs-close-all:hover { background: var(--bg-2); color: var(--text-2); }
+.st-tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 220px;
+  padding: 0 8px 0 12px;
+  border-right: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-3);
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: 12px;
+}
+.st-tab:hover { background: var(--bg-2); }
+.st-tab.is-active { background: var(--bg); color: var(--text); }
+.st-tab.is-active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 2px;
+  background: var(--accent);
+}
+.st-tab-close {
+  width: 16px;
+  height: 16px;
+  display: grid;
+  place-items: center;
+  border-radius: 4px;
+  color: var(--text-4);
+}
+.st-tab-close:hover { background: var(--bg-active); color: var(--text); }
+
+/* Sidebar session-row inline actions (rename / delete). Hidden until the
+   row is hovered or something inside it is focused, so the row stays clean
+   but the affordances are keyboard-reachable. */
+.st-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.st-session-row:hover .st-row-actions,
+.st-session-row:focus-within .st-row-actions,
+.st-file-row:hover .st-row-actions,
+.st-file-row:focus-within .st-row-actions { opacity: 1; }
+
+/* FD4 — content-visibility row virtualization. Off-screen rows / expensive
+   per-row cell content skip layout + paint until scrolled near, then their
+   real size is remembered (contain-intrinsic-size: auto). Verified
+   empirically that content-visibility is a NO-OP on <tr> (table-internal
+   elements aren't size-containable), so this is applied only to div rows and
+   to block content inside table cells — both of which DO skip. Focus/scroll
+   auto-reveals a skipped row, so keyboard nav (FC5c) is unaffected. */
+.st-session-row { content-visibility: auto; contain-intrinsic-size: auto var(--row-h, 36px); }
+.st-file-row    { content-visibility: auto; contain-intrinsic-size: auto var(--frow-h, 30px); }
+[data-testid="activity-event"] { content-visibility: auto; contain-intrinsic-size: auto 44px; }
+.cv-auto { content-visibility: auto; contain-intrinsic-size: auto 12px; }
+.st-row-action {
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border: none;
+  background: none;
+  border-radius: 4px;
+  color: var(--text-4);
+  cursor: pointer;
+  padding: 0;
+}
+.st-row-action:hover { background: var(--bg-active); color: var(--text); }
+.st-row-action.is-danger:hover { color: var(--red); }
+
+/* Region placeholder (B2/B3/B4 fill these). */
+.st-placeholder {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 24px;
+  color: var(--text-4);
+  font-size: 12px;
+}
+.st-placeholder .st-ph-kind {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+  text-transform: uppercase;
+}
+
+/* Full-height center documents (Studio-scoped). The reused SD_GraphRunView
+   renders a .panel whose canvas div carries an inline height:500px (the
+   component is shared with the graphs editor, which keeps that default) —
+   inside the Studio the run view must fill the center column down to the
+   bottom instead, shrinking only when the terminal panel below it is open.
+   Scoped under [data-testid="panel-graph"] so the editor page is untouched;
+   !important is required to beat the inline style (no-build reuse seam). */
+[data-testid="panel-graph"] .panel {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+[data-testid="panel-graph"] .panel > :not(.panel-h) {
+  /* the canvas+inspector grid row */
+  flex: 1 1 auto;
+  min-height: 0;
+}
+[data-testid="panel-graph"] .panel > :not(.panel-h) > * {
+  /* grid cells: the canvas wrapper + the node inspector */
+  min-height: 0;
+  height: 100%;
+  overflow: auto;
+}
+[data-testid="panel-graph"] [data-testid="graph-canvas"] {
+  height: 100% !important;
+  min-height: 280px !important;
+}
+
+/* Graph-canvas overlaid zoom / traverse controls (bug #1). Absolutely placed
+   in a corner of the shared GR_Canvas (editor + run-view); themed purely off
+   the design tokens so a dark/light toggle restyles them for free. */
+.gr-canvas-controls {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.gr-ctrl-btn {
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-elev);
+  color: var(--text-2);
+  box-shadow: var(--shadow-sm);
+}
+.gr-ctrl-btn-text {
+  font: 600 10px/1 "IBM Plex Mono", monospace;
+  letter-spacing: 0.02em;
+}
+.gr-ctrl-btn:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-hover);
+  color: var(--text);
+}
+.gr-ctrl-btn:focus-visible {
+  outline: 2px solid var(--accent-border);
+  outline-offset: 1px;
+}
+
+/* Integrated terminal — collapsible bottom panel spanning the center column
+   (below StudioCenter's active panel), P7. Mounted only while
+   studio.state.terminalOpen is true (see studio.jsx / studio-terminal.jsx),
+   so no separate "collapsed" height is needed here — the panel is either
+   absent or this fixed height. Hidden entirely on phones (≤639px, see the
+   mobile media query below): xterm.js + a PTY needs real keyboard/paste
+   affordances the touch shell doesn't have room for in v1. */
+.st-term-panel {
+  flex: 0 0 var(--st-term-h, 240px);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+}
+.st-term-head {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 32px;
+  padding: 0 8px;
+  background: var(--bg-1);
+  border-bottom: 1px solid var(--border);
+  flex: 0 0 auto;
+  overflow-x: auto;
+}
+.st-term-label {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+  text-transform: uppercase;
+  margin-right: 4px;
+  flex-shrink: 0;
+}
+.st-term-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 6px 0 8px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  color: var(--text-3);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.st-term-tab:hover { background: var(--bg-2); color: var(--text-2); }
+.st-term-tab.is-active { background: var(--bg-2); color: var(--text); }
+.st-term-tab-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.st-term-tab-close {
+  width: 14px;
+  height: 14px;
+  display: grid;
+  place-items: center;
+  border-radius: 4px;
+  color: var(--text-4);
+}
+.st-term-tab-close:hover { background: var(--bg-active); color: var(--text); }
+.st-term-add {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  color: var(--text-3);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.st-term-add:hover { background: var(--bg-2); color: var(--text); }
+.st-term-sp { flex: 1; }
+.st-term-conn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  color: var(--text-3);
+  padding: 0 6px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.st-term-conn-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.st-term-collapse {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  color: var(--text-3);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.st-term-collapse:hover { background: var(--bg-2); color: var(--text); }
+.st-term-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--bg);
+}
+.st-term-instance { height: 100%; width: 100%; padding: 6px 10px; }
+.st-term-empty {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: var(--text-4);
+  font-size: 12px;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "cv11", "ss01";
+}
+
+.mono { font-family: "IBM Plex Mono", ui-monospace, monospace; font-feature-settings: "zero"; }
+
+button { font: inherit; color: inherit; }
+input, textarea, select { font: inherit; color: inherit; }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 8px; border: 2px solid var(--bg); }
+::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
+
+/* ---------- App shell ---------- */
+
+.app {
+  display: grid;
+  grid-template-columns: var(--sidebar-w) 1fr;
+  grid-template-rows: var(--topbar-h) 1fr;
+  /* 100dvh = dynamic viewport height. On mobile browsers this shrinks
+     when the address bar is visible (unlike 100vh which is the "large"
+     viewport that ignores the bar), so the app grid always matches
+     visible area and nested scrollers stop overflowing the body. */
+  height: 100dvh;
+  background: var(--bg);
+  transition: grid-template-columns 0.18s ease;
+}
+
+.app.sidebar-collapsed { grid-template-columns: 56px 1fr; }
+.sidebar.is-collapsed .nav-group,
+.sidebar.is-collapsed .nav-item .label,
+.sidebar.is-collapsed .nav-item .count,
+.sidebar.is-collapsed .nav-pill-on,
+.sidebar.is-collapsed .nav-pill-off,
+.sidebar.is-collapsed .sidebar-foot span { display: none; }
+.sidebar.is-collapsed .nav-item { justify-content: center; padding: 6px 0; }
+.sidebar.is-collapsed .sidebar-foot { justify-content: center; }
+
+.topbar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-1);
+  position: relative;
+  z-index: 20;
+  /* As a grid item this defaults to min-width:auto, which floors the row at
+     its min-content (~410px: brand + hamburger + the status cluster). That is
+     wider than a 390px phone, so the row forced the whole DOCUMENT to scroll
+     sideways on every console page. Chrome must fit the viewport; content that
+     genuinely needs more room scrolls inside .main, which already has
+     overflow:auto for exactly that. */
+  min-width: 0;
+}
+
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  padding-right: 14px;
+  border-right: 1px solid var(--border);
+  height: 100%;
+  flex-shrink: 0;
+}
+
+.topbar-brand .logo {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  color: var(--text);
+}
+.topbar-brand .logo svg { display: block; }
+
+.topbar-brand .instance {
+  font-family: "IBM Plex Mono", monospace;
+  color: var(--text-3);
+  font-weight: 400;
+  font-size: 12px;
+}
+
+.topbar-search {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  padding: 4px 8px 4px 10px;
+  border-radius: 6px;
+  color: var(--text-3);
+  cursor: pointer;
+  transition: border-color 0.15s;
+  font-size: 12px;
+  min-width: 0;
+  width: 200px;
+}
+.topbar-search:hover { border-color: var(--border-strong); color: var(--text-2); }
+.topbar-search kbd {
+  margin-left: auto;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  color: var(--text-3);
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  /* The status cluster is the widest thing in the row (~254px). Both levels
+     need releasing: the cluster so it may shrink, and its children so the
+     worker pill's text is what gives rather than the row overflowing. */
+  min-width: 0;
+}
+.topbar-right > * {
+  min-width: 0;
+}
+
+.worker-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11.5px;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: border-color 0.15s;
+  /* Now that the pill can shrink, it must clip rather than wrap: "3/3 workers
+     - 0 in flight" breaking mid-phrase doubles the topbar's height on a phone.
+     The worker count leads, so an ellipsis drops the least important half. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.worker-pill:hover { border-color: var(--border-strong); }
+.worker-pill .dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 0 3px var(--green-dim);
+}
+.worker-pill.warn .dot { background: var(--amber); box-shadow: 0 0 0 3px var(--amber-dim); }
+.worker-pill.err .dot { background: var(--red); box-shadow: 0 0 0 3px var(--red-dim); }
+.worker-pill .num-warn { color: var(--amber); }
+
+.icon-btn {
+  width: 30px; height: 30px;
+  display: grid; place-items: center;
+  border: 1px solid var(--border);
+  background: var(--bg-2);
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--text-2);
+  transition: 0.15s;
+}
+.icon-btn:hover { border-color: var(--border-strong); color: var(--text); }
+.icon-btn.warn { color: var(--amber); border-color: transparent; position: relative; }
+.icon-btn.warn::after {
+  content: ""; position: absolute; top: 4px; right: 4px;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--amber);
+}
+
+.user-avatar {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  display: grid; place-items: center;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+/* ---------- Sidebar ---------- */
+
+.sidebar {
+  border-right: 1px solid var(--border);
+  background: var(--bg-1);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 10px 0 0;
+}
+
+.nav-group {
+  padding: 12px 12px 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-4);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+}
+.nav-group .chevron {
+  transition: transform 0.15s;
+  color: var(--text-4);
+}
+.nav-group.collapsed .chevron { transform: rotate(-90deg); }
+
+.nav-section { margin-bottom: 4px; }
+.nav-section.collapsed .nav-items { display: none; }
+
+.nav-items { padding: 2px 8px; display: flex; flex-direction: column; gap: 1px; }
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  color: var(--text-2);
+  cursor: pointer;
+  font-size: 13px;
+  position: relative;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.nav-item:hover { background: var(--bg-hover); color: var(--text); }
+.nav-item.active {
+  background: var(--bg-active);
+  color: var(--text);
+  font-weight: 500;
+}
+.nav-item.active::before {
+  content: ""; position: absolute; left: -8px; top: 6px; bottom: 6px;
+  width: 2px; border-radius: 2px;
+  background: var(--accent);
+}
+.nav-item .icon { width: 14px; height: 14px; flex-shrink: 0; color: var(--text-3); }
+.nav-item.active .icon { color: var(--accent); }
+.nav-item .label { flex: 1; }
+.nav-item .count {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  color: var(--text-3);
+  background: var(--bg-2);
+  padding: 1px 6px;
+  border-radius: 4px;
+  min-width: 22px;
+  text-align: center;
+}
+.nav-item.active .count { background: var(--bg); color: var(--text-2); }
+
+.nav-pill-on, .nav-pill-off {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 1px 5px;
+  border-radius: 3px;
+  text-transform: uppercase;
+}
+.nav-pill-on { background: var(--green-dim); color: var(--green); }
+.nav-pill-off { background: var(--bg-2); color: var(--text-4); border: 1px solid var(--border); }
+
+.sidebar-foot {
+  margin-top: auto;
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-3);
+  cursor: pointer;
+}
+.sidebar-foot:hover { color: var(--text); }
+
+/* ---------- Page header ---------- */
+
+.main {
+  overflow: auto;
+  background: var(--bg);
+  position: relative;
+  /* Same min-width:auto floor as .topbar. Without this, a page whose content
+     is wider than the viewport widens .main itself instead of scrolling within
+     it, taking the document with it. */
+  min-width: 0;
+}
+
+.page-header {
+  padding: 18px 28px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.crumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-3);
+  font-size: 12px;
+  margin-bottom: 4px;
+  font-family: "IBM Plex Mono", monospace;
+}
+.crumb a { color: var(--text-3); text-decoration: none; cursor: pointer; }
+.crumb a:hover { color: var(--text); }
+.crumb .sep { opacity: 0.5; }
+
+.page-title {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  margin: 0;
+}
+.page-sub { color: var(--text-3); font-size: 13px; margin-top: 2px; }
+
+.page-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+.page-body { padding: 18px 28px 60px; }
+
+/* ---------- Buttons ---------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-1);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 500;
+  transition: 0.12s;
+  white-space: nowrap;
+}
+.btn:hover { background: var(--bg-hover); border-color: var(--border-strong); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-primary {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: var(--accent);
+}
+.btn-primary:hover { background: var(--accent-2); border-color: var(--accent-2); color: var(--accent-fg); }
+.btn-danger {
+  background: var(--red-dim);
+  color: var(--red);
+  border-color: oklch(0.7 0.2 25 / 0.4);
+}
+.btn-danger:hover { background: oklch(0.7 0.2 25 / 0.22); border-color: var(--red); }
+.btn-ghost { background: transparent; border-color: transparent; color: var(--text-2); }
+.btn-ghost:hover { background: var(--bg-hover); color: var(--text); border-color: transparent; }
+
+.btn-sm { padding: 4px 8px; font-size: 11.5px; gap: 4px; }
+.btn-lg { padding: 8px 14px; font-size: 13px; }
+
+/* ---------- Status pills ---------- */
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  font-family: "IBM Plex Mono", monospace;
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
+  white-space: nowrap;
+}
+.pill .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+.pill-running { background: var(--blue-dim); color: var(--blue); }
+.pill-running .dot { background: var(--blue); animation: pulse 1.6s ease-in-out infinite; }
+.pill-paused { background: var(--amber-dim); color: var(--amber); }
+.pill-paused .dot { background: var(--amber); }
+.pill-ended, .pill-completed { background: var(--green-dim); color: var(--green); }
+.pill-ended .dot, .pill-completed .dot { background: var(--green); }
+.pill-failed { background: var(--red-dim); color: var(--red); }
+.pill-failed .dot { background: var(--red); }
+.pill-created { background: var(--bg-2); color: var(--text-2); }
+.pill-created .dot { background: var(--text-3); }
+.pill-cancelled { background: var(--bg-2); color: var(--text-3); text-decoration: line-through; }
+.pill-cancelled .dot { background: var(--text-4); }
+.pill-claimed { background: var(--violet-dim); color: var(--violet); }
+.pill-claimed .dot { background: var(--violet); }
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 currentColor; opacity: 1; }
+  50% { box-shadow: 0 0 0 3px transparent; opacity: 0.55; }
+}
+
+/* Global reduced-motion: honour the OS "reduce motion" setting everywhere.
+   Neutralises all animations/transitions (incl. the infinite status-dot
+   pulse above) and instant-scrolls, so motion-sensitive users get a still UI. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---------- Cards / panels ---------- */
+
+.panel {
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.panel-h {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+.panel-h .sub { color: var(--text-3); font-weight: 400; margin-left: 6px; }
+.panel-h .right { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+.panel-body { padding: 14px; }
+.panel-body.nopad { padding: 0; }
+
+/* ---------- Table ---------- */
+
+.tbl-wrap {
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.tbl {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.tbl thead th {
+  text-align: left;
+  font-weight: 500;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-3);
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-1);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  cursor: pointer;
+  user-select: none;
+}
+.tbl thead th:hover { color: var(--text-2); }
+.tbl thead th .sort-arrow { opacity: 0.5; margin-left: 4px; font-size: 9px; }
+.tbl thead th.sorted .sort-arrow { opacity: 1; color: var(--accent); }
+.tbl tbody td {
+  padding: 0 14px;
+  height: var(--row-h);
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  vertical-align: middle;
+}
+.tbl tbody tr { transition: background 0.08s; cursor: pointer; }
+.tbl tbody tr:hover { background: var(--bg-hover); }
+.tbl tbody tr.selected { background: var(--accent-dim); }
+.tbl tbody tr:last-child td { border-bottom: 0; }
+.tbl td.muted { color: var(--text-3); }
+.tbl td.mono, .tbl th.mono { font-family: "IBM Plex Mono", monospace; font-size: 11.5px; }
+.tbl td.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+.tbl-foot {
+  display: flex;
+  align-items: center;
+  padding: 8px 14px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-3);
+  background: var(--bg-1);
+  gap: 12px;
+}
+.tbl-foot .pager { margin-left: auto; display: flex; gap: 4px; align-items: center; }
+.tbl-foot .pager button {
+  width: 26px; height: 26px;
+  display: grid; place-items: center;
+  border: 1px solid var(--border);
+  background: var(--bg-1);
+  border-radius: 5px;
+  cursor: pointer;
+  color: var(--text-2);
+}
+.tbl-foot .pager button:hover { background: var(--bg-hover); }
+.tbl-foot .pager button:disabled { opacity: 0.3; cursor: not-allowed; }
+
+/* ---------- Filter bar ---------- */
+
+.filter-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+/* Shared pagination control (components/shared/pager.jsx). Sits below a
+   table/list; keeps the range readout left and the Prev/Next buttons right.
+   Named `.list-pager` (not `.pager`) so it never collides with the older
+   hand-rolled `.tbl-foot .pager` markup still present on a few pages. */
+.list-pager {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.list-pager .pager-range { flex: 0 0 auto; }
+.list-pager .pager-controls {
+  margin-left: auto;
+  display: flex;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+.filter-bar .input-icon { flex: 0 0 auto; }
+.filter-bar .input-icon .input { width: 160px; min-width: 0; }
+.filter-bar .select { padding: 4px 22px 4px 8px; font-size: 12px; max-width: 120px; }
+/* ws-filter-select mirrors .select visually but stays out of the
+   `select.select` global selector so workspaces-list test U0023 can use
+   `page.locator("select.select").first` to target the modal's select
+   unambiguously. */
+.ws-filter-select {
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 22px 4px 8px;
+  font-size: 12px;
+  color: var(--text);
+  outline: none;
+  max-width: 160px;
+  min-width: 0;
+}
+.ws-filter-select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+.filter-bar .chip-group { padding: 1px; }
+.filter-bar .sep-v { width: 1px; background: var(--border); align-self: stretch; height: 22px; align-self: center; }
+
+.chip-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text-3);
+  position: relative;
+  transition: 0.1s;
+}
+.chip-dot:hover { background: var(--bg-hover); }
+.chip-dot.active { background: var(--bg-active); }
+.chip-dot .d {
+  width: 8px; height: 8px; border-radius: 50%;
+}
+.chip-dot.active::after {
+  content: "";
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 12px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.input, .select {
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 12.5px;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  min-width: 0;
+}
+.input:focus, .select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+.input::placeholder { color: var(--text-4); }
+
+.input-icon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.input-icon .icon { position: absolute; left: 8px; color: var(--text-3); pointer-events: none; }
+.input-icon .input { padding-left: 28px; }
+
+.chip-group {
+  display: flex;
+  align-items: center;
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px;
+  gap: 1px;
+}
+.chip {
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11.5px;
+  cursor: pointer;
+  color: var(--text-3);
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: 0.1s;
+}
+.chip:hover { color: var(--text); }
+.chip.active { background: var(--bg-active); color: var(--text); }
+
+/* ---------- Toast ---------- */
+
+.toast-stack {
+  position: fixed;
+  bottom: 18px;
+  right: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 100;
+  max-width: 380px;
+}
+.toast {
+  background: var(--bg-elev);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 10px 12px;
+  box-shadow: var(--shadow);
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 12.5px;
+  animation: toastIn 0.18s ease-out;
+}
+@keyframes toastIn { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+.toast .ico { width: 16px; height: 16px; margin-top: 1px; flex-shrink: 0; }
+.toast-success .ico { color: var(--green); }
+.toast-success { border-left: 3px solid var(--green); }
+.toast-info .ico { color: var(--blue); }
+.toast-info { border-left: 3px solid var(--blue); }
+.toast-warning .ico { color: var(--amber); }
+.toast-warning { border-left: 3px solid var(--amber); }
+.toast-error .ico { color: var(--red); }
+.toast-error { border-left: 3px solid var(--red); }
+/* uiv2 notes 1.5/1.6: attention orange is reserved for "needs a human"
+   signals only, never reused for plain warnings (kept amber above). */
+.toast-needs-human .ico { color: var(--attention); }
+.toast-needs-human { border-left: 3px solid var(--attention); }
+.toast .title { font-weight: 600; }
+.toast .detail { color: var(--text-2); margin-top: 2px; }
+.toast .req-id { margin-top: 6px; font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--text-3); display: flex; align-items: center; gap: 4px; }
+.toast .req-id a { color: var(--accent); cursor: pointer; }
+.toast-actions { display: flex; gap: 8px; margin-top: 8px; }
+.toast-action {
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+}
+.toast-action:hover { border-color: var(--accent-border); color: var(--accent); }
+
+.toast .close {
+  margin-left: auto;
+  background: none; border: none;
+  cursor: pointer; color: var(--text-3);
+  width: 18px; height: 18px;
+  display: grid; place-items: center;
+  flex-shrink: 0;
+}
+.toast .close:hover { color: var(--text); }
+
+/* ---------- Banner ---------- */
+
+.banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  font-size: 12.5px;
+  margin-bottom: 14px;
+}
+.banner .ico { width: 16px; height: 16px; margin-top: 1px; flex-shrink: 0; }
+.banner-warning { background: var(--amber-dim); border-color: oklch(0.82 0.16 75 / 0.3); color: var(--amber); }
+.banner-info { background: var(--blue-dim); border-color: oklch(0.74 0.14 240 / 0.3); color: var(--blue); }
+.banner-error { background: var(--red-dim); border-color: oklch(0.7 0.2 25 / 0.3); color: var(--red); }
+.banner .title { font-weight: 600; }
+.banner .detail { color: var(--text-2); margin-top: 2px; }
+.banner .actions { margin-left: auto; display: flex; gap: 6px; flex-shrink: 0; }
+
+/* ---------- Empty / loading ---------- */
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 60px 24px;
+  color: var(--text-3);
+}
+.empty .ico-wrap {
+  width: 48px; height: 48px;
+  border-radius: 10px;
+  background: var(--bg-2);
+  display: grid; place-items: center;
+  margin-bottom: 14px;
+  color: var(--text-3);
+}
+.empty .head { font-weight: 600; font-size: 15px; color: var(--text); margin-bottom: 6px; }
+.empty .sub { font-size: 13px; max-width: 360px; margin-bottom: 14px; }
+.empty .actions { display: flex; gap: 8px; }
+
+.skel { background: linear-gradient(90deg, var(--bg-2) 0%, var(--bg-hover) 50%, var(--bg-2) 100%); background-size: 200% 100%; animation: shimmer 1.4s infinite linear; border-radius: 4px; }
+@keyframes shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+
+/* Studio revamp: the live segment of the graph superstep strip. Reuses the
+   shimmer keyframes above rather than adding a second sweep animation. */
+.st-sweep {
+  background: linear-gradient(90deg, transparent 0%, var(--bg-hover) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s infinite linear;
+  pointer-events: none;
+}
+
+/* ---------- Modal ---------- */
+
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: oklch(0 0 0 / 0.5);
+  /* Above the nv overlay scrim (80): the re-hosted pages open shared
+     Modals (ConfirmHost, create dialogs) FROM INSIDE overlays, and at
+     50 those rendered behind the panel - a Delete confirm nobody could
+     click. Below the lightbox (90). */
+  z-index: 85;
+  display: grid;
+  place-items: center;
+  animation: fadeIn 0.15s;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+/* Command palette: gentle scale + fade so it "grows" into place on open. */
+.cmd-palette { animation: paletteIn 0.16s ease-out; }
+@keyframes paletteIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: none; } }
+.modal {
+  background: var(--bg-1);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  width: 420px;
+  max-width: calc(100vw - 40px);
+  max-height: calc(100vh - 40px);
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow);
+}
+.modal-h { padding: 14px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; flex-shrink: 0; }
+.modal-h .title { font-weight: 600; font-size: 14px; }
+.modal-h .close { margin-left: auto; background: none; border: none; cursor: pointer; color: var(--text-3); padding: 0; display: grid; place-items: center; }
+.modal-h .close:hover { color: var(--text); }
+.modal-b { padding: 16px; font-size: 13px; color: var(--text-2); flex: 1; min-height: 0; overflow-y: auto; }
+.modal-b strong { color: var(--text); }
+.modal-b ul { margin: 8px 0 0 16px; padding: 0; }
+.modal-f { padding: 12px 16px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; flex-shrink: 0; }
+
+/* ---------- Form fields ---------- */
+
+.field { margin-bottom: 14px; }
+.field-label {
+  display: block;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-2);
+  margin-bottom: 5px;
+  letter-spacing: 0.005em;
+}
+.field-label .hint { color: var(--text-4); font-weight: 400; margin-left: 6px; }
+.field-help { font-size: 11.5px; color: var(--text-3); margin-top: 4px; }
+.field-help.warn { color: var(--amber); }
+
+.textarea {
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 12.5px;
+  color: var(--text);
+  outline: none;
+  width: 100%;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 60px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+
+/* ---------- KV grid ---------- */
+
+.kv {
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 6px 14px;
+  font-size: 12.5px;
+}
+.kv > dt { color: var(--text-3); padding: 3px 0; font-family: "IBM Plex Mono", monospace; font-size: 11.5px; }
+.kv > dd { color: var(--text); margin: 0; padding: 3px 0; font-family: "IBM Plex Mono", monospace; font-size: 12px; }
+
+/* ---------- Page-specific helpers ---------- */
+
+.session-list-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.session-detail-grid {
+  display: grid;
+  /* minmax(0, 1fr) so the primary column can shrink below its content's
+     intrinsic width — otherwise a wide run-view canvas blows the grid
+     past the viewport and pushes the side rail off-screen. */
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 18px;
+}
+
+.turn-list { display: flex; flex-direction: column; gap: 0; }
+.turn {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  position: relative;
+  padding-bottom: 10px;
+}
+.turn:not(:last-child)::before {
+  content: ""; position: absolute;
+  left: 13px; top: 26px; bottom: 0;
+  width: 1px; background: var(--border);
+}
+.turn-dot {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  background: var(--bg-2);
+  border: 1px solid var(--border-strong);
+  display: grid; place-items: center;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  color: var(--text-2);
+  position: relative;
+  z-index: 1;
+}
+.turn.running .turn-dot { background: var(--blue-dim); border-color: var(--blue); color: var(--blue); animation: spin 2s linear infinite; }
+.turn.failed .turn-dot { background: var(--red-dim); border-color: var(--red); color: var(--red); }
+.turn.ok .turn-dot { background: var(--green-dim); border-color: var(--green); color: var(--green); }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Animated ellipsis used by the chat "Thinking…" placeholder. Each
+ * dot pulses with a staggered phase so the trio reads as a wave
+ * rather than three blinking lights. */
+.thinking-dots span {
+  animation: thinking-dot 1.2s infinite ease-in-out;
+  display: inline-block;
+}
+.thinking-dots span:nth-child(2) { animation-delay: 0.15s; }
+.thinking-dots span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes thinking-dot {
+  0%, 80%, 100% { opacity: 0.25; }
+  40% { opacity: 1; }
+}
+
+/* ---------- Markdown body (chat assistant messages) ---------- */
+/* Scoped under .md-body so the rules can't leak into surrounding UI.
+ * LLM output is borderline unreadable as raw text — headings, bold,
+ * lists, code blocks all need visible affordance. Sizes track the
+ * 13px chat bubble baseline; nothing here should escape the bubble. */
+.md-body > *:first-child { margin-top: 0; }
+.md-body > *:last-child  { margin-bottom: 0; }
+.md-body .md-p { margin: 0 0 8px; }
+.md-body .md-h { margin: 14px 0 6px; line-height: 1.3; font-weight: 600; color: var(--text); }
+.md-body .md-h1 { font-size: 17px; }
+.md-body .md-h2 { font-size: 15.5px; }
+.md-body .md-h3 { font-size: 14px; }
+.md-body .md-h4,
+.md-body .md-h5,
+.md-body .md-h6 { font-size: 13px; color: var(--text-2); }
+.md-body .md-ul,
+.md-body .md-ol { margin: 0 0 8px; padding-left: 20px; }
+.md-body .md-ul li,
+.md-body .md-ol li { margin: 2px 0; }
+.md-body .md-quote {
+  margin: 0 0 8px;
+  padding: 4px 10px;
+  border-left: 3px solid var(--border-strong);
+  color: var(--text-2);
+  background: var(--bg);
+  border-radius: 0 4px 4px 0;
+}
+.md-body .md-hr {
+  margin: 12px 0;
+  border: none;
+  border-top: 1px solid var(--border);
+}
+.md-body .md-code {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 5px;
+  color: var(--text);
+}
+.md-body {
+  min-width: 0;
+  max-width: 100%;
+}
+.md-body .md-pre {
+  margin: 0 0 8px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow-x: auto;
+  max-width: 100%;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.md-body table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+.md-body .md-pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--text);
+  font-size: 12px;
+}
+.md-body a { color: var(--accent); text-decoration: underline; }
+.md-body a:hover { text-decoration: none; }
+.md-body strong { color: var(--text); font-weight: 600; }
+.md-body em { color: var(--text); font-style: italic; }
+
+.turn-body {
+  padding: 4px 0 0 12px;
+  font-size: 12.5px;
+}
+.turn-h { display: flex; align-items: center; gap: 8px; font-weight: 500; }
+.turn-h .time { color: var(--text-3); font-size: 11.5px; font-weight: 400; font-family: "IBM Plex Mono", monospace; }
+.turn-h .dur { color: var(--text-3); font-size: 11.5px; font-weight: 400; font-family: "IBM Plex Mono", monospace; }
+.turn-meta { color: var(--text-3); font-size: 11.5px; margin-top: 2px; }
+
+.tool-call {
+  margin-top: 6px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 5px 9px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11.5px;
+  color: var(--text-2);
+  display: flex; align-items: center; gap: 8px;
+}
+.tool-call .name { color: var(--text); }
+.tool-call .arrow { color: var(--text-4); }
+.tool-call .ok { color: var(--green); margin-left: auto; font-size: 10.5px; }
+.tool-call .fail { color: var(--red); margin-left: auto; font-size: 10.5px; }
+
+.code-block {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text-2);
+  position: relative;
+}
+.code-block .copy {
+  position: absolute; top: 6px; right: 6px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 10.5px;
+  cursor: pointer;
+  color: var(--text-3);
+}
+.code-block .copy:hover { color: var(--text); }
+.code-block .err-line { color: var(--red); }
+.code-block .key { color: var(--violet); }
+.code-block .str { color: var(--green); }
+.code-block .num { color: var(--amber); }
+.code-block .kw { color: var(--blue); }
+.code-block .com { color: var(--text-4); font-style: italic; }
+
+.ref-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+.ref-row:last-child { border-bottom: 0; }
+.ref-row .ico { width: 14px; height: 14px; color: var(--text-3); }
+.ref-row .label { color: var(--text-3); font-family: "IBM Plex Mono", monospace; font-size: 11px; }
+.ref-row .val { color: var(--text); font-family: "IBM Plex Mono", monospace; font-size: 11.5px; flex: 1; }
+.ref-row .val a { color: var(--text); cursor: pointer; text-decoration: none; }
+.ref-row .val a:hover { color: var(--accent); text-decoration: underline; }
+.ref-row .pill { font-size: 10px; padding: 1px 6px; }
+
+/* ---------- Predicate builder ---------- */
+
+.pb-tree {
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12.5px;
+}
+.pb-node { display: flex; flex-direction: column; gap: 6px; position: relative; }
+.pb-node-children { padding-left: 18px; border-left: 1px dashed var(--border-strong); margin-left: 18px; margin-top: 4px; display: flex; flex-direction: column; gap: 6px; padding-top: 2px; padding-bottom: 2px; }
+
+.pb-group-h {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.pb-op-toggle {
+  display: inline-flex;
+  background: var(--bg-2);
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  overflow: hidden;
+}
+.pb-op-toggle button {
+  background: none; border: none;
+  padding: 2px 8px;
+  cursor: pointer;
+  color: var(--text-3);
+  font: inherit;
+}
+.pb-op-toggle button.active { background: var(--accent); color: var(--accent-fg); }
+
+.pb-clause {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.pb-clause select, .pb-clause input {
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 11.5px;
+  font-family: inherit;
+  color: var(--text);
+  outline: none;
+}
+.pb-clause select:focus, .pb-clause input:focus { border-color: var(--accent); }
+.pb-clause .delete { margin-left: auto; opacity: 0; transition: 0.1s; cursor: pointer; color: var(--text-3); background: none; border: none; }
+.pb-clause:hover .delete { opacity: 1; }
+.pb-clause .delete:hover { color: var(--red); }
+.pb-clause .warn-mark {
+  color: var(--amber);
+  cursor: help;
+  font-size: 12px;
+}
+
+.pb-add {
+  background: none;
+  border: 1px dashed var(--border-strong);
+  border-radius: 5px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-family: inherit;
+  color: var(--text-3);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: max-content;
+}
+.pb-add:hover { color: var(--accent); border-color: var(--accent); }
+
+/* ---------- Sparkline ---------- */
+
+.spark { display: inline-block; vertical-align: middle; }
+.spark path { stroke: var(--accent); stroke-width: 1.5; fill: none; }
+.spark .area { fill: var(--accent-dim); stroke: none; }
+
+/* ---------- Gauge ---------- */
+
+.gauge { font-variant-numeric: tabular-nums; }
+
+/* ---------- Util ---------- */
+
+.row { display: flex; gap: 8px; align-items: center; }
+.col { display: flex; flex-direction: column; gap: 8px; }
+.spacer { flex: 1; }
+.muted { color: var(--text-3); }
+.text-sm { font-size: 11.5px; }
+.mb-2 { margin-bottom: 8px; }
+.mb-3 { margin-bottom: 12px; }
+.mb-4 { margin-bottom: 16px; }
+.mt-2 { margin-top: 8px; }
+.mt-3 { margin-top: 12px; }
+.mt-4 { margin-top: 16px; }
+.tabular { font-variant-numeric: tabular-nums; }
+
+/* Rotation used by the internal-collections bootstrap progress
+   indicator. Scoped with an ic- prefix so it doesn't collide with the
+   auth-screen's auth-spin keyframes. */
+@keyframes ic-bootstrap-spin { to { transform: rotate(360deg); } }
+
+/* ---- IBM Plex Sans + Mono (self-hosted, latin subset) ---- */
+/* The designer identity (new-ui handoff) returns to IBM Plex Sans;
+   variable font covers weights 100..700 in a single ~45KB file. */
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 100 700;
+  font-display: swap;
+  src: url('vendor/fonts/IBMPlexSans-VF-latin.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('vendor/fonts/IBMPlexMono-Regular-latin.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('vendor/fonts/IBMPlexMono-Medium-latin.woff2') format('woff2');
+}
+
+/* responsive */
+@media (max-width: 1100px) {
+  .session-detail-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 900px) {
+  .app { grid-template-columns: 56px 1fr; }
+  .sidebar .nav-item .label,
+  .sidebar .nav-item .count,
+  .sidebar .nav-group { display: none; }
+  .topbar-brand { width: 56px; }
+  .topbar-brand .name, .topbar-brand .instance { display: none; }
+  .topbar-search { max-width: 200px; }
+}
+
+/* ---- Auth screens (register / login) ------------------------------ */
+
+.auth-shell {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  position: relative;
+  overflow: hidden;
+  background: var(--bg);
+}
+.auth-shell::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image:
+    radial-gradient(circle at 20% 30%, var(--accent-dim), transparent 50%),
+    radial-gradient(circle at 80% 70%, oklch(0.7 0.18 240 / 0.06), transparent 50%),
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 32px 32px, 32px 32px;
+  opacity: 0.55;
+  pointer-events: none;
+  mask-image: radial-gradient(circle at 50% 50%, black 30%, transparent 75%);
+}
+.auth-wrap {
+  width: 380px;
+  max-width: calc(100vw - 32px);
+  position: relative;
+  z-index: 1;
+}
+.auth-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: center;
+  margin-bottom: 28px;
+}
+.auth-brand .mark {
+  width: 32px;
+  height: 32px;
+  color: var(--text);
+  display: grid;
+  place-items: center;
+}
+.auth-brand .name {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+.auth-card {
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.auth-card .auth-h {
+  padding: 18px 22px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.auth-card .auth-h .title {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  margin: 0 0 2px;
+  color: var(--text);
+}
+.auth-card .auth-h .sub {
+  font-size: 12px;
+  color: var(--text-3);
+}
+.auth-card .auth-h .instance {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  color: var(--text-2);
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  padding: 2px 7px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 8px;
+}
+.auth-card .auth-h .instance .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 0 3px var(--green-dim);
+}
+.auth-card .auth-body { padding: 18px 22px 22px; }
+
+.auth-field { margin-bottom: 12px; }
+.auth-field > label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 11.5px;
+  color: var(--text-2);
+  margin-bottom: 5px;
+  font-weight: 500;
+}
+.auth-field input {
+  width: 100%;
+  padding: 8px 11px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  outline: none;
+  font-size: 13px;
+  box-sizing: border-box;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.auth-field input.mono {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12.5px;
+}
+.auth-field input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+.auth-field input::placeholder { color: var(--text-4); }
+.auth-field .field-err {
+  margin-top: 5px;
+  font-size: 11.5px;
+  color: var(--red);
+  font-family: "IBM Plex Mono", monospace;
+}
+.auth-field.has-err input { border-color: var(--red); }
+
+.auth-pwd-row { position: relative; }
+.auth-pwd-row input { padding-right: 36px; }
+.auth-pwd-row .toggle {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-3);
+  cursor: pointer;
+  padding: 4px;
+  display: grid;
+  place-items: center;
+  border-radius: 4px;
+}
+.auth-pwd-row .toggle:hover { color: var(--text); background: var(--bg); }
+
+.auth-remember {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 0 16px;
+  font-size: 12px;
+  color: var(--text-2);
+  cursor: pointer;
+  user-select: none;
+}
+.auth-remember input { width: auto; margin: 0; cursor: pointer; }
+
+.auth-submit {
+  width: 100%;
+  background: var(--accent);
+  color: var(--accent-fg);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 9px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.15s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.auth-submit:hover { background: var(--accent-2); border-color: var(--accent-2); }
+.auth-submit:active { transform: translateY(1px); }
+.auth-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+/* Shared beyond auth: the workspaces "New workspace" Create button (studio-ux
+   fix 5) reuses this same inline spinner + keyframe for its in-flight state. */
+.auth-submit .spinner,
+.btn .spinner {
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: auth-spin 0.7s linear infinite;
+}
+@keyframes auth-spin { to { transform: rotate(360deg); } }
+
+.auth-sso { margin-top: 4px; }
+
+.auth-or {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0 12px;
+  font-size: 11px;
+  color: var(--text-3);
+}
+.auth-or::before,
+.auth-or::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.auth-sso-btn {
+  width: 100%;
+  background: var(--bg-1);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 9px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.15s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+.auth-sso-btn:hover { background: var(--bg-2); border-color: var(--border-strong); }
+.auth-sso-btn:active { transform: translateY(1px); }
+
+.auth-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  margin-bottom: 12px;
+  background: var(--red-dim);
+  border: 1px solid oklch(0.7 0.2 25 / 0.3);
+  color: var(--red);
+  border-radius: 6px;
+  font-size: 12px;
+}
+.auth-banner .title { font-weight: 600; }
+.auth-banner .detail { color: var(--text-2); font-size: 11.5px; margin-top: 1px; }
+.auth-banner .req-id {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10.5px;
+  color: var(--text-3);
+  margin-top: 4px;
+}
+
+.auth-foot {
+  text-align: center;
+  margin-top: 22px;
+  font-size: 11.5px;
+  color: var(--text-3);
+  font-family: "IBM Plex Mono", monospace;
+}
+.auth-foot .sep { color: var(--text-4); margin: 0 8px; }
+
+/* ---------- Mobile design tokens ---------------------------------- */
+:root {
+  --mobile-pad-x: 16px;
+  --mobile-pad-y: 12px;
+  --tap-min: 44px;
+  --fab-size: 56px;
+}
+
+/* ---------- Touch-target utility (used outside the media block too) -- */
+.touch-target {
+  min-width: var(--tap-min);
+  min-height: var(--tap-min);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ---------- Mobile (< 640px) ---------------------------------------- */
+@media (max-width: 639px) {
+  .desktop-only { display: none !important; }
+  .mobile-only { display: revert; }
+
+  /* Path-addressed document browser: stack the path list above the
+     content pane so each gets the full sheet width on a phone. */
+  .kn-doc-browser { grid-template-columns: 1fr !important; }
+
+  /* Hide existing sidebar in favor of slide-over drawer. */
+  .app { grid-template-columns: 1fr; }
+  .sidebar { display: none; }
+
+  /* ---- Studio: collapse the 3-column body to the single center document.
+     The left (Sessions+Files) and right (Action Required+Activity) columns
+     become slide-over sheets toggled from the slim sub-header. ---- */
+  /* The wide ⌘K trigger gives way to the compact mobile search button. */
+  .st-palette-trigger { display: none; }
+  /* Integrated terminal (P7): hidden on phones for v1 — xterm.js + a raw PTY
+     needs keyboard/paste affordances the touch shell doesn't have room for.
+     studio.jsx still renders TerminalPanel when terminalOpen is true; this
+     purely visually hides it (no JS gate) so re-enabling later is a CSS-only
+     change. */
+  .st-term-panel { display: none; }
+  /* Re-assert grid centering on the mobile-only sub-header buttons — the
+     generic `.mobile-only { display: revert }` above would otherwise drop
+     `.st-hbtn`'s `display: grid` back to the UA inline-block default. */
+  .st-topbar .st-hbtn.mobile-only { display: grid; }
+  .st-body { grid-template-columns: 1fr; }
+  .st-col-left,
+  .st-col-right {
+    position: fixed;
+    top: 0; bottom: 0;
+    width: 85vw; max-width: 340px;
+    z-index: 51;
+    box-shadow: var(--shadow);
+    transition: transform 0.18s ease;
+  }
+  .st-col-left {
+    left: 0;
+    border-right: 1px solid var(--border);
+    transform: translateX(-100%);
+  }
+  .st-col-right {
+    right: 0;
+    border-left: 1px solid var(--border);
+    transform: translateX(100%);
+  }
+  .st-col-left.is-drawer-open,
+  .st-col-right.is-drawer-open { transform: translateX(0); }
+  .st-panel-overlay {
+    position: fixed; inset: 0;
+    background: oklch(0 0 0 / 0.5);
+    z-index: 50;
+  }
+
+  /* Topbar: hamburger left, brand + theme toggle right. */
+  .topbar-brand { padding-left: 8px; }
+  .topbar-search,
+  .topbar .breadcrumbs { display: none; }
+
+  /* Slide-over drawer + backdrop. */
+  .drawer-overlay {
+    position: fixed; inset: 0;
+    background: oklch(0 0 0 / 0.5);
+    z-index: 50;
+  }
+  .drawer {
+    position: fixed; top: 0; left: 0; bottom: 0;
+    width: 85vw; max-width: 320px;
+    background: var(--bg-1);
+    border-right: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    transform: translateX(-100%);
+    transition: transform 0.18s ease;
+    z-index: 51;
+    overflow-y: auto;
+  }
+  .drawer.open { transform: translateX(0); }
+  /* The mobile sweep hides .sidebar globally; reveal the Sidebar instance
+     that MobileNav renders inside the drawer, and force-expand it so the
+     labels show regardless of the desktop sidebar's collapsed state.
+     Two earlier rules conspire to empty the drawer:
+       (a) the @media (max-width: 900px) block at line ~1189 hides
+           .sidebar .nav-item .label, .nav-item .count, .nav-group
+           on every sidebar — fires here too.
+       (b) the .sidebar.is-collapsed rules at line ~123 hide the same
+           plus .nav-pill-on/.nav-pill-off and .sidebar-foot span
+           when the desktop sidebar was collapsed.
+     The reveals below override both with higher specificity. */
+  .drawer .sidebar { display: flex; width: 100%; border-right: none; }
+  .drawer .sidebar .nav-group { display: revert; }
+  .drawer .sidebar .nav-item .label,
+  .drawer .sidebar .nav-item .count { display: revert; min-width: var(--tap-min); min-height: var(--tap-min); }
+  .drawer .sidebar.is-collapsed .nav-pill-on,
+  .drawer .sidebar.is-collapsed .nav-pill-off,
+  .drawer .sidebar.is-collapsed .sidebar-foot span { display: revert; }
+  .drawer .sidebar.is-collapsed .nav-item { justify-content: flex-start; padding: 6px 12px; min-width: var(--tap-min); min-height: var(--tap-min); }
+  .drawer .sidebar.is-collapsed .sidebar-foot { justify-content: flex-start; }
+
+  /* Modal becomes bottom sheet. */
+  .sheet-overlay {
+    position: fixed; inset: 0;
+    background: oklch(0 0 0 / 0.5);
+    z-index: 50;
+    display: flex; align-items: flex-end;
+  }
+  .sheet {
+    width: 100%;
+    max-height: 90vh;
+    background: var(--bg-1);
+    border-radius: 16px 16px 0 0;
+    border: 1px solid var(--border-strong);
+    box-shadow: var(--shadow);
+    display: flex; flex-direction: column;
+    animation: sheet-slide-up 0.18s ease;
+  }
+  @keyframes sheet-slide-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  .sheet-handle {
+    width: 36px; height: 4px;
+    background: var(--border-strong);
+    border-radius: 2px;
+    margin: 8px auto;
+  }
+  .sheet-h {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 14px 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sheet-b { padding: 14px; overflow-y: auto; flex: 1; }
+  .sheet-f {
+    border-top: 1px solid var(--border);
+    padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+    display: flex; gap: 8px; justify-content: flex-end;
+  }
+
+  /* Card list. */
+  .card-list { display: flex; flex-direction: column; gap: 8px; padding: var(--mobile-pad-y) var(--mobile-pad-x); }
+  .card-list-empty { padding: var(--mobile-pad-y) var(--mobile-pad-x); color: var(--text-3); text-align: center; }
+  .card {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    min-height: var(--tap-min);
+  }
+  .card-interactive { cursor: pointer; min-width: var(--tap-min); min-height: var(--tap-min); }
+  .card-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .card-title-wrap { min-width: 0; flex: 1; }
+  .card-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .card-subtitle { color: var(--text-2); font-size: 12.5px; margin-top: 2px; }
+  .card-body { margin-top: 8px; }
+  .card-meta { color: var(--text-3); font-size: 12px; margin-top: 8px; }
+
+  /* Floating action button. */
+  .fab {
+    position: fixed;
+    right: var(--mobile-pad-x);
+    bottom: calc(var(--mobile-pad-y) + env(safe-area-inset-bottom));
+    width: var(--fab-size); height: var(--fab-size);
+    min-width: var(--tap-min); min-height: var(--tap-min);
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--accent-fg);
+    box-shadow: var(--shadow);
+    z-index: 40;
+    display: grid; place-items: center;
+    border: none; cursor: pointer;
+  }
+
+  /* MobileTabs. */
+  .mobile-tabs-wrap { display: flex; flex-direction: column; min-width: var(--tap-min); min-height: var(--tap-min); }
+  .mobile-tabs {
+    display: flex; gap: 4px;
+    border-bottom: 1px solid var(--border);
+    padding: 0 var(--mobile-pad-x);
+    background: var(--bg-1);
+    position: sticky; top: 48px; z-index: 5;
+    overflow-x: auto;
+    min-width: var(--tap-min); min-height: var(--tap-min);
+  }
+  .mobile-tab {
+    background: transparent;
+    border: none;
+    color: var(--text-2);
+    padding: 10px 14px;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    white-space: nowrap;
+    font-size: 13px;
+    min-width: var(--tap-min); min-height: var(--tap-min);
+  }
+  .mobile-tab.active { color: var(--text); border-bottom-color: var(--accent); min-width: var(--tap-min); min-height: var(--tap-min); }
+  .mobile-tab-panel { flex: 1; min-height: var(--tap-min); min-width: var(--tap-min); }
+
+  /* Hamburger. */
+  .hamburger {
+    background: transparent;
+    border: none;
+    color: var(--text);
+    cursor: pointer;
+    padding: 8px;
+    min-width: var(--tap-min); min-height: var(--tap-min);
+  }
+
+  /* Prevent iOS zoom-on-focus. */
+  input, textarea, select { font-size: 16px; }
+
+  .metric-grid-mobile {
+    display: flex !important;
+    flex-direction: column;
+    gap: 8px;
+    padding: var(--mobile-pad-y) var(--mobile-pad-x);
+  }
+  .metric-grid-mobile > * { width: 100%; }
+
+  /* Mobile chat layout. The slim header pins back-arrow / title /
+     kebab so the message list and sticky composer can claim the
+     remaining vertical space. */
+  .chat-mobile-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .chat-mobile-header .title {
+    flex: 1; min-width: 0;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .composer-sticky {
+    position: sticky;
+    bottom: 0;
+    background: var(--bg-1);
+    border-top: 1px solid var(--border);
+    padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+    z-index: 5;
+  }
+
+  .knowledge-mobile-back {
+    display: flex; align-items: center; gap: 4px;
+    padding: 10px var(--mobile-pad-x);
+    background: var(--bg-1);
+    border-bottom: 1px solid var(--border);
+    color: var(--text-2);
+    cursor: pointer;
+  }
+
+  .ic-mobile-stack { display: flex; flex-direction: column; gap: 8px; }
+  .ic-mobile-stack > * { width: 100% !important; }
+
+  .ssp-mobile-stack { display: flex; flex-direction: column; gap: 8px; }
+
+  .json-expand-overlay {
+    position: fixed; inset: 0;
+    background: var(--bg-1);
+    z-index: 60;
+    display: flex; flex-direction: column;
+  }
+  .json-expand-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px var(--mobile-pad-x);
+    border-bottom: 1px solid var(--border);
+  }
+  .json-expand-textarea {
+    flex: 1; resize: none; border: none; border-radius: 0;
+    padding: 12px;
+  }
+  .json-expand {
+    background: transparent;
+    border: 1px dashed var(--border);
+    color: var(--text-2);
+    padding: 6px 10px;
+    border-radius: 6px;
+    margin-top: 4px;
+  }
+
+  .harness-form-mobile { display: flex; flex-direction: column; gap: 12px; }
+  .harness-form-mobile > * { width: 100% !important; grid-column: unset !important; }
+
+  /* Reduced motion. */
+  @media (prefers-reduced-motion: reduce) {
+    .drawer, .sheet { animation: none !important; transition: none !important; }
+  }
+}
+
+/* ---------- Desktop (≥ 640px) — utility-class inversion ------------- */
+@media (min-width: 640px) {
+  .mobile-only { display: none !important; }
+  .desktop-only { display: revert; }
+}
+
+/* ============================================================================
+   Chat header control cluster + agent-switch overlay (fix/studio-ux, PR #114)
+   ----------------------------------------------------------------------------
+   C1/C2: the session detail header is one row now. The agent
+   selector, the schema toggle, and the TokenMeter (token pill + compact
+   button) are grouped into a single subtle bordered cluster inside
+   `.panel-h .right`; the connection badge + status pill trail it.
+
+   C3: the agent selector's old cramped inline `.popover` is replaced by a
+   centered, command-palette-style modal (mirrors StudioCommandPalette /
+   QuickOpen in studio-palette.jsx) — dimmed backdrop, ~520px card, large
+   autofocused search, a scrollable id+description results list with a
+   "current" marker and ↑/↓/Enter/Esc keyboard nav. Opened by the trigger
+   button or the ⌘/Ctrl+Shift+A shortcut (C4).
+   ========================================================================== */
+
+.chat-header-cluster {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 5px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-1);
+}
+.chat-header-cluster:hover { border-color: var(--border-strong); }
+/* Keep every grouped control the same visual height + baseline. */
+.chat-header-cluster > * { flex: 0 0 auto; }
+.chat-header-cluster .chip { padding: 3px 8px; }
+
+/* --- centered agent-switch overlay (command-palette style) --- */
+.agent-overlay-backdrop {
+  position: fixed;
+  inset: 0;
+  background: oklch(0 0 0 / 0.5);
+  z-index: 60;
+  display: flex;
+  justify-content: center;
+  padding-top: 12vh;
+}
+.agent-overlay-card {
+  width: 520px;
+  max-width: calc(100vw - 32px);
+  height: max-content;
+  max-height: 64vh;
+  background: var(--bg-1);
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.agent-overlay-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.agent-overlay-search-icon { color: var(--text-3); flex: 0 0 auto; }
+.agent-overlay-input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  outline: none;
+  color: var(--text);
+  font-size: 14px;
+}
+.agent-overlay-input::placeholder { color: var(--text-4); }
+.agent-overlay-close {
+  flex: 0 0 auto;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 6px;
+  color: var(--text-3);
+  cursor: pointer;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.agent-overlay-close:hover { color: var(--text); border-color: var(--border-strong); }
+.agent-overlay-list {
+  overflow: auto;
+  padding: 6px;
+  min-height: 0;
+}
+.agent-overlay-empty {
+  padding: 20px;
+  text-align: center;
+  color: var(--text-4);
+  font-size: 12px;
+}
+.agent-overlay-item {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+.agent-overlay-item.active { background: var(--bg-active); }
+.agent-overlay-item[aria-disabled="true"] { cursor: default; opacity: 0.75; }
+.agent-overlay-item-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.agent-overlay-item-id { color: var(--text); font-size: 13px; }
+.agent-overlay-item-desc {
+  color: var(--text-3);
+  font-size: 11.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.agent-overlay-current {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--accent);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+/* ==========================================================================
+   Chat header cluster controls — green icon/compact buttons (Fix 2,
+   fix/studio-debug-rail-polish)
+   --------------------------------------------------------------------------
+   The /chats desktop header cluster's three controls (agent / schema /
+   compact) are green-accented: `.chat-cbtn` is a ~30px green-tinted circular
+   icon button (agent trigger + schema toggle); `.chat-cbtn-compact` extends
+   it into a rounded pill that carries the live token count. Green matches the
+   app accent (var(--green) / var(--green-dim), same as .pill-ended / the
+   composer Send accent). Height + baseline line up with the cluster's other
+   controls and the panel title.
+   ========================================================================== */
+.chat-cbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--green-dim);
+  background: var(--green-dim);
+  color: var(--green);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.chat-cbtn:hover:not(:disabled) {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+}
+.chat-cbtn.active,
+.chat-cbtn[aria-pressed="true"] {
+  background: var(--green);
+  border-color: var(--green);
+  color: #fff;
+}
+.chat-cbtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+/* Compact carries text (the token count), so it's a rounded pill, not a
+   circle. */
+.chat-cbtn-compact {
+  width: auto;
+  border-radius: 999px;
+  gap: 5px;
+  padding: 0 11px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Studio debug-rail expand handle (studio-activity.jsx). The base background
+   lives here (not inline) so the :hover highlight can win — an inline
+   `background` would out-specify a stylesheet :hover. Collapsed (`is-rail`) the
+   whole 40px strip is the button, so it needs an unmistakable hover fill; the
+   pointer cursor is set inline. Tokens (--bg-hover / --bg-2) are theme-aware,
+   so the affordance is legible in both light and dark. */
+.st-debug-toggle {
+  background: transparent;
+  transition: background 0.12s ease;
+}
+.st-debug-toggle:hover { background: var(--bg-hover); }
+.st-debug-toggle.is-rail:hover { background: var(--bg-2); }
+
+/* ---- Switch toggle -----------------------------------------------------
+   A real on/off control rather than a checkbox, for settings where the
+   state reads as a mode ("Start immediately") rather than a list
+   selection. role="switch" carries the semantics; this is presentation
+   only. The 44px hit area comes from .switch-row padding so the control
+   clears the mobile touch-target floor without a 44px-tall visual. */
+.switch-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+}
+.switch-toggle {
+  position: relative;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 20px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-2);
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+.switch-toggle.on {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.switch-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--text-3);
+  transition: transform 120ms ease, background 120ms ease;
+}
+.switch-toggle.on .switch-knob {
+  transform: translateX(14px);
+  background: var(--accent-fg);
+}
+.switch-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.switch-label { cursor: pointer; user-select: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .switch-toggle, .switch-knob { transition: none; }
+}
+/* First-run setup wizard (S5). Hosted inside .auth-card by
+   SetupWizardGate and, from S8, inside the studio shell; the classes
+   below deliberately style ONLY the step sequence's own chrome so the
+   embeddable component looks right in either host. */
+.setup-steps { display: block; }
+.setup-progress {
+  padding: 14px 22px 0;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+/* Six-predicate checklist (R5). Shared by the console's admin Setup page
+   and the first-boot SetupWizardGate — like .setup-steps above, this
+   styles only the list's own chrome so it looks right in either host. */
+.setup-predicates { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.setup-predicate { display: flex; align-items: center; gap: 8px; padding: 8px 4px; flex-wrap: wrap; border-bottom: 1px solid var(--border); }
+.setup-predicate:last-child { border-bottom: none; }
+.setup-predicate-dot { width: 16px; text-align: center; font-weight: 700; }
+.setup-predicate-dot.ok { color: var(--green, #2e7d32); }
+.setup-predicate-dot.missing { color: var(--red, #c0392b); }
+.setup-predicate-label { flex: 1; min-width: 160px; font-size: 13px; }
+.setup-predicate-detail { flex-basis: 100%; }
+.setup-predicate-fix { flex: none; }
+.auth-field select {
+  width: 100%;
+  padding: 8px 11px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  outline: none;
+  font-size: 13px;
+  box-sizing: border-box;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.auth-field select.mono {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 12.5px;
+}
+.auth-field select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+.sh-topbar-menu-panel .sh-verb { justify-content: flex-start; }
+
+/* ---- Verb buttons (the shell's universal action affordance) ---------- */
+
+.sh-verb {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font: inherit;
+  font-size: var(--fs-12);
+  color: var(--text-2);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--r-6);
+  padding: 3px 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  line-height: 1.5;
+  transition: background 150ms ease, color 150ms ease,
+    border-color 150ms ease;
+}
+.sh-verb:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--bg-hover);
+  border-color: var(--border);
+}
+.sh-verb:disabled { opacity: 0.45; cursor: default; }
+.sh-verb:focus-visible {
+  outline: 2px solid var(--accent-border);
+  outline-offset: 1px;
+}
+.sh-rail-verbs .sh-verb { padding: 1px 5px; font-size: var(--fs-11); }
+
+/* Changed-on-disk banner (revamp section 6): attention-colored, never
+   a modal - the operator keeps reading while deciding. */
+.sh-file-conflict {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: var(--sp-2) var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-12);
+  color: var(--text);
+  background: var(--attention-dim);
+  border: 1px solid var(--attention-border);
+  border-left: 3px solid var(--attention);
+  border-radius: var(--r-6);
+}
+.sh-file-conflict span { flex: 1; min-width: 0; }
+.sh-file-menu a.sh-verb { text-decoration: none; }
+
+/* Empty states: message above action, never overlapping (audit fix). */
+.sh-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  color: var(--text-3);
+  font-size: var(--fs-12);
+  padding: var(--sp-2) var(--sp-3);
+  list-style: none;
+}
+
+/* The empty-state action is a REAL secondary button, not a ghost that
+   reads as disabled (audit fix: gray-on-gray Create Session). */
+.sh-empty button {
+  font: inherit;
+  font-size: var(--fs-12);
+  color: var(--text-2);
+  background: var(--bg-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-6);
+  padding: 5px 10px;
+  cursor: pointer;
+  transition: background 150ms ease, color 150ms ease;
+}
+.sh-empty button:hover { background: var(--bg-hover); color: var(--text); }
+
+.sh-center > .sh-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--fs-13);
+}
+.sh-tab .sh-verb { padding: 0 3px; }
+.sh-binding-menu .sh-verb { justify-content: flex-start; width: 100%; }
+.sh-decision-actions .sh-verb { border-color: var(--border-strong); background: var(--bg-elev); color: var(--text); }
+
+/* The Activity console. */
+.sh-activity { display: flex; flex-direction: column; gap: var(--sp-3); min-height: 0; }
+.sh-activity-bar { display: flex; gap: var(--sp-2); flex-wrap: wrap; align-items: center; }
+.sh-activity-tablewrap { overflow: auto; min-height: 0; }
+.sh-activity-table { border-collapse: collapse; width: 100%; font-size: var(--fs-12); }
+.sh-activity-table th {
+  text-align: left;
+  font-size: var(--fs-11);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  padding: var(--sp-1) var(--sp-2);
+  border-bottom: 1px solid var(--border-strong);
+  position: sticky;
+  top: 0;
+  background: var(--bg);
+}
+.sh-activity-table td {
+  padding: var(--sp-1) var(--sp-2);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 320px;
+}
+.sh-activity-foot { display: flex; align-items: center; gap: var(--sp-2); }
+.sh-activity-count { font-size: var(--fs-11); color: var(--text-3); }
+.sh-activity-subs { display: flex; flex-direction: column; gap: var(--sp-2); border-top: 1px solid var(--border); padding-top: var(--sp-3); min-height: 0; }
+.sh-activity-subs-title { font-size: var(--fs-12); font-weight: 600; color: var(--text); }
+.sh-overlay-bar > button.sh-verb { flex: none; white-space: nowrap; }
+.sh-group .sh-empty { margin: auto; }
+
+.sh-admin-search {
+  max-width: 320px;
+  font: inherit;
+  font-size: var(--fs-12);
+  color: var(--text);
+  background: var(--bg-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-6);
+  padding: 6px 10px;
+}
+.sh-admin-search::placeholder { color: var(--text-4); }
+.sh-admin-search:focus-visible {
+  outline: 2px solid var(--accent-border);
+  outline-offset: 1px;
+}
+
+@media (max-width: 860px) {
+}
+
+/* Motion respects the reader (spec 9): reduced motion renders final
+   states immediately. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+/* Shell refinements from the first visual pass. */
+
+/* Per-row rail verbs are hover affordances, not permanent chrome. */
+.sh-rail-row .sh-verb { display: none; }
+.sh-rail-row:hover .sh-verb,
+.sh-rail-row:focus-within .sh-verb { display: inline-flex; }
+
+/* ===========================================================================
+   nv-* — the three-view console (new-ui designer handoff, wiring plan).
+   Ported from the prototype's inline styles onto classes; all values ride
+   the token system above. Lives beside sh-* until the P7 flag day.
+   =========================================================================== */
+
+@keyframes nv-pop-in { from { opacity: 0; transform: scale(0.985); } to { opacity: 1; transform: none; } }
+@keyframes nv-rise-in { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes nv-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+.nv-root {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+/* Activity bar */
+.nv-actbar {
+  width: 46px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 0;
+  background: var(--bg-1);
+  border-right: 1px solid var(--border);
+}
+.nv-actbar-logo {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+.nv-actbar-btn {
+  width: var(--hit);
+  height: var(--hit);
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: var(--r-6);
+  cursor: pointer;
+  background: transparent;
+  color: var(--text-3);
+  transition: background 150ms ease, color 150ms ease;
+}
+.nv-actbar-btn:hover { color: var(--text); }
+.nv-actbar-btn[data-active="true"] { background: var(--accent-dim); color: var(--accent); }
+.nv-actbar-btn:focus-visible { outline: 2px solid var(--accent-border); outline-offset: 1px; }
+.nv-actbar-spacer { flex: 1; }
+.nv-avatar {
+  width: var(--hit);
+  height: var(--hit);
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-2);
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+.nv-avatar:hover { border-color: var(--accent-border); color: var(--text); }
+
+/* Main column + top bar */
+.nv-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.nv-topbar {
+  height: 46px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  background: var(--bg-1);
+  border-bottom: 1px solid var(--border);
+  position: relative;
+  z-index: 60;
+}
+/* uiv2 Wave 1 (01a06431): the topbar workspace chip un-retires US-012b
+   (2026-08-29, item 3) - the mockup shows the chip and the rail tree
+   coexisting (chip = always-visible entry point, rail = detailed
+   browse), so this is a deliberate un-revert, not a redundant rebuild.
+   Fresh classnames (.nv-ws-chip/.nv-ws-menu), not the old removed
+   .nv-ws-btn/.nv-menu-scroll ones - the row/footer shape here differs
+   (dim mono id per row, green "+ New workspace…" footer row). */
+.nv-ws-wrap { position: relative; flex-shrink: 0; }
+.nv-ws-chip {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 28px;
+  padding: 0 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-8);
+  background: var(--bg-2);
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.nv-ws-chip:hover { border-color: var(--accent-border); color: var(--text); }
+.nv-ws-chip-name {
+  max-width: 160px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nv-ws-menu {
+  position: absolute;
+  top: 34px;
+  left: 0;
+  width: 240px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-8);
+  box-shadow: var(--shadow);
+  padding: 5px;
+  z-index: 60;
+  animation: nv-pop-in 0.14s ease-out;
+}
+.nv-ws-menu-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 9px;
+  border: none;
+  border-radius: var(--r-6);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.nv-ws-menu-row:hover { background: var(--bg-hover); }
+.nv-ws-menu-row[data-current="true"] { background: var(--accent-dim); color: var(--accent); }
+.nv-ws-menu-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nv-ws-menu-id { font-size: 10.5px; color: var(--text-4); flex-shrink: 0; }
+.nv-ws-menu-new {
+  display: block;
+  width: 100%;
+  padding: 7px 9px;
+  border: none;
+  border-radius: var(--r-6);
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.nv-ws-menu-new:hover { background: var(--accent-dim); }
+/* Shared dropdown panel (session-doc menus, profile menu, workspace
+   menu). .nv-menu/.nv-menu-row/.nv-menu-sep are reused as the divider
+   above; nv-session-doc.jsx and nv-chrome.jsx's profile menu also
+   render against them. */
+.nv-menu {
+  position: absolute;
+  top: 40px;
+  left: 0;
+  width: 250px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-8);
+  box-shadow: var(--shadow);
+  padding: 5px;
+  z-index: 60;
+  animation: nv-pop-in 0.14s ease-out;
+}
+.nv-menu-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  border-radius: var(--r-6);
+  cursor: pointer;
+  color: var(--text);
+  border: none;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+}
+.nv-menu-row:hover { background: var(--bg-hover); }
+.nv-menu-sep { height: 1px; background: var(--border); margin: 5px 4px; }
+
+/* Search field-button */
+.nv-search-wrap { flex: 1; display: flex; justify-content: center; min-width: 0; }
+.nv-search-btn {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: min(460px, 100%);
+  min-height: var(--hit);
+  padding: 5px 8px 5px 11px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--bg-2);
+  color: var(--text-3);
+  font-size: 12px;
+  cursor: pointer;
+}
+.nv-search-btn:hover { border-color: var(--border-strong); color: var(--text-2); }
+.nv-search-btn .nv-search-hint { flex: 1; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nv-kbd {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  color: var(--text-3);
+}
+
+/* Studio-only toggles (terminal, then events) */
+.nv-topbar-toggles { display: flex; align-items: center; gap: 6px; }
+.nv-topbar-toggle {
+  width: var(--hit);
+  height: var(--hit);
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  background: var(--bg-2);
+  border-radius: var(--r-6);
+  color: var(--text-3);
+  cursor: pointer;
+}
+.nv-topbar-toggle:hover { border-color: var(--border-strong); color: var(--text); }
+.nv-topbar-toggle[data-active="true"] {
+  border-color: var(--accent-border);
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+/* Profile menu (fixed beside the activity bar's bottom) */
+.nv-profile-menu {
+  position: fixed;
+  left: 54px;
+  bottom: 12px;
+  width: 240px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-8);
+  box-shadow: var(--shadow);
+  padding: 5px;
+  z-index: 70;
+  animation: nv-pop-in 0.14s ease-out;
+}
+.nv-profile-head { display: flex; align-items: center; gap: 9px; padding: 8px 9px 9px; }
+.nv-profile-head .nv-avatar { cursor: default; }
+.nv-profile-name { font-weight: 600; font-size: 12.5px; }
+.nv-profile-role { font-family: var(--font-mono); font-size: 10px; color: var(--text-3); }
+.nv-seg {
+  display: flex;
+  gap: 2px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-6);
+  padding: 2px;
+  margin: 0 6px 6px;
+}
+.nv-seg button {
+  flex: 1;
+  padding: 4px 0;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11.5px;
+  background: transparent;
+  color: var(--text-3);
+  font-weight: 600;
+}
+.nv-seg button[data-active="true"] { background: var(--bg-elev); color: var(--text); }
+
+/* View host placeholder (real views land in P2/P4/P5) */
+.nv-view { flex: 1; min-height: 0; display: flex; }
+.nv-view-pending {
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+  color: var(--text-3);
+  font-size: var(--fs-12);
+}
+
+/* Palette (P1 T5) */
+.nv-scrim {
+  position: fixed;
+  inset: 0;
+  background: var(--scrim);
+  z-index: 80;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 12vh;
+}
+/* uiv2 Wave 1: the palette's own scrim dims heavier than the shared
+   .nv-scrim other overlays use (mockup - the app behind it barely
+   reads) - .nv-scrim itself is reused by nv-overlays.jsx below with a
+   DIFFERENT layout (grid/place-items, defined later in this file, so
+   its shared `background` declaration would otherwise win the cascade
+   for every .nv-scrim including this one). The testid attribute
+   selector scopes the override to the palette's own instance only. */
+[data-testid="nv-palette-scrim"] { background: oklch(0 0 0 / 0.72); }
+.nv-palette {
+  width: min(580px, 90vw);
+  max-height: 62vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-elev);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-10);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  animation: nv-pop-in 0.14s ease-out;
+}
+.nv-palette-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.nv-palette-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 14px;
+  color: var(--text);
+}
+.nv-palette-body { flex: 1; min-height: 0; overflow-y: auto; padding: 6px; }
+.nv-palette-empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-4);
+  font-size: 12.5px;
+}
+.nv-palette-group {
+  padding: 7px 10px 3px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-4);
+}
+.nv-palette-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  border-radius: var(--r-6);
+  cursor: pointer;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+}
+.nv-palette-row:hover, .nv-palette-row[data-active="true"] { background: var(--bg-hover); }
+/* uiv2 Wave 1: leading row icon (mockup - every verb/file row starts
+   with a small dim dot; session rows use their own colored agent glyph
+   svg instead, sized to match). */
+.nv-palette-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--text-4);
+  flex-shrink: 0;
+}
+.nv-palette-main { display: flex; flex-direction: column; min-width: 0; gap: 1px; }
+.nv-palette-label { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The "agent @ workspace" disambiguator for otherwise-identical session
+   rows (the triplicate-"main" live bug) - dim so it stays secondary to
+   the label on rows that are already unambiguous by name alone. */
+.nv-palette-sub {
+  font-size: 10.5px;
+  color: var(--text-4);
+  font-family: var(--font-mono, monospace);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nv-palette-tag {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  color: var(--text-4);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0 4px;
+  text-transform: uppercase;
+}
+.nv-palette-foot {
+  padding: 7px 14px;
+  border-top: 1px solid var(--border);
+  font-size: 10.5px;
+  color: var(--text-4);
+}
+
+/* Studio frame + sidebars (P2 T6) */
+.nv-studio { flex: 1; min-width: 0; display: flex; min-height: 0; }
+.nv-rail {
+  width: 264px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg-1);
+  border-right: 1px solid var(--border);
+}
+/* uiv2 R2 cutover (US-011a): Files is its own always-visible right-side
+   panel now (notes 2.5), 248px, mirroring .nv-rail's shape on the
+   opposite edge. */
+.nv-files-panel {
+  width: 248px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg-1);
+  border-left: 1px solid var(--border);
+}
+.nv-rail-iconbtn {
+  /* US-011b touch-target guard: was a raw 24px, under the floor. The
+     30px section-head row leaves no room for a full var(--hit), so
+     this uses the same reduced-but-token-driven idiom already shipped
+     for other dense rows (.nv-plat-row/.nv-seg-btn/.nv-fam-pill). */
+  width: calc(var(--hit) - 8px);
+  height: calc(var(--hit) - 8px);
+  display: grid;
+  place-items: center;
+  border: none;
+  background: transparent;
+  border-radius: var(--r-6);
+  color: var(--text-3);
+  cursor: pointer;
+  font-size: 15px;
+}
+.nv-rail-iconbtn:hover { background: var(--bg-hover); color: var(--text); }
+.nv-rail-iconbtn[data-active="true"] { background: var(--accent-dim); color: var(--accent); }
+.nv-rail-body { flex: 1; overflow-y: auto; min-height: 0; padding-bottom: 10px; }
+.nv-rail-empty {
+  padding: 36px 20px;
+  text-align: center;
+  color: var(--text-3);
+  font-size: 12.5px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
+
+/* nv-rail-* additions (US-007 R2, nv-rail.jsx): Inbox + workspace tree.
+   .nv-rail / .nv-rail-tabs / .nv-rail-tab / .nv-rail-iconbtn /
+   .nv-rail-body / .nv-rail-empty above are the CURRENT rail's classes and
+   are reused as-is where the purpose is identical (the small icon
+   buttons, the empty-state block); everything below is new and additive
+   only, nothing above this comment was touched. */
+.nv-rail-sections { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+.nv-rail-inbox, .nv-rail-tree { display: flex; flex-direction: column; min-height: 0; }
+.nv-rail-tree { flex: 1.3; overflow-y: auto; }
+.nv-rail-inbox { flex: 1; overflow-y: auto; border-bottom: 1px solid var(--border); }
+.nv-rail-section-head {
+  display: flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 8px 0 12px;
+  gap: 6px;
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  border-bottom: 1px solid var(--border);
+}
+.nv-rail-count { font-family: var(--font-mono, monospace); color: var(--attention); }
+/* uiv2 Wave 1 (01a06431): the Files header's workspace name escapes the
+   section head's inherited uppercase transform - "FILES payments-revamp",
+   not "FILES PAYMENTS-REVAMP" - and reads dim/accent-tinted per the
+   mockup rather than the plain label color. */
+.nv-rail-section-ws { text-transform: none; color: var(--accent); font-size: 10px; opacity: 0.85; }
+.nv-rail-inbox-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 7px 10px 7px 12px;
+  cursor: pointer;
+}
+.nv-rail-inbox-row:hover { background: var(--bg-hover); }
+.nv-rail-main { flex: 1; min-width: 0; }
+.nv-rail-name { font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nv-rail-sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  font-family: var(--font-mono, monospace);
+  color: var(--text-4);
+}
+.nv-rail-kind { color: var(--attention); }
+.nv-rail-ws-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: var(--row-h, 30px);
+  padding: 2px 10px;
+  cursor: pointer;
+  color: var(--text-2);
+}
+.nv-rail-ws-row:hover { background: var(--bg-hover); }
+.nv-rail-ws-row[data-selected="true"] { background: var(--bg-active); font-weight: 600; }
+.nv-rail-attn-count { font-family: var(--font-mono, monospace); font-size: 9.5px; color: var(--attention); }
+.nv-rail-session-count { font-family: var(--font-mono, monospace); font-size: 9.5px; color: var(--text-4); margin-left: auto; }
+.nv-rail-ws-session {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: var(--frow-h, 24px);
+  padding: 2px 10px 2px 32px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-2);
+}
+.nv-rail-ws-session:hover { background: var(--bg-hover); }
+.nv-btn-primary {
+  padding: 6px 12px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-radius: var(--r-6);
+  font-weight: 600;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.nv-btn-primary:hover { background: var(--accent-2); border-color: var(--accent-2); }
+.nv-btn-secondary {
+  padding: 6px 12px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-2);
+  color: var(--text);
+  border-radius: var(--r-6);
+  font-weight: 600;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.nv-btn-secondary:hover { border-color: var(--accent-border); }
+
+/* Session bands + rows */
+.nv-band-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 12px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.nv-band-head[data-band="attention"] { color: var(--attention); }
+.nv-band-count { font-family: var(--font-mono); font-weight: 500; color: var(--text-4); }
+.nv-session-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--row-h);
+  padding: 3px 10px 3px 12px;
+  cursor: pointer;
+  border-left: 2px solid transparent;
+}
+.nv-session-row:hover { background: var(--bg-hover); }
+.nv-session-row[data-attention="true"] { border-left-color: var(--attention); }
+.nv-session-main { flex: 1; min-width: 0; }
+.nv-session-name {
+  font-size: 12.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text);
+}
+.nv-session-sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  color: var(--text-4);
+  font-family: var(--font-mono);
+}
+.nv-session-live { color: var(--accent); }
+.nv-parked {
+  padding: 0 4px;
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  color: var(--text-3);
+  font-size: 9.5px;
+}
+.nv-dot-pulse {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: nv-pulse 1.6s ease-in-out infinite;
+  flex-shrink: 0;
+}
+.nv-dot-attention {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--attention);
+  flex-shrink: 0;
+}
+/* Resolved decision cards (digest tier, uiv2 Wave 3): color comes from
+   an inline `color` matching NV_approvalStatusColor's palette (green
+   approved / red rejected-family) - one class, no per-outcome variants. */
+.nv-dot-resolved {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+/* Files rows, history, context menu */
+.nv-file-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: var(--frow-h);
+  padding: 2px 10px;
+  cursor: pointer;
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+.nv-file-row:hover { background: var(--bg-hover); }
+.nv-file-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nv-commit-row { padding: 6px 12px; cursor: pointer; }
+.nv-commit-row:hover { background: var(--bg-hover); }
+.nv-commit-line { display: flex; gap: 8px; align-items: baseline; }
+.nv-commit-sha { font-family: var(--font-mono); font-size: 10.5px; color: var(--accent); }
+.nv-commit-subject {
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text);
+}
+.nv-commit-meta { font-family: var(--font-mono); font-size: 10px; color: var(--text-4); margin-top: 1px; }
+.nv-ctx {
+  position: fixed;
+  z-index: 90;
+  width: 180px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-8);
+  box-shadow: var(--shadow);
+  padding: 4px;
+  animation: nv-pop-in 0.12s ease-out;
+}
+.nv-ctx .nv-menu-row[data-danger="true"] { color: var(--red); }
+.nv-center { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
+
+/* Doc host + tabs (P2 T7) */
+.nv-dochost { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; background: var(--bg); }
+.nv-tabbar {
+  display: flex;
+  align-items: stretch;
+  height: 34px;
+  flex-shrink: 0;
+  background: var(--bg-1);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+.nv-tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 220px;
+  padding: 0 8px 0 12px;
+  border-right: 1px solid var(--border);
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.nv-tab:hover { background: var(--bg-2); }
+.nv-tab[data-active="true"] { background: var(--bg); color: var(--text); }
+.nv-tab[data-preview="true"] .nv-tab-label { font-style: italic; }
+.nv-tab-edge { position: absolute; left: 0; right: 0; top: 0; height: 2px; background: var(--accent); }
+.nv-tab-label { overflow: hidden; text-overflow: ellipsis; }
+.nv-tab-close {
+  width: 16px;
+  height: 16px;
+  display: grid;
+  place-items: center;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  color: var(--text-4);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+.nv-tab-close:hover { background: var(--bg-active); color: var(--text); }
+.nv-doc-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.nv-center-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--text-3);
+  font-size: 13px;
+  gap: 12px;
+}
+.nv-center-empty-actions { display: flex; gap: 8px; justify-content: center; }
+
+/* nv-tg-* : the multi-group tab host (US-007 R2, nv-tab-groups.jsx).
+   Additive only - nv-tab*/nv-tabbar/nv-doc-body above stay untouched,
+   these are a separate prefix so the two can coexist until nv-doc-host.jsx
+   is retired in phase 2. */
+.nv-tg-groups { background: var(--bg); }
+.nv-tg-group {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--border);
+  margin-left: -1px;
+  border-top: 1px solid var(--border);
+  margin-top: -1px;
+}
+.nv-tg-group[data-focused="true"] { outline: none; }
+.nv-tg-tabbar {
+  display: flex;
+  align-items: stretch;
+  height: 34px;
+  flex-shrink: 0;
+  background: var(--bg-1);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+.nv-tg-tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 220px;
+  padding: 0 8px 0 12px;
+  border-right: 1px solid var(--border);
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.nv-tg-tab:hover { background: var(--bg-2); }
+.nv-tg-tab[data-active="true"] { background: var(--bg); color: var(--text); }
+.nv-tg-tab[data-preview="true"] .nv-tg-tab-label { font-style: italic; }
+.nv-tg-tab-edge { position: absolute; left: 0; right: 0; top: 0; height: 2px; background: var(--accent); }
+.nv-tg-tab-glyph { flex-shrink: 0; }
+.nv-tg-glyph-diff { font-family: var(--font-mono, monospace); font-size: 10.5px; color: var(--green); }
+.nv-tg-tab-label { overflow: hidden; text-overflow: ellipsis; }
+.nv-tg-tab-close {
+  /* US-011b touch-target guard: was a raw 16px, well under the floor.
+     Full var(--hit) (36px/32px) would overflow the 34px tab bar, so
+     this uses the same reduced-but-token-driven idiom already shipped
+     for other dense rows (.nv-plat-row/.nv-seg-btn/.nv-fam-pill). */
+  width: calc(var(--hit) - 8px);
+  height: calc(var(--hit) - 8px);
+  display: grid;
+  place-items: center;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  color: var(--text-4);
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+.nv-tg-tab-close:hover { background: var(--bg-active); color: var(--text); }
+.nv-tg-doc-body { flex: 1; min-height: 0; display: flex; flex-direction: column; position: relative; }
+.nv-tg-drop-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 45;
+  display: grid;
+  grid-template-columns: 58% 42%;
+  grid-template-rows: 58% 42%;
+  background: var(--scrim, rgba(0, 0, 0, 0.4));
+}
+.nv-tg-drop-zone {
+  margin: 10px;
+  border: 1.5px dashed var(--border-strong);
+  border-radius: var(--r-8, 8px);
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-family: var(--font-mono, monospace);
+  color: var(--text-2);
+  background: var(--bg-elev);
+}
+.nv-tg-drop-zone-move { grid-row: 1; grid-column: 1; }
+.nv-tg-drop-zone-right {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  margin: 10px 10px 10px 0;
+  border-color: var(--accent-border);
+  color: var(--accent);
+}
+.nv-tg-drop-zone-down {
+  grid-row: 2;
+  grid-column: 1;
+  margin: 0 10px 10px 10px;
+  border-color: var(--accent-border);
+  color: var(--accent);
+}
+
+/* Session doc header */
+.nv-session-doc { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.nv-session-head {
+  height: 44px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+  z-index: 20;
+}
+.nv-bind-wrap { position: relative; }
+.nv-bind-chip {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-1);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+.nv-bind-chip:hover { border-color: var(--accent-border); }
+.nv-session-state-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-2);
+  flex-shrink: 0;
+}
+.nv-session-state-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-3);
+}
+.nv-session-state-chip[data-state="running"] { color: var(--accent); border-color: var(--accent-border); }
+.nv-session-state-chip[data-state="running"] .nv-session-state-dot { background: var(--accent); }
+.nv-session-state-chip[data-state="parked"] { color: var(--warn, #d9a441); border-color: var(--warn, #d9a441); }
+.nv-session-state-chip[data-state="parked"] .nv-session-state-dot { background: var(--warn, #d9a441); }
+.nv-session-state-chip[data-state="ended"] { color: var(--text-3); }
+.nv-bind-menu {
+  position: absolute;
+  top: 34px;
+  left: 0;
+  width: 290px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-8);
+  box-shadow: var(--shadow);
+  padding: 5px;
+  z-index: 60;
+  animation: nv-pop-in 0.14s ease-out;
+}
+.nv-bind-note { padding: 5px 9px 7px; font-size: 10.5px; color: var(--text-3); }
+.nv-bind-search {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-6);
+  background: var(--bg-1);
+  padding: 4px 9px;
+  margin: 0 4px 5px;
+}
+.nv-bind-search input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 11.5px;
+  color: var(--text);
+}
+.nv-bind-rows { max-height: 200px; overflow-y: auto; }
+.nv-bind-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 6px 9px;
+  border: none;
+  border-radius: var(--r-6);
+  cursor: pointer;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  color: var(--text);
+}
+.nv-bind-row:hover { background: var(--bg-hover); }
+.nv-bind-main { flex: 1; min-width: 0; }
+.nv-bind-name { font-size: 12.5px; font-weight: 600; }
+.nv-bind-desc { font-size: 10.5px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nv-bind-kind { font-family: var(--font-mono); font-size: 9px; color: var(--text-4); text-transform: uppercase; }
+.nv-title {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: text;
+  padding: 4px 2px;
+  border-radius: var(--r-4);
+  color: var(--text);
+}
+.nv-title:hover { background: var(--bg-hover); }
+.nv-title-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg-1);
+  border: 1px solid var(--accent-border);
+  border-radius: var(--r-6);
+  padding: 4px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  outline: none;
+  color: var(--text);
+}
+.nv-usage { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.nv-usage-bar { width: 54px; height: 4px; background: var(--bg-active); border-radius: 3px; overflow: hidden; }
+.nv-usage-fill { height: 100%; background: var(--accent); border-radius: 3px; }
+.nv-usage-label { font-family: var(--font-mono); font-size: 10px; color: var(--text-4); }
+.nv-graphview-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-6);
+  background: var(--bg-1);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--text-2);
+}
+.nv-graphview-btn:hover { border-color: var(--accent-border); color: var(--text); }
+.nv-head-iconbtn {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  background: var(--bg-1);
+  border-radius: var(--r-6);
+  color: var(--text-2);
+  cursor: pointer;
+  font-weight: 700;
+}
+.nv-head-iconbtn:hover { border-color: var(--border-strong); color: var(--text); }
+.nv-head-iconbtn[data-active="true"] { border-color: var(--accent-border); background: var(--accent-dim); color: var(--accent); }
+.nv-menu-right { left: auto; right: 0; top: 32px; width: 210px; }
+.nv-menu-row:disabled { color: var(--text-4); cursor: not-allowed; }
+
+/* Transcript */
+.nv-transcript-split { flex: 1; min-height: 0; display: flex; }
+.nv-transcript { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; position: relative; }
+.nv-transcript-inner {
+  /* Full-width: the doc pane is the operator's working surface, and a
+     hard 860px column left most of a wide viewport empty (live
+     finding 2026-08-25). */
+  max-width: none;
+  margin: 0;
+  padding: 18px 32px 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.nv-fold-line { display: flex; align-items: center; gap: 10px; color: var(--text-4); font-size: 11px; font-family: var(--font-mono); }
+.nv-fold-line > span:first-child, .nv-fold-line > span:last-child { flex: 1; height: 1px; background: var(--border); }
+.nv-turn { display: flex; gap: 10px; align-items: flex-start; }
+.nv-user-avatar {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--bg-2); border: 1px solid var(--border-strong);
+  display: grid; place-items: center;
+  font-family: var(--font-mono); font-size: 8.5px; font-weight: 600;
+  color: var(--text-3); flex-shrink: 0; margin-top: 1px;
+}
+.nv-agent-avatar {
+  width: 22px; height: 22px; border-radius: var(--r-6);
+  background: var(--bg-1); border: 1px solid var(--border-strong);
+  display: grid; place-items: center; flex-shrink: 0; margin-top: 1px;
+}
+.nv-turn-main { flex: 1; min-width: 0; }
+.nv-turn-byline { display: flex; align-items: baseline; gap: 8px; }
+.nv-turn-name { font-weight: 600; font-size: 12px; }
+/* Audit A item 2: a muted short-time label next to the byline name. */
+.nv-turn-time { font-size: 10.5px; color: var(--text-4); }
+/* Audit A item 1: compaction/rewind/invocation markers - a horizontal
+   rule with the label centered, never dressed as a message bubble. */
+.nv-turn-divider {
+  display: flex; align-items: center; gap: 10px;
+  margin: 4px 0; padding-left: 30px;
+}
+.nv-turn-divider-line { flex: 1; height: 1px; background: var(--border); }
+.nv-turn-divider-label {
+  display: flex; align-items: baseline; gap: 6px;
+  font-size: 11px; color: var(--text-4); white-space: nowrap;
+}
+.nv-turn-divider-time { font-size: 10px; color: var(--text-4); }
+.nv-turn-text { font-size: 13.5px; margin-top: 2px; text-wrap: pretty; color: var(--text); white-space: pre-wrap; }
+/* Markdown answers manage their own block spacing; pre-wrap on top of
+   that doubles every gap. */
+.nv-turn-text.md-body { white-space: normal; }
+/* Audit A item 8: a blinking cursor at the tail of live-streaming
+   assistant text. ::after on the LAST rendered markdown block (not the
+   .md-body container itself) so it sits inline at the end of the actual
+   last line of text and wraps naturally with it, rather than landing on
+   its own line below a block-level paragraph. No separate reduced-
+   motion override needed here - the global rule above already forces
+   every animation (this one included) to a single, near-instant
+   iteration, which settles the cursor on a steady (non-blinking) block
+   exactly as required. */
+.nv-turn-text.md-body[data-streaming="true"] > *:last-child::after {
+  content: "";
+  display: inline-block;
+  width: 7px; height: 1em;
+  margin-left: 2px;
+  background: currentColor;
+  vertical-align: text-bottom;
+  animation: nv-stream-cursor-blink 1s step-start infinite;
+}
+@keyframes nv-stream-cursor-blink {
+  50% { opacity: 0; }
+}
+/* Model thinking: collapsed + muted; the toggle opens it in place. */
+.nv-phase-indicator {
+  display: flex; align-items: baseline; gap: 2px; padding-left: 30px;
+  font-family: var(--font-mono); font-size: 11px; color: var(--text-4);
+}
+.nv-thought { display: flex; flex-direction: column; gap: 4px; padding-left: 30px; }
+.nv-thought-toggle {
+  border: none; background: transparent; cursor: pointer;
+  display: flex; align-items: baseline; gap: 6px; min-width: 0;
+  font-family: var(--font-mono); font-size: 11px; color: var(--text-4);
+  padding: 0; text-align: left;
+}
+.nv-thought-toggle:hover { color: var(--text-3); }
+.nv-thought-mark { flex-shrink: 0; }
+.nv-thought-body {
+  font-size: 12.5px; color: var(--text-3); white-space: pre-wrap;
+  border-left: 2px solid var(--border); padding: 2px 0 2px 10px;
+}
+/* Tool calls: one expandable block - collapsed a verb line, expanded
+   the arguments and the paired result. */
+.nv-toolblock { padding-left: 30px; }
+.nv-toolblock-head {
+  border: none; background: transparent; cursor: pointer;
+  display: flex; align-items: baseline; gap: 6px; min-width: 0;
+  font-family: var(--font-mono); font-size: 11.5px; color: var(--text-3);
+  padding: 1px 0; text-align: left;
+}
+.nv-toolblock-head:hover { color: var(--text-2, var(--text)); }
+.nv-toolblock-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nv-toolblock-err { color: var(--danger, #e06c5f); font-size: 10px; }
+.nv-toolblock-body {
+  margin: 4px 0 6px 14px; padding: 6px 10px;
+  border-left: 2px solid var(--border);
+  display: flex; flex-direction: column; gap: 4px; min-width: 0;
+}
+.nv-toolblock-sec {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--font-mono); font-size: 10px; color: var(--text-4);
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+.nv-toolblock-pre {
+  margin: 0; padding: 6px 8px; border-radius: var(--r-6);
+  background: var(--bg-2); color: var(--text-2, var(--text));
+  font-size: 11.5px; overflow-x: auto; white-space: pre-wrap;
+  word-break: break-word; max-width: 100%;
+}
+.nv-toolblock-pre[data-error="true"] { color: var(--danger, #e06c5f); }
+
+/* US-008 R3 item 1: live tool-args streaming affordance. Additive only -
+   every rule above this comment is untouched. */
+.nv-toolblock-elapsed {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-4);
+  margin-left: auto;
+}
+.nv-toolblock-streaming {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent, var(--text-3));
+  animation: nv-pulse 1.6s ease-in-out infinite;
+}
+.nv-toolblock-live .nv-toolblock-head { color: var(--text-2, var(--text)); cursor: default; }
+.nv-toolblock-pre-live { border: 1px dashed var(--border); }
+
+/* Lifecycle markers: one slim muted line, never a full agent block. */
+.nv-lifecycle {
+  display: flex; align-items: center; gap: 8px; padding-left: 30px;
+  font-family: var(--font-mono); font-size: 10.5px; color: var(--text-4);
+}
+.nv-lifecycle[data-kind="cancelled"] .nv-lifecycle-dot { color: var(--danger, #e06c5f); }
+.nv-turn-error {
+  display: flex; align-items: center; gap: 8px;
+  margin-left: 30px; padding: 8px 12px; border-radius: var(--r-6);
+  border: 1px solid var(--danger, #e06c5f); color: var(--danger, #e06c5f);
+  font-size: 12.5px;
+}
+.nv-trace-toggle {
+  display: inline-flex; align-items: center; justify-content: center;
+  border: none; background: transparent; color: var(--text-4);
+  cursor: pointer; padding: 2px; border-radius: 3px;
+}
+.nv-trace-toggle:hover { color: var(--accent); background: var(--bg-hover); }
+.nv-turn-sections { display: flex; flex-direction: column; gap: 2px; margin-top: 5px; }
+.nv-turn-section-line { display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: var(--text-3); }
+.nv-turn-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 7px; }
+.nv-chip-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 9px; border-radius: 999px; font-size: 11.5px;
+  border: 1px solid var(--border); background: var(--bg-1); color: var(--text-2);
+}
+.nv-chip-pill[data-tone="write"] { border-color: var(--accent-border); color: var(--text); }
+.nv-chip-icon { font-family: var(--font-mono); font-size: 10px; }
+.nv-subagent {
+  margin-top: 9px; padding: 8px 12px;
+  border-left: 2px solid var(--violet);
+  background: var(--bg-1);
+  border-radius: 0 var(--r-6) var(--r-6) 0;
+}
+.nv-subagent-head { display: flex; align-items: center; gap: 7px; font-size: 11.5px; }
+.nv-subagent-name { font-weight: 600; color: var(--violet); }
+/* A tool call and the subagent rows nested under it (NV_toolCallWithRows): the call's block, then its rows, indented one step so a nested
+   run reads as inside the call, each row in the .nv-subagent box above. A nested call draws ITS rows the same way, so the indent stacks. */
+.nv-call-with-subagents { display: block; }
+.nv-subagent-rows { display: block; margin: 2px 0 6px 10px; }
+.nv-steer-chip-wrap { display: flex; justify-content: flex-end; }
+.nv-steer-chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 5px 6px 5px 12px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 999px; font-size: 12px;
+  color: var(--text-2); background: var(--bg-1);
+}
+/* Audit A item 9: text-transform already uppercased the PAINT, but
+   nv-steer-mark had none of the badge chrome (border/padding/radius) the
+   reference shows - same small-mono-badge treatment as .nv-filedoc-dirty
+   above, reused rather than invented, with the queued (waiting) tone
+   already established for .pill-paused. */
+.nv-steer-mark {
+  font-family: var(--font-mono); font-size: 9.5px;
+  color: var(--amber); border: 1px solid var(--amber);
+  border-radius: 3px; padding: 0 5px; text-transform: uppercase;
+}
+.nv-steer-chip button {
+  width: 18px; height: 18px; display: grid; place-items: center;
+  border: none; background: transparent; border-radius: 50%;
+  color: var(--text-4); cursor: pointer; padding: 0;
+}
+.nv-steer-chip button:hover { background: var(--bg-active); color: var(--text); }
+.nv-jump-wrap { position: sticky; bottom: 12px; display: flex; justify-content: center; pointer-events: none; }
+.nv-jump {
+  pointer-events: auto;
+  display: flex; align-items: center; gap: 7px;
+  padding: 5px 14px;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-elev); color: var(--text);
+  border-radius: 999px; font-size: 11.5px; font-weight: 600;
+  cursor: pointer; box-shadow: var(--shadow);
+}
+.nv-jump:hover { border-color: var(--accent-border); }
+
+/* Cards */
+.nv-card { margin-top: 10px; border-radius: var(--r-8); overflow: hidden; background: var(--bg-1); border: 1px solid var(--border); }
+.nv-card-attention { border-color: var(--attention-border); }
+.nv-card-head { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: var(--attention-dim); }
+.nv-card-title { font-weight: 600; font-size: 12.5px; color: var(--text); }
+.nv-card-tool { font-family: var(--font-mono); font-size: 11px; color: var(--text-2); }
+.nv-card-routing { font-size: 10.5px; color: var(--text-3); }
+.nv-card-body { padding: 10px 12px; }
+.nv-card-preview {
+  font-family: var(--font-mono); font-size: 11.5px; line-height: 1.6;
+  border: 1px solid var(--border); border-radius: var(--r-6);
+  margin: 0 0 4px; padding: 6px 10px;
+  color: var(--text-2); white-space: pre-wrap; overflow-x: auto;
+}
+/* Audit A item 14 partial: a diff-shaped preview reuses .nv-diff-line's
+   own per-line background/color (below) - those need the full card
+   width to color edge-to-edge, so the card-level padding moves onto
+   each line instead (mirrors .nv-diff-lines' own padding convention). */
+.nv-card-preview.nv-card-preview-diff { padding: 4px 0; }
+.nv-card-actions { display: flex; gap: 8px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+.nv-btn-reject {
+  padding: 5px 14px;
+  border: 1px solid var(--border-strong);
+  background: transparent; color: var(--text-2);
+  border-radius: var(--r-6); font-weight: 600; font-size: 12px;
+  cursor: pointer; font-family: inherit;
+}
+.nv-btn-reject:hover { border-color: var(--red); color: var(--red); }
+.nv-card-note { font-size: 10.5px; color: var(--text-4); }
+.nv-card-reason {
+  width: 100%; box-sizing: border-box; margin-top: 10px;
+  background: var(--bg); border: 1px solid var(--border-strong);
+  border-radius: var(--r-6); padding: 8px 10px;
+  font-size: 12.5px; resize: vertical; min-height: 52px;
+  outline: none; color: var(--text); font-family: inherit;
+}
+.nv-ask-prompt { font-size: 13px; margin-bottom: 9px; color: var(--text); }
+/* Wave 6 (audit A item 15 render half): schema-driven radio options,
+   replacing the free-text textarea when SH_askOptionsOf finds a real
+   enum. Selected state gets a strong accent border/tint (not just a
+   hover-only treatment) - the reference shows the chosen option as the
+   clear visual anchor of the whole card. */
+.nv-ask-options { display: flex; flex-direction: column; gap: 6px; }
+.nv-ask-option {
+  display: flex; align-items: center; gap: 9px;
+  padding: 9px 12px; border: 1px solid var(--border);
+  border-radius: var(--r-6); cursor: pointer; font-size: 13px;
+  color: var(--text-2);
+}
+.nv-ask-option:hover { border-color: var(--border-strong); }
+.nv-ask-option[data-selected="true"] {
+  border-color: var(--accent); background: var(--accent-dim);
+  color: var(--text);
+}
+.nv-ask-option input[type="radio"] { flex-shrink: 0; }
+.nv-ask-option-label { min-width: 0; }
+
+/* Trace split */
+.nv-trace-split {
+  width: 300px; flex-shrink: 0;
+  border-left: 1px solid var(--border);
+  background: var(--bg-1);
+  display: flex; flex-direction: column; min-height: 0;
+}
+.nv-trace-head {
+  height: 34px; flex-shrink: 0;
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 11px; border-bottom: 1px solid var(--border);
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-2);
+}
+.nv-trace-body { flex: 1; min-height: 0; overflow-y: auto; padding: 10px 12px; }
+.nv-trace-row { padding: 4px 0; border-bottom: 1px solid var(--border); }
+.nv-trace-line {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  font-family: var(--font-mono); font-size: 11px;
+  border: none; background: transparent; color: inherit;
+  padding: 0; text-align: left;
+}
+button.nv-trace-line { cursor: pointer; }
+.nv-trace-icon { color: var(--text-4); width: 12px; text-align: center; }
+/* Dogfood round 2: [T]/[A] glyph badges - small, fixed-width, one
+   color per kind so a long trace scans by shape, not just text. */
+.nv-trace-glyph {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0;
+  font-size: 9px; font-weight: 700;
+  border: 1px solid var(--border-strong);
+}
+.nv-trace-glyph[data-kind="tool"] { color: var(--accent); border-color: var(--accent-border); }
+.nv-trace-glyph[data-kind="agent"] { color: var(--violet, var(--accent)); }
+.nv-trace-ts { color: var(--text-4); font-size: 10px; white-space: nowrap; flex-shrink: 0; }
+.nv-trace-label { color: var(--text-2); min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nv-trace-dur { color: var(--text-4); font-size: 10px; white-space: nowrap; }
+.nv-trace-args {
+  margin: 4px 0 0 20px; padding: 6px 8px; border-radius: var(--r-6);
+  background: var(--bg-2); color: var(--text-2, var(--text));
+  font-size: 10.5px; white-space: pre-wrap; word-break: break-word;
+}
+.nv-trace-args[data-error="true"] { color: var(--danger, #e06c5f); }
+.nv-trace-foot { font-size: 10.5px; color: var(--text-4); margin-top: 10px; line-height: 1.5; }
+/* The maximize overlay: same row/line/glyph language as the sidebar,
+   plus the expandable detail block only it renders. */
+.nv-trace-maximize-body { flex: 1; min-height: 0; overflow-y: auto; padding: 10px 16px; }
+.nv-trace-detail { margin-left: 20px; display: flex; flex-direction: column; gap: 2px; }
+.nv-trace-detail-sec {
+  font-family: var(--font-mono); font-size: 10px; color: var(--text-4);
+  text-transform: uppercase; letter-spacing: 0.06em; margin-top: 4px;
+}
+.nv-trace-empty { color: var(--text-4); font-size: 11.5px; margin-left: 20px; }
+
+/* Composer */
+.nv-composer-wrap { flex-shrink: 0; border-top: 1px solid var(--border); background: var(--bg-1); }
+.nv-status-strip { display: flex; align-items: center; gap: 9px; padding: 5px 16px; border-bottom: 1px solid var(--border); }
+.nv-status-verb { font-family: var(--font-mono); font-size: 11px; color: var(--text-2); }
+.nv-interrupt-btn {
+  display: flex; align-items: center; gap: 5px;
+  padding: 2px 9px;
+  border: 1px solid var(--border-strong); background: transparent;
+  border-radius: var(--r-4); font-size: 11px;
+  color: var(--text-2); cursor: pointer;
+}
+.nv-interrupt-btn:hover { border-color: var(--red); color: var(--red); }
+/* A Stop already requested (the "stopping" state): not clickable, and no destructive hover as if it would act. */
+.nv-interrupt-btn:disabled { cursor: not-allowed; opacity: 0.65; }
+.nv-interrupt-btn:disabled:hover { border-color: var(--border-strong); color: var(--text-2); }
+/* 01a052a5 item 5: pending attachment chips, above the input row. */
+.nv-attach-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 14px 0; }
+.nv-attach-chip { gap: 7px; }
+.nv-attach-chip[data-status="uploading"] { opacity: 0.7; }
+.nv-attach-chip[data-status="error"] { border-color: var(--danger, #e06c5f); color: var(--danger, #e06c5f); }
+.nv-attach-chip-name { max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nv-attach-chip-status { color: var(--text-4); font-size: 10.5px; }
+.nv-attach-chip-remove {
+  border: none; background: transparent; color: inherit; cursor: pointer;
+  padding: 0; line-height: 1; font-size: 13px;
+}
+.nv-composer-row { display: flex; align-items: flex-end; gap: 8px; padding: 10px 14px 12px; }
+.nv-composer-iconbtn {
+  width: var(--hit); height: var(--hit);
+  display: grid; place-items: center;
+  border: 1px solid var(--border); background: var(--bg-2);
+  border-radius: var(--r-6); color: var(--text-3);
+  cursor: pointer; flex-shrink: 0;
+}
+.nv-composer-iconbtn:hover { border-color: var(--border-strong); color: var(--text); }
+.nv-composer-iconbtn[data-active="true"] { border-color: var(--accent-border); background: var(--accent-dim); color: var(--accent); }
+/* US-008 R3 item 5: double-tap latch - a pulse distinguishes "recording
+   hands-free until clicked again" from a plain held-down mic. */
+.nv-composer-iconbtn[data-latched="true"] {
+  border-color: var(--danger, #e06c5f);
+  color: var(--danger, #e06c5f);
+  animation: nv-pulse 1.6s ease-in-out infinite;
+}
+.nv-composer-field {
+  flex: 1; min-width: 0; position: relative;
+  border: 1px solid var(--border);
+  border-radius: var(--r-8); background: var(--bg);
+  padding: 7px 10px;
+  display: flex; align-items: center; gap: 8px;
+}
+.nv-composer-field[data-recording="true"] { border-color: var(--accent-border); }
+/* US-012b item 2 (2026-08-29 dogfood): this rule only ever matched
+   <input>, but the composer's actual element is a <textarea>
+   (nv-composer-input) - it kept the browser's default bordered,
+   resizable textarea box nested inside this pill, a visible
+   "box-in-box". textarea shares the rule now; resize:none and
+   font-family:inherit because the browser's own resize handle and
+   monospace default both fought the existing auto-grow behavior
+   (grow(), triggered on every value change) rather than complementing
+   it. */
+.nv-composer-field input, .nv-composer-field textarea {
+  flex: 1; min-width: 0; border: none; background: transparent;
+  outline: none; font-size: 13px; font-family: inherit; color: var(--text);
+  padding: 0; resize: none;
+}
+@keyframes nv-wave { 0%, 100% { transform: scaleY(0.4); } 50% { transform: scaleY(1); } }
+.nv-wave { display: inline-flex; align-items: flex-end; gap: 2px; height: 14px; flex-shrink: 0; }
+.nv-wave span { width: 3px; height: 14px; background: var(--accent); border-radius: 2px; animation: nv-wave 0.9s ease-in-out infinite; }
+.nv-wave span:nth-child(2) { animation-delay: 0.15s; }
+.nv-wave span:nth-child(3) { animation-delay: 0.3s; }
+.nv-stop-btn {
+  height: var(--hit); padding: 0 11px;
+  display: grid; place-items: center;
+  border: 1px solid var(--border-strong); background: var(--bg-2);
+  border-radius: var(--r-6); color: var(--text-2);
+  cursor: pointer; flex-shrink: 0; font-size: 12px; font-weight: 600;
+  font-family: inherit;
+}
+.nv-stop-btn:hover { border-color: var(--red); color: var(--red); }
+.nv-stop-btn:disabled { cursor: not-allowed; opacity: 0.65; }
+.nv-stop-btn:disabled:hover { border-color: var(--border-strong); color: var(--text-2); }
+.nv-send-btn {
+  height: var(--hit); padding: 0 13px;
+  border: 1px solid var(--accent); background: var(--accent);
+  color: var(--accent-fg); border-radius: var(--r-6);
+  font-weight: 600; font-size: 12px; cursor: pointer; flex-shrink: 0;
+  font-family: inherit;
+}
+.nv-send-btn:hover { background: var(--accent-2); border-color: var(--accent-2); }
+
+/* File / diff / wiki docs */
+.nv-filedoc, .nv-diffdoc, .nv-wikidoc { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.nv-filedoc-bar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 14px; border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.nv-filedoc-path { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nv-filedoc-dirty {
+  font-family: var(--font-mono); font-size: 9.5px;
+  color: var(--amber); border: 1px solid var(--amber);
+  border-radius: 3px; padding: 0 5px; text-transform: uppercase;
+}
+.nv-conflict {
+  display: flex; align-items: center; gap: 8px;
+  margin: 8px 14px; padding: 8px 12px;
+  font-size: 12px; color: var(--text);
+  background: var(--attention-dim);
+  border: 1px solid var(--attention-border);
+  border-left: 3px solid var(--attention);
+  border-radius: var(--r-6);
+}
+.nv-conflict span { flex: 1; min-width: 0; }
+.nv-file-edit {
+  flex: 1; min-height: 0; resize: none; border: none; outline: none;
+  background: var(--bg); color: var(--text);
+  font-family: var(--font-mono); font-size: 12px; line-height: 1.6;
+  padding: 12px 14px;
+}
+.nv-diff-body { flex: 1; min-height: 0; overflow-y: auto; padding: 12px 14px; }
+.nv-diff-file { margin-bottom: 16px; border: 1px solid var(--border); border-radius: var(--r-6); overflow: hidden; }
+.nv-diff-file-head {
+  font-family: var(--font-mono); font-size: 11px; color: var(--text-2);
+  padding: 5px 10px; background: var(--bg-1); border-bottom: 1px solid var(--border);
+}
+.nv-diff-lines { margin: 0; font-family: var(--font-mono); font-size: 11px; line-height: 1.6; overflow-x: auto; padding: 4px 0; }
+.nv-diff-line { padding: 0 10px; white-space: pre; }
+.nv-diff-line[data-tone="add"] { background: var(--green-dim); color: var(--green); }
+.nv-diff-line[data-tone="del"] { background: var(--red-dim); color: var(--red); }
+.nv-diff-line[data-tone="ctx"] { color: var(--text-3); }
+.nv-wikidoc { padding: 18px 22px; overflow-y: auto; }
+.nv-wiki-title { margin: 0 0 10px; font-size: 17px; }
+.nv-wiki-body { font-size: 13.5px; white-space: pre-wrap; color: var(--text); }
+.nv-graph-overlay {
+  width: min(1100px, 94vw); height: min(700px, 88vh);
+  background: var(--bg-elev); border: 1px solid var(--border-strong);
+  border-radius: var(--r-10); box-shadow: var(--shadow);
+  display: flex; flex-direction: column; overflow: hidden;
+  animation: nv-pop-in 0.14s ease-out;
+  margin: auto;
+}
+
+/* Terminal panel + events sidebar (P2 T8) */
+.nv-terminal {
+  /* height is JS-driven inline style (F8(b): 100px-70vh top-edge drag) */
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+  background: var(--bg-1);
+  display: flex;
+  flex-direction: column;
+  min-height: 100px;
+  overflow: auto;
+  position: relative;
+}
+.nv-terminal-resize-handle {
+  position: absolute;
+  top: -3px;
+  left: 0;
+  right: 0;
+  height: 6px;
+  cursor: ns-resize;
+  z-index: 1;
+}
+.nv-terminal-resize-handle:hover { background: var(--accent); opacity: 0.4; }
+.nv-terminal-host { flex: 1; min-height: 0; padding: 6px 10px; }
+/* uiv2 Wave 1: xterm.min.css hardcodes .xterm-viewport background-color:
+   #000 (its own vendored default) - that pure-black rectangle against
+   this panel's --bg-1 read as an inset box with a visible border in the
+   mockup comparison. Scoped to this panel only (not a global .xterm-
+   viewport override, in case xterm mounts anywhere else later) so the
+   canvas reads flush on the console theme instead. */
+.nv-terminal-host .xterm-viewport { background-color: transparent; }
+.nv-term-exit { font-family: var(--font-mono); font-size: 10px; color: var(--red); text-transform: none; letter-spacing: 0; }
+.nv-events {
+  width: 300px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--border);
+  background: var(--bg-1);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.nv-events-body { flex: 1; min-height: 0; overflow-y: auto; padding: 8px 10px; }
+.nv-event-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 0;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-2);
+  min-width: 0;
+}
+.nv-event-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.nv-event-type { white-space: nowrap; }
+.nv-event-detail { color: var(--text-4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nv-events-optin {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--text-3);
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+/* =========================================================================
+   nv- OVERLAYS (wiring plan P3 T9): scrim, panel, form primitives, the
+   binding picker, template rows, env override editor, legacy page host.
+   Extracted from the designer prototype's OVERLAYS region inline styles.
+   ========================================================================= */
+
+.nv-scrim {
+  position: fixed;
+  inset: 0;
+  background: var(--scrim);
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+@keyframes nvPopIn {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+.nv-overlay-panel {
+  width: min(560px, 94vw);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-elev);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-10);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  animation: nvPopIn 0.14s ease-out;
+}
+.nv-overlay-panel[data-wide="true"] {
+  width: min(1100px, 96vw);
+  height: 90vh;
+}
+@media (prefers-reduced-motion: reduce) {
+  .nv-overlay-panel { animation: none; }
+}
+.nv-overlay-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.nv-overlay-title { font-weight: 600; font-size: 14px; margin: 0; }
+.nv-verb-chip {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--text-4);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+.nv-overlay-close {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: none;
+  background: transparent;
+  border-radius: var(--r-4);
+  color: var(--text-3);
+  cursor: pointer;
+  font-size: 14px;
+}
+.nv-overlay-close:hover { background: var(--bg-hover); color: var(--text); }
+.nv-overlay-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px;
+}
+.nv-overlay-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+/* --- form primitives ---------------------------------------------------- */
+.nv-field { margin-bottom: 14px; }
+.nv-field-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-2);
+  margin-bottom: 5px;
+}
+.nv-field-hint { font-weight: 400; color: var(--text-4); margin-left: 6px; }
+.nv-input,
+.nv-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-6);
+  padding: 7px 10px;
+  font-size: 13px;
+  color: var(--text);
+  outline: none;
+  font-family: inherit;
+}
+.nv-textarea { resize: vertical; }
+.nv-input:focus,
+.nv-textarea:focus { border-color: var(--accent-border); }
+.nv-form-error {
+  border: 1px solid var(--red);
+  border-radius: var(--r-6);
+  color: var(--red);
+  padding: 8px 10px;
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+
+/* --- binding picker ------------------------------------------------------ */
+.nv-bind-picker { position: relative; }
+.nv-bind-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 11px;
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-8);
+  color: var(--text);
+  font-size: 12.5px;
+  cursor: pointer;
+  min-height: var(--hit);
+}
+.nv-bind-btn:hover { border-color: var(--accent-border); }
+.nv-bind-name {
+  font-family: var(--font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nv-bind-desc {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-4);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+.nv-bind-btn .nv-bind-name { flex: 1; min-width: 0; text-align: left; }
+.nv-kind-tag {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--text-4);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 5px;
+  flex-shrink: 0;
+}
+.nv-bind-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 5;
+  background: var(--bg-elev);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-8);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.nv-bind-search {
+  border: none;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  padding: 9px 12px;
+}
+.nv-bind-search:focus { border-color: var(--border); }
+.nv-bind-rows { max-height: 260px; overflow-y: auto; padding: 4px; }
+.nv-bind-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 9px;
+  border-radius: var(--r-6);
+  cursor: pointer;
+  font-size: 12.5px;
+  min-height: var(--hit);
+}
+.nv-bind-row:hover { background: var(--bg-hover); }
+.nv-bind-row .nv-bind-name { flex-shrink: 0; }
+.nv-bind-empty {
+  padding: 14px;
+  font-size: 12px;
+  color: var(--text-4);
+  text-align: center;
+}
+
+/* --- advanced fold + segmented ------------------------------------------ */
+.nv-adv-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 11.5px;
+  cursor: pointer;
+  padding: 4px 0;
+  min-height: var(--hit);
+}
+.nv-adv-toggle:hover { color: var(--text); }
+.nv-adv-toggle svg { transition: transform 0.12s ease; }
+.nv-adv-toggle[data-open="true"] svg { transform: rotate(90deg); }
+.nv-adv-body {
+  border: 1px solid var(--border);
+  border-radius: var(--r-8);
+  background: var(--bg-1);
+  padding: 12px;
+  margin-top: 8px;
+}
+.nv-adv-body .nv-field:last-child { margin-bottom: 0; }
+.nv-seg {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: var(--r-6);
+  overflow: hidden;
+}
+.nv-seg-btn {
+  padding: 6px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text-3);
+  font-size: 11.5px;
+  cursor: pointer;
+  min-height: calc(var(--hit) - 8px);
+}
+.nv-seg-btn + .nv-seg-btn { border-left: 1px solid var(--border); }
+.nv-seg-btn[data-active="true"] {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+/* --- template rows + env overrides --------------------------------------- */
+.nv-pick-list { display: flex; flex-direction: column; gap: 6px; }
+.nv-pick-row {
+  padding: 8px 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-8);
+  cursor: pointer;
+  font-size: 12.5px;
+  font-family: var(--font-mono);
+  min-height: var(--hit);
+  display: flex;
+  align-items: center;
+}
+.nv-pick-row:hover { border-color: var(--border-strong); }
+.nv-pick-row[data-active="true"] {
+  border-color: var(--accent-border);
+  background: var(--bg-hover);
+}
+.nv-kv-box {
+  border: 1px solid var(--border);
+  border-radius: var(--r-8);
+  background: var(--bg-1);
+  padding: 10px 12px;
+}
+.nv-kv-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.nv-kv-key { width: 130px; flex-shrink: 0; font-family: var(--font-mono); font-size: 11px; padding: 4px 8px; }
+.nv-kv-label {
+  text-align: right;
+  color: var(--text-4);
+  border: none;
+  background: transparent;
+}
+.nv-kv-val { flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 11px; padding: 4px 8px; }
+.nv-kv-eq { color: var(--text-4); }
+.nv-kv-del {
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border: none;
+  background: transparent;
+  border-radius: var(--r-4);
+  color: var(--text-4);
+  cursor: pointer;
+  padding: 0;
+}
+.nv-kv-del:hover { color: var(--red); }
+.nv-kv-add { margin-top: 4px; }
+.nv-kv-note { font-size: 10px; color: var(--text-4); margin-top: 8px; }
+
+/* --- legacy page host ---------------------------------------------------- */
+.nv-overlay-crumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  margin-bottom: 10px;
+}
+.nv-overlay-crumb a { color: var(--accent); cursor: pointer; }
+.nv-overlay-crumb a:hover { text-decoration: underline; }
+.nv-crumb-sep { color: var(--text-4); }
+.nv-overlay-crumb span:last-child { font-family: var(--font-mono); }
+.nv-legacy-host { min-height: 0; }
+
+/* =========================================================================
+   nv- PLATFORM (wiring plan P4 T10): grouped nav, card pages, provider
+   family pills, approvals audit. Prototype PLATFORM region, extracted.
+   ========================================================================= */
+
+.nv-plat {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+.nv-plat-nav {
+  width: 210px;
+  flex-shrink: 0;
+  background: var(--bg-1);
+  border-right: 1px solid var(--border);
+  padding: 10px 8px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.nv-plat-group-label {
+  padding: 10px 10px 4px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-4);
+}
+.nv-plat-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 10px;
+  border-radius: var(--r-6);
+  font-size: 12.5px;
+  color: var(--text-2);
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-height: calc(var(--hit) - 8px);
+}
+.nv-plat-row:hover { background: var(--bg-hover); color: var(--text); }
+.nv-plat-row[data-active="true"] {
+  background: var(--bg-active);
+  color: var(--text);
+}
+.nv-plat-row-icon { flex-shrink: 0; color: var(--text-4); }
+.nv-plat-row[data-active="true"] .nv-plat-row-icon { color: var(--accent); }
+.nv-plat-main { flex: 1; min-width: 0; overflow-y: auto; }
+.nv-plat-wrap { max-width: 1020px; margin: 0 auto; padding: 20px 24px 50px; }
+.nv-plat-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.nv-plat-title { font-size: 17px; font-weight: 600; }
+.nv-plat-count {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-4);
+}
+.nv-plat-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-6);
+  background: var(--bg-1);
+  padding: 5px 10px;
+  color: var(--text-4);
+  min-height: calc(var(--hit) - 8px);
+}
+.nv-plat-filter input {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 12px;
+  color: var(--text);
+  width: 130px;
+}
+.nv-fam-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 16px;
+}
+.nv-fam-pill {
+  padding: 3px 11px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-3);
+  border-radius: 999px;
+  font-size: 11.5px;
+  cursor: pointer;
+  min-height: calc(var(--hit) - 12px);
+}
+.nv-fam-pill:hover { border-color: var(--border-strong); }
+.nv-fam-pill[data-active="true"] {
+  border-color: var(--accent-border);
+  background: var(--bg-hover);
+  color: var(--accent);
+}
+.nv-plat-empty {
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--r-8);
+  padding: 44px 20px;
+  text-align: center;
+  color: var(--text-3);
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.nv-pcard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 12px;
+}
+.nv-pcard {
+  border: 1px solid var(--border);
+  border-radius: var(--r-8);
+  background: var(--bg-1);
+  padding: 14px 16px 10px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  min-height: 118px;
+  transition: border-color 0.12s ease, background 0.12s ease,
+    transform 0.12s ease;
+}
+.nv-pcard:hover {
+  border-color: var(--accent-border);
+  background: var(--bg-hover);
+  transform: translateY(-1px);
+}
+.nv-pcard:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.nv-pcard-status {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  white-space: nowrap;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+}
+.nv-pcard-status[data-tone="ok"] { color: var(--green); }
+.nv-pcard-status[data-tone="warn"] { color: var(--attention); }
+.nv-pcard-status[data-tone="error"] { color: var(--red); }
+.nv-pcard-head { display: flex; align-items: center; gap: 8px; }
+.nv-pcard-name {
+  font-weight: 600;
+  font-size: 13.5px;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nv-pcard-chip {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  white-space: nowrap;
+}
+.nv-pcard-sub {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--text-3);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 2.6em;
+}
+.nv-pcard-facts { display: flex; flex-direction: column; gap: 3px; }
+.nv-fact-row { display: flex; gap: 10px; font-size: 11.5px; }
+.nv-fact-k { color: var(--text-4); width: 88px; flex-shrink: 0; }
+.nv-fact-v {
+  color: var(--text-2);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nv-pcard-foot {
+  display: flex; gap: 6px; align-items: center;
+  margin-top: auto; padding-top: 6px;
+  border-top: 1px solid var(--border);
+}
+.nv-pcard-open { font-size: 11px; color: var(--accent); opacity: 0.55; transition: opacity 0.12s ease; }
+.nv-pcard:hover .nv-pcard-open { opacity: 1; }
+.nv-pcard-del {
+  border: none;
+  background: transparent;
+  font-size: 11px;
+  color: var(--text-4);
+  cursor: pointer;
+  padding: 0;
+}
+.nv-pcard-del:hover { color: var(--red); }
+.nv-pager {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+.nv-pager-range {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-4);
+}
+.nv-pager-btn {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  background: var(--bg-1);
+  border-radius: var(--r-4);
+  color: var(--text-3);
+  cursor: pointer;
+}
+.nv-pager-btn:hover { border-color: var(--border-strong); }
+.nv-pager-btn:disabled { opacity: 0.35; cursor: default; }
+.nv-audit { margin-top: 22px; }
+/* uiv2 Wave 3 (a-14 fold): sort controls sit beside the title now that
+   the records-sheet's own header row retired along with it. */
+.nv-audit-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.nv-audit-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.nv-audit-table {
+  border: 1px solid var(--border);
+  border-radius: var(--r-8);
+  overflow: hidden;
+  background: var(--bg-1);
+}
+.nv-audit-head,
+.nv-audit-row {
+  display: grid;
+  grid-template-columns: 1.2fr 1.4fr 0.7fr 1.4fr 0.6fr;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  align-items: center;
+}
+.nv-audit-head {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-4);
+}
+.nv-audit-row { font-size: 12px; }
+.nv-audit-row:last-child { border-bottom: none; }
+.nv-audit-row > span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nv-audit-mono { font-family: var(--font-mono); font-size: 11px; }
+.nv-audit-empty { color: var(--text-4); }
+
+/* =========================================================================
+   nv- SYSTEM (wiring plan P5 T11): dashboard health cards, worker fleet,
+   the cross-workspace attention panel, the profile page.
+   ========================================================================= */
+
+.nv-sys-title { margin-bottom: 14px; }
+.nv-sys-subtitle {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin: 18px 0 8px;
+}
+.nv-sys-row-head { display: flex; align-items: center; gap: 10px; }
+.nv-sys-row-head .nv-sys-subtitle { margin: 18px 0 8px; }
+.nv-health-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 10px;
+}
+.nv-health-card {
+  border: 1px solid var(--border);
+  border-radius: var(--r-8);
+  background: var(--bg-1);
+  padding: 12px 13px;
+}
+.nv-health-k {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-4);
+}
+.nv-health-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.nv-health-v {
+  font-size: 21px;
+  font-weight: 600;
+  margin: 6px 0 2px;
+  font-variant-numeric: tabular-nums;
+}
+.nv-health-sub { font-size: 11px; color: var(--text-4); }
+.nv-worker-list {
+  border: 1px solid var(--border);
+  border-radius: var(--r-8);
+  background: var(--bg-1);
+  overflow: hidden;
+}
+.nv-worker-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  min-height: var(--hit);
+}
+.nv-worker-row:last-child { border-bottom: none; }
+.nv-worker-id {
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--text);
+}
+.nv-worker-fact {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text-4);
+}
+.nv-sys-attn-title { color: var(--attention); }
+.nv-attn-list {
+  border: 1px solid var(--attention-border);
+  border-radius: var(--r-8);
+  background: var(--bg-1);
+  overflow: hidden;
+}
+.nv-attn-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  min-height: var(--hit);
+}
+.nv-attn-row:last-child { border-bottom: none; }
+.nv-attn-session { font-family: var(--font-mono); font-size: 11.5px; }
+.nv-attn-kind {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--attention);
+  border: 1px solid var(--attention-border);
+  border-radius: 3px;
+  padding: 1px 5px;
+}
+.nv-attn-ws { font-size: 11px; color: var(--text-4); }
+.nv-profile-pw {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 360px;
+}
+
+/* =========================================================================
+   nv- INLINE ARTIFACTS (flag day port of revamp decision 4): write chips
+   expand a capped preview in place; lightbox is the maximize escalation.
+   ========================================================================= */
+
+button.nv-chip-pill {
+  font: inherit;
+  text-align: left;
+  cursor: default;
+}
+button.nv-chip-pill[data-expandable="true"] { cursor: pointer; }
+button.nv-chip-pill[data-expandable="true"]:hover {
+  border-color: var(--accent-border);
+}
+.nv-artifact {
+  margin: 8px 0 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-8);
+  background: var(--bg-1);
+  overflow: hidden;
+}
+.nv-artifact-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.nv-artifact-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nv-artifact-note { font-size: 10px; color: var(--text-4); flex-shrink: 0; }
+.nv-artifact-verb {
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 4px;
+  flex-shrink: 0;
+}
+.nv-artifact-verb:hover { text-decoration: underline; }
+.nv-artifact-content {
+  margin: 0;
+  padding: 10px 12px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--text-2);
+  max-height: 320px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.nv-lightbox {
+  position: fixed;
+  inset: 0;
+  background: var(--scrim);
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+.nv-lightbox-body {
+  width: min(980px, 94vw);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-elev);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-10);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.nv-lightbox-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.nv-lightbox-title { font-family: var(--font-mono); font-size: 12px; }
+.nv-lightbox-content {
+  margin: 0;
+  padding: 14px 16px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.55;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Row buttons (FC5 keyboard access, flag day): the sidebar rows are
+   real <button>s so focus/Enter/Space come from the platform. These
+   resets let the existing row classes keep their layout. */
+button.nv-session-row,
+button.nv-file-row,
+button.nv-commit-row {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  font: inherit;
+  color: inherit;
+  display: flex;
+}
+button.nv-commit-row { flex-direction: column; align-items: stretch; }
+/* uiv2 R2 cutover (US-011a): the rail's rows converted from <div onClick>
+   to real buttons too, closing the same FC5 gap nv-rail.jsx had reopened -
+   same reset pattern as above. */
+button.nv-rail-inbox-row,
+button.nv-rail-ws-row,
+button.nv-rail-ws-session {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  font: inherit;
+  color: inherit;
+  display: flex;
+}
+
+/* Row status chip (flag day follow-through): the bands order by
+   consequence; this says created/waiting/ended-why on the row itself. */
+.nv-session-status {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--text-4);
+  white-space: nowrap;
+}
+.nv-session-status[data-status="running"] { color: var(--green); }
+.nv-session-status[data-status="failed"] { color: var(--red); }
+
+/* Graph node filter banner (flag day port): the canvas selection scopes
+   the transcript; the banner names the node and offers the way back. */
+.nv-node-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--border);
+  flex: 0 0 auto;
+  font-size: 11.5px;
+}
+.nv-node-filter .nv-mono { font-family: var(--font-mono); }
+
+/* ---------------------------------------------------------------------
+   Platform inline modal forms (profiles, templates) - labels above
+   fields, full-width controls, help under the control, error by the
+   field. (ui-ux pass 2026-08-26)
+   ------------------------------------------------------------------ */
+.nv-modal-form { display: flex; flex-direction: column; gap: 14px; }
+.nv-mf-field { display: flex; flex-direction: column; gap: 5px; }
+.nv-mf-label {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.nv-mf-field input,
+.nv-mf-field select,
+.nv-mf-field textarea {
+  width: 100%;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-6);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  padding: 8px 10px;
+}
+.nv-mf-field input:focus,
+.nv-mf-field select:focus,
+.nv-mf-field textarea:focus {
+  outline: none;
+  border-color: var(--accent-border);
+}
+.nv-mf-mono { font-family: var(--font-mono) !important; font-size: 12px !important; }
+.nv-mf-help { font-size: 11px; color: var(--text-4); line-height: 1.45; }
+
+/* ---------------------------------------------------------------------
+   Legacy surfaces inside the console overlay: one form language.
+   Labels sit ABOVE their control, controls stretch, help reads under
+   the control, and section groups breathe - the inline label + input
+   crumble was the worst-reviewed screen in the console (ui-ux pass
+   2026-08-26). Scoped so nothing leaks outside the overlay host.
+   ------------------------------------------------------------------ */
+.nv-legacy-host .field {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+  margin-bottom: 14px;
+}
+.nv-legacy-host .field-label,
+.nv-legacy-host .field > label {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.nv-legacy-host .field input,
+.nv-legacy-host .field select,
+.nv-legacy-host .field textarea,
+.nv-legacy-host .field .input {
+  width: 100%;
+  max-width: 560px;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  font-size: 13px;
+}
+.nv-legacy-host .field-help {
+  font-size: 11px;
+  color: var(--text-4);
+  line-height: 1.5;
+  max-width: 560px;
+}
+/* ---------------------------------------------------------------------
+   Platform wave P1a: providers surface reconciliation.
+   Family chips replaced the rail (item 1); the register dropdown, card
+   grid and probe panel are new (items 2/3/4).
+   ------------------------------------------------------------------ */
+/* Designer reconciliation (uiv2 mockup): compact rounded PILLS, each
+   individually outlined and gapped, rather than .chip-group's shared-
+   border segmented-control look - overrides .chip-group's own
+   container chrome entirely (background/border/padding/gap) rather
+   than layering on top of it, since the two are now visually distinct
+   families, not variations on one. */
+.pc-chips.chip-group {
+  background: transparent; border: none; padding: 0; gap: 8px;
+  flex-wrap: wrap; height: auto;
+}
+.pc-chips .chip {
+  border: 1px solid var(--border); border-radius: 999px;
+  padding: 5px 14px; color: var(--text-3); background: transparent;
+}
+.pc-chips .chip:hover { border-color: var(--border-strong); color: var(--text); }
+.pc-chips .chip.active {
+  border-color: var(--green); background: var(--green-dim); color: var(--green);
+}
+
+/* Item 2/3: "Register provider" dropdown. */
+.pc-register { position: relative; }
+.pc-register-panel {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 20;
+  min-width: 260px; max-height: 320px; overflow-y: auto;
+  background: var(--bg-1); border: 1px solid var(--border-strong);
+  border-radius: var(--r-6); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  padding: 6px;
+}
+.pc-register-head {
+  font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--text-4); padding: 6px 8px 4px;
+}
+.pc-register-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; width: 100%; padding: 7px 8px; border-radius: var(--r-4);
+  border: none; background: transparent; color: var(--text);
+  font-size: 12.5px; text-align: left; cursor: pointer; font-family: inherit;
+}
+.pc-register-row:hover { background: var(--bg-hover); }
+.pc-register-annotation { font-size: 10.5px; white-space: nowrap; }
+.pc-register-empty { padding: 8px; }
+/* Platform wave P1b: .pc-register-row reused as a PERSISTENT picker row
+   (model-profiles' Provider|Model columns, workspaces' Template rows) as
+   well as its original one-shot dropdown-item role - selected state only
+   matters for the persistent-picker usage. */
+.pc-register-row[data-selected="true"] {
+  background: var(--accent-dim); color: var(--accent);
+}
+
+/* Item 3: card grid replaces the flat row list. auto-fill/minmax is the
+   ENTIRE narrow-viewport story - no isMobile/CardList JS branch, the grid
+   reflows its own column count (test_the_list_adapts_to_narrow_viewports). */
+.pc-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+/* Designer reconciliation: tighter padding/gap per the mockup's denser
+   card. */
+.pc-card {
+  border: 1px solid var(--border); border-radius: var(--r-6);
+  background: var(--bg-1); padding: 10px 12px;
+  display: flex; flex-direction: column; gap: 6px; min-width: 0;
+}
+.pc-card-head { display: flex; align-items: center; gap: 8px; }
+.pc-card-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pc-card-subtitle { color: var(--text-2); font-size: 12px; }
+/* Designer reconciliation: status moves from a pill (background + dot)
+   to plain colored text, top-right of the card head. */
+.pc-card-status { font-size: 11px; font-weight: 500; white-space: nowrap; }
+.pc-card-status.ok { color: var(--green); }
+.pc-card-status.down { color: var(--red); }
+/* Designer reconciliation: two-column ALIGNED key-value rows - the
+   parent is the grid (auto label column, value column takes the rest),
+   each .pc-card-fact is `display: contents` so its own two spans become
+   direct grid items positioned by the PARENT, not a wrapper the grid
+   can only place as ONE cell - this is what makes every row's value
+   start at the same x regardless of label length. */
+.pc-card-facts {
+  display: grid; grid-template-columns: auto 1fr;
+  column-gap: 10px; row-gap: 3px; font-size: 12px;
+}
+.pc-card-fact { display: contents; }
+.pc-card-fact > .muted { white-space: nowrap; }
+.pc-card-fact > :last-child {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* Designer reconciliation: Open is a green TEXT LINK bottom-left (not a
+   filled button); Delete is muted text bottom-right. Invalidate no
+   longer lives on the card at all (moved to the edit overlay - see
+   PC_InvalidateAction in provider-form.jsx). */
+.pc-card-footer { display: flex; align-items: center; gap: 10px; margin-top: 2px; }
+.pc-card-open, .pc-card-delete, .pc-card-delete-confirm {
+  border: none; background: transparent; padding: 0; cursor: pointer;
+  font-size: 12.5px; font-family: inherit;
+}
+.pc-card-open { color: var(--green); }
+.pc-card-open:hover { text-decoration: underline; }
+.pc-card-delete { color: var(--text-3); }
+.pc-card-delete:hover { color: var(--text); text-decoration: underline; }
+.pc-card-delete-confirm { color: var(--red); font-weight: 600; }
+.pc-card-delete-confirm:hover { text-decoration: underline; }
+.pc-card-delete-confirm:disabled { opacity: 0.6; cursor: default; }
+
+/* Item 4: the create modal's schema-driven chip + two-column form + the
+   live probe panel's own small result list. */
+/* Designer reconciliation: the schema badge moved from its own line
+   inside the form body to INLINE beside the modal title (see the
+   `title` fragment ProviderCatalog now passes to Modal) - .pc-modal-chip
+   itself is dead (nothing renders it any more) but left defined in case
+   a future non-inline usage wants the original standalone-line look;
+   the active style is the -inline variant below. */
+.pc-modal-chip {
+  border: 1px solid var(--border); border-radius: var(--r-4);
+  padding: 2px 8px; display: inline-block; margin-bottom: 10px;
+}
+.pc-modal-chip-inline {
+  border: 1px solid var(--border); border-radius: var(--r-4);
+  padding: 1px 7px; margin-left: 10px; font-weight: 400;
+  vertical-align: middle;
+}
+.pc-form-right {
+  border-left: 1px solid var(--border); padding-left: 16px;
+}
+.pc-probe {
+  border: 1px solid var(--border); border-radius: var(--r-6);
+  padding: 10px; display: flex; flex-direction: column; gap: 8px;
+}
+/* Designer reconciliation: heading + Test connect on one row. */
+.pc-probe-head-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.pc-probe-head { font-weight: 600; font-size: 12.5px; }
+/* Test connect: kind="ghost" (transparent + border) tinted green, since
+   Btn has no dedicated "outline" kind and spreading a className prop
+   onto Btn would clobber its own base classes (see Btn's props order in
+   shared.jsx) - a scoped selector is the non-invasive way to reach it. */
+.pc-probe [data-testid="provider-probe-test"] {
+  border-color: var(--green); color: var(--green);
+}
+.pc-probe [data-testid="provider-probe-test"]:hover { background: var(--green-dim); }
+.pc-probe-count { font-size: 12px; color: var(--text-2); }
+/* Designer reconciliation: each probed model is its own bordered row,
+   not a bare <li> in a <ul>. */
+.pc-probe-models { display: flex; flex-direction: column; gap: 4px; }
+.pc-probe-model-row {
+  border: 1px solid var(--border); border-radius: var(--r-4);
+  padding: 5px 8px; font-size: 12px;
+}
+
+/* Designer reconciliation: humanized field labels - bold main label +
+   a distinctly muted inline annotation for secret fields (was one
+   plain-weight concatenated string), full-width single-column rhythm. */
+.pc-field-label { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.pc-field-label-main { font-weight: 600; }
+.pc-field-label-annotation { font-size: 11px; }
+
+/* Designer reconciliation: the boxed Limits <fieldset> dissolves into
+   normally-styled fields with a subtle group heading, not a bordered
+   box - same field rhythm as everything above it. */
+.pc-limits-group { display: flex; flex-direction: column; gap: 12px; }
+.pc-field-group-heading {
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em;
+  margin-top: 4px;
+}
+
+/* Lead ruling: Invalidate moves from the card footer into the edit
+   overlay, adjacent to the Live-model-probe panel - muted, unobtrusive,
+   a deliberate capability-preserving addition beyond the mockup. */
+.pc-invalidate { padding-top: 2px; }
+.pc-invalidate-link {
+  border: none; background: transparent; padding: 0; cursor: pointer;
+  font-size: 11.5px; font-family: inherit; color: var(--text-3);
+}
+.pc-invalidate-link:hover { color: var(--text); text-decoration: underline; }
+.pc-invalidate-link:disabled { opacity: 0.6; cursor: default; }
+
+/* Workspace events: a row EXPANDS to its full envelope - actor,
+   entity, correlation and the raw payload - a one-line type + id was
+   unactionable (live finding 2026-08-26). */
+.nv-event-row { cursor: pointer; }
+.nv-event-row:hover { background: var(--bg-hover); }
+.nv-event-caret {
+  font-size: 8px; color: var(--text-4); flex-shrink: 0;
+  width: 10px; text-align: center;
+}
+.nv-event-detail-block {
+  margin: 2px 8px 8px 24px;
+  padding: 7px 9px;
+  border-left: 2px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+}
+.nv-event-kv { display: flex; gap: 8px; }
+.nv-event-kv .k {
+  color: var(--text-4); font-family: var(--font-mono);
+  font-size: 10px; width: 74px; flex-shrink: 0;
+}
+.nv-event-kv .v {
+  color: var(--text-2, var(--text));
+  overflow-wrap: anywhere; min-width: 0;
+}
+.nv-event-payload {
+  margin: 0; padding: 6px 8px; border-radius: var(--r-6);
+  background: var(--bg-2); color: var(--text-2, var(--text));
+  font-size: 10.5px; white-space: pre-wrap; word-break: break-word;
+  max-height: 220px; overflow-y: auto;
+}
+
+/* nv-mobile-shell (US-014 M1): shared/mobile-tabs.jsx's own .mobile-tabs
+   rules (the "Mobile (< 640px)" block above) ship it as a sticky TOP bar
+   for the classic studio's mobile mode - the console's design wants the
+   same component's single-active-panel model as a BOTTOM nav (Primer
+   Mobile.dc.html). Scoped overrides here, not a second tab component or
+   an edit to the classic rules, so a shared/mobile-tabs.jsx fix still
+   benefits both consumers. */
+.nv-mobile-shell {
+  display: flex; flex-direction: column;
+  height: 100dvh; width: 100%;
+  background: var(--bg);
+  color: var(--text);
+  /* US-014 M3: --hit's own default (36px) and compact mode (32px) are
+     both below the 44px mobile floor (uiv2 UI review, "Mobile support"
+     pt 4/7). nv-composer-iconbtn/nv-send-btn/nv-stop-btn are its only
+     consumers (test_touch_targets.py's HIT_SIZED list), so this scoped
+     bump only touches the chat screen's composer. */
+  --hit: 44px;
+}
+.nv-mobile-shell .mobile-tabs-wrap { flex: 1; min-height: 0; flex-direction: column-reverse; }
+.nv-mobile-shell .mobile-tabs {
+  position: sticky; top: auto; bottom: 0;
+  border-bottom: none; border-top: 1px solid var(--border);
+  justify-content: space-around;
+  padding: 0 var(--mobile-pad-x);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.nv-mobile-shell .mobile-tab-panel { overflow-y: auto; }
+.nv-mobile-stub {
+  padding: var(--mobile-pad-y) var(--mobile-pad-x);
+  color: var(--text-2, var(--text));
+}
+/* US-014 M2: the Inbox card's Approve/Review action row. shared/
+   card-list.jsx's own .card-body only sets margin-top - this is the
+   one addition the mobile Inbox cards need on top of it. */
+.nv-mobile-inbox-actions { display: flex; gap: 8px; }
+
+/* US-014 M4: Spaces + Files tabs. */
+
+/* shared/floating-action.jsx's .fab is bottom: var(--mobile-pad-y) - fine
+   floating over a page, but the mobile shell ALSO has its own sticky
+   bottom tab bar (the override above) sitting in that same space, so the
+   unscoped position would hide the FAB behind it. Lift it by the tab
+   bar's own height (mobile-tab padding 10px*2 + ~16px line-height, the
+   same --tap-min floor every mobile-tab already carries). */
+.nv-mobile-shell .fab {
+  bottom: calc(var(--tap-min) + var(--mobile-pad-y) + env(safe-area-inset-bottom));
+}
+
+/* Spaces: workspace tree, expand -> sessions. */
+.nv-mob-ws-group { display: flex; flex-direction: column; gap: 4px; }
+.nv-mob-ws-sessions {
+  display: flex; flex-direction: column; gap: 6px;
+  padding-left: 14px;
+}
+.nv-mob-session-row .card-row { gap: 8px; }
+.nv-mob-chevron {
+  display: inline-block; flex-shrink: 0;
+  color: var(--text-3);
+  transition: transform 0.12s ease;
+}
+.nv-mob-chevron-open { transform: rotate(90deg); }
+
+/* Files: workspace picker + tree. */
+.nv-mob-files-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: var(--mobile-pad-y) var(--mobile-pad-x) 4px;
+}
+.nv-mob-ws-picker {
+  background: transparent; border: none;
+  color: var(--text); font-weight: 600; font-size: 14px;
+  padding: 6px 4px; display: inline-block;
+}
+/* Only a <button> (>1 workspace, a real choice) gets the pointer cursor -
+   the <span> variant (implicit, one workspace) is a label, not a control. */
+button.nv-mob-ws-picker { cursor: pointer; }
+.nv-mob-file-row { padding-top: 10px; padding-bottom: 10px; }
+
+/* File/diff full-screen takeover (shell-level, replaces the whole bottom-
+   nav MobileTabs render the same way NV_MobileChatScreen (M3) does for a
+   session doc - see nv-mobile-shell.jsx's NV_MobileShell). */
+.nv-mob-screen {
+  display: flex; flex-direction: column;
+  height: 100dvh; width: 100%;
+  background: var(--bg);
+}
+.nv-mob-screen-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: var(--mobile-pad-y) var(--mobile-pad-x);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.nv-mob-back {
+  background: transparent; border: none;
+  color: var(--text); font-size: 14px; cursor: pointer;
+  padding: 4px 6px; flex-shrink: 0;
+}
+.nv-mob-screen-title {
+  font-family: var(--font-mono); font-size: 12.5px; color: var(--text-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.nv-mob-screen-body { flex: 1; min-height: 0; display: flex; overflow: auto; }
+
+/* Read-only file view (M4: no upload/new/rename/save on mobile this
+   phase - see NV_MobileFileView's own comment on why this is not
+   NV_FileDoc reused). */
+.nv-mob-file-view { flex: 1; min-width: 0; display: flex; }
+.nv-mob-file-content {
+  flex: 1; min-width: 0; margin: 0;
+  padding: var(--mobile-pad-y) var(--mobile-pad-x);
+  font-family: var(--font-mono); font-size: 12px; line-height: 1.5;
+  white-space: pre-wrap; word-break: break-word;
+  color: var(--text);
+}
+
+/* US-014 M3: the mobile chat screen. .nv-mobile-chat wraps a verbatim
+   NV_SessionDoc mount (nv-mobile-shell.jsx's NV_MobileChatScreen) - every
+   selector below restyles that component's OWN existing classes for
+   touch/messenger-layout, it does not fork or duplicate any of them. */
+.nv-mobile-chat { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+/* Messenger bubbles: .nv-turn-user/.nv-turn-agent already exist on every
+   turn (nv-session-doc.jsx's renderTurn) with no distinguishing style on
+   desktop - align user right, agent left, each in its own bubble. */
+.nv-mobile-chat .nv-turn-user {
+  flex-direction: row-reverse;
+  margin-left: 15%;
+}
+.nv-mobile-chat .nv-turn-user .nv-turn-main {
+  background: var(--accent-dim);
+  border-radius: var(--r-8) var(--r-4) var(--r-8) var(--r-8);
+  padding: 7px 10px;
+}
+.nv-mobile-chat .nv-turn-user .nv-turn-byline { flex-direction: row-reverse; }
+.nv-mobile-chat .nv-turn-agent { margin-right: 15%; }
+.nv-mobile-chat .nv-turn-agent .nv-turn-main {
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-4) var(--r-8) var(--r-8) var(--r-8);
+  padding: 7px 10px;
+}
+
+/* Bottom sheets: .nv-trace-split (a side panel, closed by its own
+   nv-trace-close button), .nv-bind-menu and the "⋯" session-actions
+   .nv-menu-right dropdown (both closed by a row click or - on desktop
+   only - an outside-click listener, neither a CSS concern) all default
+   to desktop-style absolute/inline positioning. Repositioned to slide up
+   from the bottom, the same visual language as shared/bottom-sheet.jsx's
+   own .sheet, without a second BottomSheet component or touching any of
+   NV_SessionDoc's own state/close logic. */
+.nv-mobile-chat .nv-trace-split {
+  position: fixed; inset: auto 0 0 0; top: auto;
+  width: 100%; max-height: 60vh;
+  border-left: none; border-top: 1px solid var(--border-strong);
+  border-radius: 16px 16px 0 0;
+  box-shadow: var(--shadow);
+  z-index: 55;
+  animation: sheet-slide-up 0.18s ease;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.nv-mobile-chat .nv-bind-menu,
+.nv-mobile-chat .nv-menu-right {
+  position: fixed; inset: auto 0 0 0; top: auto; left: 0; right: 0;
+  width: 100%; max-height: 70vh; overflow-y: auto;
+  border-radius: 16px 16px 0 0;
+  animation: sheet-slide-up 0.18s ease;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* US-014 M5: the More tab - profile/theme, health cards, Platform
+   sections. .nv-profile-head/.nv-avatar/.nv-profile-name/.nv-profile-
+   role/.nv-seg (nv-chrome.jsx's own profile popover) reused as-is here -
+   plain flex boxes, nothing positioned as a popover, so they read fine
+   inline in a scrolling tab panel. .nv-health-grid (nv-system.jsx) is
+   already auto-fill/minmax responsive - no override needed. */
+.nv-mob-more { padding: var(--mobile-pad-y) var(--mobile-pad-x); }
+.nv-mob-profile { margin-bottom: 14px; }
+.nv-mob-more .nv-seg { margin-top: 10px; }
+.nv-mob-more-section-label {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--text-3);
+  margin: 18px 0 8px;
+}
+.nv-mob-plat-group-label {
+  font-size: 11px; font-weight: 600; color: var(--text-2);
+  margin: 12px 2px 6px;
+}
+.nv-mob-plat-list .nv-input { margin: 0 var(--mobile-pad-x) 10px; width: auto; }
+.nv-mob-fact-sheet { display: flex; flex-direction: column; gap: 8px; }
+.nv-mob-fact-chip {
+  align-self: flex-start;
+  font-size: 11px; font-weight: 600;
+  border: 1px solid currentColor; border-radius: var(--r-4);
+  padding: 1px 7px;
+}
+.nv-mob-fact-row {
+  display: flex; justify-content: space-between; gap: 10px;
+  padding: 6px 0; border-top: 1px solid var(--border);
+  font-size: 12.5px;
+}
+.nv-mob-fact-k { color: var(--text-3); }
+.nv-mob-fact-v { color: var(--text); text-align: right; word-break: break-word; }
+.nv-mob-fact-edit-note { color: var(--text-3); font-size: 12px; padding: 6px 0; }

@@ -1,0 +1,471 @@
+# Sistema di punteggio
+
+> 🌐 [English](../SCORING.md) · [Français](../fr/SCORING.md) · [Deutsch](../de/SCORING.md) · **Italiano** · [Español](../es/SCORING.md) · [Português](../pt/SCORING.md) · [简体中文](../zh/SCORING.md)
+
+Le foto vengono classificate in una categoria e poi valutate con i pesi di quella categoria.
+
+## Come funziona il punteggio
+
+1. **Rilevamento della categoria** - La foto viene analizzata per il contenuto (volti, tag, dati EXIF)
+2. **Valutazione dei filtri** - Le categorie vengono valutate in ordine di priorità finché una non corrisponde (un *contesto di punteggio* può promuovere/escludere categorie per album o foto senza modificare l'ordine di base — vedi [Contesti di punteggio](#contesti-di-punteggio))
+3. **Applicazione dei pesi** - I pesi specifici della categoria vengono applicati alle metriche
+4. **Applicazione dei modificatori** - Bonus, penalità e flag di comportamento vengono applicati
+5. **Punteggio finale** - Somma ponderata limitata all'intervallo 0-10
+
+## Categorie
+
+`scoring_config.json` definisce 34 categorie (33 nominate più `default`), valutate in ordine di priorità crescente finché una non corrisponde. La priorità più bassa vince. L'elenco completo si trova nell'array `categories`; le principali:
+
+| Priorità | Categoria | Metodo di rilevamento |
+|----------|----------|------------------|
+| 8 | `art` | Tag: painting, statue, drawing, cartoon, anime |
+| 10 | `astro` | Tag: aurora, astrophotography, stars, milky way |
+| 15 | `concert` | Tag: concert |
+| 35 | `group_portrait` | Rapporto volto ≥ 5% E is_group_portrait |
+| 42 | `silhouette` | Ha un volto E is_silhouette |
+| 45 | `portrait` | Rapporto volto ≥ 5%, non silhouette/gruppo/mono |
+| 46 | `portrait_bw` | Ritratto monocromatico (volto ≥ 5%) |
+| 55 | `macro` | Tag: macro, insect, butterfly, dewdrop, ... |
+| 65 | `wildlife` | Tag: animal, bird, marine, reptile, primate |
+| 80 | `long_exposure` | Otturatore 1-10 secondi |
+| 85 | `night` | Luminanza < 0.15 |
+| 88 | `monochrome` | is_monochrome (saturazione < 5%) |
+| 95 | `street` | Tag: street, urban_culture |
+| 96 | `human_others` | Ha un volto E rapporto volto < 5% |
+| 100 | `landscape` | Tag: landscape, mountain, beach, forest, ... |
+| 999 | `default` | Ripiego (nessun filtro) |
+
+Altre categorie basate sui tag includono `aerial`, `food`, `sports`, `vehicle`, `travel`, `fashion`, `candid`, `product`, `architecture`, `urban`, `golden_hour`, `blue_hour`, `cinematic`, `vintage`, `abstract`, `minimalist`, `dramatic` e `weather`.
+
+## Contesti di punteggio
+
+L'ordine di priorità sopra descritto è globale: ogni foto viene valutata rispetto allo stesso elenco. Un **contesto di punteggio** è un *delta* con nome applicato a quell'ordine di base: promuove in testa un breve elenco di categorie ed esclude del tutto le altre, senza rinumerare nulla. `default` (con `promote`/`excluded` vuoti) è il contesto no-op, quindi per una foto non cambia nulla finché non le viene assegnato esplicitamente un contesto.
+
+**Ordine effettivo** = `promote` (nell'ordine indicato) → l'ordine di priorità globale con i nomi promossi ed esclusi rimossi → `default` per ultimo. Un nome presente sia in `promote` sia in `excluded` viene rimosso interamente — vince `excluded`. `ScoringConfig.resolve_context_order()` (`config/scoring_config.py`) calcola questo ordine e lo memorizza in cache (memoize) una sola volta per nome di contesto.
+
+Preset forniti di serie — modificabili dalla scheda **Contesto di punteggio** del visualizzatore (`PUT /api/config/scoring_contexts/{name}`, riservato alla modalità edizione) o direttamente nel JSON; vedi [Contesti di punteggio](CONFIGURATION.md#contesti-di-punteggio) per il riferimento completo dei campi:
+
+| Contesto | Promuove | Esclude |
+|---------|----------|----------|
+| `default` | — | — |
+| `action_stage` | `sports`, `concert`, `candid` | `silhouette` |
+| `party_event` | `group_portrait`, `candid`, `food` | — |
+| `portrait_session` | `portrait`, `portrait_bw`, `fashion` | — |
+| `wildlife` | `wildlife` | — |
+| `landscape` | `landscape`, `golden_hour`, `blue_hour` | — |
+| `motorsport` | `sports`, `vehicle` | `silhouette` |
+
+Solo il *delta* è modificabile — trascina la testa promossa nell'ordine desiderato (o usa i pulsanti Sposta su / Sposta giù), attiva o disattiva l'esclusione di una categoria — mai un ordine completo autonomo per contesto: le categorie non promosse mantengono sempre l'ordine di priorità globale, quindi una categoria aggiunta in seguito non può mai mancare silenziosamente da sei elenchi distinti. Vedi [Modificare un contesto](CONFIGURATION.md#modificare-un-contesto) per le regole di validazione.
+
+Un contesto si assegna per album (`PUT /api/albums/{id}/scoring_context`, che lo materializza su ogni foto che è membro in quel momento — per un album intelligente un'istantanea, non un abbonamento, vedi [Contesti di punteggio](CONFIGURATION.md#contesti-di-punteggio)) oppure, per una singola foto ostinata, si applica come sovrascrittura di categoria persistente (`POST /api/comparison/override_category`). Entrambe le leve persistono in una tabella satellite `photo_scoring_overrides` anziché come colonne su `photos` — `save_photo`/`save_photos_batch` scrivono le righe delle foto con `INSERT OR REPLACE`, il che cancellerebbe silenziosamente una nuova colonna su quella riga alla scansione successiva. Impostare una leva lascia l'altra invariata, ed entrambe possono essere azzerate indipendentemente. **Nessuna delle due ha effetto sulle foto già valutate finché non viene eseguito un ricalcolo** — `python facet.py --recompute-average`, oppure `POST /api/scan/recompute` dal viewer (protetto a livello inter-processo contro l'esecuzione simultanea di due — vedi [Cambiare le priorità richiede un ricalcolo](CONFIGURATION.md#riordinare-la-priorità-globale)). Se `normalization.per_category` è abilitato, esegui il ricalcolo due volte — vedi [Normalization](CONFIGURATION.md#normalization) per capire perché il primo passaggio normalizza rispetto alla vecchia categoria di ciascuna foto.
+
+### La trappola dei dati EXIF mancanti
+
+Riordinare — sia modificando la priorità globale sia promuovendo tramite un contesto — cambia solo quale categoria viene *provata per prima*. Non può far sì che i filtri di una categoria corrispondano a una foto che altrimenti non corrisponderebbero. `config/category_filter.py:122-128` fa fallire del tutto un filtro di intervallo numerico ogni volta che il valore sottostante della foto è mancante o non interpretabile, invece di saltare solo quel limite — un valore mancante e un valore fuori intervallo vengono trattati allo stesso modo, e la categoria viene comunque scartata.
+
+In concreto: `sports` (priorità 71) porta `shutter_speed_max: 0.02`. Un fotogramma di danza scattato più lento di 1/50s, o senza alcun tempo di posa EXIF leggibile, fa fallire quel filtro indipendentemente da dove si trovi `sports` nell'ordine di valutazione — anche se promossa in prima posizione da un contesto come `action_stage`. La foto scivola verso la prima categoria successiva che corrisponde, tipicamente `fashion` (priorità 43, taggata `fashion`, ha un volto) o `silhouette` (priorità 42, controluce con un volto). **Questa è la cosa più utile da controllare quando una foto finisce in una categoria inattesa:** prima di riordinare o promuovere qualsiasi cosa, verifica che i filtri numerici della categoria di destinazione possano effettivamente corrispondere ai dati EXIF memorizzati della foto, non solo ai suoi tag.
+
+### La trappola del tag mancante
+
+La trappola EXIF sopra presuppone che il livello dei tag abbia già trovato corrispondenza — `required_tags` ha una propria versione dello stesso problema: un filtro non può corrispondere a un tag che non esiste affatto nel vocabolario CLIP. Prima del commit `917dd94`, nulla in `scoring_config.json` copriva la danza: un fotogramma che il tagger descriveva come danza, performance o palco non corrispondeva a nessuno dei `required_tags` di `sports` (`sports`, `motion`, `athlete`, `competition`, `action_sport`) e ricadeva direttamente nel ripiego `default` — promuovere `sports` tramite `action_stage` non cambiava nulla, perché la promozione riordina solo *quando* una categoria viene provata, mai se i suoi filtri corrispondono.
+
+`sports.tags.dance` ora porta 11 prompt CLIP (`dance performance`, `dancer on stage`, `ballet dancer`, `contemporary dance`, `ballroom dancing`, `latin dance`, `hip hop dance`, `dance competition`, `dance troupe performing`, `dancer mid leap`, `dancer in motion`), e `dance` è stato aggiunto a `sports.filters.required_tags`, così una foto di danza taggata può ora superare quel filtro. Questo rende `sports` *raggiungibile* per i contenuti di danza — non esonera dalla trappola della velocità dell'otturatore descritta sopra: un fotogramma di danza a otturazione lenta o senza EXIF può ora superare il controllo dei tag e comunque fallire su `shutter_speed_max: 0.02`, finendo in `fashion` o `silhouette` esattamente come descritto lì.
+
+**Le foto esistenti mantengono i tag che hanno già** — il nuovo vocabolario cambia solo ciò che il tagger assegna da qui in avanti. Ri-tagga la libreria con `python facet.py --recompute-tags` per applicarlo retroattivamente.
+
+### Riordinare la priorità globale
+
+`GET/POST /api/config/category_priorities` (riservato alla modalità di modifica) legge e riscrive l'ordine di base rispetto al quale ogni contesto applica il proprio delta. `POST` accetta `{"order": [name, ...]}` — una permutazione con lo stesso insieme di ogni nome di categoria diverso da `default` — e **permuta i valori di priorità esistenti sul nuovo ordine** invece di rinumerare (10/20/30/…): il multiset delle priorità resta invariato, quindi i numeri nella tabella qui sopra restano significativi e l'unicità è garantita per costruzione. `default` (priorità 999) resta fissata all'ultimo posto ed è esclusa dal riordino. Ogni scrittura crea prima una copia con timestamp `.backup.<timestamp>` di `scoring_config.json`; questo writer e l'editor dei pesi (`update_category_weights`) condividono ora un unico lock, poiché la precedente lettura-modifica-scrittura non protetta permetteva a un salvataggio concorrente dell'uno di scartare silenziosamente le modifiche dell'altro.
+
+Il riordino da solo non tocca la `category` memorizzata di alcuna foto — esegui poi un ricalcolo (`--recompute-average` oppure `POST /api/scan/recompute`) per applicarlo.
+
+**Limitazione nota:** `api/types.py` costruisce l'elenco a discesa del tipo/filtro della galleria da `ScoringConfig.get_categories()` una sola volta, all'importazione. Un riordino della priorità viene recepito immediatamente per l'effettiva corrispondenza delle categorie (ogni chiamata di punteggio e di ricalcolo rilegge la configurazione dal disco), ma il menu a discesa del tipo nella galleria mantiene il vecchio ordinamento finché il processo del viewer non viene riavviato. Il filtraggio in sé non è interessato — il riordino non aggiunge né rimuove alcun nome di categoria.
+
+## Definizione di una categoria
+
+Ogni categoria in `scoring_config.json` ha questi componenti:
+
+```json
+{
+  "name": "portrait",
+  "priority": 45,
+  "filters": {
+    "face_ratio_min": 0.05,
+    "has_face": true,
+    "is_silhouette": false,
+    "is_group_portrait": false,
+    "is_monochrome": false
+  },
+  "weights": {
+    "aesthetic_percent": 32,
+    "eye_sharpness_percent": 16,
+    "face_quality_percent": 14,
+    "composition_percent": 12,
+    "liqe_percent": 8,
+    "exposure_percent": 4,
+    "tech_sharpness_percent": 4,
+    "color_percent": 4,
+    "contrast_percent": 4,
+    "aesthetic_iaa_percent": 2
+  },
+  "modifiers": {
+    "bonus": 0.419,
+    "_apply_blink_penalty": true,
+    "noise_tolerance_multiplier": 0.006,
+    "_clipping_multiplier": 0.5
+  },
+  "tags": {}
+}
+```
+
+## Riferimento dei filtri
+
+### Filtri per intervallo numerico
+
+| Filtro | Campo | Descrizione |
+|--------|-------|-------------|
+| `face_ratio_min` / `face_ratio_max` | `face_ratio` | Area del volto come frazione (0.0-1.0) |
+| `face_count_min` / `face_count_max` | `face_count` | Numero di volti |
+| `iso_min` / `iso_max` | `ISO` | ISO della fotocamera |
+| `shutter_speed_min` / `shutter_speed_max` | `shutter_speed` | Tempo di esposizione (secondi) |
+| `luminance_min` / `luminance_max` | `mean_luminance` | Luminosità (0.0-1.0) |
+| `focal_length_min` / `focal_length_max` | `focal_length` | Lunghezza focale (mm) |
+| `f_stop_min` / `f_stop_max` | `f_stop` | Numero f del diaframma |
+
+### Filtri booleani
+
+| Filtro | Descrizione |
+|--------|-------------|
+| `has_face` | Almeno un volto rilevato |
+| `is_monochrome` | Saturazione < 5% |
+| `is_silhouette` | Controluce con ombre/alte luci marcate |
+| `is_group_portrait` | face_count >= `min_faces_for_group` (configurabile, predefinito: 4) |
+
+### Filtri per tag
+
+| Filtro | Descrizione |
+|--------|-------------|
+| `required_tags` | Elenco di tag che la foto deve avere |
+| `excluded_tags` | Elenco di tag che la foto NON deve avere |
+| `tag_match_mode` | `"any"` (predefinito) o `"all"` |
+
+## Chiavi dei pesi
+
+Tutti i pesi usano il suffisso `_percent`. Vengono normalizzati da `get_weights()`, quindi i totali non devono essere esattamente uguali a 100 — ma mantenerli a 100 conserva i punteggi sulla scala 0-10.
+
+| Chiave | Metrica | Origine | Ideale per |
+|-----|--------|--------|----------|
+| `aesthetic_percent` | Attrattiva visiva | TOPIQ o CLIP+MLP | Tutte |
+| `quality_percent` | Qualità legacy | Ridistribuita in `aesthetic` (nessun segnale separato) | — |
+| `face_quality_percent` | Chiarezza del volto | InsightFace | Ritratti |
+| `eye_sharpness_percent` | Nitidezza degli occhi | Landmark InsightFace | Ritratti |
+| `tech_sharpness_percent` | Nitidezza complessiva | Varianza laplaciana | Paesaggi |
+| `composition_percent` | Composizione | SAMP-Net o basata su regole | Tutte |
+| `exposure_percent` | Bilanciamento dell'esposizione | Analisi dell'istogramma | Tutte |
+| `color_percent` | Armonia dei colori | Analisi HSV | Foto a colori |
+| `contrast_percent` | Contrasto tonale | Ampiezza dell'istogramma | B/N |
+| `dynamic_range_percent` | Gamma tonale | Analisi dell'istogramma | HDR, paesaggi |
+| `isolation_percent` | Separazione del soggetto | Volto vs sfondo | Ritratti, fauna selvatica |
+| `leading_lines_percent` | Linee guida | Rilevamento dei bordi | Architettura |
+| `power_point_percent` | Regola dei terzi | Posizionamento del soggetto | Tutte |
+| `saturation_percent` | Saturazione dei colori | Analisi HSV | Foto vivaci |
+| `noise_percent` | Livello di rumore | Stima del rumore | Bassa luminosità |
+| `face_sharpness_percent` | Nitidezza della regione del volto | Analisi del volto | Ritratti |
+| `aesthetic_iaa_percent` | Merito estetico artistico | TOPIQ IAA (addestrato su AVA) | Arte, creatività |
+| `face_quality_iqa_percent` | Qualità del volto (IQA) | TOPIQ NR-Face | Ritratti |
+| `liqe_percent` | Punteggio di qualità LIQE | LIQE | Diagnostica |
+| `subject_sharpness_percent` | Nitidezza della regione del soggetto | BiRefNet + laplaciano | Ritratti, fauna selvatica |
+| `subject_prominence_percent` | Rapporto dell'area del soggetto | BiRefNet | Macro, fauna selvatica |
+| `subject_placement_percent` | Regola dei terzi del soggetto | BiRefNet | Tutte |
+| `bg_separation_percent` | Separazione dello sfondo | BiRefNet | Ritratti, macro |
+
+## Modificatori
+
+Regolano il comportamento del punteggio per categoria:
+
+| Modificatore | Tipo | Descrizione |
+|----------|------|-------------|
+| `bonus` | float | Aggiunto al punteggio finale (es. 0.5) |
+| `noise_tolerance_multiplier` | float | Scala la penalità per il rumore (0.5 = metà) |
+| `iso_tolerance_multiplier` | float | Scala la penalità per gli ISO |
+| `min_saturation_bonus` | float | Bonus per alta saturazione |
+| `contrast_bonus` | float | Bonus per alto contrasto |
+| `_skip_clipping_penalty` | bool | Salta la penalità per il clipping dell'esposizione |
+| `_skip_oversaturation_penalty` | bool | Salta la penalità per la sovrasaturazione |
+| `_clipping_multiplier` | float | Scala la penalità per il clipping |
+| `_apply_blink_penalty` | bool | Applica la penalità per il rilevamento degli occhi chiusi |
+
+## Dimensioni della salienza del soggetto
+
+Quattro dimensioni derivate dalla segmentazione del soggetto di BiRefNet:
+
+| Chiave del peso | Metrica | Descrizione |
+|-----------|--------|-------------|
+| `subject_sharpness_percent` | Nitidezza del soggetto | Qualità della messa a fuoco della regione del soggetto rispetto allo sfondo. Alta = soggetto nitido, sfondo morbido. |
+| `subject_prominence_percent` | Prominenza del soggetto | Area del soggetto come frazione dell'inquadratura. Alta per macro e soggetti inquadrati da vicino, bassa per scene ampie. |
+| `subject_placement_percent` | Posizionamento del soggetto | Punteggio della regola dei terzi per il centro di massa del soggetto. |
+| `bg_separation_percent` | Separazione dello sfondo | Differenza del gradiente dei bordi al confine del soggetto (qualità del bokeh). |
+
+Usa `subject_sharpness_percent` e `bg_separation_percent` per ritratti/fauna selvatica; `subject_prominence_percent` per la macro.
+
+## Dimensioni IQA supplementari
+
+Tre modelli di qualità aggiuntivi:
+
+| Chiave del peso | Modello | Descrizione |
+|-----------|-------|-------------|
+| `aesthetic_iaa_percent` | TOPIQ IAA | Merito estetico addestrato su AVA, distinto dal punteggio estetico di qualità tecnica. Ideale per le categorie arte/creatività. |
+| `face_quality_iqa_percent` | TOPIQ NR-Face | Valutazione della qualità della regione del volto. Ideale per le categorie ritratto. |
+| `liqe_percent` | LIQE | Punteggio di qualità più una diagnosi delle distorsioni (mosso, sovraesposizione, rumore). |
+
+Questi modelli vengono eseguiti come parte della pipeline di punteggio predefinita e condividono la VRAM con TOPIQ. Aggiungi le loro chiavi di peso a qualsiasi categoria in cui la valutazione sia utile.
+
+### Segnali supplementari (non inclusi nell'aggregato predefinito)
+
+| Colonna | Origine | Descrizione |
+|--------|--------|-------------|
+| `aesthetic_clip` | `analyzers/aesthetic_clip.py` + embedding CLIP/SigLIP in cache | Un punteggio estetico supplementare gratuito (0-10) derivato dagli embedding delle immagini in cache proiettandoli su un "asse estetico" costruito da prompt testuali positivi/negativi. Nessuna inferenza aggiuntiva sull'immagine al momento della scansione. **Non** fa parte dell'`aggregate` predefinito. Popola con `python scripts/compute_aesthetic_clip.py --db <path>`. Esegui benchmark con `python scripts/benchmark_aesthetic.py --db <path> --ava AVA.txt --photo-dir <dir>`. AVA SRCC ≈ 0.52 sul set di 500 foto `ava_test/` (rispetto a 0.94 per `aesthetic_iaa`) — utile come pre-filtro economico o quando TOPIQ-IAA non è disponibile. |
+
+## Tag delle categorie (vocabolario CLIP)
+
+I tag attivano le categorie basate sui tag e vengono abbinati usando la somiglianza CLIP:
+
+```json
+{
+  "tags": {
+    "landscape": ["landscape", "scenic view", "nature scene"],
+    "mountain": ["mountain", "alpine", "peaks"],
+    "beach": ["beach", "ocean", "seaside", "coastal"]
+  }
+}
+```
+
+Ogni chiave è il nome del tag canonico e l'array contiene i sinonimi per l'abbinamento CLIP.
+
+## Punteggio Migliori scelte
+
+Il filtro "Migliori scelte" del visualizzatore usa un punteggio ponderato personalizzato:
+
+```json
+"top_picks_weights": {
+  "aggregate_percent": 30,
+  "aesthetic_percent": 28,
+  "composition_percent": 18,
+  "face_quality_percent": 24
+}
+```
+
+**Calcolo del punteggio:**
+- Con volto (rapporto volto ≥ 20%): tutte e quattro le metriche contribuiscono
+- Senza volto: `face_quality_percent` ridistribuito su `aesthetic` e `composition`
+
+## Considerazioni sui profili VRAM
+
+I pesi predefiniti sono ottimizzati per **TOPIQ** (0.93 SRCC), il modello estetico di tutti i profili.
+
+| Profilo | Modello estetico | Embedding | Tagger | Raccomandazioni |
+|---------|-----------------|-----------|--------|-----------------|
+| `24gb` | TOPIQ (0.93 SRCC) | SigLIP 2 NaFlex SO400M | Qwen3.5-4B | Migliore accuratezza, pesi predefiniti |
+| `16gb` | TOPIQ (0.93 SRCC) | SigLIP 2 NaFlex SO400M | Qwen3.5-2B | Pesi predefiniti |
+| `8gb` | CLIP+MLP (0.76 SRCC) | CLIP ViT-L-14 | Somiglianza CLIP | I pesi predefiniti funzionano bene |
+| `legacy` | CLIP+MLP su CPU | CLIP ViT-L-14 | Somiglianza CLIP | Pesi predefiniti, più lento |
+
+Tutti i profili eseguono inoltre i modelli PyIQA supplementari (TOPIQ IAA, TOPIQ NR-Face, LIQE) e, facoltativamente, BiRefNet_dynamic per la salienza del soggetto.
+
+Esegui `--compute-recommendations` dopo aver cambiato profilo per analizzare le distribuzioni dei punteggi.
+
+## Flusso di lavoro per la regolazione dei pesi
+
+### Opzione A: tramite il visualizzatore (consigliato)
+
+1. Apri `/stats` → scheda **Categorie** → sotto-scheda **Pesi**
+2. Sblocca la modalità di modifica
+3. Seleziona una categoria dal menu a tendina dell'editor
+4. Regola i cursori — l'**Anteprima distribuzione punteggi** in tempo reale mostra l'impatto stimato
+5. Clicca **Salva** poi **Ricalcola punteggi** per applicare
+
+Il visualizzatore esegue `--recompute-category` dietro le quinte, aggiornando solo le foto di quella categoria.
+
+### Opzione B: tramite CLI
+
+#### 1. Analizza i punteggi attuali
+
+```bash
+python facet.py --compute-recommendations
+```
+
+Mostra:
+- Distribuzioni dei punteggi per categoria
+- Analisi della correlazione dei pesi
+- Aggiustamenti suggeriti
+
+#### 2. Regola i pesi
+
+Modifica i pesi delle categorie in `scoring_config.json`. Assicurati che la somma sia 100.
+
+#### 3. Ricalcola i punteggi
+
+```bash
+python facet.py --recompute-average               # Tutte le categorie
+python facet.py --recompute-category portrait      # Singola categoria (più veloce)
+```
+
+Usa gli embedding memorizzati - nessuna GPU necessaria.
+
+#### 4. Convalida le modifiche
+
+```bash
+python facet.py --compute-recommendations
+```
+
+Confronta le distribuzioni prima/dopo.
+
+## Modalità di confronto a coppie
+
+Addestra i pesi confrontando coppie di foto:
+
+### Configurazione
+
+1. Imposta una `edition_password` non vuota nella configurazione: `"viewer": { "edition_password": "your-password" }`
+2. Avvia il visualizzatore: `python viewer.py`
+3. Clicca il pulsante "Confronta"
+
+### Interfaccia di confronto
+
+- Foto affiancate
+- Tastiera: A (vince sinistra), B (vince destra), T (pari), S (salta)
+- La barra di avanzamento mostra i confronti verso il minimo di 50
+
+### Origini dei confronti
+
+I confronti portano un marcatore `source` così che l'ottimizzatore possa pesarli in base all'affidabilità:
+
+- `vote` — voti A/B espliciti dall'interfaccia di confronto
+- `culling` — derivati automaticamente dalle decisioni di selezione di raffiche/foto simili: ogni
+  foto scartata viene abbinata a un massimo di due foto mantenute dello stesso gruppo
+  (con un limite di 12 coppie per gruppo). Le foto mantenute vincono. I voti espliciti sulla stessa
+  coppia non vengono mai sovrascritti.
+- `rating` — coppie sintetiche generate dalle valutazioni a stelle e dai preferiti
+
+Esaminare i gruppi di raffiche nel visualizzatore amplia quindi il set di addestramento per
+l'ottimizzazione dei pesi senza alcuno sforzo aggiuntivo.
+
+### Ottimizzazione dei pesi
+
+```bash
+# Controlla le statistiche dei confronti
+python facet.py --comparison-stats
+
+# Ottimizza i pesi dai confronti (applicati solo se generalizzano)
+python facet.py --optimize-weights --optimize-category portrait
+
+# Limita i dati di addestramento a origini specifiche
+python facet.py --optimize-weights --optimize-category portrait --optimize-sources vote,culling
+
+# Applica anche se la soglia held-out non è soddisfatta
+python facet.py --optimize-weights --optimize-category portrait --optimize-force
+
+# Applica a tutte le foto
+python facet.py --recompute-average
+```
+
+### Pipeline da etichetta a peso
+
+Oltre ai voti A/B espliciti, altri due flussi di etichette alimentano l'ottimizzatore:
+
+1. **Le decisioni di selezione** vengono catturate automaticamente a ogni
+   conferma di raffica/foto simili (`source='culling'`).
+2. **Valutazioni a stelle, preferiti e rifiuti** vengono materializzati in coppie
+   sintetiche con `python facet.py --sync-label-comparisons` (`source='rating'`).
+   La riesecuzione risincronizza dalle etichette correnti, quindi le valutazioni ritirate scompaiono.
+
+L'ottimizzatore pesa ogni origine in base all'affidabilità (vote 1.0, rating 0.7,
+culling 0.5) quando massimizza la verosimiglianza di Bradley-Terry. Si addestra sul
+vettore esatto delle metriche 0-10 usato dal calcolatore di punteggi (inclusi `liqe`, `aesthetic_iaa`,
+`face_quality_iqa` e le metriche di salienza del soggetto), così i pesi ottimizzati corrispondono
+direttamente al punteggio di produzione.
+
+I pesi vengono **applicati solo se generalizzano**: i pesi finali sono adattati su
+tutti i confronti, ma la decisione di scriverli è subordinata all'accuratezza
+k-fold held-out, non all'accuratezza di addestramento. Se il guadagno held-out rispetto ai pesi correnti
+è inferiore alla soglia (predefinito 2 pp) l'esecuzione riporta i numeri e non scrive
+nulla — passa `--optimize-force` per forzare. L'ottimizzazione è per categoria e
+richiede confronti etichettati **per quella categoria**; le categorie senza voti
+non possono essere regolate dai dati.
+
+Cadenza consigliata:
+
+```bash
+python facet.py --mine-insights          # quale segnale esiste, drift, salute
+python facet.py --sync-label-comparisons # aggiorna le coppie derivate dalle valutazioni
+python facet.py --optimize-weights       # apprende i pesi da tutte le origini
+python facet.py --recompute-average      # applica + persiste lo snapshot dei percentili
+```
+
+### Regolazione dei pesi nell'interfaccia
+
+1. Apri il pannello Anteprima pesi durante il confronto
+2. Regola i cursori per vedere le variazioni di punteggio in tempo reale
+3. Clicca "Suggerisci pesi" per i valori ottimizzati
+4. Aggiorna manualmente la configurazione
+
+**Suggerisci pesi** risponde anche a una domanda più mirata rispetto al gate di validazione incrociata sopra: quanto bene i pesi *attualmente in uso* di questa categoria concordano già con i tuoi confronti? Cliccandolo restituisce `accuracy_before` — la percentuale delle coppie etichettate di questa categoria (voti A/B, scarto e coppie derivate dalle valutazioni) il cui vincitore i pesi in uso predicono correttamente — accanto ad `accuracy_after`, lo stesso valore per i pesi suggeriti. Entrambi vengono mostrati affiancati nella scheda Suggerimenti pesi e nella barra laterale della scheda Confronto A/B ogni volta che lo esegui (`GET /api/comparison/learned_weights`, `optimization/weight_optimizer.py:optimize_weights_direct`). Come il gate della CLI, questo richiede `min_comparisons_for_optimization` (predefinito 30) coppie etichettate per quella categoria — sotto questa soglia il pulsante segnala la carenza invece di un numero.
+
+## Aggiunta di categorie personalizzate
+
+```json
+{
+  "name": "underwater",
+  "priority": 62,
+  "filters": {
+    "required_tags": ["underwater"],
+    "tag_match_mode": "any"
+  },
+  "weights": {
+    "aesthetic_percent": 40,
+    "color_percent": 25,
+    "composition_percent": 20,
+    "exposure_percent": 15
+  },
+  "modifiers": {
+    "noise_tolerance_multiplier": 0.3,
+    "bonus": 0.5
+  },
+  "tags": {
+    "underwater": ["underwater", "scuba", "diving", "ocean"],
+    "fish": ["fish", "coral", "reef"]
+  }
+}
+```
+
+Aggiungi all'array `categories` in `scoring_config.json`, poi esegui `--recompute-average` (o `--recompute-category underwater` solo per la nuova categoria).
+
+## Esempi di flusso di lavoro
+
+### Regolare la categoria Concerto
+
+```bash
+# Modifica scoring_config.json:
+# Trova la categoria "concert", regola:
+#   "noise_tolerance_multiplier": 0.05
+#   "exposure_percent": 5
+
+python facet.py --recompute-category concert
+```
+
+Oppure usa l'editor dei pesi del visualizzatore in `/stats` → Categorie → Pesi per l'anteprima in tempo reale e il ricalcolo con un clic.
+
+### Passare al profilo 8gb
+
+```bash
+# Modifica: "vram_profile": "8gb"
+python facet.py --compute-recommendations  # Analizza
+# Riduci aesthetic_percent nelle categorie se necessario
+python facet.py --recompute-average
+```
+
+### Aggiungere la categoria Underwater
+
+1. Aggiungi la definizione della categoria (vedi sopra)
+2. Esegui `python facet.py --validate-categories`
+3. Esegui `python facet.py --recompute-average`

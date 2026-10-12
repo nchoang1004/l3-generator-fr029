@@ -1,0 +1,399 @@
+"""Playwright helpers for the three-view console (flag day P7).
+
+The facade amendment M16 asks for: every ui_e2e test drives the console
+through a helper layer, so re-pointing at a new shell is one edit here
+rather than N edits across the suite. That bet paid out three times now -
+first S8's fresh shell, then the three-view console, now uiv2 R2's rail +
+tab-group split view.
+
+Selectors mirror ui/components/console/*.jsx exactly:
+
+  nv-root / nv-topbar / nv-actbar / nv-center
+  nv-tg-tab:<kind>:<ref> (nv-tab-groups.jsx) · nv-overlay:<name> · nv-palette
+  nv-rail-inbox / nv-rail-inbox-row:<sid> (cross-workspace, attention-only)
+  nv-rail-ws:<wid> / nv-rail-ws-session:<sid> (workspace tree, collapsed
+  by default - expand the workspace row before a tree row is reachable)
+"""
+
+from __future__ import annotations
+
+import re
+
+from playwright.sync_api import Page, expect
+
+SHELL_CONSOLE_IGNORES = [
+    r"net::ERR_ABORTED",
+    r"favicon",
+    r"status of 404",
+]
+
+
+def shell_url(console_url: str, wid: str) -> str:
+    return f"{console_url}#/w/{wid}"
+
+
+def open_shell(page: Page, console_url: str, wid: str, *, timeout: int = 20_000) -> None:
+    page.goto(shell_url(console_url, wid))
+    expect(page.get_by_test_id("nv-root")).to_be_visible(timeout=timeout)
+
+
+def open_doc(page: Page, console_url: str, wid: str, kind: str, ref: str,
+             *, anchor: str | None = None, timeout: int = 45_000) -> None:
+    """Deep-link a document open and wait for its tab.
+
+    The budget is deliberately generous. Reaching a document in another
+    workspace is a chain, not a navigation: the console boots on
+    whichever workspace it lands in first, then follows the url to the
+    target workspace and opens this doc. 20 s covered that on an idle
+    runner and not on a busy one.
+    """
+    url = f"{console_url}#/w/{wid}?doc={kind}:{ref}"
+    if anchor:
+        url += f"#{anchor}"
+    page.goto(url)
+    # RETARGET (uiv2 R2): the tab-group host's tabs carry the nv-tg-
+    # prefix (nv-tab-groups.jsx); the doc= grammar and restore are
+    # unchanged.
+    expect(page.get_by_test_id(f"nv-tg-tab:{kind}:{ref}")).to_be_visible(
+        timeout=timeout)
+
+
+def open_overlay(page: Page, console_url: str, wid: str, name: str,
+                 *, timeout: int = 20_000) -> None:
+    """Navigate to a workspace-scoped ``?overlay=`` route and wait for it
+    to actually render.
+
+    01a0823a: shares open_view's same-document hash-assignment fix — this
+    used a raw page.goto() to a hash-only URL, which is the identical
+    bug (see open_view's docstring): on a page already bootstrapped at
+    this origin, that's a same-document navigation whose hashchange/
+    popstate firing isn't guaranteed, and nv-shell.jsx's URL-sync
+    listener only reacts to those two events. Direct hash assignment is
+    the browser's own primitive that unambiguously queues a hashchange.
+    """
+    fragment = f"#/w/{wid}?overlay={name}"
+    current_origin = page.url.split("#", 1)[0].rstrip("/")
+    console_origin = console_url.rstrip("/")
+    if current_origin == console_origin:
+        page.evaluate("(h) => { window.location.hash = h; }", fragment)
+    else:
+        page.goto(f"{console_url}{fragment}")
+    expect(page.get_by_test_id(f"nv-overlay:{name}")).to_be_visible(timeout=timeout)
+
+
+def open_view(page: Page, console_url: str, wid: str, view: str,
+              *, timeout: int = 20_000) -> None:
+    """Navigate to a workspace-scoped ``?view=`` route (e.g. the System
+    dashboard's ``system:dashboard``) and wait for it to actually render.
+
+    01a0823a: uses the SAME same-document hash-assignment
+    ``open_legacy_route`` already earned its 45s budget over, not a
+    fresh ``page.goto()``. Every real caller reaches this with the
+    console already loaded (the ``page`` fixture's own pre-navigation
+    guarantees it - see that fixture's docstring), so a ``page.goto()``
+    to a URL differing only by hash is a same-document navigation whose
+    ``hashchange``/``popstate`` firing is NOT guaranteed across
+    Playwright/browser navigation classification - and
+    ``nv-shell.jsx``'s URL-sync listener (the only thing that ever calls
+    ``setView``) only runs on those two events. A ``page.goto()`` here
+    that doesn't fire one leaves the console showing whatever view the
+    page was already on: the target view's content (here,
+    ``NV_WorkerFleet``) never mounts, and a caller waiting on one of its
+    test ids waits out its full timeout against a view that was never
+    going to change - indistinguishable from "still loading" without
+    reading nv-shell.jsx's own event wiring. Direct hash assignment is
+    the browser's own native primitive for this, which unambiguously
+    queues a hashchange task per spec regardless of how Playwright
+    classifies the navigation.
+    """
+    fragment = f"#/w/{wid}?view={view}"
+    current_origin = page.url.split("#", 1)[0].rstrip("/")
+    console_origin = console_url.rstrip("/")
+    if current_origin == console_origin:
+        page.evaluate("(h) => { window.location.hash = h; }", fragment)
+    else:
+        page.goto(f"{console_url}{fragment}")
+
+
+def open_root(page: Page, console_url: str) -> None:
+    """Navigate back to the bare console root (no workspace/overlay/view).
+
+    01a08248: shares open_view/open_overlay's same-document hash-
+    assignment fix. Once the console has resolved a default workspace,
+    its own URL-sync write effect (SH_buildUrl in shell-url.js) has
+    already rewritten the hash to "#/w/<wid>" - a caller is essentially
+    never on a genuinely hash-less URL by the time it wants "back to the
+    shell," so a raw page.goto() to "#/" is a same-document, hash-only
+    change whose hashchange/popstate firing isn't guaranteed, and
+    nv-shell.jsx's URL-sync listener only reacts to those two events.
+
+    No post-nav assertion here (unlike open_overlay) - "the shell" means
+    different things on desktop (nv-root) vs mobile (nv-mobile-shell,
+    US-014), so the caller waits on whichever applies.
+    """
+    fragment = "#/"
+    current_origin = page.url.split("#", 1)[0].rstrip("/")
+    console_origin = console_url.rstrip("/")
+    if current_origin == console_origin:
+        page.evaluate("(h) => { window.location.hash = h; }", fragment)
+    else:
+        page.goto(f"{console_url}{fragment}")
+
+
+def open_setup_wizard(page: Page, console_url: str, *, timeout: int = 15_000) -> None:
+    """Load the console root while the first-boot gate is showing and wait for the wizard card.
+
+    The gate renders INSTEAD of the shell (no ``nv-root``), so ``open_root`` cannot be used. The caller has already made the setup API
+    answer "not set up" (see ``test_setup_wizard_resume_journey``).
+    """
+    page.goto(console_url, wait_until="domcontentloaded")
+    expect(page.get_by_text("Configure this install")).to_be_visible(timeout=timeout)
+    # The card shows "Checking this install..." while the wizard reads what is already saved; wait for the step label itself.
+    expect(page.locator(".setup-progress")).to_contain_text(re.compile(r"of 2", re.I), timeout=timeout)
+
+
+def open_palette(page: Page) -> None:
+    """Open the command palette, by its own affordance.
+
+    Clicks the topbar search field rather than pressing Ctrl+K: the
+    field is the persistent, visible way in, so a caller checking that
+    a surface is reachable without typing a URL is checking the path a
+    person would actually take; the chord has its own coverage in
+    tests/ui.
+    """
+    expect(page.get_by_test_id("nv-root")).to_be_visible(timeout=20_000)
+    chip = page.get_by_test_id("nv-search-btn")
+    expect(chip).to_be_visible(timeout=20_000)
+    chip.click()
+    expect(page.get_by_test_id("nv-palette")).to_be_visible(timeout=10_000)
+
+
+def run_verb(page: Page, label: str) -> None:
+    open_palette(page)
+    page.get_by_test_id("nv-palette-input").fill(label)
+    page.get_by_test_id("nv-palette-row").first.click()
+
+
+def session_row(page: Page, sid: str, wid: str, *, timeout: int = 10_000):
+    """The workspace tree row for a specific session id.
+
+    RETARGET (uiv2 R2): the flat per-workspace band list is now the
+    Inbox (attention-only, cross-workspace - see attention_item below)
+    plus the workspace tree, which starts collapsed. wid is required so
+    the right nv-rail-ws:<wid> row can be expanded; the expand is
+    idempotent (checks the target row first) so a second call in the
+    same test does not re-toggle and collapse it.
+    """
+    ws_row = page.get_by_test_id(f"nv-rail-ws:{wid}")
+    expect(ws_row).to_be_visible(timeout=timeout)
+    row = page.get_by_test_id(f"nv-rail-ws-session:{sid}")
+    if row.count() == 0:
+        ws_row.click()
+    return row
+
+
+def attention_item(page: Page, sid: str):
+    """The attention affordance for a session.
+
+    RETARGET (uiv2 R2): needs-a-human sessions now lead the Inbox, the
+    cross-workspace attention feed (notes 2.1), not a per-workspace band
+    - clicking it opens the session whose inline card carries the
+    decision, same as before.
+    """
+    return page.get_by_test_id(f"nv-rail-inbox-row:{sid}")
+
+
+# ---------------------------------------------------------------------------
+# Legacy route translation
+# ---------------------------------------------------------------------------
+#
+# Every management page the console used to serve at its own "#/<page>"
+# route is an overlay on the console. The e2e suite predates that move
+# and navigates by page name, so translate here rather than in N tests:
+# one table, one edit whenever a surface moves again.
+#
+# Keys are the legacy route path with no leading "#/"; values are the
+# overlay target ("<name>[:<section>[:<id>]]"). A route that takes an id
+# uses "{id}" in the target, filled from the caller's trailing segment.
+
+LEGACY_ROUTE_OVERLAYS = {
+    "agents": "agents",
+    "graphs": "graphs",
+    "triggers": "triggers",
+    "toolsets": "toolsets",
+    "tools": "tools",
+    "approvals": "approvals",
+    "workers": "workers",
+    "health": "workers:health",
+    "harnesses": "harnesses",
+    "services": "services",
+    "workspaces": "workspaces",
+    "workspaces/templates": "workspaces:templates",
+    "workspaces/providers": "providers:workspace",
+    "channels": "channels",
+    "channels/channels": "channels",
+    "channels/associations": "channels:rules",
+    "channels/rules": "channels:rules",
+    "channels/providers": "providers:channel",
+    "knowledge/collections": "collections",
+    "subsystems/internal-collections": "internal-collections",
+    "ssp": "providers:ssp",
+    "providers": "providers",
+    "providers/llm": "providers:llm",
+    "providers/embedding": "providers:embedding",
+    "providers/cross_encoder": "providers:cross_encoder",
+    "providers/stt": "providers:stt",
+    "providers/tts": "providers:tts",
+    "providers/web_search": "providers:web_search",
+    "providers/web_fetch": "providers:web_fetch",
+    "providers/artifact_storage": "providers:artifact_storage",
+}
+
+
+def overlay_target(route: str) -> str:
+    """Translate a legacy console route into an overlay target.
+
+    ``route`` may carry a trailing record id ("agents/ag-1"), which lands
+    on the overlay's own id slot. Raises rather than guessing: a route
+    with no successor is a surface that lost its home, and silently
+    navigating nowhere is how the old provider-catalog helper hid the
+    fact that it did nothing at all.
+    """
+    path = route.lstrip("#").lstrip("/").rstrip("/")
+    if path in LEGACY_ROUTE_OVERLAYS:
+        return LEGACY_ROUTE_OVERLAYS[path]
+    head, _, tail = path.rpartition("/")
+    if head in LEGACY_ROUTE_OVERLAYS and tail:
+        target = LEGACY_ROUTE_OVERLAYS[head]
+        # The overlay grammar is name[:section[:id]], so a target that
+        # already names a section takes the id in third position and one
+        # that does not has to leave the section slot empty.
+        return f"{target}:{tail}" if ":" in target else f"{target}::{tail}"
+    raise AssertionError(
+        f"no console overlay for legacy route {route!r}; add it to "
+        "LEGACY_ROUTE_OVERLAYS or drive the surface it moved to"
+    )
+
+
+def wait_for_overlay_url(page: Page, route: str, *,
+                         timeout: int = 15_000) -> None:
+    """Wait until the URL addresses the overlay that succeeded ``route``.
+
+    The pre-S8 console addressed pages directly (``#/agents/ag-1``);
+    the console addresses one workspace and hangs surfaces off it as
+    ``#/w/<wid>?overlay=<name>[:<section>[:<id>]]``. A test that waited
+    on the old shape waited forever, since nothing writes it any more.
+    """
+    target = overlay_target(route)
+    try:
+        page.wait_for_url(f"**overlay={target}**", timeout=timeout)
+    except Exception as exc:  # noqa: BLE001 - re-raised with the URL
+        raise AssertionError(
+            f"never reached overlay={target!r} for route {route!r}.\n"
+            f"  current url: {page.url}"
+        ) from exc
+
+
+def open_legacy_route(page: Page, console_url: str, route: str,
+                      *, tab: str | None = None, wid: str | None = None,
+                      timeout: int = 45_000):
+    """Open the overlay that succeeded a legacy console route.
+
+    ``wid`` is optional because these surfaces are platform-wide, not
+    workspace-scoped: with none given the console resolves the first
+    workspace itself and the overlay still opens, since the URL grammar
+    parses the overlay independently of the workspace. Every real
+    caller in this suite omits it, which means every call here is a
+    CHAIN exactly like open_doc's own (boot on whichever workspace the
+    console lands in first, then resolve the overlay) - so it gets the
+    same 45s budget open_doc's own comment already earned for that
+    reason, not a fresh guess. The overlay-flake hunt's cold-boot
+    specimens (test_knowledge_collection_journey and friends, GHA runs
+    33426311517 and earlier) all failed here specifically, at this
+    default's old 20s, with a fully-booted shell showing the wrong
+    (default Studio) view - the resolve-then-chain still in flight, not
+    a dead page.
+    """
+    target = overlay_target(route)
+    if tab:
+        # A tabbed detail page states its tab in the section slot, which
+        # is the same slot the router shim reads back as query.tab.
+        head, _, rest = target.partition(":")
+        record = rest.rpartition(":")[2] if rest else ""
+        target = f"{head}:{tab}:{record}" if record else f"{head}:{tab}"
+    name = target.split(":")[0]
+    prefix = f"#/w/{wid}" if wid else "#/"
+    fragment = f"{prefix}?overlay={target}"
+
+    # Every real caller reaches this with the console ALREADY loaded (the
+    # `page` fixture's own pre-navigation guarantees it), so a page.goto()
+    # to a URL differing from the current one only by hash is a same-
+    # document (fragment) navigation. Whether that reliably fires the
+    # hashchange event nv-shell.jsx's URL-sync listener depends on is not
+    # guaranteed across Playwright/browser navigation classification --
+    # the same trap class as the Phase-1 screenshot-rig lesson (fragment-
+    # only page.goto = same-document navigation, SPA router may not
+    # re-handle). Assign location.hash directly in-page instead: the
+    # browser's own native hash-assignment primitive, which unambiguously
+    # queues a hashchange task per spec regardless of how Playwright
+    # classifies the navigation. Falls back to a real goto() when the
+    # page isn't on this console origin yet (nothing to same-document-
+    # navigate from -- not exercised by the current suite, but a route
+    # helper shouldn't assume every future caller pre-navigates).
+    current_origin = page.url.split("#", 1)[0].rstrip("/")
+    console_origin = console_url.rstrip("/")
+    if current_origin == console_origin:
+        page.evaluate("(h) => { window.location.hash = h; }", fragment)
+    else:
+        page.goto(f"{console_url}{fragment}")
+
+    body = page.get_by_test_id("nv-overlay-body")
+    expect(body).to_be_visible(timeout=timeout)
+    expect(page.get_by_test_id(f"nv-overlay:{name}")).to_be_visible(timeout=timeout)
+    return body
+
+
+# ---------------------------------------------------------------------------
+# Mobile shell (NV_MobileShell, US-014) navigation
+# ---------------------------------------------------------------------------
+#
+# Below the mobile band (<=639px, useViewport's own threshold) the console
+# swaps to an entirely different root component (nv-mobile-shell.jsx) that
+# does not know the ?overlay= grammar: NV_OverlayHost only mounts inside the
+# desktop branch, so open_legacy_route's nv-overlay-body wait can never
+# resolve there. A platform overlay whose top-level name IS a mobile
+# Platform nav id (see NV_PLAT_GROUPS) gets intercepted instead and lands on
+# the More tab's fact-sheet flow (M5) - which is a real surface, but a
+# read-only one (rows open a fact sheet; "Edit on desktop"). These helpers
+# drive the mobile shell on its own terms.
+
+MOBILE_TABS = ["inbox", "spaces", "files", "more"]
+
+
+def open_mobile_shell(page: Page, console_url: str, *, timeout: int = 20_000) -> None:
+    page.goto(f"{console_url}#/")
+    expect(page.get_by_test_id("nv-mobile-shell")).to_be_visible(timeout=timeout)
+
+
+def open_mobile_tab(page: Page, console_url: str, tab_id: str, *, timeout: int = 20_000):
+    """Land on one of the mobile shell's bottom-nav tabs (Inbox / Spaces /
+    Files / More) - the actual top-level surfaces a phone user reaches,
+    replacing the desktop's ?overlay= grammar at this viewport band."""
+    open_mobile_shell(page, console_url, timeout=timeout)
+    page.get_by_role("tab", name=tab_id.capitalize()).click()
+    panel = page.get_by_test_id(f"nv-mobile-panel:{tab_id}")
+    expect(panel).to_be_visible(timeout=timeout)
+    return panel
+
+
+def open_mobile_platform_nav(page: Page, console_url: str, nav_id: str, *,
+                              timeout: int = 20_000):
+    """Drill into a Platform entity list from the More tab (NV_MobilePlatform)
+    - the mobile-native replacement for a desktop Platform overlay, always
+    rendered as .card rows (NV_MobilePlatform has no <table> branch), never
+    the classic page component itself."""
+    open_mobile_tab(page, console_url, "more", timeout=timeout)
+    page.get_by_test_id(f"nv-mob-plat-nav:{nav_id}").click()
+    rows = page.get_by_test_id(f"nv-mob-plat-page:{nav_id}")
+    expect(rows).to_be_visible(timeout=timeout)
+    return rows

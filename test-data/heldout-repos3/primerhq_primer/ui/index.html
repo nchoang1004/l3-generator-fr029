@@ -1,0 +1,240 @@
+<!doctype html>
+<!-- styles.css only defines design tokens under :root[data-theme="dark"]
+     / :root[data-theme="light"], so the attribute must be set before
+     first paint. The inline script below resolves it: the operator's
+     persisted choice wins, else the OS preference (light-first revamp,
+     spec 2026-08-23 section 9). -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<script>
+  // Resolve the theme before first paint: operator choice, else OS.
+  (function () {
+    var theme = null;
+    try {
+      var saved = JSON.parse(localStorage.getItem("primer.tweaks") || "{}");
+      if (saved.theme === "dark" || saved.theme === "light") theme = saved.theme;
+    } catch (e) { /* private mode etc. */ }
+    if (!theme) {
+      // Dark-first (designer identity): dark unless the OS explicitly
+      // prefers light.
+      theme = window.matchMedia &&
+        window.matchMedia("(prefers-color-scheme: light)").matches
+        ? "light" : "dark";
+    }
+    document.documentElement.setAttribute("data-theme", theme);
+  })();
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Primer · Console</title>
+<link rel="icon" type="image/svg+xml" href="brand/logo-light.svg" />
+<link rel="icon" type="image/png" sizes="32x32" href="brand/favicon-32.png" />
+<link rel="icon" type="image/png" sizes="48x48" href="brand/favicon-48.png" />
+<link rel="icon" type="image/png" sizes="64x64" href="brand/favicon-64.png" />
+<link rel="icon" type="image/png" sizes="128x128" href="brand/favicon-128.png" />
+<link rel="apple-touch-icon" href="brand/favicon-256.png" />
+<link rel="preload" href="vendor/fonts/IBMPlexSans-VF-latin.woff2" as="font" type="font/woff2" crossorigin />
+<link rel="preload" href="vendor/fonts/IBMPlexMono-Regular-latin.woff2" as="font" type="font/woff2" crossorigin />
+<link rel="stylesheet" href="styles.css" />
+<!-- xterm.js base stylesheet (Studio integrated terminal, Phase 7). See
+     ui/vendor/MANIFEST.md for version/hash. -->
+<link rel="stylesheet" href="vendor/xterm.min.css" />
+</head>
+<body>
+<div id="root"></div>
+
+<!-- Self-hosted React (production). Babel is no longer shipped to the
+     browser: the backend (primer.api._jsx_bundle) pre-transpiles every
+     foundation/components/*.jsx file at startup and serves the result
+     as a single bundle at /console/_app.js. Audit trail for the React
+     scripts in ui/vendor/MANIFEST.md. -->
+<script src="vendor/react.min.js"></script>
+<script src="vendor/react-dom.min.js"></script>
+<!-- html2canvas: ships as a plain UMD bundle and registers
+     window.html2canvas synchronously. Loaded before _app.js so the
+     embed preview iframe sees it on first render. -->
+<script src="vendor/html2canvas.min.js"></script>
+<!-- SPIKE: AntV G6 v5 (UMD global window.G6). Plain script so it loads before
+     _app.js — powers the optional G6 run-view canvas, toggled in the run view. -->
+<script src="vendor/g6.min.js"></script>
+<!-- xterm.js (Studio integrated terminal, Phase 7). UMD global window.Terminal
+     (exports spread directly onto globalThis). Plain script so it loads
+     before _app.js. See ui/vendor/MANIFEST.md. -->
+<script src="vendor/xterm.min.js"></script>
+<!-- xterm fit addon: UMD global window.FitAddon is a NAMESPACE object, not
+     the class — construct via `new window.FitAddon.FitAddon()`. See
+     ui/vendor/MANIFEST.md for the verification note. -->
+<script src="vendor/xterm-addon-fit.min.js"></script>
+<!-- CodeMirror 6, bundled to IIFE. Exposes ONE global, window.CM6, holding
+     only the names the python toolset editor uses (see
+     ui/vendor/codemirror.entry.js for the exact surface, and MANIFEST.md
+     for the pinned package inventory + rebuild recipe). Plain script so it
+     loads before _app.js. -->
+<script src="vendor/codemirror.min.js"></script>
+<script src="_app.js"></script>
+
+<!-- The text/babel script tags below are the single source of truth
+     for bundle order. Browsers ignore them (unrecognized script
+     type → no fetch, no execute), and primer.api._jsx_bundle.py
+     reads this file at startup to discover which files to transpile
+     and in what order. Edit / reorder / add files here, restart the
+     server, and the next bundle build picks the change up. -->
+
+<!-- Foundation layer (dependency order) -->
+<script type="text/babel" src="foundation/api.js"></script>
+<script type="text/babel" src="foundation/toast.js"></script>
+<script type="text/babel" src="foundation/use-resource.js"></script>
+<script type="text/babel" src="foundation/use-mutation.js"></script>
+<script type="text/babel" src="foundation/capabilities.js"></script>
+<!-- Phase 2: the per-session conversation store (the tap routes frames here). -->
+<script type="text/babel" src="foundation/session-store.js"></script>
+<script type="text/babel" src="foundation/use-workspace-tap.js"></script>
+<script type="text/babel" src="foundation/tweaks.js"></script>
+<script type="text/babel" src="foundation/idle.js"></script>
+<script type="text/babel" src="foundation/viewport.js"></script>
+<!-- Fresh shell: URL grammar. Pure string work, no Web APIs. -->
+<script type="text/babel" src="foundation/shell-url.js"></script>
+<!-- Fresh shell: the verb registry. The palette is the router. -->
+<script type="text/babel" src="foundation/shell-verbs.js"></script>
+<!-- Fresh shell: the tab model (VS Code semantics). -->
+<script type="text/babel" src="foundation/shell-docs.js"></script>
+<!-- Fresh shell: useRouter, re-implemented on overlay state. -->
+<script type="text/babel" src="foundation/shell-router-shim.js"></script>
+<!-- Fresh shell: status verb + scroll anchoring. -->
+<script type="text/babel" src="foundation/shell-status.js"></script>
+<!-- Phase 3: the auto-pin-to-bottom engine (pure core + thin binding).
+     Replaces the P0 interim distance ref + follow boolean in nv-session-doc.
+     Registered after shell-status so it can read window.SH_FOLLOW_PX. -->
+<!-- US-007 R2 phase 1: the pure multi-group tab-host state machine.
+     Standalone until nv-tab-groups.jsx (phase 1, next deliverable) and the
+     nv-shell.jsx integration (phase 2, after the R1 owner releases it). -->
+<script type="text/babel" src="foundation/tab-group-model.js"></script>
+<!-- Fresh shell: turn collapse, tool chips, subagent nesting. -->
+<script type="text/babel" src="foundation/shell-turns.js"></script>
+<!-- Fresh shell: attention items and tiers. No S6 vocabulary. -->
+<script type="text/babel" src="foundation/shell-attention.js"></script>
+<!-- Fresh shell: the first-run checklist, as verb ids. -->
+<script type="text/babel" src="foundation/shell-walkthrough.js"></script>
+<script type="text/babel" src="foundation/audio.js"></script>
+<script type="text/babel" src="foundation/client-tools.js"></script>
+
+<!-- Vendor helpers -->
+<script type="text/babel" src="vendor/highlight-python.js"></script>
+<script type="text/babel" src="vendor/highlight-json.js"></script>
+<script type="text/babel" src="vendor/highlight-code.js"></script>
+<script type="text/babel" src="vendor/sparkline.js"></script>
+<script type="text/babel" src="vendor/auto-layout.js"></script>
+<script type="text/babel" src="vendor/markdown.jsx"></script>
+<script type="text/babel" src="vendor/parse-partial-json.js"></script>
+
+<!-- Shared components first (Icon/Btn/Modal etc.) + mock data + unused helper -->
+<script type="text/babel" src="components/shared.jsx"></script>
+<script type="text/babel" src="components/shared/pager.jsx"></script>
+<script type="text/babel" src="components/shared/entity-picker.jsx"></script>
+<script type="text/babel" src="components/shared/capability-badges.jsx"></script>
+<script type="text/babel" src="components/shared/tool-picker.jsx"></script>
+<script type="text/babel" src="components/session-state.jsx"></script>
+<script type="text/babel" src="components/shared/token-meter.jsx"></script>
+<script type="text/babel" src="components/shared/card-list.jsx"></script>
+<script type="text/babel" src="components/shared/bottom-sheet.jsx"></script>
+<script type="text/babel" src="components/shared/mobile-tabs.jsx"></script>
+<script type="text/babel" src="components/shared/floating-action.jsx"></script>
+<script type="text/babel" src="components/shared/session-trace.jsx"></script>
+<script type="text/babel" src="components/graph-canvas.jsx"></script>
+<script type="text/babel" src="components/graph-builder/gb-model.jsx"></script>
+<script type="text/babel" src="components/graph-builder/gb-api.jsx"></script>
+<script type="text/babel" src="components/graph-builder/gb-refs.jsx"></script>
+<script type="text/babel" src="components/graph-builder/gb-validate.jsx"></script>
+<script type="text/babel" src="components/graph-builder/gb-canvas.jsx"></script>
+<script type="text/babel" src="components/graph-builder/gb-outline.jsx"></script>
+<script type="text/babel" src="components/graph-builder/gb-palette.jsx"></script>
+<script type="text/babel" src="components/graph-builder/gb-schema.jsx"></script>
+<script type="text/babel" src="components/graph-builder/gb-ref-editor.jsx"></script>
+<script type="text/babel" src="components/graph-builder/gb-branches.jsx"></script>
+<script type="text/babel" src="components/graph-builder/gb-inspector.jsx"></script>
+<script type="text/babel" src="components/graph-builder/gb-readiness.jsx"></script>
+<script type="text/babel" src="components/graph-builder/gb-dryrun.jsx"></script>
+<script type="text/babel" src="components/graph-builder/gb-starters.jsx"></script>
+<script type="text/babel" src="components/graph-builder/graph-builder.jsx"></script>
+<script type="text/babel" src="components/mock-data.jsx"></script>
+<script type="text/babel" src="components/predicate-builder.jsx"></script>
+
+<!-- Chrome + page components -->
+<script type="text/babel" src="components/auth.jsx"></script>
+<script type="text/babel" src="components/setup-wizard.jsx"></script>
+<script type="text/babel" src="components/workers.jsx"></script>
+<script type="text/babel" src="components/health.jsx"></script>
+<script type="text/babel" src="components/external-tools.jsx"></script>
+<script type="text/babel" src="components/sessions-list.jsx"></script>
+<script type="text/babel" src="components/session-frame.jsx"></script>
+<script type="text/babel" src="components/session-detail.jsx"></script>
+<script type="text/babel" src="components/workspaces/shared.jsx"></script>
+<script type="text/babel" src="components/workspaces/providers.jsx"></script>
+<script type="text/babel" src="components/workspaces/templates.jsx"></script>
+<script type="text/babel" src="components/workspace-tap.jsx"></script>
+<script type="text/babel" src="components/session-adapter.jsx"></script>
+<script type="text/babel" src="components/use-session-controls.jsx"></script>
+<script type="text/babel" src="components/new-session-form.jsx"></script>
+<script type="text/babel" src="components/workspaces.jsx"></script>
+<script type="text/babel" src="components/agents.jsx"></script>
+<script type="text/babel" src="components/graphs.jsx"></script>
+<script type="text/babel" src="components/knowledge.jsx"></script>
+<!-- The python authoring surface is mounted by the toolsets page. -->
+<script type="text/babel" src="components/toolsets/python-code-editor.jsx"></script>
+<script type="text/babel" src="components/toolsets/python-editor.jsx"></script>
+<script type="text/babel" src="components/toolsets.jsx"></script>
+<script type="text/babel" src="components/model-profiles.jsx"></script>
+<script type="text/babel" src="components/provider-form.jsx"></script>
+<script type="text/babel" src="components/provider-catalog.jsx"></script>
+    <script type="text/babel" src="components/semantic-search.jsx"></script>
+<script type="text/babel" src="components/internal-collections.jsx"></script>
+<script type="text/babel" src="components/approvals.jsx"></script>
+<script type="text/babel" src="components/channels.jsx"></script>
+<script type="text/babel" src="components/channel_rules.jsx"></script>
+<script type="text/babel" src="components/shared/use-transcript.js"></script>
+<script type="text/babel" src="components/shared/transcript.jsx"></script>
+<script type="text/babel" src="components/shared/session-controls.jsx"></script>
+<script type="text/babel" src="components/harness_form.jsx"></script>
+<script type="text/babel" src="components/harness_outbound_builder.jsx"></script>
+<!-- Fresh shell (S8). sh-api.jsx is the only file naming a URL. -->
+<script type="text/babel" src="components/shell/sh-api.jsx"></script>
+<script type="text/babel" src="components/shell/sh-activity.jsx"></script>
+<script type="text/babel" src="components/harnesses.jsx"></script>
+<script type="text/babel" src="components/services.jsx"></script>
+<script type="text/babel" src="components/triggers.jsx"></script>
+<script type="text/babel" src="components/api_tokens.jsx"></script>
+<script type="text/babel" src="components/mcp.jsx"></script>
+<script type="text/babel" src="components/admin_users.jsx"></script>
+<script type="text/babel" src="components/sso_admin.jsx"></script>
+<script type="text/babel" src="components/linked_accounts.jsx"></script>
+
+<!-- The three-view console (nv-*, wiring plan; behind the consoleNext
+     tweak until flag day) -->
+<script type="text/babel" src="components/console/nv-chrome.jsx"></script>
+<script type="text/babel" src="components/console/nv-palette.jsx"></script>
+<script type="text/babel" src="components/console/nv-studio.jsx"></script>
+<!-- uiv2 R2 cutover (US-011a): nv-sessions-sidebar.jsx (flat rail) and
+     nv-doc-host.jsx (single-group doc host) retired - NV_Rail below and
+     nv-tab-groups.jsx are the only shell for Studio now. -->
+<script type="text/babel" src="components/console/nv-rail.jsx"></script>
+<script type="text/babel" src="components/console/nv-files-sidebar.jsx"></script>
+<script type="text/babel" src="components/console/nv-session-doc.jsx"></script>
+<script type="text/babel" src="components/console/nv-file-docs.jsx"></script>
+<script type="text/babel" src="components/console/nv-tab-groups.jsx"></script>
+<script type="text/babel" src="components/console/nv-terminal.jsx"></script>
+<script type="text/babel" src="components/console/nv-client-tools.jsx"></script>
+<script type="text/babel" src="components/console/nv-overlays.jsx"></script>
+<script type="text/babel" src="components/console/nv-platform.jsx"></script>
+<script type="text/babel" src="components/console/nv-system.jsx"></script>
+<!-- US-014 M1: the mobile shell nv-shell.jsx swaps to on a phone
+     viewport (primerApi.useViewport().isMobile) - reuses the shared
+     mobile primitives below, so it must load after them. -->
+<script type="text/babel" src="components/console/nv-mobile-shell.jsx"></script>
+<script type="text/babel" src="components/console/nv-shell.jsx"></script>
+
+<!-- Tweaks panel + app -->
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="app.jsx"></script>
+
+</body>
+</html>

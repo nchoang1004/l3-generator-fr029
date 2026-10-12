@@ -1,0 +1,180 @@
+title: Shortlist
+tagline: Per-user Plex recommendations, built from each person's own watch history
+description: >-
+  Give every user on your Plex server their own recommendations, based on what
+  they actually watched. Shortlist builds private rows ("Picked for You",
+  "Because you watched" and more) on each person's Plex home screen, using Plex sharing filters. Self-hosted, one Docker
+  container, no AI key required.
+
+# Where the site lives. Every page derives its links from these two through
+# `relative_url` / `absolute_url`, so moving the site is a change to these two lines
+# and nothing else INSIDE docs/. Verify that stays true with:
+#
+#     grep -rln "stevezau.github.io" docs/
+#
+# which should only ever match this file and docs/README.md — the latter is excluded
+# from the build, is the github.com folder view, and runs no Liquid.
+#
+# ---------------------------------------------------------------------------
+# Moved to shortlistapp.dev on 5 Sep 2026. DNS (Route 53) first, then docs/CNAME + the Pages
+# setting, then the two lines below, then the hand-written links in README.md and
+# docs/README.md and .github/dockerhub-overview.md.
+# Enforce HTTPS is on (verified 2026-09-11: http://shortlistapp.dev 301s to https).
+# Still outstanding for the owner: add the apex as a NEW Search Console property and re-submit
+# the sitemap — it is a different property from the old /shortlist/ subpath. The
+# google_site_verification tag below is already served on every page of the new domain, so the
+# property verifies on the spot; nothing here needs changing for it.
+
+url: https://shortlistapp.dev
+baseurl: ""
+
+repo: https://github.com/stevezau/shortlist
+
+# Update both when a stable release is published; previews remain explicitly marked. The landing
+# page's status line renders them as "v1.9.3 · released 27 Sep 2026".
+stable_version: 1.9.3
+stable_released: 2026-09-27
+
+# GoatCounter site code (the part before .goatcounter.com). Empty means no analytics tag at all:
+# head.html emits the script only when this is set. The install include's Copy button also counts
+# an "install-copy" event when the script is present.
+goatcounter: "shortlist"
+
+# The host shown in the landing page's fake address bars. A `.local` name says
+# "this runs on your own network" without a sentence about it, and 5959 is the
+# real default port, so it doubles as a hint about where the app turns up.
+demo_host: shortlist.local:5959
+# NOT named `image` — that key is already taken further down by the social-preview card that
+# jekyll-seo-tag reads off each page. Two different meanings under one name would be a trap.
+# The Docker Hub namespace doubles the z and is NOT the GitHub username `stevezau`; the
+# single-z account was lost, so don't "correct" it. GHCR still gets the identical image.
+docker_image: stevezzau/shortlist
+docker_image_url: https://hub.docker.com/r/stevezzau/shortlist
+ghcr: ghcr.io/stevezau/shortlist
+
+# /getting-started/ rather than /getting-started.html. Worth the change while the
+# site is days old and has no inbound links to break.
+permalink: pretty
+
+# The card Reddit, Discord, Slack and X render when someone shares a docs link.
+# social-preview.jpg is the name and pitch over a shelf of cover art fading up from
+# the bottom, at the 2:1 those platforms actually want — a bare row screenshot is
+# 3:1 and gets its top and bottom cropped away. Built by
+# tests/e2e/test_marketing_assets.py from assets/social_preview.html. JPEG, not
+# WebP: this is the one image fetched by every unfurler, which is the last place
+# WebP support is safe to assume. This has to go through `defaults` rather than a
+# top-level `image:` — jekyll-seo-tag only reads page.image, never site.image.
+defaults:
+  - scope:
+      path: ""
+    values:
+      image: /images/social-preview.jpg
+      layout: doc
+
+# Ownership proof for Google Search Console (where the sitemap is submitted).
+# Public by design — it's served as a meta tag on every page.
+google_site_verification: _1uUI3TfHE0na5iN59RQClU0s5ToExFOT_goS8f0dyk
+
+# The docs sidebar, in reading order. `nav` drives both the sidebar and the
+# prev/next links at the foot of every page, so this list is the single place
+# page order is defined.
+nav:
+  - title: Getting started
+    url: /getting-started/
+    blurb: Install, wizard, first run
+  - title: Guides
+    url: /guides/
+    blurb: How to do the things people actually want to do
+    children:
+      - title: The web interface
+        url: /guides/interface/
+      - title: People and sharing
+        url: /guides/people-and-sharing/
+      - title: Rows and templates
+        url: /guides/rows/
+      # `group` indents a page under the one it names, in the sidebar and the breadcrumb. The rows
+      # guide was one 700-line page until October 2026; site.js sends its old anchors here.
+      - title: How a row is filled
+        url: /guides/rows/what-goes-in/
+        group: /guides/rows/
+      - title: Seasonal rows
+        url: /guides/rows/seasonal/
+        group: /guides/rows/
+      - title: Where a row shows
+        url: /guides/rows/placement/
+        group: /guides/rows/
+      - title: What goes in a row
+        url: /guides/picks/
+      - title: Schedules and runs
+        url: /guides/schedules/
+      - title: AI and cost
+        url: /guides/ai/
+      - title: Requests
+        url: /guides/requests/
+      - title: Troubleshooting
+        url: /guides/troubleshooting/
+      - title: On the internet
+        url: /guides/security/
+      - title: Connect an assistant
+        url: /guides/assistant-access/
+  - title: What it works with
+    url: /integrations/
+  - title: Reference
+    url: /reference/
+    blurb: Settings, API, env vars
+    children:
+      - title: Settings
+        url: /reference/settings/
+      - title: Environment and files
+        url: /reference/environment/
+      - title: The API
+        url: /reference/api/
+      - title: MCP assistant reference
+        url: /reference/assistant/
+      - title: How Shortlist decides things
+        url: /reference/concepts/
+  - title: FAQ
+    url: /faq/
+    blurb: Privacy, Kometa, uninstall
+  - title: Plex how-to
+    url: /plex-how-to/
+    blurb: What Plex itself can and can't do, and the manual methods
+    children:
+      - title: Improving Plex's recommendations
+        url: /improve-plex-recommendations/
+      - title: Recommendations from watch history
+        url: /plex-recommendations-watch-history/
+      - title: Per-user collections
+        url: /plex-per-user-collections/
+      - title: AI recommendations
+        url: /plex-ai-recommendations/
+      - title: Tools compared
+        url: /plex-recommendation-tools/
+
+# jekyll-redirect-from keeps the URLs of merged pages working: a page's `redirect_from:` front matter
+# publishes a small redirect page at each old address. It is on the GitHub Pages allow-list.
+#
+# theme: none — the site ships its own layouts. Cayman was the stock GitHub Pages
+# theme and looked nothing like the app it documents.
+plugins:
+  - jekyll-redirect-from
+  - jekyll-relative-links
+  - jekyll-seo-tag
+  - jekyll-sitemap
+
+# jekyll-relative-links rewrites the .md links these pages use for each other so
+# they work both on github.com and on the built site.
+relative_links:
+  enabled: true
+  collections: false
+
+exclude:
+  - README.md
+  - Gemfile
+  - Gemfile.lock
+  - vendor
+  # Implementation plans written by the planning skill land in docs/ because that is where
+  # the skill puts them, not because they belong on the site. Left in, Jekyll publishes each
+  # one as a page and jekyll-sitemap hands it to Google — a 69KB internal spec competing with
+  # the pages written for readers.
+  - superpowers/

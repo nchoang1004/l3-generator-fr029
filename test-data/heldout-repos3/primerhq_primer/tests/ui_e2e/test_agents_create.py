@@ -1,0 +1,392 @@
+"""Agent create-modal behavior tests.
+
+Covers the mutation-feedback contract from UI spec §3 (every modal:
+modal closes on success → success toast → list refetches with the new
+row) and the modal-scroll contract from spec §3 (at 600 px viewport
+height every Create button is reachable).
+
+Tests in this file share a small per-test LLM provider fixture (an
+``ollama`` provider with a fake URL) because the New agent form's LLM
+provider dropdown is empty without one - and an empty dropdown means
+the form cannot be submitted, which short-circuits the behaviors under
+test.
+"""
+
+from __future__ import annotations
+
+from contextlib import contextmanager
+from collections.abc import Iterator
+
+import httpx
+import pytest
+from playwright.sync_api import expect
+
+
+# ---------------------------------------------------------------------------
+# Helpers - sync httpx client + seeded LLM provider context manager
+# ---------------------------------------------------------------------------
+
+
+from tests._support.smk import smk  # noqa: E402
+from tests._support.model_profiles import agent_model, profile_id_for, seed_llm_provider_with
+from tests.ui_e2e._shell_helpers import open_legacy_route, wait_for_overlay_url
+pytestmark = smk("SMK-UI-03")
+
+
+@contextmanager
+def _api(base_url: str) -> Iterator[httpx.Client]:
+    """Sync httpx client bound to the live primer backend. We use sync
+    here because the pytest-playwright ``page`` fixture is sync and
+    mixing sync+async fixtures in one test is messy. The async
+    ``client`` fixture in conftest is reserved for future async tests."""
+    with httpx.Client(base_url=base_url, timeout=30.0) as c:
+        yield c
+
+
+@contextmanager
+def _seeded_llm_provider(
+    base_url: str, unique_suffix: str,
+) -> Iterator[str]:
+    """Seed a placeholder ollama LLM provider via the API, yield its id,
+    then DELETE on exit. Uses ``unique_suffix`` so concurrent tests in
+    the same iteration cannot collide on the provider id."""
+    pid = f"llm-{unique_suffix}"
+    body = {
+        "id": pid,
+        "provider": "ollama",
+        "config": {"url": "http://127.0.0.1:9999"},
+        "models": [{"name": "fake-model", "context_length": 4096}],
+        "limits": {"max_concurrency": 1},
+    }
+    with _api(base_url) as c:
+        resp = seed_llm_provider_with(c, body)
+        assert resp.status_code == 201, (
+            f"failed to seed LLM provider precondition: "
+            f"{resp.status_code} {resp.text}"
+        )
+    try:
+        yield pid
+    finally:
+        with _api(base_url) as c:
+            # Best-effort cleanup. The provider may have been cascade-
+            # deleted by a created agent's DELETE; tolerate 404.
+            try:
+                c.delete(f"/v1/llm_providers/{pid}")
+            except Exception:  # noqa: BLE001 - best-effort
+                pass
+
+
+def _delete_agent_if_exists(base_url: str, agent_id: str) -> None:
+    with _api(base_url) as c:
+        try:
+            c.delete(f"/v1/agents/{agent_id}")
+        except Exception:  # noqa: BLE001
+            pass
+
+
+# ---------------------------------------------------------------------------
+# U0006 - happy-path create: modal closes, success toast, row appears
+# ---------------------------------------------------------------------------
+
+
+def test_u0006_new_agent_modal_creates_row_and_closes(
+    page,
+    base_url: str,
+    console_url: str,
+    unique_suffix: str,
+) -> None:
+    """U0006 - Filling and submitting the New agent form (with an
+    API-seeded LLM provider) transitions to the new agent's edit view,
+    surfaces a success toast, and the operator lands on the new
+    agent's detail page.
+
+    Verifies the cross-cutting mutation-feedback contract from UI
+    spec §3 with the agent-specific navigate-away tweak from
+    NewAgentModal.onCreate (agents.jsx):
+      * the modal transitions from the create form to the new agent's
+        edit form in place (uiv2 Wave 2 RETARGET: this used to assert
+        the modal disappeared entirely, but the agent editor is now
+        ITSELF a `.modal` - before Wave 2 it was a raw-JSON sheet
+        with a different DOM shape, so create-then-navigate used to
+        land on a `.modal`-free page; now it lands on another
+        `.modal`, just with edit-mode content, so "closes" is checked
+        by content, not visibility)
+      * success toast appears
+      * URL navigates to `#/agents/<new-id>` and the detail-page
+        title renders the new agent id (the list refetches in the
+        background via mutation.invalidates, but the visible surface
+        is the detail page - operators just created an entity and
+        the UX takes them to it)
+    """
+    with _seeded_llm_provider(base_url, unique_suffix) as provider_id:
+        agent_id = f"ag-{unique_suffix}"
+        try:
+            open_legacy_route(page, console_url, "agents")
+            page.locator("h1.page-title").first.wait_for(
+                state="visible", timeout=10_000,
+            )
+
+            # Open the New agent modal.
+            page.get_by_role("button", name="New agent").first.click()
+            modal = page.locator(".modal").first
+            modal.wait_for(state="visible", timeout=5_000)
+
+            # Fill the form. ID is optional but we set it so we can
+            # assert the exact row and clean up reliably.
+            #
+            # Selector strategy: use the htmlFor/id pairs added to
+            # NewAgentModal (na-id, na-description, na-model-profile,
+            # na-temperature - system prompt became a repeatable part
+            # list, platform wave P1b item 8, and dropped its single id
+            # in favor of per-index data-testids). These are
+            # semantic IDs tied to the JSX, more stable than
+            # get_by_label substring matches (which hit strict-mode
+            # violations when labels share words). When the JSX
+            # changes, the test breaks deterministically with a clear
+            # "no such locator" - exactly what we want.
+            modal.locator("#na-id").fill(agent_id)
+            modal.locator("#na-description").fill(
+                f"u0006 seed {unique_suffix}",
+            )
+            # uiv2 Wave 2: the model-profile <select> became a stacked
+            # AG_ProfilePicker (mockup's own picker style - one bordered
+            # row per profile, click to pick) - one picker, not a pair:
+            # an agent names a ModelProfile, which already pins the
+            # provider and the wire model name.
+            modal.get_by_test_id(
+                f"agent-profile-row-{profile_id_for(provider_id, 'fake-model')}",
+            ).click()
+
+            # Submit.
+            modal.get_by_role("button", name="Create").click()
+
+            # uiv2 Wave 2 (RETARGETED): the modal does NOT disappear -
+            # it transitions in place to the new agent's edit view
+            # (still one `.modal`, new content). Confirm the
+            # transition landed on the right row: the Name field is
+            # now locked and holds the new agent's id, and the verb
+            # chip reads "Edit Agent" instead of "Create Agent".
+            expect(modal.locator("#na-id")).to_have_value(
+                agent_id, timeout=10_000,
+            )
+            expect(modal.get_by_test_id("agent-modal-verb-chip")).to_contain_text(
+                "Edit", timeout=5_000,
+            )
+
+            # Success toast appears. Toast container is portal'd
+            # outside the modal; assert on its text content.
+            toast = page.get_by_text("Agent created", exact=False).first
+            toast.wait_for(state="visible", timeout=5_000)
+
+            # Operator lands on the new agent's detail page. URL hash
+            # changes to `#/agents/<id>` and the page-title renders
+            # the agent id. We wait for both as separate observations
+            # so a future spec change that decouples nav-and-title
+            # gives a clearer failure.
+            wait_for_overlay_url(page, f"agents/{agent_id}", timeout=10_000)
+            page.locator("h1.page-title").get_by_text(agent_id).first.wait_for(
+                state="visible", timeout=10_000,
+            )
+        finally:
+            _delete_agent_if_exists(base_url, agent_id)
+
+
+# ---------------------------------------------------------------------------
+# U0007 - agent create 422 renders per-field inline errors, not a toast
+# ---------------------------------------------------------------------------
+
+
+# The known overlay-mount flake (original handoff known-issue #1) fired here
+# on 2026-08-29 CI (single victim, overlay never mounts, non-deterministic,
+# passes in isolation) - the same family test_mobile_modal_is_sheet.py marks
+# on its mobile params. The victim set moves between runs; extend this mark
+# to the next victim rather than blanket-marking the suite.
+@pytest.mark.flaky(reruns=2, reruns_delay=1)
+def test_u0007_new_agent_create_422_renders_inline_field_errors(
+    page,
+    base_url: str,
+    console_url: str,
+    unique_suffix: str,
+) -> None:
+    """U0007 - Submitting the New agent form with an invalid
+    ``temperature`` (one that fails server-side validation) surfaces
+    the 422 as an inline field-help error under the offending input,
+    NOT as a generic error toast.
+
+    Follow-on from U0006 (happy path). Verifies the cross-cutting
+    mutation-feedback contract from UI spec §3:
+      * 422 from the backend renders per-field via
+        ``extensions.errors[].loc[]`` mapping to ``fieldErrors[...]``
+      * Modal stays open so the operator can correct the value
+      * No error toast appears (toast is reserved for non-422)
+
+    Trigger: Agent.temperature is ``Field(default=None, ge=0.0)``
+    (per primer/model/agent.py:79); -0.5 violates ``ge=0.0`` and is
+    reliably rejected with 422 carrying ``body.temperature`` in the
+    field-errors loc. This trigger is more robust than id-format
+    games because Identifiable's validator is intentionally lenient
+    on whitespace.
+    """
+    with _seeded_llm_provider(base_url, unique_suffix) as provider_id:
+        agent_id = f"ag-u0007-{unique_suffix}"
+        open_legacy_route(page, console_url, "agents")
+        page.locator("h1.page-title").first.wait_for(state="visible", timeout=10_000)
+
+        page.get_by_role("button", name="New agent").first.click()
+        modal = page.locator(".modal").first
+        modal.wait_for(state="visible", timeout=5_000)
+
+        modal.locator("#na-id").fill(agent_id)
+        modal.locator("#na-description").fill("u0007 422 probe")
+        modal.get_by_test_id(
+            f"agent-profile-row-{profile_id_for(provider_id, 'fake-model')}",
+        ).click()
+        # uiv2 Wave 2: temperature moved out from behind the old
+        # "Advanced" tab - it is always visible now, right under the
+        # profile picker (a-11: numerics live near what they gate).
+        temperature_input = modal.locator("#na-temperature")
+        temperature_input.wait_for(state="visible", timeout=5_000)
+        # The deliberate bad value - violates Agent.temperature's
+        # documented ``ge=0.0`` constraint.
+        temperature_input.fill("-0.5")
+
+        modal.get_by_role("button", name="Create").click()
+
+        # An inline field-help error must appear somewhere in the modal
+        # body. The exact loc-key the server emits depends on which
+        # validator fires; we look for ANY field-help-red marker. The
+        # pattern in NewAgentModal is
+        # `<div className="field-help" style="color: var(--red)">`.
+        #
+        # Waited on FIRST, and with no networkidle before it: the shell
+        # polls for as long as it is mounted, so the network is never
+        # idle and that wait could only time out. This one settles on the
+        # thing the 422 actually produces, which also makes the
+        # still-open check below non-racy.
+        red_helps = modal.locator('.field-help[style*="--red"]')
+        red_helps.first.wait_for(state="visible", timeout=10_000)
+
+        # Modal STAYS OPEN on 422 (a success would close it).
+        assert modal.is_visible(), (
+            "modal should stay open on 422 so the operator can correct "
+            "the field; closing means the contract collapsed into a "
+            "happy-path or error-toast flow"
+        )
+
+        # No error toast - 422 should NOT surface as a toast per spec §3.
+        # Use a short wait_for absence; if a toast slipped through, this
+        # catches it. We do NOT use the "Create failed" text from the
+        # general onError because that's reserved for non-422 paths.
+        # Strict absence check: the toast container has its own class.
+        toast_errors = page.locator(".toast.toast-error, [class*='toast-error']")
+        # A pre-existing toast from a prior test would still be in the
+        # DOM if not dismissed; the per-test browser context fixture
+        # gives us a clean slate, so 0 is the expected count.
+        assert toast_errors.count() == 0, (
+            f"422 surfaced as a toast instead of inline field-help: "
+            f"{toast_errors.count()} toast-error elements present"
+        )
+
+
+# ---------------------------------------------------------------------------
+# U0020 - Agent delete confirms, removes the entity, navigates to list,
+# and surfaces a success toast
+# ---------------------------------------------------------------------------
+
+
+def test_u0020_agent_delete_confirms_removes_and_navigates_back_to_list(
+    page,
+    base_url: str,
+    console_url: str,
+    unique_suffix: str,
+) -> None:
+    """U0020 - From an agent's detail page, clicking Delete opens the
+    confirm modal; confirming closes the dialog, navigates back to
+    /agents, surfaces a success toast ("Agent deleted"), and the
+    agent is absent from the backend (verified via API).
+
+    Mutation-feedback contract from UI spec §3 for the DELETE leg:
+      * confirm dialog must appear before the destructive action
+      * confirming → dialog closes
+      * navigates back to list (/agents)
+      * success toast appears
+      * row is gone from storage
+
+    Priority 1 (mutation feedback - destructive). Setup seeds the
+    agent directly via API so the test exercises only the delete
+    flow.
+    """
+    import httpx
+
+    with _seeded_llm_provider(base_url, unique_suffix) as provider_id:
+        agent_id = f"ag-u0020-{unique_suffix}"
+        # Seed the agent directly via API (faster + isolates the
+        # behavior under test from the create flow).
+        with httpx.Client(base_url=base_url, timeout=30.0) as c:
+            r = c.post("/v1/agents", json={
+                "id": agent_id,
+                "description": "u0020 delete probe",
+                "model": agent_model(provider_id, "fake-model"),
+                "tools": [],
+                "system_prompt": ["test"],
+            })
+            assert r.status_code == 201, f"seed agent failed: {r.text}"
+
+        try:
+            # Land directly on the agent's detail page.
+            open_legacy_route(page, console_url, f"agents/{agent_id}")
+            page.locator("h1.page-title").get_by_text(agent_id).first.wait_for(
+                state="visible", timeout=10_000,
+            )
+
+            # Click the Delete button in the agent editor's own footer
+            # (uiv2 Wave 2: Delete moved from a page action bar into
+            # AG_NewAgentModal's footer alongside Cancel/Save) -
+            # `name="Delete"` uniquely matches it before the confirm
+            # dialog exists.
+            page.get_by_role("button", name="Delete").first.click()
+
+            # Confirm dialog appears with title containing the agent id.
+            # uiv2 Wave 2: the agent editor is now ITSELF a `.modal`
+            # (it used to be a raw-JSON sheet outside the Modal
+            # primitive), so the confirm dialog is the SECOND `.modal`
+            # in the DOM, stacked on top - `.last`, not `.first`.
+            confirm = page.locator(".modal").last
+            confirm.wait_for(state="visible", timeout=5_000)
+            assert agent_id in confirm.inner_text(), (
+                f"confirm dialog should mention the agent id "
+                f"{agent_id!r}; modal text: {confirm.inner_text()}"
+            )
+
+            # Click the danger-Delete button inside the confirm modal.
+            # The modal has Cancel + Delete; locating by role + name +
+            # narrowing to the modal scope avoids matching the editor's
+            # own footer Delete button underneath.
+            confirm.get_by_role("button", name="Delete").first.click()
+
+            # Dialog closes.
+            confirm.wait_for(state="hidden", timeout=10_000)
+
+            # Navigates back to /agents (the UI's success path).
+            wait_for_overlay_url(page, "agents", timeout=10_000)
+            page.locator("h1.page-title").get_by_text("Agents").first.wait_for(
+                state="visible", timeout=5_000,
+            )
+
+            # Success toast surfaces. The toast title is "Agent deleted"
+            # per the onSuccess callback in agents.jsx.
+            page.get_by_text("Agent deleted", exact=False).first.wait_for(
+                state="visible", timeout=5_000,
+            )
+
+            # Defence: the agent row is actually gone from storage.
+            with httpx.Client(base_url=base_url, timeout=30.0) as c:
+                got = c.get(f"/v1/agents/{agent_id}")
+            assert got.status_code == 404, (
+                f"agent should be absent after delete; "
+                f"GET returned {got.status_code}: {got.text}"
+            )
+        finally:
+            # Best-effort cleanup if the test bailed before the delete
+            # actually landed.
+            _delete_agent_if_exists(base_url, agent_id)

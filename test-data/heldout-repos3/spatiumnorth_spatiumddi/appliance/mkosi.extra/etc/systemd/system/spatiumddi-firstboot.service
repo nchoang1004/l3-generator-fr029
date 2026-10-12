@@ -1,0 +1,30 @@
+[Unit]
+Description=SpatiumDDI appliance first-boot orchestrator
+# Skip on the live ISO. live-boot puts `boot=live` in the kernel
+# cmdline; the installed system doesn't carry that token. This
+# matters because firstboot fallocate's a 2 GiB swapfile at
+# /var/lib/spatiumddi/swapfile — fine on a real disk, fatal on
+# the live ISO's ~1 GiB tmpfs overlay.
+ConditionKernelCommandLine=!boot=live
+# Issue #183 Phase 7 — no docker dependency. firstboot writes the
+# bootstrap HelmChart manifest into /var/lib/rancher/k3s/server/
+# manifests/; k3s's helm-controller picks it up whenever it gets
+# there (the manifests dir is continuously watched). We DO NOT
+# order k3s.service After=firstboot — that would deadlock the
+# readyz wait at the end of firstboot.
+After=network-online.target spatium-etc-reconcile.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+TimeoutStartSec=10min
+ExecStart=/usr/local/bin/spatiumddi-firstboot
+# No ExecStop — the appliance is k3s-only; shutdown is k3s's job
+# (it cleanly evicts pods on systemctl stop k3s.service).
+# Log routing: the firstboot script self-redirects to
+# /var/log/spatiumddi/firstboot.log via `exec >>`. journalctl -u
+# spatiumddi-firstboot still shows systemd's start/stop transitions.
+
+[Install]
+WantedBy=multi-user.target

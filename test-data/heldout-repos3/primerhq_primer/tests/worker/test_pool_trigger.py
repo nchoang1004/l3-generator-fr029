@@ -1,0 +1,372 @@
+"""Integration: WorkerPool routes ClaimKind.TRIGGER claims to fire_trigger.
+
+Mirrors :mod:`tests.worker.test_harness_claim_loop`: spin up the real
+:class:`WorkerPool` against an in-memory event bus + claim engine, seed
+a delayed Trigger row + a session_append Subscription pointing at a real
+session with an open turn, upsert a TRIGGER lease, then poll until the
+subscription queued the steer as a PendingSessionMessage.
+
+Catchup behaviour for scheduled triggers is unit-tested at the
+``_run_engine_trigger`` level inside this module so we don't have to
+fake out 64 cron ticks via the engine.
+"""
+
+from __future__ import annotations
+
+import asyncio
+from datetime import datetime, timedelta, timezone
+
+import pytest
+
+from primer.bus.in_memory import InMemoryEventBus
+from primer.claim.factory import ClaimEngineFactory
+from primer.int.claim import ClaimKind
+from primer.model.agent import Agent, AgentModel
+from primer.model.scheduler import WorkerConfig
+from primer.model.storage import OffsetPage
+from primer.model.trigger import (
+    SessionAppendSubConfig,
+    DelayedTriggerConfig,
+    ScheduledTriggerConfig,
+    Subscription,
+    Trigger,
+)
+from primer.scheduler.in_memory import InMemoryScheduler
+from primer.worker.pool import WorkerPool
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+async def _seed_agent(storage_provider) -> Agent:
+    agent = Agent(
+        id="ag-trig",
+        description="seeded test agent",
+        model=AgentModel(profile_id="p--m"),
+    )
+    await storage_provider.get_storage(Agent).create(agent)
+    return agent
+
+
+async def _seed_session(storage_provider, agent_id: str):
+    """A session mid-turn, so the steer queues instead of waking it.
+
+    Queueing is what this test can observe without a live workspace slot:
+    ``wake_session`` needs one to append the instruction, the pending-row
+    path does not.
+    """
+    from primer.model.workspace_session import (
+        AgentSessionBinding,
+        SessionStatus,
+        WorkspaceSession,
+    )
+
+    session = WorkspaceSession(
+        id="sess-trig",
+        workspace_id="ws-trig",
+        binding=AgentSessionBinding(agent_id=agent_id),
+        status=SessionStatus.RUNNING,
+        turn_status="running",
+        created_at=_now(),
+    )
+    await storage_provider.get_storage(WorkspaceSession).create(session)
+    return session
+
+
+@pytest.mark.asyncio
+async def test_pool_routes_trigger_lease_to_fire(
+    fake_storage_provider, fake_provider_registry,
+):
+    """A claimed TRIGGER lease fires fire_trigger and the sub dispatches."""
+    bus = InMemoryEventBus()
+    await bus.initialize()
+    scheduler = InMemoryScheduler(storage_provider=fake_storage_provider)
+
+    agent = await _seed_agent(fake_storage_provider)
+    await _seed_session(fake_storage_provider, agent.id)
+
+    # Seed the trigger + subscription rows.
+    triggers = fake_storage_provider.get_storage(Trigger)
+    subs = fake_storage_provider.get_storage(Subscription)
+    t = Trigger(
+        id="tr-pool", slug="tr-pool", name="t", description=None,
+        config=DelayedTriggerConfig(fire_at=_now()),
+        enabled=True,
+        next_fire_at=_now(),
+        created_at=_now(),
+    )
+    await triggers.create(t)
+    sub = Subscription(
+        id="sb-pool", trigger_id="tr-pool",
+        config=SessionAppendSubConfig(session_id="sess-trig"),
+        payload_template="hello",
+        parallelism="queue",
+        enabled=True,
+        created_at=_now(),
+    )
+    await subs.create(sub)
+
+    engine = ClaimEngineFactory.create(
+        storage_provider=fake_storage_provider, event_bus=bus,
+    )
+    pool = WorkerPool(
+        config=WorkerConfig(
+            concurrency=4,
+            claim_batch_size=2,
+            heartbeat_interval_seconds=5,
+            lease_ttl_seconds=15,
+            poll_interval_seconds=0.1,
+            drain_timeout_seconds=5,
+        ),
+        scheduler=scheduler,
+        storage=fake_storage_provider,
+        # session_append refuses to dispatch without a workspace registry
+        # (it needs one to reach a woken session's on-disk slot). The queue
+        # path this test exercises never dereferences it, so a stand-in is
+        # enough to get past that guard.
+        workspace_registry=object(),
+        provider_registry=fake_provider_registry,
+        event_bus=bus,
+        engine=engine,
+    )
+    try:
+        await pool.start()
+        await engine.upsert(ClaimKind.TRIGGER, "tr-pool", priority=10)
+
+        from primer.model.workspace_session import PendingSessionMessage
+
+        pending_storage = fake_storage_provider.get_storage(
+            PendingSessionMessage
+        )
+        # Poll until the steer is queued on the target session.
+        landed = None
+        for _ in range(60):
+            await asyncio.sleep(0.05)
+            page = await pending_storage.list(OffsetPage(offset=0, length=10))
+            if page.items:
+                landed = page.items[0]
+                break
+        assert landed is not None, (
+            "trigger lease did not queue a steer - "
+            "WorkerPool TRIGGER dispatch is not wired"
+        )
+        assert landed.session_id == "sess-trig"
+        # The rendered payload is the queued row's leading text part.
+        assert any(
+            part.get("text") == "hello" for part in landed.parts
+        ), f"expected the rendered payload in the parts; got {landed.parts}"
+
+        # Trigger row's last_fired_at was bumped + on_release disabled it
+        # (delayed → one-off).
+        updated_trigger = None
+        for _ in range(20):
+            await asyncio.sleep(0.05)
+            row = await triggers.get("tr-pool")
+            if row is not None and row.last_fired_at is not None:
+                updated_trigger = row
+                if not row.enabled:
+                    break
+        assert updated_trigger is not None
+        assert updated_trigger.last_fired_at is not None
+        # The adapter's on_release ran and flipped enabled→False for the
+        # delayed (one-off) trigger.
+        assert updated_trigger.enabled is False
+    finally:
+        await pool.drain_and_stop(timeout=5)
+        await bus.aclose()
+
+
+@pytest.mark.asyncio
+async def test_run_engine_trigger_catchup_all_replays_missed_ticks(
+    fake_storage_provider, fake_provider_registry, monkeypatch,
+):
+    """A scheduled trigger with catchup='all' fires once per missed tick.
+
+    We bypass the engine claim loop and drive ``_run_engine_trigger``
+    directly with a synthetic lease, then assert ``fire_trigger`` was
+    invoked one time per missed cron occurrence plus once for the
+    current tick (``scheduled_for=None``).
+    """
+    from primer.int.claim import Lease as ClaimLease
+
+    bus = InMemoryEventBus()
+    await bus.initialize()
+    scheduler = InMemoryScheduler(storage_provider=fake_storage_provider)
+    engine = ClaimEngineFactory.create(
+        storage_provider=fake_storage_provider, event_bus=bus,
+    )
+
+    triggers = fake_storage_provider.get_storage(Trigger)
+    # last_fired_at three minutes ago + a once-per-minute cron => 3
+    # missed ticks the catchup loop must replay before the current tick.
+    last_fired = _now() - timedelta(minutes=3, seconds=10)
+    t = Trigger(
+        id="tr-cron", slug="tr-cron", name="c", description=None,
+        config=ScheduledTriggerConfig(
+            cron="* * * * *", timezone="UTC", catchup="all",
+        ),
+        enabled=True,
+        next_fire_at=_now(),
+        last_fired_at=last_fired,
+        created_at=last_fired,
+    )
+    await triggers.create(t)
+
+    pool = WorkerPool(
+        config=WorkerConfig(
+            concurrency=2,
+            claim_batch_size=1,
+            heartbeat_interval_seconds=5,
+            lease_ttl_seconds=15,
+            poll_interval_seconds=1,
+            drain_timeout_seconds=2,
+        ),
+        scheduler=scheduler,
+        storage=fake_storage_provider,
+        workspace_registry=None,
+        provider_registry=fake_provider_registry,
+        event_bus=bus,
+        engine=engine,
+    )
+    # Skip start() — we drive _run_engine_trigger directly.
+    pool._worker_id = "wrk-test"
+
+    # Capture every fire_trigger call.
+    captured_calls: list[tuple[str, object]] = []
+
+    async def _fake_fire(*, trigger_id, scheduled_for, deps):
+        captured_calls.append((trigger_id, scheduled_for))
+        from primer.trigger.dispatch import FireResult
+        return FireResult(skipped=False, fire_id="fake", results=[])
+
+    import primer.trigger.dispatch as _dispatch_mod
+    monkeypatch.setattr(_dispatch_mod, "fire_trigger", _fake_fire)
+
+    # Seed the lease so release() doesn't blow up on the in-memory engine.
+    await engine.upsert(ClaimKind.TRIGGER, "tr-cron", priority=10)
+    leases = await engine.claim_due("wrk-test", max_count=1)
+    assert leases, "engine produced no lease — adapter eligibility may reject"
+    lease = leases[0]
+
+    await pool._run_engine_trigger(lease)
+    await bus.aclose()
+
+    # We expect ≥3 missed-tick calls (scheduled_for set) + exactly 1
+    # current-tick call (scheduled_for=None). The exact missed count
+    # depends on the wall-clock skew between last_fired and now; we
+    # bound the assertion loosely so the test isn't timing-flaky.
+    missed = [c for c in captured_calls if c[1] is not None]
+    current = [c for c in captured_calls if c[1] is None]
+    assert len(missed) >= 2, (
+        f"expected catchup to replay ≥2 missed ticks, got {len(missed)}: "
+        f"{captured_calls}"
+    )
+    assert len(current) == 1, (
+        f"expected exactly one current-tick fire (scheduled_for=None), "
+        f"got {len(current)}: {captured_calls}"
+    )
+    # All fires must reference our trigger.
+    assert all(c[0] == "tr-cron" for c in captured_calls)
+
+
+@pytest.mark.asyncio
+async def test_run_engine_trigger_catchup_failed_deliveries_are_recorded_and_reported(
+    fake_storage_provider, fake_provider_registry, monkeypatch,
+):
+    """01a08bfb item 2, end to end through the real fire_trigger.
+
+    A catchup='all' run replays several missed ticks and then fires the
+    current one. Every delivery fails. Before this, fire_trigger returned
+    the failures (it never raises for them), the handler never read them,
+    ``success`` was set the moment the last call returned, and each fire
+    overwrote the trigger's last_fire_error - so nothing survived.
+
+    What is asserted, and why these are the load-bearing pieces:
+    * one trigger.delivery_failed event per failed delivery (the HISTORY
+      that answers "did that tick ever arrive");
+    * the subscription row carries latest-state last_fired_at /
+      last_fire_error (what triggers.jsx renders);
+    * the lease is released success=False with a summary. That flag alone
+      would be cosmetic - TriggerClaimAdapter advances next_fire_at
+      whatever the outcome - so it is asserted only as honest bookkeeping,
+      alongside the records that are the actual fix.
+    """
+    import primer.trigger.dispatch as _dispatch_mod
+    from primer.model.trigger import SessionAppendSubConfig, Subscription
+    from primer.trigger.subscribers import SubscriptionDispatchResult
+
+    bus = InMemoryEventBus()
+    await bus.initialize()
+    scheduler = InMemoryScheduler(storage_provider=fake_storage_provider)
+    engine = ClaimEngineFactory.create(
+        storage_provider=fake_storage_provider, event_bus=bus,
+    )
+
+    last_fired = _now() - timedelta(minutes=3, seconds=10)
+    await fake_storage_provider.get_storage(Trigger).create(Trigger(
+        id="tr-cron", slug="tr-cron", name="c", description=None,
+        config=ScheduledTriggerConfig(
+            cron="* * * * *", timezone="UTC", catchup="all",
+        ),
+        enabled=True, next_fire_at=_now(),
+        last_fired_at=last_fired, created_at=last_fired,
+    ))
+    await fake_storage_provider.get_storage(Subscription).create(Subscription(
+        id="sb-1", trigger_id="tr-cron",
+        config=SessionAppendSubConfig(session_id="s-1"),
+        enabled=True, created_at=last_fired,
+    ))
+
+    class _AlwaysFails:
+        async def dispatch(self, sub, **_kw):
+            return SubscriptionDispatchResult(
+                ok=False, error_code="dispatch_failed", error_message="target down",
+            )
+
+    monkeypatch.setattr(_dispatch_mod, "get_dispatcher", lambda kind: _AlwaysFails())
+
+    pool = WorkerPool(
+        config=WorkerConfig(
+            concurrency=2, claim_batch_size=1, heartbeat_interval_seconds=5,
+            lease_ttl_seconds=15, poll_interval_seconds=1,
+            drain_timeout_seconds=2,
+        ),
+        scheduler=scheduler, storage=fake_storage_provider,
+        workspace_registry=None, provider_registry=fake_provider_registry,
+        event_bus=bus, engine=engine,
+    )
+    pool._worker_id = "wrk-test"
+
+    released: list = []
+    real_release = engine.release
+
+    async def _capture(lease, *, outcome):
+        released.append(outcome)
+        return await real_release(lease, outcome=outcome)
+
+    monkeypatch.setattr(engine, "release", _capture)
+
+    await engine.upsert(ClaimKind.TRIGGER, "tr-cron", priority=10)
+    [lease] = await engine.claim_due("wrk-test", max_count=1)
+    await pool._run_engine_trigger(lease)
+    await bus.aclose()
+
+    events = [
+        e for e in await fake_storage_provider.get_event_store().read_after(0)
+        if e.event_type == "trigger.delivery_failed"
+    ]
+    scheduled = [e for e in events if e.payload["scheduled_for"] is not None]
+    current = [e for e in events if e.payload["scheduled_for"] is None]
+    assert len(scheduled) >= 2, f"replayed failures not recorded: {events}"
+    assert len(current) == 1
+    assert len({e.payload["fire_id"] for e in events}) == len(events)
+
+    sub = await fake_storage_provider.get_storage(Subscription).get("sb-1")
+    assert sub.last_fired_at is not None
+    assert "target down" in sub.last_fire_error
+
+    [outcome] = released
+    assert outcome.success is False
+    assert outcome.last_error is not None
+    assert f"{len(events)} subscription delivery" in outcome.last_error

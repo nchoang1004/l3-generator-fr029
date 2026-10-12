@@ -1,0 +1,162 @@
+"""Abstract base class for Storage providers.
+
+A *Storage provider* owns the shared backend state (connection pool,
+schema setup, prepared statements) and spawns model-bound
+:class:`primer.int.Storage` instances on demand. One application
+typically constructs one provider per backend at startup, then asks
+it for a :class:`Storage` whenever it needs to operate on a particular
+model class:
+
+.. code-block:: python
+
+    provider = StorageProviderFactory.create(config)
+    await provider.initialize()
+    try:
+        documents = provider.get_storage(Document)
+        collections = provider.get_storage(Collection)
+        # ... use them ...
+    finally:
+        await provider.aclose()
+
+The provider, not the individual :class:`Storage`, holds the
+connection pool. Multiple ``get_storage(...)`` calls return Storage
+handles that share the pool. The provider caches handles by model
+class so calls for the same class return the same instance.
+"""
+
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from datetime import datetime
+from typing import TYPE_CHECKING, TypeVar
+
+from primer.int.storage import Storage
+from primer.model.common import Identifiable
+from primer.model.system_state import SystemState
+
+
+if TYPE_CHECKING:
+    from primer.int.document_content import DocumentContentStore
+    from primer.int.event_store import EventStore
+
+
+ModelT = TypeVar("ModelT", bound=Identifiable)
+
+
+class StorageProvider(ABC):
+    """Backend-agnostic factory for model-bound :class:`Storage` handles.
+
+    Subclasses bind to one backend (Postgres, SQLite, MongoDB, etc.)
+    and one provider-specific config. ``initialize`` opens the pool /
+    runs schema migrations; ``aclose`` tears it down.
+    """
+
+    @abstractmethod
+    async def initialize(self) -> None:
+        """Open the connection pool and run any one-time schema setup.
+
+        Idempotent: calling on an already-initialised provider is a
+        no-op. MUST be awaited before the first :meth:`get_storage`
+        call's returned handle is used.
+        """
+
+    @abstractmethod
+    async def aclose(self) -> None:
+        """Close the connection pool and release backend resources.
+
+        Idempotent: calling on a never-initialised or already-closed
+        provider is a no-op.
+        """
+
+    @abstractmethod
+    def get_storage(self, model_class: type[ModelT]) -> Storage[ModelT]:
+        """Return a :class:`Storage` handle for the given Pydantic model.
+
+        Concrete providers map ``model_class`` to a backend table
+        (typically by the lowercased class name, with collisions
+        handled at registration time). The returned handle is cached
+        on the provider so repeated calls for the same model yield
+        the same instance, sharing the pool with sibling handles.
+
+        The provider does NOT eagerly create the table -- backends
+        defer DDL to the first write. To force eager setup, call a
+        method on the returned handle (e.g. ``await
+        handle.list(OffsetPage(length=1))``) inside ``initialize``.
+        """
+
+    @abstractmethod
+    def get_content_store(self) -> "DocumentContentStore":
+        """Return the document content-store handle, sharing this provider's
+        backend connection/pool. Holds document bodies in the primary DB."""
+
+    @abstractmethod
+    def get_event_store(self) -> "EventStore":
+        """Return the platform event-log store, sharing this provider's
+        backend connection/pool. Holds the durable event log and the
+        per-subscription cursors that consume it."""
+
+    @abstractmethod
+    async def get_system_state(self) -> SystemState:
+        """Return the singleton ``system_state`` row.
+
+        Guaranteed to return a row (the ``singleton`` row is inserted
+        during :meth:`initialize`).  Never raises :class:`NotFoundError`.
+        """
+
+    async def ping(self) -> None:
+        """Round-trip the backend once; raise if it cannot answer.
+
+        A liveness check for the DATABASE, not for this object: it must
+        reach the backend, so a provider that was initialised and has
+        since lost its server fails here rather than reporting stale
+        in-process state. Backends should override with the cheapest
+        real round-trip (``SELECT 1``). The default falls back to
+        :meth:`get_system_state` so a subclass that predates this method
+        still gets a genuine round-trip instead of a silent pass.
+        """
+        await self.get_system_state()
+
+    @abstractmethod
+    async def set_default_agent_id(self, agent_id: str | None) -> None:
+        """Set the agent a binding-less session create resolves to.
+
+        ``None`` clears it, which leaves such a create with nothing to
+        resolve and therefore rejected rather than guessing.
+        """
+
+    @abstractmethod
+    async def set_bootstrap_completed(self, ts: datetime) -> None:
+        """Stamp ``bootstrap_completed_at`` on the singleton row.
+
+        Idempotent: re-calling with a later timestamp simply overwrites
+        the existing value.
+        """
+
+    @abstractmethod
+    async def set_schema_version(
+        self, version: int, *, migrated_at: datetime | None = None,
+    ) -> None:
+        """Stamp ``schema_version`` and ``last_migration_at`` on the singleton.
+
+        ``schema_version = N`` means migrations 1..N have been applied.
+        ``migrated_at`` defaults to now. Called by the migration runner
+        after each migration commits, so a crash mid-chain resumes from
+        the last completed version rather than re-running the whole set.
+        """
+
+    @abstractmethod
+    async def set_session_secret(self, secret: str) -> None:
+        """Persist the cookie-signing HMAC secret on the singleton row.
+
+        Auto-generated by the auth layer on first need when no
+        ``PRIMER_SESSION_SECRET`` env var override is in effect. Stored
+        here so sessions survive process restarts.
+        """
+
+    @abstractmethod
+    async def set_sso_jit_enabled(self, enabled: bool) -> None:
+        """Persist the SSO JIT-provisioning master switch on the singleton row."""
+
+    @abstractmethod
+    async def set_sso_default_access(self, access: str | None) -> None:
+        """Persist the default role for JIT-provisioned SSO users on the singleton row."""

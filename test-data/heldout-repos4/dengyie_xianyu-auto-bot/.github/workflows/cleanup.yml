@@ -1,0 +1,42 @@
+name: Tencent Docker Cleanup
+
+# 悬空镜像清理（发版后旧 latest 变 dangling）。
+# 生产已在腾讯轻量云，deploy key 以 root 登录，直接清理无需 sudo 密码。
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 21 * * 1" # UTC 周一 21:00 = 北京时间周二 05:00
+
+concurrency:
+  group: tencent-cleanup
+  cancel-in-progress: false
+
+jobs:
+  prune-dangling-images:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # 与 deploy-to-tencent 共用串行组：prune 与 pull 并发会撞 containerd ingest
+    concurrency:
+      group: tencent-docker-serial
+      cancel-in-progress: false
+    env:
+      SSH_HOST: ${{ secrets.XIANYU_DEPLOY_HOST }}
+      SSH_CMD: ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o User=root
+    steps:
+      - name: Setup deploy key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.XIANYU_DEPLOY_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Prune dangling images
+        run: |
+          set -o pipefail
+          DOCKER_BIN=$($SSH_CMD "$SSH_HOST" 'command -v docker')
+          echo "remote docker at: $DOCKER_BIN"
+          $SSH_CMD "$SSH_HOST" "$DOCKER_BIN image prune -f"
+
+      - name: Report
+        run: |
+          $SSH_CMD "$SSH_HOST" 'docker images -f dangling=true -q | wc -l | xargs echo "dangling images remaining:"; df -h / | tail -1'

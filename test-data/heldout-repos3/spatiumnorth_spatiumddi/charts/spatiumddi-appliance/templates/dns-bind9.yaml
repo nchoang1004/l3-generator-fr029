@@ -1,0 +1,246 @@
+{{- /* Issue #183 Phase 2 — BIND9 DNS agent.
+       Deployment with hostNetwork=true — port 53 needs to listen
+       directly on the node IP so non-cluster clients can resolve
+       against the appliance.
+
+       Phase 10 wave 2 — the ``.enabled`` flag is now release-
+       ownership scoped, not role-scoped: the spatium-bootstrap
+       release sets ``dnsBind9.enabled=false`` (owned elsewhere),
+       the spatiumddi-appliance release sets ``dnsBind9.enabled=true``
+       (this release owns it). Pod scheduling is gated by the node
+       label ``spatium.io/role-dns-bind9=true`` independently of
+       ``.enabled`` — role swap = label flip, no chart upgrade
+       (closes the kine footprint Phase 9 follow-up). */}}
+{{- if .Values.dnsBind9.enabled }}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: dns-bind9
+  labels:
+    {{- include "spatiumddi-appliance.labels" . | nindent 4 }}
+    app.kubernetes.io/component: dns-bind9
+spec:
+  # DaemonSet so ``DESIRED`` is computed from matching nodes — no
+  # Pending pod when the per-role label isn't on the node. Same
+  # shape as dhcp-kea.
+  #
+  # #292 — RollingUpdate, NOT OnDelete. OnDelete strands a pod on its
+  # creation-time spec: the supervisor first renders this DaemonSet
+  # before CONTROL_PLANE_URL is known (empty), the pod crashloops, and
+  # OnDelete never recreates it when the URL is later populated — it
+  # crashloops forever until manually deleted. RollingUpdate auto-rolls
+  # on any template/env change. maxUnavailable:1 means one node at a
+  # time: the old hostNetwork:53 pod terminates (releasing the port)
+  # before the new one binds, and the cluster's other DNS nodes keep
+  # serving during the brief per-node gap.
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: dns-bind9
+  template:
+    metadata:
+      labels:
+        {{- include "spatiumddi-appliance.podLabels" . | nindent 8 }}
+        app.kubernetes.io/name: dns-bind9
+        app.kubernetes.io/component: dns-bind9
+    spec:
+      {{- with .Values.dnsBind9.priorityClassName }}
+      priorityClassName: {{ . | quote }}
+      {{- end }}
+      {{- with (include "spatiumddi-appliance.seccompProfileType" $) }}
+      securityContext:
+        seccompProfile:
+          type: {{ . }}
+      {{- end }}
+      {{- if not .Values.dns.useMetalLBVIP }}
+      # #272 Phase 5 — default path: bind on the node IP so non-cluster
+      # clients resolve against the appliance directly. When a DNS VIP
+      # is enabled the Pod drops hostNetwork and sits behind the
+      # LoadBalancer Service below instead.
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      {{- end }}
+      # #296 Phase A2 — give named time to flush in-flight queries during
+      # a rolling-upgrade drain. Without an explicit grace SIGTERM races
+      # the kernel's default 30s anyway, but stamping it here documents
+      # the contract the orchestrator's per-node cordon → drain relies on.
+      terminationGracePeriodSeconds: 30
+      nodeSelector:
+        {{- toYaml .Values.global.nodeSelector | nindent 8 }}
+        # Phase 10 (#183) — per-role scheduling label. Pod stays
+        # Pending until the supervisor's role-apply path labels the
+        # node with ``spatium.io/role-dns-bind9=true``. Keeps the
+        # ``enabled`` values toggle alongside so an operator who
+        # wants to globally suppress the Deployment still can.
+        spatium.io/role-dns-bind9: "true"
+      containers:
+        - name: dns-bind9
+          image: {{ include "spatiumddi-appliance.imageRef" (dict "global" .Values.global "repository" .Values.dnsBind9.image.repository) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          # A CPU request keeps the serving pod out of BestEffort QoS (the
+          # lowest CFS weight on the node) so a busy control plane cannot
+          # starve it — see dhcp-kea.yaml for the measurement. Requests only.
+          {{- with .Values.dnsBind9.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          env:
+            # #292 — a co-located DaemonSet agent (control-plane / full-
+            # stack appliance) reaches the control plane via the in-cluster
+            # API Service over plain HTTP; intra-cluster traffic needs no
+            # TLS, so the in-cluster Service is the default.
+            # #409 — but an Application appliance is its OWN single-node k3s
+            # with no in-cluster control Service, so when the supervisor
+            # supplies the external operator-facing URL it must be used.
+            # Precedence: controlPlaneUrl (external; set by the supervisor
+            # only on off-cluster Application appliances) → inClusterApiUrl
+            # (override for non-standard control-release name/ns) → the in-
+            # cluster api Service default. On the external URL the agent
+            # verifies the control plane against the certificate the
+            # supervisor pinned (#1281 — TLS_PINNED_CERTS_PATH, see
+            # ``spatiumddi-appliance.cpPin.*`` in _helpers.tpl). It used to
+            # skip verification there, which handed the agent key and the
+            # zone configuration to anyone on the path. A control-plane
+            # member is never given the external URL: the supervisor leaves
+            # it empty there, so its agents take the in-cluster path.
+            - name: CONTROL_PLANE_URL
+              value: {{ .Values.dnsBind9.controlPlaneUrl | default .Values.dnsBind9.inClusterApiUrl | default (printf "http://spatium-control-spatiumddi-api.%s.svc:8000" .Release.Namespace) | quote }}
+            {{- if .Values.dnsBind9.controlPlaneUrl }}
+            {{- include "spatiumddi-appliance.cpPin.env" . | nindent 12 }}
+            {{- end }}
+            - name: DNS_AGENT_KEY
+              value: {{ .Values.dnsBind9.agentKey | quote }}
+            - name: AGENT_GROUP
+              value: {{ .Values.dnsBind9.serverGroupName | quote }}
+            {{- with .Values.global.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          ports:
+            - name: dns-udp
+              containerPort: 53
+              protocol: UDP
+            - name: dns-tcp
+              containerPort: 53
+              protocol: TCP
+            {{- /* #50 — encrypted transports. The listener ports live in the
+                   DB (dns_server_options), not here: the agent renders
+                   named.conf from the config bundle, and this pod is
+                   hostNetwork so it binds the host directly regardless of
+                   what's declared. These entries exist so the ports are
+                   visible to kubectl / Service routing / network policy —
+                   set them to match the group's configured ports. */}}
+            {{- with .Values.dnsBind9.dotPort }}
+            - name: dns-dot
+              containerPort: {{ . }}
+              protocol: TCP
+            {{- end }}
+            {{- with .Values.dnsBind9.dohPort }}
+            - name: dns-doh
+              containerPort: {{ . }}
+              protocol: TCP
+            {{- end }}
+          # #296 Phase A2 — readiness gates the per-node Phase 8 rolling
+          # upgrade's uncordon step. A kubernetes-Ready node briefly
+          # served no DNS while the new pod pulled its image + warmed
+          # its config-bundle cache from the control plane; this gate
+          # blocks until BOTH conditions hold:
+          #   1. ``.ready`` marker exists — set by the agent's sync loop
+          #      after the first successful ConfigBundle fetch + persist
+          #      + driver-apply. Persists across container restarts on
+          #      the hostPath volume (#292), so a warm-restart pod is
+          #      Ready immediately. A failed sync does NOT stamp it.
+          #   2. ``dig`` against the local listener confirms named is
+          #      actually answering queries. ``+timeout=2`` keeps the
+          #      probe well under the timeoutSeconds:3 budget.
+          # initialDelaySeconds:5 / periodSeconds:10 / failureThreshold:3
+          # means a hung named takes ~35 s to NotReady — not flaky, but
+          # fast enough that the orchestrator notices a sick node.
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - "test -f /var/lib/spatium-dns-agent/.ready && dig @127.0.0.1 -p 53 . NS +short +timeout=2 +tries=1 >/dev/null"
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+            timeoutSeconds: 3
+          livenessProbe:
+            tcpSocket:
+              port: 53
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          volumeMounts:
+            # #292 — the agent's state dir (AGENT_STATE_DIR) is the ONLY
+            # thing that needs persisting. named runs with
+            # ``-c /var/lib/spatium-dns-agent/rendered/named.conf`` and
+            # every path it references (rendered zones, tsig + rndc keys,
+            # the cached ConfigBundle under config/) lives here. The old
+            # /var/named/{data,keys} PVC mounts were never written to —
+            # confirmed empty on a live install — so they're dropped.
+            # MUST be persistent: on a pod restart during a control-plane
+            # outage this cache is the only thing that lets named keep
+            # serving from last-known-good config (non-negotiable #5).
+            - name: agent-state
+              mountPath: /var/lib/spatium-dns-agent
+            {{- if .Values.dnsBind9.controlPlaneUrl }}
+            {{- include "spatiumddi-appliance.cpPin.mount" . | nindent 12 }}
+            {{- end }}
+      # #292 — per-node hostPath, NOT a shared RWO PVC and NOT emptyDir:
+      #   * A single local-path PVC pins its PV to one node, so the other
+      #     DaemonSet pods can't bind it → Pending forever.
+      #   * emptyDir is wiped on pod restart → loses the #5 cache.
+      # hostPath gives each node its own durable dir on the persistent
+      # /var partition (survives restart + reboot + slot upgrade).
+      # Containers run as root, so kubelet-created dirs are writable.
+      volumes:
+        {{- if .Values.dnsBind9.controlPlaneUrl }}
+        {{- include "spatiumddi-appliance.cpPin.volume" . | nindent 8 }}
+        {{- end }}
+        - name: agent-state
+          hostPath:
+            path: /var/lib/spatiumddi/agents/dns-bind9/state
+            type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dns-bind9
+  labels:
+    {{- include "spatiumddi-appliance.labels" . | nindent 4 }}
+    app.kubernetes.io/component: dns-bind9
+  {{- if .Values.dns.useMetalLBVIP }}
+  annotations:
+    # #272 Phase 5 — pin the DNS resolver VIP from the MetalLB pool.
+    metallb.universe.tf/address-pool: {{ .Values.dns.vipPool | quote }}
+    metallb.universe.tf/loadBalancerIPs: {{ .Values.dns.vip | quote }}
+  {{- end }}
+spec:
+  {{- if .Values.dns.useMetalLBVIP }}
+  type: LoadBalancer
+  {{- else }}
+  type: ClusterIP
+  {{- end }}
+  selector:
+    app.kubernetes.io/name: dns-bind9
+  ports:
+    - name: dns-udp
+      port: 53
+      protocol: UDP
+    - name: dns-tcp
+      port: 53
+      protocol: TCP
+    {{- with .Values.dnsBind9.dotPort }}
+    - name: dns-dot
+      port: {{ . }}
+      protocol: TCP
+    {{- end }}
+    {{- with .Values.dnsBind9.dohPort }}
+    - name: dns-doh
+      port: {{ . }}
+      protocol: TCP
+    {{- end }}
+{{- end }}

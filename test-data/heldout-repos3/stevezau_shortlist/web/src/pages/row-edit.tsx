@@ -1,0 +1,88 @@
+import { useNavigate, useParams, useSearchParams } from "react-router";
+
+import { BackLink } from "@/components/back-link";
+import { QueryBoundary } from "@/components/query-boundary";
+import { RowEditor } from "@/components/rows/row-editor";
+import { Skeleton } from "@/components/ui/skeleton";
+import { findRowTemplate } from "@/lib/row-templates";
+import { useCollections, useUsers } from "@/lib/queries";
+import { useHashScroll } from "@/lib/use-hash-scroll";
+
+/**
+ * The add/edit-a-row screen.
+ *
+ * `/rows/new?template=<id>` to add, `/rows/:id` to edit. A page rather than the dialog it used to
+ * be: a modal is capped at 90% of the viewport, and that cap — not the number of settings — is what
+ * forced every group of settings into a collapsed accordion, which in turn hid the warnings that
+ * only matter before you save. A page shows every section at once, and makes a single section
+ * linkable from anywhere else in the app (`/rows/3#schedule`).
+ */
+export function RowEditPage() {
+  const { id } = useParams();
+  const [params] = useSearchParams();
+  const navigate = useNavigate();
+  const collections = useCollections();
+  const users = useUsers();
+
+  const isNew = id === undefined;
+  const template = isNew
+    ? (findRowTemplate(params.get("template") ?? "") ?? null)
+    : null;
+  // The editor's sections render behind the collections query, so the browser's own anchor jump
+  // finds nothing on a cold load — `/rows/3#remove-this-row` from the Rows list would just sit at
+  // the top of a very long form. Same hook, same reason, as the Settings page.
+  useHashScroll(collections.isSuccess);
+
+  return (
+    <div className="space-y-4">
+      <BackLink to="/rows" label="Rows" />
+      {/* Only the collections list gates rendering. The users list feeds the audience picker and the
+          reach warning, and an empty one degrades to "no audience detail" rather than blocking the
+          editor — someone adding their first row has no users synced yet. */}
+      <QueryBoundary
+        query={collections}
+        skeleton={<Skeleton className="h-96 w-full" />}
+      >
+        {(rows) => {
+          const collection = isNew
+            ? null
+            : (rows.find((row) => row.id === Number(id)) ?? null);
+          if (!isNew && !collection) {
+            return (
+              <p className="text-muted-foreground">
+                That row no longer exists. It may have been deleted.
+              </p>
+            );
+          }
+          return (
+            <RowEditor
+              collection={collection}
+              template={template}
+              users={users.data ?? []}
+              audienceState={users.isError ? "error" : users.isPending ? "loading" : "ready"}
+              onRetryAudience={() => { void users.refetch(); }}
+              onClose={() => navigate("/rows")}
+              onRename={(proposedName, saved) =>
+                collection &&
+                navigate(`/rows/${collection.id}/rename`, {
+                  // The proposed name is also the go-ahead: that screen starts the rename on
+                  // arrival. The button is only enabled once the name has actually changed, so the
+                  // click is the decision — asking again there made "Rename…" mean "open a page
+                  // with a Rename button on it". A kind switch's name was saved with the switch, so
+                  // that screen streams from the old title instead of saving it again.
+                  state: saved
+                    ? {
+                        proposedName,
+                        oldTemplate: saved.oldTemplate,
+                        alreadySaved: true,
+                      }
+                    : { proposedName },
+                })
+              }
+            />
+          );
+        }}
+      </QueryBoundary>
+    </div>
+  );
+}

@@ -1,0 +1,1335 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import type * as ApiModule from "@/lib/api";
+import { ActivityPage } from "@/pages/activity";
+import { JobsPanel } from "@/pages/jobs";
+
+const {
+  syncWatched,
+  syncUsers,
+  getJobs,
+  getJobCatalog,
+  runJob,
+  getSchedule,
+  getRuns,
+  getSettings,
+  putSettings,
+} = vi.hoisted(() => ({
+  syncWatched: vi.fn(),
+  syncUsers: vi.fn(),
+  getJobs: vi.fn(),
+  getJobCatalog: vi.fn(),
+  runJob: vi.fn(),
+  getSchedule: vi.fn(),
+  getRuns: vi.fn(),
+  getSettings: vi.fn(),
+  putSettings: vi.fn(),
+}));
+
+vi.mock("@/lib/api", async (importOriginal) => {
+  const actual = await importOriginal<typeof ApiModule>();
+  return {
+    ...actual,
+    api: {
+      syncWatched,
+      syncUsers,
+      getJobs,
+      getJobCatalog,
+      runJob,
+      getSchedule,
+      getRuns,
+      getSettings,
+      putSettings,
+    },
+  };
+});
+
+/** A catalogue entry with the shape the page renders from; override what a test cares about. */
+function entry(kind: string, patch: Record<string, unknown> = {}) {
+  return {
+    kind,
+    label: kind,
+    description: "",
+    manual: true,
+    trigger: "",
+    scheduled: false,
+    next_run: null,
+    last: null,
+    total: 0,
+    queued: 0,
+    running: 0,
+    failed: 0,
+    ...patch,
+  };
+}
+
+const CATALOG = [
+  entry("sync.history", { label: "Sync watch history" }),
+  entry("sync.users", { label: "Sync people from Plex" }),
+  entry("sync.check", {
+    label: "Check and fix rows on Plex",
+    description:
+      "Looks at every collection Shortlist has put on your Plex server and puts back the ones that ended up in the wrong place.\n\nRows fall out of step when a run doesn't finish, when the container restarts mid-write, or when someone was paused or disabled while their row was already live.",
+    schedule_setting: "sync.check_cron",
+    schedule_optional: true,
+  }),
+  entry("privacy.sync", { label: "Privacy sync" }),
+  entry("backup.take", { label: "Back up the database" }),
+  entry("maintenance.prune", {
+    label: "Clear out old records",
+    schedule_setting: "maintenance.prune_cron",
+  }),
+  entry("user.cleanup", {
+    label: "Remove a disabled person's rows",
+    manual: false,
+    trigger: "Queued when you disable someone.",
+  }),
+];
+
+// useSSE opens an EventSource; jsdom has none. This capturing stub lets a test drive the sync bars
+// by emitting `sync.progress` / `sync.finished` frames the way the server would.
+type Listener = (event: MessageEvent<string>) => void;
+class FakeEventSource {
+  static latest: FakeEventSource | null = null;
+  readonly listeners = new Map<string, Listener[]>();
+  onopen: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+  constructor() {
+    FakeEventSource.latest = this;
+  }
+  addEventListener(name: string, listener: Listener): void {
+    this.listeners.set(name, [...(this.listeners.get(name) ?? []), listener]);
+  }
+  close(): void {}
+  emit(name: string, data: unknown): void {
+    for (const listener of this.listeners.get(name) ?? []) {
+      listener({ data: JSON.stringify(data) } as MessageEvent<string>);
+    }
+  }
+}
+
+function emitSse(name: string, data: unknown): void {
+  const source = FakeEventSource.latest;
+  if (!source) throw new Error("no EventSource was created");
+  act(() => source.emit(name, data));
+}
+
+function renderPage(path = "/jobs") {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={[path]}>
+        <JobsPanel />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
+/** The whole Activity page, for what crosses from the Jobs tab to the Job history tab. The job
+ *  history was a switch inside JobsPanel; it is a tab of the page now. */
+function renderActivity(path = "/activity") {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={[path]}>
+        <ActivityPage />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
+describe("JobsPage — sync users and watch history", () => {
+  beforeEach(() => {
+    syncWatched.mockReset();
+    syncUsers.mockReset();
+    getJobs.mockReset();
+    getJobs.mockResolvedValue([]);
+    getJobCatalog.mockReset();
+    getJobCatalog.mockResolvedValue(CATALOG);
+    runJob.mockReset();
+    getRuns.mockReset();
+    getRuns.mockResolvedValue([]);
+    FakeEventSource.latest = null;
+    vi.stubGlobal("EventSource", FakeEventSource);
+  });
+
+  it("reports real added/updated counts after syncing users", async () => {
+    syncUsers.mockResolvedValue({ added: 2, updated: 5, total: 7 });
+    renderPage();
+
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: /^Run: Sync people from Plex$/,
+      }),
+    );
+
+    expect(
+      await screen.findByText(/synced 7 users — 2 added, 5 updated/i),
+    ).toBeInTheDocument();
+  });
+
+  it("says users are up to date when the sync changed nothing", async () => {
+    syncUsers.mockResolvedValue({ added: 0, updated: 0, total: 7 });
+    renderPage();
+
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: /^Run: Sync people from Plex$/,
+      }),
+    );
+
+    expect(
+      await screen.findByText(/all 7 users are already up to date/i),
+    ).toBeInTheDocument();
+  });
+
+  it("shows a live watch-history bar from sync events, then the finished count", async () => {
+    // The POST only returns 202 "started" — the outcome must come from the bus, not the mutation.
+    syncWatched.mockResolvedValue({ started: true });
+    renderPage();
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: /^Run: Sync watch history$/ }),
+    );
+
+    emitSse("sync.progress", { kind: "watched", done: 0, total: 4 });
+    emitSse("sync.progress", { kind: "watched", done: 2, total: 4 });
+    const bar = await screen.findByRole("progressbar", {
+      name: /syncing watch history/i,
+    });
+    expect(bar).toHaveAttribute("aria-valuenow", "50");
+    expect(screen.getByText(/syncing 2 of 4 users/i)).toBeInTheDocument();
+
+    // sync.finished clears the bar and reports the real count — not a "started in background" line.
+    emitSse("sync.finished", { kind: "watched", ok: true, count: 4 });
+    expect(
+      screen.queryByRole("progressbar", { name: /syncing watch history/i }),
+    ).not.toBeInTheDocument();
+    expect(await screen.findByText(/synced 4 users/i)).toBeInTheDocument();
+  });
+
+  it("surfaces a watch-history sync failure reported on the bus", async () => {
+    syncWatched.mockResolvedValue({ started: true });
+    renderPage();
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: /^Run: Sync watch history$/ }),
+    );
+    emitSse("sync.progress", { kind: "watched", done: 0, total: 3 });
+    emitSse("sync.finished", {
+      kind: "watched",
+      ok: false,
+      error: "ConnectError",
+    });
+
+    // Scoped: the page renders an alert region per card, so find the one that actually reported it.
+    const alerts = await screen.findAllByRole("alert");
+    const alert = alerts.find((el) =>
+      // Apostrophe-agnostic: the copy uses a typographic ’, and which glyph it is isn't the point.
+      /couldn.t finish/i.test(el.textContent ?? ""),
+    );
+    expect(alert).toBeDefined();
+    expect(alert).toHaveTextContent(/ConnectError/);
+  });
+
+  it("shows the users bar advancing through fetch then save phases", async () => {
+    // Hold the POST open so the bar (driven by sync.isPending) stays mounted while events arrive.
+    let resolve!: (v: {
+      added: number;
+      updated: number;
+      total: number;
+    }) => void;
+    syncUsers.mockReturnValue(
+      new Promise((r) => {
+        resolve = r;
+      }),
+    );
+    renderPage();
+
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: /^Run: Sync people from Plex$/,
+      }),
+    );
+
+    // fetch phase: indeterminate (no aria-valuenow) with a "contacting" line.
+    emitSse("sync.progress", { kind: "users", phase: "fetch" });
+    const bar = await screen.findByRole("progressbar", {
+      name: /syncing users/i,
+    });
+    expect(bar).not.toHaveAttribute("aria-valuenow");
+    expect(screen.getByText(/contacting plex\.tv/i)).toBeInTheDocument();
+
+    // save phase: determinate.
+    emitSse("sync.progress", {
+      kind: "users",
+      phase: "save",
+      done: 3,
+      total: 6,
+    });
+    expect(bar).toHaveAttribute("aria-valuenow", "50");
+    expect(screen.getByText(/saving 3 of 6 users/i)).toBeInTheDocument();
+
+    await act(async () => {
+      resolve({ added: 1, updated: 5, total: 6 });
+    });
+    expect(
+      await screen.findByText(/synced 6 users — 1 added, 5 updated/i),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("JobsPage — sync check", () => {
+  beforeEach(() => {
+    getJobs.mockReset();
+    getJobs.mockResolvedValue([]);
+    getJobCatalog.mockReset();
+    getJobCatalog.mockResolvedValue(CATALOG);
+    runJob.mockReset();
+    syncWatched.mockReset();
+    syncUsers.mockReset();
+    getRuns.mockReset();
+    getRuns.mockResolvedValue([]);
+    FakeEventSource.latest = null;
+    vi.stubGlobal("EventSource", FakeEventSource);
+  });
+
+  it("explains why rows drift out of sync once you open the job", async () => {
+    // The explanation is real content, but it is read once — so it lives behind the row rather than
+    // permanently on screen. Collapsed by default is the point of the layout, not a regression.
+    renderPage();
+    const row = await screen.findByTestId("job-sync.check");
+    expect(screen.queryByText(/container restarts mid-write/i)).toBeNull();
+
+    await userEvent.click(
+      within(row).getByRole("button", { name: /^Check and fix rows on Plex$/ }),
+    );
+    expect(
+      await screen.findByText(/container restarts mid-write/i),
+    ).toBeInTheDocument();
+  });
+
+  it("previews before it changes anything", async () => {
+    // Converge only ever removes visibility, so a live pass is never unsafe — but "press a button,
+    // we silently rewrite every library" is the wrong default.
+    runJob.mockResolvedValue({
+      id: 1,
+      kind: "sync.check",
+      status: "done",
+      detail: "",
+      error: null,
+      fixed: ["Shortlist_gemnath", "Shortlist_j_fm"],
+    });
+    renderPage();
+
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: /^Check now: Check and fix rows on Plex$/,
+      }),
+    );
+
+    expect(runJob).toHaveBeenCalledWith("sync.check", { dry_run: true });
+    expect(await screen.findByText(/Shortlist_gemnath/)).toBeInTheDocument();
+    // Only now is the destructive action offered, and it names the count.
+    expect(
+      await screen.findByRole("button", { name: /fix 2 rows/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("does not claim everything is in sync when the check never ran", async () => {
+    // The queue skips a drain while a run is writing to Plex — exactly when someone presses this.
+    // The job comes back `queued` with no result: saying "in sync" would be a lie.
+    runJob.mockResolvedValue({
+      id: 1,
+      kind: "sync.check",
+      status: "queued",
+      detail: "",
+      error: null,
+      fixed: [],
+    });
+    renderPage();
+
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: /^Check now: Check and fix rows on Plex$/,
+      }),
+    );
+
+    expect(
+      await screen.findByText(/waiting for the current run to finish/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/everything is in sync/i)).toBeNull();
+  });
+
+  it("warns loudly and separately when a preview would DELETE something", async () => {
+    // Deleting is the one irreversible thing the check does. Folding it into the "N rows" count
+    // would hide it in the very preview an operator reads to decide whether to run for real.
+    runJob.mockResolvedValue({
+      id: 1,
+      kind: "sync.check",
+      status: "done",
+      detail: "",
+      error: null,
+      fixed: [],
+      orphans: ["Shortlist_ghost"],
+    });
+    renderPage();
+
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: /^Check now: Check and fix rows on Plex$/,
+      }),
+    );
+
+    // The count and the noun sit in separate JSX expressions, so match a contiguous fragment.
+    expect(await screen.findByText(/this will delete/i)).toBeInTheDocument();
+    expect(screen.getByText(/Shortlist_ghost/)).toBeInTheDocument();
+    expect(screen.getByText(/cannot be undone/i)).toBeInTheDocument();
+    // Still offered, but the count includes it so the button never understates the damage.
+    expect(
+      await screen.findByRole("button", { name: /^Fix 1 row$/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("confirms at the click before deleting a collection", async () => {
+    // The preview callout already names every collection and says it cannot be undone — so the
+    // audit's "no confirm" was half wrong. What was missing is a confirm AT THE CLICK, which every
+    // other irreversible Plex write in this app has (row delete, row cleanup, disable-everyone,
+    // backup restore). This one button bundled reversible demotions and an irreversible delete
+    // under a single verb and fired both immediately.
+    runJob.mockResolvedValue({
+      id: 1,
+      kind: "sync.check",
+      status: "done",
+      detail: "",
+      error: null,
+      fixed: [],
+      orphans: ["Shortlist_ghost"],
+    });
+    renderPage();
+
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: /^Check now: Check and fix rows on Plex$/,
+      }),
+    );
+    runJob.mockClear();
+    await userEvent.click(
+      await screen.findByRole("button", { name: /^Fix 1 row$/ }),
+    );
+
+    expect(runJob).not.toHaveBeenCalled();
+    expect(
+      await screen.findByRole("dialog", { name: /delete 1 collection/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("does the delete once confirmed", async () => {
+    runJob.mockResolvedValue({
+      id: 1,
+      kind: "sync.check",
+      status: "done",
+      detail: "",
+      error: null,
+      fixed: [],
+      orphans: ["Shortlist_ghost"],
+    });
+    renderPage();
+
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: /^Check now: Check and fix rows on Plex$/,
+      }),
+    );
+    await userEvent.click(
+      await screen.findByRole("button", { name: /^Fix 1 row$/ }),
+    );
+    runJob.mockClear();
+    await userEvent.click(
+      await screen.findByRole("button", { name: /^Delete and fix$/ }),
+    );
+
+    expect(runJob).toHaveBeenCalledWith("sync.check", { confirmed: true });
+  });
+
+  it("does not confirm when nothing will be deleted", async () => {
+    // Demotions are reversible and the run repeats them nightly anyway. A confirm on every fix
+    // teaches people to click through the one that matters.
+    runJob.mockResolvedValue({
+      id: 1,
+      kind: "sync.check",
+      status: "done",
+      detail: "",
+      error: null,
+      fixed: ["Shortlist_gemnath"],
+      orphans: [],
+    });
+    renderPage();
+
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: /^Check now: Check and fix rows on Plex$/,
+      }),
+    );
+    runJob.mockClear();
+    await userEvent.click(
+      await screen.findByRole("button", { name: /^Fix 1 row$/ }),
+    );
+
+    expect(runJob).toHaveBeenCalledWith("sync.check", { confirmed: true });
+  });
+
+  it("offers no fix button when nothing drifted", async () => {
+    runJob.mockResolvedValue({
+      id: 1,
+      kind: "sync.check",
+      status: "done",
+      detail: "",
+      error: null,
+      fixed: [],
+      orphans: [],
+    });
+    renderPage();
+
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: /^Check now: Check and fix rows on Plex$/,
+      }),
+    );
+
+    expect(
+      await screen.findByText(/everything is in sync/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Fix \d+ row/i })).toBeNull();
+  });
+
+  it("runs the live pass only when the fix button is pressed", async () => {
+    runJob
+      .mockResolvedValueOnce({
+        id: 1,
+        kind: "sync.check",
+        status: "done",
+        detail: "",
+        error: null,
+        fixed: ["Shortlist_gemnath"],
+      })
+      .mockResolvedValueOnce({
+        id: 2,
+        kind: "sync.check",
+        status: "done",
+        detail: "Checked every row; corrected 1",
+        error: null,
+        fixed: ["Shortlist_gemnath"],
+      });
+    renderPage();
+
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: /^Check now: Check and fix rows on Plex$/,
+      }),
+    );
+    await userEvent.click(
+      await screen.findByRole("button", { name: /^Fix 1 row$/ }),
+    );
+
+    // `confirmed` is what authorises the DELETE half: the scheduled pass and the preview both omit
+    // it, so only this button — pressed after reading the preview — can destroy a collection.
+    expect(runJob).toHaveBeenLastCalledWith("sync.check", { confirmed: true });
+    expect(await screen.findByText(/corrected 1/i)).toBeInTheDocument();
+  });
+
+  it("shows each job's last outcome on its own card", async () => {
+    // The whole point of the restructure: "did the roster sync work?" is answered on the roster
+    // sync's card, not by scanning a flat table where every kind's rows are interleaved.
+    getJobCatalog.mockResolvedValue([
+      entry("sync.users", {
+        label: "Sync people from Plex",
+        total: 4,
+        last: {
+          id: 9,
+          kind: "sync.users",
+          status: "done",
+          attempts: 1,
+          max_attempts: 3,
+          detail: "Synced 7 people from plex.tv",
+          error: null,
+          created_at: "2026-07-28T10:00:00Z",
+          started_at: "2026-07-28T10:00:00Z",
+          finished_at: "2026-07-28T10:00:04Z",
+        },
+      }),
+    ]);
+    renderPage();
+
+    // Health is on the LINE — you sweep the list, you don't open anything to see it went fine.
+    const row = await screen.findByTestId("job-sync.users");
+    expect(row).toHaveTextContent(/ago|just now/i);
+
+    // The narrative detail is one click away, not permanently on screen.
+    await userEvent.click(
+      within(row).getByRole("button", { name: /^Sync people from Plex$/ }),
+    );
+    expect(row).toHaveTextContent(/synced 7 people from plex\.tv/i);
+    expect(row).toHaveTextContent(/4\.0s/);
+  });
+
+  it("shows a failed job's error on its card and flags the count", async () => {
+    getJobCatalog.mockResolvedValue([
+      entry("sync.users", {
+        label: "Sync people from Plex",
+        total: 3,
+        failed: 1,
+        last: {
+          id: 9,
+          kind: "sync.users",
+          status: "failed",
+          attempts: 3,
+          max_attempts: 3,
+          detail: "",
+          error: "ConnectError: plex.tv unreachable",
+          created_at: "2026-07-28T10:00:00Z",
+          started_at: null,
+          finished_at: null,
+        },
+      }),
+    ]);
+    renderPage();
+
+    // A failure is visible WITHOUT opening anything — on the row, and in the page-level chip.
+    const row = await screen.findByTestId("job-sync.users");
+    expect(row).toHaveTextContent(/Failed/);
+    expect(await screen.findByText(/1 failed/i)).toBeInTheDocument();
+
+    // The reason is one click away.
+    await userEvent.click(
+      within(row).getByRole("button", { name: /^Sync people from Plex$/ }),
+    );
+    expect(row).toHaveTextContent(/plex\.tv unreachable/i);
+  });
+
+  it("opens a job's own history on demand, asking only for that kind", async () => {
+    getJobCatalog.mockResolvedValue([
+      entry("sync.users", { label: "Sync people from Plex", total: 2 }),
+    ]);
+    getJobs.mockResolvedValue([
+      {
+        id: 9,
+        kind: "sync.users",
+        status: "done",
+        attempts: 1,
+        max_attempts: 3,
+        detail: "Synced 7 people from plex.tv",
+        error: null,
+        created_at: "2026-07-28T10:00:00Z",
+        started_at: null,
+        finished_at: null,
+      },
+    ]);
+    renderPage();
+
+    // Not fetched until it's opened — a page of rows must not fire one history request each.
+    const row = await screen.findByTestId("job-sync.users");
+    expect(getJobs).not.toHaveBeenCalled();
+
+    await userEvent.click(
+      within(row).getByRole("button", { name: /^Sync people from Plex$/ }),
+    );
+    expect(getJobs).not.toHaveBeenCalled(); // expanding the row is still not the history
+
+    await userEvent.click(
+      within(row).getByRole("button", { name: /previous runs/i }),
+    );
+
+    expect(getJobs).toHaveBeenCalledWith("sync.users", 50);
+    expect(
+      await screen.findByText(/synced 7 people from plex\.tv/i),
+    ).toBeInTheDocument();
+  });
+
+  it("shows an automatic job with no run button, and says what queues it", async () => {
+    getJobCatalog.mockResolvedValue([
+      entry("user.cleanup", {
+        label: "Remove a disabled person's rows",
+        manual: false,
+        trigger: "Queued when you disable someone.",
+        // Has actually RUN, so it gets a row of its own rather than the disclosure below.
+        last: {
+          status: "done",
+          created_at: "2026-08-01T03:31:00Z",
+          detail: "",
+        },
+      }),
+    ]);
+    renderPage();
+
+    // Automatic jobs get their own group, away from the ones you act on.
+    expect(await screen.findByText(/^Automatic$/)).toBeInTheDocument();
+    const row = await screen.findByTestId("job-user.cleanup");
+    // A button that queued a row-deleting job at no particular target must not exist.
+    expect(
+      within(row).queryByRole("button", { name: /^Run:/ }),
+    ).not.toBeInTheDocument();
+
+    await userEvent.click(
+      within(row).getByRole("button", {
+        name: /^Remove a disabled person's rows$/,
+      }),
+    );
+    expect(row).toHaveTextContent(/queued when you disable someone/i);
+  });
+
+  // On a fresh install NONE of the automatic kinds has ever run, so this section was nine rows of
+  // internal machinery each stamped "never run" — the job registry rendered as a user-facing list,
+  // with "never run" appearing fifteen times down the page. The ones that have actually happened
+  // are the ones worth a row.
+  it("keeps automatic jobs that have never run behind a disclosure", async () => {
+    getJobCatalog.mockResolvedValue([
+      entry("user.cleanup", {
+        label: "Remove a disabled person's rows",
+        manual: false,
+        last: {
+          status: "done",
+          created_at: "2026-08-01T03:31:00Z",
+          detail: "",
+        },
+      }),
+      entry("watch.credit", {
+        label: "Credit a finished playback",
+        manual: false,
+      }),
+      entry("notify.send", {
+        label: "Send an alert to your webhook",
+        manual: false,
+      }),
+    ]);
+    renderPage();
+
+    expect(await screen.findByText(/^Automatic$/)).toBeInTheDocument();
+    const disclosure = screen.getByText(/2 jobs that haven’t needed to run/i);
+    // The one that HAS run is not inside it; the two that haven't are.
+    const details = disclosure.closest("details");
+    expect(details).not.toBeNull();
+    expect(details?.contains(screen.getByTestId("job-watch.credit"))).toBe(
+      true,
+    );
+    expect(details?.contains(screen.getByTestId("job-notify.send"))).toBe(true);
+    expect(details?.contains(screen.getByTestId("job-user.cleanup"))).toBe(
+      false,
+    );
+    expect(details?.open).toBe(false);
+  });
+
+  it("says so plainly when no automatic job has ever run, rather than listing them all", async () => {
+    getJobCatalog.mockResolvedValue([
+      entry("watch.credit", {
+        label: "Credit a finished playback",
+        manual: false,
+      }),
+    ]);
+    renderPage();
+
+    expect(await screen.findByText(/^Automatic$/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/nothing has needed one of these yet/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("1 job that hasn’t needed to run"),
+    ).toBeInTheDocument();
+  });
+
+  it("gives the retention prune a row of its own, with a button that runs it", async () => {
+    // It is `manual: true`, so the "Automatic" group filters it out — and it used to be missing from
+    // the hardcoded "Run now" list as well. Its counts still fed the page totals, so a failed prune
+    // showed "1 failed" in the header with no row anywhere to click.
+    runJob.mockResolvedValue({
+      id: 7,
+      kind: "maintenance.prune",
+      status: "done",
+      detail: "Pruned 4 run(s), 0 audit event(s) and 12 expired cache row(s)",
+      error: null,
+      fixed: [],
+      orphans: [],
+    });
+    renderPage();
+
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: /^Clear now: Clear out old records$/,
+      }),
+    );
+
+    // Foreground and argument-free: the retention limits come from settings, not the button.
+    expect(runJob).toHaveBeenCalledWith("maintenance.prune", {});
+    expect(
+      await screen.findByText(/pruned 4 run\(s\), 0 audit event\(s\)/i),
+    ).toBeInTheDocument();
+  });
+
+  it("gives a failed prune somewhere to click, not just a number in the header", async () => {
+    getJobCatalog.mockResolvedValue([
+      entry("maintenance.prune", {
+        label: "Clear out old records",
+        total: 2,
+        failed: 1,
+        last: {
+          id: 9,
+          kind: "maintenance.prune",
+          status: "failed",
+          attempts: 3,
+          max_attempts: 3,
+          detail: "",
+          error: "OperationalError: database is locked",
+          created_at: "2026-07-28T10:00:00Z",
+          started_at: null,
+          finished_at: null,
+        },
+      }),
+    ]);
+    renderPage();
+
+    expect(await screen.findByText(/1 failed/i)).toBeInTheDocument();
+    const row = await screen.findByTestId("job-maintenance.prune");
+    expect(row).toHaveTextContent(/Failed/);
+
+    await userEvent.click(
+      within(row).getByRole("button", { name: /^Clear out old records$/ }),
+    );
+    expect(row).toHaveTextContent(/database is locked/i);
+  });
+
+  it("says on the line which jobs touch Plex, and marks the one that can delete", async () => {
+    // "Run now" mixes a read-only sweep with a job that writes corrections to Plex and can delete a
+    // collection for good. That difference used to be invisible until you expanded the row.
+    renderPage();
+
+    const destructive = await screen.findByTestId("job-sync.check");
+    expect(within(destructive).getByText("Can delete")).toBeInTheDocument();
+
+    const writes = await screen.findByTestId("job-privacy.sync");
+    expect(within(writes).getByText("Changes Plex")).toBeInTheDocument();
+
+    // The three that never touch Plex carry no tag — which is what the group's note promises.
+    for (const kind of ["sync.history", "backup.take", "maintenance.prune"]) {
+      const row = await screen.findByTestId(`job-${kind}`);
+      expect(within(row).queryByText(/Changes Plex|Can delete/)).toBeNull();
+    }
+  });
+
+  it("keeps the reassurance beside 'Can delete' visible, not in a hover title", async () => {
+    // A red "Can delete" whose only "nothing is deleted before you press Fix" lived in a `title`
+    // is a warning with its calming half hidden — on a phone there is no hover at all, so the tag
+    // is everything that is left (audit finding, Sep 2026).
+    renderPage();
+
+    const destructive = await screen.findByTestId("job-sync.check");
+    expect(
+      within(destructive).getByText(
+        /Nothing is deleted until you read the preview/i,
+      ),
+    ).toBeVisible();
+    // Only the destructive tag earns a permanent line; the two "Changes Plex" rows stay one line.
+    const writes = await screen.findByTestId("job-privacy.sync");
+    expect(within(writes).queryByText(/Nothing is deleted/i)).toBeNull();
+  });
+
+  it("shows a manual job's other trigger, so a run nobody pressed is explained", async () => {
+    // `trigger` was rendered only for jobs with no button, so the text written for the two manual
+    // kinds that ALSO fire by themselves was never on screen anywhere.
+    getJobCatalog.mockResolvedValue([
+      entry("privacy.sync", {
+        label: "Privacy sync",
+        trigger:
+          "Also runs on its own whenever something changes who sees what.",
+      }),
+    ]);
+    renderPage();
+
+    const row = await screen.findByTestId("job-privacy.sync");
+    expect(row).not.toHaveTextContent(/also runs on its own/i);
+
+    await userEvent.click(
+      within(row).getByRole("button", { name: /^Privacy sync$/ }),
+    );
+    expect(row).toHaveTextContent(/also runs on its own/i);
+  });
+
+  it("reserves no space under a row until that job has something to report", async () => {
+    // The live slot sits in a PADDED wrapper. Passing an element whose children are all conditional
+    // makes it always truthy, so every row carried a strip of dead space before anything had run.
+    syncUsers.mockResolvedValue({ added: 1, updated: 0, total: 7 });
+    renderPage();
+
+    const row = await screen.findByTestId("job-sync.users");
+    expect(within(row).queryByTestId("job-live")).not.toBeInTheDocument();
+
+    await userEvent.click(
+      within(row).getByRole("button", { name: /^Run: Sync people from Plex$/ }),
+    );
+    expect(await within(row).findByTestId("job-live")).toBeInTheDocument();
+  });
+
+  it("keeps the run list and the cross-job activity feed as separate areas", async () => {
+    // The two questions are different: "is the roster sync healthy?" is per-job, "what has my
+    // server been doing?" is chronological. The old page answered only the first.
+    getJobs.mockResolvedValue([
+      {
+        id: 9,
+        kind: "privacy.sync",
+        status: "done",
+        attempts: 1,
+        max_attempts: 3,
+        detail: "Share filters merged for every account",
+        error: null,
+        created_at: "2026-07-28T10:00:00Z",
+        started_at: null,
+        finished_at: null,
+      },
+    ]);
+    renderActivity();
+
+    // The Jobs area does NOT fetch the cross-job feed.
+    await screen.findByTestId("job-sync.users");
+    expect(getJobs).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole("tab", { name: "Job history" }));
+
+    // The third argument is the status filter, and `undefined` is load-bearing: the unfiltered
+    // feed must ask the server for everything, not quietly narrow itself.
+    expect(getJobs).toHaveBeenCalledWith(undefined, 100, undefined);
+    // The feed names the JOB, not the raw kind — `privacy.sync` means nothing to an operator.
+    expect(await screen.findByText("Privacy sync")).toBeInTheDocument();
+    expect(
+      screen.getByText(/share filters merged for every account/i),
+    ).toBeInTheDocument();
+    // Switching areas swaps the content rather than adding to the scroll.
+    expect(screen.queryByTestId("job-sync.users")).not.toBeInTheDocument();
+  });
+});
+
+describe("JobsPage — one place for everything on a timer", () => {
+  beforeEach(() => {
+    getJobs.mockReset();
+    getJobs.mockResolvedValue([]);
+    getJobCatalog.mockReset();
+    getJobCatalog.mockResolvedValue(CATALOG);
+    getRuns.mockReset();
+    getRuns.mockResolvedValue([]);
+    getSchedule.mockReset();
+    getSchedule.mockResolvedValue({
+      jobs: [],
+      rows: [
+        {
+          type: "rows",
+          cron: "30 3 * * *",
+          next_run: "2026-08-01T03:30:00Z",
+          rows: [
+            // A TEMPLATE name, because that is what most rows carry — the chip used to print it
+            // raw, braces and all.
+            {
+              id: 1,
+              slug: "picked",
+              name: "✨ {library_name} Picked for You",
+            },
+            { id: 2, slug: "movie-night", name: "🍿 Movie night" },
+          ],
+        },
+      ],
+    });
+    FakeEventSource.latest = null;
+  });
+
+  it("offers Jobs and Job history — the schedule is not a third view", async () => {
+    // Row schedules were the only thing Timeline showed that this list didn't: every job already
+    // carries its own next-run, so a separate tab meant two places each holding half the answer.
+    renderActivity();
+
+    expect(
+      await screen.findByRole("tab", { name: "Jobs" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("tab", { name: "Job history" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: "Timeline" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Timeline" })).toBeNull();
+  });
+
+  it("lists row schedules in the Jobs list itself", async () => {
+    renderPage();
+
+    expect(await screen.findByText(/Picked for You/)).toBeInTheDocument();
+    // Grouped by shared cron, exactly as the scheduler groups them — one trigger builds both rows,
+    // so listing them separately would imply two timers where there is one.
+    expect(screen.getByText(/Movie night/)).toBeInTheDocument();
+  });
+
+  it("leads with the schedule and gives every row its own link", async () => {
+    // The names used to be comma-joined into one truncating line with the cron as its subtitle, so
+    // a group of three rows on the nightly cron was an unreadable, unclickable string — and the one
+    // "Edit" button beside it could only point at /rows, because there was no single row it meant.
+    renderPage();
+
+    expect(await screen.findByText("Every day at 3:30 AM")).toBeInTheDocument();
+    expect(screen.getByText(/builds 2 rows/i)).toBeInTheDocument();
+
+    expect(
+      screen.getByRole("link", { name: /Picked for You/ }),
+    ).toHaveAttribute("href", "/rows/1");
+    expect(screen.getByRole("link", { name: /Movie night/ })).toHaveAttribute(
+      "href",
+      "/rows/2",
+    );
+  });
+
+  it("preserves full row titles with readable placeholder chips", async () => {
+    // A row is configured as a template, so this chip used to read "✨ {library_name} Picked for
+    // You" — which looks like a substitution that failed, on a page that is otherwise all plain
+    // English. Same treatment the run pages give it (`rowDisplayName`).
+    renderPage();
+
+    const link = await screen.findByRole("link", { name: /Picked for You/ });
+    expect(link.textContent).toBe("✨ library name Picked for You");
+    expect(link.textContent).not.toContain("{");
+    expect(link).toHaveAttribute("title", "Edit ✨ {library_name} Picked for You");
+  });
+
+  it("still lands somewhere sensible for an old ?tab=timeline link", async () => {
+    renderPage("/jobs?tab=timeline");
+
+    // Falls back to the Jobs list rather than rendering an empty view.
+    expect(await screen.findByText(/Picked for You/)).toBeInTheDocument();
+  });
+});
+
+describe("JobsPage — the schedule panel for a job you can switch off", () => {
+  /** The drift check as /api/schedule reports it: `cron` is the EFFECTIVE one, defaults resolved. */
+  function scheduleWithCheck(cron: string) {
+    return {
+      jobs: [
+        {
+          type: "job",
+          kind: "sync.check",
+          label: "Check and fix rows on Plex",
+          description: "",
+          setting: "sync.check_cron",
+          cron,
+          using_default: cron !== "",
+          // The built-in cron, which the server reports precisely so the SPA never holds a copy.
+          default_cron: "45 5 * * *",
+          optional: true,
+          writes_plex: true,
+          next_run: cron ? "2026-08-01T05:45:00Z" : null,
+        },
+      ],
+      rows: [],
+    };
+  }
+
+  beforeEach(() => {
+    getJobs.mockReset();
+    getJobs.mockResolvedValue([]);
+    getJobCatalog.mockReset();
+    getJobCatalog.mockResolvedValue(CATALOG);
+    getRuns.mockReset();
+    getRuns.mockResolvedValue([]);
+    getSettings.mockReset();
+    // A DEFAULT install: nothing stored, so the settings response is the folded-in blank. This is
+    // exactly the state in which the off switch used to be unreachable.
+    getSettings.mockResolvedValue({});
+    putSettings.mockReset();
+    putSettings.mockResolvedValue({});
+    getSchedule.mockReset();
+    getSchedule.mockResolvedValue(scheduleWithCheck("45 5 * * *"));
+    FakeEventSource.latest = null;
+    vi.stubGlobal("EventSource", FakeEventSource);
+  });
+
+  async function openDriftCheck() {
+    const row = await screen.findByTestId("job-sync.check");
+    await userEvent.click(
+      within(row).getByRole("button", { name: "Check and fix rows on Plex" }),
+    );
+    return row;
+  }
+
+  it("offers Off on a default install, where nothing is stored yet", async () => {
+    renderPage();
+    const row = await openDriftCheck();
+
+    // The whole point: no cron is stored, so the old panel showed no off control at all — while the
+    // job ran nightly at 05:45. "Daily" must NOT be offered here: for this one job a blank cron is
+    // the off switch, so a chip labelled Daily would switch a Plex-writing job off.
+    expect(
+      await within(row).findByRole("button", { name: "Off" }),
+    ).toBeInTheDocument();
+    expect(within(row).queryByRole("button", { name: "Daily" })).toBeNull();
+  });
+
+  it("shows the cron it actually runs on, not the blank that is stored", async () => {
+    renderPage();
+    const row = await openDriftCheck();
+
+    // Nothing is stored, so `GET /api/settings` reads "" here — the same "" that means OFF. The
+    // panel reads the EFFECTIVE cron from /api/schedule instead, which is the only place the
+    // built-in default is resolved, and lands on the built-in chip rather than Off.
+    const builtIn = await within(row).findByRole("button", {
+      name: "Built-in (05:45)",
+    });
+    expect(builtIn.getAttribute("aria-pressed")).toBe("true");
+    expect(
+      within(row)
+        .getByRole("button", { name: "Off" })
+        .getAttribute("aria-pressed"),
+    ).toBe("false");
+  });
+
+  it("labels the built-in chip with the time the server says it runs at", async () => {
+    // A chip that just said "Built-in" would not tell you what switching back to it does, and the
+    // SPA cannot know 05:45 on its own — a second copy of the server's DEFAULT_CRONS is how the
+    // drift check came to be documented as off-by-default while it ran nightly.
+    getSchedule.mockResolvedValue({
+      jobs: [{ ...scheduleWithCheck("").jobs[0], default_cron: "30 2 * * *" }],
+      rows: [],
+    });
+    renderPage();
+    const row = await openDriftCheck();
+
+    expect(
+      await within(row).findByRole("button", { name: "Built-in (02:30)" }),
+    ).toBeInTheDocument();
+  });
+
+  it("saves null when the built-in chip is chosen, not a blank and not a copy of the cron", async () => {
+    // The three values are three different states: "" is OFF for this job, "45 5 * * *" PINS a copy
+    // of today's default, and null deletes the row — the only one that means "inherit the built-in".
+    getSchedule.mockResolvedValue(scheduleWithCheck(""));
+    renderPage();
+    const row = await openDriftCheck();
+
+    await userEvent.click(
+      await within(row).findByRole("button", { name: "Built-in (05:45)" }),
+    );
+
+    await waitFor(() =>
+      expect(putSettings).toHaveBeenCalledWith({ "sync.check_cron": null }),
+    );
+  });
+
+  it("saves a blank cron when Off is chosen — the value the scheduler reads as off", async () => {
+    renderPage();
+    const row = await openDriftCheck();
+
+    await userEvent.click(
+      await within(row).findByRole("button", { name: "Off" }),
+    );
+
+    await waitFor(() =>
+      expect(putSettings).toHaveBeenCalledWith({ "sync.check_cron": "" }),
+    );
+  });
+
+  it("selects Off once the schedule really is off", async () => {
+    getSchedule.mockResolvedValue(scheduleWithCheck(""));
+    renderPage();
+    const row = await openDriftCheck();
+
+    const off = await within(row).findByRole("button", { name: "Off" });
+    expect(off.getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("falls back to Daily for a job that cannot be switched off when the schedule has no entry for it yet", async () => {
+    // beforeEach's schedule mock only carries "sync.check" — nothing yet identifies what
+    // maintenance.prune's own default is, so the blank chip falls back to the generic label rather
+    // than showing a wrong time.
+    renderPage();
+    const row = await screen.findByTestId("job-maintenance.prune");
+    await userEvent.click(
+      within(row).getByRole("button", { name: "Clear out old records" }),
+    );
+
+    expect(
+      within(row).getByRole("button", { name: "Daily" }),
+    ).toBeInTheDocument();
+    expect(within(row).queryByRole("button", { name: "Off" })).toBeNull();
+    // And no second way back to the default: the blank chip already IS it here, so a Built-in chip
+    // beside it would be two chips for one state.
+    expect(within(row).queryByRole("button", { name: /Built-in/ })).toBeNull();
+  });
+
+  it("labels the blank chip with the built-in time on the sync jobs that draw their own panel", async () => {
+    // Sync watch history and Sync people from Plex render their own CronPicker rather than
+    // SchedulePanel's, so the Built-in label reached the generic panel and missed these two — they
+    // still read "Daily" on a live server (2026-09-28).
+    const scheduled = (kind: string, setting: string, defaultCron: string) => ({
+      type: "job" as const,
+      kind,
+      label: kind,
+      description: "",
+      setting,
+      cron: "",
+      using_default: true,
+      default_cron: defaultCron,
+      optional: false,
+      writes_plex: false,
+      next_run: "2026-08-01T04:00:00Z",
+    });
+    getSchedule.mockResolvedValue({
+      jobs: [
+        scheduled("sync.history", "sync.watch_cron", "17 4 * * *"),
+        scheduled("sync.users", "sync.users_cron", "47 4 * * *"),
+      ],
+      rows: [],
+    });
+    renderPage();
+
+    for (const [kind, label, time] of [
+      ["sync.history", "Sync watch history", "04:17"],
+      ["sync.users", "Sync people from Plex", "04:47"],
+    ] as const) {
+      const row = await screen.findByTestId(`job-${kind}`);
+      await userEvent.click(within(row).getByRole("button", { name: label }));
+      expect(
+        await within(row).findByRole("button", { name: `Built-in (${time})` }),
+      ).toBeInTheDocument();
+      expect(within(row).queryByRole("button", { name: "Daily" })).toBeNull();
+    }
+  });
+
+  it("labels the blank chip with the built-in time for a job that cannot be switched off", async () => {
+    // Accurate but vague: "Daily" doesn't say WHEN, and the five non-off-able jobs don't all
+    // default to the same time. /api/schedule carries `default_cron` for maintenance.prune too, so
+    // the blank chip can say what it actually runs at.
+    getSchedule.mockResolvedValue({
+      jobs: [
+        {
+          type: "job",
+          kind: "maintenance.prune",
+          label: "Clear out old records",
+          description: "",
+          setting: "maintenance.prune_cron",
+          cron: "",
+          using_default: true,
+          default_cron: "0 3 * * *",
+          optional: false,
+          writes_plex: false,
+          next_run: "2026-08-01T03:00:00Z",
+        },
+      ],
+      rows: [],
+    });
+    renderPage();
+    const row = await screen.findByTestId("job-maintenance.prune");
+    await userEvent.click(
+      within(row).getByRole("button", { name: "Clear out old records" }),
+    );
+
+    expect(
+      await within(row).findByRole("button", { name: "Built-in (03:00)" }),
+    ).toBeInTheDocument();
+    expect(within(row).queryByRole("button", { name: "Daily" })).toBeNull();
+    // Still no off state and no second "restore" chip — blank already IS the default here.
+    expect(within(row).queryByRole("button", { name: "Off" })).toBeNull();
+  });
+});
+
+describe("JobsPage — the failure count has to lead somewhere", () => {
+  beforeEach(() => {
+    getJobCatalog.mockReset();
+    getJobs.mockReset();
+  });
+
+  /** The shape measured on a real server: the LAST run of every job succeeded, and the failures
+   *  are older rows sitting behind those green ticks. */
+  const HEALTHY_LOOKING_BUT_FAILED = [
+    entry("privacy.sync", {
+      label: "Privacy sync",
+      failed: 8,
+      total: 200,
+      last: {
+        id: 779,
+        kind: "privacy.sync",
+        status: "done",
+        attempts: 1,
+        max_attempts: 3,
+        detail: "Share filters merged for every account",
+        error: null,
+        created_at: "2026-08-16T21:30:00Z",
+        started_at: null,
+        finished_at: null,
+      },
+    }),
+  ];
+
+  /** What an unfiltered fetch returns: recent, healthy, and hiding nothing useful. */
+  const RECENT_SUCCESS = {
+    id: 779,
+    kind: "privacy.sync",
+    status: "done",
+    attempts: 1,
+    max_attempts: 3,
+    detail: "Share filters merged for every account",
+    error: null,
+    created_at: "2026-08-16T21:30:00Z",
+    started_at: null,
+    finished_at: null,
+  };
+
+  const OLD_FAILURE = {
+    id: 596,
+    kind: "privacy.sync",
+    status: "failed",
+    attempts: 3,
+    max_attempts: 3,
+    detail: null,
+    error:
+      "ConnectionError: Failed to establish a new connection: No route to host",
+    created_at: "2026-08-14T06:30:00Z",
+    started_at: null,
+    finished_at: null,
+  };
+
+  it("makes the failure count a way in, not a label", async () => {
+    // The badge was a bare <span> while its "N running" sibling was a button. Nothing else on the
+    // Jobs tab pointed at these failures either: the job's own status chip reports its LAST
+    // attempt, which succeeded, so the count was the only evidence they existed.
+    getJobCatalog.mockResolvedValue(HEALTHY_LOOKING_BUT_FAILED);
+    getJobs.mockResolvedValue([OLD_FAILURE]);
+    renderActivity();
+
+    const badge = await screen.findByRole("button", { name: /8 failed/i });
+    await userEvent.click(badge);
+
+    // Asks the SERVER for failures rather than filtering whatever page it happened to hold: on the
+    // real server all eight sat past the newest hundred jobs.
+    await waitFor(() =>
+      expect(getJobs).toHaveBeenCalledWith(undefined, 100, "failed"),
+    );
+    // And the reason is on screen, which is the whole point of following the badge.
+    expect(await screen.findByText(/No route to host/i)).toBeInTheDocument();
+  });
+
+  it("never claims nothing failed while the badge says otherwise", async () => {
+    // The mock behaves like the real endpoint, which is the whole point: an UNFILTERED fetch
+    // returns the newest page, and on the real server every one of the eight failures sat past the
+    // end of it (ids 587-596, newest hundred starting at 680). Filtering that page client-side
+    // therefore rendered "No failed jobs. Nothing has given up — that's the good outcome."
+    // directly beneath a badge reading "8 failed". A confident wrong answer is worse than the dead
+    // end it replaced, and only a mock that can tell the two requests apart can catch it.
+    getJobCatalog.mockResolvedValue(HEALTHY_LOOKING_BUT_FAILED);
+    getJobs.mockImplementation(
+      (_kind: string | undefined, _limit: number, status?: string) =>
+        Promise.resolve(status === "failed" ? [OLD_FAILURE] : [RECENT_SUCCESS]),
+    );
+    renderActivity("/activity?tab=jobs&view=activity&filter=failed");
+
+    expect(await screen.findByText(/No route to host/i)).toBeInTheDocument();
+    expect(screen.queryByText(/that's the good outcome/i)).toBeNull();
+  });
+});

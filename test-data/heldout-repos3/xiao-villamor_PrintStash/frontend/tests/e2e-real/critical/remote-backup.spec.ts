@@ -1,0 +1,342 @@
+/** A browser-created remote-only backup restores a purged Model and its bytes. */
+import { expect, test } from "@playwright/test";
+
+import {
+  backupFromAccepted,
+  clickModelAction,
+  completedJob,
+  gcodeFor,
+  modelCard,
+  uploadGcodeModel,
+} from "../util";
+
+const webdavPort = Number(process.env.PLAYWRIGHT_CRITICAL_BACKUP_WEBDAV_PORT ?? 8776);
+
+test.describe("remote-only backup recovery", () => {
+  test("@critical creates then restores a remote-only backup in the browser", async ({ page }) => {
+    await page.goto("/setup");
+    await page.getByLabel("Username").fill("backup-admin");
+    await page.getByLabel("Password", { exact: true }).fill("playwright-password");
+    await page.getByLabel("Confirm password", { exact: true }).fill("playwright-password");
+    await page.getByRole("button", { name: "Continue" }).click();
+    await page.getByRole("button", { name: "Check storage" }).click();
+    await page.getByRole("button", { name: "Create my account and continue" }).click();
+    await expect(page).toHaveURL(/\/getting-started$/);
+    await page.getByRole("button", { name: "I'll do this later" }).click();
+
+    const destinationName = `WebDAV backup ${Date.now()}`;
+    await page.goto("/settings?section=remote-storage");
+    const remote = page.getByRole("region", { name: "Remote storage" });
+    await remote
+      .getByRole("group", { name: "Storage category" })
+      .getByRole("button", { name: "Nextcloud and WebDAV" })
+      .click();
+    await remote
+      .getByRole("group", { name: "Provider" })
+      .getByRole("button", { name: "WebDAV", exact: true })
+      .click();
+    await page.getByLabel("Connection name").fill(destinationName);
+    await remote
+      .getByRole("group", { name: "Use for" })
+      .getByRole("button", { name: "Backup replicas" })
+      .click();
+    await page.getByLabel("Base folder").fill(`backup-data-${Date.now()}`);
+    await page.getByLabel("Server URL").fill(`http://127.0.0.1:${webdavPort}`);
+    await page.getByLabel("Username").fill("backup-user");
+    await page.getByLabel("Password").fill("backup-password");
+    await page.getByRole("button", { name: "Save connection" }).click();
+    await expect(page.getByText("Remote storage connection saved.")).toBeVisible();
+
+    await page.goto("/settings?section=backup");
+    await page.getByLabel("Use local storage for manual backups").uncheck();
+    await page.getByRole("button", { name: "Save backup settings" }).click();
+
+    const modelName = `remote-browser-recovery-${Date.now()}`;
+    const expectedBytes = Buffer.from(gcodeFor(modelName));
+    await uploadGcodeModel(page, modelName);
+    const models = await (await page.request.get("/api/v1/models")).json();
+    const model = models.find((item: { name: string }) => item.name === modelName);
+    expect(model).toBeTruthy();
+
+    await page.goto("/settings?section=backup");
+    const created = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/v1/backups") && response.request().method() === "POST",
+    );
+    await page.getByRole("button", { name: "Backup now" }).click();
+    const metadata = await backupFromAccepted(page, await created);
+    expect(metadata.location).toBe("opendal:webdav");
+    await expect
+      .poll(
+        async () => {
+          const response = await page.request.get("/api/v1/backups/runs");
+          const runs = await response.json();
+          return runs.find((run: { backup_id: string }) => run.backup_id === metadata.backup_id)
+            ?.outcome;
+        },
+        { timeout: 30_000 },
+      )
+      .toBe("completed");
+
+    await page.goto("/");
+    await modelCard(page, modelName).click();
+    await clickModelAction(page, "Delete model");
+    await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
+    await page.goto("/settings?section=trash");
+    await page.getByRole("button", { name: "Delete", exact: true }).click();
+    await page.getByRole("button", { name: "Delete forever" }).click();
+    await expect
+      .poll(async () => (await page.request.get(`/api/v1/models/${model.id}`)).status())
+      .toBe(404);
+
+    await page.goto("/settings?section=backup");
+    const restored = page.waitForResponse(
+      (response) =>
+        response.url().includes(`/api/v1/backups/${metadata.backup_id}/restore`) &&
+        response.request().method() === "POST",
+    );
+    const backupRow = page
+      .locator("div.grid")
+      .filter({ has: page.getByText(metadata.backup_id, { exact: true }) })
+      .last();
+    await backupRow.getByRole("button", { name: "Restore", exact: true }).click();
+    await page
+      .getByRole("dialog", { name: "Restore backup?" })
+      .getByRole("button", { name: "Restore", exact: true })
+      .click();
+    expect((await restored).status()).toBe(200);
+
+    const detail = await (await page.request.get(`/api/v1/models/${model.id}`)).json();
+    const download = await page.request.get(`/api/v1/files/${detail.files[0].id}/download`);
+    expect(download.ok()).toBeTruthy();
+    expect(await download.body()).toEqual(expectedBytes);
+  });
+});
+
+test.describe("partial backup recovery", () => {
+  test("@critical retries the exact failed copy from partial backup success", async ({ page }) => {
+    let historyReads = 0;
+    const retriedDestinations: string[] = [];
+    page.on("request", (request) => {
+      const path = new URL(request.url()).pathname;
+      if (request.method() === "GET" && path === "/api/v1/backups/runs") historyReads += 1;
+      if (request.method() === "POST" && path.startsWith("/api/v1/backups/runs/destinations/"))
+        retriedDestinations.push(path);
+    });
+    const { mkdir, writeFile, rm } = await import("node:fs/promises");
+    const { dirname, resolve } = await import("node:path");
+    const { fileURLToPath } = await import("node:url");
+    const { createHash } = await import("node:crypto");
+    await page.goto("/login");
+    await page.getByLabel("Username").fill("backup-admin");
+    await page.getByLabel("Password", { exact: true }).fill("playwright-password");
+    await page.getByRole("button", { name: /sign in/i }).click();
+    await expect(page).toHaveURL(
+      (url) =>
+        url.pathname === "/" &&
+        url.searchParams.get("type") === "all" &&
+        url.searchParams.get("sort") === "date-desc",
+    );
+
+    const root = `blocked-replica-${Date.now()}`;
+    const directory = resolve(dirname(fileURLToPath(import.meta.url)), "../.storage-data/webdav");
+    await mkdir(directory, { recursive: true });
+    const obstruction = resolve(directory, root);
+    await writeFile(obstruction, "this file prevents creating the replica directory");
+    try {
+      const connection = await page.request.post("/api/v1/storage-connections", {
+        data: {
+          name: root,
+          kind: "webdav",
+          purpose: "backup",
+          configuration: {
+            provider: "webdav",
+            endpoint_url: `http://127.0.0.1:${webdavPort}`,
+            username: "backup-user",
+            root,
+          },
+          secrets: { password: "backup-password" },
+        },
+      });
+      expect(connection.status()).toBe(201);
+      const selected = await page.request.put("/api/v1/config", {
+        data: { manual_local_backup_enabled: true },
+      });
+      expect(selected.ok()).toBeTruthy();
+      await page.goto("/settings?section=backup");
+      const created = page.waitForResponse(
+        (response) =>
+          response.url().endsWith("/api/v1/backups") && response.request().method() === "POST",
+      );
+      await page.getByRole("button", { name: "Backup now" }).click();
+      const meta = await backupFromAccepted(page, await created);
+      expect(meta.outcome).toBe("partial");
+      const failed = (meta.destination_results ?? []).find((result) => result.name === root);
+      if (!failed) throw new Error(`no destination result for ${root}`);
+      expect(failed.outcome).toBe("failed");
+      const article = page.getByRole("article", { name: `${meta.backup_id}: Partially completed` });
+      await expect(article.getByText(`${root} · Failed`)).toBeVisible();
+      await expect(article.getByText("Local backup · Published")).toBeVisible();
+
+      await rm(obstruction);
+      const settledHistoryReads = historyReads;
+      const retried = page.waitForResponse(
+        (candidate) =>
+          candidate.url().endsWith(`/runs/destinations/${failed.id}/retry`) &&
+          candidate.request().method() === "POST",
+      );
+      await article.getByRole("button", { name: "Retry this destination" }).click();
+      // The retry is a Job: the POST queues it, and the copy is published
+      // when that Job completes.
+      await completedJob(page, await retried);
+      const completed = page.getByRole("article", { name: `${meta.backup_id}: Completed` });
+      await expect(completed.getByText(`${root} · Published`)).toBeVisible();
+      await expect(completed.getByText(/Last verified:/)).toBeVisible();
+      expect(historyReads).toBe(settledHistoryReads + 1);
+      expect(retriedDestinations).toEqual([
+        `/api/v1/backups/runs/destinations/${encodeURIComponent(failed.id)}/retry`,
+      ]);
+      const remote = await page.request.get(
+        `http://127.0.0.1:${webdavPort}/${(failed.key ?? "").replace(/^webdav\//, "")}`,
+      );
+      expect(remote.ok()).toBeTruthy();
+      expect(
+        createHash("sha256")
+          .update(await remote.body())
+          .digest("hex"),
+      ).toBe(meta.archive_sha256);
+    } finally {
+      await rm(obstruction, { force: true, recursive: true });
+    }
+  });
+});
+
+test.describe("shared provider connection forms", () => {
+  test("@critical edits a Nextcloud connection while preserving its linked target", async ({
+    page,
+  }) => {
+    const { mkdir, rm } = await import("node:fs/promises");
+    const { dirname, resolve } = await import("node:path");
+    const { fileURLToPath } = await import("node:url");
+    const statusResponse = await page.request.get("/api/v1/setup/status");
+    const status = await statusResponse.json();
+    if (!status.configured) {
+      const origin = new URL(statusResponse.url()).origin;
+      const preparation = await page.request.post("/api/v1/setup/session", {
+        headers: { Origin: origin },
+      });
+      expect(preparation.status(), await preparation.text()).toBe(200);
+      const { csrf } = await preparation.json();
+      const setup = await page.request.post("/api/v1/setup", {
+        headers: { Origin: origin, "X-PrintStash-Setup-CSRF": csrf },
+        data: {
+          username: "backup-admin",
+          password: "playwright-password",
+          storage_backend: "local",
+          data_dir: status.current_data_dir ?? status.default_data_dir,
+          thumb_dir: status.current_thumb_dir ?? status.default_thumb_dir,
+        },
+      });
+      expect(setup.status(), await setup.text()).toBe(201);
+    }
+    await page.goto("/login");
+    await page.getByLabel("Username").fill("backup-admin");
+    await page.getByLabel("Password", { exact: true }).fill("playwright-password");
+    await page.getByRole("button", { name: /sign in/i }).click();
+    await expect(page).toHaveURL(
+      (url) =>
+        url.pathname === "/" &&
+        url.searchParams.get("type") === "all" &&
+        url.searchParams.get("sort") === "date-desc",
+    );
+    const name = `Nextcloud forms ${Date.now()}`;
+    const root = `form-${Date.now()}`;
+    const endpoint = `http://127.0.0.1:${webdavPort}`;
+    const accountRoot = resolve(
+      dirname(fileURLToPath(import.meta.url)),
+      "../.storage-data/webdav/remote.php/dav/files/preset-user",
+      root,
+    );
+    await mkdir(accountRoot, { recursive: true });
+    try {
+      await page.goto("/settings?section=storage");
+      await expect(page.getByRole("region", { name: "Move Vault storage" })).toBeVisible();
+      await page.getByRole("button", { name: "Nextcloud and WebDAV", exact: true }).click();
+      await page.getByRole("button", { name: /^Nextcloud Remote storage/ }).click();
+      await page.getByLabel("Server URL").fill(endpoint);
+      await page.getByLabel("Username", { exact: true }).fill("preset-user");
+      await page.getByLabel("Root", { exact: true }).fill(root);
+      const vaultEndpoint = await page.getByLabel("Server URL").inputValue();
+      const vaultAccount = await page.getByLabel("Username", { exact: true }).inputValue();
+      await page.goto("/settings?section=remote-storage");
+      const remote = page.getByRole("region", { name: "Remote storage" });
+      await remote
+        .getByRole("group", { name: "Storage category" })
+        .getByRole("button", { name: "Nextcloud and WebDAV" })
+        .click();
+      await remote
+        .getByRole("group", { name: "Provider" })
+        .getByRole("button", { name: "Nextcloud" })
+        .click();
+      await page.getByLabel("Connection name").fill(name);
+      await page.getByLabel("Server URL").fill(vaultEndpoint);
+      await page.getByLabel("Username", { exact: true }).fill(vaultAccount);
+      await page.getByLabel("Password", { exact: true }).fill("original-password");
+      await page.getByLabel("Base folder").fill(root);
+      const creation = page.waitForResponse(
+        (response) =>
+          response.url().endsWith("/api/v1/storage-connections") &&
+          response.request().method() === "POST",
+      );
+      await page.getByRole("button", { name: "Save connection", exact: true }).click();
+      const saved = await creation;
+      expect(saved.status()).toBe(201);
+      const connection = await saved.json();
+      expect(connection.configuration.provider).toBe("nextcloud");
+      expect(connection.configuration.endpoint_url).toBe(vaultEndpoint);
+      const row = page.getByRole("listitem").filter({ hasText: name });
+      const probing = page.waitForResponse((response) =>
+        response.url().endsWith(`/storage-connections/${connection.id}/probe`),
+      );
+      await row.getByRole("button", { name: "Test", exact: true }).click();
+      expect((await probing).status()).toBe(200);
+      expect(
+        (
+          await page.request.put("/api/v1/config", { data: { external_libraries_enabled: true } })
+        ).ok(),
+      ).toBeTruthy();
+      const linked = await page.request.post("/api/v1/libraries", {
+        data: { name, source_kind: "webdav", connection_id: connection.id },
+      });
+      expect(linked.status()).toBe(201);
+      const library = await linked.json();
+      await row.getByRole("button", { name: "Edit", exact: true }).click();
+      await expect(page.getByLabel("Password", { exact: true })).toHaveValue("");
+      await page.getByLabel("Connection name").fill(`${name} renamed`);
+      const editing = page.waitForResponse(
+        (response) =>
+          response.url().endsWith(`/storage-connections/${connection.id}`) &&
+          response.request().method() === "PATCH",
+      );
+      await page.getByRole("button", { name: "Save changes", exact: true }).click();
+      const edited = await editing;
+      expect(edited.status()).toBe(200);
+      expect(edited.request().postDataJSON().secrets).toEqual({});
+      await row.getByRole("button", { name: "Edit", exact: true }).click();
+      await page.getByLabel("Base folder").fill(`${root}-different`);
+      const rejected = page.waitForResponse(
+        (response) =>
+          response.url().endsWith(`/storage-connections/${connection.id}`) &&
+          response.request().method() === "PATCH",
+      );
+      await page.getByRole("button", { name: "Save changes", exact: true }).click();
+      expect((await rejected).status()).toBe(409);
+      expect((await page.request.delete(`/api/v1/libraries/${library.id}`)).ok()).toBeTruthy();
+      expect(
+        (await page.request.delete(`/api/v1/storage-connections/${connection.id}`)).ok(),
+      ).toBeTruthy();
+    } finally {
+      await rm(accountRoot, { recursive: true, force: true });
+    }
+  });
+});

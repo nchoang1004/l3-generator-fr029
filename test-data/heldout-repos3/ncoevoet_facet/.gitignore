@@ -1,0 +1,124 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+
+# Test coverage (pytest-cov)
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Project specific
+debug.log
+*.db
+*.db.backup.*
+*.db-shm
+*.db-wal
+*.db-journal
+pretrained_models/
+aesthetic_predictor_weights.pth
+
+# Test/temp data
+photos/
+@eaDir/
+
+# The Docker config bind mount, which docker-compose.yml puts INSIDE the clone
+# and docker-entrypoint.sh seeds on first run. Its scoring_config.json is the
+# live config of a running install: viewer.password, users.*.password_hash,
+# upload.password, frame.tokens and immich.api_key, all plaintext. The backups
+# and the secret beside it were already caught by the basename globs below —
+# the live file was the one gap, and it is the one that always exists.
+facet-config/
+
+# Deployment knobs — copied from .env.example and then filled in with real
+# values (PHOTOS_DIR, DB_PATH, and whatever else a site adds).
+.env
+
+# The live config of a native install. It is the operator's OVERRIDE over the
+# defaults shipped in config/scoring_config.default.json — per-install by
+# definition, rewritten in place by the viewer's own weights, priorities,
+# password and share-secret writers, and holding viewer.password,
+# users.*.password_hash, upload.password, frame.tokens and immich.api_key in
+# plaintext. It was tracked, which is how a developer's local edits became the
+# project's shipped config and how that config drifted fourteen keys away from
+# the defaults every fresh install actually starts from.
+scoring_config.json
+
+# The library lock and the cull-preview cache, written beside the database at
+# runtime. Never part of a checkout.
+.facet_cache/
+
+# Config backups — both the bare name the secret migration and the password
+# upgrade write, and the timestamped ones from the config writers. The bare
+# name is NOT covered by the `.backup.*` pattern: it has no suffix.
+scoring_config.json.backup
+scoring_config.json.backup.*
+
+# Server secret — signs every session JWT and frame link. Never tracked: it
+# used to live in scoring_config.json and got committed from there. The glob
+# also covers the `.facet_secret.tmp*` scratch file every owner-only write
+# stages through: a crash between the write and the rename leaves that copy
+# behind, and under mkstemp's default name it was stageable.
+.facet_secret*
+
+# Scratch file every scoring_config.json write stages through. It is a
+# COMPLETE copy of the config — password hashes included — so a crash between
+# the write and the commit must not leave a stageable name behind. The writer
+# also KEEPS this file deliberately when it had to rewrite the config in place
+# (to preserve its owner) and that rewrite failed partway: the copy is then the
+# only whole config left, and it waits here until a human restores it.
+.scoring_config.tmp*
+
+# Claude Code
+.claude/todos.md
+.claude/snapshot*.txt
+.claude/review-all/
+.claude/.scratch/
+.codegraph/
+
+# Build output
+dist/
+
+# Node — package.json pins every DIRECT dependency exactly, but that says
+# nothing about the transitive graph, which npm re-resolves from the registry
+# on every build. The lock file is tracked so it cannot drift.
+client/node_modules/
+
+# ML model cache
+.fastembed_cache/
+model-cache/
+
+# Misc
+output.log
+# Written by docker-publish.yml's smoke test, which runs `facet.py --doctor`
+# inside the built image and tails this on failure. Also lands here whenever the
+# same command is run by hand from the repo root.
+doctor.log
+*.db.shrink
+sample.*
+test-screenshots/
+test_*.png
+20??-*.png
+.git_diff_tmp
+.mcp.json
+plugins/example_plugin.py.example
+facet_photo.egg-info/
+photos_all/
+
+# Archives
+*.zip
+
+# Benchmark results — keep dir via .gitkeep, ignore generated JSON
+bench/results/*.json
+.claude/loop/
+

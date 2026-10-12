@@ -1,0 +1,182 @@
+# Issue #183 Phase 1 — k3s server config for the SpatiumDDI appliance.
+#
+# Operator-editable file. k3s.service reads it on every (re)start;
+# changes require ``systemctl restart k3s``. Lives in the /etc
+# overlay's upper (/var/persist/etc/rancher/k3s/) so edits survive
+# slot swaps + the image-baseline /etc.image refresh.
+#
+# Air-gap-friendly defaults — every component k3s needs is baked into
+# the slot rootfs.
+
+# kubeapi listens on the node IP — k3s auto-detects from the default
+# route. Binding to 127.0.0.1 here is tempting for defense in depth
+# but breaks k8s ≥ 1.31: the kube-apiserver registers itself as the
+# `kubernetes` Service endpoint, and the endpoint slice validator
+# rejects loopback IPs ("may not be in the loopback range") — coredns
+# / local-path / helm-controller all fail to reach the cluster IP.
+#
+# Network-layer posture: tcp/6443, 2379/2380, 10250 are OPEN on the
+# LAN-facing INPUT chain (see /etc/nftables.conf "k3s-ha" rule). k3s
+# itself token+mTLS protects the apiserver and requires client certs
+# for etcd — LAN exposure on a single-tenant appliance is acceptable.
+# #272 Phase 7b's per-peer drop-ins under /etc/nftables.d/ are kept
+# as defence-in-depth + documentation of the active peer set.
+#
+# Pod + service CIDRs are operator-chosen at install time (issue
+# #302); see /etc/rancher/k3s/config.yaml.d/spatium-cidrs.yaml for
+# the values in effect. Defaults are k3s upstream (10.42.0.0/16 pods,
+# 10.43.0.0/16 services); the install wizard customises them when
+# the operator's LAN already uses one of those ranges.
+https-listen-port: 6443
+
+# #272 Phase 7 — embedded etcd from first boot. ``cluster-init: true``
+# makes even a single node a legitimate one-member etcd cluster that
+# additional server nodes can later join (``k3s server --server
+# https://<seed>:6443 --token <token>``). Without it k3s uses the
+# SQLite/kine datastore, which CANNOT be promoted to multi-node HA —
+# joiners would be refused. Baked on for every fresh install so the
+# control-plane promotion flow just works.
+#
+# NOTE: flipping SQLite→etcd is NOT an in-place migration; this only
+# applies to fresh installs. Pre-#272 appliances must re-install (the
+# partition layout changed in #276 anyway — see the release banner).
+cluster-init: true
+
+# #272 Phase 9 — automatic etcd snapshots for disaster recovery +
+# dead-node replacement. k3s snapshots the embedded etcd on this cron
+# and keeps the last N. Snapshots land under
+# /var/lib/rancher/k3s/server/db/snapshots (and as ETCDSnapshotFile CRs
+# on recent k3s, which the Fleet UI can list). Restore is a manual
+# ``k3s server --cluster-reset --cluster-reset-restore-path=…`` — a
+# guided restore flow is a Phase 9 follow-up.
+etcd-snapshot-schedule-cron: "0 */6 * * *"
+etcd-snapshot-retention: 8
+
+# Disable bundled components we replace or don't need:
+#   * traefik    — operator-facing TLS still goes through our nginx
+#                  reverse proxy (existing Appliance → Web UI Cert
+#                  flow). No second ingress controller.
+#   * servicelb  — single-node, no LoadBalancer service IPs to hand
+#                  out; klipper-lb would just add a noisy DaemonSet.
+#   * metrics-server — defer until Phase 8; we don't surface metrics
+#                  yet, and the pod adds ~80 MiB RSS.
+disable:
+  - traefik
+  - servicelb
+  - metrics-server
+
+# Skip the cloud controller — bare-metal single node, no cloud
+# provider integrations to reconcile.
+disable-cloud-controller: true
+
+# Don't run k3s's NetworkPolicy controller.
+#
+# The rationale used to read "single node, no need" — that stopped being
+# true when #272 made the appliance multi-node. The setting still holds,
+# for different reasons: nothing in either chart renders a NetworkPolicy,
+# so the controller would reconcile an empty set; and it is another
+# always-resident daemon on a node whose floor is 4 GiB.
+#
+# Revisit when we actually ship policies (Kubernetes 1.36 started a
+# NetworkPolicy conformance effort, still alpha). Turning it on later is a
+# config change plus a k3s restart, not a migration — and turning it on
+# BEFORE there are policies to enforce is strictly worse than leaving it
+# off, because an empty policy set changes nothing while the daemon costs
+# memory on every node.
+disable-network-policy: true
+
+# Flannel backend ``host-gw`` writes Linux routes directly instead
+# of using VXLAN encapsulation. Works without inter-node tunnelling
+# (we're single-node) + plays well with the appliance's nftables
+# config since there's no overlay traffic to allow through.
+flannel-backend: host-gw
+
+# Kubeconfig file mode + group: set in config.yaml.d/spatium-kubeconfig.yaml,
+# NOT here (GHSA-h2j9-qrg7-grfw). This file used to say 0644, which made
+# the cluster-admin kubeconfig readable by every local account. A drop-in
+# is what reaches existing installs: this file can sit in the /etc overlay
+# upper (spatium-cluster-join edits it), where an image update never
+# replaces it, and k3s applies drop-ins after it.
+
+# Operator-visible node label so the supervisor (Phase 3) + future
+# Helm charts can target schedule pods to "spatiumddi appliances"
+# vs any random k3s node a future ops engineer might cluster in.
+node-label:
+  - spatium.io/role=appliance
+
+# Audit log path — fed by the kube-apiserver --audit-log-path flag.
+# Lives on /var so it survives slot swaps; bound to 100 MiB / 7-day
+# rotation by k3s defaults.
+kube-apiserver-arg:
+  - audit-log-path=/var/log/spatiumddi/k3s-audit.log
+  - audit-log-maxage=7
+  - audit-log-maxbackup=4
+  - audit-log-maxsize=100
+  # Defence-in-depth — NodeRestriction limits the kubelet credential
+  # to its own node + pods running on it (already on by default in
+  # k3s ≥ 1.27, listed here so the policy is explicit at the config
+  # level). EventRateLimit is intentionally NOT enabled — it requires
+  # a separate admission-control-config-file with limits defined or
+  # kube-apiserver crash-loops at boot.
+  - enable-admission-plugins=NodeRestriction
+
+# Kubelet args. Image-GC band (issue #441). Kept HIGH (95/85) ON PURPOSE,
+# even though /var is the shared partition that also holds etcd + the
+# local-path PVCs + logs and we want headroom for that data:
+#
+# kubelet image-GC evicts UNUSED images, and on an A/B appliance the
+# *inactive slot's* images are unused but MUST stay resident for a
+# rollback to work — the baked airgap tarballs on /var are versionless and
+# overwritten each upgrade (only the current release's survive), and every
+# pod is imagePullPolicy:Never, so an evicted inactive-slot image can't be
+# re-pulled or re-imported → broken rollback. A lower GC band would evict
+# those rollback images sooner under disk pressure.
+#
+# So data headroom is provided PROACTIVELY by spatiumddi-image-prune (a
+# version-aware prune that keeps BOTH slot versions + the running set and
+# drops only older releases / stale dev tags — run async after a healthy
+# slot commit + weekly), NOT by lowering this band. This band stays a
+# last-resort backstop; evictionHard imagefs.available=5% is the hard floor.
+kubelet-arg:
+  - image-gc-high-threshold=95
+  - image-gc-low-threshold=85
+  # Surface log path with a known location so spatium-console + the
+  # control-plane log streamer can tail it.
+  - log-flush-frequency=5s
+  # Memory-pressure eviction (issue #1124). k3s's own kubelet defaults set
+  # eviction thresholds for the two DISK signals only — nodefs.available and
+  # imagefs.available at 5 % — and drop the kubelet's upstream
+  # memory.available<100Mi. With no memory signal, memory exhaustion never
+  # reaches the kubelet's eviction manager, which evicts by PriorityClass
+  # (#983: observability, then the control plane, then DNS/DHCP); it reaches
+  # the kernel's global OOM killer, which kills by oom_score_adj — and on a
+  # 6 GiB node beside a Guaranteed hog that was the api's uvicorn, reported as
+  # a container restart with reason "Error", not "OOMKilled", because the kill
+  # came from the host and not from the pod's cgroup.
+  #
+  # --eviction-hard REPLACES k3s's map (flags win over the config file), so the
+  # two disk floors are restated here unchanged. The memory threshold is an
+  # absolute quantity, not a percentage: on cgroup v2 the eviction manager has
+  # no memcg notifier and polls every 10 s, so the runway it needs follows the
+  # allocation RATE, not the node size — 512Mi covers about 50 MiB/s for one
+  # poll. It is also what the kubelet takes off Allocatable.
+  - eviction-hard=memory.available<512Mi,nodefs.available<5%,imagefs.available<5%
+  # How long MemoryPressure=True is held after the signal clears. Kubernetes'
+  # default (k3s's too) is 5m, and the node.kubernetes.io/memory-pressure
+  # taint keeps every non-DaemonSet pod — the evicted api's replacement first
+  # of all — off the node for the whole period. On a single-node appliance
+  # that IS the outage. 30s still damps flapping and lets the replacement
+  # schedule within the minute.
+  - eviction-pressure-transition-period=30s
+  # What the node's own daemons hold, taken off Allocatable and off the
+  # kubepods cgroup cap (enforce-node-allocatable=pods is the default; no
+  # cgroup limit is put on the host daemons themselves): k3s's server process
+  # with its embedded containerd and the shims (~1.2 GiB idle on a 6 GiB
+  # node), and systemd, journald, dbus, NetworkManager, chrony and the console
+  # (~0.4 GiB). Together with the hard threshold this reserves 2 GiB — the
+  # platform reserve the control-plane sizing budgets from (#1115) — so on a
+  # 6 GiB node Allocatable is 3883Mi and on 8 GiB 5899Mi, and a pod set that
+  # grows into the reserve meets the eviction manager instead of the kernel.
+  # These three numbers are the knob if a deployment wants a different split.
+  - kube-reserved=memory=1Gi
+  - system-reserved=memory=512Mi

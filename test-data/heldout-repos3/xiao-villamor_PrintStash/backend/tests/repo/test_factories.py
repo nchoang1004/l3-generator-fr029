@@ -1,0 +1,1100 @@
+"""The builders are load-bearing, so their promises are tested like anything else.
+
+Every test in the suite arranges its state through `tests/factories`, which makes
+a wrong builder worse than a wrong test: it fails *silently*, by producing a row
+that inserts cleanly and is then invisible to the code under test. Every test
+built on it then passes against nothing. That failure mode is exactly what a
+handful of tests in this repo were doing before this file existed — asserting
+against a code path their setup never reached.
+
+So each promise a builder makes to its callers gets a row here:
+
+* a generated identity is unique, and reproducible from the test that asked for it
+* a keyword that stands for an encoded state (`trashed`, `recommended`,
+  `scanning`, `uploaded`, `expired`) actually produces the state the production
+  code looks for
+* naming a printer's provider fills in the credentials that provider requires
+* a scenario's rows are consistent with each other
+
+The rows below assert through production predicates (`scopes.live()`, the client
+factory, the share-link validator) rather than by reading the columns back, since
+the column being set is not the promise — being *seen* by the app is.
+"""
+
+from __future__ import annotations
+
+from datetime import timedelta
+from pathlib import Path
+
+import pytest
+from printstash_core.mesh.measurements import (
+    VolumeLegacyUnassessed,
+    VolumeMeasured,
+    VolumeNotCalculated,
+    VolumeNotCalculatedCause,
+    VolumeUnavailable,
+    VolumeUnavailableCause,
+    encode_volume,
+)
+from printstash_core.search.passages import SearchSubject, SubjectType
+from sqlmodel import Session, select
+
+from app.core.time import utcnow
+from app.db.models import (
+    Collection,
+    CollectionTagLink,
+    File,
+    FileRevisionStatus,
+    FileTagLink,
+    FileType,
+    Model,
+    MultipartModelStar,
+    MultipartModelTagLink,
+    PrinterProvider,
+    PrintJobState,
+)
+from app.db.scopes import live, trashed
+from app.modules.library import taxonomy
+from app.modules.library.model_views.projections import metadata_read
+from tests import factories
+from tests.factories.library_scale import build_library_at_scale
+
+
+class TestGeneratedIdentities:
+    def test_search_dependency_builder_tracks_removed_sources(self, db_session):
+        from app.db.projections import ContentSource
+        from app.modules.search.projection import affected_subjects
+
+        model = factories.build_model(db_session)
+        subject = SearchSubject(SubjectType.MODEL, model.id)
+        source = ContentSource("provenance", 999)
+        factories.build_search_dependency(db_session, subject, source)
+
+        assert list(affected_subjects(db_session, source)) == [subject]
+
+    def test_search_checkpoint_builder_resumes_a_partition(self, db_session):
+        from app.db.models import SearchPassage
+        from app.modules.search.reconciliation import reconcile_partition
+
+        first = factories.build_document(db_session, "First")
+        second = factories.build_document(db_session, "Second")
+        factories.build_search_reconciliation_state(
+            db_session,
+            SubjectType.DOCUMENT,
+            watermark_at=second.updated_at,
+            watermark_id=second.id,
+            partition_after_id=first.id,
+        )
+
+        reconcile_partition(db_session, SubjectType.DOCUMENT, limit=1)
+
+        assert db_session.exec(select(SearchPassage.subject_id)).all() == [second.id]
+
+    def test_search_passage_builder_preserves_subject_identity(self, db_session):
+        model = factories.build_model(db_session)
+        subject = SearchSubject(SubjectType.MODEL, model.id)
+
+        passage = factories.build_search_passage(db_session, subject)
+
+        assert passage.subject_type == "model"
+        assert passage.subject_id == model.id
+        assert passage.access_dependencies_json == "[]"
+        assert passage.text == "Title: Stored passage"
+
+    def test_migration_builders_preserve_workflow_ownership(
+        self, db_session: Session
+    ) -> None:
+        from app.db.models import VaultGeneration, VaultMigrationObject
+
+        first = factories.build_vault_migration(db_session)
+        second = factories.build_vault_migration(db_session)
+        obj = factories.build_vault_migration_object(db_session, first)
+        marker = factories.build_vault_generation(db_session, first)
+        assert first.id != second.id
+        assert first.destination_epoch != second.destination_epoch
+        assert first.journal_nonce != second.journal_nonce
+        assert db_session.get(VaultMigrationObject, obj.id).run_id == first.id
+        assert (
+            db_session.get(VaultGeneration, marker.id).epoch == first.destination_epoch
+        )
+
+    def test_two_models_never_collide_on_slug_or_hash(
+        self, db_session: Session
+    ) -> None:
+        first = factories.build_model(db_session)
+        second = factories.build_model(db_session)
+
+        # Both columns are UNIQUE, so a shared value is an IntegrityError the
+        # moment a test builds a second row.
+        assert (first.slug, first.hash) != (second.slug, second.hash)
+
+    def test_two_artifacts_never_collide_on_sha256(self, db_session: Session) -> None:
+        model = factories.build_model(db_session)
+
+        first = factories.build_file(db_session, model)
+        second = factories.build_file(db_session, model)
+
+        assert first.sha256 != second.sha256
+
+    def test_a_generated_value_is_reproducible_within_a_test(
+        self, db_session: Session
+    ) -> None:
+        factories.reset_counters()
+        first_run = factories.build_model(db_session).slug
+        db_session.delete(db_session.exec(select(Model)).all()[-1])
+        db_session.commit()
+        factories.reset_counters()
+
+        # The autouse `_reset_factory_counters` fixture does this per test, which
+        # is what makes `model-1` in a failure message mean something.
+        assert factories.build_model(db_session).slug == first_run
+
+
+class TestBuildMetadata:
+    @pytest.mark.parametrize(
+        "volume",
+        [
+            VolumeMeasured(6e-9),
+            VolumeUnavailable(VolumeUnavailableCause.NOT_WATERTIGHT),
+            VolumeNotCalculated(VolumeNotCalculatedCause.TOPOLOGY_NOT_EVALUATED),
+            VolumeLegacyUnassessed(-1.0),
+        ],
+    )
+    def test_publishes_requested_volume_evidence(self, db_session, volume):
+        model = factories.build_model(db_session)
+        artifact = factories.build_file(db_session, model)
+        metadata = factories.build_metadata(db_session, artifact, volume=volume)
+
+        public = metadata_read(db_session, metadata).model_dump(mode="json")
+
+        assert public["volume_measurement"] == encode_volume(volume)
+        assert public["volume_mm3"] == public["volume_measurement"]["value_mm3"]
+
+
+class TestBuildSystemConfig:
+    def test_persists_the_requested_legacy_s3_root(self, db_session: Session) -> None:
+        config = factories.build_system_config(
+            db_session,
+            storage_backend="s3",
+            s3_root="vault-data",
+        )
+
+        assert config.storage_backend == "s3"
+        assert config.s3_root == "vault-data"
+
+
+class TestBuildArtifactUpload:
+    def test_builds_unique_owner_bound_uploads(self, db_session: Session) -> None:
+        owner = factories.build_user(db_session)
+        first = factories.build_artifact_upload(db_session, owner)
+        second = factories.build_artifact_upload(db_session, owner)
+        receipt = factories.build_artifact_upload_part(db_session, first)
+
+        assert first.id != second.id
+        assert first.owner_user_id == owner.id
+        assert receipt.session_id == first.id
+
+
+class TestBuildStorageConnection:
+    def test_defaults_to_both_backup_modes(self, db_session: Session) -> None:
+        connection = factories.build_storage_connection(db_session)
+
+        assert connection.manual_backup_enabled is True
+        assert connection.automatic_backup_enabled is True
+
+
+class TestBuildModel:
+    def test_is_visible_through_the_live_scope(self, db_session: Session) -> None:
+        model = factories.build_model(db_session)
+
+        found = db_session.exec(select(Model).where(live(Model))).all()
+
+        assert model.id in [row.id for row in found]
+
+    def test_trashed_is_hidden_from_the_live_scope(self, db_session: Session) -> None:
+        model = factories.build_model(db_session, trashed=True)
+
+        live_ids = [row.id for row in db_session.exec(select(Model).where(live(Model)))]
+        trashed_ids = [
+            row.id for row in db_session.exec(select(Model).where(trashed(Model)))
+        ]
+
+        # `trashed=True` has to mean invisible to every read path, not just a
+        # column that happens to be set.
+        assert model.id not in live_ids
+        assert model.id in trashed_ids
+
+    def test_a_collection_row_becomes_the_foreign_key(
+        self, db_session: Session
+    ) -> None:
+        collection = factories.build_collection(db_session, "Parts")
+
+        model = factories.build_model(db_session, collection=collection)
+
+        assert model.collection_id == collection.id
+
+
+class TestBuildFile:
+    def test_unopened_artifact_has_no_viewer_demand(self, db_session):
+        artifact = factories.build_file(db_session, factories.build_model(db_session))
+
+        assert artifact.viewer_requested_at is None
+
+    def test_takes_the_models_next_version(self, db_session: Session) -> None:
+        model = factories.build_model(db_session)
+
+        first = factories.build_file(db_session, model)
+        second = factories.build_file(db_session, model)
+
+        # Two artifacts at the same version is a state the app cannot produce,
+        # and it makes every "latest revision" read ambiguous.
+        assert (first.version, second.version) == (1, 2)
+
+    def test_recommending_a_revision_demotes_the_previous_one(
+        self, db_session: Session
+    ) -> None:
+        model = factories.build_model(db_session)
+        first = factories.build_file(db_session, model, recommended=True)
+
+        factories.build_file(db_session, model, recommended=True)
+
+        db_session.refresh(first)
+        # At most one recommended live G-code per model. Without this, a setup
+        # with "three revisions, the newest recommended" leaves two.
+        assert first.is_recommended is False
+
+    def test_the_dispatchable_builder_matches_what_dispatch_queries_for(
+        self, db_session: Session
+    ) -> None:
+        model = factories.build_model(db_session)
+
+        gcode = factories.build_file(
+            db_session,
+            model,
+            file_type=FileType.GCODE,
+            recommended=True,
+            status=FileRevisionStatus.KNOWN_GOOD,
+        )
+
+        assert (gcode.is_recommended, gcode.revision_status) == (
+            True,
+            FileRevisionStatus.KNOWN_GOOD,
+        )
+
+    def test_trashed_is_hidden_from_the_live_scope(self, db_session: Session) -> None:
+        model = factories.build_model(db_session)
+        artifact = factories.build_file(db_session, model, trashed=True)
+
+        live_ids = [row.id for row in db_session.exec(select(File).where(live(File)))]
+
+        assert artifact.id not in live_ids
+
+    @pytest.mark.parametrize(
+        ("filename", "expected"),
+        [
+            pytest.param("part.stl", FileType.STL, id="stl"),
+            pytest.param("plate.3mf", FileType.THREE_MF, id="3mf"),
+            pytest.param("rev.gcode", FileType.GCODE, id="gcode"),
+        ],
+    )
+    def test_derives_the_type_from_the_filename(
+        self, db_session: Session, filename: str, expected: FileType
+    ) -> None:
+        model = factories.build_model(db_session)
+
+        artifact = factories.build_file(db_session, model, filename=filename)
+
+        # A `GCODE` row called `part.stl` is skipped by every mesh path and
+        # picked up by every G-code path, so a test builds what it believes is a
+        # mesh and asserts against a list that never contains it. Deriving the
+        # type removes the chance for the two to disagree.
+        assert artifact.file_type is expected
+
+
+class TestEntityTagBuilders:
+    def test_entity_tag_links_are_persisted(self, db_session: Session) -> None:
+        collection = factories.build_collection(db_session, "Tagged")
+        model = factories.build_model(db_session, collection=collection)
+        multipart_model = factories.build_multipart_model(
+            db_session, collection=collection
+        )
+        artifact = factories.build_file(db_session, model)
+        tag = factories.build_tag(db_session, "Workshop")
+
+        collection_link = factories.tag_collection(db_session, collection, tag)
+        file_link = factories.tag_file(db_session, artifact, tag)
+        multipart_link = factories.tag_multipart_model(db_session, multipart_model, tag)
+
+        assert (
+            db_session.get(
+                CollectionTagLink,
+                (collection_link.collection_id, collection_link.tag_id),
+            )
+            is not None
+        )
+        assert (
+            db_session.get(FileTagLink, (file_link.file_id, file_link.tag_id))
+            is not None
+        )
+        assert (
+            db_session.get(
+                MultipartModelTagLink,
+                (multipart_link.multipart_model_id, multipart_link.tag_id),
+            )
+            is not None
+        )
+
+
+class TestBuildMultipartModelStar:
+    def test_persists_a_user_favorite_marker(self, db_session: Session) -> None:
+        user = factories.build_user(db_session)
+        multipart_model = factories.build_multipart_model(db_session)
+
+        marker = factories.build_multipart_model_star(db_session, user, multipart_model)
+
+        assert db_session.get(MultipartModelStar, marker.id) is not None
+
+
+class TestBuildUser:
+    def test_is_not_a_superuser_by_default(self, db_session: Session) -> None:
+        # Thirteen hand-rolled `_user` helpers disagreed about this, so the same
+        # call meant opposite things depending on the file. A plain user is the
+        # interesting case for any access-control row.
+        assert factories.build_user(db_session).is_superuser is False
+
+    def test_can_log_in_with_the_default_password(self, client, db_session) -> None:
+        user = factories.build_user(db_session, "login-probe")
+
+        response = client.post(
+            "/api/v1/auth/login",
+            json={"username": user.username, "password": factories.PASSWORD},
+        )
+
+        # The password goes through the production hasher, so tests that drive
+        # the real login endpoint work without special-casing.
+        assert response.status_code == 200, response.text
+
+    def test_bearer_headers_authenticate_that_user(self, client, db_session) -> None:
+        user = factories.build_user(db_session, "header-probe", superuser=True)
+
+        response = client.get("/api/v1/auth/me", headers=factories.bearer(user))
+
+        assert response.status_code == 200, response.text
+        assert response.json()["username"] == "header-probe"
+
+
+class TestBuildPrinter:
+    @pytest.mark.parametrize(
+        "provider",
+        list(PrinterProvider),
+        ids=[provider.value for provider in PrinterProvider],
+    )
+    def test_every_provider_builds_a_usable_client(
+        self, db_session: Session, provider: PrinterProvider
+    ) -> None:
+        from app.modules.printing.printer_provider import (
+            build_provider_registry,
+            get_provider_client,
+        )
+
+        printer = factories.build_printer(db_session, provider=provider)
+
+        # This is the whole point of the provider-aware defaults: one table holds
+        # every provider's credentials, all nullable, so a half-configured row
+        # inserts happily and then fails inside a dispatch instead of here.
+        client = get_provider_client(printer, registry=build_provider_registry())
+
+        assert client is not None
+
+    def test_a_deliberately_omitted_credential_is_refused(
+        self, db_session: Session
+    ) -> None:
+        from app.modules.printing.printer_provider import (
+            ProviderError,
+            build_provider_registry,
+            get_provider_client,
+        )
+
+        printer = factories.build_printer(
+            db_session,
+            provider=PrinterProvider.BAMBU_LAN,
+            bambu_access_code=None,
+        )
+
+        # Passing a field as `None` is how a test says "misconfigured on purpose",
+        # and it has to still reach the production guard.
+        with pytest.raises(ProviderError):
+            get_provider_client(printer, registry=build_provider_registry())
+
+    def test_is_ready_by_default(self, db_session: Session) -> None:
+        # An offline printer is skipped by dispatch, so a test that forgets the
+        # status ends up asserting against an empty fleet.
+        assert factories.build_printer(db_session).status.value == "ready"
+
+
+class TestBuildPrintJob:
+    def test_derives_its_model_from_the_artifact(self, db_session: Session) -> None:
+        model = factories.build_model(db_session)
+        gcode = factories.build_file(db_session, model)
+
+        job = factories.build_print_job(db_session, gcode)
+
+        # A job whose model does not own its file is unreachable in production and
+        # makes every read path that joins the two return nothing.
+        assert job.model_id == model.id
+
+
+class TestBuildExternalLibrary:
+    def test_scanning_holds_a_complete_claim(
+        self, tmp_path: Path, db_session: Session
+    ) -> None:
+        library = factories.build_external_library(db_session, tmp_path, scanning=True)
+
+        # All three parts are checked together by the scan endpoint; setting one
+        # by hand is a setup that looks right and does nothing.
+        assert library.scan_claim_token is not None
+        assert library.scan_claim_expires_at is not None
+        assert library.scan_job_id is not None
+
+    def test_is_not_scanning_by_default(
+        self, tmp_path: Path, db_session: Session
+    ) -> None:
+        library = factories.build_external_library(db_session, tmp_path)
+
+        assert library.scan_claim_token is None
+
+
+class TestBuildShareLink:
+    def test_a_fresh_link_is_valid(self, db_session: Session) -> None:
+        from app.modules.identity import share
+
+        model = factories.build_model(db_session)
+        link = factories.build_share_link(db_session, model)
+
+        assert share.is_active(link) is True
+
+    def test_expired_is_rejected_by_the_validator(self, db_session: Session) -> None:
+        from app.modules.identity import share
+
+        model = factories.build_model(db_session)
+        link = factories.build_share_link(db_session, model, expired=True)
+
+        assert share.is_active(link) is False
+
+    def test_revoked_is_rejected_by_the_validator(self, db_session: Session) -> None:
+        from app.modules.identity import share
+
+        model = factories.build_model(db_session)
+        link = factories.build_share_link(db_session, model, revoked=True)
+
+        assert share.is_active(link) is False
+
+    def test_stores_only_the_hash_of_the_token(self, db_session: Session) -> None:
+        model = factories.build_model(db_session)
+
+        link = factories.build_share_link(db_session, model)
+
+        assert factories.ops.SHARE_TOKEN not in link.token_hash
+
+
+class TestCaptureManifests:
+    def test_a_manifest_matches_the_provenance_source_it_was_built_from(
+        self, db_session: Session
+    ) -> None:
+        model = factories.build_model(db_session)
+        source = factories.build_provenance_source(db_session, model)
+
+        manifest = factories.manifest_for_source(source)
+
+        # The import path matches all three of these against exactly one source.
+        # A mismatch makes the match find zero rows and the import refuse without
+        # raising, which is a test asserting against a dead path.
+        assert manifest["source"]["provider"] == source.provider
+        assert manifest["source"]["canonical_url"] == source.canonical_url
+        assert manifest["source"]["source_item_id"] == source.source_item_id
+
+    def test_the_default_source_block_carries_all_three_identity_fields(self) -> None:
+        source = factories.capture_source()
+
+        assert source["provider"]
+        assert source["canonical_url"]
+        assert source["source_item_id"]
+
+
+class TestBuildCaptureSlot:
+    def test_uploaded_gives_the_slot_bytes_the_import_path_can_find(
+        self, db_session: Session
+    ) -> None:
+        from app.db.models import CaptureUploadSlotState
+
+        user = factories.build_user(db_session)
+        item = factories.build_inbox_item(db_session, user)
+
+        slot = factories.build_capture_slot(db_session, item, uploaded=True)
+
+        # A PENDING slot is skipped by finalize and by the cover attach, so a test
+        # that omits this asserts against a no-op.
+        assert slot.state is CaptureUploadSlotState.UPLOADED
+        assert slot.storage_key is not None
+
+
+class TestBuildAuditFinding:
+    def test_an_open_namespace_escape_blocks_every_purge(
+        self, db_session: Session
+    ) -> None:
+        from app.modules.library import trash
+        from app.modules.storage.storage_ownership import UnsafeStorageDeleteError
+
+        admin = factories.build_user(db_session, superuser=True)
+        run = factories.build_audit_run(db_session, admin)
+
+        factories.build_audit_finding(
+            db_session, run, code="managed_storage_namespace_escape"
+        )
+
+        # That code plus OPEN is a switch rather than a record: while it stands,
+        # no ownership proof is trustworthy and nothing may be deleted.
+        with pytest.raises(UnsafeStorageDeleteError):
+            trash._require_destructive_maintenance_safe(db_session)
+
+    def test_another_open_finding_does_not(self, db_session: Session) -> None:
+        from app.modules.library import trash
+
+        admin = factories.build_user(db_session, superuser=True)
+        run = factories.build_audit_run(db_session, admin)
+
+        factories.build_audit_finding(db_session, run, code="orphan_blob")
+
+        trash._require_destructive_maintenance_safe(db_session)
+
+
+class TestScenarios:
+    def test_a_dispatchable_gcode_artifact_is_ready_to_dispatch(
+        self, db_session: Session
+    ) -> None:
+        gcode = factories.a_gcode_artifact(db_session, dispatchable=True)
+
+        # Dispatch only considers a recommended revision and the queue endpoints
+        # only accept a known-good one, so both have to hold for the scenario to
+        # be the shape its name claims.
+        assert gcode.is_recommended is True
+        assert gcode.revision_status is FileRevisionStatus.KNOWN_GOOD
+        assert gcode.file_type is FileType.GCODE
+
+    def test_a_plain_gcode_artifact_is_neither(self, db_session: Session) -> None:
+        gcode = factories.a_gcode_artifact(db_session)
+
+        # The default is the plain artifact, because most tests want one and
+        # silently getting a dispatchable one would make a "not dispatched" row
+        # pass for the wrong reason.
+        assert gcode.is_recommended is False
+        assert gcode.revision_status is None
+
+    def test_a_gcode_artifact_hangs_under_its_own_model(
+        self, db_session: Session
+    ) -> None:
+        first = factories.a_gcode_artifact(db_session, "First")
+        second = factories.a_gcode_artifact(db_session, "Second")
+
+        assert first.model_id != second.model_id
+
+    def test_a_printer_with_a_queue_has_a_defined_order(
+        self, db_session: Session
+    ) -> None:
+        from app.db.models import PrintJob
+
+        printer, _artifacts = factories.a_printer_with_a_queue(db_session, depth=3)
+
+        jobs = db_session.exec(
+            select(PrintJob)
+            .where(PrintJob.printer_id == printer.id)
+            .order_by(PrintJob.queue_position)
+        ).all()
+
+        # Jobs built without a position all sit at 0, where "the next job" is
+        # whichever row the database happens to return first.
+        assert [job.queue_position for job in jobs] == [0, 1, 2]
+        assert all(job.state is PrintJobState.QUEUED for job in jobs)
+
+    def test_the_member_builder_yields_one_model_it_cannot_reach(
+        self, db_session: Session
+    ) -> None:
+        member, allowed, denied = factories.a_member_who_can_see_one_collection(
+            db_session
+        )
+
+        # Both halves are the point: a test with only the visible model passes
+        # identically against a filter that returns everything.
+        assert member.is_superuser is False
+        assert allowed.collection_id != denied.collection_id
+
+
+class TestStorageOwnership:
+    """The one distinction where a wrong builder is dangerous, not just wrong.
+
+    `build_stored_file` and `build_unowned_file` look interchangeable and are
+    opposites: the first may be purged, the second must never be. A test that
+    reaches for the wrong one still passes — it just proves the reverse of what
+    it claims. So both directions are asserted here, through the real GC.
+    """
+
+    def test_a_stored_file_is_purged_with_its_bytes(
+        self, db_session: Session, local_storage
+    ) -> None:
+        from app.modules.library.trash import gc_soft_deleted
+        from app.modules.storage.storage_backend.runtime import get_backend
+
+        backend = get_backend()
+        model = factories.build_model(db_session)
+        artifact = factories.build_stored_file(db_session, backend, model)
+        artifact.deleted_at = utcnow() - timedelta(days=1)
+        db_session.add(artifact)
+        db_session.commit()
+        # Read both off the row *before* the purge: afterwards the instance is
+        # gone and touching an attribute raises ObjectDeletedError.
+        artifact_id, key = artifact.id, artifact.path
+
+        gc_soft_deleted(retention_days=0)
+
+        db_session.expire_all()
+        assert db_session.get(File, artifact_id) is None
+        assert not Path(key).exists()
+
+    def test_an_unowned_file_is_refused_with_its_bytes_intact(
+        self, db_session: Session, local_storage
+    ) -> None:
+        from app.modules.library.trash import gc_soft_deleted
+        from app.modules.storage.storage_backend.runtime import get_backend
+
+        backend = get_backend()
+        model = factories.build_model(db_session)
+        artifact = factories.build_unowned_file(db_session, backend, model)
+        artifact.deleted_at = utcnow() - timedelta(days=1)
+        db_session.add(artifact)
+        db_session.commit()
+        artifact_id, key = artifact.id, artifact.path
+
+        result = gc_soft_deleted(retention_days=0)
+
+        # The configured data_dir may be somebody's mounted library, so an
+        # unclaimed path is never proof that PrintStash may delete it.
+        db_session.expire_all()
+        assert result["resources_blocked"] == 1
+        assert db_session.get(File, artifact_id) is not None
+        assert Path(key).read_bytes() == b"legacy-user-bytes"
+
+
+class TestSetupConfigurationFactory:
+    def test_system_config_factory_preserves_a_pending_first_run(self, db_session):
+        config = factories.build_system_config(
+            db_session, setup_storage_pending=True, configured_at=utcnow()
+        )
+        assert config.setup_storage_pending is True
+
+
+class TestManufacturingFactories:
+    def test_part_quantity_defaults_to_one(self, db_session):
+        composition = factories.build_multipart_model(db_session)
+        part = factories.build_multipart_part(db_session, composition)
+        assert part.quantity == 1
+
+    def test_build_part_scales_required_units_by_object_quantity(self, db_session):
+        composition = factories.build_multipart_model(db_session)
+        build = factories.build_multipart_build(
+            db_session, composition, object_quantity=3
+        )
+        model = factories.build_model(db_session)
+        part = factories.build_multipart_build_part(
+            db_session, build, model, quantity=4
+        )
+        assert part.required_units == 12
+
+
+class TestAuditFactories:
+    def test_disabled_policy_is_not_due(self, db_session):
+        from app.modules.administration.vault_audit_policy import claim_due
+
+        user = factories.build_user(db_session)
+        factories.build_audit_policy(db_session, user, next_due_at=utcnow())
+        assert claim_due(db_session) is None
+
+    def test_events_have_independent_dedup_identities(self, db_session):
+        from app.db.models import VaultAuditEvent
+
+        run = factories.build_audit_run(db_session, factories.build_user(db_session))
+        factories.build_audit_event(db_session, run)
+        factories.build_audit_event(db_session, run)
+        assert len(db_session.exec(select(VaultAuditEvent)).all()) == 2
+
+
+class TestCapacityFactories:
+    def test_expired_capacity_claim_reconciles(self, db_session):
+        from app.db.session import get_session_factory
+        from app.modules.storage.capacity import CapacityManager
+
+        factories.build_capacity_reservation(db_session, expired=True)
+        assert CapacityManager(get_session_factory()).reconcile(lambda _: False) == 1
+
+    def test_unexpired_capacity_claim_survives(self, db_session):
+        from app.db.session import get_session_factory
+        from app.modules.storage.capacity import CapacityManager
+
+        factories.build_capacity_reservation(db_session)
+        assert CapacityManager(get_session_factory()).reconcile(lambda _: False) == 0
+
+    def test_inventory_sample_is_visible_in_history(self, db_session):
+        from app.modules.storage.storage_inventory import history
+
+        factories.build_storage_inventory_sample(db_session, owned_bytes=50)
+        assert history(db_session, "test-target")[0]["owned_bytes"] == 50
+
+    def test_capacity_lock_allows_admission(self, db_session):
+        from app.db.session import get_session_factory
+        from app.modules.storage.capacity import CapacityManager, CapacityResource
+
+        factories.build_capacity_lock(db_session)
+        manager = CapacityManager(get_session_factory(), headroom_bytes=0)
+        manager.reserve(
+            "factory-test", [CapacityResource.for_quota("test", 10, 100, role="test")]
+        )
+        assert manager.reserved_bytes() == {"quota:test": 10}
+
+
+class TestSimilarityFactories:
+    def test_leased_fingerprint_cannot_be_claimed(self, db_session):
+        from app.modules.similarity.fingerprints import claim
+
+        file = factories.build_file(db_session, factories.build_model(db_session))
+        factories.build_geometry_fingerprint(db_session, file, leased=True)
+
+        assert claim(db_session, file) is None
+
+    def test_pending_fingerprint_can_be_claimed(self, db_session):
+        from app.modules.similarity.fingerprints import claim
+
+        file = factories.build_file(db_session, factories.build_model(db_session))
+        row = factories.build_geometry_fingerprint(db_session, file)
+
+        assert claim(db_session, file)[0] == row.id
+
+    def test_active_run_conflicts_with_the_same_scope(self, db_session):
+        from app.core.errors import OperationError
+        from app.modules.similarity import configuration, runs
+
+        actor = factories.build_user(db_session, superuser=True)
+        configuration.update_settings(db_session, actor, {"enabled": True})
+        factories.build_similarity_run(db_session, actor)
+
+        with pytest.raises(OperationError, match="similarity_run_active"):
+            runs.start(db_session, actor)
+
+    def test_completed_run_cannot_be_taken(self, db_session):
+        from app.modules.similarity.runs import take
+
+        run = factories.build_similarity_run(
+            db_session, factories.build_user(db_session), active=False
+        )
+
+        assert take(db_session, run.id, "attempt-1") is None
+
+    def test_observations_keep_ordered_model_lineage(self, db_session):
+        from app.modules.similarity.candidates import project
+
+        first, second = (
+            factories.build_model(db_session),
+            factories.build_model(db_session),
+        )
+        left = factories.build_geometry_fingerprint(
+            db_session, factories.build_file(db_session, first), state="ready"
+        )
+        right = factories.build_geometry_fingerprint(
+            db_session, factories.build_file(db_session, second), state="ready"
+        )
+        candidate = factories.build_similarity_candidate(db_session, second, first)
+        factories.build_similarity_observation(db_session, candidate, right, left)
+
+        result = project(db_session, candidate, detail=True)
+
+        assert result["model_a"]["id"] == first.id
+        assert result["observations"][0]["source_a"]["file_id"] == left.file_id
+
+    def test_decisions_have_independent_request_identities(self, db_session):
+        from app.db.models import SimilarityReviewDecision
+
+        candidate = factories.build_similarity_candidate(
+            db_session,
+            factories.build_model(db_session),
+            factories.build_model(db_session),
+        )
+        actor = factories.build_user(db_session)
+        first = factories.build_similarity_decision(db_session, candidate, actor)
+        second = factories.build_similarity_decision(db_session, candidate, actor)
+
+        assert {
+            row.request_id for row in db_session.exec(select(SimilarityReviewDecision))
+        } == {first.request_id, second.request_id}
+        assert first.request_id != second.request_id
+
+    def test_space_roundtrips_the_public_contract(self, db_session):
+        import json
+
+        from printstash_core.inference import EmbeddingSpace
+
+        space = factories.build_embedding_space(db_session)
+
+        contract = EmbeddingSpace(**json.loads(space.config_json))
+
+        assert contract.config_hash == space.config_hash
+
+    def test_active_generation_is_queryable(self, db_session):
+        import json
+
+        from printstash_core.inference import EmbeddingSpace
+
+        from app.modules.search.vector_store import active_generation
+
+        space = factories.build_embedding_space(db_session)
+        generation = factories.build_index_generation(db_session, space)
+
+        assert (
+            active_generation(
+                db_session, EmbeddingSpace(**json.loads(space.config_json))
+            ).id
+            == generation.id
+        )
+
+    def test_retired_generation_is_not_queryable(self, db_session):
+        import json
+
+        from printstash_core.inference import EmbeddingSpace
+
+        from app.modules.search.vector_store import active_generation
+
+        space = factories.build_embedding_space(db_session)
+        factories.build_index_generation(db_session, space, active=False)
+
+        assert (
+            active_generation(
+                db_session, EmbeddingSpace(**json.loads(space.config_json))
+            )
+            is None
+        )
+
+    @pytest.mark.parametrize("component", [0, 1, 2048])
+    def test_vectors_encode_component_identity(self, db_session, component):
+        from printstash_core.inference.units import unit_component
+
+        space = factories.build_embedding_space(db_session)
+        generation = factories.build_index_generation(db_session, space)
+        file = factories.build_file(db_session, factories.build_model(db_session))
+        vector = factories.build_passage_vector(
+            db_session, generation, file, component_index=component
+        )
+
+        assert unit_component(vector.unit_key) == component
+
+
+class TestBuildLibraryAtScale:
+    """The bulk builder must seed rows the read paths treat as ordinary ones."""
+
+    def test_seeds_every_collection_as_live(self, db_session: Session) -> None:
+        scaled = build_library_at_scale(db_session, collections=20, models=0)
+
+        live_ids = db_session.exec(select(Collection.id).where(live(Collection))).all()
+
+        assert sorted(live_ids) == sorted(scaled.collection_ids)
+
+    def test_seeds_every_model_as_live(self, db_session: Session) -> None:
+        scaled = build_library_at_scale(db_session, collections=3, models=40)
+
+        live_ids = db_session.exec(
+            select(Model.id).where(
+                live(Model),
+                Model.collection_id.in_(scaled.collection_ids),  # type: ignore[union-attr]
+            )
+        ).all()
+
+        assert len(live_ids) == 40
+
+    def test_grows_the_tree_beneath_the_collection_it_is_given(
+        self, db_session: Session
+    ) -> None:
+        root = factories.build_collection(db_session, "Shared")
+
+        scaled = build_library_at_scale(
+            db_session, collections=30, models=0, under=root
+        )
+
+        # The prefix test RBAC cascades a grant through must reach every row.
+        paths = taxonomy.collection_descendant_paths(db_session, root.path)
+        assert len(paths) == len(scaled.collection_ids) + 1
+
+    def test_keeps_each_path_an_extension_of_its_parents(
+        self, db_session: Session
+    ) -> None:
+        build_library_at_scale(db_session, collections=30, models=0, fanout=2)
+
+        rows = db_session.exec(select(Collection)).all()
+
+        by_id = {row.id: row for row in rows}
+        assert all(
+            row.path.startswith(by_id[row.parent_id].path + "/")
+            for row in rows
+            if row.parent_id is not None
+        )
+
+    def test_shares_a_test_with_rows_from_the_ordinary_builders(
+        self, db_session: Session
+    ) -> None:
+        build_library_at_scale(db_session, collections=5, models=5)
+
+        model = factories.build_model(db_session, "Bracket")
+
+        assert model.id is not None
+
+
+class TestGroupRegeneration:
+    def test_group_regeneration_factory_reaches_only_its_producer(self, db_session):
+        from app.db.models import DerivativeKind, JobKind
+        from app.modules.derivatives.records import regenerations
+
+        factories.build_derivative_group_regeneration(
+            db_session, JobKind.DERIVATIVES_GCODE, DerivativeKind.METADATA
+        )
+        assert DerivativeKind.METADATA in regenerations(
+            db_session, definitions=[JobKind.DERIVATIVES_GCODE]
+        )
+        assert regenerations(db_session, definitions=[JobKind.DERIVATIVES_MESH]) == {}
+
+
+class TestBuildIngestionEntry:
+    def test_freezes_a_pending_unit_for_the_job(self, db_session):
+        from app.db.models import IngestionEntryState
+        from app.modules.ingestion import batch_store
+        from app.modules.ingestion.batch_contracts import (
+            EntrySpec,
+            JobBatch,
+            LocalSource,
+        )
+
+        job = factories.build_job(db_session)
+        entry = factories.build_ingestion_entry(
+            db_session,
+            job,
+            identity="factory-frozen-source",
+            display_name="parts/tetra.stl",
+        )
+
+        records = batch_store.results(JobBatch(job.id), limit=1)
+
+        assert len(records) == 1
+        assert records[0].id == entry.id
+        assert records[0].spec == EntrySpec(
+            "factory-frozen-source", "parts/tetra.stl", LocalSource("factory"), None
+        )
+        assert records[0].state is IngestionEntryState.PENDING
+
+
+class TestStoragePublicationFactories:
+    def test_locator_factory_matches_the_production_exclusion_identity(
+        self, db_session
+    ):
+        from app.db.models import StoragePublicationLocator
+        from app.modules.storage.storage_publication import lock_publication_locator
+
+        anchor = factories.build_storage_publication_locator(db_session)
+
+        lock_publication_locator(
+            db_session,
+            backend=anchor.backend,
+            namespace=anchor.namespace,
+            key=anchor.key,
+        )
+
+        current = db_session.exec(select(StoragePublicationLocator)).one()
+        assert current.id == anchor.id
+        assert (current.backend, current.namespace, current.key) == (
+            anchor.backend,
+            anchor.namespace,
+            anchor.key,
+        )
+
+    def test_owned_factory_generates_distinct_publication_authority(self, db_session):
+        from app.modules.storage.storage_publication import PublicationReservation
+
+        first = factories.build_owned_storage_object(db_session, key="factory/first")
+        second = factories.build_owned_storage_object(db_session, key="factory/second")
+
+        assert (
+            PublicationReservation.of(first).generation
+            != PublicationReservation.of(second).generation
+        )
+
+
+class TestBuildIngestionScratchWindow:
+    def test_defaults_to_uncharged_preparing_custody(self, db_session, tmp_path):
+        from app.db.models import CapacityReservation
+        from app.db.models.ingestion_scratch import ScratchWindowPhase
+
+        row = factories.build_ingestion_scratch_window(
+            db_session, directory=tmp_path / "window"
+        )
+
+        assert row.phase is ScratchWindowPhase.PREPARING
+        assert row.device is None and row.inode is None
+        assert not (tmp_path / "window").exists()
+        assert db_session.get(CapacityReservation, row.capacity_operation_id) is None
+
+    def test_rejects_job_owner_without_execution_epoch(self, db_session, tmp_path):
+        job = factories.build_job(db_session)
+
+        with pytest.raises(ValueError, match="execution epoch"):
+            factories.build_ingestion_scratch_window(
+                db_session, directory=tmp_path / "window", job=job
+            )
+
+
+class TestBuildCollection:
+    def test_trash_intent_obeys_production_scope(self, db_session):
+        collection = factories.build_collection(db_session, "Trash", trashed=True)
+
+        found = db_session.exec(
+            select(Collection).where(Collection.id == collection.id, live(Collection))
+        ).first()
+
+        assert found is None
+        assert (
+            db_session.exec(
+                select(Collection).where(
+                    Collection.id == collection.id, trashed(Collection)
+                )
+            )
+            .one()
+            .id
+            == collection.id
+        )
+
+
+class TestMultipartScaleBuilder:
+    def test_seeds_versioned_sets(self, db_session):
+        from app.db.models import MultipartModel
+
+        build_library_at_scale(db_session, collections=3, models=0, multipart_models=30)
+
+        groups = db_session.exec(select(MultipartModel)).all()
+
+        assert len(groups) == 30
+        assert all(
+            group.edit_version == 1 and group.collection_id is not None
+            for group in groups
+        )
+
+
+class TestSpoolmanEditingFactory:
+    def test_system_configuration_starts_with_a_valid_spoolman_version(
+        self, db_session
+    ):
+        from tests.factories import build_system_config
+
+        config = build_system_config(db_session)
+        assert config.spoolman_edit_version == 1

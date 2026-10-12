@@ -1,0 +1,69 @@
+title: SpatiumDDI
+# Canonical public domain. Used for the absolute URLs that og: tags and the
+# sitemap require; every in-page link stays relative (see the baseurl note
+# below). The domain is configured as a CNAME on the org-site repo, so it
+# fronts both Pages sites.
+url: https://www.spatiumddi.com
+description: Documentation for SpatiumDDI, the open-source self-hosted DNS, DHCP and IP Address Management platform.
+
+# Kramdown with GFM input is what GitHub Pages actually uses. The previous
+# `markdown: GFM` was not a valid Jekyll setting at all: Pages silently
+# overrode it, but it hard-failed any local `jekyll build`, so the site could
+# not be previewed before publishing.
+markdown: kramdown
+kramdown:
+  input: GFM
+  # Pages forces this to false. Left at kramdown's `true` default, a local
+  # build would turn every hard-wrapped source line into a <br> — so the
+  # preview would not match what ships, defeating the point of previewing.
+  hard_wrap: false
+
+# Both are enabled by default on GitHub Pages; declaring them explicitly keeps
+# a local build faithful to what Pages produces.
+#   optional-front-matter — renders .md files that have no YAML front matter
+#                           (almost every doc here). Without it Jekyll treats
+#                           them as static files and the browser downloads them
+#                           instead of rendering them.
+#   relative-links        — rewrites in-repo links like features/DNS.md to the
+#                           generated .html, so the docs stay browsable both on
+#                           GitHub and on the site.
+plugins:
+  - jekyll-optional-front-matter
+  - jekyll-relative-links
+
+# Every page gets the docs chrome. There is no other layout: this site is
+# documentation only — the product / company site is a separate project, and
+# the landing page that used to live at index.html was removed in #1070.
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default
+
+links:
+  # The company / product site. This docs site deliberately carries no
+  # marketing (#1070); the link is how a reader gets from the reference
+  # material to the product pages.
+  company: https://spatiumnorth.com
+  github: https://github.com/spatiumnorth/spatiumddi
+  releases: https://github.com/spatiumnorth/spatiumddi/releases
+  issues: https://github.com/spatiumnorth/spatiumddi/issues
+  discord: https://discord.com/invite/ANJAnvg2Dd
+
+# No `theme:` — the site ships its own _layouts + assets/css/site.css. It used
+# to use jekyll-theme-minimal, whose fixed 270px sidebar beside a 500px content
+# column rendered reference docs into a narrow strip.
+
+# No `baseurl` — deliberately, and do not add one. This tree is served from two
+# Pages sites at different mount points (www.spatiumddi.com/ and
+# .../spatiumddi/), and GitHub Pages injects the correct baseurl per build --
+# empty for the org site, "/spatiumddi" for the project site. Hardcoding either
+# value here would override that and break the other site. (The layouts address
+# assets by relative prefix rather than baseurl anyway, so a local `jekyll
+# build`, which gets no injected value, still produces working links.)
+
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - vendor
+  - .gems

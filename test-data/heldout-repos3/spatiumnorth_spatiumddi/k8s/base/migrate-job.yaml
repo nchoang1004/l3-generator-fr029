@@ -1,0 +1,52 @@
+# Run migrations before deploying a new version:
+#   kubectl apply -f k8s/base/migrate-job.yaml
+#   kubectl wait --for=condition=complete job/spatiumddi-migrate -n spatiumddi --timeout=120s
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: spatiumddi-migrate
+  namespace: spatiumddi
+  labels:
+    app.kubernetes.io/name: spatiumddi
+    app.kubernetes.io/component: migrate
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      # #983 — Kubernetes runs a container ``Unconfined`` unless a profile is
+      # asked for, while docker-compose applies the runtime's default profile
+      # to every service. Without this the same image runs with FEWER syscall
+      # restrictions here than under Compose.
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      restartPolicy: OnFailure
+      containers:
+        - name: migrate
+          image: ghcr.io/spatiumnorth/spatiumddi-api:latest
+          imagePullPolicy: Always
+          command: ["alembic", "upgrade", "head"]
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: spatiumddi-secrets
+                  key: postgres-password
+            # #1364 — a migration can encrypt existing values with the
+            # install's credential key, so it needs the same SECRET_KEY as
+            # the api (and CREDENTIAL_ENCRYPTION_KEY too, if you set one
+            # there). Without it the migration refuses to start.
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: spatiumddi-secrets
+                  key: secret-key
+            - name: DATABASE_URL
+              value: "postgresql+asyncpg://spatiumddi:$(POSTGRES_PASSWORD)@postgres-primary:5432/spatiumddi"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi

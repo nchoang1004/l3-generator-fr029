@@ -1,0 +1,388 @@
+{
+  "schema": "fr029-gold-v1",
+  "fixture": "testdrivenio_fastapi-tdd-docker-16433b6",
+  "repository": "D:/VSF/l3-acceptance-repos/testdrivenio_fastapi-tdd-docker-16433b6",
+  "commit": "16433b6621e9afd801de8eba9738a6bfefb1f601",
+  "root": "project",
+  "pydantic_major": 2,
+  "fastapi_version": "0.115.12",
+  "oracle_versions": {
+    "python": "3.12.6",
+    "fastapi": "0.115.12",
+    "starlette": "0.46.2",
+    "pydantic": "2.13.5",
+    "pydantic-core": "2.46.5",
+    "pydantic-settings": "2.8.1",
+    "tortoise-orm": "0.25.0"
+  },
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/ping",
+      "handler": "app/api/ping.py::pong",
+      "declared_at": "app/api/ping.py:8",
+      "params": [],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "GET",
+      "path": "/summaries/{id}/",
+      "handler": "app/api/summaries.py::read_summary",
+      "declared_at": "app/api/summaries.py:18",
+      "params": [
+        {
+          "name": "id",
+          "in": "path",
+          "type": "integer",
+          "required": true
+        }
+      ],
+      "request_body": null,
+      "response": {
+        "model": "SummarySchema",
+        "model_file": "app/models/tortoise.py",
+        "array": false
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "GET",
+      "path": "/summaries/",
+      "handler": "app/api/summaries.py::read_all_summaries",
+      "declared_at": "app/api/summaries.py:27",
+      "params": [],
+      "request_body": null,
+      "response": {
+        "model": "SummarySchema",
+        "model_file": "app/models/tortoise.py",
+        "array": true
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "POST",
+      "path": "/summaries/",
+      "handler": "app/api/summaries.py::create_summary",
+      "declared_at": "app/api/summaries.py:32",
+      "params": [],
+      "request_body": {
+        "models": [
+          "SummaryPayloadSchema"
+        ],
+        "model_files": [
+          "app/models/pydantic.py"
+        ],
+        "required": true,
+        "media_type": "application/json",
+        "embedded": false
+      },
+      "response": {
+        "model": "SummaryResponseSchema",
+        "model_file": "app/models/pydantic.py",
+        "array": false
+      },
+      "status": [
+        201
+      ],
+      "status_source": "declared"
+    },
+    {
+      "method": "PUT",
+      "path": "/summaries/{id}/",
+      "handler": "app/api/summaries.py::update_summary",
+      "declared_at": "app/api/summaries.py:44",
+      "params": [
+        {
+          "name": "id",
+          "in": "path",
+          "type": "integer",
+          "required": true
+        }
+      ],
+      "request_body": {
+        "models": [
+          "SummaryUpdatePayloadSchema"
+        ],
+        "model_files": [
+          "app/models/pydantic.py"
+        ],
+        "required": true,
+        "media_type": "application/json",
+        "embedded": false
+      },
+      "response": {
+        "model": "SummarySchema",
+        "model_file": "app/models/tortoise.py",
+        "array": false
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "DELETE",
+      "path": "/summaries/{id}/",
+      "handler": "app/api/summaries.py::delete_summary",
+      "declared_at": "app/api/summaries.py:55",
+      "params": [
+        {
+          "name": "id",
+          "in": "path",
+          "type": "integer",
+          "required": true
+        }
+      ],
+      "request_body": null,
+      "response": {
+        "model": "SummaryResponseSchema",
+        "model_file": "app/models/pydantic.py",
+        "array": false
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    }
+  ],
+  "models": [
+    {
+      "name": "SummaryPayloadSchema",
+      "file": "app/models/pydantic.py",
+      "line": 4,
+      "fields": [
+        {
+          "name": "url",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "SummaryResponseSchema",
+      "file": "app/models/pydantic.py",
+      "line": 8,
+      "fields": [
+        {
+          "name": "url",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "id",
+          "alias": null,
+          "type": "integer",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "SummaryUpdatePayloadSchema",
+      "file": "app/models/pydantic.py",
+      "line": 12,
+      "fields": [
+        {
+          "name": "url",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "summary",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "SummarySchema",
+      "file": "app/models/tortoise.py",
+      "line": 14,
+      "alt_names": [
+        "TextSummary"
+      ],
+      "dynamic": {
+        "created_by": "pydantic_model_creator(TextSummary)",
+        "source_class": "TextSummary",
+        "source_class_line": 5,
+        "unknown_fields_acceptable": true
+      },
+      "fields": [
+        {
+          "name": "id",
+          "alias": null,
+          "type": "integer",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "url",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "summary",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "created_at",
+          "alias": null,
+          "type": "datetime",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    }
+  ],
+  "excluded_routes": [],
+  "limitations": [
+    {
+      "kind": "unsupported_http_library",
+      "where": "app/summarizer.py:9",
+      "alt_where": [
+        "app/summarizer.py:8"
+      ],
+      "detail": "article.download() của newspaper3k (Article(url) dòng 8) tải trang web từ URL chỉ biết lúc chạy",
+      "judgement": true
+    },
+    {
+      "kind": "unsupported_http_library",
+      "where": "app/summarizer.py:15",
+      "detail": "nltk.download(\"punkt_tab\") tải dữ liệu NLTK qua mạng",
+      "judgement": true
+    }
+  ],
+  "http_calls": [],
+  "file_roles": [
+    {
+      "file": "app/main.py",
+      "role": "Điểm vào",
+      "line": 12,
+      "label": "exact"
+    },
+    {
+      "file": "app/db.py",
+      "role": "Điểm vào",
+      "line": 44,
+      "label": "exact",
+      "judgement": true
+    },
+    {
+      "file": "app/api/ping.py",
+      "role": "Route",
+      "line": 8,
+      "label": "exact"
+    },
+    {
+      "file": "app/api/summaries.py",
+      "role": "Route",
+      "line": 18,
+      "alt_lines": [
+        27,
+        32,
+        44,
+        55
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/api/crud.py",
+      "role": "Truy cập dữ liệu",
+      "line": 12,
+      "alt_lines": [
+        19,
+        25,
+        30,
+        34,
+        40
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/summarizer.py",
+      "role": "Truy cập dữ liệu",
+      "line": 21,
+      "label": "exact",
+      "judgement": true
+    },
+    {
+      "file": "app/models/pydantic.py",
+      "role": "Schema API",
+      "line": 4,
+      "alt_lines": [
+        8,
+        12
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/models/tortoise.py",
+      "role": "Schema API",
+      "line": 14,
+      "alt_roles": [
+        "Khác"
+      ],
+      "label": "exact",
+      "judgement": true
+    },
+    {
+      "file": "app/config.py",
+      "role": "Cấu hình",
+      "line": 10,
+      "label": "exact"
+    }
+  ],
+  "out_of_scope": {
+    "test": 5,
+    "migration": 1,
+    "environment": 0,
+    "conditional_out": 0
+  },
+  "notes": [
+    "[Phán đoán 1] root = \"project\". Mọi file .py và manifest của repository đều nằm trong project/; code import theo gốc này (from app.api import ...), Dockerfile đặt WORKDIR ở đây và pyproject.toml (aerich) dùng src_folder \"./.\". Mọi đường dẫn trong gold và membership tính từ project/. Nếu công cụ ghi đường dẫn từ gốc repository thì thêm tiền tố \"project/\" trước khi so.",
+    "[Phán đoán 2] Model response SummarySchema không khai bằng class mà tạo lúc import: app/models/tortoise.py:14 SummarySchema = pydantic_model_creator(TextSummary). Gold ghi tên theo source tại decorator (SummarySchema), dòng 14; OpenAPI đặt tên TextSummary (ghi ở alt_names). Trường lấy theo oracle/OpenAPI, khớp với lớp Tortoise TextSummary (dòng 5-8) cộng khóa chính id ngầm định của Tortoise. Vì trường chỉ suy được từ luật của tortoise-orm, công cụ ghi trường unknown kèm lý do \"model sinh động\" cũng chấp nhận được (dynamic.unknown_fields_acceptable).",
+    "[Phán đoán 3] app/models/tortoise.py: lớp Tortoise (models.Model) không mang dấu hiệu Model bảng của FR-029 (__tablename__, SQLModel table=True, Table(...)); FR-030 dòng 47 xếp Tortoise vào ORM khác. Vai trò kế tiếp khớp là Schema API: lớp SummarySchema được route dùng làm response model, tạo ở dòng 14. Nếu chỉ tính lớp khai bằng câu lệnh class thì file thành Khác (alt_roles).",
+    "[Phán đoán 4] app/db.py có khối if __name__ == \"__main__\" (dòng 44), là dấu hiệu Điểm vào theo FR-028, đứng đầu thang vai trò nên thắng. Các dòng register_tortoise (23) và Tortoise.init (35) tạo kết nối CSDL, os.environ.get (12, 25, 36) là dấu hiệu Cấu hình; cả hai đứng sau trên thang.",
+    "[Phán đoán 5] app/summarizer.py gọi mạng qua newspaper3k (article.download(), dòng 9) và nltk.download (dòng 15), không qua httpx/requests/aiohttp. Theo FR-029 'thư viện HTTP khác ghi ở phần giới hạn', gold ghi hai mục unsupported_http_library. Không có lời gọi httpx/requests/aiohttp nào trong phạm vi phân tích (httpx chỉ có trong requirements, dùng cho test), nên http_calls rỗng.",
+    "[Phán đoán 6] app/summarizer.py: không phải Hạ tầng vì newspaper3k/nltk không thuộc danh sách client hệ thống ngoài của FR-028; dòng 21 TextSummary.filter(...).update(...) dựng truy vấn nên vai trò là Truy cập dữ liệu.",
+    "[Phán đoán 7] out_of_scope.test = 5: tests/__init__.py (rỗng), tests/conftest.py, tests/test_ping.py, tests/test_summaries.py, tests/test_summaries_unit.py. Nếu không đếm file rỗng thì là 4. migration = 1 (migrations/models/0_20250421234125_init.py).",
+    "[Phán đoán 8] Membership chia tay theo trách nhiệm (Khởi động, Ping, Tóm tắt), không phải output FR-028. app/db.py vào Khởi động vì chỉ main.py dùng init_db; app/config.py vào Ping vì chỉ route /ping dùng Settings. tests/__init__.py rỗng nhưng đặt trong Kiểm thử vì nằm trong tests/.",
+    "[Phán đoán 9] pydantic không được ghim trong requirements.txt; pip giải ra 2.13.5 (theo ràng buộc của pydantic-settings 2.8.1 và fastapi 0.115.12). Docker dùng Python 3.13.3, oracle chạy Python 3.12.6. Luật required/nullable của Pydantic v2 giống nhau trên các bản 2.x nên không ảnh hưởng gold.",
+    "[Phán đoán 10] SummaryResponseSchema và SummaryUpdatePayloadSchema kế thừa SummaryPayloadSchema; gold liệt kê cả trường url kế thừa (đúng như Pydantic và OpenAPI). Kiểu AnyHttpUrl ghi string (OpenAPI: string format uri; ký pháp không có uri, gold bỏ format).",
+    "Oracle import app.main:app thành công với biến môi trường giả DATABASE_URL=sqlite://:memory: (register_tortoise không kết nối lúc import); TEMP/HOME trỏ vào scratchpad để newspaper3k không ghi ra ngoài. Không kết nối dịch vụ thật. Kết quả oracle lưu ở oracle.json cùng thư mục.",
+    "Route tài liệu tự sinh (/openapi.json, /docs, /docs/oauth2-redirect, /redoc) có trong app.routes của oracle nhưng bị bỏ theo quy ước; không ghi vào excluded_routes.",
+    "Prefix: summaries.router gắn với prefix=\"/summaries\" (app/main.py:15, include_router mở ở dòng 14); ping.router gắn không prefix (app/main.py:13). Path \"/summaries\" + \"/\" = \"/summaries/\", \"/summaries\" + \"/{id}/\" = \"/summaries/{id}/\" (có dấu / cuối), khớp oracle.",
+    "GET /ping: tham số settings = Depends(get_settings); get_settings (app/config.py:17) không có tham số nên route không có tham số HTTP. Không có response_model, không có kiểu trả về nên response = null. Dependency: get_settings.",
+    "POST /summaries/: background_tasks: BackgroundTasks không phải tham số HTTP. status_code=201 khai ở decorator (dòng 32).",
+    "Tham số path id khai Path(..., gt=0): kiểu integer, bắt buộc; ràng buộc gt chưa ghi (quy ước 17.3).",
+    "HTTPException(status_code=404) trong thân hàm (summaries.py dòng 22, 50, 59) không phải status khai trên route; gold chỉ ghi status khai báo hoặc mặc định.",
+    "response_model trong decorator thắng kiểu trả về ở mọi route của summaries.py; ở đây hai thứ trùng nhau nên kết quả không đổi.",
+    "Settings (app/config.py:10) là Pydantic BaseSettings nhưng không phải request/response model nên không có trong models.",
+    "Không có add_api_route/add_route/add_websocket_route trong phạm vi phân tích; không có route khai trong file test (tests/ chỉ gọi client test). excluded_routes rỗng.",
+    "Ba file __init__.py trong app/ rỗng: không có vai trò, thuộc component Khác."
+  ]
+}

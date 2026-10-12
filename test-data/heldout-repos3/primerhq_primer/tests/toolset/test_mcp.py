@@ -1,0 +1,968 @@
+"""Tests for primer.toolset.mcp.McpToolsetProvider -- stdio transport.
+
+Exercised against an in-memory MCP server (no real subprocess). The
+HTTP-transport tests live in the same file (added in Task 6).
+"""
+
+from __future__ import annotations
+
+import asyncio
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from typing import Any
+
+import mcp.types as mcp_types
+import pytest
+from mcp import ClientSession
+from mcp.client._memory import InMemoryTransport
+from mcp.server.lowlevel import Server
+
+from primer.model.chat import Tool, ToolCallResult
+from primer.model.except_ import (
+    ConfigError,
+    PrimerError,
+    UnsupportedContentError,
+)
+from primer.model.provider import HttpConfig, McpConfig, StdioConfig, TransportType
+from primer.toolset.mcp import McpToolsetProvider
+
+
+# ---------- in-memory MCP server fixtures ---------------------------------
+
+
+@asynccontextmanager
+async def _connected_client_session(server: Server) -> AsyncIterator[ClientSession]:
+    """Wire client + server over in-memory streams, initialize, yield.
+
+    mcp>=2.0 dropped the SDK's own all-in-one
+    ``mcp.shared.memory.create_connected_server_and_client_session``
+    helper; ``InMemoryTransport`` (private module, used by the SDK's own
+    test suite for exactly this purpose) is the replacement primitive.
+    """
+    async with InMemoryTransport(server) as (read, write):
+        async with ClientSession(read, write) as session:
+            await session.initialize()
+            yield session
+
+
+def _make_test_server() -> Server:
+    """A minimal MCP server exposing two tools: 'echo' and 'fail'."""
+
+    async def _list(ctx: Any, params: Any) -> mcp_types.ListToolsResult:
+        del ctx, params
+        return mcp_types.ListToolsResult(tools=[
+            mcp_types.Tool(
+                name="echo",
+                description="echo arguments back as text",
+                inputSchema={
+                    "type": "object",
+                    "properties": {"text": {"type": "string"}},
+                    "required": ["text"],
+                },
+            ),
+            mcp_types.Tool(
+                name="fail",
+                description="always returns an error result",
+                inputSchema={"type": "object", "properties": {}},
+            ),
+        ])
+
+    async def _call(
+        ctx: Any, params: mcp_types.CallToolRequestParams,
+    ) -> mcp_types.CallToolResult:
+        del ctx
+        name = params.name
+        arguments = params.arguments or {}
+        if name == "echo":
+            return mcp_types.CallToolResult(content=[
+                mcp_types.TextContent(
+                    type="text", text=f"echo:{arguments.get('text', '')}",
+                ),
+            ])
+        if name == "fail":
+            # mcp>=2.0 no longer auto-wraps a raised handler exception
+            # into an isError result (release notes #3314 - it now
+            # becomes a protocol-level MCPError instead). Construct the
+            # isError result explicitly, same pattern
+            # primer.mcp.server's own on_call_tool handler uses, so this
+            # fixture still exercises the isError=True path the tests
+            # below expect.
+            return mcp_types.CallToolResult(
+                isError=True,
+                content=[mcp_types.TextContent(
+                    type="text", text="simulated tool failure",
+                )],
+            )
+        raise ValueError(f"unknown tool {name}")
+
+    return Server("primer-test-server", on_list_tools=_list, on_call_tool=_call)
+
+
+# ---------- a McpToolsetProvider subclass that accepts a pre-built session
+
+
+class _InMemoryMcpToolsetProvider(McpToolsetProvider):
+    """McpToolsetProvider variant that bypasses real transport setup.
+
+    Tests drive the provider against a pre-built ``ClientSession``
+    yielded by ``_connected_client_session``. The base class supplies
+    the request-translation logic; this subclass just swaps out the
+    session-acquisition path.
+    """
+
+    def __init__(self, toolset_id: str, session) -> None:
+        config = McpConfig(
+            transport=TransportType.STDIO,
+            config=StdioConfig(command=["true"]),
+        )
+        super().__init__(toolset_id=toolset_id, config=config)
+        self._injected_session = session
+
+    @asynccontextmanager
+    async def _open_session(self, *, principal=None):  # type: ignore[override]
+        yield self._injected_session
+
+
+# ---------- tests --------------------------------------------------------
+
+
+class TestConstructor:
+    def test_stdio_config_is_accepted(self) -> None:
+        provider = McpToolsetProvider(
+            toolset_id="ts1",
+            config=McpConfig(
+                transport=TransportType.STDIO,
+                config=StdioConfig(command=["true"]),
+            ),
+        )
+        assert provider is not None
+
+    def test_complete_oauth_without_handler_raises_config_error(self) -> None:
+        provider = McpToolsetProvider(
+            toolset_id="ts1",
+            config=McpConfig(
+                transport=TransportType.STDIO,
+                config=StdioConfig(command=["true"]),
+            ),
+        )
+
+        async def _go() -> None:
+            await provider.complete_oauth(code="x", state="y")
+
+        with pytest.raises(ConfigError):
+            asyncio.run(_go())
+
+
+class TestListToolsStdio:
+    async def test_lists_both_test_tools(self) -> None:
+        server = _make_test_server()
+        async with _connected_client_session(server) as session:
+            provider = _InMemoryMcpToolsetProvider(toolset_id="ts1", session=session)
+            tools = [t async for t in provider.list_tools()]
+        names = sorted(t.id for t in tools)
+        assert names == ["echo", "fail"]
+
+    async def test_tools_carry_provider_toolset_id(self) -> None:
+        server = _make_test_server()
+        async with _connected_client_session(server) as session:
+            provider = _InMemoryMcpToolsetProvider(
+                toolset_id="ts-provider", session=session
+            )
+            tools = [t async for t in provider.list_tools()]
+        for t in tools:
+            assert t.toolset_id == "ts-provider"
+
+    async def test_tools_preserve_input_schema(self) -> None:
+        server = _make_test_server()
+        async with _connected_client_session(server) as session:
+            provider = _InMemoryMcpToolsetProvider(toolset_id="ts1", session=session)
+            tools = {t.id: t async for t in provider.list_tools()}
+        assert tools["echo"].args_schema == {
+            "type": "object",
+            "properties": {"text": {"type": "string"}},
+            "required": ["text"],
+        }
+
+
+class TestCallToolStdio:
+    async def test_text_content_is_returned_as_output(self) -> None:
+        server = _make_test_server()
+        async with _connected_client_session(server) as session:
+            provider = _InMemoryMcpToolsetProvider(toolset_id="ts1", session=session)
+            result = await provider.call(tool_name="echo", arguments={"text": "hi"})
+        assert isinstance(result, ToolCallResult)
+        assert "echo:hi" in result.output
+        assert result.is_error is False
+
+    async def test_failing_tool_returns_is_error_true(self) -> None:
+        server = _make_test_server()
+        async with _connected_client_session(server) as session:
+            provider = _InMemoryMcpToolsetProvider(toolset_id="ts1", session=session)
+            result = await provider.call(tool_name="fail", arguments={})
+        assert result.is_error is True
+
+    async def test_unknown_tool_propagates_as_provider_error(self) -> None:
+        from primer.model.except_ import ProviderError
+
+        # mcp>=2.0: an on_call_tool handler exception is no longer
+        # auto-wrapped into an isError result - it surfaces as a
+        # protocol-level MCPError instead (release notes #3314; see
+        # _make_test_server's own "fail" branch above, which now
+        # constructs isError=True explicitly for the case that DOES want
+        # that shape). The fixture's "unknown tool" branch still just
+        # raises, so this is the MCPError path; kept as a defensive
+        # try/except rather than a hard assert in case a future SDK
+        # revives the auto-wrap for unhandled exceptions too.
+        server = _make_test_server()
+        async with _connected_client_session(server) as session:
+            provider = _InMemoryMcpToolsetProvider(toolset_id="ts1", session=session)
+            try:
+                result = await provider.call(
+                    tool_name="never-defined", arguments={}
+                )
+            except (ProviderError, UnsupportedContentError) as exc:
+                # Surfaced as a primer exception (the mcp>=2.0 path). The
+                # tool's NAME must still reach the caller's failure surface
+                # - under 1.x the isError branch below asserted this, and
+                # without it here nothing in the suite would verify more
+                # than "some ProviderError happened".
+                assert "never-defined" in str(exc)
+                return
+            assert result.is_error is True
+            assert "never-defined" in result.output
+
+
+class TestContentMapping:
+    async def test_image_content_serialises_to_extended(self) -> None:
+        async def _list(ctx: Any, params: Any) -> mcp_types.ListToolsResult:
+            del ctx, params
+            return mcp_types.ListToolsResult(tools=[
+                mcp_types.Tool(
+                    name="picture",
+                    description="returns an image",
+                    inputSchema={"type": "object", "properties": {}},
+                ),
+            ])
+
+        async def _call(
+            ctx: Any, params: mcp_types.CallToolRequestParams,
+        ) -> mcp_types.CallToolResult:
+            del ctx, params
+            return mcp_types.CallToolResult(content=[
+                mcp_types.TextContent(type="text", text="see image"),
+                mcp_types.ImageContent(
+                    type="image",
+                    data="base64data",
+                    mimeType="image/png",
+                ),
+            ])
+
+        server = Server("img-test", on_list_tools=_list, on_call_tool=_call)
+
+        async with _connected_client_session(server) as session:
+            provider = _InMemoryMcpToolsetProvider(toolset_id="ts1", session=session)
+            result = await provider.call(tool_name="picture", arguments={})
+
+        assert "see image" in result.output
+        assert result.extended is not None
+        assert "content" in result.extended
+        assert any(item.get("type") == "image" for item in result.extended["content"])
+
+
+# ---- HTTP transport tests --------------------------------------------------
+
+
+class TestHttpTransportConstructor:
+    def test_http_config_is_accepted(self) -> None:
+        provider = McpToolsetProvider(
+            toolset_id="ts1",
+            config=McpConfig(
+                transport=TransportType.HTTP,
+                config=HttpConfig(url="http://localhost:9999/mcp"),
+            ),
+        )
+        assert provider is not None
+
+
+class TestHttpTransportRouting:
+    """The HTTP success path is exercised by the gated integration smoke
+    test. Here we only assert that a request against an unreachable URL
+    surfaces as the right primer exception.
+    """
+
+    async def test_unreachable_endpoint_raises_primer_error(self) -> None:
+        # Regression (was @skip: "MCP SDK swallows transport exceptions in task
+        # groups; needs follow-up"). A refused/unreachable HTTP MCP connection
+        # must surface as a clean PrimerError -- NOT the raw RuntimeError the
+        # SDK's anyio task group leaked when torn down via AsyncExitStack in a
+        # different task ("Attempted to exit cancel scope in a different task
+        # than it was entered in"). That RuntimeError escaped as a generic 500
+        # and took the whole /v1/tools catalogue down. Fixed by structured
+        # nested `async with` in _open_session + materialising list_tools in a
+        # plain coroutine (no task group held across generator yields).
+        provider = McpToolsetProvider(
+            toolset_id="ts1",
+            config=McpConfig(
+                transport=TransportType.HTTP,
+                config=HttpConfig(url="http://127.0.0.1:1/does-not-exist"),
+            ),
+        )
+        with pytest.raises(PrimerError):
+            async for _ in provider.list_tools():
+                pass
+
+
+class TestHttpTransportSuccess:
+    """Unit-level coverage of the HTTP success path by patching the SDK."""
+
+    async def test_http_session_path_drives_initialise(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from contextlib import asynccontextmanager
+        from unittest.mock import AsyncMock, MagicMock
+
+        # Build a fake ClientSession that responds to list_tools.
+        fake_session = MagicMock()
+        fake_session.__aenter__ = AsyncMock(return_value=fake_session)
+        fake_session.__aexit__ = AsyncMock(return_value=None)
+        fake_session.initialize = AsyncMock()
+        fake_session.list_tools = AsyncMock(
+            return_value=mcp_types.ListToolsResult(tools=[])
+        )
+
+        @asynccontextmanager
+        async def fake_streamablehttp(**kwargs):
+            yield (object(), object())
+
+        monkeypatch.setattr(
+            "mcp.client.streamable_http.streamable_http_client",
+            fake_streamablehttp,
+        )
+        monkeypatch.setattr(
+            "primer.toolset.mcp.ClientSession",
+            lambda *args, **kwargs: fake_session,
+        )
+
+        provider = McpToolsetProvider(
+            toolset_id="ts1",
+            config=McpConfig(
+                transport=TransportType.HTTP,
+                config=HttpConfig(url="http://example.test/mcp"),
+            ),
+        )
+        tools = [t async for t in provider.list_tools()]
+        assert tools == []
+        fake_session.initialize.assert_awaited_once()
+
+    async def test_http_session_path_with_headers(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from contextlib import asynccontextmanager
+        from unittest.mock import AsyncMock, MagicMock
+
+        fake_session = MagicMock()
+        fake_session.__aenter__ = AsyncMock(return_value=fake_session)
+        fake_session.__aexit__ = AsyncMock(return_value=None)
+        fake_session.initialize = AsyncMock()
+        fake_session.list_tools = AsyncMock(
+            return_value=mcp_types.ListToolsResult(tools=[])
+        )
+
+        captured: dict[str, object] = {}
+
+        # mcp>=2.0: headers no longer reach streamable_http_client directly
+        # (it dropped headers= for an injected httpx.AsyncClient); primer's
+        # _open_session now builds that client via create_mcp_http_client
+        # (mcp.shared._httpx_utils), so headers are captured there instead.
+        built_client = object()
+
+        @asynccontextmanager
+        async def fake_create_mcp_http_client(**kwargs):
+            captured.update(kwargs)
+            yield built_client
+
+        @asynccontextmanager
+        async def fake_streamablehttp(**kwargs):
+            captured["transport_kwargs"] = kwargs
+            yield (object(), object())
+
+        monkeypatch.setattr(
+            "mcp.shared._httpx_utils.create_mcp_http_client",
+            fake_create_mcp_http_client,
+        )
+        monkeypatch.setattr(
+            "mcp.client.streamable_http.streamable_http_client",
+            fake_streamablehttp,
+        )
+        monkeypatch.setattr(
+            "primer.toolset.mcp.ClientSession",
+            lambda *args, **kwargs: fake_session,
+        )
+
+        provider = McpToolsetProvider(
+            toolset_id="ts1",
+            config=McpConfig(
+                transport=TransportType.HTTP,
+                config=HttpConfig(
+                    url="http://example.test/mcp",
+                    headers={"Authorization": "Bearer x"},
+                ),
+            ),
+        )
+        _ = [t async for t in provider.list_tools()]
+        # headers is dict[str, SecretStr] on the model (masked on every API
+        # read path); the REAL token must reach the wire, never the mask.
+        assert captured["headers"] == {"Authorization": "Bearer x"}
+        # ...and the client built WITH those headers must be the one handed
+        # to the SDK transport: streamable_http_client(http_client=None)
+        # silently builds its own headerless client, so dropping the
+        # http_client= argument would strip auth without any other test
+        # noticing (only the network-gated live e2e would catch it).
+        assert captured["transport_kwargs"]["http_client"] is built_client
+
+    async def test_http_session_path_initialise_failure_is_classified(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Exception from session.initialize() is wrapped via classify_mcp_exception."""
+        from contextlib import asynccontextmanager
+        from unittest.mock import AsyncMock, MagicMock
+
+        from primer.model.except_ import PrimerError
+
+        fake_session = MagicMock()
+        fake_session.__aenter__ = AsyncMock(return_value=fake_session)
+        fake_session.__aexit__ = AsyncMock(return_value=None)
+        fake_session.initialize = AsyncMock(side_effect=RuntimeError("boom"))
+
+        @asynccontextmanager
+        async def fake_streamablehttp(**kwargs):
+            yield (object(), object())
+
+        monkeypatch.setattr(
+            "mcp.client.streamable_http.streamable_http_client",
+            fake_streamablehttp,
+        )
+        monkeypatch.setattr(
+            "primer.toolset.mcp.ClientSession",
+            lambda *args, **kwargs: fake_session,
+        )
+
+        provider = McpToolsetProvider(
+            toolset_id="ts1",
+            config=McpConfig(
+                transport=TransportType.HTTP,
+                config=HttpConfig(url="http://example.test/mcp"),
+            ),
+        )
+        with pytest.raises(PrimerError):
+            async for _ in provider.list_tools():
+                pass
+
+
+class TestSseTransport:
+    """Legacy HTTP+SSE routes through mcp.client.sse.sse_client (not
+    streamable_http_client) and copes with its 2-tuple stream yield."""
+
+    def test_sse_config_is_accepted(self) -> None:
+        provider = McpToolsetProvider(
+            toolset_id="ts1",
+            config=McpConfig(
+                transport=TransportType.SSE,
+                config=HttpConfig(url="http://localhost:9999/mcp/sse"),
+            ),
+        )
+        assert provider is not None
+
+    async def test_sse_session_path_uses_sse_client(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from contextlib import asynccontextmanager
+        from unittest.mock import AsyncMock, MagicMock
+
+        fake_session = MagicMock()
+        fake_session.__aenter__ = AsyncMock(return_value=fake_session)
+        fake_session.__aexit__ = AsyncMock(return_value=None)
+        fake_session.initialize = AsyncMock()
+        fake_session.list_tools = AsyncMock(
+            return_value=mcp_types.ListToolsResult(tools=[])
+        )
+
+        used = {"sse": False, "streamable": False}
+
+        @asynccontextmanager
+        async def fake_sse(**kwargs):
+            used["sse"] = True
+            # Both transports yield a 2-tuple (read, write) in mcp>=2.0;
+            # this stub is a tripwire proving streamable-http is never
+            # invoked for an SSE-configured provider, not a shape check.
+            yield (object(), object())
+
+        @asynccontextmanager
+        async def fake_streamablehttp(**kwargs):
+            used["streamable"] = True
+            yield (object(), object())
+
+        monkeypatch.setattr("mcp.client.sse.sse_client", fake_sse)
+        monkeypatch.setattr(
+            "mcp.client.streamable_http.streamable_http_client",
+            fake_streamablehttp,
+        )
+        monkeypatch.setattr(
+            "primer.toolset.mcp.ClientSession",
+            lambda *args, **kwargs: fake_session,
+        )
+
+        provider = McpToolsetProvider(
+            toolset_id="ts1",
+            config=McpConfig(
+                transport=TransportType.SSE,
+                config=HttpConfig(url="http://example.test/mcp/sse"),
+            ),
+        )
+        tools = [t async for t in provider.list_tools()]
+        assert tools == []
+        fake_session.initialize.assert_awaited_once()
+        assert used["sse"] is True
+        assert used["streamable"] is False
+
+
+class _StdioLifecycle:
+    """Test double tracking per-dispatch stdio subprocess lifecycle.
+
+    ``starts`` counts how many subprocesses were launched (one
+    ``stdio_client`` ``__aenter__`` each); ``closes`` counts how many
+    were torn down (``__aexit__``). ``live`` is starts minus closes --
+    the number of subprocesses currently running. A correct
+    per-dispatch implementation always returns ``live == 0`` after every
+    dispatch completes.
+    """
+
+    def __init__(self) -> None:
+        self.starts = 0
+        self.closes = 0
+        self.initialises = 0
+
+    @property
+    def live(self) -> int:
+        return self.starts - self.closes
+
+    def install(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from contextlib import asynccontextmanager
+        from unittest.mock import AsyncMock, MagicMock
+
+        outer = self
+
+        @asynccontextmanager
+        async def fake_stdio_client(params):
+            outer.starts += 1
+            try:
+                yield (object(), object())
+            finally:
+                # Closing the stdio_client context is what terminates
+                # the subprocess + closes the pipes in the real SDK.
+                outer.closes += 1
+
+        def make_session(*args, **kwargs):
+            session = MagicMock()
+            session.__aenter__ = AsyncMock(return_value=session)
+            session.__aexit__ = AsyncMock(return_value=None)
+
+            async def _initialize():
+                outer.initialises += 1
+
+            session.initialize = AsyncMock(side_effect=_initialize)
+            session.list_tools = AsyncMock(
+                return_value=mcp_types.ListToolsResult(tools=[])
+            )
+            session.call_tool = AsyncMock(
+                return_value=mcp_types.CallToolResult(
+                    content=[mcp_types.TextContent(type="text", text="ok")],
+                    isError=False,
+                )
+            )
+            return session
+
+        monkeypatch.setattr("primer.toolset.mcp.stdio_client", fake_stdio_client)
+        monkeypatch.setattr("primer.toolset.mcp.ClientSession", make_session)
+
+
+class TestStdioEnvSecrets:
+    """``StdioConfig.env`` is ``dict[str, SecretStr]`` so API reads mask it.
+    The launched subprocess must still get the real credential."""
+
+    async def test_subprocess_env_receives_plaintext_not_mask(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from contextlib import asynccontextmanager
+        from unittest.mock import AsyncMock, MagicMock
+
+        captured: dict[str, object] = {}
+
+        @asynccontextmanager
+        async def fake_stdio_client(params):
+            captured["env"] = params.env
+            yield (object(), object())
+
+        def make_session(*args, **kwargs):
+            session = MagicMock()
+            session.__aenter__ = AsyncMock(return_value=session)
+            session.__aexit__ = AsyncMock(return_value=None)
+            session.initialize = AsyncMock()
+            session.list_tools = AsyncMock(
+                return_value=mcp_types.ListToolsResult(tools=[])
+            )
+            return session
+
+        monkeypatch.setattr("primer.toolset.mcp.stdio_client", fake_stdio_client)
+        monkeypatch.setattr("primer.toolset.mcp.ClientSession", make_session)
+
+        provider = McpToolsetProvider(
+            toolset_id="ts1",
+            config=McpConfig(
+                transport=TransportType.STDIO,
+                config=StdioConfig(
+                    command=["fake-mcp"],
+                    env={"API_KEY": "sk-live-123"},
+                ),
+            ),
+        )
+        _ = [t async for t in provider.list_tools()]
+        assert captured["env"] == {"API_KEY": "sk-live-123"}
+
+
+class TestStdioSessionLifecycle:
+    """Per-dispatch stdio lifecycle: a dispatch starts a subprocess and
+    closes it when done; concurrent/sequential dispatches each get a
+    fresh one; cleanup happens even on error."""
+
+    def _provider(self) -> McpToolsetProvider:
+        return McpToolsetProvider(
+            toolset_id="ts1",
+            config=McpConfig(
+                transport=TransportType.STDIO,
+                config=StdioConfig(command=["fake-mcp", "--root", "/tmp"]),
+            ),
+        )
+
+    async def test_dispatch_starts_then_closes_subprocess(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        lc = _StdioLifecycle()
+        lc.install(monkeypatch)
+        provider = self._provider()
+
+        tools = [t async for t in provider.list_tools()]
+
+        assert tools == []
+        assert lc.starts == 1
+        # The subprocess must be terminated once the dispatch completes.
+        assert lc.closes == 1
+        assert lc.live == 0
+
+    async def test_second_dispatch_starts_fresh_subprocess(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        lc = _StdioLifecycle()
+        lc.install(monkeypatch)
+        provider = self._provider()
+
+        # Two separate dispatches: each must launch + tear down its own
+        # subprocess and re-run the init handshake (no caching).
+        await provider.call(tool_name="echo", arguments={})
+        await provider.call(tool_name="echo", arguments={})
+
+        assert lc.starts == 2
+        assert lc.closes == 2
+        assert lc.initialises == 2
+        assert lc.live == 0
+
+    async def test_concurrent_dispatches_do_not_share_subprocess(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        lc = _StdioLifecycle()
+        lc.install(monkeypatch)
+        provider = self._provider()
+
+        await asyncio.gather(
+            provider.call(tool_name="echo", arguments={}),
+            provider.call(tool_name="echo", arguments={}),
+            provider.call(tool_name="echo", arguments={}),
+        )
+
+        # Each concurrent dispatch gets its own subprocess; none shared.
+        assert lc.starts == 3
+        assert lc.closes == 3
+        assert lc.live == 0
+
+    async def test_multiple_calls_within_one_dispatch_reuse_subprocess(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        lc = _StdioLifecycle()
+        lc.install(monkeypatch)
+        provider = self._provider()
+
+        # A single dispatch that issues several tool calls over one
+        # _open_session context must reuse the one subprocess and only
+        # tear it down at the end.
+        async with provider._open_session() as session:
+            await session.call_tool("echo", arguments={})
+            await session.call_tool("echo", arguments={})
+            await session.call_tool("echo", arguments={})
+            assert lc.starts == 1
+            assert lc.live == 1  # still alive mid-dispatch
+            assert lc.initialises == 1  # handshake ran once for the dispatch
+
+        # Closed at the end of the dispatch.
+        assert lc.closes == 1
+        assert lc.live == 0
+
+    async def test_subprocess_closed_when_tool_call_raises(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        lc = _StdioLifecycle()
+        lc.install(monkeypatch)
+        provider = self._provider()
+
+        from primer.model.except_ import PrimerError
+
+        # call_tool raises mid-dispatch -- the subprocess must still be
+        # torn down by the try/finally in _open_session.
+        async def _boom(*args, **kwargs):
+            raise RuntimeError("kaboom")
+
+        async with provider._open_session() as session:
+            pass  # prime the lifecycle counters
+        assert lc.live == 0  # sanity: that dispatch already closed
+
+        # Now drive a failing call through the real `call` entrypoint.
+        def make_failing_session(*args, **kwargs):
+            from unittest.mock import AsyncMock, MagicMock
+
+            session = MagicMock()
+            session.__aenter__ = AsyncMock(return_value=session)
+            session.__aexit__ = AsyncMock(return_value=None)
+            session.initialize = AsyncMock()
+            session.call_tool = AsyncMock(side_effect=RuntimeError("kaboom"))
+            return session
+
+        monkeypatch.setattr(
+            "primer.toolset.mcp.ClientSession", make_failing_session
+        )
+        before_closes = lc.closes
+        before_starts = lc.starts
+        with pytest.raises(PrimerError):
+            await provider.call(tool_name="echo", arguments={})
+
+        # One new subprocess started and one closed despite the error.
+        assert lc.starts == before_starts + 1
+        assert lc.closes == before_closes + 1
+        assert lc.live == 0
+
+    async def test_stdio_session_initialise_failure_propagates(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from contextlib import asynccontextmanager
+        from unittest.mock import AsyncMock, MagicMock
+
+        starts = {"n": 0}
+        closes = {"n": 0}
+
+        fake_session = MagicMock()
+        fake_session.__aenter__ = AsyncMock(return_value=fake_session)
+        fake_session.__aexit__ = AsyncMock(return_value=None)
+        fake_session.initialize = AsyncMock(side_effect=RuntimeError("boom"))
+
+        @asynccontextmanager
+        async def fake_stdio_client(params):
+            starts["n"] += 1
+            try:
+                yield (object(), object())
+            finally:
+                closes["n"] += 1
+
+        monkeypatch.setattr(
+            "primer.toolset.mcp.stdio_client",
+            fake_stdio_client,
+        )
+        monkeypatch.setattr(
+            "primer.toolset.mcp.ClientSession",
+            lambda *args, **kwargs: fake_session,
+        )
+
+        provider = McpToolsetProvider(
+            toolset_id="ts1",
+            config=McpConfig(
+                transport=TransportType.STDIO,
+                config=StdioConfig(command=["fake-mcp"]),
+            ),
+        )
+        # Since the 2026-08-23 catalogue fix, session ENTER failures
+        # classify onto the primer hierarchy like listing failures do -
+        # a raw RuntimeError escaping here is what let a broken toolset
+        # 500 the whole /v1/tools catalogue.
+        with pytest.raises(PrimerError, match="boom"):
+            async for _ in provider.list_tools():
+                pass
+        # Even when initialize fails, the half-built subprocess is closed.
+        assert starts["n"] == 1
+        assert closes["n"] == 1
+
+    async def test_aclose_is_noop(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        lc = _StdioLifecycle()
+        lc.install(monkeypatch)
+        provider = self._provider()
+
+        # aclose has no long-lived state to free and must be safe to call
+        # repeatedly, including before any dispatch.
+        await provider.aclose()
+        await provider.aclose()
+        assert lc.starts == 0
+        assert lc.live == 0
+
+
+class TestSessionRequestErrors:
+    """Cover the list_tools/call exception-wrapping branches."""
+
+    async def test_list_tools_session_failure_is_classified(self) -> None:
+        from unittest.mock import AsyncMock, MagicMock
+
+        from primer.model.except_ import PrimerError
+
+        fake_session = MagicMock()
+        fake_session.list_tools = AsyncMock(side_effect=RuntimeError("kaboom"))
+
+        provider = _InMemoryMcpToolsetProvider(toolset_id="ts1", session=fake_session)
+        with pytest.raises(PrimerError):
+            async for _ in provider.list_tools():
+                pass
+
+    async def test_call_session_failure_is_classified(self) -> None:
+        from unittest.mock import AsyncMock, MagicMock
+
+        from primer.model.except_ import PrimerError
+
+        fake_session = MagicMock()
+        fake_session.call_tool = AsyncMock(side_effect=RuntimeError("kaboom"))
+
+        provider = _InMemoryMcpToolsetProvider(toolset_id="ts1", session=fake_session)
+        with pytest.raises(PrimerError):
+            await provider.call(tool_name="echo", arguments={})
+
+
+# ---- OAuth integration tests ----------------------------------------------
+
+
+class TestMcpOAuthIntegration:
+    def test_complete_oauth_with_handler_dispatches(self, monkeypatch) -> None:
+        from unittest.mock import AsyncMock
+
+        from primer.model.provider import OAuthConfig
+        from primer.toolset.oauth.handler import PrimerOAuthHandler
+
+        config = OAuthConfig(redirect_uri="https://app.example/cb")
+        handler = PrimerOAuthHandler(
+            oauth_config=config,
+            mcp_url="https://mcp.example/mcp",
+            toolset_id="ts1",
+        )
+        complete_mock = AsyncMock()
+        monkeypatch.setattr(handler, "complete_oauth", complete_mock)
+
+        provider = McpToolsetProvider(
+            toolset_id="ts1",
+            config=McpConfig(
+                transport=TransportType.HTTP,
+                config=HttpConfig(url="https://mcp.example/mcp"),
+            ),
+            oauth=handler,
+        )
+
+        async def _go():
+            await provider.complete_oauth(code="c", state="s")
+
+        asyncio.run(_go())
+        complete_mock.assert_awaited_once_with(code="c", state_id="s")
+
+    async def test_oauth_authorize_raises_auth_required_propagates_to_list_tools(
+        self, monkeypatch
+    ) -> None:
+        from primer.model.except_ import AuthRequiredError
+        from primer.model.provider import OAuthConfig
+        from primer.toolset.oauth.handler import PrimerOAuthHandler
+
+        config = OAuthConfig(redirect_uri="https://app.example/cb")
+        handler = PrimerOAuthHandler(
+            oauth_config=config,
+            mcp_url="https://mcp.example/mcp",
+            toolset_id="ts1",
+        )
+
+        async def _raise(*, principal):
+            raise AuthRequiredError(
+                "consent",
+                auth_url="https://idp.example/auth",
+                state="state-id",
+            )
+        monkeypatch.setattr(handler, "authorize", _raise)
+
+        provider = McpToolsetProvider(
+            toolset_id="ts1",
+            config=McpConfig(
+                transport=TransportType.HTTP,
+                config=HttpConfig(url="https://mcp.example/mcp"),
+            ),
+            oauth=handler,
+        )
+        with pytest.raises(AuthRequiredError):
+            async for _ in provider.list_tools(principal="u-1"):
+                pass
+
+
+class TestBrokenStdioHandshake:
+    """Regression (2026-08-23): a stdio command that is not an MCP server.
+
+    ``echo`` launches fine, prints nothing JSONRPC, and exits; the mcp
+    client's own task group then CANCELS ``initialize()``, so the failure
+    arrived as CancelledError - a BaseException the old
+    ``except Exception`` missed. The half-entered AsyncExitStack leaked,
+    the event loop finalized its generators in a different task, and
+    anyio's cancel-scope wreckage cancelled the CALLER at a later await:
+    GET /v1/tools answered a blanket 500 for one broken toolset.
+    """
+
+    @pytest.mark.asyncio
+    async def test_handshake_failure_is_a_config_error_not_a_cancel(self) -> None:
+        provider = McpToolsetProvider(
+            toolset_id="broken-stdio",
+            config=McpConfig(
+                transport=TransportType.STDIO,
+                config=StdioConfig(command=["echo"]),
+            ),
+        )
+        with pytest.raises(PrimerError) as ei:
+            async for _tool in provider.list_tools():
+                pass  # pragma: no cover - the handshake must fail first
+        assert not isinstance(ei.value, asyncio.CancelledError)
+
+    @pytest.mark.asyncio
+    async def test_the_caller_survives_the_failure(self) -> None:
+        # The leaked pending-cancel used to re-fire at the caller's next
+        # await; prove the calling task keeps running normally.
+        provider = McpToolsetProvider(
+            toolset_id="broken-stdio-2",
+            config=McpConfig(
+                transport=TransportType.STDIO,
+                config=StdioConfig(command=["echo"]),
+            ),
+        )
+        try:
+            async for _tool in provider.list_tools():
+                pass  # pragma: no cover
+        except PrimerError:
+            pass
+        # A poisoned task would die on any of these awaits.
+        for _ in range(3):
+            await asyncio.sleep(0)
+        assert True

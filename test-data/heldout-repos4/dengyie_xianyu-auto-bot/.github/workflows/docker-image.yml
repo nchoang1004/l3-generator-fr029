@@ -1,0 +1,190 @@
+﻿name: Build and Push Docker Image
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Image tag (e.g., v1.0.0)'
+        required: true
+        default: 'latest'
+  release:
+    types:
+      - published
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'push' }}
+
+jobs:
+  # 部署门禁：此前 push main 时 Test 与本 workflow 并行、互不依赖，
+  # 测试失败照样构建部署；现把 pytest 纳入 needs 链。
+  pytest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DB_PATH: ':memory:'
+      SQL_LOG_ENABLED: 'false'
+      XY_SLIDER_DRISSION_FALLBACK: 'false'
+      XY_SLIDER_REMOTE_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.11.28'
+          enable-cache: true
+          python-version: '3.11'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Create virtual environment
+        run: |
+          uv venv .venv --python 3.11
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+
+      - name: Verify dependency lock
+        # Test workflow 也有此校验；部署链不能假定它跑过（fail 的 Test 不阻断本 job）
+        run: |
+          uv pip compile requirements.txt \
+            --python-version 3.11 \
+            --python-platform x86_64-unknown-linux-gnu \
+            --generate-hashes \
+            --no-emit-package slidex \
+            --output-file requirements.lock
+          git diff --exit-code -- requirements.lock
+
+      - name: Install dependencies
+        run: |
+          uv pip install --python .venv/bin/python --require-hashes -r requirements.lock
+          # slidex 单一事实源 = requirements.txt（禁止再硬编码 commit，防三处 pin 漂移）
+          SLIDEX_REQ=$(grep -E '^slidex[[:space:]]*@' requirements.txt | head -1)
+          echo "slidex requirement: $SLIDEX_REQ"
+          uv pip install --python .venv/bin/python --no-deps "$SLIDEX_REQ"
+
+      - name: Prepare runtime directories
+        run: mkdir -p logs data backups static/uploads/images trajectory_history
+
+      - name: Run test suite
+        run: |
+          set -o pipefail
+          timeout --signal=KILL 480 python -m pytest -q --tb=line
+
+      - name: Undefined-name guard (pyflakes F821)
+        run: |
+          uv pip install --python .venv/bin/python --quiet pyflakes
+          if python -m pyflakes *.py utils/*.py db_manager/*.py app/*.py app/api/*.py app/api/routers/*.py app/application/*/*.py app/domain/*/*.py | grep "undefined name"; then
+            echo "::error::undefined names detected (F821)"
+            exit 1
+          fi
+
+  build-and-push:
+    needs: pytest
+    permissions:
+      contents: read
+      packages: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ github.event.inputs.tag }},enable=${{ github.event_name == 'workflow_dispatch' }}
+            type=sha,enable=${{ github.event_name == 'push' }},format=short
+
+      - name: Build and push multi-arch images
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy-to-tencent:
+    # 镜像构建成功后自动部署到腾讯轻量云生产（仅 push to main 触发）
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # 与 cleanup.yml 共用串行组：prune 与 pull 并发会撞 containerd ingest（2026-09-05 踩过）
+    concurrency:
+      group: tencent-docker-serial
+      cancel-in-progress: false
+    env:
+      SSH_HOST: ${{ secrets.XIANYU_DEPLOY_HOST }}
+    steps:
+      - name: Setup deploy key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.XIANYU_DEPLOY_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Pull image on tencent
+        run: |
+          # 腾讯轻量云拉取 GHCR 镜像经跨境链路，偶有超时断流；带重试保证拉取成功
+          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o User=root "$SSH_HOST" 'bash -s' << 'DEPLOY_SCRIPT'
+          for attempt in 1 2 3; do
+            echo "Pulling xianyu-app image (attempt $attempt)..."
+            if sudo docker compose -f /opt/xianyu-auto-bot/docker-compose.yml pull xianyu-app; then
+              echo "Pull succeeded"
+              exit 0
+            fi
+            echo "Pull attempt $attempt failed, retrying in 15s..."
+            sleep 15
+          done
+          echo "::error::Pull failed after 3 attempts"
+          exit 1
+          DEPLOY_SCRIPT
+
+      - name: Recreate container on tencent
+        run: |
+          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o User=root "$SSH_HOST" \
+            'sudo docker compose -f /opt/xianyu-auto-bot/docker-compose.yml up -d --no-build --no-deps --force-recreate xianyu-app'
+
+      - name: Health check
+        # 冷启动可能数分钟才 healthy，单次 sleep+curl 会误报红；
+        # 循环探测至 healthy，5 分钟仍失败才判红。
+        # -f：HTTP >=4xx 视为失败；grep：必须含 "status":"healthy"，防 5xx/降级响应误判
+        run: |
+          for i in $(seq 1 30); do
+            if ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o User=root "$SSH_HOST" \
+              'curl -fsS --noproxy "*" -m 5 http://127.0.0.1:9000/health' | grep -q '"status":"healthy"'; then
+              echo "healthy after attempt $i"
+              exit 0
+            fi
+            echo "attempt $i not healthy yet, retrying in 10s..."
+            sleep 10
+          done
+          echo "::error::health check failed after 5 minutes"
+          exit 1

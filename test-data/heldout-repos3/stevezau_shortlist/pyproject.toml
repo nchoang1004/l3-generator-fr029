@@ -1,0 +1,112 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "shortlist"
+description = "Private recommendation rows for every user on your Plex server, with optional AI"
+readme = "README.md"
+license = "MIT"
+# A genuine floor (3.12 syntax/stdlib is used), NOT a support claim: the shipped
+# artifact is one Docker image built FROM python:3.12-slim, and CI tests only 3.12.
+# Deliberately left open-ended rather than capped at <3.13 — a hard cap makes
+# `pip install -e .` fail outright for contributors on a newer interpreter, and the
+# code runs fine on them. The classifiers below state what's actually tested.
+requires-python = ">=3.12"
+dynamic = ["version"]
+authors = [{ name = "Steven Adams" }]
+keywords = ["plex", "recommendations", "self-hosted", "llm"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "plexapi>=4.17",
+    "httpx>=0.27",
+    "loguru>=0.7",
+    "pydantic>=2.7",
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+    "sqlalchemy>=2.0",
+    "alembic>=1.13",
+    "apscheduler>=3.10,<4",
+    "itsdangerous>=2.1",
+    "cryptography>=42.0",
+    "python-multipart>=0.0.9",
+    "mcp==2.3.0",
+    "Authlib==1.8.0",
+    # The PMS notification socket (`watch_stream`). Already in the lock transitively via uvicorn's
+    # standard extras, but declared here because we import it directly — a transitive dependency that
+    # disappears when uvicorn changes its extras would break the only source of partial-watch data.
+    # >=14, not >=13: `websockets.connect` only became the asyncio client in 14.0. On 13.x it is the
+    # legacy client, which takes `extra_headers` rather than `additional_headers` and whose `recv()`
+    # is not documented as cancellation-safe — and `_listen` races it against the stop event with `ensure_future` + `wait`.
+    "websockets>=14",
+]
+
+[project.optional-dependencies]
+anthropic = ["anthropic>=0.40"]
+openai = ["openai>=1.40"]
+google = ["google-genai>=1.0"]
+posters = ["pillow>=10.0"]
+dev = [
+    "pytest>=8.0",
+    "pytest-xdist>=3.5",
+    "pytest-cov>=5.0",
+    # Duration-balanced CI sharding (see ci.yml's test-python matrix). Splitting by test
+    # COUNT instead would be badly skewed — measured 51% of the suite's work in one third.
+    "pytest-split>=0.9",
+    "hypothesis>=6.100",
+    "ruff>=0.5",
+    "respx>=0.21",
+    "playwright>=1.45",
+    "pytest-rerunfailures>=14.0",
+    "pillow>=10.0",  # so the poster text-renderer + upload-normalization tests run in CI
+
+    # Local commit guard: runs the same ruff check + ruff format CI enforces, so a format slip is
+    # caught at `git commit`, not in GitHub. Activate once per clone with `pre-commit install`.
+    "pre-commit>=3.7",
+]
+
+[project.urls]
+Homepage = "https://github.com/stevezau/shortlist"
+Issues = "https://github.com/stevezau/shortlist/issues"
+
+[project.scripts]
+shortlist-mcp-stdio = "shortlist.server.assistant.stdio_bridge:main"
+
+[tool.hatch.version]
+path = "shortlist/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["shortlist"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["shortlist"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# tests.scratch enforces disk-backed storage and these bounds, including CLI overrides.
+tmp_path_retention_count = 2
+tmp_path_retention_policy = "failed"
+# e2e needs a built SPA + a browser; it runs in its own CI job via `pytest -m e2e`.
+# Keep ordinary runs bounded on shared hosts, regardless of the host's CPU count.
+addopts = "-n 2 -m 'not e2e' --cov=shortlist --cov-report=term-missing"
+markers = [
+    "integration: crosses module boundaries",
+    "plex: requires a real Plex server (skipped in CI)",
+    "slow: long-running",
+    "real_migrations: needs an empty config dir, not the pre-seeded schema template",
+    "e2e: Playwright vs an in-process app (uvicorn + built SPA) + fake_plex",
+]
+
+[tool.coverage.report]
+fail_under = 80

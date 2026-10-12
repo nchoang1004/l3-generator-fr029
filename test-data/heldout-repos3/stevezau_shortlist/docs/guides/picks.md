@@ -1,0 +1,234 @@
+---
+title: Choosing what goes in a row
+description: Where candidate titles come from, how often a row changes, how to override any of it per row or per person, and how to stop one watch skewing someone's picks.
+heading: What goes in a row
+nav_order: 3
+---
+
+## Recommendation sources
+
+Settings → Defaults → **Title sources** controls where candidate titles come from. Shortlist pools every source
+you enable, keeps only what's already in your library, then ranks them with a simple no-AI score and
+writes each pick's "why" in code. More sources means wider reach. Available today:
+
+- **TMDB, similar titles.** The baseline. Titles TMDB says are similar to what each person watched.
+- **TMDB, discover by taste.** Widens into popular, well-rated titles in the genres each person leans
+  toward, derived from their watch history.
+- **Trakt, related titles.** Needs a Trakt API key, added in Connections. Uses Trakt's recommendation
+  graph, which often surfaces "what to watch next" picks that TMDB's similar list misses. Trakt now
+  requires a paid **VIP** subscription to create an API key, so this source is only available if you
+  have one. Everything else here works without it.
+- **AI web search for what to watch next.** Searches the live web for current, well-reviewed titles,
+  then resolves each against your library. This reaches beyond TMDB and Trakt to fresh releases and
+  critics' lists.
+
+  It works on **every** provider. Choose its **Search backend** in Settings → Connections → Web
+  search: your provider's own web search (Claude, GPT or Gemini), an **Exa** key, or your own
+  self-hosted **SearXNG** — either external works with any provider, including a local Ollama model.
+  Exactly one backend is used, and its credentials live on that same card.
+
+Each row also chooses **which libraries** it builds in, using the row editor's Libraries picker. A
+Plex collection lives in one library, so a row builds one collection per library you tick. Leave them
+all ticked, the default, to cover every library, or point a row at just one such as "4K Movies" on a
+server with several libraries of a type. What the row recommends, movies or shows or both, follows
+the libraries you pick.
+
+### How often rows rebuild, already-watched, and cost
+
+Settings → Defaults → Refresh & variety has five more dials, each of which a row can override:
+
+- **How often it changes**, called **How often rows rebuild** in Settings where the global lives.
+  A number of days, so it says what it does: `1` rebuilds every night, `7` weekly, `30` monthly, and
+  `0` means build once and never reshuffle.
+
+  On most nights an unchanged row is left exactly as it is, with no rebuild and no Plex write, which
+  is why a person's row stays familiar instead of being reshuffled daily. On a rebuild night the
+  strongest two-thirds or so of the picks stay and the weakest third rotates out. The default is
+  `8` days. If you trigger two runs the same day, a row that isn't due won't change. That is
+  expected.
+
+- **Hold rows for inactive viewers**, called **Hold when they aren't watching** in the row editor.
+  A number of days; `0` (the default) turns it off, so a row rebuilds on its normal cadence whatever
+  its owner has been watching.
+
+  **Set it higher than the rebuild cadence, or it does nothing.** A row is rebuilt on its due night,
+  so by its next due night it is exactly one cadence old — and the hold releases at that age. A row
+  rebuilding every 30 days with a 30-day hold therefore never holds at all. Settings and the row
+  editor warn you when the two cancel, and `/api/support/row-schedule` names any row where the hold
+  has no effect.
+
+  The exception is a row **named after a watch** (`{top_seed}`), which Shortlist rebuilds nightly
+  whatever its cadence says — so any hold above one day works there, and that is the row the wizard
+  creates. A **frozen** row (cadence `0`) never rebuilds at all, so a hold does nothing on it.
+
+  Turn it on and a row that is due to rebuild is left alone while the person it belongs to has not
+  watched anything since that row was last built — there is nothing new to base a rebuild on, and
+  skipping it saves a write to Plex for every row held. The number is a **ceiling**, not a freeze:
+  once the row is that many days old it rebuilds anyway, however quiet the person has been. That
+  matters, because the row nobody watches is exactly the one that most needs to look different next
+  time they open Plex.
+
+  Two rows never hold. A **shared** row has no single owner whose watching could be idle. A row that
+  **cycles its seed** (Seed window above 1) advances one watch per rebuild by design, so holding it
+  would stop the rotation rather than delay it. The row editor hides the control for both.
+
+  Two things also override a hold in progress, so neither waits for the ceiling: changing a setting
+  that decides the row's titles (including blocking a seed), and a row named after a watch whose seed
+  has moved — which is what happens if someone marks their most recent title unwatched.
+
+  When a row is held you can see it: open that run, pick the person, and the row's line in
+  **Delivered** says it was its night to rebuild and why it was left alone. `/api/support/row-schedule`
+  reports the ceiling beside the cadence for every row.
+
+  It saves **Plex writes**, not AI cost. Finding candidate titles happens before the rebuild decision
+  on every path, at every cadence, so a held row costs the same to think about as a rebuilt one — it
+  just doesn't get written.
+
+- **Recent releases.** How much a title's **release date** counts when Shortlist ranks it. At
+  `0.0` release date is ignored entirely: a well-rated 1996 film and a well-rated 2024 one are
+  judged the same, which is why rows can fill up with older titles. Turn it up and newer titles rank
+  higher.
+
+  The default is `0.5` — "leans towards recent releases". Age-blind is not the neutral setting it
+  looks like: a library holds decades of catalog against a trickle of new releases, so a ranker with
+  no opinion about age just inherits that skew.
+
+  **This applies to existing servers too.** Upgrading to the release that introduced it shifts each
+  row towards newer titles on its next rebuild night — staggered by each row's cadence rather than
+  all at once. Nothing about who can see what changes, and setting the slider to `0` turns release
+  date back out of the ranking entirely.
+
+  It is a preference, not a filter. Nothing is excluded for being old — an older title simply has
+  to be a better match to win a slot, so a classic three of someone's watches point at still beats a
+  forgettable new release. At `1.0`, roughly every 8 years of age halves a title's ranking weight;
+  at `0.5` it takes about 16 years. The slider shows a live strip of what each era is worth so you
+  can see the trade before you save it.
+
+  This is **not** the rebuild cadence. That is how often a row re-picks; this is which titles win when it
+  does. A row can rebuild every night and still be full of 1990s films — that pairing is exactly
+  what this dial is for.
+
+- **Already-watched titles.** How much of a partly-watched title still counts as watched and gets
+  filtered out. The default keeps anything finished out of the picks.
+- **Watches the AI web search looks up.** How many of each person's recent titles the AI web-search
+  source looks up, one cached search each, taken off the front of the list above. This is the main
+  cost lever on that source. Lower it to spend fewer tokens and web searches.
+
+### If a watched title still gets recommended
+
+This is rare, because Shortlist reads each person's **complete** watched set from Plex every run,
+including titles they only _marked_ watched, whether ticked off individually or a whole season at
+once, rather than played.
+
+It reads the library _as that user_, with the per-user access key Plex mints for every share, and
+counts anything with a play count above zero — plays and marks alike, at any depth. There is nothing
+to configure, and it works whether or not Shortlist runs on the same machine as Plex. Plex's own
+playback-history feed would not do: it reports plays only, and stops at roughly the most recent 200 —
+on one real server it saw about **1,000** of a user's watched titles where reading the library in
+full found around **13,000**.
+
+When it does happen, it is almost always timing. **The read is per-run, so a title you mark watched
+after the last run stays eligible until the next one.** To fix it immediately without waiting for a
+scheduled run, go to **Activity → Jobs → Sync watch history**. That re-reads every user's watched set right now,
+writes nothing to Plex, and updates what Shortlist knows, including the "N titles watched" count on
+the Users page. Any run after that leaves the title out.
+
+### Any row can override all of this
+
+Settings → Defaults → Refresh & variety sets what a row uses **unless the row says otherwise**. Open any row
+(Rows → Edit) and it defines its own recipe:
+
+| In the row editor                                    | What it overrides                                                                         |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| **Recommendation sources**                           | Switch to "Choose for this row" and tick its own sources                                  |
+| **Libraries**                                        | Which Plex libraries it builds in, which also sets what it recommends                     |
+| **How often it changes**, **Already-watched titles** | How often it refreshes, and how much already-watched it allows                            |
+| **Hold when they aren't watching**                  | How long it waits when its owner has watched nothing since it was built                  |
+| **Recent releases**                                  | How much release date counts for this row — a “new and notable” shelf, or one that digs up older films |
+| **Row size**, **Audience**                           | How many titles, and who gets it                                                          |
+| **Watches the AI web search looks up**               | How many recent watches AI web search looks up for this row (shown only on rows using it) |
+| **Request tag**                                      | The Radarr or Sonarr tag on titles requested for this row's audience                      |
+
+So a "What to watch next" row can be Trakt-only, a "Hidden gems" row can use AI web search alone
+pointed at just your 4K library with **Recent releases** turned all the way down, a "New & notable"
+row can turn the same dial all the way up, and your default "Picked for You" can stay on the global
+settings.
+All on the same server, all at once. The Rows list shows each row's overrides on its card, so you can
+see at a glance which rows differ.
+
+A row left on "Use global default" stays in sync with Settings → Defaults → Refresh & variety.
+
+**You can go one step finer, per person.** Row size and recent-watches depth can also be set for a
+single person on a single row. Open that person (Users → click them), find the row, and use
+**Customize for this person**. Their value wins over the row's, which wins over the global default.
+Leave a customization on "default" and that person follows the row like everyone else.
+
+**There is one exception, the seeded "Picked for You" row.** Its **name** and **size** always follow
+the global Settings under Row defaults so they stay in sync everywhere, and the row editor points you
+there instead of offering its own. Its sources, libraries and audience are its own, exactly like any
+other row.
+
+**Changes clean up Plex right away.** You don't have to wait for a run:
+
+- **Delete a row.** Its collections are removed from Plex immediately, for everyone who had it. That
+  includes rows whose title is built from a person's top pick, which Shortlist finds by the exact
+  title the last run delivered. The titles stay in your library; only the row goes.
+- **Rename a row.** Its collection is retitled in place for every user, so nothing is orphaned.
+- **Disable a user, or drop someone from a row's audience.** That person's now-stale collections are
+  removed immediately.
+- **Remove from Plex**, under **Remove or delete** on a row. Clears a row's collections on demand without deleting
+  the row's settings. Handy to force a rebuild on the next run.
+- **Disable a row**, its on/off switch. Its collection comes off Plex Home on the next run. A row
+  whose title is dynamic, built from a top pick, is left for that rebuild; use **Remove or delete →
+  Remove from Plex** if you want it gone right now. Everything left in place stays private, because the row's label keeps it
+  excluded from everyone else.
+
+## Blocking a seed
+
+A **seed** is one of a person's recent watches that Shortlist searches from. When a watch isn't
+really them, such as a film they put on for someone else or a genre they don't want more of, block
+it. The watch stays in their history, it just stops shaping their picks.
+
+The natural place to do it is a run's **How we picked** page, on the seeds list, since a bad seed is
+usually what you noticed in the first place. There is also a search box on a person's detail page
+(**Users → someone → Settings → Blocked titles**) for a title you remember but can't find a run for.
+
+Blocks are personal. A **shared** row is public, so one person's block does _not_ reshape what
+everyone else sees. Otherwise an individual preference would become a server-wide edit nobody else
+can see or undo. Shared rows have their own server-wide block list instead.
+
+## Letting people block their own
+
+Blocking is something only you can do, which means anyone who wants a bad seed gone has to message
+you about it. **Respect Plex ratings** (Settings → Defaults → Refresh & variety) closes that gap: when someone
+rates a title 1 star or gives it a thumbs-down in Plex, it stops being used to find similar things
+for them, exactly as if you had blocked it.
+
+Nothing changes for them. They rate it in Plex, on the screen they just finished watching on. There
+is no Shortlist account, no login, and nothing for you to do per person.
+
+A few things worth knowing:
+
+- **A rating they haven't given changes nothing.** Only a low rating acts, so this is silent for the
+  majority of people, who rate nothing at all.
+- **Ratings land on the next sync, however old the title.** The sync re-reads every watched title
+  each time it runs, and a rating rides along with it, so rating something you saw months ago counts
+  just as quickly as rating last night's film.
+- **A title stops seeding only if it was going to seed.** Rows are built from someone's most recent
+  watches, so disliking a film from two years ago is recorded but changes nothing — it was never
+  going to be picked as a seed. The rating matters when it's something they saw lately.
+- **Shared rows ignore ratings**, for the same reason they ignore blocks.
+- **Ratings written by another tool are ignored.** If you run Kometa's rating sync, or anything else
+  that copies IMDb scores into Plex's user rating, Shortlist won't mistake those for your opinion —
+  Plex's own star control only writes whole numbers, so a rating with a decimal in it wasn't typed by
+  a person. A person's page says so plainly when this is happening to their account.
+
+You can see all of this on **Users → someone → Watch history**: what they rated each title, and
+which ones have stopped seeding as a result.
+
+**Per run, it's in the trace.** Open a run, then **How we picked** for a person: the "Watched
+recently" step says in one line what ratings did on that run — off, on but nothing rated low enough,
+on but the account's ratings were ignored as tool-written, or how many titles a rating dropped — and
+lists the ones it dropped. That line reports the setting as it was **when the run happened**, so
+changing it later doesn't rewrite the history of a run you're reading a fortnight after the fact.
+Runs from before v1.2.1 don't carry it and show only the dropped titles, as they always did.

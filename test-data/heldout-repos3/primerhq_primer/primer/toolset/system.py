@@ -1,0 +1,1231 @@
+"""Built-in ``system`` toolset — exposes the full REST surface as agent tools.
+
+The system toolset is **immutable** (its provider instance is constructed
+once at app startup and lives for the process lifetime) and **reserved**
+(its toolset id ``system`` short-circuits the normal ``Toolset`` row
+lookup in :class:`primer.api.registries.ProviderRegistry`). It dogfoods
+the entire primer REST API to agents so they can self-administer the
+configuration that drives them.
+
+Tool catalog
+------------
+
+Per-entity CRUD set (10 entities × 6 tools = 60 tools) for:
+    llm_provider, embedding_provider, cross_encoder_provider, toolset,
+    agent, graph, collection, document, graph_thread,
+    semantic_search_provider
+
+Plus entity-specific operations:
+* ``fetch_llm_provider_models``, ``fetch_embedding_provider_models``,
+  ``fetch_cross_encoder_provider_models`` — live model lists.
+* ``list_toolset_tools`` — enumerate the tools a toolset exposes.
+* ``call_tool`` — meta-dispatch: invoke any tool from any toolset.
+* Graph threads CRUD — ``list/get/create/update/delete_graph_thread``.
+* Collection extras — ``list_collection_documents``,
+  ``find_collection_documents_by_meta``, ``search_collection``,
+  ``refresh_collection``.
+* Document extras - ``get_document_content``, ``put_document``,
+  ``list_documents``, ``move_document`` (all path-addressed; bodies live
+  in the content store).
+
+Total: ~75 tools. ``search_collection`` runs real semantic search over
+a collection's indexed document contents (same embedder + vector-store
+path the console / ``POST /v1/collections/{id}/search`` route uses).
+``refresh_collection`` is stubbed with ``is_error=True`` until the
+SearchService ingestion pipeline lands.
+
+Cascade invalidation
+--------------------
+
+Mutations on rows backed by a cached adapter (LLMProvider,
+EmbeddingProvider, CrossEncoderProvider, Toolset, VectorStoreConfig)
+invoke the matching ``invalidate_*`` on the registry so the next
+read/call rebuilds the adapter from the new row.
+
+Module layout
+-------------
+
+This module is a thin facade over the decomposed implementation:
+
+* :mod:`primer.toolset._system_common` - shared error wrappers,
+  argument models, and the page/order-by parsers.
+* :mod:`primer.toolset._system_crud` - the generic CRUD-tool factory
+  (``_crud_tools_for``), its example-body hint table, and the
+  entity-specific extra builders (fetch_models, toolset list/call_tool,
+  collection, document).
+* :mod:`primer.toolset._system_tools` - the hand-written ``ask_user``
+  tool (model, resume hook, handler).
+
+``build_system_toolset`` (below) wires those into one provider and adds
+the bespoke tools that close over its per-build dependencies
+(reply-binding, channel-binding, invoke_agent, switch_to_agent,
+ask_user). Everything historically imported as
+``from primer.toolset.system import X`` is re-exported here unchanged.
+"""
+
+from __future__ import annotations
+
+import json
+from typing import TYPE_CHECKING, Any, Literal
+
+from pydantic import BaseModel, Field, ValidationError
+
+from primer.agent.approval import ApprovalResolver
+from primer.agent.approval_checks import check_policy
+from primer.agent.invoke import (
+    InvocationDepthExceeded,
+    invocation_depth_guard,
+    run_subagent,
+)
+from primer.model.agent import Agent
+from primer.model.model_profile import ModelProfile
+from primer.model.chat import Tool, ToolCallResult, ToolExample, ToolTurnCapReached, TurnStreamFailure
+from primer.toolset._describe import make_tool
+from primer.toolset._helpers import err as _err, ok as _ok
+from primer.model.collection import Collection, Document
+from primer.model.except_ import (
+    PrimerError,
+)
+from primer.model.graph import Graph, GraphThread
+from primer.model.workspace_session import WorkspaceSession
+from primer.model.provider import (
+    ArtifactStorageProvider,
+    CrossEncoderProvider,
+    EmbeddingProvider,
+    LLMProvider,
+    SemanticSearchProvider,
+    Toolset,
+)
+from primer.model.channel import (
+    Channel,
+    ChannelProvider,
+)
+from primer.model.event_matcher import EventMatcher
+from primer.channel.reply_binding import ReplyTarget
+from primer.model.trigger import SubscriptionConfig
+from primer.trigger.service import (
+    ServiceDeps,
+    SubscriptionNotFound,
+    TriggerNotFound,
+    create_subscription,
+    delete_subscription,
+    get_trigger,
+    list_subscriptions,
+)
+from primer.model.storage import Op
+from primer.model.tool_approval import ToolApprovalPolicy
+from primer.model.workspace import (
+    Workspace,
+    WorkspaceChannelLink,
+)
+from primer.model.yield_ import ToolContext, Yielded
+from primer.toolset._system_guards import AGENT_GUARDS, GRAPH_GUARDS, CrudGuards, ToolReference, toolset_guards
+from primer.channel.checks import check_channel_on_create, check_channel_on_update
+from primer.model_profile.checks import check_profile_on_create, check_profile_on_update
+from primer.toolset.toolset_checks import check_toolset_on_create, check_toolset_on_update, toolset_needs_admin
+from primer.toolset.internal import InternalToolsetProvider, ToolHandler
+
+# Re-exported helpers / argument models / parsers (shared surface).
+from primer.toolset._system_common import (
+    SYSTEM_TOOLSET_ID,
+    logger,
+    _DeleteByIdArgs,
+    _err_from_primer,
+    _err_from_validation,
+    _FindArgs,
+    _GetByIdArgs,
+    _PaginationArgs,
+    _parse_order_by,
+    _parse_page,
+)
+
+# Re-exported CRUD generators + entity extras.
+from primer.toolset._system_crud import (
+    _CallToolArgs,
+    _CollectionDocumentsListArgs,
+    _CollectionFindByMetaArgs,
+    _CollectionIdArgs,
+    _CollectionSearchArgs,
+    _create_schema,
+    _crud_tools_for,
+    _document_extras,
+    _document_service_factory,
+    _document_tree_factory,
+    _EntityHint,
+    _ENTITY_HINTS,
+    _fetch_models_tool,
+    _GetDocumentArgs,
+    _hint,
+    _ListDocumentsArgs,
+    _list_toolset_tools_tool,
+    _call_tool_tool,
+    _collection_extras,
+    _MoveDocumentArgs,
+    _ProviderIdArgs,
+    _PutDocumentArgs,
+    _ToolsetIdArgs,
+    _update_schema,
+)
+
+# Re-exported hand-written tools.
+from primer.toolset._system_tools import (
+    _AskUserArgs,
+    _ask_user_handler,
+    _ReadDocContentArgs,
+    ask_user_resume,
+    make_read_doc_content_handler,
+)
+
+
+# Told to the agent in the create / update descriptors of the entities in ``admin_writes_by_label`` (and used as the refusal message).
+_ADMIN_WRITE_NOTES: dict[str, str] = {
+    "toolset": (
+        "Creating or changing an MCP toolset on the ``stdio`` transport requires the admin role (it launches a command on the "
+        "server host), whatever this tool's own role: when the run was not started by an admin, or carries no identity (a call "
+        "through the MCP endpoint), it returns ``type=forbidden`` and nothing is stored. http, sse and python toolsets are "
+        "unaffected."
+    ),
+}
+
+
+if TYPE_CHECKING:
+    from primer.api.registries import ProviderRegistry
+    from primer.api.registries.semantic_search_registry import SemanticSearchRegistry
+    from primer.api.registries.workspace_registry import WorkspaceRegistry
+    from primer.int.storage_provider import StorageProvider
+
+
+# ===========================================================================
+# Build the toolset
+# ===========================================================================
+
+
+def build_system_toolset(
+    *,
+    storage_provider: "StorageProvider",
+    provider_registry: "ProviderRegistry",
+    semantic_search_registry: "SemanticSearchRegistry | None" = None,
+    workspace_registry: "WorkspaceRegistry | None" = None,
+    toolset_id: str = SYSTEM_TOOLSET_ID,
+    approval_resolver: "ApprovalResolver | None" = None,
+) -> InternalToolsetProvider:
+    """Construct the immutable ``_system`` toolset.
+
+    Wires every CRUD set, entity-specific extras, and meta tools into
+    a single :class:`InternalToolsetProvider`. Mutation cascades are
+    threaded into the provider/vector-store registries so the system
+    toolset stays consistent with the REST routers.
+
+    ``approval_resolver`` is the app-level :class:`ApprovalResolver` when
+    the caller has one (the API lifespan does); the meta-dispatch gate
+    shares its cache so an operator ``/invalidate`` takes effect here
+    too. ``None`` builds a private resolver (standalone/test builders).
+    """
+    registry: dict[str, tuple[Tool, ToolHandler]] = {}
+
+    # ---- Cascade-invalidation hooks -----------------------------------
+    async def _inv_llm(eid: str) -> None:
+        await provider_registry.invalidate_llm(eid)
+
+    async def _inv_emb(eid: str) -> None:
+        await provider_registry.invalidate_embedder(eid)
+
+    async def _inv_ce(eid: str) -> None:
+        await provider_registry.invalidate_cross_encoder(eid)
+
+    async def _inv_ts(eid: str) -> None:
+        await provider_registry.invalidate_toolset(eid)
+
+    async def _inv_ssp(eid: str) -> None:
+        if semantic_search_registry is not None:
+            await semantic_search_registry.invalidate(eid)
+
+    async def _inv_mp(eid: str) -> None:
+        # The ModelProfile REST router drops the profile's cached AggregatedLLM on every update and delete (a no-op when
+        # it was never cached), so the next resolve rebuilds it from the row's current members and routing policy.
+        await provider_registry.invalidate_aggregated_llm(eid)
+
+    # ---- Guards the REST routers carry (task 01a111d1, D5 phase 1) ------
+    # Imported here, not at module level: the registries import toolsets, so a module-level import would be a cycle.
+    from primer.api.registries.artifact_storage_registry import DEFAULT_ARTIFACT_PROVIDER_ID
+    from primer.api.registries.provider_registry import (
+        RESERVED_CROSS_ENCODER_IDS,
+        RESERVED_EMBEDDER_IDS,
+        RESERVED_LLM_IDS,
+        RESERVED_SSP_IDS,
+    )
+
+    guards_by_label: dict[str, CrudGuards] = {
+        # harness-managed rows (REST ``managed_by_field="harness_id"``)
+        "agent": AGENT_GUARDS,
+        "graph": GRAPH_GUARDS,
+        "collection": CrudGuards(kind="collection", managed_by_field="harness_id"),
+        "model_profile": CrudGuards(
+            kind="model_profile",
+            managed_by_field="harness_id",
+            references=(
+                ToolReference("agent", Agent, "model.profile_id"),
+                ToolReference("model_profile (aggregate member)", ModelProfile, "members", op=Op.CONTAINS),
+            ),
+        ),
+        "toolset": toolset_guards(),
+        # reserved bootstrap ids (REST: create 409, delete 403)
+        "llm_provider": CrudGuards(
+            kind="llm_provider", reserved_create_ids=RESERVED_LLM_IDS, reserved_delete_ids=RESERVED_LLM_IDS,
+        ),
+        "embedding_provider": CrudGuards(
+            kind="embedding_provider", reserved_create_ids=RESERVED_EMBEDDER_IDS, reserved_delete_ids=RESERVED_EMBEDDER_IDS,
+        ),
+        "cross_encoder_provider": CrudGuards(
+            kind="cross_encoder_provider",
+            reserved_create_ids=RESERVED_CROSS_ENCODER_IDS,
+            reserved_delete_ids=RESERVED_CROSS_ENCODER_IDS,
+        ),
+        "semantic_search_provider": CrudGuards(
+            kind="semantic_search_provider", reserved_create_ids=RESERVED_SSP_IDS, reserved_delete_ids=RESERVED_SSP_IDS,
+        ),
+        "artifact_storage_provider": CrudGuards(
+            kind="artifact_storage_provider", reserved_delete_ids=frozenset({DEFAULT_ARTIFACT_PROVIDER_ID}),
+        ),
+        "channel_provider": CrudGuards(
+            kind="channel_provider", references=(ToolReference("channel", Channel, "provider_id"),),
+        ),
+    }
+
+    # ---- Pre-write validators the REST routers run (task 01a111d1, D5 phase 2b) ----
+    # The checks are shared functions over (entity, storage_provider); the router hooks call the same ones. They run after the guards
+    # and before the write, and a refusal is a typed tool error.
+    async def _policy_pre_create(entity: ToolApprovalPolicy) -> None:
+        await check_policy(entity, storage_provider=storage_provider)
+
+    async def _policy_pre_update(entity: ToolApprovalPolicy, existing: ToolApprovalPolicy) -> None:
+        await check_policy(entity, storage_provider=storage_provider, skip_id=existing.id)
+
+    async def _toolset_pre_create(entity: Toolset) -> None:
+        # Not the router's reachability probe (an 8 s outbound call for http / sse MCP toolsets): a tool runs inside an agent turn.
+        check_toolset_on_create(entity)
+
+    async def _toolset_pre_update(entity: Toolset, existing: Toolset) -> None:
+        check_toolset_on_update(entity, existing)
+
+    async def _profile_pre_create(entity: ModelProfile) -> None:
+        await check_profile_on_create(entity, storage_provider=storage_provider)
+
+    async def _profile_pre_update(entity: ModelProfile, existing: ModelProfile) -> None:
+        del existing  # the checks validate the incoming shape only
+        await check_profile_on_update(entity, storage_provider=storage_provider)
+
+    async def _channel_pre_create(entity: Channel) -> None:
+        await check_channel_on_create(entity, storage_provider=storage_provider)
+
+    async def _channel_pre_update(entity: Channel, existing: Channel) -> None:
+        del existing  # the new pair is what counts: the row is rewritten whole
+        await check_channel_on_update(entity, storage_provider=storage_provider)
+
+    pre_checks_by_label: dict[str, tuple[Any, Any]] = {
+        "tool_approval_policy": (_policy_pre_create, _policy_pre_update),
+        "toolset": (_toolset_pre_create, _toolset_pre_update),
+        "model_profile": (_profile_pre_create, _profile_pre_update),
+        "channel": (_channel_pre_create, _channel_pre_update),
+    }
+
+    # ---- CRUD sets ----------------------------------------------------
+    # Note: VectorStoreConfig was removed from this set when vector
+    # store configuration moved into AppConfig (it is no longer a
+    # storage row).
+    # required_role per §6.2: provider config rows (LLM/embedding/
+    # cross-encoder/semantic-search/artifact-storage/channel-provider),
+    # tool-approval policies -> admin; user-facing feature entities
+    # (agents, graphs, collections/documents, threads, toolsets,
+    # channels, and the toolset row itself) -> user.
+    crud_specs = [
+        ("llm_provider", "llm_providers", LLMProvider, None, _inv_llm, _inv_llm, "admin"),
+        # A profile names a provider and its API-level tunables, so it is
+        # provider configuration => admin, matching its REST router.
+        ("model_profile", "model_profiles", ModelProfile, None, _inv_mp, _inv_mp, "admin"),
+        ("embedding_provider", "embedding_providers", EmbeddingProvider, None, _inv_emb, _inv_emb, "admin"),
+        ("cross_encoder_provider", "cross_encoder_providers", CrossEncoderProvider, None, _inv_ce, _inv_ce, "admin"),
+        ("toolset", "toolsets", Toolset, None, _inv_ts, _inv_ts, "user"),
+        ("agent", "agents", Agent, None, None, None, "user"),
+        ("graph", "graphs", Graph, None, None, None, "user"),
+        ("collection", "collections", Collection, None, None, None, "user"),
+        ("document", "documents", Document, None, None, None, "user"),
+        ("graph_thread", "graph_threads", GraphThread, None, None, None, "user"),
+        ("semantic_search_provider", "semantic_search_providers", SemanticSearchProvider, None, _inv_ssp, _inv_ssp, "admin"),
+        ("artifact_storage_provider", "artifact_storage_providers", ArtifactStorageProvider, None, None, None, "admin"),
+        ("tool_approval_policy", "tool_approval_policies", ToolApprovalPolicy, None, None, None, "admin"),
+        ("channel_provider", "channel_providers", ChannelProvider, None, None, None, "admin"),
+        ("channel", "channels", Channel, None, None, None, "user"),
+    ]
+    # The entities whose warm adapter an edit through the REST route refreshes but an edit through a TOOL does not (task 01a111d1, D5
+    # phase 2c, the lead's ruling: document it, do not mirror the hook). ArtifactStorageRegistry and ChannelRegistry invalidate only the
+    # cache of their own process, the warm inbound adapters live in the API process, and a tool runs in whichever process executes the
+    # session (a worker in the k3s split), so a local-only mirror would look like parity and do nothing where it matters. Binding the
+    # registries to the invalidation bus is the design ticket 01a11358. The note reaches the agent through the update / delete descriptors.
+    cache_notes_by_label: dict[str, str] = {
+        "artifact_storage_provider": (
+            "Unlike the other provider rows, this tool does NOT drop the cached artifact-storage instance: the registry's cache is "
+            "local to one process, and a tool may run in a different process than the one that serves the API. The change takes "
+            "effect after the next restart, or after the row is edited through the REST route (which refreshes the API process)."
+        ),
+        "channel_provider": (
+            "Unlike the other provider rows, this tool does NOT flush the warm channel adapters (the Telegram / Slack / Discord "
+            "gateways live in the API process, and the registry's invalidation is local to one process, while a tool may run in "
+            "another). The change takes effect after the next restart, or after the row is edited through the REST route, which "
+            "flushes them."
+        ),
+        "channel": (
+            "This tool does NOT flush or re-warm the channel's adapter (its inbound gateway lives in the API process, and the "
+            "registry's invalidation is local to one process, while a tool may run in another), so a new config, or "
+            "``config.chats.enabled`` turned on, takes effect after the next restart or after the row is edited through the REST "
+            "route, which flushes and re-warms it."
+        ),
+    }
+    # The writes that need an admin CALLER although the tool's static required_role is lower (architecture review A-02): a stdio MCP
+    # toolset launches a command on the server host. The tool manager's floor compares only the static role, so the handler checks
+    # the run's identity; a call with no identity (the MCP endpoint) is refused. The rule is the one the REST router applies.
+    admin_writes_by_label: dict[str, Any] = {"toolset": toolset_needs_admin}
+    for label, plural, cls, on_c, on_u, on_d, role in crud_specs:
+        pre_create, pre_update = pre_checks_by_label.get(label, (None, None))
+        registry.update(
+            _crud_tools_for(
+                entity_label=label,
+                entity_label_plural=plural,
+                model_cls=cls,
+                storage_provider=storage_provider,
+                on_create=on_c,
+                on_update=on_u,
+                on_delete=on_d,
+                required_role=role,
+                guards=guards_by_label.get(label),
+                pre_create=pre_create,
+                pre_update=pre_update,
+                cache_note=cache_notes_by_label.get(label),
+                admin_when=admin_writes_by_label.get(label),
+                admin_note=_ADMIN_WRITE_NOTES.get(label),
+            )
+        )
+
+    # ---- SemanticSearchProvider explicit invalidation tool -----------
+    class _InvalidateSSPArgs(BaseModel):
+        """Force-expire the cached VectorStoreProvider for one SSP row."""
+
+        id: str = Field(
+            ...,
+            min_length=1,
+            description=(
+                "Id of the SemanticSearchProvider row whose cached "
+                "VectorStoreProvider instance should be evicted. The "
+                "next call that needs the backend will re-resolve the "
+                "row from storage and reconstruct the adapter."
+            ),
+        )
+
+    async def _invalidate_ssp_handler(arguments: dict[str, Any]) -> ToolCallResult:
+        try:
+            args = _InvalidateSSPArgs.model_validate(arguments)
+        except ValidationError as exc:
+            return _err_from_validation(exc)
+        if semantic_search_registry is not None:
+            await semantic_search_registry.invalidate(args.id)
+        return _ok({"invalidated": True, "id": args.id})
+
+    registry["invalidate_semantic_search_provider"] = (
+        make_tool(
+            id="invalidate_semantic_search_provider",
+            toolset_id=SYSTEM_TOOLSET_ID,
+            purpose=(
+                "Expire the cached VectorStoreProvider adapter for a "
+                "SemanticSearchProvider row."
+            ),
+            when=(
+                "Use when you have updated the provider row and want the "
+                "next search request to rebuild the adapter from the new "
+                "config; safe to call even if no cached instance exists "
+                "(no-op)."
+            ),
+            args_schema=_InvalidateSSPArgs.model_json_schema(),
+            examples=[
+                ToolExample(
+                    args={"id": "ssp-1"},
+                    returns="``{'invalidated': true, 'id': '...'}``",
+                )
+            ],
+            required_role="admin",
+        ),
+        _invalidate_ssp_handler,
+    )
+
+    # ---- Workspace reply-binding tools -------------------------------
+    class _SetReplyBindingArgs(BaseModel):
+        workspace_id: str = Field(
+            ..., min_length=1, description="Id of the Workspace to update."
+        )
+        channel_id: str = Field(
+            ..., min_length=1, description="Id of the Channel to bind replies to."
+        )
+        anchor: str | None = Field(
+            default=None,
+            description=(
+                "Optional standing room anchor (e.g. a Slack thread ts) the "
+                "workspace's outbound replies attach to. Omit to post to the "
+                "channel root."
+            ),
+        )
+
+    _workspace_storage = storage_provider.get_storage(Workspace)
+    _channel_storage = storage_provider.get_storage(Channel)
+
+    async def _set_reply_binding_handler(
+        arguments: dict[str, Any],
+    ) -> ToolCallResult:
+        try:
+            args = _SetReplyBindingArgs.model_validate(arguments)
+        except ValidationError as exc:
+            return _err_from_validation(exc)
+        ws = await _workspace_storage.get(args.workspace_id)
+        if ws is None:
+            return _err(
+                f"Workspace {args.workspace_id!r} does not exist",
+                error_type="not-found",
+            )
+        channel = await _channel_storage.get(args.channel_id)
+        if channel is None:
+            return _err(
+                f"Channel {args.channel_id!r} does not exist",
+                error_type="not-found",
+            )
+        updated = ws.model_copy(
+            update={
+                "reply_binding": WorkspaceChannelLink(
+                    channel_id=args.channel_id,
+                    anchor=args.anchor,
+                )
+            }
+        )
+        try:
+            await _workspace_storage.update(updated)
+        except PrimerError as exc:
+            return _err_from_primer(exc, error_type="storage-error")
+        return _ok(
+            {
+                "ok": True,
+                "workspace_id": args.workspace_id,
+                "channel_id": args.channel_id,
+                "anchor": args.anchor,
+            }
+        )
+
+    registry["set_reply_binding"] = (
+        make_tool(
+            id="set_reply_binding",
+            toolset_id=SYSTEM_TOOLSET_ID,
+            purpose=(
+                "Set the standing workspace reply binding so that session "
+                "traffic (gates / inform / lifecycle / final result) replies "
+                "to a channel."
+            ),
+            when=(
+                "Use when you want a workspace's session traffic to reply to "
+                "a Slack / Telegram / Discord channel; pass both ids (and an "
+                "optional ``anchor``) and the reply binding is stored on the "
+                "Workspace row. Returns ``type=not-found`` for unknown "
+                "workspace or channel."
+            ),
+            args_schema=_SetReplyBindingArgs.model_json_schema(),
+            examples=[
+                ToolExample(
+                    args={"workspace_id": "ws-1", "channel_id": "chan-1"},
+                    returns="``{ok: true, workspace_id, channel_id, anchor}``",
+                )
+            ],
+            required_role="user",
+        ),
+        _set_reply_binding_handler,
+    )
+
+    class _ClearReplyBindingArgs(BaseModel):
+        workspace_id: str = Field(
+            ..., min_length=1, description="Id of the Workspace to update."
+        )
+
+    async def _clear_reply_binding_handler(
+        arguments: dict[str, Any],
+    ) -> ToolCallResult:
+        try:
+            args = _ClearReplyBindingArgs.model_validate(arguments)
+        except ValidationError as exc:
+            return _err_from_validation(exc)
+        ws = await _workspace_storage.get(args.workspace_id)
+        if ws is None:
+            return _err(
+                f"Workspace {args.workspace_id!r} does not exist",
+                error_type="not-found",
+            )
+        updated = ws.model_copy(update={"reply_binding": None})
+        try:
+            await _workspace_storage.update(updated)
+        except PrimerError as exc:
+            return _err_from_primer(exc, error_type="storage-error")
+        return _ok({"ok": True, "workspace_id": args.workspace_id})
+
+    registry["clear_reply_binding"] = (
+        make_tool(
+            id="clear_reply_binding",
+            toolset_id=SYSTEM_TOOLSET_ID,
+            purpose=(
+                "Clear the standing workspace reply binding so that session "
+                "traffic is no longer forwarded to any channel."
+            ),
+            when=(
+                "Use when you want to detach the channel from a workspace; "
+                "safe to call even if no reply binding is set (no-op). "
+                "Returns ``type=not-found`` for an unknown workspace."
+            ),
+            args_schema=_ClearReplyBindingArgs.model_json_schema(),
+            examples=[
+                ToolExample(
+                    args={"workspace_id": "ws-1"},
+                    returns="``{ok: true, workspace_id}``",
+                )
+            ],
+            required_role="user",
+        ),
+        _clear_reply_binding_handler,
+    )
+
+    # ---- Inbound channel-binding (Subscription) tools ----------------
+    # A "binding" is a Subscription on a ``channel`` trigger: a normalized
+    # event matcher -> platform action. These delegate to the same
+    # primer.trigger.service mutation path the REST router uses, so the
+    # toolset stays a thin wrapper.
+    class _CreateChannelBindingArgs(BaseModel):
+        trigger_id: str = Field(
+            ..., min_length=1, description="Id of the channel trigger to bind to."
+        )
+        event_matcher: EventMatcher | None = Field(
+            default=None,
+            description=(
+                "Predicate gating which channel events fire this binding "
+                "(AND of present fields). Omit to match every event on the "
+                "trigger."
+            ),
+        )
+        config: SubscriptionConfig = Field(
+            ...,
+            description=(
+                "Action discriminated union: agent_fresh_session / "
+                "graph_fresh_session / session_append."
+            ),
+        )
+        reply_target: ReplyTarget | None = Field(
+            default=None,
+            description=(
+                "Where the action's outbound reply goes; defaults to the "
+                "source thread."
+            ),
+        )
+        payload_template: str | None = None
+        parallelism: str = "skip"
+        description: str | None = Field(default=None, max_length=2000)
+        enabled: bool = True
+
+    def _binding_deps() -> ServiceDeps:
+        return ServiceDeps(storage_provider=storage_provider)
+
+    async def _create_channel_binding_handler(
+        arguments: dict[str, Any],
+    ) -> ToolCallResult:
+        try:
+            args = _CreateChannelBindingArgs.model_validate(arguments)
+        except ValidationError as exc:
+            return _err_from_validation(exc)
+        try:
+            sub = await create_subscription(
+                trigger_id=args.trigger_id,
+                config=args.config,
+                event_matcher=args.event_matcher,
+                reply_target=args.reply_target,
+                payload_template=args.payload_template,
+                parallelism=args.parallelism,
+                description=args.description,
+                enabled=args.enabled,
+                deps=_binding_deps(),
+            )
+        except TriggerNotFound as exc:
+            return _err(str(exc), error_type="trigger_not_found")
+        return _ok(sub)
+
+    registry["create_channel_binding"] = (
+        make_tool(
+            id="create_channel_binding",
+            toolset_id=SYSTEM_TOOLSET_ID,
+            purpose=(
+                "Create an inbound channel binding (a matcher -> action "
+                "subscription) on a channel trigger."
+            ),
+            when=(
+                "Use when mapping a normalized channel event (message.posted "
+                "/ command.invoked) to a platform action (agent_fresh_session "
+                "/ graph_fresh_session / session_append). "
+                "The trigger must already exist as a channel-kind trigger; "
+                "unknown trigger returns ``type=trigger_not_found``."
+            ),
+            args_schema=_CreateChannelBindingArgs.model_json_schema(),
+            examples=[
+                ToolExample(
+                    args={
+                        "trigger_id": "trg-ch-1",
+                        "event_matcher": {
+                            "event_type": "command.invoked",
+                            "command_name": "deploy",
+                        },
+                        "config": {
+                            "kind": "agent_fresh_session",
+                            "workspace_id": "ws-1",
+                            "agent_id": "deployer",
+                        },
+                        "reply_target": "source_thread",
+                    },
+                    returns="the created Subscription",
+                    note="slash /deploy -> run the deployer agent, reply in-thread",
+                ),
+            ],
+            required_role="user",
+        ),
+        _create_channel_binding_handler,
+    )
+
+    class _ListChannelBindingsArgs(BaseModel):
+        trigger_id: str = Field(
+            ..., min_length=1, description="Id of the channel trigger."
+        )
+
+    async def _list_channel_bindings_handler(
+        arguments: dict[str, Any],
+    ) -> ToolCallResult:
+        try:
+            args = _ListChannelBindingsArgs.model_validate(arguments)
+        except ValidationError as exc:
+            return _err_from_validation(exc)
+        deps = _binding_deps()
+        try:
+            await get_trigger(trigger_id=args.trigger_id, deps=deps)
+        except TriggerNotFound as exc:
+            return _err(str(exc), error_type="trigger_not_found")
+        items = await list_subscriptions(trigger_id=args.trigger_id, deps=deps)
+        return _ok(items)
+
+    registry["list_channel_bindings"] = (
+        make_tool(
+            id="list_channel_bindings",
+            toolset_id=SYSTEM_TOOLSET_ID,
+            purpose="List the inbound channel bindings on a channel trigger.",
+            when=(
+                "Use when you need every binding (matcher -> action "
+                "subscription) for a given ``trigger_id``; returns an array "
+                "of Subscription rows, or ``type=trigger_not_found`` if the "
+                "trigger does not exist."
+            ),
+            args_schema=_ListChannelBindingsArgs.model_json_schema(),
+            examples=[
+                ToolExample(
+                    args={"trigger_id": "trg-ch-1"},
+                    returns="the channel bindings of trg-ch-1",
+                ),
+            ],
+            required_role="user",
+        ),
+        _list_channel_bindings_handler,
+    )
+
+    class _DeleteChannelBindingArgs(BaseModel):
+        trigger_id: str = Field(
+            ..., min_length=1, description="Id of the channel trigger."
+        )
+        subscription_id: str = Field(
+            ..., min_length=1, description="Id of the binding (Subscription) to delete."
+        )
+
+    async def _delete_channel_binding_handler(
+        arguments: dict[str, Any],
+    ) -> ToolCallResult:
+        try:
+            args = _DeleteChannelBindingArgs.model_validate(arguments)
+        except ValidationError as exc:
+            return _err_from_validation(exc)
+        try:
+            await delete_subscription(
+                trigger_id=args.trigger_id,
+                subscription_id=args.subscription_id,
+                deps=_binding_deps(),
+            )
+        except SubscriptionNotFound as exc:
+            return _err(str(exc), error_type="subscription_not_found")
+        return _ok({"ok": True})
+
+    registry["delete_channel_binding"] = (
+        make_tool(
+            id="delete_channel_binding",
+            toolset_id=SYSTEM_TOOLSET_ID,
+            purpose="Delete one inbound channel binding from a channel trigger.",
+            when=(
+                "Use when removing a single binding (Subscription) while "
+                "keeping the trigger and its other bindings. Returns "
+                "``{ok: true}`` or ``type=subscription_not_found``."
+            ),
+            args_schema=_DeleteChannelBindingArgs.model_json_schema(),
+            examples=[
+                ToolExample(
+                    args={"trigger_id": "trg-ch-1", "subscription_id": "sb-1"},
+                    returns="``{ok: true}``",
+                ),
+            ],
+            required_role="user",
+        ),
+        _delete_channel_binding_handler,
+    )
+
+    # ---- Provider-specific fetch_models ------------------------------
+    for label, pretty, method in (
+        ("llm_provider", "LLM", "get_llm"),
+        ("embedding_provider", "embedding", "get_embedder"),
+        ("cross_encoder_provider", "cross-encoder", "get_cross_encoder"),
+    ):
+        name, entry = _fetch_models_tool(
+            label=label, pretty=pretty, registry=provider_registry, fetch_method=method
+        )
+        registry[name] = entry
+
+    # ---- Toolset extras ---------------------------------------------
+    # call_tool's meta-dispatch path enforces the same approval gate the
+    # agent loop applies; without a resolver a gated tool invoked via
+    # system__call_tool would run unguarded. Callers with an app-level
+    # ApprovalResolver MUST pass it in (01a06610): the operator-facing
+    # /tool_approval_policies/invalidate endpoint clears only that
+    # instance, so a private one here would keep serving stale verdicts
+    # for its full cache TTL after an explicit invalidate.
+    if approval_resolver is None:
+        approval_resolver = ApprovalResolver(
+            storage=storage_provider.get_storage(ToolApprovalPolicy),
+        )
+    name, entry = _list_toolset_tools_tool(provider_registry)
+    registry[name] = entry
+    name, entry = _call_tool_tool(provider_registry, approval_resolver)
+    registry[name] = entry
+
+    # ---- Collection / Document extras --------------------------------
+    registry.update(
+        _collection_extras(
+            storage_provider=storage_provider,
+            provider_registry=provider_registry,
+            semantic_search_registry=semantic_search_registry,
+        )
+    )
+    # Registered AFTER the generic CRUD loop on purpose: the document create/update/delete tools in here REPLACE the generic
+    # row-level ones of the same ids (see ``_document_write_tools``).
+    registry.update(
+        _document_extras(
+            service_factory=_document_service_factory(
+                storage_provider=storage_provider,
+                provider_registry=provider_registry,
+                semantic_search_registry=semantic_search_registry,
+            ),
+            storage_provider=storage_provider,
+            tree_factory=_document_tree_factory(
+                storage_provider=storage_provider,
+                provider_registry=provider_registry,
+                semantic_search_registry=semantic_search_registry,
+            ),
+        )
+    )
+
+    # ---- Dynamic invocation: invoke_agent ----------------------------
+    class _InvokeAgentArgs(BaseModel):
+        agent_id: str = Field(..., min_length=1, description="Agent to run.")
+        prompt: str = Field(
+            ..., min_length=1, description="Input for the subagent."
+        )
+
+    async def _invoke_agent_handler(
+        arguments: dict[str, Any], *, ctx: ToolContext | None = None,
+    ) -> ToolCallResult:
+        try:
+            args = _InvokeAgentArgs.model_validate(arguments)
+        except ValidationError as exc:
+            return _err_from_validation(exc)
+        try:
+            with invocation_depth_guard():
+                text = await run_subagent(
+                    agent_id=args.agent_id,
+                    prompt=args.prompt,
+                    storage_provider=storage_provider,
+                    provider_registry=provider_registry,
+                    approval_resolver=approval_resolver,
+                    session_id=getattr(ctx, "session_id", None),
+                    workspace_id=getattr(ctx, "workspace_id", None),
+                    chat_id=getattr(ctx, "chat_id", None),
+                    invoke_tool_call_id=getattr(ctx, "tool_call_id", None),
+                    identity=getattr(ctx, "initiated_by", None),
+                    turn_no=getattr(ctx, "turn_no", None),
+                )
+        except InvocationDepthExceeded as exc:
+            return _err(
+                f"invocation depth exceeded: {exc}", error_type="bad-request"
+            )
+        except ValueError as exc:
+            return _err(str(exc), error_type="bad-request")
+        except ToolTurnCapReached as exc:
+            # 01a1095e: the subagent stopped at its own max_tool_turns. Its last text is not a result: the call is an
+            # error, and the text it had so far travels in the body for the parent model to use or discard.
+            return ToolCallResult(output=json.dumps(exc.result_body()), is_error=True)
+        except TurnStreamFailure as exc:
+            # 01a070d6: without this, a subagent whose LLM connection
+            # failed returned "" as if it had legitimately said nothing -
+            # the parent agent saw a SUCCESSFUL tool result with no signal
+            # anywhere that the subagent's LLM call actually failed.
+            return _err(
+                f"subagent {args.agent_id!r} LLM stream failed: "
+                f"{exc.error.message}",
+                error_type="provider-error",
+            )
+        return _ok({"output": text})
+
+    registry["invoke_agent"] = (
+        make_tool(
+            id="invoke_agent",
+            toolset_id=toolset_id,
+            purpose=(
+                "Run another agent once on a prompt and get its text back "
+                "(subagent). Returns ``{output: <text>}``."
+            ),
+            when=(
+                "Use when you want a specialised agent to handle a "
+                "self-contained subtask and return a result; not for handing "
+                "the whole conversation off (use ``switch_to_agent``)."
+            ),
+            args_schema=_InvokeAgentArgs.model_json_schema(),
+            examples=[
+                ToolExample(
+                    args={
+                        "agent_id": "agent-researcher",
+                        "prompt": "Summarise the RFC.",
+                    },
+                    returns="``{output: <summary>}``",
+                    note="blocking subagent",
+                ),
+            ],
+            required_role="user",
+        ),
+        _invoke_agent_handler,
+    )
+
+    # ---- Dynamic invocation: switch_to_agent (chat-only handoff) -----
+    class _SwitchToAgentArgs(BaseModel):
+        agent_id: str = Field(
+            ..., min_length=1, description="Agent to hand off to."
+        )
+        prompt: str = Field(
+            ..., min_length=1, description="Handoff instruction for the new agent."
+        )
+
+    async def _switch_to_agent_handler(
+        arguments: dict[str, Any], *, ctx: ToolContext,
+    ) -> ToolCallResult:
+        """Hand the conversation to another agent.
+
+        Kept as the agent-facing name for this capability, delegating to
+        the session binding switch. It used to be chat-only and to yield
+        into the chat dispatch loop; with chats gone that loop no longer
+        exists, so the yield would have parked a session nobody resumes.
+        The behaviour it named is unchanged: the rest of THIS
+        conversation runs under the new agent, from the next turn.
+        """
+        try:
+            args = _SwitchToAgentArgs.model_validate(arguments)
+        except ValidationError as exc:
+            return _err_from_validation(exc)
+        return await _switch_binding_handler(
+            {
+                "kind": "agent",
+                "agent_id": args.agent_id,
+                "reason": args.prompt,
+            },
+            ctx=ctx,
+        )
+
+    registry["switch_to_agent"] = (
+        make_tool(
+            id="switch_to_agent",
+            toolset_id=toolset_id,
+            purpose=(
+                "Hand this conversation off to another agent with a prompt; "
+                "the new agent takes over from the next turn."
+            ),
+            when=(
+                "Use when you want to delegate the rest of THIS conversation "
+                "to another agent; for a one-off subtask use invoke_agent. "
+                "To hand off to a GRAPH, or to carry a model profile across "
+                "the switch, use switch_binding."
+            ),
+            args_schema=_SwitchToAgentArgs.model_json_schema(),
+            examples=[
+                ToolExample(
+                    args={
+                        "agent_id": "agent-coder",
+                        "prompt": "Implement the plan above.",
+                    },
+                    returns="binding switch to 'agent-coder' queued",
+                    note="applies at the end of this turn",
+                ),
+            ],
+            yields=False,
+            # must be explicit: tests/mcp/test_required_role_completeness.py.
+            # It became exposable when the port dropped the chat-era yield,
+            # so it needs the same role its switch_binding twin declares.
+            required_role="user",
+        ),
+        _switch_to_agent_handler,
+    )
+
+    # ---- switch_binding (session hand-off; never yields) -------------
+    class _SwitchBindingArgs(BaseModel):
+        kind: Literal["agent", "graph"] = Field(
+            ..., description="Whether to hand off to an agent or a graph."
+        )
+        agent_id: str | None = Field(
+            default=None, description="Agent to hand off to (kind='agent')."
+        )
+        graph_id: str | None = Field(
+            default=None, description="Graph to hand off to (kind='graph')."
+        )
+        profile_id: str | None = Field(
+            default=None,
+            description="Optional model profile to apply with the switch.",
+        )
+        reason: str | None = Field(
+            default=None,
+            description="Why the hand-off is happening, for the transcript.",
+        )
+
+    async def _switch_binding_handler(
+        arguments: dict[str, Any], *, ctx: ToolContext,
+    ) -> ToolCallResult:
+        try:
+            args = _SwitchBindingArgs.model_validate(arguments)
+        except ValidationError as exc:
+            return _err_from_validation(exc)
+        if ctx.session_id is None:
+            return _err(
+                "switch_binding is only available in workspace sessions",
+                error_type="bad-request",
+            )
+        if args.kind == "agent" and not args.agent_id:
+            return _err("kind 'agent' requires agent_id",
+                        error_type="bad-request")
+        if args.kind == "graph" and not args.graph_id:
+            return _err("kind 'graph' requires graph_id",
+                        error_type="bad-request")
+
+        # Verified before the request is stored: a queued switch to a
+        # target that does not exist would fail at the checkpoint, long
+        # after the agent that asked for it could react.
+        if args.kind == "graph":
+            if await storage_provider.get_storage(Graph).get(
+                args.graph_id
+            ) is None:
+                return _err(f"graph {args.graph_id!r} does not exist",
+                            error_type="not-found")
+        elif await storage_provider.get_storage(Agent).get(
+            args.agent_id
+        ) is None:
+            return _err(f"agent {args.agent_id!r} does not exist",
+                        error_type="not-found")
+
+        sessions = storage_provider.get_storage(WorkspaceSession)
+        row = await sessions.get(ctx.session_id)
+        if row is None:
+            return _err(f"session {ctx.session_id!r} does not exist",
+                        error_type="not-found")
+
+        await sessions.update(row.model_copy(update={
+            "pending_binding_switch": {
+                "kind": args.kind,
+                "agent_id": args.agent_id,
+                "graph_id": args.graph_id,
+                "profile_id": args.profile_id,
+                "actor": "agent",
+                "reason": args.reason,
+            },
+        }))
+        target = args.graph_id if args.kind == "graph" else args.agent_id
+        return ToolCallResult(
+            output=(
+                f"binding switch to {target!r} queued; applies at the end "
+                "of this turn"
+            ),
+            is_error=False,
+        )
+
+    registry["switch_binding"] = (
+        make_tool(
+            id="switch_binding",
+            toolset_id=toolset_id,
+            purpose=(
+                "Hand this session off to a different agent or graph from "
+                "the next turn onward."
+            ),
+            when=(
+                "Use when the rest of THIS session should be handled by "
+                "someone else; for a one-off subtask use invoke_agent "
+                "instead, which returns here when it finishes."
+            ),
+            args_schema=_SwitchBindingArgs.model_json_schema(),
+            examples=[
+                ToolExample(
+                    args={"kind": "agent", "agent_id": "agent-coder",
+                          "reason": "implementation work from here"},
+                    returns="binding switch queued; applies at the end of "
+                            "this turn",
+                    note="sessions only; the current turn finishes first",
+                ),
+            ],
+            yields=False,
+            # must be explicit: tests/mcp/test_required_role_completeness.py
+            required_role="user",
+        ),
+        _switch_binding_handler,
+    )
+
+    # ---- ask_user (yielding; available everywhere incl. chats) -------
+    registry["ask_user"] = (
+        make_tool(
+            id="ask_user",
+            toolset_id=toolset_id,
+            purpose=(
+                "Ask the human operator a question and pause the agent's "
+                "turn until they type a reply; returns ``{response: "
+                "<any>}`` (or ``{timed_out}`` / ``{cancelled}``)."
+            ),
+            when=(
+                "Use when you genuinely need human input (clarification, "
+                "approval, a choice the agent cannot make autonomously); "
+                "not for status updates, and not for waiting a fixed "
+                "duration (use ``sleep``)."
+            ),
+            args_schema=_AskUserArgs.model_json_schema(),
+            examples=[
+                ToolExample(
+                    args={"prompt": "Proceed with deploy?"},
+                    returns="operator's typed reply",
+                    note="yielding; worker released",
+                ),
+            ],
+            yields=True,
+        ),
+        _ask_user_handler,
+    )
+
+    # ---- wait_for_event (yielding; parks on the platform event log) --
+    from primer.toolset.events_wait import (
+        _WaitForEventArgs,
+        make_wait_for_event_handler,
+    )
+
+    registry["wait_for_event"] = (
+        make_tool(
+            id="wait_for_event",
+            toolset_id=toolset_id,
+            purpose=(
+                "Pause this turn until a platform event matching the "
+                "filter occurs; returns ``{event: <envelope>}`` (or "
+                "``{timed_out}`` / ``{cancelled}``)."
+            ),
+            when=(
+                "Use when you need to react to something happening on "
+                "the platform - a document pushed to a collection, an "
+                "agent created, a session ending - instead of polling. "
+                "Pass event-type globs plus optional field matchers / "
+                "rego expr; workspace sessions only."
+            ),
+            args_schema=_WaitForEventArgs.model_json_schema(),
+            examples=[
+                ToolExample(
+                    args={
+                        "event_types": ["collection.document_pushed"],
+                        "fields": [{
+                            "path": "payload.collection_id",
+                            "op": "eq", "value": "kb",
+                        }],
+                    },
+                    returns="``{event: {...}}`` when a matching doc lands",
+                    note="yielding; worker released",
+                ),
+            ],
+            yields=True,
+            requires_workspace=True,
+        ),
+        make_wait_for_event_handler(storage_provider),
+    )
+
+    # ---- read_doc_content (workspace-only document -> text) ----------
+    # Only wired when the workspace layer is available (it resolves the
+    # live workspace from ctx.workspace_id to read the file). When
+    # ``workspace_registry`` is None (bare/test builds) the tool is
+    # omitted. requires_workspace=True keeps it out of chat context and
+    # off the MCP surface.
+    if workspace_registry is not None:
+        registry["read_doc_content"] = (
+            make_tool(
+                id="read_doc_content",
+                toolset_id=toolset_id,
+                purpose=(
+                    "Convert a document in the workspace "
+                    "(PDF/DOCX/PPTX/HTML/...) to plain text."
+                ),
+                when=(
+                    "Use when you need the text content of a binary/rich "
+                    "document at a workspace path; not for plain-text files "
+                    "(read those directly). Workspace only."
+                ),
+                args_schema=_ReadDocContentArgs.model_json_schema(),
+                examples=[
+                    ToolExample(
+                        args={"path": "reports/q3.pdf"},
+                        returns="``{text: <document text as markdown>}``",
+                    ),
+                ],
+                yields=False,
+                requires_workspace=True,
+                required_role="user",
+            ),
+            make_read_doc_content_handler(
+                workspace_registry=workspace_registry,
+            ),
+        )
+
+    logger.info(
+        "system toolset assembled with %d tools (id=%s)",
+        len(registry),
+        toolset_id,
+    )
+
+
+    provider = InternalToolsetProvider(toolset_id=toolset_id, registry=registry)
+    # The resolver the call_tool/invoke_agent closures captured -- exposed
+    # so wiring can be asserted (app.state.approval_resolver must be this
+    # same object for the /invalidate endpoint to reach meta-dispatch).
+    provider.approval_resolver = approval_resolver
+    return provider
+
+
+# Register the ask_user yielding-tool resume hook at import time. The
+# worker's resume path looks up hooks by the BARE tool name from this
+# central registry - the bare name is unchanged by the move from misc
+# to system, so the key stays "ask_user".
+from primer.worker.yield_resume_registry import register_resume_hook  # noqa: E402
+
+register_resume_hook("ask_user", ask_user_resume)
+
+
+__all__ = ["SYSTEM_TOOLSET_ID", "build_system_toolset"]

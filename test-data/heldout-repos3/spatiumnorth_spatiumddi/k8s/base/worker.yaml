@@ -1,0 +1,204 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker
+  namespace: spatiumddi
+  labels:
+    app.kubernetes.io/name: spatiumddi
+    app.kubernetes.io/component: worker
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: spatiumddi-worker
+  template:
+    metadata:
+      labels:
+        app: spatiumddi-worker
+        app.kubernetes.io/component: worker
+    spec:
+      # #983 — Kubernetes runs a container ``Unconfined`` unless a profile is
+      # asked for, while docker-compose applies the runtime's default profile
+      # to every service. Without this the same image runs with FEWER syscall
+      # restrictions here than under Compose.
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      # #590 — spread replicas across nodes so a single node loss can't
+      # take every replica of this workload with it. Soft (preferred): a
+      # single-node or replicas>nodes cluster must still schedule. The
+      # Helm chart's appliance path uses required anti-affinity, where the
+      # replica count tracks the control-plane node count exactly.
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: spatiumddi-worker
+                topologyKey: kubernetes.io/hostname
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: worker
+          image: ghcr.io/spatiumnorth/spatiumddi-api:latest
+          imagePullPolicy: Always
+          # NET_RAW lets the worker run nmap with raw sockets — required
+          # for SYN scans + ``-O`` OS detection in the device-profiling
+          # auto-nmap path. The image grants the cap to the nmap binary
+          # via setcap; this line keeps it in the pod's bounding set
+          # so restricted PSA / OpenShift-SCC clusters don't drop it.
+          # No effect on permissive clusters (NET_RAW is in the default
+          # set there). Drop NET_RAW with a values-level toggle if you
+          # disable device profiling cluster-wide.
+          securityContext:
+            capabilities:
+              add: ["NET_RAW"]
+          command:
+            - celery
+            - -A
+            - app.celery_app
+            - worker
+            - --loglevel=info
+            - --concurrency=4
+            - -Q
+            - ipam,dns,dhcp,default,bundles
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: spatiumddi-secrets
+                  key: postgres-password
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: spatiumddi-secrets
+                  key: secret-key
+            - name: DATABASE_URL
+              value: "postgresql+asyncpg://spatiumddi:$(POSTGRES_PASSWORD)@postgres-primary:5432/spatiumddi"
+            - name: REDIS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: spatiumddi-config
+                  key: REDIS_URL
+            - name: CELERY_BROKER_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: spatiumddi-config
+                  key: CELERY_BROKER_URL
+            - name: CELERY_RESULT_BACKEND
+              valueFrom:
+                configMapKeyRef:
+                  name: spatiumddi-config
+                  key: CELERY_RESULT_BACKEND
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 2000m
+              memory: 1Gi
+          # No HTTP listener — use a Celery-native ping over the broker
+          # to confirm this specific worker is alive. ``$HOSTNAME`` lands
+          # the unique pod name into ``celery@<hostname>`` so the probe
+          # only succeeds for *this* pod, not any random worker on the
+          # broker.
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - celery -A app.celery_app inspect ping -d "celery@${HOSTNAME}" --timeout 5 >/dev/null 2>&1
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+---
+# Beat runs as a singleton — only 1 replica allowed
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: beat
+  namespace: spatiumddi
+  labels:
+    app.kubernetes.io/name: spatiumddi
+    app.kubernetes.io/component: beat
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spatiumddi-beat
+  strategy:
+    # Recreate prevents two beat schedulers running simultaneously
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: spatiumddi-beat
+        app.kubernetes.io/component: beat
+    spec:
+      # #983 — Kubernetes runs a container ``Unconfined`` unless a profile is
+      # asked for, while docker-compose applies the runtime's default profile
+      # to every service. Without this the same image runs with FEWER syscall
+      # restrictions here than under Compose.
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: beat
+          image: ghcr.io/spatiumnorth/spatiumddi-api:latest
+          imagePullPolicy: Always
+          command:
+            - celery
+            - -A
+            - app.celery_app
+            - beat
+            - --loglevel=info
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: spatiumddi-secrets
+                  key: postgres-password
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: spatiumddi-secrets
+                  key: secret-key
+            - name: DATABASE_URL
+              value: "postgresql+asyncpg://spatiumddi:$(POSTGRES_PASSWORD)@postgres-primary:5432/spatiumddi"
+            - name: REDIS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: spatiumddi-config
+                  key: REDIS_URL
+            - name: CELERY_BROKER_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: spatiumddi-config
+                  key: CELERY_BROKER_URL
+            - name: CELERY_RESULT_BACKEND
+              valueFrom:
+                configMapKeyRef:
+                  name: spatiumddi-config
+                  key: CELERY_RESULT_BACKEND
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+          # Beat has no broker-reachable identity (it only enqueues, it
+          # doesn't accept ``inspect ping``). Cheapest accurate signal:
+          # check the celery process is still pid 1 of the container.
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - grep -q celery /proc/1/cmdline
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3

@@ -1,0 +1,572 @@
+import { Check, CircleSlash, Clock, Copy, Telescope } from "lucide-react";
+import { useState } from "react";
+import { Link } from "react-router";
+
+import { PickList } from "@/components/pick-list";
+import { TitleLinkIcons } from "@/components/title-link-icons";
+import { TitlePoster } from "@/components/title-poster";
+import { Segmented } from "@/components/segmented";
+import { Button } from "@/components/ui/button";
+import { provenanceLabel } from "@/lib/pick-provenance";
+import { titleLinks } from "@/lib/title-links";
+import {
+  friendlyError,
+  rankClass,
+  rowTimingTitle,
+  tokenStepBreakdown,
+  webSearchSummary,
+} from "@/lib/run-format";
+import { formatDuration, runStatusLabel, runStatusVariant } from "@/lib/format";
+import { Badge } from "@/components/ui/badge";
+import { githubIssueSnippet } from "@/lib/github";
+import { RATING_LABELS, type RatingSource } from "@/lib/rating-sources";
+import { describeStage } from "@/lib/run-stages";
+import { useCopy } from "@/lib/use-copy";
+import { cn } from "@/lib/utils";
+import type {
+  Pick,
+  RunDetail,
+  RunLibraryBreakdown,
+  RunLogEntry,
+  RunPoolCost,
+  RunRowCost,
+  RunUserResult,
+} from "@/lib/types";
+
+function CopyForGitHubButton({
+  run,
+  result,
+}: {
+  run: RunDetail;
+  result: RunUserResult;
+}) {
+  const { state, copy } = useCopy();
+
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={() => copy(githubIssueSnippet(run, result))}
+    >
+      {state === "copied" ? (
+        <Check aria-hidden="true" />
+      ) : (
+        <Copy aria-hidden="true" />
+      )}
+      {state === "copied"
+        ? "Copied"
+        : state === "error"
+          ? "Couldn’t copy — try again"
+          : "Copy for GitHub issue"}
+    </Button>
+  );
+}
+
+/** The score shown for a pick, e.g. "IMDb 7.7" or "TMDB 7.4".
+ *
+ *  `rating` is always TMDB's `vote_average`. A row sorted on another service (IMDb/Trakt/… via
+ *  MDBList) also carries `order_rating` + `order_rating_source`: that is the number its order follows,
+ *  so it is shown instead — TMDB's figure beside an IMDb-sorted list reads as an unordered row.
+ *  Runs recorded before those fields existed carry only `rating`, which is TMDB's, so they keep the
+ *  TMDB label.
+ *
+ *  0 means "unrated", which is not a score and must not render as "TMDB 0.0". */
+function ratingLabel(pick: Pick): string {
+  if (pick.order_rating != null && pick.order_rating_source) {
+    const name =
+      RATING_LABELS[pick.order_rating_source as RatingSource] ??
+      pick.order_rating_source;
+    return pick.order_rating
+      ? `${name} ${pick.order_rating.toFixed(1)}`
+      : `${name} unrated`;
+  }
+  return pick.rating ? `TMDB ${pick.rating.toFixed(1)}` : "";
+}
+
+/** The parenthetical after a person's shared-setup AI-token figure, explaining why the tokens
+ *  aren't this row's own.
+ *
+ *  A server with more than one library (Movies, TV Shows, …) commonly has more than one shared
+ *  pool — one per library type — each drawn on by a different set of rows. Naming only the FIRST
+ *  shared pool's row count would misstate the others whenever their counts differ, so this only
+ *  claims what holds for all of them: that pools were shared, and how many there were.
+ *
+ *  The token figure this annotates is summed over EVERY pool, not just the shared ones — a row that
+ *  overrides its sources gets its own single-row pool alongside a sibling pool the rest of the
+ *  person's rows share, and that solo pool's tokens are still setup spend (computed before the
+ *  per-row loop even starts), just not spend any OTHER row drew from. Claiming "shared by N rows"
+ *  for the whole total in that case credits the shared pool with tokens it never spent, so the
+ *  count and the total have to agree on whether they're describing all of it or only part. */
+function sharedPoolsNote(pools: RunPoolCost[]): string {
+  const shared = pools.filter((pool) => pool.rows.length > 1);
+  if (shared.length === 0) return "";
+  if (shared.length < pools.length) {
+    // A mix of shared and single-row pools: the total includes both, so naming only the shared
+    // subset's row count would overclaim it. Say how many of the pools were shared instead of
+    // how many rows — that stays true of the WHOLE figure above it.
+    return ` (${shared.length} of ${pools.length} pools shared)`;
+  }
+  if (shared.length > 1) return ` (shared across ${shared.length} pools)`;
+  // Exactly one pool, and it's shared: `reduce` reads its row count without an indexed
+  // access, which `noUncheckedIndexedAccess` would otherwise type as possibly `undefined`.
+  const rowCount = shared.reduce((n, pool) => n + pool.rows.length, 0);
+  return ` (one pool, shared by ${rowCount} rows)`;
+}
+
+/** Total Exa/web searches across every pool behind a person's shared-setup line — the searches ran
+ *  during the candidate gather, which is shared setup, so they're summed the same way the tokens
+ *  are rather than attributed to whichever row happened to trigger the gather first. */
+function sharedPoolsExaSearches(pools: RunPoolCost[]): number {
+  return pools.reduce((n, pool) => n + pool.exa_searches, 0);
+}
+
+/** Total AI tokens across every pool behind a person's shared-setup line — summed the same way as
+ *  `sharedPoolsExaSearches`, and the figure `sharedPoolsNote`'s parenthetical describes. */
+function sharedPoolsTokens(pools: RunPoolCost[]): number {
+  return pools.reduce((n, pool) => n + pool.tokens, 0);
+}
+
+/** The match-quality half of `provenanceLabel` — "close match", "related" — without the "suggested
+ *  by TMDB" prefix, which repeated a word the score and the links on the same line already carry. */
+function matchQuality(pick: Pick): string {
+  const label = provenanceLabel(pick);
+  const [, quality] = label.split(" · ");
+  return quality ?? "";
+}
+
+/** One ranked pick: rank, a status dot (green = new this run), title + reason, and where it
+ *  came from. */
+function PickLine({ pick, isNew }: { pick: Pick; isNew: boolean }) {
+  const links = titleLinks(pick);
+  return (
+    // `items-start`, not `items-baseline`: a poster and a text baseline do not align.
+    <li className="flex items-start gap-3 py-1.5">
+      <span
+        className={cn(
+          "w-9 shrink-0 pt-0.5 text-right text-sm font-semibold tabular-nums",
+          rankClass(pick.rank),
+        )}
+      >
+        #{pick.rank}
+      </span>
+      {/* The same artwork `PickList` shows, from the same `rating_key`, because this is the page
+          where you eyeball what went into someone's row. Only five picks render per library before
+          the show-all toggle, so the cost is bounded. */}
+      <TitlePoster ratingKey={pick.rating_key} />
+      <span
+        className={cn(
+          "mt-2 h-2 w-2 shrink-0 rounded-full",
+          isNew ? "bg-success" : "bg-muted-foreground/30",
+        )}
+        aria-label={isNew ? "new this run" : "kept"}
+        title={isNew ? "New this run" : "Kept from last run"}
+      />
+      <span className="min-w-0 flex-1 text-sm">
+        <span className="block break-words">
+          <span className="font-medium">{pick.title}</span>
+          {/* Release year sits with the TITLE, not on the metadata line: "is this an old film?" is
+              asked while reading the name, and the Recent releases setting is judged on it. Absent
+              on a cold-start pick, which comes from the library rather than a TMDB candidate. */}
+          {pick.year != null && (
+            <span className="text-muted-foreground tabular-nums">
+              {" "}
+              ({pick.year})
+            </span>
+          )}
+          {pick.reason && (
+            <span className="block text-xs leading-relaxed text-muted-foreground">{pick.reason}</span>
+          )}
+        </span>
+        {/* Where it came from. This page has its own pick renderer rather than using PickList, so
+            the provenance line has to be repeated here — it is the page people open to ask exactly
+            this question. */}
+        {(ratingLabel(pick) || provenanceLabel(pick) || links.length > 0) && (
+          <span className="flex flex-wrap items-baseline gap-x-2 text-xs text-muted-foreground/80">
+            <span className="truncate">
+              {/* Not `provenanceLabel` as well: it renders "suggested by TMDB", which put the word
+                  TMDB three times in one line meaning the score, the source and the link. The match
+                  quality is the half that adds something the links do not. */}
+              {[ratingLabel(pick), matchQuality(pick)]
+                .filter(Boolean)
+                .join(" · ")}
+            </span>
+            <TitleLinkIcons title={pick} labelled />
+          </span>
+        )}
+      </span>
+    </li>
+  );
+}
+
+/** One library's ranked picks: first five, a show-all toggle, and a quiet "removed" footer. */
+function LibraryPicks({ entry }: { entry: RunLibraryBreakdown }) {
+  const [expanded, setExpanded] = useState(false);
+  const added = new Set(entry.added);
+  const shown = expanded ? entry.picks : entry.picks.slice(0, 5);
+  return (
+    <div className="space-y-2">
+      {entry.picks.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          No picks in this library.
+        </p>
+      ) : (
+        <ul className="divide-y divide-border/40">
+          {shown.map((pick) => (
+            <PickLine
+              key={pick.rank}
+              pick={pick}
+              isNew={added.has(pick.title)}
+            />
+          ))}
+        </ul>
+      )}
+      {entry.picks.length > 5 && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 px-2 text-xs"
+          onClick={() => setExpanded((v) => !v)}
+        >
+          {expanded ? "Show fewer" : `Show all ${entry.picks.length}`}
+        </Button>
+      )}
+      {entry.removed.length > 0 && (
+        <p className="pt-1 text-xs text-muted-foreground">
+          <span className="font-medium text-foreground/70">
+            −{entry.removed.length} rotated out
+          </span>{" "}
+          — the row keeps its size, so these made room for the new picks above:{" "}
+          <span className="line-through">{entry.removed.join(", ")}</span>
+        </p>
+      )}
+      {entry.deleted.length > 0 && (
+        <p className="text-xs font-medium text-destructive-text">
+          Row deleted (this person no longer gets this row):{" "}
+          {entry.deleted.join(", ")}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** One row (its libraries as tabs when there's more than one), showing the selected library's picks. */
+function RowSection({ entries }: { entries: RunLibraryBreakdown[] }) {
+  const [libKey, setLibKey] = useState(entries[0]?.library_key ?? "");
+  const active =
+    entries.find((entry) => entry.library_key === libKey) ?? entries[0];
+  // Title and new-count follow the SELECTED library, so a `{library_name}` row title renders for
+  // the tab you're viewing (e.g. "Movies Picked for You" ↔ "TV Shows Picked for You") instead of
+  // being stuck on the first library's rendering.
+  const added = active?.added.length ?? 0;
+  return (
+    <div className="space-y-3">
+      <div className="flex items-baseline gap-2">
+        <h3 className="text-sm font-semibold">{active?.row_title}</h3>
+        {added > 0 && (
+          <span className="text-xs text-success">+{added} new</span>
+        )}
+      </div>
+      {entries.length > 1 && (
+        <Segmented
+          value={libKey}
+          onChange={setLibKey}
+          ariaLabel="Library"
+          options={entries.map((entry) => ({
+            value: entry.library_key,
+            label: `${entry.library_title} · ${entry.picks.length}`,
+          }))}
+        />
+      )}
+      {active && <LibraryPicks entry={active} />}
+    </div>
+  );
+}
+
+/** A key for the run results — what the dots and the strikethrough mean — so the view reads without
+ *  hovering to guess. Shown once above a person's rows. */
+function ResultsLegend() {
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
+      <span className="font-medium text-foreground/70">What changed:</span>
+      <span className="inline-flex items-center gap-1.5">
+        <span className="h-2 w-2 rounded-full bg-success" aria-hidden="true" />
+        New this run
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <span
+          className="h-2 w-2 rounded-full bg-muted-foreground/30"
+          aria-hidden="true"
+        />
+        Kept from last run
+      </span>
+      {/* The `{" "}` is load-bearing. JSX drops the newline between a tag and the text after it, so
+          without it the accessible text and any copy-paste read "TitleRotated out for variety" —
+          flexbox `gap` spaces the two apart visually, which is why this survived review, but a
+          screen reader announces the run-together string. The sibling entries above are unaffected
+          because their first child is an aria-hidden dot, not a word. */}
+      <span className="inline-flex items-center gap-1.5">
+        <span className="line-through">Title</span> Rotated out for variety
+      </span>
+      <span className="inline-flex items-center gap-1.5">
+        <span className="font-semibold tabular-nums text-amber-400">#1–3</span>{" "}
+        Top picks
+      </span>
+    </div>
+  );
+}
+
+/** The selected user's result: an error, or their rows grouped from the per-(row, library) breakdown. */
+/**
+ * One person's result, with their trace button.
+ *
+ * The button lives HERE and not on the tab that renders the panel. It used to sit in the People
+ * tab's own header; when that tab was removed the Rows tab inherited the panel but not the button,
+ * and a per-person trace became unreachable from anywhere in the app — while a comment in the Rows
+ * tab claimed the panel carried it. Owning it here is what makes that true.
+ */
+export function UserPanel({
+  run,
+  result,
+  liveLog,
+  userId,
+  cost,
+  setup,
+}: {
+  run: RunDetail;
+  result: RunUserResult;
+  liveLog?: RunLogEntry[];
+  /** This person's user id, for the trace link. Null when the run predates the user being known. */
+  userId?: number | null;
+  /** THIS row's cost when the panel is rendered inside a row. Omitted on a whole-person view. */
+  cost?: RunRowCost | null;
+  setup?: { setup_ms: number; pools: RunPoolCost[] } | null;
+}) {
+  // The per-step split ("gather 900, curate 2.1k") came with the header from the People tab. It was
+  // that tab's only consumer, so dropping it here would have retired the breakdown from the whole app.
+  const steps = tokenStepBreakdown(result.llm_tokens_by_step);
+  const tokens =
+    result.llm_tokens > 0
+      ? ` · ${result.llm_tokens.toLocaleString()} AI tokens${steps ? ` (${steps})` : ""}`
+      : "";
+  // Summed once so the guard below and the rendered figure can never disagree. 0 means there is
+  // nothing to attribute, so the clause — and the pool parenthetical explaining the attribution —
+  // must not render at all, the same guard `tokens` above already applies to the whole-person case.
+  const poolTokens = setup ? sharedPoolsTokens(setup.pools) : 0;
+  return (
+    <div className="space-y-3">
+      {/* WHOSE result this is, and what it cost — the header the People tab had. Hoisting only the
+          trace button out of that tab left it floating above the picks with nothing to belong to,
+          and left the panel never naming the person whose row you were reading. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b pb-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <span className="truncate font-medium">
+            {userId !== null && userId !== undefined ? (
+              <Link
+                to={`/users/${userId}`}
+                className="rounded-sm hover:text-primary hover:underline"
+              >
+                {result.display_name || result.username}
+              </Link>
+            ) : (
+              result.display_name || result.username
+            )}
+          </span>
+          <Badge
+            variant={
+              result.error !== null
+                ? "destructive"
+                : runStatusVariant(result.status)
+            }
+          >
+            {runStatusLabel(result.status)}
+          </Badge>
+        </div>
+        <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2">
+          {cost !== undefined ? (
+            cost === null ? (
+              <p className="text-right text-sm text-muted-foreground">
+                Timing not recorded for this run
+              </p>
+            ) : (
+              // The TOTAL, with the split behind it. "25ms · 8ms waiting · shared setup 159ms" put
+              // two engineer concepts on screen — "waiting" is blocked on the Plex write lock,
+              // "shared setup" is work amortised across everyone in the run — neither of which the
+              // owner acts on, and neither guessable. The AI-token and web-search figures stay
+              // visible: those are money, not internals.
+              //
+              // Left as a `title` on purpose, unlike the remedies elsewhere in this audit that were
+              // moved out of one. The difference is what the text IS: those were the only statement
+              // of how to fix an alarming thing, so hover-only made them unreachable. This is a
+              // glossary for a number nobody acts on, and making every row of a run's timing line a
+              // tab stop costs more than the gap it closes.
+              <p
+                className="text-right text-sm text-muted-foreground"
+                title={
+                  rowTimingTitle(
+                    cost.duration_ms,
+                    // Same floor as before: a row whose every source `continue`s in microseconds
+                    // truncates BOTH numbers to 0, and 0 >= 0 * 0.1 would otherwise claim it spent
+                    // its time waiting when it did no work at all.
+                    cost.blocked_ms >= cost.duration_ms * 0.1
+                      ? cost.blocked_ms
+                      : 0,
+                    setup?.setup_ms,
+                    formatDuration,
+                  ) || undefined
+                }
+              >
+                {formatDuration(cost.duration_ms)}
+                {setup && setup.setup_ms > 0 && (
+                  <>
+                    {poolTokens > 0 &&
+                      ` · ${poolTokens.toLocaleString()} AI tokens${sharedPoolsNote(setup.pools)}`}
+                    {webSearchSummary(sharedPoolsExaSearches(setup.pools))}
+                  </>
+                )}
+              </p>
+            )
+          ) : (
+            (result.duration_ms ?? 0) > 0 && (
+              <p className="text-right text-sm text-muted-foreground">
+                {formatDuration(result.duration_ms)}
+                {tokens}
+                {webSearchSummary(result.exa_searches)}
+              </p>
+            )
+          )}
+          {result.has_trace && userId !== null && userId !== undefined && (
+            <Button asChild variant="outline" size="sm" className="shrink-0 gap-1.5">
+              <Link to={`/runs/${run.id}/trace/${userId}`}>
+                <Telescope className="h-3.5 w-3.5" aria-hidden="true" />
+                How we picked
+              </Link>
+            </Button>
+          )}
+        </div>
+      </div>
+      <UserPanelBody run={run} result={result} liveLog={liveLog} />
+    </div>
+  );
+}
+
+function UserPanelBody({
+  run,
+  result,
+  liveLog,
+}: {
+  run: RunDetail;
+  result: RunUserResult;
+  liveLog?: RunLogEntry[];
+}) {
+  if (result.error !== null) {
+    return (
+      <div role="alert" className="space-y-3 rounded-md bg-destructive/10 p-3">
+        <p className="text-sm font-medium text-foreground">
+          {friendlyError(result.error)}
+        </p>
+        {/* Raw detail is contained: it scrolls inside its own box and wraps long tokens (the encoded
+            Plex uri) so it can never push the page sideways. */}
+        <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded bg-background/60 p-2.5 font-mono text-xs text-destructive-text">
+          {result.error}
+        </pre>
+        <CopyForGitHubButton run={run} result={result} />
+      </div>
+    );
+  }
+  // A skip is a configuration outcome, not a failure — so it explains itself rather than sitting
+  // on "Working on this person…" forever, which is how it read to the beta user who filed issue #3.
+  if (result.status === "skipped") {
+    return (
+      <div className="flex gap-3 rounded-md bg-muted/40 p-3 text-sm">
+        <CircleSlash
+          className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground"
+          aria-hidden="true"
+        />
+        {/* No heading. `RunUser.reason` is one of eight specific sentences, and two of them are
+            cancellations ("The run was cancelled before this person's turn") — under a heading
+            reading "Nothing to build for this person" the page contradicted itself: there WAS
+            something to build, the run stopped. The reasons are already complete sentences and are
+            already rendered heading-free on the cold-start path below, which reads better. */}
+        <div>
+          <p className="text-foreground">
+            {result.reason ??
+              "No row was due for them in this run. Check that a per-person row is enabled and that they’re in its audience."}
+          </p>
+        </div>
+      </div>
+    );
+  }
+  if (result.breakdown.length === 0) {
+    // Still running (this user hasn’t finished) or a legacy run with no breakdown.
+    if (result.picks.length > 0)
+      return <PickList picks={result.picks} className="mt-1" />;
+    // A cold-start person whose rows are set to skip has no picks and no breakdown, but something
+    // DID happen — their row was not built, and any earlier one was removed. Saying "no changes"
+    // there is wrong on the one screen whose job is "what changed at 03:31".
+    if (result.status === "cold_start" && result.reason) {
+      return <p className="text-sm text-muted-foreground">{result.reason}</p>;
+    }
+    if (result.status === "ok" || result.status === "cold_start") {
+      return (
+        <p className="text-sm text-muted-foreground">
+          No changes — this person’s rows were already up to date.
+        </p>
+      );
+    }
+    // Not started. It used to fall through to the live-log stage below and render a bare "queued…",
+    // which reads like a fragment of a log rather than an answer — and it is the state most of the
+    // roster is in for most of a run, so it is the panel people see most.
+    // "pending" is not only "not started": a person mid-build carries it too, because a `run_users`
+    // row is written only when they FINISH. So this branch has to defer to the live log the moment
+    // there is one, or the panel tells you nothing on their Plex has changed while the engine is
+    // writing their collection — a false claim on the screen whose job is "what changed at 03:31".
+    const started = liveLog?.some((e) => e.user === result.slug) ?? false;
+    if (result.status === "pending" && !started) {
+      return (
+        <div className="flex gap-3 rounded-md bg-muted/40 p-3 text-sm">
+          <Clock
+            className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground"
+            aria-hidden="true"
+          />
+          <div>
+            <p className="font-medium text-foreground">Waiting their turn</p>
+            <p className="mt-1 text-muted-foreground">
+              A run builds people a few at a time. Nothing on their Plex has
+              changed yet — their rows appear here as soon as they are built.
+            </p>
+          </div>
+        </div>
+      );
+    }
+    // Show the latest stage from the live log for this user.
+    const userLog = liveLog?.filter((e) => e.user === result.slug);
+    const latest = userLog?.at(-1);
+    return (
+      <p className="text-sm text-muted-foreground">
+        {latest
+          ? `${describeStage(latest.stage, latest.counts ?? {})}…`
+          : "Working on this person…"}
+      </p>
+    );
+  }
+  const rows = new Map<string, RunLibraryBreakdown[]>();
+  for (const entry of result.breakdown) {
+    rows.set(entry.row_slug, [...(rows.get(entry.row_slug) ?? []), entry]);
+  }
+  return (
+    <div className="space-y-6">
+      {/* Why their rows look identical to last night's, when that is the answer. A second run of a
+          night redelivers most people unchanged, and without this the panel shows the same titles
+          as the run before it and says nothing at all — which reads as a run that did nothing
+          rather than as a run that decided there was nothing to do. The engine sets this only when
+          NO row of theirs was rebuilt, so it never argues with a change shown below it. */}
+      {result.reason && (
+        <p className="text-sm text-muted-foreground">{result.reason}</p>
+      )}
+      <ResultsLegend />
+      {[...rows.values()].map((entries) => (
+        <RowSection key={entries[0]?.row_slug} entries={entries} />
+      ))}
+    </div>
+  );
+}

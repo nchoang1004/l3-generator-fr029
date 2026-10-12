@@ -1,0 +1,191 @@
+"""GET /v1/tool_approval/records: resolved approval-decision history."""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime, timedelta
+
+import pytest
+
+from primer.model.tool_approval import ToolApprovalRecord
+
+
+def _rec(
+    *,
+    id_: str,
+    decision: str,
+    decided_at: datetime,
+    session_id: str = "sess-1",
+    gate_event_key: str | None = None,
+) -> ToolApprovalRecord:
+    return ToolApprovalRecord(
+        id=id_,
+        tool_name="delete_workspace",
+        toolset_id="workspaces",
+        arguments={"id": "ws-x"},
+        tool_call_id=f"call-{id_}",
+        session_id=session_id,
+        decided_at=decided_at,
+        decision=decision,  # type: ignore[arg-type]
+        policy_id="p1",
+        approval_type="required",
+        gate_event_key=gate_event_key,
+    )
+
+
+async def _seed(app) -> None:
+    storage = app.state.storage_provider.get_storage(ToolApprovalRecord)
+    base = datetime(2026, 6, 14, 9, 0, tzinfo=UTC)
+    await storage.create(_rec(id_="r1", decision="approved", decided_at=base))
+    await storage.create(
+        _rec(id_="r2", decision="rejected", decided_at=base + timedelta(minutes=5))
+    )
+    await storage.create(
+        _rec(id_="r3", decision="approved", decided_at=base + timedelta(minutes=10))
+    )
+    await storage.create(
+        _rec(id_="r4", decision="timeout", decided_at=base + timedelta(minutes=2))
+    )
+
+
+@pytest.mark.asyncio
+async def test_records_list_all_ordered_time_desc(client, app):
+    await _seed(app)
+    r = await client.get("/v1/tool_approval/records")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    ids = [it["id"] for it in body["items"]]
+    assert ids == ["r3", "r2", "r4", "r1"]  # newest decided_at first
+    assert body["total"] == 4
+
+
+@pytest.mark.asyncio
+async def test_records_list_filter_by_status(client, app):
+    await _seed(app)
+    r = await client.get("/v1/tool_approval/records?status=approved")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    ids = [it["id"] for it in body["items"]]
+    assert ids == ["r3", "r1"]
+    assert all(it["decision"] == "approved" for it in body["items"])
+
+
+@pytest.mark.asyncio
+async def test_records_list_filter_rejected(client, app):
+    await _seed(app)
+    r = await client.get("/v1/tool_approval/records?status=rejected")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert [it["id"] for it in body["items"]] == ["r2"]
+
+
+@pytest.mark.asyncio
+async def test_records_list_pagination(client, app):
+    await _seed(app)
+    r = await client.get("/v1/tool_approval/records?offset=0&length=2")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert len(body["items"]) == 2
+    assert [it["id"] for it in body["items"]] == ["r3", "r2"]
+
+
+@pytest.mark.asyncio
+async def test_records_list_empty(client):
+    r = await client.get("/v1/tool_approval/records")
+    assert r.status_code == 200, r.text
+    assert r.json()["items"] == []
+
+
+@pytest.mark.asyncio
+async def test_records_list_bad_status_422(client):
+    r = await client.get("/v1/tool_approval/records?status=bogus")
+    assert r.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_records_list_filter_by_session_id(client, app):
+    # uiv2 Wave 3: the session-detail transcript's resolved-card
+    # renderer needs exactly one session's history, not a client-side
+    # filter over a page of the whole instance's records.
+    await _seed(app)
+    storage = app.state.storage_provider.get_storage(ToolApprovalRecord)
+    await storage.create(_rec(
+        id_="r5", decision="approved",
+        decided_at=datetime(2026, 6, 14, 9, 20, tzinfo=UTC),
+        session_id="sess-other",
+    ))
+    r = await client.get("/v1/tool_approval/records?session_id=sess-1")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    ids = [it["id"] for it in body["items"]]
+    assert ids == ["r3", "r2", "r4", "r1"]
+    assert all(it["session_id"] == "sess-1" for it in body["items"])
+
+
+@pytest.mark.asyncio
+async def test_records_list_filter_by_session_id_and_status(client, app):
+    await _seed(app)
+    storage = app.state.storage_provider.get_storage(ToolApprovalRecord)
+    await storage.create(_rec(
+        id_="r5", decision="rejected",
+        decided_at=datetime(2026, 6, 14, 9, 20, tzinfo=UTC),
+        session_id="sess-other",
+    ))
+    r = await client.get(
+        "/v1/tool_approval/records?session_id=sess-1&status=rejected",
+    )
+    assert r.status_code == 200, r.text
+    assert [it["id"] for it in r.json()["items"]] == ["r2"]
+
+
+@pytest.mark.asyncio
+async def test_records_list_filter_by_session_id_no_match(client, app):
+    await _seed(app)
+    r = await client.get("/v1/tool_approval/records?session_id=sess-nope")
+    assert r.status_code == 200, r.text
+    assert r.json()["items"] == []
+
+
+@pytest.mark.asyncio
+async def test_records_list_filter_by_gate_event_key(client, app):
+    """01a068da: a caller that has the event key in hand (e.g.
+    confirming a just-submitted decision landed) can look it up directly
+    rather than paging through session_id history to find it."""
+    await _seed(app)
+    storage = app.state.storage_provider.get_storage(ToolApprovalRecord)
+    await storage.create(_rec(
+        id_="r5", decision="approved",
+        decided_at=datetime(2026, 6, 14, 9, 20, tzinfo=UTC),
+        gate_event_key="tool_approval:sess-1:call-r5",
+    ))
+    r = await client.get(
+        "/v1/tool_approval/records?gate_event_key=tool_approval:sess-1:call-r5",
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert [it["id"] for it in body["items"]] == ["r5"]
+    assert body["items"][0]["gate_event_key"] == "tool_approval:sess-1:call-r5"
+
+
+@pytest.mark.asyncio
+async def test_records_list_filter_by_gate_event_key_no_match(client, app):
+    await _seed(app)
+    r = await client.get("/v1/tool_approval/records?gate_event_key=does-not-exist")
+    assert r.status_code == 200, r.text
+    assert r.json()["items"] == []
+
+
+@pytest.mark.asyncio
+async def test_records_list_filter_by_gate_event_key_and_status(client, app):
+    await _seed(app)
+    storage = app.state.storage_provider.get_storage(ToolApprovalRecord)
+    await storage.create(_rec(
+        id_="r5", decision="rejected",
+        decided_at=datetime(2026, 6, 14, 9, 20, tzinfo=UTC),
+        gate_event_key="tool_approval:sess-1:call-r5",
+    ))
+    r = await client.get(
+        "/v1/tool_approval/records"
+        "?gate_event_key=tool_approval:sess-1:call-r5&status=approved",
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["items"] == []

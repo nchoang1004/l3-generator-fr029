@@ -1,0 +1,171 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[project]
+name = "spatiumddi"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    # Below 2.1 until #1187: 2.1.0's new type annotations fail mypy in 23
+    # files (#1186). The test suite itself passes on 2.1.
+    "sqlalchemy[asyncio]>=2.0.36,<2.1",
+    "asyncpg>=0.30.0",
+    "alembic>=1.14.0",
+    "redis[hiredis]>=5.2.0",
+    "celery[redis]>=5.4.0",
+    "structlog>=24.4.0",
+    "python-jose[cryptography]>=3.3.0",
+    "bcrypt>=4.0.0",
+    "python-multipart>=0.0.18",
+    "pydantic-settings>=2.6.0",
+    "prometheus-client>=0.21.0",
+    "joserfc>=1.0.0",
+    "httpx>=0.28.0",
+    "cryptography>=43.0.0",
+    # TLS cert monitoring (#118) — get_peer_cert_chain() captures the
+    # server-presented chain (leaf + intermediates) for the cert detail
+    # view; stdlib ssl can't on Python 3.12 (get_*_chain is 3.13+).
+    "pyOpenSSL>=24.0.0",
+    "ldap3>=2.9.1",
+    "python3-saml>=1.16.0",
+    "pyrad>=2.4",
+    "tacacs_plus>=2.6",
+    "openpyxl>=3.1.5",
+    "dnspython>=2.7.0",
+    "jinja2>=3.1.4",
+    "pywinrm>=0.4.3",
+    # CredSSP transport for WinRM (#1110). pywinrm imports it lazily and the
+    # server form has offered "CredSSP" for years, so without it that choice
+    # failed on every call. It is also the one transport whose logon on the
+    # Windows server can authenticate onward to a failover partner, which
+    # every Add/Set/Remove-DhcpServerv4Failover* cmdlet has to do.
+    "requests-credssp>=2.0.0",
+    "pysnmp~=7.1",
+    "pyotp>=2.9.0",
+    "openai>=1.40.0",
+    "anthropic>=0.40.0",
+    "reportlab>=4.2.0",
+    "croniter>=3.0.0",
+    # Scheduled Wake-on-LAN calendar gate (issue #586 Phase 2). ``icalendar``
+    # parses subscribed .ics feeds; ``caldav`` pulls authenticated CalDAV
+    # collections; ``python-dateutil`` (already present transitively via
+    # botocore) expands RRULE/RDATE over a bounded horizon — pinned explicitly
+    # so the recurrence path can't break on a transitive drop.
+    "icalendar>=6.0.0",
+    "caldav>=1.3.0",
+    "python-dateutil>=2.9.0",
+    # IDNA2008 encoding for the shared DNS-name validators (issue #597) —
+    # normalizes internationalized host/record names to their xn-- A-label
+    # form. Already present transitively (httpx / requests); pinned direct
+    # because app.core.dns_names imports it.
+    "idna>=3.20",
+    "boto3>=1.35.0",
+    "paramiko>=3.4.0",
+    "azure-storage-blob>=12.20.0",
+    "smbprotocol>=1.13.0",
+    "google-cloud-storage>=2.18.0",
+    # Cloud integration (issue #37). AWS (infra mirror + Route 53 DNS) is
+    # covered by the existing boto3. Azure + GCP infra + DNS need their
+    # management SDKs; Cloudflare DNS uses plain REST via httpx (no SDK
+    # pin — keeps the dependency surface small + avoids the heavy
+    # cloudflare SDK's pydantic-v1 shim).
+    "azure-identity>=1.19.0",
+    "azure-mgmt-network>=28.0.0",
+    "azure-mgmt-compute>=33.0.0",
+    "azure-mgmt-dns>=8.2.0",
+    "azure-mgmt-resource>=23.0.0",
+    "google-cloud-compute>=1.19.0",
+    "google-cloud-dns>=0.35.0",
+    "google-auth>=2.35.0",
+    # docker SDK — only used on the SpatiumDDI OS appliance to send
+    # SIGHUP to the frontend container when a new TLS cert is
+    # activated (Phase 4b.2, issue #134). The cert deployer is gated
+    # on settings.appliance_mode + presence of /var/run/docker.sock,
+    # so plain Docker / K8s deploys pay zero cost.
+    "docker>=7.1.0",
+    # PyYAML — Phase E of #296 needs it to parse + re-dump the k3s
+    # HelmChartConfig.valuesContent string when bumping the image tag
+    # post-rolling-upgrade. Pinned explicitly so the chart-bump path
+    # doesn't break if a transitive consumer drops the dep.
+    "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=6.0.0",
+    "pytest-xdist>=3.6.0",
+    "pytest-split>=0.9.0",
+    "httpx>=0.28.0",
+    "ruff>=0.8.0",
+    "black>=24.10.0",
+    "mypy>=1.13.0",
+    "types-croniter>=3.0.0",
+    "types-paramiko>=3.4.0",
+    # tests/test_spatium_console.py loads the appliance console host script by
+    # path; these are ITS runtime deps, not the API's. Without them the module
+    # importorskip'd itself and the whole console suite skipped silently in CI
+    # — including the #592 regression guard, which is the one thing stopping a
+    # node-local pod filter from quietly coming back.
+    "rich>=13.0.0",
+    "psutil>=5.9.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+# E501 is owned by black (also configured at 100 chars). Ruff's E501 fires on
+# long string literals / URLs that black can't wrap, which produces noise
+# without value. N818 (exception suffix) doesn't fit the existing API schema names.
+ignore = ["E501", "N818"]
+
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+
+[tool.mypy]
+python_version = "3.12"
+# `strict = true` was aspirational but the codebase has 88 strict-mode
+# violations and 20 default-mode violations (mostly Optional → non-Optional
+# assignment after a None check, name-redef in conditional branches, and a
+# couple of pydantic-mypy / dataclass interactions). Run mypy in default
+# mode and silence the high-noise / low-signal categories so it still
+# catches real bugs (return-value, arg-type, call-arg, var-annotated, …)
+# without flooding CI. Tighten one rule at a time as the codebase is fixed.
+strict = false
+ignore_missing_imports = true
+plugins = ["pydantic.mypy"]
+disable_error_code = ["assignment", "no-redef", "attr-defined", "index", "operator", "unused-ignore"]
+
+# #1020 — the push-to-main CI shards run with ``--cov-context=test`` and the
+# aggregator folds their .coverage files into the test-impact map. Relative
+# paths keep the map keyed ``app/x.py`` instead of the runner's absolute
+# workspace path, which is what the selector matches ``git diff`` output to.
+[tool.coverage.run]
+relative_files = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+# Force every async fixture and test onto a single session-scoped event loop.
+# `tests/conftest.py` builds the SQLAlchemy async engine at import time and
+# its session-scoped schema-create fixture pulls the first connection on the
+# session loop. Without this, function-scoped tests get a fresh per-test loop
+# and asyncpg blows up with "another operation in progress" / "attached to a
+# different loop" the moment a test reuses the pooled connection.
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+testpaths = ["tests"]
+# Coverage is opt-in (``make test-cov``), not in addopts (#1019). #435 removed
+# ``--cov`` from the CI command line, but this line kept re-adding it on every
+# shard AND every local ``make test-one`` — 15-30 % tracing overhead for a
+# table nothing read. Do not put ``--cov`` back here.

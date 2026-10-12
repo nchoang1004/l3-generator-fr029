@@ -1,0 +1,197 @@
+name: Bug report
+description: Something is broken or behaves incorrectly
+title: "[bug] "
+labels: ["bug"]
+# New issues are added to the org project by its auto-add workflow and land in
+# Status "Triage" there; see the "Issue tracking" section of CLAUDE.md.
+type: Bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Please fill in as much as you can — it saves a round trip.
+
+        🔒 **Found a security vulnerability?** Don't file it here: issues are public.
+        Report it privately through
+        [GitHub Security Advisories](https://github.com/spatiumnorth/spatiumddi/security/advisories/new)
+        instead (see [SECURITY.md](https://github.com/spatiumnorth/spatiumddi/blob/main/SECURITY.md)).
+
+        Have a question rather than a bug? Ask in
+        [Discussions](https://github.com/spatiumnorth/spatiumddi/discussions).
+
+  - type: input
+    id: version
+    attributes:
+      label: SpatiumDDI version
+      description: "Shown at the bottom of the sidebar, or returned by `GET /api/v1/version`. An image tag or short commit SHA also works."
+      placeholder: "e.g. 2026.11.03-1, 1.0.0 or ghcr.io/spatiumnorth/spatiumddi-api:1.0.0"
+    validations:
+      required: true
+
+  - type: input
+    id: regression
+    attributes:
+      label: Did this work in an earlier version?
+      description: If so, the last version you know worked. Leave blank if it never worked or you don't know.
+      placeholder: "e.g. worked in 2026.09.04-1"
+
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: Deployment
+      options:
+        - Docker Compose
+        - Kubernetes (Helm)
+        - Kubernetes (manifests)
+        - OS appliance
+        - Local dev (make dev)
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: arch
+    attributes:
+      label: Architecture
+      options:
+        - amd64 (x86-64)
+        - arm64
+        - Don't know
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - IPAM
+        - DNS
+        - DHCP
+        - Discovery (sweeps, SNMP, LLDP, nmap)
+        - Auth (local / LDAP / OIDC / SAML / RADIUS / TACACS+)
+        - Permissions / RBAC
+        - Alerts / notifications / audit forwarding
+        - Audit log / observability
+        - Backup / restore
+        - Reporting / dashboards
+        - Integrations (Kubernetes, Proxmox, firewalls, cloud, …)
+        - Operator Copilot / MCP
+        - Appliance (OS, install, upgrade, Fleet)
+        - Deployment (Compose / Helm / manifests)
+        - Frontend / UI
+        - API
+        - Migrations / DB
+        - Docs
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: backend
+    attributes:
+      label: DNS / DHCP server involved
+      description: For DNS or DHCP bugs, which server software. Pick "Not applicable" otherwise.
+      options:
+        - Not applicable
+        - BIND9
+        - PowerDNS
+        - Technitium (agent-managed)
+        - Technitium (agentless API)
+        - Windows DNS
+        - Cloud DNS (Route 53 / Azure / Cloudflare / Google / other)
+        - Kea DHCP
+        - Kea DHCP (HA pair)
+        - Windows DHCP
+        - Several / other
+
+  - type: dropdown
+    id: impact
+    attributes:
+      label: Impact
+      description: The worst thing this causes. It helps us set the priority.
+      options:
+        - Data loss or corruption
+        - Wrong answers (DNS, DHCP leases or IPAM state are incorrect)
+        - A service is down (DNS / DHCP stops answering, or the UI or API is unusable)
+        - Install or upgrade fails or never finishes
+        - A feature doesn't work, but there is a workaround
+        - Cosmetic / minor annoyance
+    validations:
+      required: true
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened?
+      description: A clear, concise description of the bug.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. …
+        2. …
+        3. …
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs / tracebacks
+      description: API, worker, agent or browser console logs. Please redact secrets.
+      render: shell
+
+  - type: markdown
+    attributes:
+      value: |
+        ### Support bundle (optional, but it saves a round trip)
+
+        **Diagnostics → Support bundle** generates a scrubbed archive with
+        versions, schema head, recent errors, alert history, configuration
+        shape and an audit tail. IP addresses, hostnames, MAC addresses and
+        usernames are replaced with stable synthetic values; credentials are
+        excluded outright.
+
+        ⚠️ **Attachments on this repository are public.** Anyone who can read
+        this issue can download what you attach, and deleting the comment does
+        not reliably remove the file. Scrubbing is best-effort — please use the
+        preview screen to review the bundle before attaching it, and never
+        attach the `-UNSCRUBBED-` variant or the decode map.
+
+  - type: checkboxes
+    id: bundle_ack
+    attributes:
+      label: If you are attaching a support bundle
+      options:
+        - label: I generated it with scrubbing on (the filename does NOT contain UNSCRUBBED)
+          required: false
+        - label: I reviewed the preview before attaching it
+          required: false
+
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment details
+      description: PostgreSQL version, Redis version, reverse proxy, auth provider type, node count, etc.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submission checks
+      options:
+        - label: I searched existing issues and this is not a duplicate
+          required: true
+        - label: This is not a security vulnerability (those go to Security Advisories, linked above)
+          required: true
+        - label: I am running a recent SpatiumDDI release (within the last ~2 releases)
+          required: false

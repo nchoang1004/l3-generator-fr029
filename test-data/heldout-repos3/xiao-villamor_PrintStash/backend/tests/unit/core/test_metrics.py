@@ -1,0 +1,471 @@
+"""Prometheus labels are an unbounded-cardinality hazard and a leak channel.
+
+A `/metrics` endpoint is scraped by something outside PrintStash and often kept
+for a year, so every label value written here is effectively published. Two
+distinct things go wrong when a label is taken from a caller verbatim.
+
+The first is disclosure: capture operations are driven by URLs the *user* pasted,
+and a provider download URL is signed — the credential is in the query string. A
+label built from one puts a working credential into a monitoring system that has
+no idea it is holding a secret, and that nobody thinks to rotate.
+
+The second is cardinality: Prometheus creates one time series per distinct label
+combination and never forgets it. A label that can take an arbitrary value turns
+one metric into millions of series and takes the scrape target down with it.
+
+Both are prevented the same way — a **closed allowlist per label**, with
+everything unrecognised folded to a fixed placeholder. That is why these tests
+assert on the rendered exposition text rather than on the counter objects: the
+rendered text is what actually leaves the process.
+
+Every recorder is also *best-effort*: it swallows its own failures, because a
+broken metric must never fail the request, job, or dispatch it was measuring.
+"""
+
+from __future__ import annotations
+
+import asyncio
+from typing import cast
+
+import pytest
+from prometheus_client import generate_latest
+
+import app.modules.ingestion.provider_metadata_cache as provider_metadata_cache
+from app.core import metrics
+from app.core.metrics import (
+    record_artifact_upload_bytes,
+    record_artifact_upload_event,
+    record_capture_operation,
+    record_fleet_dispatch,
+    record_job_terminal,
+    record_reconcile_pass,
+    record_resubmit,
+    record_step,
+    registry,
+    set_lane_depth,
+    set_stuck_jobs,
+)
+from app.db.models import JobKind
+from app.db.session import SessionFactory
+from app.modules.ingestion import import_resolvers
+from app.modules.ingestion.capture_provider_connections import (
+    ProviderIdentity,
+    ProviderModelMetadata,
+)
+
+# A URL shaped like a real signed provider download: the token *is* the
+# credential, so it must never appear in the exposition text.
+SIGNED_URL = "https://evil.test/a?token=secret-user-model-file"
+MMF_PAGE_URL = "https://www.myminifactory.com/object/1"
+
+
+def _exposition() -> str:
+    return generate_latest(registry).decode()
+
+
+def _sample(name: str, labels: dict[str, str]) -> float:
+    """One metric's current value, or 0.0 before its first observation.
+
+    The registry is process-wide and other tests write to it, so a test that
+    cares about a delta reads this before and after rather than asserting an
+    absolute count.
+    """
+    return registry.get_sample_value(name, labels) or 0.0
+
+
+class _NoopSessionFactory:
+    """Stands in for the session factory; the resolver only needs the context."""
+
+    def scoped_session(self):
+        class _Scope:
+            def __enter__(self):
+                return object()
+
+            def __exit__(self, *_args: object) -> bool:
+                return False
+
+        return _Scope()
+
+
+class TestRecordCaptureOperation:
+    def test_records_a_capture_with_both_of_its_labels(self) -> None:
+        record_capture_operation("printables", "provider_api", "success", 0.5)
+
+        assert (
+            'outcome="success",provider="printables",transport="provider_api"'
+            in _exposition()
+        )
+
+    def test_counts_uploaded_bytes_for_the_provider(self) -> None:
+        record_capture_operation(
+            "thingiverse", "browser_upload", "success", 0.1, uploaded_bytes=7
+        )
+
+        assert 'capture_uploaded_bytes_total{provider="thingiverse"}' in _exposition()
+
+    def test_records_an_error_category_alongside_the_outcome(self) -> None:
+        record_capture_operation(
+            "cults",
+            "provider_api",
+            "required",
+            0,
+            error_category="user_file_required",
+        )
+
+        assert 'category="user_file_required",provider="cults"' in _exposition()
+
+    def test_folds_an_unknown_provider_to_a_fixed_placeholder(self) -> None:
+        record_capture_operation(SIGNED_URL, "provider_api", "success", 0.1)
+
+        # One series for every URL a user ever pastes would be unbounded
+        # cardinality; `unknown` is one series.
+        assert 'provider="unknown"' in _exposition()
+
+    def test_folds_an_unknown_transport_to_a_fixed_placeholder(self) -> None:
+        record_capture_operation("printables", SIGNED_URL, "success", 0.1)
+
+        assert 'transport="unknown"' in _exposition()
+
+    def test_folds_an_unknown_outcome_to_error(self) -> None:
+        record_capture_operation("printables", "provider_api", SIGNED_URL, 0.1)
+
+        # An unrecognised outcome is a bug somewhere upstream, so it is recorded
+        # as a failure rather than quietly counted as a success.
+        assert 'outcome="error",provider="printables"' in _exposition()
+
+    def test_folds_an_unknown_error_category_to_a_fixed_placeholder(self) -> None:
+        record_capture_operation(
+            "printables", "provider_api", "error", 0.1, error_category=SIGNED_URL
+        )
+
+        assert 'category="unknown",provider="printables"' in _exposition()
+
+    def test_never_publishes_a_credential_bearing_value(self) -> None:
+        record_capture_operation(
+            SIGNED_URL,
+            SIGNED_URL,
+            SIGNED_URL,
+            0.1,
+            uploaded_bytes=7,
+            error_category=SIGNED_URL,
+        )
+
+        text = _exposition()
+        # Every label position at once: a signed URL reaching any one of them
+        # publishes a working credential to whoever scrapes /metrics.
+        assert SIGNED_URL not in text
+        assert "secret-user-model-file" not in text
+
+    def test_records_a_negative_duration_as_zero(self) -> None:
+        labels = {
+            "provider": "printables",
+            "transport": "provider_api",
+            "outcome": "success",
+        }
+        before = _sample("printstash_capture_operation_duration_seconds_sum", labels)
+
+        record_capture_operation("printables", "provider_api", "success", -5.0)
+
+        # A clock that went backwards mid-operation must not drag a histogram
+        # sum downward — it only ever counts upward, so the sum would be wrong
+        # for the lifetime of the process.
+        after = _sample("printstash_capture_operation_duration_seconds_sum", labels)
+        assert after == before
+
+    def test_does_not_count_bytes_when_none_were_uploaded(self) -> None:
+        labels = {"provider": "makerworld"}
+        before = _sample("printstash_capture_uploaded_bytes_total", labels)
+
+        record_capture_operation(
+            "makerworld", "upload_slots", "success", 0.1, uploaded_bytes=0
+        )
+
+        # A metadata-only capture transferred nothing; counting a zero would
+        # make "bytes per capture" dashboards read as if it had.
+        assert _sample("printstash_capture_uploaded_bytes_total", labels) == before
+
+    def test_swallows_its_own_failure_rather_than_failing_the_capture(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        class _Broken:
+            def labels(self, *_args: object, **_kwargs: object):
+                raise RuntimeError("registry unavailable")
+
+        monkeypatch.setattr(metrics, "capture_operations", _Broken())
+
+        # Telemetry is never worth failing the operation it measures.
+        record_capture_operation("printables", "provider_api", "success", 0.1)
+
+
+class TestRecordArtifactUpload:
+    def test_records_bounded_upload_telemetry(self) -> None:
+        event_labels = {"event": "created", "mode": "native_parts"}
+        byte_labels = {"mode": "native_parts", "path": "direct"}
+        event_before = _sample(
+            "printstash_artifact_upload_sessions_total", event_labels
+        )
+        bytes_before = _sample("printstash_artifact_upload_bytes_total", byte_labels)
+
+        record_artifact_upload_event("created", "native_parts")
+        record_artifact_upload_bytes("native_parts", 7, bypassed_api=True)
+
+        assert _sample("printstash_artifact_upload_sessions_total", event_labels) == (
+            event_before + 1
+        )
+        assert _sample("printstash_artifact_upload_bytes_total", byte_labels) == (
+            bytes_before + 7
+        )
+
+    def test_never_uses_untrusted_values_as_labels(self) -> None:
+        record_artifact_upload_event(SIGNED_URL, SIGNED_URL)
+        record_artifact_upload_bytes(SIGNED_URL, 3, bypassed_api=False)
+
+        text = _exposition()
+        assert SIGNED_URL not in text
+        assert "secret-user-model-file" not in text
+
+
+class TestObserveRequest:
+    def test_records_a_completed_request(self) -> None:
+        metrics.observe_request("GET", "/api/v1/models", 200, 0.25)
+
+        assert 'method="GET"' in _exposition()
+
+    def test_swallows_its_own_failure_rather_than_failing_the_request(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        class _Broken:
+            def labels(self, **_kwargs: object):
+                raise RuntimeError("registry unavailable")
+
+        monkeypatch.setattr(metrics, "http_request_duration", _Broken())
+
+        metrics.observe_request("GET", "/api/v1/models", 200, 0.25)
+
+
+class _BrokenMetric:
+    """A metric whose registry is gone: every use raises."""
+
+    def labels(self, **_kwargs: object):
+        raise RuntimeError("registry unavailable")
+
+    def set(self, _value: object) -> None:
+        raise RuntimeError("registry unavailable")
+
+
+class TestRecordJobTerminal:
+    def test_counts_a_terminal_job_by_definition(self) -> None:
+        before = _sample(
+            "printstash_jobs_total",
+            {"kind": JobKind.DERIVATIVES_MESH, "result": "completed"},
+        )
+
+        record_job_terminal(JobKind.DERIVATIVES_MESH, "completed", 1.5)
+
+        after = _sample(
+            "printstash_jobs_total",
+            {"kind": JobKind.DERIVATIVES_MESH, "result": "completed"},
+        )
+        assert after == before + 1
+
+    def test_observes_a_negative_duration_as_zero(self) -> None:
+        labels = {"kind": JobKind.INGESTION_UPLOAD, "result": "failed"}
+        before = _sample("printstash_job_duration_seconds_sum", labels)
+
+        record_job_terminal(JobKind.INGESTION_UPLOAD, "failed", -1.0)
+
+        assert _sample("printstash_job_duration_seconds_sum", labels) == before
+
+    def test_swallows_its_own_failure_rather_than_failing_the_job(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(metrics, "jobs_terminal", _BrokenMetric())
+
+        assert record_job_terminal(JobKind.INGESTION_UPLOAD, "completed", 1.5) is None
+
+
+class TestSetStuckJobs:
+    def test_reports_the_stuck_job_count(self) -> None:
+        set_stuck_jobs(3)
+
+        assert _sample("printstash_stuck_jobs", {}) == 3.0
+
+    def test_reports_a_negative_count_as_zero(self) -> None:
+        set_stuck_jobs(-1)
+
+        # A negative "stuck jobs" reading would fire or silence an alert on a
+        # value that cannot exist.
+        assert _sample("printstash_stuck_jobs", {}) == 0.0
+
+    def test_swallows_its_own_failure(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(metrics, "stuck_jobs", _BrokenMetric())
+
+        assert set_stuck_jobs(3) is None
+
+
+class TestSetLaneDepth:
+    def test_reports_queued_executions_of_a_lane(self) -> None:
+        set_lane_depth("derive.light", queued=4, running=1)
+
+        assert (
+            _sample(
+                "printstash_lane_depth", {"lane": "derive.light", "state": "queued"}
+            )
+            == 4.0
+        )
+
+    def test_reports_running_executions_of_a_lane(self) -> None:
+        set_lane_depth("derive.light", queued=4, running=1)
+
+        assert (
+            _sample(
+                "printstash_lane_depth", {"lane": "derive.light", "state": "running"}
+            )
+            == 1.0
+        )
+
+    def test_reports_a_negative_depth_as_zero(self) -> None:
+        set_lane_depth("network", queued=-2, running=0)
+
+        assert (
+            _sample("printstash_lane_depth", {"lane": "network", "state": "queued"})
+            == 0.0
+        )
+
+    def test_swallows_its_own_failure(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(metrics, "lane_depth", _BrokenMetric())
+
+        assert set_lane_depth("network", queued=1, running=1) is None
+
+
+class TestRecordStep:
+    def test_observes_a_step_attempt(self) -> None:
+        labels = {"kind": JobKind.DERIVATIVES_MESH, "step": "derive", "result": "ok"}
+        before = _sample("printstash_job_step_duration_seconds_count", labels)
+
+        record_step(JobKind.DERIVATIVES_MESH, "derive", "ok", 0.5)
+
+        assert (
+            _sample("printstash_job_step_duration_seconds_count", labels) == before + 1
+        )
+
+    def test_swallows_its_own_failure(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(metrics, "step_duration", _BrokenMetric())
+
+        assert record_step(JobKind.DERIVATIVES_MESH, "derive", "ok", 0.5) is None
+
+
+class TestRecordResubmit:
+    def test_counts_a_resubmitted_execution(self) -> None:
+        before = _sample(
+            "printstash_job_resubmits_total", {"kind": JobKind.BACKUPS_CREATE}
+        )
+
+        record_resubmit(JobKind.BACKUPS_CREATE)
+
+        assert (
+            _sample("printstash_job_resubmits_total", {"kind": JobKind.BACKUPS_CREATE})
+            == before + 1
+        )
+
+    def test_swallows_its_own_failure(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(metrics, "job_resubmits", _BrokenMetric())
+
+        assert record_resubmit(JobKind.BACKUPS_CREATE) is None
+
+
+class TestRecordReconcilePass:
+    def test_counts_each_outcome_of_a_pass(self) -> None:
+        labels = {"source": JobKind.DERIVATIVES_GCODE, "outcome": "submitted"}
+        before = _sample("printstash_reconcile_outcomes_total", labels)
+
+        record_reconcile_pass(JobKind.DERIVATIVES_GCODE, 0.1, {"submitted": 3})
+
+        assert _sample("printstash_reconcile_outcomes_total", labels) == before + 3
+
+    def test_publishes_no_series_for_an_outcome_that_never_happened(self) -> None:
+        record_reconcile_pass(JobKind.NOTIFICATIONS_RETENTION, 0.1, {"deferred": 0})
+
+        assert (
+            registry.get_sample_value(
+                "printstash_reconcile_outcomes_total",
+                {"source": JobKind.NOTIFICATIONS_RETENTION, "outcome": "deferred"},
+            )
+            is None
+        )
+
+    def test_swallows_its_own_failure(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(metrics, "reconcile_pass_duration", _BrokenMetric())
+
+        assert (
+            record_reconcile_pass(JobKind.DERIVATIVES_GCODE, 0.1, {"submitted": 1})
+            is None
+        )
+
+
+class TestRecordFleetDispatch:
+    def test_records_a_dispatch_outcome(self) -> None:
+        record_fleet_dispatch("queued")
+
+        assert 'fleet_dispatches_total{outcome="queued"}' in _exposition()
+
+    def test_swallows_its_own_failure_rather_than_failing_dispatch(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        class _Broken:
+            def labels(self, **_kwargs: object):
+                raise RuntimeError("registry unavailable")
+
+        monkeypatch.setattr(metrics, "fleet_dispatches", _Broken())
+
+        record_fleet_dispatch("queued")
+
+
+class TestResolverInstrumentation:
+    """One observation per resolve, with the provider's real name attached.
+
+    This is the seam where the label vocabulary meets a real caller: the
+    resolver runs on a user-supplied URL, and it must emit exactly one bounded
+    observation naming the provider it actually talked to.
+    """
+
+    def test_emits_one_bounded_success_observation(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        provider_metadata_cache._provider_metadata_cache.clear()
+
+        async def metadata(*_args: object) -> ProviderModelMetadata:
+            # The identity must bind to the submitted page: the resolver proves
+            # the response describes the URL the user pasted before it trusts
+            # anything else in it, so a metadata stand-in without a canonical
+            # URL is rejected as a changed contract rather than measured.
+            return ProviderModelMetadata(
+                "1",
+                "Widget",
+                None,
+                None,
+                None,
+                (),
+                (),
+                ProviderIdentity(provider_id="1", canonical_url=MMF_PAGE_URL),
+            )
+
+        monkeypatch.setattr(
+            import_resolvers.provider_connections,
+            "fetch_mmf_model_metadata",
+            metadata,
+        )
+
+        asyncio.run(
+            import_resolvers.resolve_connected_provider_capture(
+                MMF_PAGE_URL,
+                import_resolvers.ProviderResolutionContext(
+                    1, cast(SessionFactory, _NoopSessionFactory())
+                ),
+            )
+        )
+
+        assert (
+            'outcome="success",provider="myminifactory",transport="provider_api"'
+            in _exposition()
+        )

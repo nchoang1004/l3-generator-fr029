@@ -1,0 +1,228 @@
+"""Routing surfaces + mutation-feedback flows that aren't covered by
+the existing test_routing.py / test_agents_create.py / test_workspaces_*
+modules.
+
+Covers:
+* U0023 — New-workspace modal: create → toast → navigate to detail.
+* U0033 — Agent detail deep-link survives reload (uiv2 Wave 2: retargeted
+  off the retired Config-tab premise - see the test's own docstring).
+* U0039 — Agent detail "Back" button navigates to /agents.
+* U0044 — Modal ESC keypress closes the open modal.
+"""
+
+from __future__ import annotations
+
+import re
+
+import httpx
+from playwright.sync_api import expect
+from tests._support.model_profiles import agent_model, seed_llm_provider_with
+from tests.ui_e2e._shell_helpers import open_legacy_route
+
+
+# ---------------------------------------------------------------------------
+# Shared seeders — keep self-contained so the file is grep-readable.
+# ---------------------------------------------------------------------------
+
+
+def _seed_llm_provider(base_url: str, pid: str) -> None:
+    """POST a placeholder ollama LLM provider so the agent seeder
+    can reference a real id without calling an upstream model."""
+    with httpx.Client(base_url=base_url, timeout=30.0) as c:
+        r = seed_llm_provider_with(c, {
+            "id": pid,
+            "provider": "ollama",
+            "config": {"url": "http://127.0.0.1:9999"},
+            "models": [{"name": "fake-model", "context_length": 4096}],
+            "limits": {"max_concurrency": 1},
+        })
+        assert r.status_code == 201, f"seed LLM provider failed: {r.text}"
+
+
+def _seed_agent(base_url: str, agent_id: str, provider_id: str) -> None:
+    """POST a minimal agent bound to the provider."""
+    with httpx.Client(base_url=base_url, timeout=30.0) as c:
+        r = c.post("/v1/agents", json={
+            "id": agent_id,
+            "description": "ui-e2e probe",
+            "model": agent_model(provider_id, "fake-model"),
+            "tools": [],
+            "system_prompt": ["test"],
+        })
+        assert r.status_code == 201, f"seed agent failed: {r.text}"
+
+
+def _cleanup(base_url: str, urls: list[str]) -> None:
+    with httpx.Client(base_url=base_url, timeout=30.0) as c:
+        for url in urls:
+            try:
+                c.delete(url)
+            except Exception:  # noqa: BLE001
+                pass
+
+
+# ---------------------------------------------------------------------------
+# U0023 — New-workspace modal happy path
+# ---------------------------------------------------------------------------
+
+
+def test_u0023_new_workspace_modal_creates_row_toasts_and_navigates(
+    page,
+    base_url: str,
+    console_url: str,
+    unique_suffix: str,
+    tmp_path,
+) -> None:
+    """U0023 — Open the Workspaces list, click "New workspace", pick
+    the seeded template from the dropdown, submit. The modal must
+    close, a success toast must appear, and the URL must navigate to
+    ``#/workspaces/<new-id>``.
+
+    Re-pointed: ``#/workspaces/<id>`` now renders the console shell (not
+    the old workspace-detail page), so the post-create assertion pins the
+    shell mounting for the new workspace (nv-root + the topbar naming
+    the new id) instead of an ``h1.page-title``.
+
+    Priority 1 — mutation feedback. Sister to U0006 (agents) for the
+    workspace-create flow. The New-workspace modal doesn't collect a
+    user-supplied id (it only picks a template), so the backend
+    allocates one; the test captures the id from the URL after
+    navigation rather than predicting it.
+    """
+    wp_id = f"wp-u0023-{unique_suffix}"
+    tpl_id = f"wt-u0023-{unique_suffix}"
+    created_ws_id: str | None = None
+    with httpx.Client(base_url=base_url, timeout=30.0) as c:
+        r = c.post("/v1/workspace_providers", json={
+            "id": wp_id,
+            "provider": "local",
+            "config": {"kind": "local", "root_path": str(tmp_path)},
+        })
+        assert r.status_code == 201, f"seed provider failed: {r.text}"
+        r = c.post("/v1/workspace_templates", json={
+            "id": tpl_id,
+            "description": "u0023 template",
+            "provider_id": wp_id,
+            "backend": {"kind": "local"},
+        })
+        assert r.status_code == 201, f"seed template failed: {r.text}"
+
+    try:
+        open_legacy_route(page, console_url, "workspaces")
+        page.locator("h1.page-title").get_by_text(
+            "Workspaces", exact=False,
+        ).first.wait_for(state="visible", timeout=10_000)
+
+        # Open the modal — button label "New workspace" per
+        # ui/components/workspaces.jsx:88.
+        page.get_by_role("button", name="New workspace").first.click()
+        modal = page.locator(".modal").first
+        modal.wait_for(state="visible", timeout=5_000)
+
+        # RETARGET (platform wave P1b item 6): the Template <select> was
+        # replaced by a row picker (one .pc-register-row per template,
+        # reusing P1a's register-panel anatomy) so a live GET
+        # /{id}/discovered_models-style probe isn't needed here, but more
+        # importantly so each row can show its own backend/network/mount
+        # descriptor. The list page's own auto-select useEffect still
+        # picks the first template; click the seeded one explicitly by
+        # testid so we don't depend on ordering.
+        modal.get_by_test_id(f"workspace-template-row-{tpl_id}").click()
+
+        # Submit. By testid, not by role name: "Create" is a substring
+        # match, so it also catches the modal's own "Create a template
+        # now" escape hatch.
+        modal.get_by_test_id("workspace-create-submit").click()
+
+        # Creating a workspace ENTERS it, which is what the pre-S8 route
+        # did too; the shell spells that "#/w/<wid>". The id is
+        # backend-allocated, so match the shape and read it back.
+        page.wait_for_url(re.compile(r"#/w/ws-[0-9a-f]+"), timeout=15_000)
+        url = page.url
+        created_ws_id = url.split("#/w/", 1)[1].split("?")[0].split("#")[0]
+        assert created_ws_id.startswith("ws-"), (
+            f"unexpected workspace id format in URL: {url}"
+        )
+
+        # The new workspace's shell mounts and the rail selects it.
+        # US-012b retired the topbar workspace dropdown; the rail tree's
+        # row (data-selected) is the switch observable now.
+        page.get_by_test_id("nv-root").wait_for(
+            state="visible", timeout=15_000,
+        )
+        page.locator(
+            f'[data-testid="nv-rail-ws:{created_ws_id}"]'
+            '[data-selected="true"]'
+        ).wait_for(state="visible", timeout=10_000)
+
+        # Success toast: "Workspace created" (workspaces.jsx:155).
+        page.get_by_text("Workspace created", exact=False).first.wait_for(
+            state="visible", timeout=5_000,
+        )
+    finally:
+        cleanup = []
+        if created_ws_id:
+            cleanup.append(f"/v1/workspaces/{created_ws_id}")
+        cleanup.extend([
+            f"/v1/workspace_templates/{tpl_id}",
+            f"/v1/workspace_providers/{wp_id}",
+        ])
+        _cleanup(base_url, cleanup)
+
+
+# ---------------------------------------------------------------------------
+# U0033 — Agent Config tab deep-link survives reload
+# ---------------------------------------------------------------------------
+
+
+def test_u0033_agent_detail_deep_link_survives_reload(
+    page,
+    base_url: str,
+    console_url: str,
+    unique_suffix: str,
+) -> None:
+    """U0033 — RETARGETED (uiv2 Wave 2): the tab-selection-survives-
+    reload premise this test pinned no longer applies - the agent
+    detail overlay is one direct-edit form now, not four routed tabs
+    (AGENT_TABS/routerQuery.tab are gone). What's still real and worth
+    pinning: the deep link itself survives a reload - the form is still
+    addressing the SAME agent afterward, not silently falling back to
+    the list. See test_u0018 in test_anomaly_surfaces.py for the sister
+    retarget (was the Tools-tab variant of this same test).
+    """
+    provider_id = f"llm-u0033-{unique_suffix}"
+    agent_id = f"ag-u0033-{unique_suffix}"
+    _seed_llm_provider(base_url, provider_id)
+    _seed_agent(base_url, agent_id, provider_id)
+
+    try:
+        open_legacy_route(page, console_url, f"agents/{agent_id}")
+        page.locator("h1.page-title").get_by_text(agent_id).first.wait_for(
+            state="visible", timeout=10_000,
+        )
+        # The locked Name field is the form's own confirmation that it
+        # opened bound to THIS agent, not a blank create form.
+        expect(page.locator("#na-id")).to_have_value(agent_id)
+
+        page.reload(wait_until="domcontentloaded")
+        page.locator("h1.page-title").get_by_text(agent_id).first.wait_for(
+            state="visible", timeout=10_000,
+        )
+        expect(page.locator("#na-id")).to_have_value(agent_id)
+        assert f"overlay=agents::{agent_id}" in page.url, (
+            f"reload dropped the addressed agent: {page.url}"
+        )
+    finally:
+        _cleanup(base_url, [
+            f"/v1/agents/{agent_id}",
+            f"/v1/llm_providers/{provider_id}",
+        ])
+
+
+# U0039 (agent detail Back button → /agents) and U0044 (modal ESC
+# closes) were pruned 2026-05-25 — both narrow nav/keystroke
+# primitives subsumed by U0105 (operator troubleshooting cross-page
+# journey: 7-page traversal includes page.go_back() that lands on a
+# previously-rendered detail page) and U0069 (cancel modal ESC
+# dismiss). File kept so the history grep on the test ids lands here
+# with a clear pointer.

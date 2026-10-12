@@ -1,0 +1,253 @@
+"""Hand-written individual system tools (non-CRUD) for the ``system`` toolset.
+
+Split out of :mod:`primer.toolset.system` (a god-module decomposition). This
+module holds the bespoke, hand-written tools whose handlers do not come from
+the generic CRUD factory. Today that is the ``ask_user`` yielding tool (its
+argument model, resume hook, and handler) and the workspace-only
+``read_doc_content`` tool (its argument model and handler factory);
+``build_system_toolset`` in ``system.py`` wires the tool entries themselves
+(the other bespoke tools - reply-binding, channel-binding, invoke_agent,
+switch_to_agent - are defined inline in the builder because they close over
+its per-build dependencies).
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from primer.worker.yield_resume_registry import ResumeContext
+
+from typing import TYPE_CHECKING, Any
+
+from pydantic import BaseModel, Field, ValidationError
+
+from primer.model.chat import ToolCallResult
+from primer.model.except_ import (
+    BadRequestError,
+    NotFoundError,
+    UnsupportedContentError,
+)
+from primer.toolset._helpers import err as _err, ok as _ok
+from primer.model.yield_ import ToolContext, Yielded
+from primer.toolset._system_common import _err_from_validation
+
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
+    from primer.api.registries.workspace_registry import WorkspaceRegistry
+
+
+# ===========================================================================
+# ask_user - yielding tool. Lives in the ``system`` toolset so it is
+# available everywhere. It parks the session until a human answers.
+#
+# Pauses the agent's turn until a human operator types a response via
+# the API surface (GET .../ask_user/pending + POST .../ask_user/respond).
+# The optional ``timeout_seconds`` falls back to the global yield cap
+# when omitted. The optional ``response_schema`` is surfaced to the
+# UI and validated server-side at POST time.
+# ===========================================================================
+
+
+class _AskUserArgs(BaseModel):
+    """Prompt the operator sees and shape of the expected reply."""
+
+    prompt: str = Field(
+        ...,
+        min_length=1,
+        max_length=8000,
+        description=(
+            "Question or instruction shown to the operator. Newlines "
+            "are preserved by the UI panel. Required."
+        ),
+    )
+    response_schema: dict[str, Any] | None = Field(
+        default=None,
+        description=(
+            "Optional JSON Schema the operator's response must satisfy. "
+            "Validated server-side at POST time; a violation is "
+            "surfaced inline in the UI without resuming the agent. "
+            "Omit for free-text responses."
+        ),
+    )
+    timeout_seconds: float | None = Field(
+        default=None,
+        gt=0.0,
+        description=(
+            "Optional per-call timeout. When omitted, falls back to "
+            "the global yield cap (default 60 minutes). If the "
+            "operator doesn't respond in time the resume hook returns "
+            "``{timed_out: true, elapsed_seconds: ...}`` so the agent "
+            "can decide whether to retry or proceed."
+        ),
+    )
+    files: list[str] | None = Field(
+        default=None,
+        description=(
+            "Optional workspace-relative file paths to attach to the prompt. "
+            "Each file is read from the session's workspace, stored, and sent "
+            "to the channel as media (image/document/audio) alongside the "
+            "prompt text. Ignored on the chat surface (no workspace)."
+        ),
+    )
+
+
+def ask_user_resume(
+    yield_metadata: dict[str, Any],
+    event_payload: Any,
+    ctx: "ResumeContext",
+) -> ToolCallResult:
+    """Resume hook for ask_user - translate payload into tool result.
+
+    Three branches:
+
+    * real response (``{"response": <any>}`` from the POST endpoint) →
+      ``{"response": <any>}``
+    * :class:`YieldTimeout` from the sweeper → ``{"timed_out": true,
+      "elapsed_seconds": ...}``
+    * :class:`YieldCancelled` from the cancel-yielded-tool API →
+      ``{"cancelled": true, "reason": ..., "elapsed_seconds": ...}``
+
+    ``yield_metadata`` carries ``parked_at_iso`` (worker-injected) so
+    we can compute elapsed even if the event payload didn't include
+    it (defensive - both timeout and cancel synthesise elapsed
+    upstream via :func:`classify_resume_payload`, but the dataclass
+    instance is the source of truth).
+    """
+    from primer.model.yield_ import YieldCancelled, YieldTimeout  # avoid cycle
+
+    if isinstance(event_payload, YieldTimeout):
+        return _ok(
+            {
+                "timed_out": True,
+                "elapsed_seconds": event_payload.elapsed_seconds,
+            }
+        )
+    if isinstance(event_payload, YieldCancelled):
+        return _ok(
+            {
+                "cancelled": True,
+                "reason": event_payload.reason,
+                "elapsed_seconds": event_payload.elapsed_seconds,
+            }
+        )
+    # Real operator response from the POST endpoint.
+    response = (
+        event_payload.get("response")
+        if isinstance(event_payload, dict)
+        else None
+    )
+    return _ok({"response": response})
+
+
+async def _ask_user_handler(
+    arguments: dict[str, Any],
+    *,
+    ctx: ToolContext,
+) -> ToolCallResult | Yielded:
+    try:
+        args = _AskUserArgs.model_validate(arguments)
+    except ValidationError as exc:
+        return _err_from_validation(exc)
+
+    # Scope the event_key on (session_id|chat_id, tool_call_id). The session
+    # path (workspace sessions) uses session_id and PARKS; a chat has no
+    # session, so fall back to chat_id (the chat surface degrades a yield to a
+    # conversational turn rather than parking). Fail only when neither id exists.
+    scope_id = ctx.session_id or ctx.chat_id
+    if scope_id is None:
+        return _err(
+            "ask_user requires ctx.session_id or ctx.chat_id; the worker must "
+            "pass the live session or chat id when invoking yielding tools",
+            error_type="bad-request",
+        )
+
+    return Yielded(
+        tool_name="",  # filled in by the provider
+        event_key=f"ask_user:{scope_id}:{ctx.tool_call_id}",
+        timeout=args.timeout_seconds,
+        resume_metadata={
+            "prompt": args.prompt,
+            "response_schema": args.response_schema,
+            "tool_call_id": ctx.tool_call_id,
+            "files": args.files or None,
+        },
+    )
+
+
+# ===========================================================================
+# read_doc_content - workspace-only tool. Reads a workspace-relative file,
+# runs it through the Docling loader (an OPTIONAL extra), and returns the
+# extracted plain-text/markdown. requires_workspace=True keeps it out of
+# chat context and off the MCP surface. The Docling import is GUARDED so
+# the tool degrades gracefully when the extra is not installed, rather than
+# crashing at dispatch time.
+# ===========================================================================
+
+
+class _ReadDocContentArgs(BaseModel):
+    """Workspace-relative path of the document to convert to text."""
+
+    path: str = Field(
+        ...,
+        min_length=1,
+        description=(
+            "Workspace-relative path of the document (PDF/DOCX/PPTX/HTML/"
+            "...) to convert. Must not escape the workspace."
+        ),
+    )
+
+
+def make_read_doc_content_handler(
+    *,
+    workspace_registry: "WorkspaceRegistry",
+) -> "Callable[..., Awaitable[ToolCallResult]]":
+    """Build the ``read_doc_content`` handler closing over the registry.
+
+    System handlers are module-level, but this one needs the
+    :class:`WorkspaceRegistry` to resolve the live workspace from
+    ``ctx.workspace_id``, so it is produced by this factory (mirroring how
+    the web toolset factories close over their deps).
+    """
+
+    async def _handle(
+        arguments: dict[str, Any], *, ctx: ToolContext
+    ) -> ToolCallResult:
+        # Defensive guard: chat suppression should keep this tool out of
+        # any non-workspace context, but never attempt file I/O without a
+        # live workspace.
+        if ctx is None or ctx.workspace_id is None:
+            return _err(
+                "read_doc_content requires a workspace session (no "
+                "workspace is bound to this turn)",
+                error_type="bad-request",
+            )
+
+        try:
+            args = _ReadDocContentArgs.model_validate(arguments)
+        except ValidationError as exc:
+            return _err_from_validation(exc)
+
+        try:
+            ws = await workspace_registry.get_workspace(ctx.workspace_id)
+            raw = await ws.read_file(args.path)
+        except (BadRequestError, NotFoundError) as exc:
+            return _err(
+                f"read_doc_content: cannot read {args.path!r}: {exc}",
+                error_type="not-found",
+            )
+
+        try:
+            text = raw.decode("utf-8") if isinstance(raw, bytes) else str(raw)
+        except UnicodeDecodeError:
+            return _err(
+                "read_doc_content supports UTF-8 text files only; binary "
+                "document conversion was removed in v2",
+                error_type="bad-request",
+            )
+
+        return _ok({"text": text})
+
+    return _handle

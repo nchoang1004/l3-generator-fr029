@@ -1,0 +1,2779 @@
+"""RunService.build_context branch matrix."""
+
+from __future__ import annotations
+
+from collections.abc import Iterator
+from contextlib import contextmanager
+from datetime import UTC, datetime
+from pathlib import Path
+from types import SimpleNamespace
+from typing import ClassVar
+from unittest.mock import MagicMock
+
+import pytest
+import requests
+from sqlalchemy.orm import sessionmaker
+
+import shortlist.server.services.context_builder as context_builder_mod
+from shortlist.engine.clients.search import ExaClient, SearxngClient
+from shortlist.engine.history import ShareTokenWatchSource
+from shortlist.engine.models import MediaType, UserProfile, UserType
+from shortlist.server.db.models import PickRow, User
+from shortlist.server.db.session import make_engine, make_session_factory, run_migrations
+from shortlist.server.services.context_builder import ContextBuilder, make_search_client
+from shortlist.server.services.plex_reachability import PlexUnreachable
+from shortlist.server.services.run_service import RunService
+from shortlist.server.services.secrets import SecretBox
+from shortlist.server.services.sse import EventBus
+from shortlist.server.settings_store import SettingsStore
+from tests.db_helpers import disposing_engine
+from tests.watch_fixtures import live_row, personal_delivery
+
+
+@pytest.fixture
+def sessions(tmp_path: Path):
+    run_migrations(tmp_path)
+    with disposing_engine(make_engine(tmp_path)) as engine:
+        factory = make_session_factory(engine)
+        yield factory
+
+
+@pytest.fixture
+def service(sessions, tmp_path):
+    return RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+
+
+@pytest.fixture
+def configured(sessions, tmp_path, monkeypatch):
+    """Configure plex+tmdb settings and stub the vendor client constructors (the boundary)."""
+    box = SecretBox(tmp_path)
+    with sessions() as session:
+        store = SettingsStore(session, box)
+        store.set("plex.url", "http://pms:32400")
+        store.set("plex.token", "tok")
+        store.set("tmdb.apikey", "k")
+    plex_client = MagicMock()
+    plex_client.machine_id = "m1"
+
+    def _make_plex(url, token, timeout=20):
+        plex_client.init_timeout = timeout  # so a test can assert the configured timeout flows through
+        return plex_client
+
+    monkeypatch.setattr(context_builder_mod, "PlexClient", _make_plex)
+    monkeypatch.setattr(context_builder_mod, "PlexTvClient", lambda *a, **k: MagicMock())
+    monkeypatch.setattr(context_builder_mod, "TmdbClient", lambda *a, **k: MagicMock())
+    return box
+
+
+class TestWebSearchBackendChoice:
+    """Which external search client a run gets, across the (mode x what's configured) matrix.
+
+    The rule: naming a backend explicitly means ONLY that backend — never a silent fallback to the
+    other, because a fallback would quietly send a self-hoster's queries to a paid vendor (or the
+    reverse) without them ever choosing it.
+    """
+
+    @staticmethod
+    def _get(mode: str = "native", *, exa: str = "", url: str = "", user: str = "", password: str = ""):
+        values = {
+            "llm_web.search_provider": mode,
+            "exa.apikey": exa,
+            "searxng.url": url,
+            "searxng.username": user,
+            "searxng.password": password,
+        }
+        return values.get
+
+    def test_exa_mode_builds_exa(self):
+        client = make_search_client(self._get("exa", exa="k"))
+        assert isinstance(client, ExaClient)
+
+    def test_exa_mode_without_a_key_does_not_silently_use_searxng(self):
+        assert make_search_client(self._get("exa", url="http://searx:8080")) is None
+
+    def test_searxng_mode_builds_searxng(self):
+        client = make_search_client(self._get("searxng", url="http://searx:8080"))
+        assert isinstance(client, SearxngClient)
+
+    def test_searxng_mode_without_a_url_does_not_silently_use_exa(self):
+        """The self-hoster's case: they chose local search, so a missing URL means no search at all —
+        it must never fall through to shipping their watch history to a paid API."""
+        assert make_search_client(self._get("searxng", exa="k")) is None
+
+    def test_an_unset_backend_reads_as_native_and_builds_nothing(self):
+        """A blank value is the fresh-install state, and the default is the provider's own search."""
+        assert make_search_client(self._get("")) is None
+
+    def test_the_retired_auto_value_no_longer_builds_a_backend(self):
+        """0063 pins every install off `auto`, but a value that somehow survives must not resolve to
+        a backend nobody chose — it falls through to native, which builds no external client."""
+        assert make_search_client(self._get("auto", exa="k", url="http://searx:8080")) is None
+
+    def test_native_mode_builds_no_external_backend(self):
+        """`native` means the provider's own search ONLY — handing the run an external client anyway
+        would leave a path enabled that the owner explicitly turned off."""
+        assert make_search_client(self._get("native", exa="k", url="http://searx:8080")) is None
+
+    def test_searxng_credentials_are_passed_through(self):
+        client = make_search_client(self._get("searxng", url="http://searx:8080", user="admin", password="pw"))
+        assert client._auth == ("admin", "pw")
+
+    def test_searxng_without_credentials_sends_no_auth(self):
+        client = make_search_client(self._get("searxng", url="http://searx:8080"))
+        assert client._auth is None
+
+
+class TestBuildContext:
+    def test_unconfigured_raises_plainly(self, service):
+        with pytest.raises(RuntimeError, match="not configured"):
+            service.build_context(dry_run=True)
+
+    def test_watched_state_is_read_via_the_share_token_source(self, service, configured):
+        ctx = service.build_context(dry_run=True)
+        # The one watch source: each user's complete watched set read from the PMS AS them, with the
+        # per-user server token plex.tv mints. No Tautulli/history-API/DB-mirror wrapper anymore.
+        assert isinstance(ctx.history_source, ShareTokenWatchSource)
+        assert ctx.curator.name == "none"
+        assert ctx.config.dry_run is True
+
+    def test_the_leave_alone_flag_reaches_the_engine_and_is_not_confused_with_disabled(
+        self, service, configured, sessions
+    ):
+        """The one link between `users.manage_sharing` and the code that acts on it.
+
+        Everything else about this feature is tested with `ctx.unmanaged_account_ids` set BY HAND, so
+        an inverted or missing query here would leave every one of those tests green while the switch
+        did nothing on a real server — the "settings PATCH was inert" shape from §12's mutation audit.
+
+        The two flags are asserted together because they are different axes that this builder reads
+        from the same table: the account that is switched OFF must not turn up as left-alone, and the
+        left-alone account must not turn up as disabled. Collapsing them is the specific mistake that
+        would let disabling someone silently stop hiding everyone else's rows from them.
+        """
+        with sessions() as session:
+            session.add_all(
+                [
+                    User(plex_account_id=101, username="managed_on", slug="managed_on", enabled=True),
+                    User(
+                        plex_account_id=102,
+                        username="left_alone",
+                        slug="left_alone",
+                        enabled=True,
+                        manage_sharing=False,
+                    ),
+                    User(plex_account_id=103, username="switched_off", slug="switched_off", enabled=False),
+                ]
+            )
+            session.commit()
+
+        ctx = service.build_context(dry_run=True)
+
+        assert ctx.unmanaged_account_ids == {102}
+        assert ctx.disabled_account_ids == {103}
+
+    def test_the_roster_is_everyone_who_could_own_a_tag(self, service, configured, sessions):
+        """The request ledger resolves tags against `ctx.roster`, not the users it builds for: a tag
+        two people share must stay ambiguous whoever is in tonight's run (issue #127). Disabling or
+        pausing one of them takes them OUT of the run, not off the tag — an enabled-only roster let
+        the other person's private row fill with the disabled person's requests. Only someone who
+        has left the server, or whom the owner filed away, is off it."""
+        gone = datetime(2026, 9, 1, tzinfo=UTC)
+        with sessions() as session:
+            session.add_all(
+                [
+                    User(plex_account_id=101, username="sarah", slug="sarah", enabled=True),
+                    User(plex_account_id=102, username="kid", slug="kid", enabled=True, prefs={"paused": True}),
+                    User(plex_account_id=103, username="off", slug="off", enabled=False, requested_by_tag="fam"),
+                    # The roster sweep and "remove" both switch the person off as they stamp them.
+                    User(plex_account_id=104, username="left", slug="left", enabled=False, departed_at=gone),
+                    User(plex_account_id=105, username="filed", slug="filed", enabled=False, removed_at=gone),
+                ]
+            )
+            session.commit()
+            tonight = service.enabled_profiles(session)
+
+        ctx = service.build_context(dry_run=True)
+
+        assert [p.slug for p in tonight] == ["sarah"]
+        assert sorted(p.slug for p in ctx.roster) == ["kid", "off", "sarah"]
+        assert next(p for p in ctx.roster if p.slug == "off").requested_by_tag == "fam"
+
+    def test_plex_only_skips_the_clients_a_label_walk_never_touches(self, service, configured, monkeypatch):
+        """The reconciles, the pause/disable handlers and the watch sync only ever walk collections
+        under a label — but every one of them opened Trakt, Exa, MDBList, the LLM curator and the
+        poster studio first, so a wrong LLM key could fail a read of watch history.
+
+        `_refuse_a_different_server` still runs: it is what stops a reconcile enumerating a stranger's
+        PMS, finding zero Shortlist collections, and concluding every row is gone.
+        """
+        monkeypatch.setattr(
+            context_builder_mod, "make_studio", lambda *a, **k: pytest.fail("plex-only built the poster studio")
+        )
+
+        ctx = service.build_context(dry_run=True, plex_only=True)
+
+        assert ctx.plex is not None and isinstance(ctx.history_source, ShareTokenWatchSource)
+        assert ctx.curator.name == "none"  # the NullCurator, not whatever provider is configured
+        assert ctx.trakt is None and ctx.search is None and ctx.mdblist is None and ctx.poster_artist is None
+        assert ctx.config.dry_run is True
+
+    def test_plex_only_carries_the_run_concurrency(self, service, sessions, configured):
+        """The watch sync builds its context here and reads people `ctx.concurrency` at a time; left
+        at the dataclass default of 1, the setting never reached it and 48 people were read serially."""
+        with sessions() as session:
+            SettingsStore(session, configured).set("run.concurrency", 6)
+
+        ctx = service.build_context(dry_run=True, plex_only=True)
+
+        assert ctx.concurrency == 6
+
+    def test_plex_only_still_refuses_a_different_server(self, service, sessions, configured):
+        from shortlist.server.db.models import Server
+
+        with sessions() as session:
+            session.add(
+                Server(machine_id="a-different-machine", name="elsewhere", url="http://elsewhere:32400", token_enc="x")
+            )
+            session.commit()
+
+        with pytest.raises(RuntimeError, match="different server"):
+            service.build_context(dry_run=False, plex_only=True)
+
+    def test_the_progress_callback_carries_a_reason_without_polluting_the_counts(self, service, configured):
+        """`counts` is a map of NUMBERS the UI renders as a "113 history · 40 seeds" tally, so a skip
+        reason (a whole sentence) travels beside it, never inside it. This closure feeds BOTH the SSE
+        stream and the replayable activity log, so it is where the contract has to hold."""
+        entries: list[dict] = []
+        ctx = service.build_context(dry_run=True, log_sink=entries.append)
+
+        ctx.progress("sarah", "skipped", {}, "There are no per-person rows to build.")
+        ctx.progress("sarah", "history", {"items": 12})
+
+        assert entries[0]["reason"] == "There are no per-person rows to build."
+        assert entries[0]["counts"] == {}, "the reason must not be smuggled into the counts tally"
+        assert "reason" not in entries[1], "a stage that needs no explaining carries no reason"
+        assert entries[1]["counts"] == {"items": 12}
+
+    def test_tautulli_config_does_not_change_the_watch_source(self, service, sessions, configured):
+        # Tautulli is no longer a watch SOURCE (only friendly names + a setup probe) — configuring it
+        # must not swap in a different history source. The share-token read is used either way.
+        with sessions() as session:
+            store = SettingsStore(session, configured)
+            store.set("tautulli.url", "http://taut:8181")
+            store.set("tautulli.apikey", "tk")
+        ctx = service.build_context(dry_run=False)
+        assert isinstance(ctx.history_source, ShareTokenWatchSource)
+
+    def test_plex_timeout_setting_flows_to_the_client(self, service, sessions, configured, monkeypatch):
+        # A big TV library's collection rebuild legitimately takes 15-20s+; the run's PMS client must
+        # get the configured per-call timeout (default 45s) so those don't time out and retry.
+        captured: dict[str, int] = {}
+        plex = MagicMock()
+        plex.machine_id = "m1"
+
+        def _make_plex(url, token, timeout=20):
+            captured["timeout"] = timeout
+            return plex
+
+        monkeypatch.setattr(context_builder_mod, "PlexClient", _make_plex)
+        service.build_context(dry_run=True)
+        assert captured["timeout"] == 45  # default headroom
+        with sessions() as session:
+            SettingsStore(session, configured).set("plex.timeout_s", 90)
+        service.build_context(dry_run=True)
+        assert captured["timeout"] == 90  # an explicit setting overrides it
+
+    @pytest.mark.parametrize("configured_timeout", [None, 90])
+    def test_user_client_callback_keeps_the_closed_context_session_closed(
+        self,
+        service: RunService,
+        sessions: sessionmaker,
+        configured: SecretBox,
+        monkeypatch: pytest.MonkeyPatch,
+        configured_timeout: int | None,
+    ) -> None:
+        if configured_timeout is not None:
+            with sessions() as session:
+                SettingsStore(session, configured).set("plex.timeout_s", configured_timeout)
+        created: list[tuple[str, str, int]] = []
+        client = MagicMock(machine_id="m1")
+
+        def make_client(url: str, token: str, timeout: int) -> MagicMock:
+            created.append((url, token, timeout))
+            return client
+
+        monkeypatch.setattr(context_builder_mod, "PlexClient", make_client)
+        context = service.build_context(dry_run=True)
+        pool = sessions.kw["bind"].pool
+        assert pool.checkedout() == 0
+        owner = UserProfile(username="owner", plex_account_id=1, user_type=UserType.OWNER, slug="owner")
+
+        assert context.pms_for_user(owner) is client
+
+        assert created == [("http://pms:32400", "tok", configured_timeout or 45)] * 2
+        assert pool.checkedout() == 0, "the callback reopened the context builder's closed settings session"
+
+    def test_an_unreachable_plex_is_explained_and_points_at_settings(self, service, configured, monkeypatch):
+        # Issue #139: the saved address stopped answering, and the run page showed the Python exception.
+        def _refuse(url, token, timeout=20):
+            raise requests.exceptions.ConnectionError(
+                "HTTPConnectionPool(host='pms', port=32400): Max retries exceeded with url: / "
+                "(Caused by NewConnectionError('[Errno 111] Connection refused'))",
+                request=requests.Request("GET", url).prepare(),
+            )
+
+        monkeypatch.setattr(context_builder_mod, "PlexClient", _refuse)
+
+        with pytest.raises(PlexUnreachable) as raised:
+            service.build_context(dry_run=True)
+
+        assert "could not reach Plex at http://pms:32400" in str(raised.value)
+        assert str(raised.value).endswith(" Change the address under Settings → Connections.")
+
+    def test_an_instance_still_stored_as_ollama_keeps_its_url(self):
+        """Ollama was merged into the one local/OpenAI-compatible provider. An instance configured
+        before that merge still has `ollama` and the OLD url key stored, and must keep working
+        without the owner touching anything.
+
+        Asserted on `curator_kwargs` rather than a built context because constructing the curator
+        needs the `openai` extra — present in the shipped image, absent from a plain dev install."""
+        from shortlist.server.services.context_builder import curator_kwargs
+
+        stored = {"curator.provider": "ollama", "curator.ollama_url": "http://ollama.local:11434"}
+
+        assert curator_kwargs(lambda k: stored.get(k, "")) == {"base_url": "http://ollama.local:11434"}
+
+    def test_a_local_server_passes_its_url_and_needs_no_key(self):
+        from shortlist.server.services.context_builder import curator_kwargs
+
+        stored = {"curator.provider": "openai_compatible", "curator.openai_base_url": "http://llama:8080/v1"}
+
+        assert curator_kwargs(lambda k: stored.get(k, "")) == {"base_url": "http://llama:8080/v1"}
+
+    def test_a_hosted_gateway_may_still_carry_a_key(self):
+        """A local server wants no key; OpenRouter does. Both are the same provider."""
+        from shortlist.server.services.context_builder import curator_kwargs
+
+        stored = {
+            "curator.provider": "openai_compatible",
+            "curator.openai_base_url": "https://openrouter.ai/api/v1",
+            "curator.api_key": "sk-or-abc",
+        }
+
+        assert curator_kwargs(lambda k: stored.get(k, "")) == {
+            "base_url": "https://openrouter.ai/api/v1",
+            "api_key": "sk-or-abc",
+        }
+
+    def test_a_managed_user_with_no_parental_profile_is_built_for(self, service, sessions, configured):
+        """Issue #20's other half. `enabled_profiles` dropped every account with `restricted` set —
+        which plex.tv reports for EVERY Plex Home user. So a managed user with no age restriction got
+        no row, silently, while the Users page offered an enable toggle and the docs promised one.
+
+        Plex hides nothing from these accounts; they are ordinary users."""
+        with sessions() as session:
+            session.add(
+                User(
+                    plex_account_id=1,
+                    username="kid",
+                    slug="kid",
+                    enabled=True,
+                    user_type="managed",
+                    restricted=True,
+                    restriction_profile="",
+                )
+            )
+            session.commit()
+            profiles = service.enabled_profiles(session)
+
+        assert [p.slug for p in profiles] == ["kid"]
+
+    def test_a_managed_user_WITH_a_profile_is_still_skipped(self, service, sessions, configured):
+        """Plex refuses the share filters that would make a profiled account's row private, so no row
+        is built for one.
+
+        Phrased around the REFUSAL, not around visibility. This docstring used to say "Plex hides every
+        collection from a profiled account" — the same claim that justified skipping those accounts in
+        `privacy.py`, and false for `older_kid`, which listed three collections on a real server (#76).
+        The skip is still right; only the reason was wrong, and a test that restates the wrong reason is
+        how the next person re-derives it."""
+        with sessions() as session:
+            session.add(
+                User(
+                    plex_account_id=2,
+                    username="littleone",
+                    slug="littleone",
+                    enabled=True,
+                    user_type="managed",
+                    restricted=True,
+                    restriction_profile="little_kid",
+                )
+            )
+            session.commit()
+            profiles = service.enabled_profiles(session)
+
+        assert profiles == []
+
+    def test_delivered_keys_reach_the_engine_under_the_key_delivery_looks_up(self, service, sessions, configured):
+        """The DB→engine wiring for the delivery ledger, asserted as the literal tuple.
+
+        `rows.py` unpacks `(user_slug, row_slug, section_key)` and looks up by `str(section.key)`. Swap
+        two elements here, or drop the `str()`, and every lookup silently returns nothing — delivery
+        falls back to the count guess, which is a full regression to the bug the ledger exists to fix,
+        with a green suite. The sibling `_previous_picks` has exactly this test; this reader had none.
+        """
+        from shortlist.server.db.models import Delivery
+
+        with sessions() as session:
+            session.add(User(plex_account_id=1, username="sarah", slug="sarah", enabled=True))
+            session.add(Delivery(collection_slug="picked", user_slug="sarah", library_key="1", rating_key=9001))
+            session.add(Delivery(collection_slug="gems", user_slug="sarah", library_key="2", rating_key=9002))
+            session.commit()
+
+        ctx = service.build_context(dry_run=True)
+
+        assert ctx.delivered_keys[("sarah", "picked", "1")] == 9001
+        assert ctx.delivered_keys[("sarah", "gems", "2")] == 9002
+
+    def test_what_was_written_to_a_summary_and_sort_title_reaches_the_engine_under_the_same_key(
+        self, service, sessions, configured
+    ):
+        """Issue #120's DB→engine wiring, as the literal tuple — `rows._written_details` unpacks it the
+        way it unpacks `delivered_keys`. A collection with no record is absent: nothing to hand back."""
+        from shortlist.engine.models import WrittenDetails
+        from shortlist.server.db.models import Delivery
+
+        with sessions() as session:
+            session.add(User(plex_account_id=1, username="sarah", slug="sarah", enabled=True))
+            session.add(
+                Delivery(
+                    collection_slug="gems",
+                    user_slug="sarah",
+                    library_key="2",
+                    rating_key=9002,
+                    summary_written="Hi",
+                    title_sort_written=None,
+                )
+            )
+            session.add(Delivery(collection_slug="picked", user_slug="sarah", library_key="1", rating_key=9001))
+            session.commit()
+
+        ctx = service.build_context(dry_run=True)
+
+        assert ctx.delivered_details == {("sarah", "gems", "2"): WrittenDetails(summary="Hi", title_sort=None)}
+
+    def test_the_season_a_collection_was_built_for_reaches_the_engine_under_the_same_key(
+        self, service, sessions, configured
+    ):
+        """#137 C-1's DB→engine wiring. "" (built while not seasonal) is a record; NULL (delivered before
+        seasons were recorded) is absent, so promotion falls back to the picks' recipe."""
+        from shortlist.server.db.models import Delivery
+
+        with sessions() as session:
+            session.add(User(plex_account_id=1, username="sarah", slug="sarah", enabled=True))
+            session.add(
+                Delivery(
+                    collection_slug="seasonal",
+                    user_slug="sarah",
+                    library_key="1",
+                    rating_key=9001,
+                    season="christmas@2026-12-25",
+                )
+            )
+            session.add(
+                Delivery(collection_slug="plain", user_slug="sarah", library_key="1", rating_key=9002, season="")
+            )
+            session.add(Delivery(collection_slug="old", user_slug="sarah", library_key="1", rating_key=9003))
+            session.commit()
+
+        ctx = service.build_context(dry_run=True)
+
+        assert ctx.delivered_seasons == {
+            ("sarah", "seasonal", "1"): "christmas@2026-12-25",
+            ("sarah", "plain", "1"): "",
+        }
+
+    def test_a_ratingkey_two_rows_claim_is_dropped_rather_than_arbitrated(self, service, sessions, configured):
+        """The safety valve that makes a bad ledger self-heal. Two rows naming one collection is
+        reachable if a run died between the delete and the persist of a repair that recreates a row — and
+        picking a winner would let the loser's build retitle the winner's live collection.
+
+        Dropping BOTH sends delivery back to matching by title, which is where it was before the
+        ledger: no worse, and it recovers on the next successful run."""
+        from shortlist.server.db.models import Delivery
+
+        with sessions() as session:
+            session.add(User(plex_account_id=1, username="sarah", slug="sarah", enabled=True))
+            session.add(Delivery(collection_slug="picked", user_slug="sarah", library_key="1", rating_key=9001))
+            session.add(Delivery(collection_slug="gems", user_slug="sarah", library_key="1", rating_key=9001))
+            session.add(Delivery(collection_slug="safe", user_slug="sarah", library_key="2", rating_key=9002))
+            session.commit()
+
+        ctx = service.build_context(dry_run=True)
+
+        assert ("sarah", "picked", "1") not in ctx.delivered_keys
+        assert ("sarah", "gems", "1") not in ctx.delivered_keys
+        assert ctx.delivered_keys[("sarah", "safe", "2")] == 9002, "an unambiguous key is unaffected"
+
+    def test_previous_picks_carries_the_latest_run_per_row_and_library(self, service, sessions, configured):
+        from shortlist.server.db.models import Run
+
+        with sessions() as session:
+            session.add(User(plex_account_id=1, username="sarah", slug="sarah", enabled=True))
+            old = Run(trigger="manual", status="ok", dry_run=False, stats={})
+            new = Run(trigger="manual", status="ok", dry_run=False, stats={})
+            session.add_all([old, new])
+            session.commit()
+            user_id = session.query(User).one().id
+            old_id, new_id = old.id, new.id
+
+            def pick(run_id, tmdb_id, rank, slug="picked", section="movies-1", mt="movie"):
+                return PickRow(
+                    run_id=run_id,
+                    user_id=user_id,
+                    tmdb_id=tmdb_id,
+                    media_type=mt,
+                    rating_key=tmdb_id,
+                    rank=rank,
+                    collection_slug=slug,
+                    section_key=section,
+                    title=f"t{tmdb_id}",
+                    reason="because",
+                    sources="tmdb_similar",
+                    affinity=0.42,
+                )
+
+            # An older run's picks for the row, then a newer run that rebuilt it — carry-forward must
+            # take the NEWER set. A blank-stamp pick (legacy) can't map to a row, so it's skipped.
+            session.add_all([pick(old_id, 100, 1), pick(old_id, 101, 2)])
+            session.add_all([pick(new_id, 200, 2), pick(new_id, 201, 1)])
+            session.add(pick(new_id, 300, 1, slug="", section=""))
+            live_row(session, user_id, "picked", "movies-1")
+            personal_delivery(session, old_id, user_id=user_id, slug="picked", library="movies-1")
+            personal_delivery(session, new_id, user_id=user_id, slug="picked", library="movies-1")
+            session.commit()
+
+        ctx = service.build_context(dry_run=True)
+        got = ctx.previous_picks[("sarah", "picked", "movies-1")]
+        # Only the newest run's picks, ordered by rank, reconstructed as engine Pick objects.
+        assert [p.tmdb_id for p in got] == [201, 200]
+        assert got[0].title == "t201" and got[0].reason == "because"
+        # The legacy unstamped pick maps to no row and is dropped, not filed under ("", "").
+        assert ("sarah", "", "") not in ctx.previous_picks
+        # Provenance round-trips. Without this a carried-forward pick comes back blank, so on every
+        # non-refresh night the UI's "suggested by …" line vanishes and the pick is RE-PERSISTED as
+        # "not recorded" — provenance would survive exactly one run.
+        assert got[0].sources == ["tmdb_similar"]
+        assert got[0].affinity == 0.42
+
+    def test_the_global_idle_hold_reaches_the_engine_config(self, service, sessions, tmp_path, configured):
+        """The per-row override has its own round-trip test, and it passes with this line missing —
+        so without this the global setting could silently become a no-op while the row override
+        kept working, which is the harder half to notice."""
+        with sessions() as session:
+            SettingsStore(session, SecretBox(tmp_path)).set("recommendations.idle_hold_days", 21)
+
+        assert service.build_context(dry_run=True).config.idle_hold_days == 21
+
+    def test_previous_picks_carries_the_built_at_stamp(self, service, sessions, configured):
+        """The idle hold reads this and nothing else. Drop it here and the engine sees every carried
+        row as unstamped, which reads as "unknown" and quietly falls back to the plain cadence — the
+        feature would be inert on a live server with a green suite."""
+        from shortlist.server.db.models import Run
+
+        built = datetime(2026, 8, 20, 3, 30, tzinfo=UTC)
+        with sessions() as session:
+            session.add(User(plex_account_id=1, username="sarah", slug="sarah", enabled=True))
+            run = Run(trigger="manual", status="ok", dry_run=False, stats={})
+            session.add(run)
+            session.commit()
+            session.add(
+                PickRow(
+                    run_id=run.id,
+                    user_id=session.query(User).one().id,
+                    tmdb_id=100,
+                    media_type="movie",
+                    rating_key=100,
+                    rank=1,
+                    collection_slug="picked",
+                    section_key="movies-1",
+                    title="t100",
+                    built_at=built,
+                )
+            )
+            live_row(session, session.query(User).one().id, "picked", "movies-1")
+            personal_delivery(session, run.id, user_id=session.query(User).one().id, slug="picked", library="movies-1")
+            session.commit()
+
+        ctx = service.build_context(dry_run=True)
+
+        assert ctx.previous_picks[("sarah", "picked", "movies-1")][0].built_at == built
+
+    def test_previous_picks_carries_the_watch_the_row_was_built_from(self, service, sessions, configured):
+        """`_seed_moved` reads this for a row whose picks carried no seed (issue #133). Dropped here, such a
+        row never sees its watch move and carries the old watch's picks forward under the new name."""
+        from shortlist.server.db.models import Run
+
+        with sessions() as session:
+            session.add(User(plex_account_id=1, username="sarah", slug="sarah", enabled=True))
+            run = Run(trigger="manual", status="ok", dry_run=False, stats={})
+            session.add(run)
+            session.commit()
+            session.add(
+                PickRow(
+                    run_id=run.id,
+                    user_id=session.query(User).one().id,
+                    tmdb_id=100,
+                    media_type="movie",
+                    rating_key=100,
+                    rank=1,
+                    collection_slug="because",
+                    section_key="movies-1",
+                    title="t100",
+                    lead_seed_tmdb_id=900,
+                    lead_seed_title="Fargo",
+                )
+            )
+            live_row(session, session.query(User).one().id, "because", "movies-1")
+            personal_delivery(session, run.id, user_id=session.query(User).one().id, slug="because", library="movies-1")
+            session.commit()
+
+        pick = service.build_context(dry_run=True).previous_picks[("sarah", "because", "movies-1")][0]
+
+        assert (pick.lead_seed_tmdb_id, pick.lead_seed_title) == (900, "Fargo")
+
+
+class TestBuildRequests:
+    """The adapter turns request.* settings into a RequestConfig — off, whole, and half-configured."""
+
+    @contextmanager
+    def _store(self, sessions: sessionmaker, tmp_path: Path, values: dict[str, object]) -> Iterator[SettingsStore]:
+        box = SecretBox(tmp_path)
+        with sessions() as session:
+            store = SettingsStore(session, box)
+            for key, value in values.items():
+                store.set(key, value)
+        # A fresh store over a new session, so secret reads go through decrypt like production.
+        with sessions() as session:
+            yield SettingsStore(session, box)
+
+    def test_off_by_default_returns_none(self, sessions, tmp_path):
+        with self._store(sessions, tmp_path, {}) as store:
+            assert ContextBuilder._build_requests(store) is None
+
+    _SEERR: ClassVar[dict[str, object]] = {
+        "requests.enabled": True,
+        "requests.target": "overseerr",
+        "requests.overseerr.url": "http://overseerr:5055",
+        "requests.overseerr.apikey": "ok",
+    }
+
+    def test_the_overseerr_target_replaces_the_arrs_rather_than_joining_them(self, sessions, tmp_path):
+        """The two routes are exclusive. Leaving the Arr targets live alongside a *seerr would file
+        every title twice — once directly and once through Overseerr's own Radarr."""
+        with self._store(
+            sessions,
+            tmp_path,
+            self._SEERR
+            | {
+                "requests.overseerr.request_as_user_id": 4,
+                "requests.radarr.url": "http://radarr:7878",
+                "requests.radarr.apikey": "rk",
+                "requests.radarr.quality_profile_id": 4,
+                "requests.radarr.root_folder": "/movies",
+            },
+        ) as store:
+            cfg = ContextBuilder._build_requests(store)
+            assert cfg.overseerr.url == "http://overseerr:5055" and cfg.overseerr.api_key == "ok"
+            assert cfg.overseerr.request_as_user_id == 4
+            assert cfg.radarr is None and cfg.sonarr is None
+
+    def test_a_half_connected_arr_raises_no_complaint_when_overseerr_is_the_route(self, sessions, tmp_path):
+        """`incomplete_targets` drives an owner-facing warning about an unselected quality profile.
+        On this route there is no profile to select, so the warning would name a setting the screen
+        no longer even shows."""
+        with self._store(
+            sessions,
+            tmp_path,
+            self._SEERR | {"requests.radarr.url": "http://radarr:7878", "requests.radarr.apikey": "rk"},
+        ) as store:
+            assert ContextBuilder._build_requests(store).incomplete_targets == []
+
+    def test_overseerr_chosen_but_not_connected_falls_back_to_no_target(self, sessions, tmp_path):
+        """Not to the Arrs. Silently routing to a different app than the owner picked is worse than
+        sending nothing, which the run report already explains."""
+        with self._store(sessions, tmp_path, {"requests.enabled": True, "requests.target": "overseerr"}) as store:
+            cfg = ContextBuilder._build_requests(store)
+            assert cfg.overseerr is None and cfg.radarr is None and cfg.sonarr is None
+            assert cfg.incomplete_targets == ["Overseerr is the chosen request target but has no address or API key"]
+
+    def test_a_half_configured_overseerr_does_not_fall_through_to_a_leftover_radarr(self, sessions, tmp_path):
+        """The bug this pins. Branching on "did Overseerr resolve?" rather than on what the owner
+        CHOSE sent every title to the Radarr they had just switched away from — fully configured
+        from before, so nothing looked wrong anywhere."""
+        with self._store(
+            sessions,
+            tmp_path,
+            {
+                "requests.enabled": True,
+                "requests.target": "overseerr",  # chosen, but no URL/key saved yet
+                "requests.radarr.url": "http://radarr:7878",
+                "requests.radarr.apikey": "rk",
+                "requests.radarr.quality_profile_id": 4,
+                "requests.radarr.root_folder": "/movies",
+            },
+        ) as store:
+            cfg = ContextBuilder._build_requests(store)
+            assert cfg.radarr is None and cfg.sonarr is None and cfg.overseerr is None
+            # And the run says why, rather than reporting "Radarr not fully configured" per title. The
+            # route is what carries that: without it the config is byte-identical to an unconfigured Arr
+            # install, and the per-title outcome is worded for the wrong app (test_requests.py pins the
+            # outcome itself — this pins the field it depends on).
+            assert cfg.target == "overseerr"
+            assert "Overseerr" in cfg.incomplete_targets[0]
+
+    def test_the_default_target_still_builds_the_arrs(self, sessions, tmp_path):
+        with self._store(
+            sessions,
+            tmp_path,
+            {
+                "requests.enabled": True,
+                "requests.radarr.url": "http://radarr:7878",
+                "requests.radarr.apikey": "rk",
+                "requests.radarr.quality_profile_id": 4,
+                "requests.radarr.root_folder": "/movies",
+            },
+        ) as store:
+            cfg = ContextBuilder._build_requests(store)
+            assert cfg.overseerr is None and cfg.radarr is not None
+
+    def test_enabled_with_both_apps_builds_both_targets(self, sessions, tmp_path):
+        with self._store(
+            sessions,
+            tmp_path,
+            {
+                "requests.enabled": True,
+                "requests.radarr.url": "http://radarr:7878",
+                "requests.radarr.apikey": "rk",
+                "requests.radarr.quality_profile_id": 4,
+                "requests.radarr.root_folder": "/movies",
+                "requests.sonarr.url": "http://sonarr:8989",
+                "requests.sonarr.apikey": "sk",
+                "requests.sonarr.quality_profile_id": 7,
+                "requests.sonarr.root_folder": "/tv",
+                "requests.min_rating": 7.5,
+                "requests.min_votes": 250,
+                "requests.max_per_run": 3,
+            },
+        ) as store:
+            cfg = ContextBuilder._build_requests(store)
+            assert cfg is not None and cfg.enabled
+            assert cfg.radarr.url == "http://radarr:7878" and cfg.radarr.api_key == "rk"
+            assert cfg.radarr.quality_profile_id == 4 and cfg.radarr.root_folder == "/movies"
+            assert cfg.sonarr.api_key == "sk" and cfg.sonarr.quality_profile_id == 7
+            assert (cfg.min_rating, cfg.min_votes, cfg.max_per_run) == (7.5, 250, 3)
+
+    def test_auto_user_tag_is_off_unless_the_owner_turns_it_on(self, sessions, tmp_path):
+        """Default off, so an upgrade adds no username tags to anybody's Sonarr/Radarr."""
+        base = {
+            "requests.enabled": True,
+            "requests.sonarr.url": "http://sonarr:8989",
+            "requests.sonarr.apikey": "sk",
+            "requests.sonarr.quality_profile_id": 1,
+            "requests.sonarr.root_folder": "/tv",
+        }
+        with self._store(sessions, tmp_path, base) as store:
+            assert ContextBuilder._build_requests(store).auto_user_tag is False
+        with self._store(sessions, tmp_path, base | {"requests.auto_user_tag": True}) as on:
+            assert ContextBuilder._build_requests(on).auto_user_tag is True
+
+    def test_a_retired_row_mode_inherits_rather_than_overriding(self, sessions, tmp_path):
+        """The screen serves a retired mode as "inherits", so the run must agree — otherwise the row
+        editor says one thing and tonight's request does another."""
+        from shortlist.engine.models import row_monitor_or_inherit
+        from shortlist.server.db.models import Collection
+        from shortlist.server.services.context_builder import row_request_overrides
+
+        assert row_monitor_or_inherit("recent") is None
+        assert row_monitor_or_inherit("firstSeason") == "firstSeason"
+        assert row_monitor_or_inherit(None) is None
+        assert (
+            row_request_overrides(Collection(slug="r", name="R", build="per_person", req_sonarr_monitor="recent"))
+            is None
+        )
+
+    def test_the_sonarr_monitor_mode_reaches_the_engine_config(self, sessions, tmp_path):
+        """The owner's choice is only worth anything if it travels; without this, deleting the one
+        line that reads it leaves every test green while every show quietly arrives whole again."""
+        base = {
+            "requests.enabled": True,
+            "requests.sonarr.url": "http://sonarr:8989",
+            "requests.sonarr.apikey": "sk",
+            "requests.sonarr.quality_profile_id": 1,
+            "requests.sonarr.root_folder": "/tv",
+        }
+        # Unset -> "all", which is what every add did before this setting existed.
+        with self._store(sessions, tmp_path, base) as store:
+            assert ContextBuilder._build_requests(store).sonarr_monitor == "all"
+        with self._store(sessions, tmp_path, base | {"requests.sonarr.monitor": "firstSeason"}) as chosen:
+            assert ContextBuilder._build_requests(chosen).sonarr_monitor == "firstSeason"
+
+    def test_half_configured_app_is_left_as_none(self, sessions, tmp_path):
+        # Radarr has a URL but no key -> its target is None (movies skipped), Sonarr is whole.
+        with self._store(
+            sessions,
+            tmp_path,
+            {
+                "requests.enabled": True,
+                "requests.radarr.url": "http://radarr:7878",
+                "requests.sonarr.url": "http://sonarr:8989",
+                "requests.sonarr.apikey": "sk",
+                "requests.sonarr.quality_profile_id": 1,
+                "requests.sonarr.root_folder": "/tv",
+            },
+        ) as store:
+            cfg = ContextBuilder._build_requests(store)
+            assert cfg.radarr is None  # no key -> not built, rather than erroring mid-run
+            assert cfg.sonarr is not None
+
+    def test_incomplete_target_missing_profile_or_folder(self, sessions, tmp_path):
+        # URL+key set but no quality profile or root folder -> treated as not configured, with warning.
+        with self._store(
+            sessions,
+            tmp_path,
+            {
+                "requests.enabled": True,
+                "requests.radarr.url": "http://radarr:7878",
+                "requests.radarr.apikey": "rk",
+                "requests.sonarr.url": "http://sonarr:8989",
+                "requests.sonarr.apikey": "sk",
+                "requests.sonarr.quality_profile_id": 1,
+                "requests.sonarr.root_folder": "/tv",
+            },
+        ) as store:
+            cfg = ContextBuilder._build_requests(store)
+            assert cfg.radarr is None  # key present but no profile/folder -> None
+            assert cfg.sonarr is not None  # fully configured
+            assert len(cfg.incomplete_targets) == 1
+            assert "Radarr" in cfg.incomplete_targets[0]
+            assert "quality profile" in cfg.incomplete_targets[0]
+
+
+class TestBuildRequestSources:
+    """Where a "Your requests" row reads from (issue #127): every app with a URL and key, whatever the
+    request FEATURE says — the owner may send nothing through Shortlist and still want the row."""
+
+    @contextmanager
+    def _store(self, sessions: sessionmaker, tmp_path: Path, values: dict[str, object]) -> Iterator[SettingsStore]:
+        box = SecretBox(tmp_path)
+        with sessions() as session:
+            store = SettingsStore(session, box)
+            for key, value in values.items():
+                store.set(key, value)
+        with sessions() as session:
+            yield SettingsStore(session, box)
+
+    def test_request_sources_are_built_whenever_a_url_and_key_exist(self, sessions, tmp_path):
+        with self._store(
+            sessions,
+            tmp_path,
+            {
+                "requests.enabled": False,
+                "requests.target": "arr",
+                "requests.overseerr.url": "http://s",
+                "requests.overseerr.apikey": "k",
+                "requests.radarr.url": "http://r",
+                "requests.radarr.apikey": "k",
+                "requests.tag": "shortlist",
+            },
+        ) as store:
+            src = ContextBuilder._build_request_sources(store)
+            assert src.overseerr.url == "http://s" and src.radarr.url == "http://r" and src.sonarr is None
+            assert src.exclude_seerr_user_id == 0  # requests are off, so no account is Shortlist's
+            assert src.shortlist_tag == "shortlist"
+
+    def test_the_request_as_account_is_excluded_only_when_shortlist_sends_via_overseerr(self, sessions, tmp_path):
+        with self._store(
+            sessions,
+            tmp_path,
+            {
+                "requests.enabled": True,
+                "requests.target": "overseerr",
+                "requests.overseerr.url": "http://s",
+                "requests.overseerr.apikey": "k",
+                "requests.overseerr.request_as_user_id": 7,
+            },
+        ) as store:
+            assert ContextBuilder._build_request_sources(store).exclude_seerr_user_id == 7
+
+    def test_no_sources_is_none(self, sessions, tmp_path):
+        with self._store(sessions, tmp_path, {}) as store:
+            assert ContextBuilder._build_request_sources(store) is None
+
+    def test_the_engine_config_carries_the_sources(self, sessions, tmp_path):
+        """`_engine_config` is the seam a forgotten field hides in: the setting saves and the engine
+        never sees it."""
+        with self._store(
+            sessions, tmp_path, {"requests.radarr.url": "http://r", "requests.radarr.apikey": "k"}
+        ) as store:
+            builder = ContextBuilder(sessions, SecretBox(tmp_path), EventBus())
+            with sessions() as session:
+                cfg = builder._engine_config(session, store)
+            assert cfg.request_sources is not None and cfg.request_sources.radarr.url == "http://r"
+
+
+class TestRequestTag:
+    """`UserProfile.request_tag` carries only the tag the owner TYPED on a person.
+
+    The automatic alternative — their slug, under `requests.auto_user_tag` — is applied in the engine
+    instead (`rows.py` `_record_demand`), because a row may override it either way and one value baked
+    in here would be shared by every row."""
+
+    def test_the_profile_carries_only_the_explicit_tag(self, sessions, tmp_path):
+        with sessions() as session:
+            session.add_all(
+                [
+                    User(username="MooHouse", slug="moohouse", plex_account_id=1, user_type="shared", enabled=True),
+                    User(
+                        username="Sarah",
+                        slug="sarah",
+                        plex_account_id=2,
+                        user_type="shared",
+                        enabled=True,
+                        request_tag="vip",
+                    ),
+                ]
+            )
+            session.commit()
+        builder = ContextBuilder(sessions, SecretBox(tmp_path), EventBus())
+        with sessions() as session:
+            tags = {p.username: p.request_tag for p in builder.enabled_profiles(session)}
+        assert tags["MooHouse"] == ""  # no explicit tag -> nothing here; the slug is the engine's job
+        assert tags["Sarah"] == "vip"  # an explicit tag is used
+
+
+class TestSyncWatched:
+    """Daily watch-sync: refresh watched_at from current history without rebuilding rows."""
+
+    def test_marks_a_pick_watched_from_current_history(self, service, sessions, monkeypatch):
+        import asyncio
+        from datetime import UTC, datetime, timedelta
+        from types import SimpleNamespace
+
+        from shortlist.engine.models import UserProfile, UserType, WatchedItem
+        from shortlist.server.db.models import DEFAULT_SLUG, Delivery, PickRow, Run, User
+
+        with sessions() as s:
+            user = User(username="sarah", slug="sarah", plex_account_id=1, user_type="shared", enabled=True)
+            s.add(user)
+            s.flush()
+            run = Run(trigger="manual", status="ok", started_at=datetime.now(UTC) - timedelta(days=1))
+            s.add(run)
+            s.flush()
+            # In her row, and the collection is still on Plex (the ledger entry): a pick is only
+            # creditable while the person could actually have been looking at it
+            # (`run_persistence.live_pick_ids`).
+            s.add(Delivery(collection_slug=DEFAULT_SLUG, user_slug="sarah", library_key="1", rating_key=7))
+            s.add(
+                PickRow(
+                    run_id=run.id,
+                    user_id=user.id,
+                    collection_slug=DEFAULT_SLUG,
+                    section_key="1",
+                    tmdb_id=42,
+                    media_type="movie",
+                    rating_key=1,
+                    rank=1,
+                    title="Dune",
+                )
+            )
+            personal_delivery(s, run.id, user_id=user.id, slug=DEFAULT_SLUG, library="1")
+            s.commit()
+
+        # This person has since watched the recommended title — the sync must credit it, no run needed.
+        profile = UserProfile(username="sarah", plex_account_id=1, user_type=UserType.SHARED, slug="sarah")
+        watch = WatchedItem(title="Dune", media_type=MediaType.MOVIE, watched_at=datetime.now(UTC), tmdb_id=42)
+        # The sync reads through the watched-title cache, which walks the server's sections and asks
+        # the history source for one library at a time — so the fake has to offer both.
+        fake_ctx = SimpleNamespace(
+            plex=SimpleNamespace(sections=lambda: [SimpleNamespace(key="1", type="movie")]),
+            history_source=SimpleNamespace(
+                fetch=lambda p, **k: [watch],
+                fetch_section=lambda p, section, media_type, since=None: [watch],
+            ),
+            config=SimpleNamespace(min_completion=0.7),
+        )
+        monkeypatch.setattr(service, "build_context", lambda **k: fake_ctx)
+        monkeypatch.setattr(service, "enabled_profiles", lambda session, user_ids=None: [profile])
+
+        asyncio.run(service.sync_watched())
+
+        with sessions() as s:
+            assert s.query(PickRow).filter_by(tmdb_id=42).one().watched_at is not None
+
+    def test_every_sync_reads_the_whole_library_not_just_what_changed(self, service, sessions, monkeypatch):
+        """Issue #108. The incremental read finds new watches by ordering on `lastViewedAt`, and
+        Plex's "mark as played" on a series leaves the show row without one — so a marked series was
+        invisible to every sync until the weekly complete read, up to seven days later.
+
+        Measured on a live 47-user, 3-library server before this changed: 27.4s complete against
+        27.3s incremental. Every read fetches a 500-row page per library either way, and only 7 of 93
+        (person, library) pairs held more than one page — so the incremental path bought 0.1s.
+
+        Asserts the SECOND sync too. The first is complete on any server (there is no cursor to be
+        incremental against), so a test that ran one pass would pass without the fix.
+        """
+        import asyncio
+        from datetime import UTC, datetime
+        from types import SimpleNamespace
+
+        from shortlist.engine.clients.plex_pms import WatchedRead
+        from shortlist.engine.models import MediaType, UserProfile, UserType, WatchedItem
+        from shortlist.server.db.models import User
+
+        with sessions() as s:
+            s.add(User(username="sarah", slug="sarah", plex_account_id=1, user_type="shared", enabled=True))
+            s.commit()
+
+        profile = UserProfile(username="sarah", plex_account_id=1, user_type=UserType.SHARED, slug="sarah")
+        watch = WatchedItem(
+            title="Dune", media_type=MediaType.MOVIE, watched_at=datetime.now(UTC), tmdb_id=42, rating_key=7
+        )
+        asked: list = []
+
+        def fetch_section(_p, _section, _media, since=None):
+            asked.append(since)
+            # A WatchedRead claiming coverage, not a bare list. A bare list can never prove it saw
+            # the whole library, so the cache would refuse to stamp `last_full_at` and fall back to a
+            # complete read every time — and this test would pass with the fix reverted.
+            return WatchedRead(items=[watch], covers_window=True)
+
+        fake_ctx = SimpleNamespace(
+            plex=SimpleNamespace(sections=lambda: [SimpleNamespace(key="1", type="movie")]),
+            history_source=SimpleNamespace(fetch=lambda p, **k: [watch], fetch_section=fetch_section),
+            config=SimpleNamespace(min_completion=0.7),
+        )
+        monkeypatch.setattr(service, "build_context", lambda **k: fake_ctx)
+        monkeypatch.setattr(service, "enabled_profiles", lambda session, user_ids=None: [profile])
+
+        asyncio.run(service.sync_watched())
+        asyncio.run(service.sync_watched())
+
+        assert len(asked) == 2, "one read per library per sync"
+        assert asked == [None, None], f"a sync asked for only what changed since {asked[-1]}"
+
+    def test_a_RUN_also_reads_the_whole_library(self, service, sessions, monkeypatch):
+        """The run's own history top-up must read complete too, not just the sync job.
+
+        `prefill_history` used to call `refresh_watched` with no `force_full`, which falls through to
+        `needs_full()` — False as soon as a section has one proven complete read on record. So from
+        the second night onward a RUN walked the library incrementally, ordering by `lastViewedAt`,
+        and went straight past a series whose show date lags its episodes. That is issue #108's own
+        mechanism, left alive on the path an owner reaches by pressing "Run now".
+        """
+        from datetime import UTC, datetime
+        from types import SimpleNamespace
+
+        from shortlist.engine.clients.plex_pms import WatchedRead
+        from shortlist.engine.models import MediaType, UserProfile, UserType, WatchedItem
+        from shortlist.server.db.models import User
+
+        with sessions() as s:
+            s.add(User(username="sarah", slug="sarah", plex_account_id=1, user_type="shared", enabled=True))
+            s.commit()
+
+        profile = UserProfile(username="sarah", plex_account_id=1, user_type=UserType.SHARED, slug="sarah")
+        watch = WatchedItem(
+            title="Dune", media_type=MediaType.MOVIE, watched_at=datetime.now(UTC), tmdb_id=42, rating_key=7
+        )
+        asked: list = []
+
+        def fetch_section(_p, _section, _media, since=None):
+            asked.append(since)
+            return WatchedRead(items=[watch], covers_window=True)
+
+        ctx = SimpleNamespace(
+            plex=SimpleNamespace(sections=lambda: [SimpleNamespace(key="1", type="movie")]),
+            history_source=SimpleNamespace(fetch=lambda p, **k: [watch], fetch_section=fetch_section),
+            config=SimpleNamespace(min_completion=0.7),
+        )
+
+        # Twice: the first pre-fill is complete on any server (no cursor to resume from), so a single
+        # pass would pass without the fix.
+        service._watch.prefill_history(ctx, [profile])
+        service._watch.prefill_history(ctx, [profile])
+
+        assert asked == [None, None], f"a run asked for only what changed since {asked[-1]}"
+
+    def test_an_ordinary_sync_drops_a_title_the_person_un_watched(self, service, sessions, monkeypatch):
+        """Un-watching must show up on the next sync, not up to a week later.
+
+        Before #108 the nightly incremental read dropped a title un-watched inside its window.
+        Removing incremental reads moved every deletion to the `sync.watch_full_days` pass, which
+        made un-watching take up to seven days — reported by a user the day the fix shipped.
+
+        Safe at this cadence because the guards that made weekly deletion tolerable are what make
+        frequent deletion safe: the read must PROVE it saw the whole library, and a pass that would
+        drop more than half of one asks the server again first. A one-title drop is exactly what an
+        un-watch looks like, and it self-heals on the next sync if it was wrong.
+        """
+        import asyncio
+        from datetime import UTC, datetime
+        from types import SimpleNamespace
+
+        from shortlist.engine.clients.plex_pms import WatchedRead
+        from shortlist.engine.models import MediaType, UserProfile, UserType, WatchedItem
+        from shortlist.server.db.models import User, WatchedTitle
+
+        with sessions() as s:
+            s.add(User(username="sarah", slug="sarah", plex_account_id=1, user_type="shared", enabled=True))
+            s.commit()
+
+        profile = UserProfile(username="sarah", plex_account_id=1, user_type=UserType.SHARED, slug="sarah")
+
+        def watch(title, tmdb):
+            return WatchedItem(
+                title=title, media_type=MediaType.MOVIE, watched_at=datetime.now(UTC), tmdb_id=tmdb, rating_key=tmdb
+            )
+
+        library = [watch("Heat", 1), watch("Dune", 2)]
+
+        def fetch_section(_p, _section, _media, since=None):
+            return WatchedRead(items=list(library), covers_window=True)
+
+        ctx = SimpleNamespace(
+            plex=SimpleNamespace(sections=lambda: [SimpleNamespace(key="1", type="movie")]),
+            history_source=SimpleNamespace(fetch=lambda p, **k: list(library), fetch_section=fetch_section),
+            config=SimpleNamespace(min_completion=0.7),
+        )
+        monkeypatch.setattr(service, "build_context", lambda **k: ctx)
+        monkeypatch.setattr(service, "enabled_profiles", lambda session, user_ids=None: [profile])
+
+        asyncio.run(service.sync_watched())
+        with sessions() as s:
+            assert {t.title for t in s.query(WatchedTitle)} == {"Heat", "Dune"}
+
+        library.pop()  # they un-watched Dune in Plex
+        asyncio.run(service.sync_watched())
+
+        with sessions() as s:
+            assert {t.title for t in s.query(WatchedTitle)} == {"Heat"}, "an un-watch waited for the weekly pass"
+
+    def test_the_first_sync_after_the_upgrade_drops_the_residue_without_a_second_read(
+        self, service, sessions, monkeypatch
+    ):
+        """The two #108 changes interact on the FIRST sync after upgrading, and this is that cell.
+
+        The show read moved from `unwatched=0` to `viewedLeafCount!=0`, which stops returning shows
+        Plex flags but that have no episode watched — 62 of 533 on the maintainer's server. Deletion
+        also moved to every sync. So the first pass drops ~12% of a show library in one go.
+
+        That is correct (they have nothing watched, and nothing downstream counted them), and it must
+        NOT trip the shrink guard: 491*2 > 533, so no confirming re-read. A test rather than
+        arithmetic in a comment, because the threshold and the residue share no code.
+        """
+        import asyncio
+        from datetime import UTC, datetime
+        from types import SimpleNamespace
+
+        from shortlist.engine.clients.plex_pms import WatchedRead
+        from shortlist.engine.models import MediaType, UserProfile, UserType, WatchedItem
+        from shortlist.server.db.models import User, WatchedTitle
+
+        with sessions() as s:
+            s.add(User(username="sarah", slug="sarah", plex_account_id=1, user_type="shared", enabled=True))
+            s.commit()
+
+        profile = UserProfile(username="sarah", plex_account_id=1, user_type=UserType.SHARED, slug="sarah")
+
+        def show(tmdb, viewed):
+            return WatchedItem(
+                title=f"Show {tmdb}",
+                media_type=MediaType.SHOW,
+                watched_at=datetime.now(UTC),
+                tmdb_id=tmdb,
+                rating_key=tmdb,
+                viewed_leaf_count=viewed,
+                leaf_count=10,
+            )
+
+        # What the OLD query returned: 100 shows, 12 of them with nothing actually watched.
+        old_answer = [show(n, 0 if n <= 12 else 3) for n in range(1, 101)]
+        # What the NEW query returns: the 88 with episodes watched.
+        new_answer = [s for s in old_answer if s.viewed_leaf_count]
+        answers = [old_answer, new_answer]
+        reads = []
+
+        def fetch_section(_p, _section, _media, since=None):
+            reads.append(since)
+            return WatchedRead(items=list(answers[min(len(reads) - 1, 1)]), covers_window=True)
+
+        ctx = SimpleNamespace(
+            plex=SimpleNamespace(sections=lambda: [SimpleNamespace(key="2", type="show")]),
+            history_source=SimpleNamespace(fetch=lambda p, **k: [], fetch_section=fetch_section),
+            config=SimpleNamespace(min_completion=0.7),
+        )
+        monkeypatch.setattr(service, "build_context", lambda **k: ctx)
+        monkeypatch.setattr(service, "enabled_profiles", lambda session, user_ids=None: [profile])
+
+        asyncio.run(service.sync_watched())
+        with sessions() as s:
+            assert s.query(WatchedTitle).count() == 100
+
+        asyncio.run(service.sync_watched())
+
+        with sessions() as s:
+            assert s.query(WatchedTitle).count() == 88, "the residue was not swept"
+            assert s.query(WatchedTitle).filter(WatchedTitle.viewed_leaf_count == 0).count() == 0
+        assert len(reads) == 2, f"a 12% shrink triggered a confirming re-read ({len(reads)} reads)"
+
+    def test_a_sync_that_would_lose_MOST_of_a_library_confirms_before_deleting(self, service, sessions, monkeypatch):
+        """The shrink guard, exercised through the real sync rather than `sync_section` directly —
+        the layer that now sets `reconcile` on every pass."""
+        import asyncio
+        from datetime import UTC, datetime
+        from types import SimpleNamespace
+
+        from shortlist.engine.clients.plex_pms import WatchedRead
+        from shortlist.engine.models import MediaType, UserProfile, UserType, WatchedItem
+        from shortlist.server.db.models import User, WatchedTitle
+
+        with sessions() as s:
+            s.add(User(username="sarah", slug="sarah", plex_account_id=1, user_type="shared", enabled=True))
+            s.commit()
+
+        profile = UserProfile(username="sarah", plex_account_id=1, user_type=UserType.SHARED, slug="sarah")
+        full = [
+            WatchedItem(
+                title=f"Film {n}", media_type=MediaType.MOVIE, watched_at=datetime.now(UTC), tmdb_id=n, rating_key=n
+            )
+            for n in range(1, 11)
+        ]
+        answers = [full, [], full]  # seed, a truncated answer, then the truth on the confirming read
+        reads = []
+
+        def fetch_section(_p, _section, _media, since=None):
+            reads.append(since)
+            return WatchedRead(items=list(answers[min(len(reads) - 1, 2)]), covers_window=True)
+
+        ctx = SimpleNamespace(
+            plex=SimpleNamespace(sections=lambda: [SimpleNamespace(key="1", type="movie")]),
+            history_source=SimpleNamespace(fetch=lambda p, **k: [], fetch_section=fetch_section),
+            config=SimpleNamespace(min_completion=0.7),
+        )
+        monkeypatch.setattr(service, "build_context", lambda **k: ctx)
+        monkeypatch.setattr(service, "enabled_profiles", lambda session, user_ids=None: [profile])
+
+        asyncio.run(service.sync_watched())
+        asyncio.run(service.sync_watched())
+
+        with sessions() as s:
+            assert s.query(WatchedTitle).count() == 10, "a thin answer wiped the library"
+        assert len(reads) == 3, "the confirming re-read never happened"
+
+    def test_credit_withdrawal_runs_on_EVERY_sync_now_that_every_read_is_complete(self, service, sessions, monkeypatch):
+        """Whether the sync lets a pass WITHDRAW pick credit — the one consequence around here that
+        does not self-heal on the next good read, since it edits `picks.watched_at`.
+
+        Withdrawal acts on ABSENCE, so it is only sound when the read was complete. It used to be
+        gated on the WEEKLY dead-sweep instead, because incremental reads could not tell "they
+        un-watched it" from "this pass did not look" — and that made the dashboard go on calling a
+        title "finished" for up to seven days after the person un-marked it in Plex, reported on
+        issue #108. Since #108 every read is complete, so the cadence gate protected nothing.
+
+        Asserts the flag on the PROFILE, which is what withdrawal actually consults, on every pass —
+        the reconcile call happens either way, so a regression here is invisible to a call count.
+        The periodic cadence still exists; it just gates the dead-library sweep alone now.
+        """
+        import asyncio
+        from datetime import UTC, datetime, timedelta
+        from types import SimpleNamespace
+
+        from shortlist.engine.clients.plex_pms import WatchedRead
+        from shortlist.engine.models import MediaType, UserProfile, UserType, WatchedItem
+        from shortlist.server.db.models import User
+        from shortlist.server.settings_store import SettingsStore
+
+        with sessions() as s:
+            s.add(User(username="sarah", slug="sarah", plex_account_id=1, user_type="shared", enabled=True))
+            s.commit()
+
+        profile = UserProfile(username="sarah", plex_account_id=1, user_type=UserType.SHARED, slug="sarah")
+        watch = WatchedItem(
+            title="Dune", media_type=MediaType.MOVIE, watched_at=datetime.now(UTC), tmdb_id=42, rating_key=7
+        )
+        fake_ctx = SimpleNamespace(
+            plex=SimpleNamespace(sections=lambda: [SimpleNamespace(key="1", type="movie")]),
+            history_source=SimpleNamespace(
+                fetch=lambda p, **k: [watch],
+                fetch_section=lambda p, section, media, since=None: WatchedRead(items=[watch], covers_window=True),
+            ),
+            config=SimpleNamespace(min_completion=0.7),
+        )
+        monkeypatch.setattr(service, "build_context", lambda **k: fake_ctx)
+        monkeypatch.setattr(service, "enabled_profiles", lambda session, user_ids=None: [profile])
+        seen: list = []
+        monkeypatch.setattr(
+            service, "_reconcile_watched", lambda profiles, live_picks=None: seen.append(profiles[0].history_complete)
+        )
+
+        # First pass: nothing has ever reconciled.
+        asyncio.run(service.sync_watched())
+        # Second: an ORDINARY pass, with the periodic sweep not due. This is the one that regressed —
+        # it used to pass False here, which is the seven-day lag the reporter saw.
+        asyncio.run(service.sync_watched())
+        # Third: wind the stamp back past `sync.watch_full_days`, so the sweep falls due again.
+        with sessions() as s:
+            SettingsStore(s).set("report.watch_full_at", (datetime.now(UTC) - timedelta(days=30)).isoformat())
+            s.commit()
+        asyncio.run(service.sync_watched())
+
+        assert seen == [True, True, True], f"a pass declined to withdraw un-watched credit: {seen}"
+
+    def test_the_owner_is_synced_even_though_they_have_no_row_of_their_own(self, service, sessions, monkeypatch):
+        """The owner's watched set has one consumer that has nothing to do with giving them a row.
+
+        `user_sync` creates the owner with `enabled=False`, so `enabled_profiles` leaves them out of
+        every sync — correctly, since they get no row. But the watching-account transfer copies FROM
+        the owner's cached watched set, and nothing else ever fills it: an owner who never gave
+        themselves a row had an empty cache for ever, so the wizard's "Shortlist copies your watch
+        history across" copied nothing, silently, on every attempt (#88).
+        """
+        import asyncio
+        from datetime import UTC, datetime
+        from types import SimpleNamespace
+
+        from shortlist.engine.models import MediaType, WatchedItem
+        from shortlist.server.db.models import User, WatchedTitle
+
+        with sessions() as s:
+            s.add(User(username="steve", slug="steve", plex_account_id=1, user_type="owner", enabled=False))
+            s.commit()
+
+        watch = WatchedItem(
+            title="Dune", media_type=MediaType.MOVIE, watched_at=datetime.now(UTC), tmdb_id=42, rating_key=7
+        )
+        fake_ctx = SimpleNamespace(
+            plex=SimpleNamespace(sections=lambda: [SimpleNamespace(key="1", type="movie")]),
+            history_source=SimpleNamespace(
+                fetch=lambda p, **k: [watch],
+                fetch_section=lambda p, section, media_type, since=None: [watch],
+            ),
+            config=SimpleNamespace(min_completion=0.7),
+        )
+        monkeypatch.setattr(service, "build_context", lambda **k: fake_ctx)
+
+        asyncio.run(service.sync_watched())
+
+        with sessions() as s:
+            owner_id = s.query(User).filter_by(slug="steve").one().id
+            assert [t.title for t in s.query(WatchedTitle).filter_by(user_id=owner_id)] == ["Dune"]
+
+    def test_the_owner_is_read_AS_the_owner_so_the_admin_token_is_the_one_used(self, service, sessions, monkeypatch):
+        """`user_type` is the entire token branch for the profile the sweep adds.
+
+        `ShareTokenWatchSource._token_for` hands back the admin token only for an OWNER; any other
+        type sends the owner's `plex_account_id` through the roster (which never lists the owner)
+        and then a canary exchange against the admin account. That failure is caught and logged as
+        "treating as no watch history" — so it looks exactly like the empty cache this whole change
+        exists to fix, and nothing would have caught it.
+        """
+        import asyncio
+        from datetime import UTC, datetime
+        from types import SimpleNamespace
+
+        from shortlist.engine.models import MediaType, UserType, WatchedItem
+        from shortlist.server.db.models import User
+
+        with sessions() as s:
+            s.add(User(username="steve", slug="steve", plex_account_id=1, user_type="owner", enabled=False))
+            s.commit()
+
+        asked: list[tuple] = []
+        watch = WatchedItem(
+            title="Dune", media_type=MediaType.MOVIE, watched_at=datetime.now(UTC), tmdb_id=42, rating_key=7
+        )
+
+        def fetch_section(profile, section, media_type, since=None):
+            asked.append((profile.user_type, profile.slug, profile.plex_account_id))
+            return [watch]
+
+        fake_ctx = SimpleNamespace(
+            plex=SimpleNamespace(sections=lambda: [SimpleNamespace(key="1", type="movie")]),
+            history_source=SimpleNamespace(fetch=lambda p, **k: [watch], fetch_section=fetch_section),
+            config=SimpleNamespace(min_completion=0.7),
+        )
+        monkeypatch.setattr(service, "build_context", lambda **k: fake_ctx)
+
+        asyncio.run(service.sync_watched())
+
+        assert asked == [(UserType.OWNER, "steve", 1)]
+
+    def test_a_paused_owner_is_left_alone_like_any_other_paused_person(self, service, sessions, monkeypatch):
+        """Pausing someone stops Shortlist reading them, and the owner can be paused like anyone
+        else. `enabled_profiles` drops a paused user — topping the owner back up afterwards would
+        undo that for the one account nobody thought to check."""
+        import asyncio
+        from datetime import UTC, datetime
+        from types import SimpleNamespace
+
+        from shortlist.engine.models import MediaType, WatchedItem
+        from shortlist.server.db.models import User, WatchedTitle
+
+        with sessions() as s:
+            s.add(
+                User(
+                    username="steve",
+                    slug="steve",
+                    plex_account_id=1,
+                    user_type="owner",
+                    enabled=True,
+                    prefs={"paused": True},
+                )
+            )
+            s.commit()
+
+        watch = WatchedItem(
+            title="Dune", media_type=MediaType.MOVIE, watched_at=datetime.now(UTC), tmdb_id=42, rating_key=7
+        )
+        fake_ctx = SimpleNamespace(
+            plex=SimpleNamespace(sections=lambda: [SimpleNamespace(key="1", type="movie")]),
+            history_source=SimpleNamespace(
+                fetch=lambda p, **k: [watch],
+                fetch_section=lambda p, section, media_type, since=None: [watch],
+            ),
+            config=SimpleNamespace(min_completion=0.7),
+        )
+        monkeypatch.setattr(service, "build_context", lambda **k: fake_ctx)
+
+        asyncio.run(service.sync_watched())
+
+        with sessions() as s:
+            assert s.query(WatchedTitle).count() == 0
+
+    def test_a_second_owner_row_does_not_take_the_whole_sweep_down_with_it(self, service, sessions, monkeypatch):
+        """Looking the owner up is a top-up, not a precondition. `.one_or_none()` raised on a
+        duplicate owner row, and `sync_watched` swallows everything at INFO — so one anomalous row
+        silently stopped EVERY user's history being read, with the log saying only "skipped"."""
+        import asyncio
+        from datetime import UTC, datetime
+        from types import SimpleNamespace
+
+        from shortlist.engine.models import MediaType, WatchedItem
+        from shortlist.server.db.models import User, WatchedTitle
+
+        with sessions() as s:
+            s.add_all(
+                [
+                    User(username="steve", slug="steve", plex_account_id=1, user_type="owner", enabled=False),
+                    User(username="ghost", slug="ghost", plex_account_id=2, user_type="owner", enabled=False),
+                    User(username="sarah", slug="sarah", plex_account_id=3, user_type="shared", enabled=True),
+                ]
+            )
+            s.commit()
+
+        watch = WatchedItem(
+            title="Dune", media_type=MediaType.MOVIE, watched_at=datetime.now(UTC), tmdb_id=42, rating_key=7
+        )
+        fake_ctx = SimpleNamespace(
+            plex=SimpleNamespace(sections=lambda: [SimpleNamespace(key="1", type="movie")]),
+            history_source=SimpleNamespace(
+                fetch=lambda p, **k: [watch],
+                fetch_section=lambda p, section, media_type, since=None: [watch],
+            ),
+            config=SimpleNamespace(min_completion=0.7),
+        )
+        monkeypatch.setattr(service, "build_context", lambda **k: fake_ctx)
+
+        asyncio.run(service.sync_watched())
+
+        with sessions() as s:
+            sarah = s.query(User).filter_by(slug="sarah").one().id
+            assert [t.title for t in s.query(WatchedTitle).filter_by(user_id=sarah)] == ["Dune"]
+
+    def test_an_unreadable_library_falls_back_to_a_complete_read(self, service, sessions, monkeypatch):
+        """A PARTIAL cache must never be served as if it were complete.
+
+        The watched set is what stops an already-seen title being recommended again, so serving a
+        stale one is a visible regression. If any section fails — most likely the PMS refusing the
+        incremental filter — fall back to the direct complete read: the behaviour before the cache
+        existed, so it cannot be worse, only slower.
+        """
+        from datetime import UTC, datetime
+        from types import SimpleNamespace
+
+        from shortlist.engine.models import MediaType, UserProfile, UserType, WatchedItem
+        from shortlist.server.db.models import User
+
+        with sessions() as session:
+            session.add(User(username="sarah", slug="sarah", plex_account_id=1, user_type="shared", enabled=True))
+            session.commit()
+
+        profile = UserProfile(username="sarah", plex_account_id=1, user_type=UserType.SHARED, slug="sarah")
+        complete = WatchedItem(
+            title="From the complete read", media_type=MediaType.MOVIE, watched_at=datetime.now(UTC), tmdb_id=9
+        )
+
+        def boom(_profile, _section, _media, since=None):
+            raise RuntimeError("PMS refused the filter")
+
+        ctx = SimpleNamespace(
+            plex=SimpleNamespace(sections=lambda: [SimpleNamespace(key="1", type="movie")]),
+            history_source=SimpleNamespace(fetch=lambda p, **k: [complete], fetch_section=boom),
+            config=SimpleNamespace(min_completion=0.7),
+        )
+
+        history = service.refresh_watched(ctx, profile)
+
+        assert [i.title for i in history] == ["From the complete read"]
+        assert profile.history_complete is False, (
+            "the fallback read claimed completeness — it fail-softs past an unreadable library, so "
+            "absence from it is not evidence and credit withdrawal must not act on it"
+        )
+
+    def test_a_fallback_read_that_lost_a_library_does_not_withdraw_that_librarys_credits(
+        self, service, sessions, monkeypatch
+    ):
+        """The reason `history_complete` exists, end to end: a partial read must not erase credit.
+
+        `ShareTokenWatchSource.fetch` catches a per-section failure and carries on, so a person with
+        two libraries whose second one is unreadable gets back the FIRST library's titles — non-empty,
+        and indistinguishable from a complete read. Withdrawal acts on absence and clears
+        `picks.watched_at`/`finished_at`, which have no other copy, so believing that read once
+        permanently erases every credited pick in the library that failed.
+
+        Uses the real `ShareTokenWatchSource` with the failure injected at the SECTION boundary — a
+        stub of `fetch` itself cannot produce a partial answer, which is why this went unnoticed.
+        """
+        from datetime import UTC, datetime, timedelta
+        from types import SimpleNamespace
+        from unittest.mock import MagicMock
+
+        from shortlist.engine.history import ShareTokenWatchSource
+        from shortlist.engine.models import MediaType, UserProfile, UserType, WatchedItem
+        from shortlist.server.db.models import PickRow, User
+        from shortlist.server.services.run_persistence import reconcile_watched
+
+        with sessions() as session:
+            session.add(User(username="sarah", slug="sarah", plex_account_id=1, user_type="shared", enabled=True))
+            session.commit()
+        with sessions() as session:
+            user = session.query(User).one()
+            # Credited, no observed playback, well inside the 30-day window — i.e. withdrawable if
+            # the read is believed. It lives in the library that is about to fail.
+            session.add(
+                PickRow(
+                    user_id=user.id,
+                    tmdb_id=77,
+                    media_type="movie",
+                    title="In The Broken Library",
+                    collection_slug="picked",
+                    rating_key=555,
+                    rank=1,
+                    watched_at=datetime.now(UTC) - timedelta(days=1),
+                    finished_at=datetime.now(UTC) - timedelta(days=1),
+                )
+            )
+            session.commit()
+
+        plex = MagicMock()
+        plex.sections.return_value = [SimpleNamespace(key="1", type="movie"), SimpleNamespace(key="2", type="movie")]
+
+        def read(section_key, media_type, token, since=None):
+            if str(section_key) == "2":
+                raise RuntimeError("PMS refused this library")
+            return SimpleNamespace(
+                items=[
+                    WatchedItem(
+                        title="Still Readable", media_type=MediaType.MOVIE, watched_at=datetime.now(UTC), tmdb_id=1
+                    )
+                ],
+                covers_window=True,
+            )
+
+        plex.watched_titles.side_effect = read
+        source = ShareTokenWatchSource(plex, MagicMock(), owner_token="OWNER")
+        monkeypatch.setattr(source, "_token_for", lambda user: "TOK")
+
+        profile = UserProfile(username="sarah", plex_account_id=1, user_type=UserType.SHARED, slug="sarah")
+        profile.history = source.fetch(profile, min_completion=0.7)
+
+        assert profile.history, "precondition: the fail-soft read comes back NON-empty, so it looks fine"
+        assert profile.history_complete is False, "a raw fetch must never assert completeness"
+
+        reconcile_watched(sessions, [profile])
+
+        with sessions() as session:
+            pick = session.query(PickRow).filter_by(tmdb_id=77).one()
+            assert pick.watched_at is not None, (
+                "a partial read withdrew the credit for a pick in the library it could not read"
+            )
+            assert pick.finished_at is not None
+
+    def test_the_date_repair_is_wired_to_the_history_source_per_SECTION(self, service, sessions, monkeypatch):
+        """Nothing else covers `WatchSync -> ShareTokenWatchSource.episode_dates -> PlexClient`.
+
+        Every cache test injects its own repair callable and every client test calls `PlexClient`
+        directly, so the wiring between them was exercised by nothing — and `_repair_stale_show_dates`
+        catches bare `Exception`, so a renamed method or a wrong section key would degrade to one
+        warning line and a green sync. Asserts the ARGUMENTS, not just that it was called.
+        """
+        from datetime import UTC, datetime, timedelta
+        from types import SimpleNamespace
+
+        from shortlist.engine.clients.plex_pms import WatchedRead
+        from shortlist.engine.models import MediaType, UserProfile, UserType, WatchedItem
+        from shortlist.server.db.models import User
+
+        with sessions() as session:
+            session.add(User(username="sarah", slug="sarah", plex_account_id=1, user_type="shared", enabled=True))
+            session.commit()
+
+        profile = UserProfile(username="sarah", plex_account_id=1, user_type=UserType.SHARED, slug="sarah")
+        seen: list[tuple] = []
+
+        def fetch_section(_p, section, media, since=None):
+            item = WatchedItem(
+                title="X",
+                media_type=media,
+                watched_at=datetime.now(UTC),
+                tmdb_id=1,
+                rating_key=1,
+                viewed_leaf_count=(3 if media is MediaType.SHOW else None),
+                leaf_count=10,
+            )
+            return WatchedRead(items=[item], covers_window=True)
+
+        ctx = SimpleNamespace(
+            plex=SimpleNamespace(
+                sections=lambda: [SimpleNamespace(key="7", type="show"), SimpleNamespace(key="8", type="movie")]
+            ),
+            history_source=SimpleNamespace(
+                fetch_section=fetch_section,
+                episode_dates=lambda p, section, keys: seen.append((p.slug, section.key, set(keys))) or {},
+                fetch=lambda p, **k: [],
+            ),
+            config=SimpleNamespace(min_completion=0.7),
+        )
+
+        # First pass seeds the counts; the second is where a rise can be detected.
+        service.refresh_watched(ctx, profile, force_full=True)
+        seen.clear()
+
+        def risen(_p, section, media, since=None):
+            item = WatchedItem(
+                title="X",
+                media_type=media,
+                watched_at=datetime.now(UTC) - timedelta(days=900),
+                tmdb_id=1,
+                rating_key=1,
+                viewed_leaf_count=(9 if media is MediaType.SHOW else None),
+                leaf_count=10,
+            )
+            return WatchedRead(items=[item], covers_window=True)
+
+        ctx.history_source.fetch_section = risen
+        service.refresh_watched(ctx, profile, force_full=True)
+
+        assert seen == [("sarah", "7", {1})], (
+            f"the repair was not wired per-section for shows only (movies must not be asked): {seen}"
+        )
+
+    def test_an_unshared_library_is_skipped_and_keeps_the_cache(self, service, sessions, monkeypatch):
+        """A 403 is "not shared with them", NOT an unreadable section.
+
+        `ctx.plex.sections()` is the OWNER's library list walked for every person, so every library
+        someone isn't given 403s on every single sync. Counting that as a failure discarded their
+        whole cache and forced an uncached complete re-read of every library, hourly, for ever
+        (SFLIX: two users). The readable library's cached titles must come back WITHOUT the
+        complete-read fallback firing.
+        """
+        from datetime import UTC, datetime
+        from types import SimpleNamespace
+
+        from shortlist.engine.clients.plex_pms import SectionNotShared
+        from shortlist.engine.models import MediaType, UserProfile, UserType, WatchedItem
+        from shortlist.server.db.models import User
+
+        with sessions() as session:
+            session.add(User(username="sarah", slug="sarah", plex_account_id=1, user_type="shared", enabled=True))
+            session.commit()
+
+        profile = UserProfile(username="sarah", plex_account_id=1, user_type=UserType.SHARED, slug="sarah")
+        shared_title = WatchedItem(title="Dune", media_type=MediaType.MOVIE, watched_at=datetime.now(UTC), tmdb_id=42)
+        fallback_calls: list[object] = []
+
+        def read_section(_profile, section, _media, since=None):
+            if str(section.key) == "12":
+                raise SectionNotShared("section 12 is not shared with this user")
+            return [shared_title]
+
+        def complete_read(p, **k):
+            fallback_calls.append(p)
+            return []
+
+        ctx = SimpleNamespace(
+            plex=SimpleNamespace(
+                sections=lambda: [
+                    SimpleNamespace(key="1", type="movie"),
+                    SimpleNamespace(key="12", type="show"),
+                ]
+            ),
+            history_source=SimpleNamespace(fetch=complete_read, fetch_section=read_section),
+            config=SimpleNamespace(min_completion=0.7),
+        )
+
+        history = service.refresh_watched(ctx, profile)
+
+        assert [i.title for i in history] == ["Dune"]
+        assert fallback_calls == [], "a 403 must not trigger the complete-read fallback"
+
+    def _two_library_ctx(self, sections, read_section):
+        from types import SimpleNamespace
+
+        return SimpleNamespace(
+            plex=SimpleNamespace(sections=lambda: [SimpleNamespace(key=k, type="movie") for k in sections]),
+            history_source=SimpleNamespace(fetch=lambda p, **k: [], fetch_section=read_section),
+            config=SimpleNamespace(min_completion=0.7),
+        )
+
+    def test_a_library_removed_from_the_server_is_forgotten(self, service, sessions, monkeypatch):
+        """Nothing else sweeps these. `sync_section` only ever replaces sections it READ, so titles
+        cached from a library that no longer exists would go on counting as watched for ever —
+        suppressing recommendations on behalf of a library nobody can watch."""
+        from datetime import UTC, datetime
+
+        from shortlist.engine.models import MediaType, UserProfile, UserType, WatchedItem
+        from shortlist.server.db.models import User, WatchedTitle, WatchSyncState
+
+        with sessions() as session:
+            session.add(User(username="sarah", slug="sarah", plex_account_id=1, user_type="shared", enabled=True))
+            session.commit()
+
+        profile = UserProfile(username="sarah", plex_account_id=1, user_type=UserType.SHARED, slug="sarah")
+
+        def read_section(_profile, section, _media, since=None):
+            title = "Dune" if str(section.key) == "1" else "Heat"
+            return [
+                WatchedItem(
+                    title=title,
+                    media_type=MediaType.MOVIE,
+                    watched_at=datetime.now(UTC),
+                    tmdb_id=int(section.key),
+                    rating_key=int(section.key),
+                )
+            ]
+
+        service.refresh_watched(self._two_library_ctx(["1", "2"], read_section), profile)
+        with sessions() as session:
+            assert {row.title for row in session.query(WatchedTitle).all()} == {"Dune", "Heat"}
+
+        # Library 2 deleted from the server: it is simply absent from sections() now. Swept on the
+        # weekly pass only — the sweep believes one cached `/library/sections` answer, so it runs at
+        # the cadence of the full read rather than every sync.
+        history = service.refresh_watched(
+            self._two_library_ctx(["1"], read_section), profile, force_full=True, sweep_dead=True
+        )
+
+        assert [item.title for item in history] == ["Dune"]
+        with sessions() as session:
+            assert [row.title for row in session.query(WatchedTitle).all()] == ["Dune"]
+            assert [state.section_key for state in session.query(WatchSyncState).all()] == ["1"]
+
+    def test_an_ordinary_sync_does_not_sweep_libraries(self, service, sessions, monkeypatch):
+        """One short `/library/sections` response would otherwise be applied to every user in the
+        sync — `PlexClient` caches that list for the life of the client, so a bad answer is pinned
+        for the whole run. Restricting the sweep to the weekly pass cuts the exposure ~168x."""
+        from datetime import UTC, datetime
+
+        from shortlist.engine.models import MediaType, UserProfile, UserType, WatchedItem
+        from shortlist.server.db.models import User, WatchedTitle
+
+        with sessions() as session:
+            session.add(User(username="sarah", slug="sarah", plex_account_id=1, user_type="shared", enabled=True))
+            session.commit()
+
+        profile = UserProfile(username="sarah", plex_account_id=1, user_type=UserType.SHARED, slug="sarah")
+
+        def read_section(_profile, section, _media, since=None):
+            return [
+                WatchedItem(
+                    title=f"T{section.key}",
+                    media_type=MediaType.MOVIE,
+                    watched_at=datetime.now(UTC),
+                    tmdb_id=int(section.key),
+                    rating_key=int(section.key),
+                )
+            ]
+
+        service.refresh_watched(self._two_library_ctx(["1", "2"], read_section), profile)
+
+        # A blip: sections() briefly answers with one library on an ordinary sync. `force_full` is
+        # what every sync now passes (issue #108), so the sweep can no longer ride along on it — it
+        # is gated on `sweep_dead`, which only the weekly pass sets.
+        service.refresh_watched(self._two_library_ctx(["1"], read_section), profile, force_full=True)
+
+        with sessions() as session:
+            assert {row.title for row in session.query(WatchedTitle).all()} == {"T1", "T2"}
+
+    def test_a_library_that_is_merely_unshared_keeps_its_cached_history(self, service, sessions, monkeypatch):
+        """The distinction the sweep turns on. An unshared library is still ON the server — it 403s
+        per-person, on every sync, for every library someone isn't given — and what they watched there
+        is still true. Only libraries gone server-wide may be forgotten."""
+        from datetime import UTC, datetime
+
+        from shortlist.engine.clients.plex_pms import SectionNotShared
+        from shortlist.engine.models import MediaType, UserProfile, UserType, WatchedItem
+        from shortlist.server.db.models import User, WatchedTitle
+
+        with sessions() as session:
+            session.add(User(username="sarah", slug="sarah", plex_account_id=1, user_type="shared", enabled=True))
+            session.commit()
+
+        profile = UserProfile(username="sarah", plex_account_id=1, user_type=UserType.SHARED, slug="sarah")
+        shared: dict[str, bool] = {"2": True}
+
+        def read_section(_profile, section, _media, since=None):
+            key = str(section.key)
+            if not shared.get(key, True):
+                raise SectionNotShared(f"section {key} is not shared with this user")
+            return [
+                WatchedItem(
+                    title=f"T{key}",
+                    media_type=MediaType.MOVIE,
+                    watched_at=datetime.now(UTC),
+                    tmdb_id=int(key),
+                    rating_key=int(key),
+                )
+            ]
+
+        service.refresh_watched(self._two_library_ctx(["1", "2"], read_section), profile)
+        shared["2"] = False  # access revoked, but the library is still on the server
+
+        # force_full so the sweep actually RUNS — otherwise this passes for the wrong reason.
+        service.refresh_watched(self._two_library_ctx(["1", "2"], read_section), profile, force_full=True)
+
+        with sessions() as session:
+            assert {row.title for row in session.query(WatchedTitle).all()} == {"T1", "T2"}
+
+    @staticmethod
+    def _another_writer_is_blocked(db_path: Path) -> str | None:
+        """Can a second connection take SQLite's write lock right now? The error if not, else None."""
+        import sqlite3
+
+        other = sqlite3.connect(db_path, timeout=0.2, isolation_level=None)
+        try:
+            other.execute("BEGIN IMMEDIATE")
+            other.execute("ROLLBACK")
+            return None
+        except sqlite3.OperationalError as e:
+            return str(e)
+        finally:
+            other.close()
+
+    def test_no_write_lock_is_held_across_the_next_librarys_read(self, service, sessions, tmp_path):
+        """One library's writes are COMMITTED before the next library's PMS read begins.
+
+        One transaction spanned every library, so SQLite's write lock was held through the next
+        section's HTTP read — 12-18s for a TV library in production. Every other writer waited out
+        `busy_timeout` and raised "database is locked": the job worker's claim three times in one
+        night, the playback listener's session persist twice in one sync.
+        """
+        from datetime import UTC, datetime
+
+        from shortlist.engine.models import MediaType, UserProfile, UserType, WatchedItem
+        from shortlist.server.db.models import User
+
+        with sessions() as session:
+            session.add(User(username="sarah", slug="sarah", plex_account_id=1, user_type="shared", enabled=True))
+            session.commit()
+        profile = UserProfile(username="sarah", plex_account_id=1, user_type=UserType.SHARED, slug="sarah")
+        blocked: list[str] = []
+
+        def read_section(_profile, section, _media, since=None):
+            key = str(section.key)
+            if key == "2":
+                error = self._another_writer_is_blocked(tmp_path / "shortlist.db")
+                if error:
+                    blocked.append(error)
+            return [
+                WatchedItem(
+                    title=f"T{key}",
+                    media_type=MediaType.MOVIE,
+                    watched_at=datetime.now(UTC),
+                    tmdb_id=int(key),
+                    rating_key=int(key),
+                )
+            ]
+
+        history = service.refresh_watched(self._two_library_ctx(["1", "2"], read_section), profile, force_full=True)
+
+        assert blocked == [], f"library 1's writes still held the write lock during library 2's read: {blocked}"
+        assert {item.title for item in history} == {"T1", "T2"}
+
+    def test_a_failed_librarys_self_heal_mark_is_committed_before_the_next_read(self, service, sessions, tmp_path):
+        """The except branch writes too — `force_full_next_time` clears the cursor — so it must not be
+        left holding the lock across the next library's read either."""
+        from datetime import UTC, datetime
+
+        from shortlist.engine.models import MediaType, UserProfile, UserType, WatchedItem
+        from shortlist.server.db.models import User, WatchSyncState
+
+        with sessions() as session:
+            session.add(User(username="sarah", slug="sarah", plex_account_id=1, user_type="shared", enabled=True))
+            session.commit()
+        profile = UserProfile(username="sarah", plex_account_id=1, user_type=UserType.SHARED, slug="sarah")
+        failing: set[str] = set()
+        blocked: list[str] = []
+
+        def read_section(_profile, section, _media, since=None):
+            key = str(section.key)
+            if key in failing:
+                raise RuntimeError("PMS refused the read")
+            if key == "2" and failing:
+                error = self._another_writer_is_blocked(tmp_path / "shortlist.db")
+                if error:
+                    blocked.append(error)
+            return [
+                WatchedItem(
+                    title=f"T{key}",
+                    media_type=MediaType.MOVIE,
+                    watched_at=datetime.now(UTC),
+                    tmdb_id=int(key),
+                    rating_key=int(key),
+                )
+            ]
+
+        ctx = self._two_library_ctx(["1", "2"], read_section)
+        service.refresh_watched(ctx, profile, force_full=True)  # a cursor for library 1 to clear
+        failing.add("1")
+
+        service.refresh_watched(ctx, profile, force_full=True)
+
+        assert blocked == [], f"library 1's self-heal write held the write lock during library 2's read: {blocked}"
+        with sessions() as session:
+            state = session.query(WatchSyncState).filter_by(section_key="1").one()
+            assert state.cursor_viewed_at is None, "the failed library was not marked for a complete re-read"
+
+    def test_the_prefill_skips_people_this_run_will_not_build_for(self, service):
+        """Every row carries its own cron, so a SCHEDULED run is always scoped to a subset of rows.
+
+        `_run_user` returns "skipped" before reading any history for anyone with no row in scope, so
+        pre-filling them is a complete per-user PMS read spent on someone the run then skips.
+
+        REQUIRES `shortlist.engine.rows.builds_anything_for(profile, config)`. The server asks the
+        engine that question now instead of importing the engine's private `_in_audience`/`_is_muted`
+        and re-assembling the rule. `_has_a_row_in_scope` fails OPEN when the export is missing — so
+        this test failing with `True` means the engine has not exported it, and every scoped run is
+        pre-filling history for people it then skips.
+        """
+        from shortlist.engine.models import EngineConfig, RowSpec, UserProfile, UserType
+
+        included = UserProfile(username="in", plex_account_id=1, user_type=UserType.SHARED, slug="in")
+        excluded = UserProfile(username="out", plex_account_id=2, user_type=UserType.SHARED, slug="out")
+        # One row, whose audience is only `included`'s account, and it IS in this run's scope.
+        config = EngineConfig(
+            rows=[RowSpec(slug="picked", name_template="Picked", size=10, audience={1})],
+            build_only=["picked"],
+        )
+        ctx = SimpleNamespace(config=config)
+
+        assert service._has_a_row_in_scope(ctx, included) is True
+        assert service._has_a_row_in_scope(ctx, excluded) is False
+
+    def test_the_prefill_scope_check_fails_open(self, service):
+        """A context that cannot answer must be treated as in-scope — the worst case is then exactly
+        the behaviour before the narrowing, never a person silently missing their history."""
+        assert service._has_a_row_in_scope(SimpleNamespace(), object()) is True
+
+    def test_streams_per_user_progress_and_a_finished_event(self, service, monkeypatch):
+        """The Tools page bar is driven by these events — a sync that emits nothing shows no bar."""
+        import asyncio
+        from types import SimpleNamespace
+
+        from shortlist.engine.models import UserProfile, UserType
+
+        published: list[tuple[str, dict]] = []
+        monkeypatch.setattr(service._bus, "publish", lambda event, data: published.append((event, data)))
+
+        profiles = [
+            UserProfile(username=f"u{i}", plex_account_id=i, user_type=UserType.SHARED, slug=f"u{i}") for i in range(3)
+        ]
+        fake_ctx = SimpleNamespace(
+            history_source=SimpleNamespace(fetch=lambda p, **k: []),
+            config=SimpleNamespace(min_completion=0.7),
+        )
+        monkeypatch.setattr(service, "build_context", lambda **k: fake_ctx)
+        monkeypatch.setattr(service, "enabled_profiles", lambda session, user_ids=None: profiles)
+
+        asyncio.run(service.sync_watched())
+
+        progress = [d for e, d in published if e == "sync.progress"]
+        # An initial 0/3 plus one per user, all tagged for the watched card, counting up to the total.
+        assert progress[0] == {"kind": "watched", "done": 0, "total": 3}
+        assert [d["done"] for d in progress] == [0, 1, 2, 3]
+        assert all(d["total"] == 3 for d in progress)
+        assert ("sync.finished", {"kind": "watched", "ok": True, "count": 3}) in published
+
+    def test_a_sync_that_cannot_start_still_reports_a_failed_finish(self, service, monkeypatch):
+        """Plex not configured raises inside build_context — the bar must resolve to an error, not hang."""
+        import asyncio
+
+        published: list[tuple[str, dict]] = []
+        monkeypatch.setattr(service._bus, "publish", lambda event, data: published.append((event, data)))
+
+        def boom(**kwargs):
+            raise RuntimeError("Plex is not configured")
+
+        monkeypatch.setattr(service, "build_context", boom)
+
+        asyncio.run(service.sync_watched())  # must not raise — the scheduler relies on this
+
+        finished = [d for e, d in published if e == "sync.finished"]
+        assert finished == [{"kind": "watched", "ok": False, "error": "RuntimeError"}]
+
+
+def test_build_scheduler_registers_the_daily_watch_sync(sessions, tmp_path):
+    from types import SimpleNamespace
+
+    from shortlist.server.scheduler import BACKUP_JOB_ID, WATCH_SYNC_JOB_ID, build_scheduler
+
+    app = SimpleNamespace(state=SimpleNamespace(sessions=sessions, run_service=None, config_dir=tmp_path))
+    scheduler = build_scheduler(app)
+    assert scheduler.get_job(WATCH_SYNC_JOB_ID) is not None  # daily, independent of any row's cron
+    assert scheduler.get_job(BACKUP_JOB_ID) is not None  # daily DB backup
+
+
+class TestRefusingADifferentServer:
+    """Every record Shortlist holds is scoped to ONE Plex machine — the delivery ledger says which
+    collection is whose, `restriction_snapshots` holds each account's filters as they were before we
+    touched them, the user table says who the owner is.
+
+    Settings refuses a repoint, but only when the new server ANSWERS at save time; a box that is down
+    then and up later slips past. This is the check at the point of use, where it cannot be skipped —
+    and it matters most for the privacy sync, because a stranger's PMS enumerates ZERO Shortlist
+    collections, which reads as "every row is gone".
+    """
+
+    def _check(self, linked: str | None, reported: str):
+        from types import SimpleNamespace
+
+        from shortlist.server.services.context_builder import _refuse_a_different_server
+
+        session = SimpleNamespace(
+            query=lambda model: SimpleNamespace(first=lambda: SimpleNamespace(machine_id=linked) if linked else None)
+        )
+        _refuse_a_different_server(session, reported)
+
+    def test_a_different_machine_aborts_before_anything_is_touched(self):
+        with pytest.raises(RuntimeError, match="different server"):
+            self._check(linked="m1", reported="someone-elses-server")
+
+    def test_the_linked_machine_passes(self):
+        self._check(linked="m1", reported="m1")
+
+    def test_an_unlinked_instance_passes(self):
+        """Setup itself builds a context before a `Server` row exists — refusing there would make the
+        wizard unable to complete."""
+        self._check(linked=None, reported="m1")
+
+
+class TestUserWatched:
+    """`user_watched` is the searchable view of the CACHE — the set recommendations are filtered
+    against. It is a plain DB query, so no Plex fixtures: what matters is that the filters compose,
+    the paging totals are honest, and one person's search can never reach another's rows."""
+
+    @staticmethod
+    def _seed(sessions):
+        from datetime import UTC, datetime
+
+        from shortlist.server.db.models import WatchedTitle, WatchSyncState
+
+        with sessions() as session:
+            session.add(User(id=1, plex_account_id=1, username="sarah", slug="sarah"))
+            session.add(User(id=2, plex_account_id=2, username="mike", slug="mike"))
+            rows = [
+                ("Teacup", "show", 2024, 3, 8, 1),
+                ("The Bear", "show", 2022, 30, 30, 1),
+                ("Dune: Part Two", "movie", 2024, None, None, 2),
+                ("Tea Leaves", "movie", 2019, None, None, 1),
+            ]
+            for i, (title, media, year, viewed, leaf, count) in enumerate(rows):
+                session.add(
+                    WatchedTitle(
+                        user_id=1,
+                        section_key="1",
+                        rating_key=100 + i,
+                        tmdb_id=500 + i,
+                        media_type=media,
+                        title=title,
+                        year=year,
+                        watch_count=count,
+                        viewed_leaf_count=viewed,
+                        leaf_count=leaf,
+                        viewed_at=datetime(2026, 8, 1 + i, tzinfo=UTC),
+                    )
+                )
+            # Mike watched something that would match sarah's search, to prove the scoping.
+            session.add(
+                WatchedTitle(
+                    user_id=2,
+                    section_key="1",
+                    rating_key=999,
+                    tmdb_id=999,
+                    media_type="show",
+                    title="Teacup",
+                    year=2024,
+                    viewed_at=datetime(2026, 8, 1, tzinfo=UTC),
+                )
+            )
+            session.add(
+                WatchSyncState(
+                    user_id=1,
+                    section_key="1",
+                    last_full_at=datetime(2026, 8, 4, 10, 0, tzinfo=UTC),
+                    item_count=4,
+                )
+            )
+            session.commit()
+
+    def test_returns_the_whole_set_newest_first_with_sync_state(self, service, sessions):
+        self._seed(sessions)
+
+        page = service.user_watched(1)
+
+        assert [i["title"] for i in page["items"]] == ["Tea Leaves", "Dune: Part Two", "The Bear", "Teacup"]
+        assert page["total"] == 4
+        assert page["synced_titles"] == 4
+        assert page["last_full_sync_at"].startswith("2026-08-04T10:00")
+
+    def test_search_is_case_insensitive_and_matches_a_substring(self, service, sessions):
+        self._seed(sessions)
+
+        page = service.user_watched(1, q="tea")
+
+        assert sorted(i["title"] for i in page["items"]) == ["Tea Leaves", "Teacup"]
+        assert page["total"] == 2
+
+    def test_search_never_reaches_another_persons_rows(self, service, sessions):
+        """Mike has a "Teacup" too. Sarah's search must not see it, and Mike's must not see hers."""
+        self._seed(sessions)
+
+        assert service.user_watched(1, q="teacup")["total"] == 1
+        assert service.user_watched(2, q="tea")["total"] == 1
+        assert service.user_watched(2, q="bear")["total"] == 0
+
+    def test_media_filter_composes_with_search(self, service, sessions):
+        self._seed(sessions)
+
+        assert [i["title"] for i in service.user_watched(1, q="tea", media_type="movie")["items"]] == ["Tea Leaves"]
+        assert [i["title"] for i in service.user_watched(1, q="tea", media_type="show")["items"]] == ["Teacup"]
+
+    def test_total_counts_the_whole_match_not_the_page(self, service, sessions):
+        """The "Show more" button reads this — a total that shrank to the page size would hide rows."""
+        self._seed(sessions)
+
+        page = service.user_watched(1, limit=2)
+
+        assert len(page["items"]) == 2
+        assert page["total"] == 4
+        assert [i["title"] for i in service.user_watched(1, limit=2, offset=2)["items"]] == ["The Bear", "Teacup"]
+
+    def test_a_wildcard_in_the_query_searches_literally(self, service, sessions):
+        """`%` is a SQL wildcard. Unescaped, searching "%" would return the entire history — which
+        reads as "your filter matched everything" rather than "nothing is called that"."""
+        self._seed(sessions)
+
+        assert service.user_watched(1, q="%")["total"] == 0
+
+    def test_show_progress_and_watch_count_come_through(self, service, sessions):
+        """The fields that let the page say "3 of 8 episodes" — the answer to "I watched that, why
+        was it recommended?" — and that a movie was watched twice."""
+        self._seed(sessions)
+
+        by_title = {i["title"]: i for i in service.user_watched(1)["items"]}
+
+        assert (by_title["Teacup"]["viewed_leaf_count"], by_title["Teacup"]["leaf_count"]) == (3, 8)
+        assert by_title["Dune: Part Two"]["watch_count"] == 2
+        assert by_title["Dune: Part Two"]["leaf_count"] is None  # a movie has no episode totals
+
+    def test_sync_state_is_none_when_a_library_has_never_had_a_full_read(self, service, sessions):
+        """ "Synced 4h ago" while a whole library is missing is a false claim of completeness."""
+        from shortlist.server.db.models import WatchSyncState
+
+        self._seed(sessions)
+        with sessions() as session:
+            session.add(WatchSyncState(user_id=1, section_key="2", last_full_at=None, item_count=0))
+            session.commit()
+
+        assert service.user_watched(1)["last_full_sync_at"] is None
+
+    def test_unknown_user_is_none(self, service, sessions):
+        self._seed(sessions)
+
+        assert service.user_watched(999) is None
+
+    def test_a_transferred_row_is_dated_and_ordered_by_its_TRUE_watch_date(self, service, sessions):
+        """The panel must not rank a transferred history by the day the scrobbles landed. The two
+        dates are inverted so ordering on `viewed_at` gives exactly the wrong answer — without that,
+        removing the coalesce would not fail anything (every other seeded row leaves it NULL)."""
+        from datetime import UTC, datetime
+
+        from shortlist.server.db.models import WatchedTitle
+
+        self._seed(sessions)
+        with sessions() as session:
+            session.add(
+                WatchedTitle(
+                    user_id=1,
+                    section_key="1",
+                    rating_key=900,
+                    tmdb_id=900,
+                    media_type="movie",
+                    title="Transferred",
+                    year=2021,
+                    watch_count=1,
+                    viewed_at=datetime(2020, 1, 1, tzinfo=UTC),  # scrobbled long ago by viewed_at
+                    source_viewed_at=datetime(2026, 8, 9, tzinfo=UTC),  # actually the newest watch
+                )
+            )
+            session.commit()
+
+        page = service.user_watched(1)
+
+        assert page["items"][0]["title"] == "Transferred"
+        assert page["items"][0]["watched_at"].startswith("2026-08-09")
+
+
+class TestUserWatchedMergesLibraryCopies:
+    """One row per TITLE, not per stored row (issue #111).
+
+    `watched_titles` is unique on `(user, section_key, rating_key)`, so a title held in two Plex
+    libraries is two rows and the page listed it twice — with two Block buttons that both send the
+    same TMDB id. These cover the merge, the paging honesty that depends on grouping happening in
+    SQL, and the library filter.
+    """
+
+    @staticmethod
+    def _copy(**kwargs):
+        from datetime import UTC, datetime
+
+        from shortlist.server.db.models import WatchedTitle
+
+        defaults = {
+            "user_id": 1,
+            "media_type": "show",
+            "watch_count": 1,
+            "viewed_at": datetime(2026, 8, 1, tzinfo=UTC),
+        }
+        return WatchedTitle(**{**defaults, **kwargs})
+
+    def _seed(self, sessions):
+        """Sarah watched The Bear in two libraries and Dune in two; Teacup lives in one."""
+        from datetime import UTC, datetime
+
+        with sessions() as session:
+            session.add(User(id=1, plex_account_id=1, username="sarah", slug="sarah"))
+            session.add(User(id=2, plex_account_id=2, username="mike", slug="mike"))
+            session.add_all(
+                [
+                    # The Bear: finished in TV Shows recently, sampled in 4K TV long ago. The older,
+                    # shallower copy is the one a last-write-wins merge would keep.
+                    self._copy(
+                        section_key="1",
+                        library="TV Shows",
+                        rating_key=100,
+                        tmdb_id=500,
+                        title="The Bear",
+                        year=2022,
+                        viewed_leaf_count=28,
+                        leaf_count=28,
+                        user_rating=9.0,
+                        viewed_at=datetime(2026, 8, 20, tzinfo=UTC),
+                    ),
+                    self._copy(
+                        section_key="2",
+                        library="4K TV",
+                        rating_key=200,
+                        tmdb_id=500,
+                        title="The Bear",
+                        year=2022,
+                        viewed_leaf_count=3,
+                        leaf_count=28,
+                        user_rating=4.0,
+                        viewed_at=datetime(2026, 1, 5, tzinfo=UTC),
+                    ),
+                    self._copy(
+                        section_key="3",
+                        library="Movies",
+                        rating_key=300,
+                        tmdb_id=600,
+                        media_type="movie",
+                        title="Dune: Part Two",
+                        year=2024,
+                        watch_count=2,
+                        viewed_at=datetime(2026, 8, 10, tzinfo=UTC),
+                    ),
+                    self._copy(
+                        section_key="4",
+                        library="4K Movies",
+                        rating_key=400,
+                        tmdb_id=600,
+                        media_type="movie",
+                        title="Dune: Part Two",
+                        year=2024,
+                        watch_count=1,
+                        viewed_at=datetime(2026, 8, 9, tzinfo=UTC),
+                    ),
+                    self._copy(
+                        section_key="1",
+                        library="TV Shows",
+                        rating_key=500,
+                        tmdb_id=700,
+                        title="Teacup",
+                        year=2024,
+                        viewed_leaf_count=3,
+                        leaf_count=8,
+                        viewed_at=datetime(2026, 8, 15, tzinfo=UTC),
+                    ),
+                    # Mike's rows deliberately COLLIDE with sarah's on both group keys — the same
+                    # tmdb_id, and the same GUID-less title — so a member read that forgot to scope
+                    # by user would merge his library into her row rather than failing quietly.
+                    self._copy(user_id=2, section_key="9", library="Mike Only", rating_key=900, tmdb_id=800, title="X"),
+                    self._copy(
+                        user_id=2,
+                        section_key="9",
+                        library="Mike Only",
+                        rating_key=901,
+                        tmdb_id=None,
+                        title="No GUID One",
+                    ),
+                ]
+            )
+            session.commit()
+
+    def test_a_title_in_two_libraries_is_one_row_naming_both(self, service, sessions):
+        self._seed(sessions)
+
+        items = service.user_watched(1)["items"]
+
+        assert [i["title"] for i in items] == ["The Bear", "Teacup", "Dune: Part Two"]
+        by_title = {i["title"]: i for i in items}
+        assert by_title["The Bear"]["libraries"] == ["4K TV", "TV Shows"]
+        assert by_title["Teacup"]["libraries"] == ["TV Shows"]
+
+    def test_total_counts_titles_not_stored_copies(self, service, sessions):
+        """The footer and the "Show 50 more" button read this. Counting copies while the list counts
+        titles is how a total starts disagreeing with the rows under it."""
+        self._seed(sessions)
+
+        page = service.user_watched(1)
+
+        assert page["total"] == 3
+        assert page["synced_titles"] == 0  # no sync state seeded; copies, not titles, when there is
+
+    def test_a_page_is_not_short_when_it_contains_duplicates(self, service, sessions):
+        """The reason grouping happens in SQL rather than over the fetched rows: merging after the
+        LIMIT would turn a page of 2 into a page of 1."""
+        self._seed(sessions)
+
+        first = service.user_watched(1, limit=2)
+        second = service.user_watched(1, limit=2, offset=2)
+
+        assert [i["title"] for i in first["items"]] == ["The Bear", "Teacup"]
+        assert [i["title"] for i in second["items"]] == ["Dune: Part Two"]
+
+    def test_the_merged_row_reports_the_newest_watch_and_the_deepest_progress(self, service, sessions):
+        self._seed(sessions)
+
+        bear = next(i for i in service.user_watched(1)["items"] if i["title"] == "The Bear")
+
+        assert bear["watched_at"].startswith("2026-08-20")
+        assert (bear["viewed_leaf_count"], bear["leaf_count"]) == (28, 28)
+
+    def test_the_artwork_key_comes_from_the_copy_whose_title_is_shown(self, service, sessions):
+        """The poster the watched page draws must be the artwork of the copy it is naming.
+
+        The Bear's two copies carry different rating keys, and a title in an HD and a 4K library can
+        carry different art in each — so taking the key independently of the title and year would
+        show one library's poster over another library's watch date.
+        """
+        self._seed(sessions)
+
+        bear = next(i for i in service.user_watched(1)["items"] if i["title"] == "The Bear")
+
+        assert bear["rating_key"] == 100  # the 2026-08-20 copy, the same one `watched_at` came from
+
+    def test_progress_is_taken_as_a_pair_from_one_copy(self, service, sessions):
+        """Both numbers come from the SAME copy — the one furthest through.
+
+        Deliberately built so independent maxima give a different answer: the copy they got furthest
+        through is the SHORTER one, so `max(viewed)=10` beside `max(total)=28` renders "10 of 28",
+        a claim neither copy on the server supports and one that disagrees with the finished-show
+        rule the engine applies to the same pair.
+        """
+        self._seed(sessions)
+        with sessions() as session:
+            session.add_all(
+                [
+                    self._copy(
+                        section_key="5",
+                        library="Season One Only",
+                        rating_key=101,
+                        tmdb_id=800,
+                        title="Cut Short",
+                        viewed_leaf_count=10,
+                        leaf_count=10,
+                    ),
+                    self._copy(
+                        section_key="1",
+                        library="TV Shows",
+                        rating_key=102,
+                        tmdb_id=800,
+                        title="Cut Short",
+                        viewed_leaf_count=3,
+                        leaf_count=28,
+                    ),
+                ]
+            )
+            session.commit()
+
+        item = next(i for i in service.user_watched(1)["items"] if i["title"] == "Cut Short")
+
+        assert (item["viewed_leaf_count"], item["leaf_count"]) == (10, 10)
+        # Mike holds tmdb_id 800 too. His copy carries no episode counts, so it could never win
+        # `deepest` — only the library list can show whether the member read reached across users.
+        assert item["libraries"] == ["Season One Only", "TV Shows"]
+
+    def test_watch_counts_are_summed_across_copies(self, service, sessions):
+        """Two plays of the HD file and one of the 4K file is three plays of the film — the same sum
+        `derive_seeds` makes, so the page and the seed weighting agree."""
+        self._seed(sessions)
+
+        dune = next(i for i in service.user_watched(1)["items"] if i["title"] == "Dune: Part Two")
+
+        assert dune["watch_count"] == 3
+
+    def test_the_lowest_rating_wins_because_that_is_the_one_the_engine_acts_on(self, service, sessions):
+        """`disliked_seed_keys` drops a title when ANY of its rows is at or below the threshold. Show
+        the 9 and the page would hide the 4 that is the reason it stopped seeding."""
+        self._seed(sessions)
+
+        bear = next(i for i in service.user_watched(1)["items"] if i["title"] == "The Bear")
+
+        assert bear["user_rating"] == 4.0
+
+    def test_the_library_filter_selects_titles_but_the_row_still_names_every_library(self, service, sessions):
+        """Filtering to 4K TV and seeing "4K TV · TV Shows" is the duplicate you went looking for."""
+        self._seed(sessions)
+
+        page = service.user_watched(1, library="4K TV")
+
+        assert [i["title"] for i in page["items"]] == ["The Bear"]
+        assert page["items"][0]["libraries"] == ["4K TV", "TV Shows"]
+        assert page["total"] == 1
+
+    def test_the_library_filter_composes_with_search_and_media_type(self, service, sessions):
+        self._seed(sessions)
+
+        assert service.user_watched(1, library="Movies", media_type="movie")["total"] == 1
+        assert service.user_watched(1, library="Movies", media_type="show")["total"] == 0
+        assert service.user_watched(1, library="TV Shows", q="bear")["total"] == 1
+
+    def test_the_library_list_is_every_library_this_person_watched_in(self, service, sessions):
+        """Never narrowed by the filter — picking one would empty the control that picked it — and
+        never another person's."""
+        self._seed(sessions)
+
+        def names(page):
+            return [entry["name"] for entry in page["libraries"]]
+
+        assert names(service.user_watched(1)) == ["4K Movies", "4K TV", "Movies", "TV Shows"]
+        assert names(service.user_watched(1, library="Movies")) == ["4K Movies", "4K TV", "Movies", "TV Shows"]
+        assert names(service.user_watched(2)) == ["Mike Only"]
+
+    def test_each_library_carries_its_media_type(self, service, sessions):
+        """The page decides whether to OFFER a library filter from these: one library per type means
+        a library dropdown would repeat the Movies/Shows buttons beside it, so it isn't shown. Without
+        the type here that decision cannot be made client-side at all."""
+        self._seed(sessions)
+
+        assert service.user_watched(1)["libraries"] == [
+            {"name": "4K Movies", "media_type": "movie"},
+            {"name": "4K TV", "media_type": "show"},
+            {"name": "Movies", "media_type": "movie"},
+            {"name": "TV Shows", "media_type": "show"},
+        ]
+
+    def test_a_row_cached_before_0087_merges_without_a_blank_library(self, service, sessions):
+        """Its library name is unknown until the next sync. The page must show one name, not one name
+        and a stray separator."""
+        self._seed(sessions)
+        with sessions() as session:
+            session.add(self._copy(section_key="6", library="", rating_key=102, tmdb_id=700, title="Teacup"))
+            session.commit()
+
+        page = service.user_watched(1)
+
+        assert next(i for i in page["items"] if i["title"] == "Teacup")["libraries"] == ["TV Shows"]
+        assert "" not in page["libraries"]
+
+    def test_titles_with_no_tmdb_id_group_by_title_not_all_together(self, service, sessions):
+        """SQL's GROUP BY treats every NULL as equal, so grouping on the id alone would collapse every
+        title Plex gave no `tmdb://` GUID into a single line."""
+        self._seed(sessions)
+        with sessions() as session:
+            session.add_all(
+                [
+                    self._copy(section_key="1", library="TV Shows", rating_key=111, tmdb_id=None, title="No GUID One"),
+                    self._copy(section_key="1", library="TV Shows", rating_key=112, tmdb_id=None, title="No GUID Two"),
+                    self._copy(section_key="2", library="4K TV", rating_key=113, tmdb_id=None, title="No GUID One"),
+                ]
+            )
+            session.commit()
+
+        page = service.user_watched(1)
+        titles = [i["title"] for i in page["items"]]
+
+        assert titles.count("No GUID One") == 1
+        assert titles.count("No GUID Two") == 1
+        assert page["total"] == 5
+        # Not "Mike Only": with no tmdb_id the copies are matched on TITLE, and mike has a row under
+        # this exact title. Scoping is the only thing keeping his library off her row.
+        assert next(i for i in page["items"] if i["title"] == "No GUID One")["libraries"] == ["4K TV", "TV Shows"]
+
+    def test_an_accented_title_with_no_tmdb_id_still_reaches_the_page(self, service, sessions):
+        """SQLite's `lower()` is ASCII-only; Python's is not.
+
+        Building the group key in SQL and rebuilding it in Python gave "Élite" one side and "élite"
+        the other, so a GUID-less title with any uppercase non-ASCII letter matched no key: it was
+        counted in `total` and dropped from `items`, with nothing logged. The page silently came back
+        short. Both sides now take the key from SQL.
+        """
+        self._seed(sessions)
+        with sessions() as session:
+            session.add_all(
+                [
+                    self._copy(section_key="1", library="TV Shows", rating_key=121, tmdb_id=None, title="ÉLITE"),
+                    self._copy(section_key="2", library="4K TV", rating_key=122, tmdb_id=None, title="ÉLITE"),
+                    self._copy(section_key="1", library="TV Shows", rating_key=123, tmdb_id=None, title="Plain ASCII"),
+                ]
+            )
+            session.commit()
+
+        page = service.user_watched(1)
+
+        assert len(page["items"]) == page["total"]
+        titles = [i["title"] for i in page["items"]]
+        assert titles.count("ÉLITE") == 1
+        assert next(i for i in page["items"] if i["title"] == "ÉLITE")["libraries"] == ["4K TV", "TV Shows"]
+
+    def test_a_tool_written_rating_does_not_displace_the_one_a_person_typed(self, service, sessions):
+        """`disliked_seed_keys` ignores fractional ratings — Kometa writes IMDb scores into the same
+        field. Showing the lowest value of ANY kind would render a merged row as "not a rating anyone
+        typed" while the engine was blocking the title on the other copy's typed 2."""
+        from shortlist.server.db.models import WatchedTitle
+
+        self._seed(sessions)
+        with sessions() as session:
+            session.query(WatchedTitle).filter(WatchedTitle.rating_key == 200).one().user_rating = 4.7
+            session.commit()
+
+        bear = next(i for i in service.user_watched(1)["items"] if i["title"] == "The Bear")
+
+        assert bear["user_rating"] == 9.0  # the typed one, not the tool's lower 4.7
+
+    def test_a_fractional_rating_still_shows_when_no_copy_carries_a_typed_one(self, service, sessions):
+        """Otherwise the account-level "another tool is writing your ratings" warning points at a row
+        showing no stars at all."""
+        from shortlist.server.db.models import WatchedTitle
+
+        self._seed(sessions)
+        with sessions() as session:
+            for key, value in ((100, 6.2), (200, 4.7)):
+                session.query(WatchedTitle).filter(WatchedTitle.rating_key == key).one().user_rating = value
+            session.commit()
+
+        bear = next(i for i in service.user_watched(1)["items"] if i["title"] == "The Bear")
+
+        assert bear["user_rating"] == 4.7
+
+    def test_rated_count_counts_titles_because_that_is_what_the_page_calls_them(self, service, sessions):
+        """It is rendered as "they've rated N titles", one line under a footer that now distinguishes
+        titles from library copies. The Bear is rated on both of its copies; counting rows would say
+        2, and the population that hits it is exactly the one the distrust warning is about — a tool
+        syncing scores across a Movies/4K Movies pair."""
+        self._seed(sessions)
+
+        assert service.user_watched(1)["rated_count"] == 1
+
+    def test_a_movie_and_a_show_sharing_a_tmdb_number_stay_apart(self, service, sessions):
+        """TMDB numbers movies and shows in separate namespaces — 1399 is both a film and Game of
+        Thrones. Grouping on the id alone would merge two titles nobody would call the same."""
+        self._seed(sessions)
+        with sessions() as session:
+            session.add(
+                self._copy(
+                    section_key="3",
+                    library="Movies",
+                    rating_key=114,
+                    media_type="movie",
+                    tmdb_id=700,
+                    title="Teacup the Film",
+                )
+            )
+            session.commit()
+
+        titles = [i["title"] for i in service.user_watched(1)["items"]]
+
+        assert "Teacup" in titles and "Teacup the Film" in titles
+
+
+class TestPlexRatingsReachTheEngineConfig:
+    """The two settings collapse into one engine field, and "off" has to arrive as None.
+
+    Worth its own test because the collapse is the only place the switch exists: nothing downstream
+    reads `use_plex_ratings`, so if it failed to zero the threshold, the feature would stay on with
+    the switch showing off — and the only symptom would be seeds quietly missing from someone's row.
+    """
+
+    def _threshold(self, service, sessions, box, **values):
+        with sessions() as session:
+            store = SettingsStore(session, box)
+            for key, value in values.items():
+                store.set(key, value)
+        return service.build_context(dry_run=True).config.dislike_threshold
+
+    def test_on_by_default_at_one_star(self, service, sessions, configured):
+        assert self._threshold(service, sessions, configured) == 2.0
+
+    def test_the_configured_threshold_flows_through(self, service, sessions, configured):
+        assert self._threshold(service, sessions, configured, **{"recommendations.dislike_threshold": 6.0}) == 6.0
+
+    def test_a_threshold_of_zero_is_honoured_rather_than_replaced_by_the_default(self, service, sessions, configured):
+        """0 is legal, documented and validator-accepted — it means "only a rating of exactly zero
+        counts". It is also falsy, so `or 2.0` silently swapped it for the default: the settings
+        screen read back 0 while every run used 2, and both screens looked self-consistent."""
+        assert self._threshold(service, sessions, configured, **{"recommendations.dislike_threshold": 0.0}) == 0.0
+
+    def test_switching_it_off_leaves_no_threshold_at_all(self, service, sessions, configured):
+        threshold = self._threshold(
+            service,
+            sessions,
+            configured,
+            **{"recommendations.use_plex_ratings": False, "recommendations.dislike_threshold": 2.0},
+        )
+
+        assert threshold is None, "off must erase the threshold, not leave a number nobody applies"
+
+
+class TestRowVisibilitySchedule:
+    """A row's day schedule is resolved HERE, once, into the placement the engine already understands
+    (issue #102). The engine never sees a weekday, so this wiring is the whole integration.
+    """
+
+    MONDAY: ClassVar[datetime] = datetime(2026, 8, 31, 12, 0)  # a Monday
+    TUESDAY: ClassVar[datetime] = datetime(2026, 9, 1, 12, 0)
+
+    def _row(self, sessions, *, placement="both", placement_friends="both", **kwargs):
+        from shortlist.server.db.models import Collection
+
+        with sessions() as session:
+            session.query(Collection).delete()
+            session.add(
+                Collection(
+                    slug="picked",
+                    name="Picked for You",
+                    build="per_person",
+                    enabled=True,
+                    placement=placement,
+                    placement_friends=placement_friends,
+                    **kwargs,
+                )
+            )
+            session.commit()
+
+    def _spec(self, service, monkeypatch, now):
+        monkeypatch.setattr(context_builder_mod, "local_now", lambda: now)
+        ctx = service.build_context(dry_run=True)
+        return next(spec for spec in ctx.config.rows if spec.slug == "picked")
+
+    def test_a_row_scheduled_off_today_reaches_the_engine_with_placement_off(
+        self, service, sessions, configured, monkeypatch
+    ):
+        """`off` is the placement Shortlist already has for "show this row nowhere" — so a scheduled
+        row rides an existing, tested promote path instead of a new hiding mechanism."""
+        self._row(sessions, show_days=[1, 3, 5])  # Mon/Wed/Fri
+
+        spec = self._spec(service, monkeypatch, self.TUESDAY)
+
+        assert spec.placement == "off"
+        assert spec.placement_friends == "off"
+        assert spec.show_home is False
+        assert spec.show_friends_home is False
+        assert spec.show_library is False
+
+    def test_a_row_scheduled_on_today_keeps_the_placement_the_owner_chose(
+        self, service, sessions, configured, monkeypatch
+    ):
+        self._row(sessions, show_days=[1, 3, 5])
+
+        spec = self._spec(service, monkeypatch, self.MONDAY)
+
+        assert spec.placement == "both"
+        assert spec.placement_friends == "both"
+
+    def test_a_rows_description_and_sort_title_prefix_reach_the_engine(
+        self, service, sessions, configured, monkeypatch
+    ):
+        """Issue #120. Passed through verbatim — including a prefix's trailing space, which is part of it."""
+        self._row(sessions, description="Picked for {user}", sort_title_prefix="01 ")
+
+        spec = self._spec(service, monkeypatch, self.MONDAY)
+
+        assert (spec.description, spec.sort_title_prefix) == ("Picked for {user}", "01 ")
+
+    def test_a_row_with_no_schedule_is_untouched(self, service, sessions, configured, monkeypatch):
+        """Every row carries [] after the migration. If this ever resolves to anything but the
+        owner's own placement, upgrading silently changes what people see."""
+        self._row(sessions, show_days=[])
+
+        spec = self._spec(service, monkeypatch, self.TUESDAY)
+
+        assert spec.placement == "both"
+        assert spec.placement_friends == "both"
+
+    def test_an_off_day_does_not_disturb_a_row_whose_placement_was_already_narrowed(
+        self, service, sessions, configured, monkeypatch
+    ):
+        """A library-only row that is ON today must stay library-only — the schedule decides
+        WHETHER, never WHERE."""
+        self._row(sessions, show_days=[1], placement="library", placement_friends="library")
+
+        spec = self._spec(service, monkeypatch, self.MONDAY)
+
+        assert spec.placement == "library"
+        assert spec.show_home is False
+        assert spec.show_owner_library is True
+
+    def test_a_permanently_off_row_is_not_marked_as_hidden_by_a_schedule(
+        self, service, sessions, configured, monkeypatch
+    ):
+        """The two must stay distinguishable. Promotion disables its no-spec fallback when a SCHEDULE
+        could be hiding a row; keying that on the resolved placement instead would disable it on any
+        server with one friends-off row — a setting unrelated to day schedules, and one whose fallback
+        is what stops a row that lost its ledger identity from silently disappearing."""
+        self._row(sessions, show_days=[], placement="off", placement_friends="off")
+
+        spec = self._spec(service, monkeypatch, self.TUESDAY)
+
+        assert spec.placement == "off"
+        assert spec.hidden_by_schedule is False
+
+    def test_a_row_hidden_by_todays_schedule_says_so(self, service, sessions, configured, monkeypatch):
+        self._row(sessions, show_days=[1])  # Mondays only; judged on a Tuesday
+
+        spec = self._spec(service, monkeypatch, self.TUESDAY)
+
+        assert spec.placement == "off"
+        assert spec.hidden_by_schedule is True

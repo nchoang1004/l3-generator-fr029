@@ -1,0 +1,472 @@
+"""Real remote providers survive the complete public library-scan flow.
+
+Listing alone is not enough: these cases configure the provider through the API,
+run discovery, persist a linked Artifact, and download its bytes through the
+public file endpoint against pinned Nextcloud and OpenSSH containers.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import hashlib
+from dataclasses import dataclass
+from uuid import uuid4
+
+import boto3
+import pytest
+import pytest_asyncio
+from botocore.config import Config as BotoConfig
+from sqlmodel import select
+
+from app.db.models import File, LibrarySourceKind
+from app.modules.storage.storage_connections import parse_connection_config
+from app.modules.storage.storage_opendal import OpenDALStorageBackend
+from app.modules.storage.storage_providers import (
+    PRESETS,
+    parse_provider_config,
+    resolve_transport,
+    split_provider_config,
+)
+from tests.containers import (
+    S3_ACCESS_KEY,
+    S3_SECRET_KEY,
+    nextcloud_endpoint,
+    openssh_endpoint,
+    s3_endpoint,
+)
+from tests.e2e._jobs import completed_job, settle
+from tests.fixtures.storage_presets import real_preset_configuration
+from tests.paths import FIXTURES_DIR
+
+
+@dataclass(frozen=True)
+class _RemoteProvider:
+    kind: str
+    configuration: dict[str, object]
+    secrets: dict[str, str]
+    backend: OpenDALStorageBackend
+
+
+def _nextcloud_provider() -> _RemoteProvider:
+    root = f"critical-nextcloud-{uuid4().hex}"
+    configuration: dict[str, object] = {
+        "provider": "nextcloud",
+        "endpoint_url": nextcloud_endpoint(),
+        "username": "admin",
+        "root": root,
+    }
+    secrets = {"password": "contract-only"}
+    parsed = parse_connection_config(LibrarySourceKind.WEBDAV, configuration, secrets)
+    backend = OpenDALStorageBackend(resolve_transport(parsed))
+    backend.ensure_setup()
+    return _RemoteProvider("webdav", configuration, secrets, backend)
+
+
+def _sftp_provider() -> _RemoteProvider:
+    host, port, host_key = openssh_endpoint()
+    root = f"critical-sftp-{uuid4().hex}"
+    configuration: dict[str, object] = {
+        "host": host,
+        "port": port,
+        "username": "contract",
+        "host_key": host_key,
+        "root": root,
+    }
+    secrets = {"password": "contract-only"}
+    parsed = parse_connection_config(LibrarySourceKind.SFTP, configuration, secrets)
+    backend = OpenDALStorageBackend(resolve_transport(parsed))
+    backend.provision_root()
+    backend.ensure_setup()
+    return _RemoteProvider("sftp", configuration, secrets, backend)
+
+
+def _s3_provider() -> _RemoteProvider:
+    endpoint = s3_endpoint()
+    bucket = f"source-markers-{uuid4().hex[:12]}"
+    boto3.client(
+        "s3",
+        endpoint_url=endpoint,
+        region_name="us-east-1",
+        aws_access_key_id=S3_ACCESS_KEY,
+        aws_secret_access_key=S3_SECRET_KEY,
+        config=BotoConfig(s3={"addressing_style": "path"}),
+    ).create_bucket(Bucket=bucket)
+    configuration = {
+        "provider": "s3_self_hosted",
+        "endpoint_url": endpoint,
+        "bucket": bucket,
+        "region": "us-east-1",
+        "root": "library-root",
+        "addressing_style": "path",
+    }
+    secrets = {"access_key": S3_ACCESS_KEY, "secret_key": S3_SECRET_KEY}
+    parsed = parse_connection_config(LibrarySourceKind.S3, configuration, secrets)
+    backend = OpenDALStorageBackend(resolve_transport(parsed))
+    backend.ensure_setup()
+    return _RemoteProvider("s3", configuration, secrets, backend)
+
+
+@pytest.fixture(
+    params=[
+        pytest.param(
+            _nextcloud_provider, id="nextcloud", marks=pytest.mark.remote_storage
+        ),
+        pytest.param(_sftp_provider, id="sftp", marks=pytest.mark.remote_storage),
+        pytest.param(_s3_provider, id="s3", marks=pytest.mark.s3),
+        *[
+            pytest.param(
+                provider,
+                id=provider,
+                marks=pytest.mark.s3
+                if preset["transport"] == "s3"
+                else pytest.mark.remote_storage,
+            )
+            for provider, preset in PRESETS.items()
+            if preset["transport"] != "local"
+        ],
+    ]
+)
+def remote_provider(request) -> _RemoteProvider:
+    if callable(request.param):
+        return request.param()
+    config = parse_provider_config(real_preset_configuration(request.param))
+    spec = resolve_transport(config)
+    configuration, secrets = split_provider_config(config)
+    backend = OpenDALStorageBackend(spec)
+    if spec.kind.value == "sftp":
+        backend.provision_root()
+    backend.ensure_setup()
+    return _RemoteProvider(spec.kind.value, configuration, secrets, backend)
+
+
+class TestRemoteLibraryScan:
+    @pytest.mark.critical
+    @pytest.mark.asyncio
+    async def test_real_provider_scans_through_the_public_api(
+        self, api, superuser_headers, e2e_db, remote_provider: _RemoteProvider
+    ) -> None:
+        payload = (FIXTURES_DIR / "sample.gcode").read_bytes()
+        source_key = "models/critical-scan.gcode"
+        remote_key = remote_provider.backend.source_key(source_key)
+        await asyncio.to_thread(
+            remote_provider.backend.create_bytes, payload, remote_key
+        )
+
+        enabled = await api.put(
+            "/api/v1/config",
+            headers=superuser_headers,
+            json={"external_libraries_enabled": True},
+        )
+        assert enabled.status_code == 200, enabled.text
+        connection = await api.post(
+            "/api/v1/storage-connections",
+            headers=superuser_headers,
+            json={
+                "name": f"critical-{remote_provider.kind}-{uuid4().hex}",
+                "kind": remote_provider.kind,
+                "configuration": remote_provider.configuration,
+                "secrets": remote_provider.secrets,
+            },
+        )
+        assert connection.status_code == 201, connection.text
+        library = await api.post(
+            "/api/v1/libraries",
+            headers=superuser_headers,
+            json={
+                "name": f"critical {remote_provider.kind}",
+                "source_kind": remote_provider.kind,
+                "connection_id": connection.json()["id"],
+                "source_prefix": "models",
+                "scan_schedule": "",
+            },
+        )
+        assert library.status_code == 201, library.text
+
+        scan = await api.post(
+            f"/api/v1/libraries/{library.json()['id']}/scan",
+            headers=superuser_headers,
+        )
+
+        await completed_job(api, scan, superuser_headers)
+        e2e_db.expire_all()
+        file_row = e2e_db.exec(select(File).where(File.source_key == source_key)).one()
+        downloaded = await api.get(
+            f"/api/v1/files/{file_row.id}/download", headers=superuser_headers
+        )
+        assert downloaded.status_code == 200, downloaded.text
+        assert downloaded.content == payload
+        assert (
+            await asyncio.to_thread(remote_provider.backend.read_bytes, remote_key)
+            == payload
+        )
+        info = await asyncio.to_thread(remote_provider.backend.object_info, remote_key)
+        assert info is not None
+        assert file_row.source_etag == info.etag
+        assert file_row.source_version_id == info.version_id
+        assert file_row.source_mtime == (
+            info.modified_at.timestamp() if info.modified_at is not None else None
+        )
+
+    @pytest.mark.s3
+    @pytest.mark.asyncio
+    async def test_s3_equal_size_replacement_is_detected_through_the_production_factory(
+        self, api, superuser_headers, e2e_db
+    ) -> None:
+        provider = _s3_provider()
+        key = "models/changed.gcode"
+        remote_key = provider.backend.source_key(key)
+        before, after = b"G1 X1\n", b"G1 X2\n"
+        await asyncio.to_thread(provider.backend.create_bytes, before, remote_key)
+        enabled = await api.put(
+            "/api/v1/config",
+            headers=superuser_headers,
+            json={"external_libraries_enabled": True},
+        )
+        assert enabled.status_code == 200
+        connection = await api.post(
+            "/api/v1/storage-connections",
+            headers=superuser_headers,
+            json={
+                "name": "S3 changes",
+                "kind": "s3",
+                "configuration": provider.configuration,
+                "secrets": provider.secrets,
+            },
+        )
+        assert connection.status_code == 201, connection.text
+        library = await api.post(
+            "/api/v1/libraries",
+            headers=superuser_headers,
+            json={
+                "name": "S3 changes",
+                "source_kind": "s3",
+                "connection_id": connection.json()["id"],
+                "source_prefix": "models",
+                "scan_schedule": "",
+            },
+        )
+        assert library.status_code == 201, library.text
+        url = f"/api/v1/libraries/{library.json()['id']}/scan"
+        assert (await api.post(url, headers=superuser_headers)).status_code == 202
+        settle()
+        e2e_db.expire_all()
+        row = e2e_db.exec(select(File).where(File.source_key == key)).one()
+        original_etag = row.source_etag
+        assert row.sha256 == hashlib.sha256(before).hexdigest()
+        client = boto3.client(
+            "s3",
+            endpoint_url=provider.configuration["endpoint_url"],
+            region_name="us-east-1",
+            aws_access_key_id=S3_ACCESS_KEY,
+            aws_secret_access_key=S3_SECRET_KEY,
+            config=BotoConfig(s3={"addressing_style": "path"}),
+        )
+        await asyncio.to_thread(
+            client.put_object,
+            Bucket=provider.configuration["bucket"],
+            Key=f"library-root/{key}",
+            Body=after,
+        )
+
+        assert (await api.post(url, headers=superuser_headers)).status_code == 202
+        settle()
+
+        e2e_db.refresh(row)
+        assert row.sha256 == hashlib.sha256(after).hexdigest()
+        assert row.source_etag != original_etag
+        downloaded = await api.get(
+            f"/api/v1/files/{row.id}/download", headers=superuser_headers
+        )
+        assert downloaded.status_code == 200
+        assert downloaded.content == after
+
+
+class TestDurableScanPages:
+    @pytest.mark.s3
+    @pytest.mark.asyncio
+    async def test_public_scans_resume_committed_inventory_until_completion(
+        self, api, superuser_headers, e2e_db, monkeypatch
+    ):
+        from app.db.models import ExternalLibraryCheckpoint, RemoteDiscoveryInventory
+        from app.modules.sources import external_library
+
+        monkeypatch.setattr(external_library, "_REMOTE_PAGE_LIMIT", 2)
+        provider = await asyncio.to_thread(_s3_provider)
+        payload = (FIXTURES_DIR / "sample.gcode").read_bytes()
+        for index in range(3):
+            await asyncio.to_thread(
+                provider.backend.create_bytes,
+                payload + f"\n; page {index}\n".encode(),
+                provider.backend.source_key(f"models/{index}.gcode"),
+            )
+        enabled = await api.put(
+            "/api/v1/config",
+            headers=superuser_headers,
+            json={"external_libraries_enabled": True},
+        )
+        assert enabled.status_code == 200
+        connection = await api.post(
+            "/api/v1/storage-connections",
+            headers=superuser_headers,
+            json={
+                "name": "paged-source",
+                "kind": "s3",
+                "configuration": provider.configuration,
+                "secrets": provider.secrets,
+            },
+        )
+        assert connection.status_code == 201, connection.text
+        library = await api.post(
+            "/api/v1/libraries",
+            headers=superuser_headers,
+            json={
+                "name": "Paged source",
+                "source_kind": "s3",
+                "connection_id": connection.json()["id"],
+                "source_prefix": "models",
+                "scan_schedule": "",
+            },
+        )
+        assert library.status_code == 201, library.text
+        library_id = library.json()["id"]
+        url = f"/api/v1/libraries/{library_id}/scan"
+        assert (await api.post(url, headers=superuser_headers)).status_code == 202
+        settle()
+        e2e_db.expire_all()
+        checkpoint = e2e_db.exec(
+            select(ExternalLibraryCheckpoint).where(
+                ExternalLibraryCheckpoint.library_id == library_id
+            )
+        ).one()
+        assert checkpoint.complete is False
+        assert checkpoint.cursor is not None
+        assert (
+            len(
+                e2e_db.exec(
+                    select(File).where(File.external_library_id == library_id)
+                ).all()
+            )
+            == 2
+        )
+        epoch = checkpoint.epoch
+        assert (await api.post(url, headers=superuser_headers)).status_code == 202
+        settle()
+        e2e_db.expire_all()
+        assert checkpoint.complete is True
+        assert checkpoint.epoch == epoch
+        rows = e2e_db.exec(
+            select(File).where(File.external_library_id == library_id)
+        ).all()
+        assert {row.source_key for row in rows} == {
+            f"models/{index}.gcode" for index in range(3)
+        }
+        assert e2e_db.exec(select(RemoteDiscoveryInventory)).all() == []
+        for row in rows:
+            downloaded = await api.get(
+                f"/api/v1/files/{row.id}/download", headers=superuser_headers
+            )
+            assert downloaded.status_code == 200
+            assert downloaded.content.startswith(payload)
+
+
+@pytest_asyncio.fixture
+async def refused_remote_mesh(api, superuser_headers, e2e_db, remote_provider):
+    original = b"invalid 3mf package"
+    source_key = "models/refused.3mf"
+    await asyncio.to_thread(
+        remote_provider.backend.create_bytes,
+        original,
+        remote_provider.backend.source_key(source_key),
+    )
+    enabled = await api.put(
+        "/api/v1/config",
+        headers=superuser_headers,
+        json={"external_libraries_enabled": True},
+    )
+    assert enabled.status_code == 200, enabled.text
+    connection = await api.post(
+        "/api/v1/storage-connections",
+        headers=superuser_headers,
+        json={
+            "name": f"refused-{remote_provider.kind}-{uuid4().hex}",
+            "kind": remote_provider.kind,
+            "configuration": remote_provider.configuration,
+            "secrets": remote_provider.secrets,
+        },
+    )
+    assert connection.status_code == 201, connection.text
+    library = await api.post(
+        "/api/v1/libraries",
+        headers=superuser_headers,
+        json={
+            "name": f"Refused {remote_provider.kind}",
+            "source_kind": remote_provider.kind,
+            "connection_id": connection.json()["id"],
+            "source_prefix": "models",
+            "scan_schedule": "",
+        },
+    )
+    assert library.status_code == 201, library.text
+    await completed_job(
+        api,
+        await api.post(
+            f"/api/v1/libraries/{library.json()['id']}/scan",
+            headers=superuser_headers,
+        ),
+        superuser_headers,
+    )
+    e2e_db.expire_all()
+    row = e2e_db.exec(select(File).where(File.source_key == source_key)).one()
+    listed = await api.get(
+        f"/api/v1/files/{row.id}/derivatives", headers=superuser_headers
+    )
+    assert listed.status_code == 200, listed.text
+    metadata = next(item for item in listed.json() if item["kind"] == "metadata")
+    assert (metadata["state"], metadata["failure_reason"]) == (
+        "failed",
+        "invalid_source",
+    )
+    return row.id, original
+
+
+@pytest.mark.parametrize(
+    "remote_provider",
+    [
+        pytest.param(
+            _nextcloud_provider, id="nextcloud", marks=pytest.mark.remote_storage
+        ),
+        pytest.param(_sftp_provider, id="sftp", marks=pytest.mark.remote_storage),
+        pytest.param(_s3_provider, id="s3", marks=pytest.mark.s3),
+    ],
+    indirect=True,
+)
+class TestRefusedRemoteMesh:
+    @pytest.mark.asyncio
+    async def test_original_download_survives_geometry_failure(
+        self, api, superuser_headers, refused_remote_mesh
+    ):
+        file_id, original = refused_remote_mesh
+        downloaded = await api.get(
+            f"/api/v1/files/{file_id}/download", headers=superuser_headers
+        )
+        assert downloaded.status_code == 200, downloaded.text
+        assert (
+            hashlib.sha256(downloaded.content).digest()
+            == hashlib.sha256(original).digest()
+        )
+
+    @pytest.mark.asyncio
+    async def test_signed_slicer_download_survives_geometry_failure(
+        self, api, superuser_headers, refused_remote_mesh
+    ):
+        file_id, original = refused_remote_mesh
+        signed = await api.get(
+            f"/api/v1/files/{file_id}/slicer-url", headers=superuser_headers
+        )
+        assert signed.status_code == 200, signed.text
+        downloaded = await api.get(signed.json()["url"])
+        assert downloaded.status_code == 200, downloaded.text
+        assert (
+            hashlib.sha256(downloaded.content).digest()
+            == hashlib.sha256(original).digest()
+        )

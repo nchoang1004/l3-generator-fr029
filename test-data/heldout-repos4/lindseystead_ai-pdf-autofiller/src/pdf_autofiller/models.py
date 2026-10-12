@@ -1,0 +1,201 @@
+"""
+Shared Pydantic models for the PDF autofill pipeline.
+
+These models define contracts between extraction, semantics, mapping, and write steps.
+"""
+
+from typing import Literal
+
+from pydantic import BaseModel, Field
+
+
+class FormField(BaseModel):
+    """Represents a fillable form field in a PDF."""
+
+    name: str = Field(description="Field name/identifier")
+    field_type: Literal["text", "button", "choice", "signature", "unknown"] = Field(
+        description="Type of form field"
+    )
+    value: str | None = Field(default=None, description="Current field value if present")
+    required: bool = Field(default=False, description="Whether field is required")
+    page_number: int = Field(description="Page number where field appears (1-indexed)")
+
+
+class TextRegion(BaseModel):
+    """Represents a text region extracted from a PDF."""
+
+    text: str = Field(description="Extracted text content")
+    page_number: int = Field(description="Page number where text appears (1-indexed)")
+
+
+class DocumentMetadata(BaseModel):
+    """Metadata about the PDF document."""
+
+    num_pages: int = Field(description="Total number of pages")
+    title: str | None = Field(default=None, description="Document title")
+    author: str | None = Field(default=None, description="Document author")
+    subject: str | None = Field(default=None, description="Document subject")
+    creator: str | None = Field(default=None, description="Application that created the PDF")
+    producer: str | None = Field(default=None, description="Application that produced the PDF")
+
+
+class FieldSemantics(BaseModel):
+    """Inferred semantics for a form field."""
+
+    semantic_meaning: str = Field(
+        description="Human-meaningful semantic identifier in snake_case (e.g., 'first_name', 'date_of_birth')"
+    )
+    expected_data_type: Literal["string", "date", "number", "boolean"] = Field(
+        description="Expected data type for this field"
+    )
+    confidence_score: float = Field(
+        ge=0.0, le=1.0, description="Confidence score for the inference (0.0 to 1.0)"
+    )
+
+
+class EnrichedFormField(BaseModel):
+    """Form field with inferred semantics."""
+
+    field: FormField = Field(description="Original form field metadata")
+    semantics: FieldSemantics = Field(description="Inferred field semantics")
+    ai_inferred: bool = Field(default=False, description="Whether the semantics came from the AI model")
+
+
+class DocumentStructure(BaseModel):
+    """Structured representation of a PDF document."""
+
+    metadata: DocumentMetadata = Field(description="Document metadata")
+    form_fields: list[FormField] = Field(default_factory=list, description="Fillable form fields")
+    text_regions: list[TextRegion] = Field(default_factory=list, description="Extracted text regions")
+
+
+class FieldMappingDecision(BaseModel):
+    """Decision made when mapping user data to a form field."""
+
+    field_name: str = Field(description="PDF form field name")
+    semantic_meaning: str = Field(description="Semantic meaning of the field")
+    selected_value: str | None = Field(default=None, description="Value selected from user data")
+    confidence: float = Field(ge=0.0, le=1.0, description="Confidence in the mapping decision")
+    reason: str = Field(description="Explanation of how the mapping was determined")
+    requires_review: bool = Field(default=False, description="Whether this mapping requires human review")
+    ai_assisted: bool = Field(
+        default=False,
+        description="Whether the AI model chose this mapping (the value still comes from user data)",
+    )
+
+
+class MappingResult(BaseModel):
+    """Result of mapping user data to PDF form fields."""
+
+    decisions: list[FieldMappingDecision] = Field(
+        default_factory=list, description="Mapping decisions for each field"
+    )
+    missing_required: list[str] = Field(
+        default_factory=list, description="Required fields that could not be mapped"
+    )
+    unmapped_user_keys: list[str] = Field(
+        default_factory=list, description="User data keys that were not mapped to any field"
+    )
+    mapping_hints: list[str] = Field(
+        default_factory=list,
+        description="Actionable hints when opaque widget names hinder matching",
+    )
+
+
+class FillReport(BaseModel):
+    """Outcome of writing mapping decisions into a PDF.
+
+    Surfaces which fields were written and which were intentionally skipped, so
+    callers can detect non-required fields that were dropped (for example because
+    they were flagged ``requires_review``) instead of silently losing them.
+    Unwritable mapped values (missing widget, signature field, unresolved
+    checkbox/radio/choice state, or confirmed write failure) are listed in
+    ``skipped_unwritable_fields`` — never silent. Form fields the user data
+    never addressed are listed in ``unfilled_fields``.
+    """
+
+    written_fields: list[str] = Field(
+        default_factory=list, description="Field names that received a value in the output PDF"
+    )
+    skipped_review_fields: list[str] = Field(
+        default_factory=list, description="Field names skipped because the mapping was flagged for review"
+    )
+    skipped_empty_fields: list[str] = Field(
+        default_factory=list, description="Field names skipped because the mapped value was empty"
+    )
+    skipped_unwritable_fields: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Mapped fields that could not be written (missing widget, /Sig, "
+            "or unresolved button state). Format: 'field_name (reason)'."
+        ),
+    )
+    missing_required_fields: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Required fields left unfilled. Non-empty only for partial fills "
+            "(``allow_partial=True``); otherwise the fill raises instead."
+        ),
+    )
+    unfilled_fields: list[str] = Field(
+        default_factory=list,
+        description="Form fields that received no value (no matching key in user data)",
+    )
+    ai_assisted_fields: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Written fields whose mapping AI field inference or the AI key fallback chose. The value is the "
+            "caller's own, but which field received it was a model decision: review these."
+        ),
+    )
+    display_warnings: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Written fields whose text the form's standard font cannot draw (e.g. CJK). "
+            "The stored value is correct; previews that use the pre-drawn appearance may "
+            "show it garbled. Format: 'field_name (reason)'."
+        ),
+    )
+
+
+class InspectResult(BaseModel):
+    """Library/API inventory of AcroForm fields in a PDF."""
+
+    pages: int = Field(description="Page count")
+    field_count: int = Field(description="Number of fillable fields")
+    fields: list[FormField] = Field(
+        default_factory=list,
+        description="AcroForm fields in document order",
+    )
+    opaque_field_count: int = Field(
+        default=0,
+        description="How many field names look machine-generated / hard to alias",
+    )
+    opaque_fields: list[str] = Field(
+        default_factory=list,
+        description="Opaque widget names (capped sample for large forms)",
+    )
+    mapping_hints: list[str] = Field(
+        default_factory=list,
+        description="Suggested next steps when opaque names are present",
+    )
+
+
+class PreviewResult(BaseModel):
+    """Mapping decisions without writing a PDF."""
+
+    pages: int = Field(description="Page count")
+    field_count: int = Field(description="Number of enriched fields considered")
+    mapping: MappingResult = Field(description="Full mapping result")
+
+
+class FillOutcome(BaseModel):
+    """Full local fill result: write report + mapping + field count."""
+
+    report: FillReport
+    mapping: MappingResult
+    field_count: int = Field(description="Number of enriched fields considered")
+    pages: int | None = Field(
+        default=None,
+        description="Page count when known (API paths always set this)",
+    )

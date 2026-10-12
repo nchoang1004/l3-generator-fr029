@@ -1,0 +1,429 @@
+@import "tailwindcss" source(none);
+@config "../tailwind.config.cjs";
+@plugin "@tailwindcss/typography";
+@source "./app";
+@source "./components";
+@source "./pages";
+@source "../packages/ui/src";
+
+@layer base {
+  :root {
+    /* Font families (previously injected by next/font; now from @fontsource). */
+    --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+    --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+    --background: #f8fafc;
+    --foreground: #1e293b;
+    --card: #ffffff;
+    --card-foreground: #1e293b;
+    --popover: #ffffff;
+    --popover-foreground: #1e293b;
+    --popover-hover: #f1f5f9;
+    --sidebar-bg: #eef2f7;
+    --primary: #2563eb;
+    --primary-foreground: #ffffff;
+    --secondary: #475569;
+    --secondary-foreground: #ffffff;
+    --muted: #f1f5f9;
+    --muted-foreground: #64748b;
+    --accent: #eff6ff;
+    --accent-foreground: #1e40af;
+    --destructive: #dc2626;
+    --destructive-foreground: #ffffff;
+    --border: #d8e1eb;
+    --input: #d8e1eb;
+    --ring: #2563eb;
+    --radius: 0.375rem;
+
+    /* Interaction shades of primary (hover = one step darker; soft = 40% for
+       selection rings and tinted borders). */
+    --primary-hover: #1d4ed8;
+    --primary-soft: rgb(37 99 235 / 0.4);
+
+    /* Status */
+    --success: #16a34a;
+    --success-foreground: #ffffff;
+    --warning: #d97706;
+    --warning-foreground: #ffffff;
+
+    /* Data visualisation palette. Stable semantic order across themes. */
+    --chart-1: #2563eb;
+    --chart-2: #0891b2;
+    --chart-3: #7c3aed;
+    --chart-grid: #cbd5e1;
+
+    /* Motion tokens — the single source of truth for easing and duration.
+       --ease-out is the curve this codebase already used in slide-up/card-in. */
+    --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+    --duration-press: 150ms;
+    --duration-fast: 200ms;
+    --duration-slow: 300ms;
+
+    --surface: #ffffff;
+    --surface-container: #f1f5f9;
+    --surface-container-low: #f8fafc;
+    --surface-container-lowest: #ffffff;
+    --surface-container-high: #e2e8f0;
+    --surface-container-highest: #cbd5e1;
+    --surface-dim: #cbd5e1;
+    --surface-bright: #ffffff;
+    --on-surface: #1e293b;
+    --on-surface-variant: #64748b;
+    --outline: #94a3b8;
+    --outline-variant: #e2e8f0;
+    --surface-tint: #c2410c;
+    --primary-container: #2563eb;
+    --on-primary-container: #ffffff;
+    --secondary-container: #eff6ff;
+    --on-secondary-container: #1e40af;
+    --tertiary: #c2410c;
+    --tertiary-container: #ffedd5;
+    --on-tertiary-container: #7c2d12;
+    --error: #dc2626;
+    --error-container: #fef2f2;
+    --on-error-container: #991b1b;
+    --inverse-surface: #1e293b;
+    --inverse-on-surface: #f8fafc;
+    --inverse-primary: #93c5fd;
+    --primary-fixed: #dbeafe;
+    --primary-fixed-dim: #93c5fd;
+    --secondary-fixed: #eff6ff;
+    --secondary-fixed-dim: #bfdbfe;
+    --tertiary-fixed: #ffedd5;
+    --tertiary-fixed-dim: #fb923c;
+  }
+
+  .dark {
+    /* Surfaces — distinct contrast steps */
+    --background: #0b1017;
+    --sidebar-bg: #080b10;
+    --foreground: #e3eaf3;
+    --card: #131b26;
+    --card-foreground: #e3eaf3;
+    --popover: #151f2c;
+    --popover-foreground: #e3eaf3;
+    --popover-hover: #26384d;
+
+    /* Interactive — action semantics stay blue in both themes. */
+    --primary: #2563eb;
+    --primary-foreground: #ffffff;
+    --secondary: #94a3b8;
+    --secondary-foreground: #0b1017;
+
+    /* Muted */
+    --muted: #1d2a3a;
+    --muted-foreground: #a5b5c9;
+
+    /* Selected and hovered controls use a quiet blue tint. */
+    --accent: #172554;
+    --accent-foreground: #bfdbfe;
+
+    /* Status */
+    --destructive: #f87171;
+    --destructive-foreground: #450a0a;
+
+    /* Borders & inputs */
+    --border: #2a3b50;
+    --input: #1d2a3a;
+    --ring: #60a5fa;
+
+    --primary-hover: #1d4ed8;
+    --primary-soft: rgb(96 165 250 / 0.4);
+
+    --success: #4ade80;
+    --success-foreground: #052e16;
+    --warning: #fbbf24;
+    --warning-foreground: #451a03;
+    --chart-1: #60a5fa;
+    --chart-2: #22d3ee;
+    --chart-3: #a78bfa;
+    --chart-grid: #48617c;
+
+    /* Surface scale — clear luminosity steps */
+    --surface: #0b1017;
+    --surface-container: #131b26;
+    --surface-container-low: #0b1017;
+    --surface-container-lowest: #080c12;
+    --surface-container-high: #1d2a3a;
+    --surface-container-highest: #2a3b50;
+    --surface-dim: #080c12;
+    --surface-bright: #314861;
+    --on-surface: #e3eaf3;
+    --on-surface-variant: #a5b5c9;
+    --outline: #48617c;
+    --outline-variant: #2a3b50;
+    --surface-tint: #60a5fa;
+
+    /* Containers */
+    --primary-container: #1b3356;
+    --on-primary-container: #dbeafe;
+    --secondary-container: #1d2a3a;
+    --on-secondary-container: #bfdbfe;
+    --tertiary: #fb923c;
+    --tertiary-container: #332316;
+    --on-tertiary-container: #fed7aa;
+    --error: #f87171;
+    --error-container: #450a0a;
+    --on-error-container: #fef2f2;
+
+    /* Inverse */
+    --inverse-surface: #dce4ef;
+    --inverse-on-surface: #0b1017;
+    --inverse-primary: #2563eb;
+
+    /* Fixed */
+    --primary-fixed: #dbeafe;
+    --primary-fixed-dim: #93c5fd;
+    --secondary-fixed: #eff6ff;
+    --secondary-fixed-dim: #bfdbfe;
+    --tertiary-fixed: #ffedd5;
+    --tertiary-fixed-dim: #fb923c;
+  }
+}
+
+@layer utilities {
+  .bg-chart-blue {
+    background-color: var(--chart-1);
+  }
+  .bg-chart-cyan {
+    background-color: var(--chart-2);
+  }
+  .bg-chart-violet {
+    background-color: var(--chart-3);
+  }
+  .bg-chart-cyan-soft {
+    background-color: color-mix(in srgb, var(--chart-2) 14%, transparent);
+  }
+  .bg-chart-violet-soft {
+    background-color: color-mix(in srgb, var(--chart-3) 14%, transparent);
+  }
+  .text-chart-cyan {
+    color: var(--chart-2);
+  }
+  .text-chart-violet {
+    color: var(--chart-3);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    font-family: var(--font-sans);
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+}
+
+/* Smooth theme transitions — only active during the class swap, not on hovers.
+   Color properties only: box-shadow is not composited and this selector hits
+   every node in the document. */
+.theme-transitioning,
+.theme-transitioning *,
+.theme-transitioning *::before,
+.theme-transitioning *::after {
+  transition:
+    background-color var(--duration-slow) var(--ease-out),
+    border-color var(--duration-slow) var(--ease-out),
+    color var(--duration-fast) var(--ease-out) !important;
+}
+
+@keyframes theme-icon-in {
+  from {
+    opacity: 0;
+    transform: rotate(-30deg) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(0deg) scale(1);
+  }
+}
+
+@keyframes slide-in-left {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Cards settle in with a small fade + rise instead of appearing abruptly. Runs
+   once per mounted card (stable React keys), so it plays for a new folder /
+   search result / next page — not on every keystroke re-render. */
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Content panels (tab bodies, section swaps) settle in with a 4px rise. */
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Floating panels (suggestion lists, pickers) settle from 97% scale. */
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Sonner's defaults (400ms, its own curve) are off the house scale; retune them.
+   `height` is Sonner's stack collapse when one of several toasts is dismissed —
+   it stays in the list, retimed, because dropping it makes the stack snap. */
+[data-sonner-toast] {
+  transition:
+    transform var(--duration-fast) var(--ease-out),
+    opacity var(--duration-fast) var(--ease-out),
+    height var(--duration-fast) var(--ease-out) !important;
+}
+
+/* Thin styled scrollbars */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-foreground);
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+@layer utilities {
+  .animate-theme-icon {
+    animation: theme-icon-in var(--duration-fast) var(--ease-out);
+  }
+
+  .slide-in-left {
+    animation: slide-in-left var(--duration-fast) var(--ease-out);
+  }
+
+  .slide-up {
+    animation: slide-up var(--duration-fast) var(--ease-out);
+  }
+
+  .fade-in {
+    animation: fade-in var(--duration-fast) var(--ease-out);
+  }
+
+  .animate-card-in {
+    animation: card-in var(--duration-fast) var(--ease-out) both;
+  }
+
+  .pop-in {
+    animation: pop-in var(--duration-press) var(--ease-out);
+  }
+
+  .animate-panel-in {
+    animation: panel-in var(--duration-fast) var(--ease-out) both;
+  }
+
+  /* Entrance stagger for card grids. Children settle 30ms apart so a page reads
+     as a sequence instead of one flat block. Capped at ~10: a 60-card page must
+     land well inside the 300ms UI budget, so everything past the 10th shares the
+     last slot. Purely decorative — the cards are already interactive underneath. */
+  .stagger-children > *:nth-child(1) {
+    animation-delay: 0ms;
+  }
+  .stagger-children > *:nth-child(2) {
+    animation-delay: 30ms;
+  }
+  .stagger-children > *:nth-child(3) {
+    animation-delay: 60ms;
+  }
+  .stagger-children > *:nth-child(4) {
+    animation-delay: 90ms;
+  }
+  .stagger-children > *:nth-child(5) {
+    animation-delay: 120ms;
+  }
+  .stagger-children > *:nth-child(6) {
+    animation-delay: 150ms;
+  }
+  .stagger-children > *:nth-child(7) {
+    animation-delay: 180ms;
+  }
+  .stagger-children > *:nth-child(8) {
+    animation-delay: 210ms;
+  }
+  .stagger-children > *:nth-child(9) {
+    animation-delay: 240ms;
+  }
+  .stagger-children > *:nth-child(n + 10) {
+    animation-delay: 270ms;
+  }
+
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 8px);
+  }
+}
+
+/* Reduced motion: keep opacity feedback, drop all movement. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-card-in,
+  .slide-in-left,
+  .slide-up,
+  .pop-in,
+  .animate-panel-in {
+    animation: fade-in var(--duration-fast) ease both;
+  }
+  .animate-theme-icon {
+    animation: none;
+  }
+  /* Stagger is decorative sequencing — under reduced motion the whole grid
+     fades in at once rather than marching in. :nth-child(n) matches the (0,2,0)
+     specificity of the stagger rules above so this override actually wins. */
+  .stagger-children > *:nth-child(n) {
+    animation-delay: 0ms;
+  }
+}

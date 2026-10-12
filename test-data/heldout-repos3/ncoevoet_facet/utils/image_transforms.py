@@ -1,0 +1,158 @@
+"""
+Image transformation utilities for Facet.
+
+Thumbnail generation and face cropping.
+"""
+
+from io import BytesIO
+
+from utils._lazy import ensure_cv2 as _ensure_cv2, ensure_pil as _ensure_pil_full
+
+
+def _ensure_pil():
+    """Lazy load PIL Image."""
+    Image, _ = _ensure_pil_full()
+    return Image
+
+
+# Brightest pixel a regenerated thumbnail must reach to count as a real render.
+#
+# A severely truncated Panasonic RW2 does not fail to decode: LibRaw zero-fills
+# the missing buffer and hands back a valid, full-size, entirely black frame
+# (pinned by tests/test_raw_brands.py). A `is None` check does not see that, so
+# a corrupt file would silently overwrite a good stored thumbnail with a black
+# one. Measured behaviour picks the bound: a zero-filled buffer encodes to a
+# thumbnail whose peak is exactly 0, while a night frame with a highlight over
+# even 0.1% of the area measures 83+. Four leaves the guard clear of both.
+#
+# The test is the MAXIMUM, never the mean: a real night shot is mostly black by
+# intent and a mean-based bound would reject it. Content dim enough to fail this
+# renders as black in the grid anyway, so keeping the previous thumbnail costs
+# the user nothing.
+DEGENERATE_THUMBNAIL_PEAK = 4
+
+
+def thumbnail_has_signal(thumbnail_bytes):
+    """Whether a freshly generated thumbnail carries any image signal at all.
+
+    Deliberately measured on the encoded thumbnail rather than the
+    full-resolution buffer: it is three orders of magnitude smaller and it is
+    the artifact actually about to be stored.
+    """
+    Image = _ensure_pil()
+    if not thumbnail_bytes:
+        return False
+    with Image.open(BytesIO(thumbnail_bytes)) as img:
+        peak = img.convert('L').getextrema()[1]
+    return peak >= DEGENERATE_THUMBNAIL_PEAK
+
+
+def generate_photo_thumbnail(pil_img, size=640, quality=80):
+    """
+    Generate JPEG thumbnail from PIL image.
+
+    Args:
+        pil_img: PIL Image to create thumbnail from
+        size: Maximum dimension for thumbnail (default: 640)
+        quality: JPEG quality 1-100 (default: 80)
+
+    Returns:
+        bytes: JPEG thumbnail as bytes
+    """
+    Image = _ensure_pil()
+
+    thumb = pil_img.copy()
+    thumb.thumbnail((size, size), Image.Resampling.LANCZOS)
+    buf = BytesIO()
+    thumb.save(buf, format="JPEG", quality=quality)
+    return buf.getvalue()
+
+
+def padded_face_bbox(shape, bbox, padding):
+    """Clamp a padded face bounding box to image bounds.
+
+    Args:
+        shape: Image ``(height, width[, ...])`` tuple (e.g. ``img.shape``)
+        bbox: Face bounding box [x1, y1, x2, y2]
+        padding: Padding ratio around face
+
+    Returns:
+        tuple: (x1, y1, x2, y2) integer pixel coordinates clamped to the image
+    """
+    h, w = shape[:2]
+    x1, y1, x2, y2 = [int(v) for v in bbox]
+    pad_x = int((x2 - x1) * padding)
+    pad_y = int((y2 - y1) * padding)
+    x1, y1 = max(0, x1 - pad_x), max(0, y1 - pad_y)
+    x2, y2 = min(w, x2 + pad_x), min(h, y2 + pad_y)
+    return x1, y1, x2, y2
+
+
+def crop_face_with_padding(img, bbox, padding=0.3, size=128, quality=85, use_cv2=True):
+    """
+    Crop face region from image with padding and resize to thumbnail.
+
+    Args:
+        img: Image (OpenCV BGR array if use_cv2=True, PIL Image otherwise)
+        bbox: Face bounding box [x1, y1, x2, y2]
+        padding: Padding ratio around face (default: 0.3 = 30%)
+        size: Output thumbnail size (default: 128)
+        quality: JPEG quality 1-100 (default: 85)
+        use_cv2: If True, input is OpenCV array; if False, input is PIL Image
+
+    Returns:
+        bytes: JPEG face thumbnail as bytes, or None on error
+    """
+    try:
+        x1, y1, x2, y2 = [int(v) for v in bbox]
+
+        if use_cv2:
+            # OpenCV path (from analyzers.py)
+            cv2 = _ensure_cv2()
+
+            x1, y1, x2, y2 = padded_face_bbox(img.shape, bbox, padding)
+
+            # Crop from image
+            face_crop = img[y1:y2, x1:x2]
+            if face_crop.size == 0:
+                return None
+
+            # Resize to thumbnail size (maintain aspect ratio within square)
+            crop_h, crop_w = face_crop.shape[:2]
+            scale = size / max(crop_h, crop_w)
+            new_w, new_h = int(crop_w * scale), int(crop_h * scale)
+            face_crop = cv2.resize(face_crop, (new_w, new_h), interpolation=cv2.INTER_AREA)
+
+            # Encode as JPEG
+            _, jpeg = cv2.imencode('.jpg', face_crop, [cv2.IMWRITE_JPEG_QUALITY, quality])
+            return jpeg.tobytes()
+        else:
+            # PIL path (from face_clustering.py)
+            Image = _ensure_pil()
+
+            pil_img = img
+            w, h = pil_img.size
+
+            # Add padding around face
+            face_w, face_h = x2 - x1, y2 - y1
+            pad_x, pad_y = int(face_w * padding), int(face_h * padding)
+            x1, y1 = max(0, x1 - pad_x), max(0, y1 - pad_y)
+            x2, y2 = min(w, x2 + pad_x), min(h, y2 + pad_y)
+
+            # Validate crop region
+            if x2 <= x1 or y2 <= y1:
+                return None
+
+            # Crop face region
+            face_crop = pil_img.crop((x1, y1, x2, y2))
+
+            # Resize to consistent size (maintaining aspect ratio)
+            face_crop.thumbnail((size, size), Image.Resampling.LANCZOS)
+
+            # Save to buffer
+            buf = BytesIO()
+            face_crop.save(buf, format="JPEG", quality=quality)
+            return buf.getvalue()
+
+    except Exception:
+        return None

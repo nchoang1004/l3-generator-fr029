@@ -1,0 +1,355 @@
+"""RAW-to-JPEG conversion backends for the download and thumbnail endpoints.
+
+- Display (``/image``) always uses rawpy (``convert_raw_to_jpeg``).
+- Downloads can use named darktable profiles (``convert_raw_darktable``).
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import os
+import shutil
+import subprocess
+import tempfile
+import time
+from collections.abc import Collection
+from io import BytesIO
+from pathlib import Path
+
+from api.config import VIEWER_CONFIG
+
+logger = logging.getLogger(__name__)
+
+DEFAULT_DARKTABLE_TIMEOUT_SECONDS = 120
+DEFAULT_CULL_PREVIEW_MAX_EDGE = 1440
+DEFAULT_CULL_PREVIEW_TIMEOUT_SECONDS = 60
+
+
+def _get_raw_config() -> dict:
+    """Read raw_processor config at call time (survives config reloads)."""
+    return VIEWER_CONFIG.get('raw_processor', {})
+
+
+# ---------------------------------------------------------------------------
+# Display conversion (always rawpy)
+# ---------------------------------------------------------------------------
+
+def convert_raw_to_jpeg(file_path: str, quality: int = 96,
+                        sequence_kind: str | None = None) -> bytes:
+    """Convert a RAW file to JPEG bytes via rawpy/libraw.
+
+    Used by the ``/image`` display endpoint.  Always uses rawpy so that the
+    browser preview is independent of any darktable style configuration.
+
+    ``sequence_kind`` is the row's ``photos.sequence_kind``: a bracketed frame
+    renders with no correction at all rather than from the camera preview.
+    """
+    return _convert_rawpy(file_path, quality, sequence_kind)
+
+
+# ---------------------------------------------------------------------------
+# Darktable profile conversion (for downloads only)
+# ---------------------------------------------------------------------------
+
+def convert_raw_darktable(file_path: str, profile_name: str, quality: int = 96) -> bytes:
+    """Convert a RAW file to JPEG using a named darktable profile (sync).
+
+    Raises ``ValueError`` if the profile is not found in the config.
+    Raises ``RuntimeError`` if darktable-cli fails.
+    """
+    raw_config = _get_raw_config()
+    dt_config = raw_config.get('darktable', {})
+    profiles = dt_config.get('profiles', [])
+
+    profile = next((p for p in profiles if p.get('name') == profile_name), None)
+    if profile is None:
+        raise ValueError(f"Unknown darktable profile: {profile_name}")
+
+    return _convert_darktable(file_path, quality, dt_config, profile)
+
+
+async def convert_raw_darktable_async(file_path: str, profile_name: str, quality: int = 96) -> bytes:
+    """Convert a RAW file to JPEG using a named darktable profile (async).
+
+    Non-blocking version that uses asyncio subprocess to avoid blocking
+    the FastAPI event loop during darktable-cli execution.
+    """
+    raw_config = _get_raw_config()
+    dt_config = raw_config.get('darktable', {})
+    profiles = dt_config.get('profiles', [])
+
+    profile = next((p for p in profiles if p.get('name') == profile_name), None)
+    if profile is None:
+        raise ValueError(f"Unknown darktable profile: {profile_name}")
+
+    return await _convert_darktable_async(file_path, quality, dt_config, profile)
+
+
+_DARKTABLE_AVAILABLE_TTL_SECONDS = 60
+_darktable_available_cache: tuple[float, str, bool] | None = None
+
+
+def is_darktable_available() -> bool:
+    """Check whether the configured darktable-cli executable exists."""
+    global _darktable_available_cache
+    dt_config = _get_raw_config().get('darktable', {})
+    executable = dt_config.get('executable', 'darktable-cli')
+    now = time.monotonic()
+    if (_darktable_available_cache is not None
+            and _darktable_available_cache[1] == executable
+            and (now - _darktable_available_cache[0]) < _DARKTABLE_AVAILABLE_TTL_SECONDS):
+        return _darktable_available_cache[2]
+    resolved = shutil.which(executable) if not os.path.isabs(executable) else executable
+    available = bool(resolved and os.path.isfile(resolved))
+    _darktable_available_cache = (now, executable, available)
+    return available
+
+
+def get_darktable_profiles() -> list[str]:
+    """Return the list of configured darktable profile names.
+
+    Returns an empty list when the darktable-cli executable is not found,
+    so that download options never advertise unavailable profiles.
+    """
+    if not is_darktable_available():
+        return []
+    raw_config = _get_raw_config()
+    profiles = raw_config.get('darktable', {}).get('profiles', [])
+    return [p['name'] for p in profiles if 'name' in p]
+
+
+def get_cull_styles() -> list[dict]:
+    """Configured cull styles (``name`` + ``label_key``) for the client capability.
+
+    Returns an empty list when the darktable-cli executable is not found, so the
+    viewer never advertises the edited-look preview when it cannot render.
+    """
+    if not is_darktable_available():
+        return []
+    styles = _get_raw_config().get('darktable', {}).get('cull_styles', [])
+    out = []
+    for entry in styles:
+        if not isinstance(entry, dict):
+            continue
+        name = entry.get('name')
+        if name:
+            out.append({'name': name, 'label_key': entry.get('label_key', name)})
+    return out
+
+
+def get_cull_style_names() -> list[str]:
+    """Raw configured cull-style names, for endpoint validation.
+
+    Not gated on binary availability: an unknown style is a 400 and an
+    unavailable binary is a 503, and the endpoint distinguishes them.
+    """
+    styles = _get_raw_config().get('darktable', {}).get('cull_styles', [])
+    return [e['name'] for e in styles if isinstance(e, dict) and e.get('name')]
+
+
+def render_cull_preview(file_path: str, style: str, max_edge: int, quality: int,
+                        timeout: int) -> bytes:
+    """Render an original through a named darktable style, bounded to ``max_edge``.
+
+    Reuses the download path's darktable-cli machinery (executable resolution,
+    UNC path handling, XMP sidecar, temp file, error mapping) via a synthetic
+    single-style profile. Raises ``RuntimeError`` on CLI failure or a missing
+    binary, and ``subprocess.TimeoutExpired`` when the render exceeds ``timeout``.
+    """
+    dt_config = _get_raw_config().get('darktable', {})
+    profile = {'style': style, 'width': max_edge, 'height': max_edge, 'hq': True}
+    return _convert_darktable(file_path, quality, dt_config, profile, timeout=timeout)
+
+
+# ---------------------------------------------------------------------------
+# Companion RAW detection
+# ---------------------------------------------------------------------------
+
+def find_companion_raw(disk_path: str) -> str | None:
+    """Find a companion RAW file for a given photo on disk.
+
+    Checks for files with the same stem and any supported RAW extension
+    in the same directory.  Returns the absolute path of the first match,
+    or ``None`` if no companion RAW exists.
+
+    If *disk_path* is itself a RAW file, returns that path directly.
+    """
+    from utils.image_loading import RAW_EXTENSIONS
+
+    p = Path(disk_path)
+    if p.suffix.lower() in RAW_EXTENSIONS:
+        return disk_path
+
+    return _find_companion_raw_cached(p.stem, str(p.parent), RAW_EXTENSIONS)
+
+
+_companion_raw_cache: dict[tuple[str, str], tuple[float, str | None]] = {}
+_COMPANION_RAW_TTL = 300  # 5 minutes
+_COMPANION_RAW_MAX = 2048
+
+
+def _find_companion_raw_cached(stem: str, parent_dir: str, raw_extensions: Collection[str]) -> str | None:
+    import time
+    key = (stem, parent_dir)
+    now = time.monotonic()
+    entry = _companion_raw_cache.get(key)
+    if entry and (now - entry[0]) < _COMPANION_RAW_TTL:
+        return entry[1]
+
+    parent = Path(parent_dir)
+    result: str | None = None
+    for ext in raw_extensions:
+        for candidate_ext in (ext, ext.upper()):
+            candidate = parent / (stem + candidate_ext)
+            if candidate.is_file():
+                result = str(candidate)
+                break
+        if result:
+            break
+
+    if len(_companion_raw_cache) >= _COMPANION_RAW_MAX:
+        _companion_raw_cache.clear()
+    _companion_raw_cache[key] = (now, result)
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Internal backends
+# ---------------------------------------------------------------------------
+
+def _convert_rawpy(file_path: str, quality: int, sequence_kind: str | None = None) -> bytes:
+    """Convert via rawpy/libraw.
+
+    Serves the camera-embedded preview when it covers enough of the sensor to
+    pass for the full frame; the rest demosaic. Preview coverage is a body
+    decision, not a brand one: Nikon, Pentax, Samsung and Canon CR3 embed a
+    near-full-size preview, while Sony, Fuji, Olympus and DNG embed a small one.
+    """
+    from utils.image_loading import get_raw_decode_settings, load_display_image
+
+    ratio = float(get_raw_decode_settings()['preview_min_sensor_ratio'])
+    pil_img = load_display_image(file_path, min_preview_sensor_ratio=ratio,
+                                decode_budget='viewer', sequence_kind=sequence_kind)
+    if pil_img is None:
+        raise RuntimeError(f"RAW decode failed: {file_path}")
+    buffer = BytesIO()
+    pil_img.save(buffer, format='JPEG', quality=quality)
+    return buffer.getvalue()
+
+
+def _darktable_path(path: str) -> str:
+    """Convert a Windows path for darktable-cli.
+
+    darktable-cli interprets backslashes as escape characters, so internal
+    separators are converted to forward slashes.  UNC paths (``\\\\server\\...``)
+    keep their ``\\\\`` prefix because ``//server/...`` is not recognised as a
+    network path by all Windows subsystems.
+    """
+    if path.startswith('\\\\'):
+        return '\\\\' + path[2:].replace('\\', '/')
+    return path.replace('\\', '/')
+
+
+def _build_darktable_cmd(resolved, dt_input, xmp_arg, dt_output, quality, profile):
+    """Assemble the darktable-cli argument list for a profile (pure, no I/O).
+
+    Positional args are ``<input> [<xmp>] <output>``; an empty ``xmp_arg`` is
+    omitted entirely (darktable-cli rejects an empty XMP positional with
+    "can't open XMP file"). The rest are profile flags: ``--hq``,
+    ``--width``/``--height``, ``extra_args``, an optional ``--style`` and
+    ``--apply-custom-presets false``, then JPEG quality via the core conf.
+    """
+    cmd: list[str] = [resolved, dt_input]
+    if xmp_arg:
+        cmd.append(xmp_arg)
+    cmd.append(dt_output)
+
+    if profile.get('hq', True):
+        cmd.extend(['--hq', 'true'])
+
+    width = profile.get('width')
+    if width:
+        cmd.extend(['--width', str(int(width))])
+
+    height = profile.get('height')
+    if height:
+        cmd.extend(['--height', str(int(height))])
+
+    extra = profile.get('extra_args', [])
+    if extra and isinstance(extra, list):
+        cmd.extend(str(a) for a in extra)
+
+    # darktable style (applied on top of the photo's edit history).
+    style = profile.get('style')
+    if style:
+        cmd.extend(['--style', str(style)])
+
+    # Auto-apply the user's custom presets (darktable-cli default: true). Set
+    # false to render only the explicit style.
+    if profile.get('apply_custom_presets') is False:
+        cmd.extend(['--apply-custom-presets', 'false'])
+
+    cmd.extend(['--core', '--conf', f'plugins/imageio/format/jpeg/quality={quality}'])
+    return cmd
+
+
+def _convert_darktable(file_path: str, quality: int, dt_config: dict, profile: dict,
+                       timeout: int = DEFAULT_DARKTABLE_TIMEOUT_SECONDS) -> bytes:
+    """Convert via darktable-cli using profile-specific settings."""
+    executable = dt_config.get('executable', 'darktable-cli')
+
+    resolved = shutil.which(executable) if not os.path.isabs(executable) else executable
+    if not resolved or not os.path.isfile(resolved):
+        raise RuntimeError(f"darktable-cli not found: {executable}")
+
+    fd, tmp_output = tempfile.mkstemp(suffix='.jpg')
+    os.close(fd)
+    os.unlink(tmp_output)  # darktable-cli refuses to overwrite existing files
+
+    try:
+        # darktable-cli treats backslashes as escape characters on Windows,
+        # so convert paths to forward slashes — but preserve the leading \\
+        # for UNC paths (e.g. \\server\share\...) which need it.
+        dt_input = _darktable_path(file_path)
+        dt_output = _darktable_path(tmp_output)
+
+        # XMP sidecar: darktable-cli accepts it as 2nd positional arg
+        xmp_path = file_path + '.xmp'
+        xmp_arg = _darktable_path(xmp_path) if os.path.isfile(xmp_path) else ''
+
+        cmd = _build_darktable_cmd(resolved, dt_input, xmp_arg, dt_output, quality, profile)
+
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"darktable-cli failed (exit {result.returncode}): "
+                f"{(result.stderr or result.stdout)[:500]}"
+            )
+
+        if not os.path.isfile(tmp_output) or os.path.getsize(tmp_output) == 0:
+            raise RuntimeError("darktable-cli produced no output file")
+
+        with open(tmp_output, 'rb') as f:
+            return f.read()
+    finally:
+        if os.path.exists(tmp_output):
+            os.unlink(tmp_output)
+
+
+async def _convert_darktable_async(file_path: str, quality: int, dt_config: dict, profile: dict,
+                                   timeout: int = DEFAULT_DARKTABLE_TIMEOUT_SECONDS) -> bytes:
+    """Async version of _convert_darktable.
+
+    Uses ``asyncio.to_thread`` to run the blocking darktable-cli subprocess
+    off the event loop.  This avoids the ``NotImplementedError`` raised by
+    ``asyncio.create_subprocess_exec`` on Windows when the event loop is not
+    a ``ProactorEventLoop``.
+    """
+    return await asyncio.to_thread(_convert_darktable, file_path, quality, dt_config, profile, timeout)

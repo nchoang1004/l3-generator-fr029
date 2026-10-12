@@ -1,0 +1,170 @@
+// primer UI — API client (apiFetch + ApiError).
+// Loaded via <script type="text/babel"> in ui/index.html. No imports.
+// Contributes to the shared window.primerApi namespace.
+
+(function () {
+  const T0103A_DETAIL = /pg_type_typname_nsp_index|relation .* does not exist/i;
+
+  // Strip the leading "body."/"query."/"path." segment Pydantic adds
+  // and convert the remaining loc into a readable dotted path.
+  function _humanizeFieldPath(loc) {
+    if (!Array.isArray(loc) || loc.length === 0) return "field";
+    const parts = loc.slice();
+    if (parts.length > 1 && (parts[0] === "body" || parts[0] === "query" || parts[0] === "path")) {
+      parts.shift();
+    }
+    return parts.map(String).join(".") || "field";
+  }
+
+  // Build the friendly 422 summary: "Missing or invalid: a, b (max 4)".
+  // Callers must guarantee a non-empty array (ApiError's constructor,
+  // the only caller, checks `fieldErrors.length > 0` before calling).
+  function _friendlyValidationDetail(fieldErrors) {
+    const seen = new Set();
+    const labels = [];
+    for (const fe of fieldErrors) {
+      const path = _humanizeFieldPath(fe?.loc);
+      if (seen.has(path)) continue;
+      seen.add(path);
+      labels.push(path);
+    }
+    const head = labels.slice(0, 4).join(", ");
+    const overflow = labels.length > 4 ? ` (+${labels.length - 4} more)` : "";
+    return `Missing or invalid: ${head}${overflow}.`;
+  }
+
+  class ApiError extends Error {
+    constructor(envelope) {
+      super(envelope.title || `HTTP ${envelope.status}`);
+      this.name = "ApiError";
+      this.type = envelope.type;
+      this.status = envelope.status;
+      this.requestId = envelope.extensions?.request_id ?? null;
+      this.fieldErrors = envelope.extensions?.errors ?? null;
+      this.envelope = envelope;
+      // Holistic 422 friendliness applies ONLY to genuine field-shaped
+      // validation errors (FastAPI's own RequestValidationError, which
+      // populates extensions.errors) - presented as "Data is incomplete"
+      // + a humanized field list, so form toasts/inline errors that fall
+      // back on title/detail show something useful instead of
+      // "Validation Error". A domain-level PrimerError mapped to 422
+      // (primer/api/errors.py's _make_primer_error_handler) never
+      // populates extensions.errors - it has no field list, but it DOES
+      // have its own specific, correct `detail` message (e.g. "seq 1 is
+      // the newest visible record; nothing to discard"), which branching
+      // on status alone used to discard in favor of the generic
+      // fallback. Branch on the shape of the payload instead.
+      if (Array.isArray(this.fieldErrors) && this.fieldErrors.length > 0) {
+        this.title = "Data is incomplete";
+        this.detail = _friendlyValidationDetail(this.fieldErrors);
+      } else {
+        this.title = envelope.title;
+        this.detail = envelope.detail;
+      }
+    }
+  }
+
+  function resolvePath(path) {
+    if (typeof path !== "string" || path.length === 0) {
+      throw new TypeError("apiFetch: path must be a non-empty string");
+    }
+    if (path.startsWith("/v1/")) return path;
+    if (path.startsWith("/")) return "/v1" + path;
+    return "/v1/" + path;
+  }
+
+  function isT0103aRetryable(envelope) {
+    return (
+      envelope &&
+      envelope.status === 502 &&
+      envelope.type === "/errors/provider-error" &&
+      typeof envelope.detail === "string" &&
+      T0103A_DETAIL.test(envelope.detail)
+    );
+  }
+
+  async function parseEnvelope(res) {
+    let body = null;
+    try {
+      body = await res.json();
+    } catch (_e) {
+      body = null;
+    }
+    if (body && typeof body === "object") {
+      if (typeof body.status !== "number") body.status = res.status;
+      return body;
+    }
+    return {
+      type: "about:blank",
+      title: res.statusText || `HTTP ${res.status}`,
+      status: res.status,
+      detail: null,
+    };
+  }
+
+  async function singleFetch(method, url, body, opts) {
+    const headers = { Accept: "application/json" };
+    const init = {
+      method,
+      headers,
+      credentials: "same-origin",
+    };
+    if (body !== undefined && body !== null) {
+      if (typeof FormData !== "undefined" && body instanceof FormData) {
+        // FormData uploads (multipart/form-data). Let fetch synthesise
+        // the Content-Type header itself - it carries the multipart
+        // boundary the server needs to parse the body.
+        init.body = body;
+      } else {
+        headers["Content-Type"] = "application/json";
+        init.body = JSON.stringify(body);
+      }
+    }
+    if (opts.signal) init.signal = opts.signal;
+
+    let res;
+    try {
+      res = await fetch(url, init);
+    } catch (e) {
+      throw new ApiError({
+        type: "/errors/network-error",
+        title: "Network error",
+        detail: e && e.message ? e.message : String(e),
+        status: 0,
+      });
+    }
+
+    if (res.status === 204) return { ok: true, data: null, envelope: null };
+
+    if (!res.ok) {
+      const envelope = await parseEnvelope(res);
+      return { ok: false, data: null, envelope };
+    }
+
+    let data = null;
+    try {
+      data = await res.json();
+    } catch (_e) {
+      data = null;
+    }
+    return { ok: true, data, envelope: null };
+  }
+
+  async function apiFetch(method, path, body, opts = {}) {
+    const upper = String(method || "GET").toUpperCase();
+    const url = resolvePath(path);
+
+    let result = await singleFetch(upper, url, body, opts);
+    if (!result.ok && isT0103aRetryable(result.envelope)) {
+      result = await singleFetch(upper, url, body, opts);
+    }
+
+    if (!result.ok) throw new ApiError(result.envelope);
+    return result.data;
+  }
+
+  const ns = (window.primerApi = window.primerApi || {});
+  ns.apiFetch = apiFetch;
+  ns.resolvePath = resolvePath;
+  ns.ApiError = ApiError;
+})();

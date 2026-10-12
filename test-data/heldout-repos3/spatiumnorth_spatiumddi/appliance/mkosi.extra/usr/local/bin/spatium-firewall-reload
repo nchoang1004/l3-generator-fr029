@@ -1,0 +1,302 @@
+#!/bin/bash
+# spatium-firewall-reload — host-side nftables drop-in apply runner
+# (issue #183 Phase 9).
+#
+# The supervisor pod writes
+# /var/lib/spatiumddi/release-state/firewall-pending whenever the
+# rendered drop-in body (for the active role assignment + operator
+# CIDR allowlist) changes vs. what's been applied here. The path
+# unit (spatium-firewall-reload.path) catches the rename and runs
+# this script.
+#
+# File format (plain text, no JSON to keep the runner dependency-
+# free):
+#   line 1:    sha256 hex of the body
+#   line 2+:   rendered drop-in body
+#
+# Apply flow:
+#   1. Read trigger, split hash + body
+#   2. Stage body to a tmp file under /etc/nftables.d/
+#   3. ``nft -c -f /etc/nftables.conf`` after the tmp → live swap
+#      target is in place — dry-run validates the WHOLE merged
+#      config including any other operator drop-ins. Abort on fail
+#      so a malformed body can't break the firewall.
+#   4. Atomic rename to /etc/nftables.d/spatium-role.nft
+#   5. Honour the drop-in's ``# spatium-bootstrap: retire|keep`` directive
+#      (#285 Phase 1b): retire moves the baked 6443 bootstrap sentinel
+#      (00-spatium-k3s-bootstrap.nft) aside once the cluster is multi-node
+#      so 6443 narrows to the scoped kubeapi rule; keep restores it on a
+#      shrink back to single-node. Re-validates + reverses on failure.
+#   6. ``nft -f /etc/nftables.conf`` to commit
+#   7. Write sidecar files so the supervisor knows we applied
+#      (firewall-applied-hash) and what state we're in
+#      (firewall-applied-status)
+#
+# Persistence across A/B slot swaps (Phase 8a, issue #138):
+#
+#   /etc/nftables.d/spatium-role.nft → /var/persist/etc/nftables.d/...
+#       (the /etc overlay's upper, on /var)
+#   /etc/nftables.d/00-spatium-k3s-bootstrap.nft[.retired]
+#       (same overlay — the retire/keep state survives slot swaps)
+#   /var/lib/spatiumddi/release-state/firewall-*
+#       (on /var directly)
+#
+# So a slot upgrade or rollback preserves the rendered drop-in + the
+# applied hash. The supervisor compares its rendered hash to the
+# applied hash sidecar on every heartbeat tick; matching = skip
+# trigger; mismatch = re-write.
+
+set -eu
+
+TRIGGER_FILE=/var/lib/spatiumddi/release-state/firewall-pending
+APPLIED_HASH=/var/lib/spatiumddi/release-state/firewall-applied-hash
+APPLIED_STATUS=/var/lib/spatiumddi/release-state/firewall-applied-status
+# #285 Phase 2b — sha256 of the live base /etc/nftables.conf we applied
+# against, echoed on the heartbeat so the control plane can tell a node
+# still on the pre-#285 LAN-wide base apart from a hardened one.
+BASE_MARKER=/var/lib/spatiumddi/release-state/firewall-applied-base-marker
+DROP_IN=/etc/nftables.d/spatium-role.nft
+NFT_MAIN=/etc/nftables.conf
+STAGING=/etc/nftables.d/.spatium-role.nft.new
+# #285 Phase 1b — the baked 6443 bootstrap sentinel the retire/keep block
+# below manages (hoisted here so the Phase-2c test-apply snapshot can read
+# its state too).
+SENTINEL=/etc/nftables.d/00-spatium-k3s-bootstrap.nft
+SENTINEL_RETIRED="$SENTINEL.retired"
+# #769 — the baked Web-UI sentinel (80/443 open from first boot, before the
+# supervisor has ever heartbeated). Managed by the same retire/keep machinery
+# via its own ``# spatium-webui:`` directive; retired only when the operator
+# has configured a source scope, because the sentinel's unconditional accept
+# sorts earlier in the include glob and would defeat that scope.
+WEBUI_SENTINEL=/etc/nftables.d/00-spatium-webui.nft
+WEBUI_SENTINEL_RETIRED="$WEBUI_SENTINEL.retired"
+# #1009 — SSH management floor. Same machinery: retired only when the
+# operator turns on ssh_lockdown, which is the one thing that lets the
+# source-scoped rule in 50-spatium-ssh.nft be reached on port 22.
+SSH_SENTINEL=/etc/nftables.d/00-spatium-ssh.nft
+SSH_SENTINEL_RETIRED="$SSH_SENTINEL.retired"
+# #285 Phase 2c — test-apply + auto-revert. A test trigger (``__test__`` on
+# line 2) snapshots the current drop-in + sentinel state to .last-good and
+# arms a deadline; the always-running spatiumddi-firewall-revert.timer
+# restores .last-good unless the supervisor writes CONFIRM_FILE (the control
+# plane's cross-node verdict) first. These live under release-state (same
+# filesystem as the deadline/confirm sidecars — avoids /var-vs-/etc-overlay
+# torn views on restore).
+REVERT_DEADLINE=/var/lib/spatiumddi/release-state/firewall-revert-deadline
+CONFIRM_FILE=/var/lib/spatiumddi/release-state/firewall-confirm
+LAST_GOOD=/var/lib/spatiumddi/release-state/firewall-role.nft.last-good
+LAST_GOOD_SENTINEL=/var/lib/spatiumddi/release-state/firewall-sentinel.last-good
+LAST_GOOD_WEBUI_SENTINEL=/var/lib/spatiumddi/release-state/firewall-webui-sentinel.last-good
+LAST_GOOD_SSH_SENTINEL=/var/lib/spatiumddi/release-state/firewall-ssh-sentinel.last-good
+
+log() { printf '[spatium-firewall-reload] %s\n' "$*"; }
+
+write_status() {
+    mkdir -p "$(dirname "$APPLIED_STATUS")"
+    printf '%s\n' "$1" > "$APPLIED_STATUS"
+}
+
+# #550 — on any failure path, move the trigger aside before exiting.
+# The supervisor's maybe_fire_firewall_reload bails while
+# firewall-pending exists, so an ``exit 1`` that leaves the trigger in
+# place permanently wedges the firewall plane — even a corrected value
+# never applies until someone SSHes in to delete it by hand. Renaming
+# it to ``.failed.<ts>`` (as the other reload runners do) lets the next
+# corrected heartbeat re-write the trigger; the copy stays for forensics.
+fail_release() {
+    write_status "$1"
+    [ -f "$TRIGGER_FILE" ] \
+        && mv -f "$TRIGGER_FILE" "${TRIGGER_FILE}.failed.$(date +%s)" 2>/dev/null
+    exit 1
+}
+
+if [ ! -r "$TRIGGER_FILE" ]; then
+    log "no trigger file at $TRIGGER_FILE — nothing to do"
+    exit 0
+fi
+
+HASH=$(sed -n '1p' "$TRIGGER_FILE")
+if [ -z "$HASH" ]; then
+    log "trigger missing hash (line 1) — refusing to apply"
+    fail_release "error:missing-hash"
+fi
+
+# #285 Phase 2c — a test-apply carries ``__test__ revert_seconds=N`` on line
+# 2; its body starts at line 3. A normal apply is the Phase-1 2-line format
+# (body from line 2). An OLD runner that never learned __test__ would treat
+# line 2 as body → nft -c -f fails → the apply is rejected, never
+# mis-applied; the backend only sends __test__ to runners new enough, so
+# this is belt-and-braces.
+LINE2=$(sed -n '2p' "$TRIGGER_FILE")
+TEST_MODE=0
+REVERT_SECONDS=180
+BODY_FROM=2
+case "$LINE2" in
+    __test__*)
+        TEST_MODE=1
+        BODY_FROM=3
+        n=$(printf '%s' "$LINE2" | sed -n 's/.*revert_seconds=\([0-9][0-9]*\).*/\1/p')
+        if [ -n "$n" ]; then REVERT_SECONDS=$n; fi
+        ;;
+esac
+
+# Body is everything from BODY_FROM. tail streams it without reading the
+# whole file into a shell variable.
+mkdir -p "$(dirname "$DROP_IN")"
+tail -n +"$BODY_FROM" "$TRIGGER_FILE" > "$STAGING"
+
+# Atomic rename — load `nft -c -f` will see the live drop-in path
+# resolved via the include glob in /etc/nftables.conf. If the dry-
+# run fails we revert to whatever was there before by deleting the
+# tmp file (the live path is untouched until the mv).
+if ! nft -c -f "$NFT_MAIN" 2>/tmp/nft-check.err; then
+    log "dry-run via $NFT_MAIN failed BEFORE swap — refusing:"
+    cat /tmp/nft-check.err | sed 's/^/[spatium-firewall-reload]  /'
+    rm -f "$STAGING"
+    fail_release "error:dry-run-pre"
+fi
+
+# #285 Phase 2c — snapshot the current (good) drop-in + sentinel state
+# before a test-apply replaces it, so the revert timer can restore BOTH
+# (the sentinel restore is what re-opens 6443 if the test had retired it).
+if [ "$TEST_MODE" = 1 ]; then
+    mkdir -p "$(dirname "$LAST_GOOD")"
+    if [ -f "$DROP_IN" ]; then cp -f "$DROP_IN" "$LAST_GOOD"; else : > "$LAST_GOOD"; fi
+    if [ -f "$SENTINEL" ]; then
+        echo present > "$LAST_GOOD_SENTINEL"
+    elif [ -f "$SENTINEL_RETIRED" ]; then
+        echo retired > "$LAST_GOOD_SENTINEL"
+    else
+        echo absent > "$LAST_GOOD_SENTINEL"
+    fi
+    # #769 — snapshot the Web-UI sentinel too. Without this, a test-apply
+    # that retires it (operator trialling a web_ui_allowed_cidrs scope) and
+    # then auto-reverts would restore the drop-in but leave the sentinel
+    # retired — i.e. the revert, whose whole job is to undo a lockout,
+    # would itself leave the Web UI narrower than before the test.
+    if [ -f "$WEBUI_SENTINEL" ]; then
+        echo present > "$LAST_GOOD_WEBUI_SENTINEL"
+    elif [ -f "$WEBUI_SENTINEL_RETIRED" ]; then
+        echo retired > "$LAST_GOOD_WEBUI_SENTINEL"
+    else
+        echo absent > "$LAST_GOOD_WEBUI_SENTINEL"
+    fi
+    # #1009 — and the SSH floor, for the same reason and more sharply: a
+    # test-apply that retires it is the one change in this plane that can
+    # cost the operator their own session, so a revert that left it retired
+    # would strand them on exactly the ruleset nobody confirmed.
+    if [ -f "$SSH_SENTINEL" ]; then
+        echo present > "$LAST_GOOD_SSH_SENTINEL"
+    elif [ -f "$SSH_SENTINEL_RETIRED" ]; then
+        echo retired > "$LAST_GOOD_SSH_SENTINEL"
+    else
+        echo absent > "$LAST_GOOD_SSH_SENTINEL"
+    fi
+fi
+
+mv "$STAGING" "$DROP_IN"
+
+if ! nft -c -f "$NFT_MAIN" 2>/tmp/nft-check.err; then
+    log "dry-run via $NFT_MAIN failed AFTER swap — drop-in body is invalid:"
+    cat /tmp/nft-check.err | sed 's/^/[spatium-firewall-reload]  /'
+    # Remove the bad drop-in so the master config still loads.
+    rm -f "$DROP_IN"
+    fail_release "error:dry-run-post"
+fi
+
+# #285 Phase 1b — bootstrap-sentinel retire/keep. The renderer stamps a
+# directive in the drop-in header: ``# spatium-bootstrap: retire`` once
+# the control plane is genuinely multi-node (so the only remaining path
+# to 6443 is the scoped ``kubeapi`` rule in the drop-in and the LAN-wide
+# baked sentinel is no longer needed) or ``# spatium-bootstrap: keep`` on
+# a single node (etcd loopback-only; 6443 must stay LAN-reachable for the
+# node's own pods + a first promote/join). Retiring moves the sentinel
+# aside to ``.retired`` (recoverable); keep restores it if the cluster
+# ever shrinks back to single-node. Both the sentinel and its ``.retired``
+# form live on the /etc overlay, so the move persists across reboots +
+# A/B slot swaps. An absent directive (legacy render) → leave it as-is.
+# (SENTINEL / SENTINEL_RETIRED are defined in the constants block above.)
+# Applies one sentinel's retire/keep directive. Args:
+#   $1 label, $2 directive name, $3 sentinel path, $4 retired path.
+# Echoes the action taken (none|retire|restore); reverses its own move and
+# fails the release if the resulting merged config doesn't validate.
+apply_sentinel_directive() {
+    _label="$1"; _directive="$2"; _file="$3"; _retired="$4"
+    _action=none
+    if grep -q "^# ${_directive}: retire" "$DROP_IN"; then
+        if [ -f "$_file" ]; then
+            mv "$_file" "$_retired"
+            _action=retire
+        fi
+    elif grep -q "^# ${_directive}: keep" "$DROP_IN"; then
+        if [ -f "$_retired" ] && [ ! -f "$_file" ]; then
+            mv "$_retired" "$_file"
+            _action=restore
+        fi
+    fi
+    [ "$_action" = none ] && return 0
+    log "$_label sentinel: $_action"
+    # The sentinel change alters the merged config — re-validate, and
+    # reverse the move on failure so a bad state can never apply. (A bare
+    # ``dport N accept`` add/remove is always syntactically valid, so this
+    # is belt-and-braces.)
+    if ! nft -c -f "$NFT_MAIN" 2>/tmp/nft-check.err; then
+        log "dry-run failed after $_label sentinel $_action — reverting:"
+        cat /tmp/nft-check.err | sed 's/^/[spatium-firewall-reload]  /'
+        case "$_action" in
+            retire) mv "$_retired" "$_file" ;;
+            restore) mv "$_file" "$_retired" ;;
+        esac
+        fail_release "error:sentinel-dry-run"
+    fi
+    return 0
+}
+
+apply_sentinel_directive bootstrap "spatium-bootstrap" "$SENTINEL" "$SENTINEL_RETIRED"
+# #769 — same machinery for the Web-UI sentinel. An absent directive (a
+# pre-#769 render reaching a post-#769 host) leaves the file as-is, so the
+# Web UI stays open — the safe direction: a stale unscoped accept is a
+# visible posture, a silently-closed Web UI is a support call.
+apply_sentinel_directive web-ui "spatium-webui" "$WEBUI_SENTINEL" "$WEBUI_SENTINEL_RETIRED"
+# #1009 — same machinery for the SSH floor. An absent directive (a pre-#1009
+# render reaching a post-#1009 host) leaves the file as-is, so SSH stays
+# open — the safe direction, and the same choice the web-ui line above makes:
+# a stale unscoped accept is a visible posture, a silently-closed SSH port is
+# a console trip.
+apply_sentinel_directive ssh "spatium-ssh" "$SSH_SENTINEL" "$SSH_SENTINEL_RETIRED"
+
+if ! nft -f "$NFT_MAIN" 2>/tmp/nft-apply.err; then
+    log "nft -f $NFT_MAIN failed — runtime apply error:"
+    cat /tmp/nft-apply.err | sed 's/^/[spatium-firewall-reload]  /'
+    fail_release "error:apply"
+fi
+
+mkdir -p "$(dirname "$APPLIED_HASH")"
+printf '%s\n' "$HASH" > "$APPLIED_HASH"
+# #285 Phase 2b — record which base conf we applied against (sha256 of the
+# merged master file). An old runner won't write this → control plane sees
+# None → leaves the column untouched (forward-compatible).
+sha256sum "$NFT_MAIN" | cut -d' ' -f1 > "$BASE_MARKER" 2>/dev/null || true
+# #285 Phase 2c — arm / clear the auto-revert deadline. A test-apply arms a
+# deadline the always-running spatiumddi-firewall-revert.timer enforces
+# unless the supervisor writes CONFIRM_FILE first (the control plane's
+# cross-node verdict). A normal apply supersedes any pending test window.
+if [ "$TEST_MODE" = 1 ]; then
+    rm -f "$CONFIRM_FILE"
+    echo "$(( $(date +%s) + REVERT_SECONDS ))" > "$REVERT_DEADLINE"
+    log "test-apply armed: auto-revert in ${REVERT_SECONDS}s unless confirmed"
+else
+    rm -f "$REVERT_DEADLINE" "$CONFIRM_FILE"
+fi
+write_status "ok"
+# #285 — consume the trigger. The supervisor's maybe_fire_firewall_reload
+# guards on ``if firewall-pending exists: return`` (don't clobber unapplied
+# work), so a trigger left in place after a successful apply silently BLOCKS
+# every subsequent firewall change (the applied-hash short-circuit only covers
+# the no-change case). Deleting it here closes that trap: a present trigger now
+# means genuinely-pending work, an absent one means "applied, ready for the
+# next change". The applied-hash sidecar (written above) is the source of truth
+# for what's live; the revert path keys off LAST_GOOD, not this file, so the
+# delete is safe in test mode too.
+rm -f "$TRIGGER_FILE"
+log "applied drop-in (hash=$HASH)"

@@ -1,0 +1,44 @@
+// SpatiumDDI appliance unattended-upgrades override.
+// Sources: Debian's 50unattended-upgrades is left alone; this
+// drop-in adds the appliance-specific policy on top so distro
+// updates to 50 don't get clobbered.
+
+// Only the security pocket — no major version upgrades.
+Unattended-Upgrade::Origins-Pattern {
+    "origin=Debian,codename=${distro_codename},label=Debian-Security";
+};
+
+// No kernels (#1249). Each slot boots /boot/vmlinuz and /boot/initrd.img,
+// symlinks the slot-image build and the installer point at the image's own
+// kernel. A new-ABI kernel package installed in place does not move them
+// (Debian links in /, not /boot), so it would never boot: it would only take
+// space in a fixed-size slot. A revision of the slot's own ABI is worse: it
+// overwrites the vmlinuz-<ver> they point at and rebuilds the initrd on the
+// device, so the slot boots a kernel its image never shipped. Kernels arrive
+// with slot images instead. A prefix,
+// because unattended-upgrades matches these as regexes from the start of
+// the name: linux-image-amd64 / -arm64 / -rpi-2712 and the versioned
+// packages. apt merges this list with the operator's blocklist in
+// 50unattended-upgrades (#164), so neither replaces the other.
+Unattended-Upgrade::Package-Blacklist {
+    "linux-image-";
+};
+
+// No mail — the appliance has no MTA and we don't want operators
+// to need to configure one to install the image.
+Unattended-Upgrade::Mail "";
+
+// Auto-remove unused dependencies after upgrade.
+Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
+Unattended-Upgrade::Remove-New-Unused-Dependencies "true";
+Unattended-Upgrade::Remove-Unused-Dependencies "true";
+
+// If the upgrade requires reboot, set a stamp file — the
+// appliance dashboard can surface this. Don't auto-reboot
+// (operator gets to decide; Phase 6 work).
+Unattended-Upgrade::Automatic-Reboot "false";
+
+// Don't hold updates if the package isn't installed cleanly —
+// log + continue.
+Unattended-Upgrade::OnlyOnACPower "false";
+Unattended-Upgrade::Skip-Updates-On-Metered-Connections "true";

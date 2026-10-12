@@ -1,0 +1,362 @@
+# PrintStash Vault
+
+Self-hosted 3D printing asset manager: a vault of logical Models backed by
+versioned file artifacts, with slicer metadata, printer presence, and trash
+retention. This file pins the project's domain language.
+
+## Language
+
+### Library
+
+**Model**:
+A printable logical asset deduplicated by source-mesh sha256; owns versioned
+Files and remains independently addressable and reusable even when referenced
+by Multipart Models. Everything shows each eligible Model independently of
+its references, alongside eligible Multipart Models.
+_Avoid_: asset, item, part
+
+**Artifact** (File):
+One physical stored blob (STL/3MF/OBJ/G-code) at a version under a Model.
+_Avoid_: upload, attachment
+
+**Multipart Model**:
+An independent library grouping that describes one object made from several
+printable Models. It references Models without moving or owning them and has
+its own description, collection, cover, guides and tags. A cover may be a
+private image uploaded to managed storage or a custom external image URL;
+otherwise the UI falls back to a member Model thumbnail. Its tags do not
+propagate to member Models, and member tags do not propagate to the grouping.
+_Avoid_: assembly Model, merged Model, collection
+
+**Multipart Part**:
+A named physical role within a Multipart Model, such as “base”, “handle” or
+“lid”. It has one Model when fixed and several Model Choices when alternatives
+are valid.
+_Avoid_: Part Group, folder, variant group
+
+**Model Choice**:
+One existing Model that can satisfy a Multipart Part. A Model can be referenced
+by any number of Multipart Models and keeps its own Artifacts, preview, G-code
+Revisions and print history.
+_Avoid_: Part Option, source file option, revision
+
+**Multipart Guide**:
+A Document linked to one Multipart Model for assembly or printing guidance.
+Guides may be Markdown, PDF or raster images, remain visible in Documents, and
+survive deletion of the grouping as ordinary Documents.
+_Avoid_: Model file, Artifact, attachment
+
+Multipart Models and ordinary Models share one library. Everything is the
+default presentation: it shows Multipart Models and ordinary Models together.
+Multipart Sets shows only groupings. Retired Organized and Parts only UI
+preferences resolve to Everything while retaining folder, filters and sort.
+Search reveals matching Models independently of their references. This is a
+presentation rule, not ownership: adding a piece or alternative never transfers
+or duplicates that Model's Files, and removing a piece or deleting the grouping
+only removes the reference. The Model and all of its Artifacts and Revisions
+remain addressable from search, Everything and any other Multipart
+Model that reuses it. Multipart Parts have an explicit order; every part is
+required, while its Model Choices are alternatives where exactly one is
+selected for a build.
+
+**Artifact persistence**:
+The invariant-heavy sequence `version → canonical publication → File row +
+committed ownership`, owned solely by
+`modules/ingestion/ingestion.persist_artifact`. That primary boundary is atomic: once
+the database commit begins, uncertain outcomes preserve the published bytes and
+their ownership evidence for reconciliation rather than deleting them.
+Metadata and thumbnails are Derivatives produced by Jobs after the commit;
+their failure never invalidates an otherwise complete Artifact. Ingest Jobs and
+revision attachment call this service; nothing else re-implements it.
+
+**Revision**:
+A G-code Artifact with test-outcome bookkeeping (label, status, notes,
+recommended marker). Revision numbers are derived from version order, never
+stored. A Model with at least one live G-code revision has exactly one
+recommended revision; a Model with no live G-code — none uploaded, or every
+revision deleted — has none, and the recommended marker is null. The first
+upload claims the marker (enforced in artifact persistence), marking another
+clears it from the rest, and deleting the recommended revision promotes the
+newest surviving revision (or leaves none when it was the last).
+
+**Model views**:
+The read-model module (`modules/library/model_views`) — single owner of every
+Model → response-schema composition (browse list, detail, export, trash
+list, vault stats). Routers never hand-map Model rows.
+_Avoid_: serializers, read builders scattered in routers
+
+### Similar Models
+
+**Geometry Fingerprint**:
+Versioned geometric descriptors of one mesh Artifact or one Component, used
+to retrieve candidates for verification. It never defines Model identity.
+_Avoid_: hash (means source-byte SHA-256), signature, embedding
+
+**Component**:
+One connected piece of a mesh Artifact, or one object resource inside a 3MF.
+Repeated instances retain their quantities and placement.
+_Avoid_: part (Multipart Part), shell
+
+**Similarity Candidate**:
+Evidence that two Models, or their Components, may share geometry, with
+measurements and a human review state distinct from the evidence's freshness.
+_Avoid_: duplicate, match, hit
+
+**Evidence Class**:
+A machine-observed geometric relationship, such as identical geometry,
+rescaled, mirrored, repaired, remeshed, similar shape, component-of or plate-of.
+It is distinct from a human Variant Role and never authorizes deletion or merging.
+_Avoid_: verdict, role
+
+**Similarity Run**:
+One bounded, cancellable, restart-safe execution of fingerprinting and candidate
+generation over an explicit scope.
+
+### AI Search
+
+**Search Subject**:
+A Model, Collection, Multipart Model or Document that search can return.
+Artifacts and Revisions contribute text to their Model rather than being Subjects.
+_Avoid_: item, record
+
+**Search Passage**:
+One bounded unit of searchable text derived from a Subject, with a versioned
+recipe. Long text and contributors with different visibility can form several Passages.
+_Avoid_: document, snippet
+
+**Visibility Segment**:
+Text from a Subject whose contributors share the same access requirements.
+Permission to see a grouping does not grant permission to see its restricted members.
+_Avoid_: user index, public passage
+
+### Trash
+
+**Live**:
+A row not in the trash. Expressed in queries only via the
+`app.db.scopes.live()` predicate.
+_Avoid_: hand-written `deleted_at.is_(None)`
+
+**Trashed**:
+A soft-deleted row awaiting retention expiry; query via
+`app.db.scopes.trashed()`.
+_Avoid_: deleted (ambiguous with hard delete)
+
+**Trash lifecycle**:
+soft-delete → restore or expiry → GC preview → explicit approval → quarantine →
+revalidated hard delete. `modules/library/trash` owns individual transitions and
+`modules/backups/gc_planner` owns automatic expiry. Automatic GC never approves its
+own plan. It requires a recent, verified S3 backup in an independent failure domain,
+an unchanged candidate digest, Verified active storage, and a completed
+quarantine interval. PrintStash never walks configured storage and deletes
+files merely because no database row claims them; failed writes clean up only
+their exact destinations at the write site.
+
+**GC plan**:
+A durable, bounded and immutable preview of expired catalog rows and their
+explicitly owned storage keys. At most one plan is active. Approval binds its
+exact digest to a backup witness; finalization rechecks the candidate rows,
+restore generation, target identity and failure-domain evidence, backup and quarantine deadline.
+
+**Backup witness**:
+The exact archive id, source reference, provider identity and digest of a fully
+verified, application-compatible S3 backup created in the previous 24 hours,
+with current evidence of a failure domain independent of active Vault storage.
+Native S3 and OpenDAL S3 replicas can supply the witness; the source is resolved
+against current configuration and committed ownership before full verification.
+
+### Storage
+
+**Storage target identity**:
+The versioned identity of the service and container holding bytes, distinct
+from an object's locator, ownership receipt, or connection profile.
+
+**Storage failure domain**:
+A group of storage targets whose failure may lose both active bytes and their
+backup. Different roles, credentials, prefixes, or profiles do not establish independence.
+
+**Failure-domain declaration**:
+An administrator's attestation of a custom target's failure domain, bound to
+that target's identity. It cannot override evidence that two targets share storage.
+
+**Storage capability tier**:
+The runtime-probed safety guarantee of the active storage backend: Verified,
+Guarded, or Unguarded. Tiers are derived from capability axes, never from a
+provider label. Destructive storage behavior consults the probed tier.
+
+**Storage provider**:
+A stable catalogue entry selected by ID (for example `local`, `s3`, or
+`nextcloud`). It supplies typed setup fields and resolves to a native or remote
+transport; provider identity and transport kind are not interchangeable.
+
+**Ownership intent**:
+An `owned_storage_objects` reservation created before bytes are published.
+PENDING intents are reclaimable after the grace period, COMMITTED intents are
+authoritative ownership records, and BLOCKED intents require operator review.
+
+**Storage key**:
+Opaque identifier for a stored blob — an absolute path (local backend) or
+an object key (S3 backend). Callers never branch on which.
+
+**Direct path**:
+The on-disk `Path` a backend can expose for a key (`direct_path()`), or
+None for remote backends. HTTP handlers use it to pick FileResponse vs
+streaming.
+
+**Local path**:
+`local_path(key)` context manager: the real path locally, a self-cleaning
+temp download remotely. The only sanctioned way to feed a stored blob to
+code that needs a filesystem path (mesh loading, tar, restore).
+
+**Artifact content**:
+`modules/storage/artifact_content` is the only read seam for an Artifact's bytes. It
+resolves managed storage, descriptor-pinned mounted files, and read-only remote
+sources without asking callers to understand `File.path`. Mounted reads reject
+symlinks and changes between open, hash and close. Remote reads verify stable
+object metadata around materialization.
+
+**Thumbnail**:
+A WebP preview stored under `thumbnail_key()` (`{file_id}.webp`);
+`thumbnail.to_webp()` is the single conversion seam every write goes
+through. Pre-WebP installs left PNGs under `legacy_thumbnail_key()` —
+read/delete only, never written.
+
+### Library sources
+
+**External library**:
+A user-managed mounted folder or read-only S3, WebDAV, or SFTP namespace that
+PrintStash indexes in place. The source remains authoritative; only generated
+thumbnails and metadata are stored by the Vault. Opt-in and OFF by default
+(`SystemConfig.external_libraries_enabled`). Owned by
+`modules/sources/external_library`. The UI calls these **Library sources**.
+
+**Remote I/O**:
+The typed `RemoteIO` interface serves remote Library sources and backup replicas.
+OpenDAL and AsyncSSH adapters own metadata, context-managed streaming readers,
+incremental directory iterators, and replica publication. A replica receipt
+records publication observations; it does not promise atomic managed creation.
+Create-only publication and immutable-version deletion are separate capability
+extensions. SFTP prevents competing creation but can expose a partial winning
+upload; Google Drive does not provide managed create-only publication. Native
+Local and S3 Vault backends keep the `StorageBackend` interface.
+
+**Backup run**:
+One archive creation with a durable snapshot of every selected destination.
+A destination result records committed publication separately from verification;
+a run is completed only when all selected results completed. Partial runs retain
+the successful replicas. A retry attempt copies the exact verified surviving
+archive to the failed result's original target, or reconciles an already committed
+publication; it never creates a replacement archive.
+
+**Storage connection**:
+A reusable remote-location profile. Non-secret configuration is stored separately
+from encrypted credentials, and API reads never return secret values. A
+connection may be enabled for Library sources, off-site backup replicas, or both;
+one connection can serve more than one Library source. Vault, Library and backup
+forms derive fields and secret boundaries from the same typed provider catalogue.
+Credential edits preserve omitted values. An endpoint/account/namespace change
+cannot redirect a connection while linked sources, owned objects or saved backup
+results still depend on its target.
+
+**Linked file**:
+An Artifact with `File.is_external = true`: its bytes live on a library source,
+not in managed Vault storage. `File.source_key` is the stable source-relative
+identity. `File.path` is an absolute display path for mounted sources and an
+opaque `source://` display URI for remote sources. PrintStash never deletes a
+linked file's bytes; trash and GC skip them.
+_Avoid_: "imported file" (that means a vault-owned copy).
+
+**Discovery epoch**:
+A complete, restart-safe reconciliation of one library source. Mounted sources
+use a descriptor-pinned filesystem snapshot. Remote sources stream directory
+observations into a database inventory, then process that completed inventory in
+bounded pages. A cursor identifies the inventory and the last committed entry.
+Interrupted incomplete directories restart; completed directories and processing
+pages survive a restart. Indexed observations replace whole-epoch JSON key sets.
+Absence is interpreted only after all inventory pages finish. Empty or unexpectedly
+large removal sets fail closed. A completed scan releases its inventory; abandoned
+inventories expire after 30 days. Unchanged usable markers retain the weekly hash
+sweep; sources without usable markers are hashed every scan.
+
+A remote inventory is a discovery snapshot, not a transaction across the provider.
+Metadata-poor transports cannot prove that a same-size replacement did not occur
+during a read. Exact length and available before/after markers are checked, and the
+next scan hashes markerless sources again.
+
+**Discovery tombstone**:
+A durable `(library, source_key)` suppression created when a linked Artifact is
+trashed. It prevents the still-present source object from being re-imported on
+the next scan. Restore or explicit Rediscover clears it.
+
+**Write-back**:
+Create-only web uploads or revisions routed into a mounted library folder
+instead of Vault storage (`ingestion.resolve_write_target`). It is disabled for
+S3, WebDAV, and SFTP library sources. Mounted write-back only adds files and
+never overwrites existing bytes.
+
+### Background work
+
+**Job**:
+The user-visible record of background work on one Subject: state, progress,
+owner and attempts. The row is also the pending marker the Reconciler finds.
+One active Job per Job Definition and Subject.
+_Avoid_: task (the browser's Task Center row), background job, workflow
+
+**Job Definition**:
+A named kind of work with a Lane, ordered Steps and an optional Work Source,
+declared by its owning module. It says what cancelling does to its Subject.
+_Avoid_: job type, handler
+
+**Step**:
+An idempotent unit of a Job with its own retry policy.
+
+**Subject**:
+The domain key a Job's intent belongs to (`file/42`, `library/3`).
+
+**Work Source**:
+Computes a Job Definition's pending Subjects from domain state, bounded by the
+room it is given. A Schedule Source derives them from a cadence.
+
+**Reconciler**:
+Runs each Work Source, repairs Jobs whose execution was lost or belongs to
+another version, and submits what is owed. It is what guarantees work happens.
+
+**Nudge**:
+A request to run one source's pass sooner. Losing one costs latency, never work.
+_Avoid_: enqueue, trigger
+
+**Lane**:
+A concurrency class and engine queue (`ingest`, `derive.native`, `notify`, …).
+
+**Fence**:
+A database lease that stops new Steps from starting, held by restore and
+migrations.
+
+**Derivative**:
+A pure function of one Artifact's bytes plus a Recipe (metadata, thumbnail,
+toolpath), produced by a Job after the Artifact commits. A missing Derivative is
+unknown, never zero.
+_Avoid_: enrichment, processing
+
+**Recipe (version)**:
+The versioned definition of how one Derivative kind is produced. Bumping it
+re-derives every Artifact at backfill priority.
+
+## Flagged ambiguities
+
+- **"Model"** also names ORM classes (`db/models.py`) and printer hardware
+  models (`Metadata.printer_model`). In conversation, unqualified "Model"
+  means the library asset.
+- **"Backend"** means the StorageBackend adapter in storage discussions,
+  and the FastAPI app in deployment discussions. Prefer "storage backend"
+  / "API server".
+
+## Example dialogue
+
+> **Dev:** Upload finished but the thumbnail rule looks wrong for revisions.
+> **Expert:** Revision attachment never overwrites the Model's thumbnail —
+> that rule lives in artifact persistence, so fix it there and both ingest
+> paths get it.
+> **Dev:** And the trash page shows a model the browse list also shows?
+> **Expert:** Then a query is missing the live scope — grep for a list
+> query not using `live(Model)`; nothing should write that predicate by
+> hand.

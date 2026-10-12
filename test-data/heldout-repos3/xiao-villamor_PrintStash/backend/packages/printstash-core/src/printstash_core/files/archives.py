@@ -1,0 +1,227 @@
+"""Product-neutral ZIP inspection and safe extraction policies."""
+
+from __future__ import annotations
+
+import stat
+import unicodedata
+import uuid
+import zipfile
+from collections.abc import Callable, Mapping, Set
+from dataclasses import dataclass
+from pathlib import Path, PurePosixPath
+from typing import BinaryIO, cast
+
+from .storage import stream_to_path
+
+
+class ArchivePolicyError(ValueError):
+    """A stable archive validation failure suitable for adapter translation."""
+
+    def __init__(self, code: str) -> None:
+        self.code = code
+        super().__init__(code)
+
+
+@dataclass(frozen=True)
+class ArchiveLimits:
+    """Resource and path limits applied while inspecting an archive."""
+
+    max_entries: int
+    max_entry_bytes: int
+    max_total_bytes: int
+    max_central_directory_bytes: int
+    max_path_bytes: int
+    max_depth: int
+
+
+@dataclass
+class ArchiveEntry:
+    """One selectable importable file or preview image in an archive."""
+
+    entry_id: str
+    name: str
+    size_bytes: int
+    file_type: str | None
+    is_image: bool
+
+
+def safe_entry_name(name: str) -> bool:
+    """Reject absolute paths, drive letters, directories, and traversal."""
+    if not name or name.endswith(("/", "\\")):
+        return False
+    if name.startswith(("/", "\\")):
+        return False
+    if len(name) > 2 and name[1] == ":":
+        return False
+    path = PurePosixPath(name.replace("\\", "/"))
+    return not path.is_absolute() and ".." not in path.parts
+
+
+def safe_subdir(relative_name: str) -> str:
+    """Return the validated POSIX directory part, or an empty root path."""
+    parent = PurePosixPath(relative_name.replace("\\", "/")).parent
+    return "" if str(parent) in (".", "") else str(parent)
+
+
+def inspect_archive(
+    path: Path,
+    *,
+    limits: ArchiveLimits,
+    file_types: Mapping[str, str],
+    image_suffixes: Set[str],
+) -> list[ArchiveEntry]:
+    """List supported entries while enforcing ZIP bomb and path policies."""
+    entries: list[ArchiveEntry] = []
+    try:
+        with zipfile.ZipFile(path) as archive:
+            infos = archive.infolist()
+            if len(infos) > limits.max_entries:
+                raise ArchivePolicyError("archive_too_many_entries")
+            central_size = max(path.stat().st_size - int(archive.start_dir), 0)
+            if central_size > limits.max_central_directory_bytes:
+                raise ArchivePolicyError("archive_too_large")
+
+            total = 0
+            normalized_names: set[str] = set()
+            for index, info in enumerate(infos):
+                normalized = unicodedata.normalize(
+                    "NFC", info.filename.replace("\\", "/")
+                )
+                if len(normalized.encode("utf-8")) > limits.max_path_bytes:
+                    raise ArchivePolicyError("archive_path_too_deep")
+                if len(PurePosixPath(normalized).parts) > limits.max_depth + 1:
+                    raise ArchivePolicyError("archive_path_too_deep")
+                folded = normalized.casefold()
+                if folded in normalized_names:
+                    raise ArchivePolicyError("archive_duplicate_entry")
+                normalized_names.add(folded)
+
+                if not info.is_dir() and not safe_entry_name(info.filename):
+                    raise ArchivePolicyError("archive_unsafe_entry")
+                if info.is_dir():
+                    continue
+                if info.file_size > limits.max_entry_bytes:
+                    raise ArchivePolicyError("archive_entry_too_large")
+                total += info.file_size
+                if total > limits.max_total_bytes:
+                    raise ArchivePolicyError("archive_too_large")
+
+                suffix = Path(info.filename).suffix.lower()
+                file_type = file_types.get(suffix)
+                is_image = suffix in image_suffixes
+                if file_type is None and not is_image:
+                    continue
+                entries.append(
+                    ArchiveEntry(
+                        entry_id=f"{index}:{info.CRC:08x}:{info.file_size}",
+                        name=info.filename,
+                        size_bytes=info.file_size,
+                        file_type=file_type,
+                        is_image=is_image,
+                    )
+                )
+    except zipfile.BadZipFile as exc:
+        raise ArchivePolicyError("archive_invalid") from exc
+    return entries
+
+
+def verify_archive_contents(
+    path: Path,
+    entries: list[ArchiveEntry],
+    *,
+    max_entry_bytes: int,
+    on_chunk: Callable[[], None],
+    on_entry: Callable[[int, int], None],
+) -> None:
+    """Decompress importable entries without publishing bytes before review.
+
+    Reading to EOF verifies each entry's CRC. The ZIP remains the sole staged
+    object until the user chooses which files to import.
+    """
+    importable = [entry for entry in entries if entry.file_type is not None]
+    try:
+        with zipfile.ZipFile(path) as archive:
+            for index, entry in enumerate(importable, start=1):
+                size = 0
+                with archive.open(entry.name) as source:
+                    while chunk := source.read(1024 * 1024):
+                        on_chunk()
+                        size += len(chunk)
+                        if size > max_entry_bytes or size > entry.size_bytes:
+                            raise ArchivePolicyError("archive_entry_too_large")
+                if size != entry.size_bytes:
+                    raise ArchivePolicyError("archive_invalid")
+                on_entry(index, len(importable))
+    except (zipfile.BadZipFile, RuntimeError, NotImplementedError) as exc:
+        raise ArchivePolicyError("archive_invalid") from exc
+
+
+def extract_selected(
+    path: Path,
+    names: list[str],
+    *,
+    staging_dir: Path,
+    max_entry_bytes: int,
+    importable_suffixes: Set[str],
+    name_factory: Callable[[str], str] | None = None,
+    on_chunk: Callable[[], None] | None = None,
+    on_entry: Callable[[], None] | None = None,
+) -> list[tuple[Path, str]]:
+    """Extract selected entries into caller-exclusive private staging paths.
+
+    Entry callbacks run before opening each selected supported entry; chunk
+    callbacks are forwarded to the bounded copy. On any unwind, remove only
+    completed regular files whose recorded device/inode still matches. Cleanup
+    is best effort and preserves the primary failure. This is not an atomic
+    conditional delete contract for paths under active replacement.
+    """
+    wanted = set(names)
+    extracted: list[tuple[Path, str]] = []
+    owned: list[tuple[Path, int, int]] = []
+
+    def default_name(suffix: str) -> str:
+        return f"{uuid.uuid4().hex}{suffix}"
+
+    make_name: Callable[[str], str] = name_factory or default_name
+    try:
+        with zipfile.ZipFile(path) as archive:
+            for info in archive.infolist():
+                if info.filename not in wanted or info.is_dir():
+                    continue
+                if not safe_entry_name(info.filename):
+                    raise ArchivePolicyError("archive_unsafe_entry")
+                if info.file_size > max_entry_bytes:
+                    raise ArchivePolicyError("archive_entry_too_large")
+                suffix = Path(info.filename).suffix.lower()
+                if suffix not in importable_suffixes:
+                    continue
+                if on_entry is not None:
+                    on_entry()
+                staged = staging_dir / make_name(suffix)
+                with archive.open(info) as source:
+                    stream_to_path(
+                        cast(BinaryIO, source),
+                        staged,
+                        max_bytes=max_entry_bytes,
+                        on_chunk=on_chunk,
+                    )
+                identity = staged.lstat()
+                owned.append((staged, identity.st_dev, identity.st_ino))
+                extracted.append((staged, info.filename.replace("\\", "/")))
+    except BaseException as failure:
+        for staged, device, inode in owned:
+            try:
+                current = staged.lstat()
+                if stat.S_ISREG(current.st_mode) and (
+                    current.st_dev,
+                    current.st_ino,
+                ) == (device, inode):
+                    staged.unlink()
+            except FileNotFoundError:
+                pass
+            except OSError as cleanup_error:
+                failure.add_note(
+                    f"staging cleanup failed: {cleanup_error.__class__.__name__}"
+                )
+        raise
+    return extracted

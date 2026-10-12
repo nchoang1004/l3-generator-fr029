@@ -1,0 +1,87 @@
+loaded: OPENAI_API_KEY
+agentgpt: completed cost 0.4541
+[
+ {
+  "repo": "agentgpt",
+  "size": "nhỏ",
+  "model": "gpt-6-luna",
+  "status": "completed",
+  "reason": "",
+  "coverage_complete": true,
+  "cost_usd": 0.4541,
+  "prompt": "fr029-agent-prompt-v14",
+  "kinds": {
+   "routes": {
+    "tp": 16,
+    "fp": 1,
+    "fn": 0,
+    "precision": 0.941,
+    "recall": 1.0
+   },
+   "models": {
+    "tp": 17,
+    "fp": 0,
+    "fn": 0,
+    "precision": 1.0,
+    "recall": 1.0
+   },
+   "http_calls": {
+    "tp": 6,
+    "fp": 0,
+    "fn": 0,
+    "precision": 1.0,
+    "recall": 1.0
+   },
+   "file_roles": {
+    "tp": 78,
+    "fp": 0,
+    "fn": 0,
+    "precision": 1.0,
+    "recall": 1.0
+   },
+   "limitations": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 0,
+    "precision": null,
+    "recall": null
+   }
+  },
+  "attribute_accuracy": {
+   "routes": {
+    "handler": "16/16",
+    "params": "16/16",
+    "request_body": "16/16",
+    "response": "16/16",
+    "status": "16/16"
+   },
+   "models": {
+    "fields": "17/17"
+   },
+   "http_calls": {
+    "library": "6/6",
+    "method": "6/6",
+    "target": "3/6 (+2 unknown)"
+   },
+   "file_roles": {
+    "role": "77/78",
+    "label": "78/78",
+    "line": "74/78"
+   },
+   "limitations": {}
+  },
+  "exact": {
+   "exact_facts": 21,
+   "exact_wrong": 1,
+   "rate": 0.048,
+   "not_evaluated": 0
+  },
+  "verdict": {
+   "routes": "đạt",
+   "models": "đạt",
+   "http_calls": "đạt",
+   "exact": "đạt",
+   "overall": "đạt"
+  }
+ }
+]

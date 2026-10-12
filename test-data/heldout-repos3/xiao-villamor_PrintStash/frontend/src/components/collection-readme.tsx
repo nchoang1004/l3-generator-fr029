@@ -1,0 +1,216 @@
+"use client";
+
+import { useTaxonomyCommands } from "@/features/library/taxonomy";
+
+import { uiText } from "@/lib/locale";
+import { useUiLocale } from "@/lib/i18n";
+
+import { useEffect, useRef, useState } from "react";
+import { FileText, Loader2, Pencil } from "lucide-react";
+
+import { useQueryClient } from "@tanstack/react-query";
+
+import { uploadCollectionImage } from "@/lib/api";
+import { invalidateCachedAsset } from "@/lib/asset-cache";
+import { useCollectionReadme } from "@/lib/queries";
+import { queryKeys } from "@/lib/query-client";
+import { MarkdownView } from "@/components/markdown-view";
+import { toast } from "@/lib/toast";
+
+export function CollectionReadme({
+  collectionId,
+  canEdit,
+  hasReadme,
+}: {
+  collectionId: number;
+  canEdit: boolean;
+  /** From `CollectionRead.has_readme`; false skips the request entirely. */
+  hasReadme: boolean;
+}) {
+  useUiLocale();
+  const queryClient = useQueryClient();
+  const { setCollectionReadme } = useTaxonomyCommands();
+  // Cached per folder, so revisiting one shows its readme with no request. A
+  // readme that cannot be read is treated as absent: the folder is still usable.
+  const readmeQuery = useCollectionReadme(collectionId, { enabled: hasReadme });
+  const readme = readmeQuery.data ?? null;
+  const loading = readmeQuery.isLoading;
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [overflows, setOverflows] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  // Collapse tall descriptions so a long/technical one doesn't bury the model
+  // list. CLAMP_PX must match the max-h-* class below.
+  const CLAMP_PX = 192;
+  useEffect(() => {
+    const el = contentRef.current;
+    setOverflows(!!el && el.scrollHeight > CLAMP_PX + 8);
+    setExpanded(false);
+  }, [readme]);
+
+  // Switching collections drops an open edit in the render that first sees the
+  // new id — React's "adjust state when a prop changes". The readme itself is
+  // keyed by id in the query cache, so it can never show the previous folder's.
+  const [shownCollectionId, setShownCollectionId] = useState(collectionId);
+  if (shownCollectionId !== collectionId) {
+    setShownCollectionId(collectionId);
+    setEditing(false);
+  }
+
+  function startEdit() {
+    setDraft(readme ?? "");
+    setEditing(true);
+  }
+
+  async function save() {
+    setSaving(true);
+    try {
+      const trimmed = draft.trim();
+      const res = await setCollectionReadme(collectionId, trimmed || null);
+      queryClient.setQueryData<string | null>(queryKeys.collectionReadme(collectionId), res.readme);
+      setEditing(false);
+    } catch (err) {
+      toast.error(err);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // Insert markdown at the cursor (or append) — used after an image uploads.
+  function insertAtCursor(text: string) {
+    const el = textareaRef.current;
+    if (!el) {
+      setDraft((d) => d + text);
+      return;
+    }
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    setDraft((d) => d.slice(0, start) + text + d.slice(end));
+  }
+
+  async function handleFiles(files: FileList | File[]) {
+    const images = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    if (!images.length) return;
+    setUploading(true);
+    try {
+      for (const file of images) {
+        const { url } = await uploadCollectionImage(collectionId, file);
+        invalidateCachedAsset(url);
+        insertAtCursor(`\n![${file.name}](${url})\n`);
+      }
+    } catch (err) {
+      toast.error(err);
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  // Nothing to show and can't edit → render nothing (no empty box).
+  if (loading) return null;
+  if (!readme && !editing && !canEdit) return null;
+
+  if (editing) {
+    return (
+      <div className="px-4 sm:px-6 py-4 bg-background border-b border-border">
+        <textarea
+          ref={textareaRef}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onPaste={(e) => {
+            if (e.clipboardData.files.length) {
+              e.preventDefault();
+              handleFiles(e.clipboardData.files);
+            }
+          }}
+          onDrop={(e) => {
+            if (e.dataTransfer.files.length) {
+              e.preventDefault();
+              handleFiles(e.dataTransfer.files);
+            }
+          }}
+          rows={8}
+          placeholder={uiText(
+            "A short description of this collection. Markdown — paste or drop images.",
+          )}
+          className="w-full bg-surface text-on-surface font-mono text-sm border border-border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+        <div className="flex items-center gap-2 mt-2">
+          <button
+            onClick={save}
+            disabled={saving}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary-foreground bg-primary rounded hover:bg-primary-hover disabled:opacity-50"
+          >
+            {saving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+            {uiText("Save")}
+          </button>
+          <button
+            onClick={() => setEditing(false)}
+            disabled={saving}
+            className="px-3 py-1.5 text-xs font-medium text-foreground bg-background border border-border rounded hover:bg-muted"
+          >
+            {uiText("Cancel")}
+          </button>
+          {uploading && (
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              {uiText(" Uploading image…")}
+            </span>
+          )}
+          <span className="ml-auto text-xs text-muted-foreground">
+            {uiText("Markdown · paste or drop images")}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="px-4 sm:px-6 py-4 bg-background border-b border-border">
+      {readme ? (
+        <div className="relative group/readme">
+          <div
+            ref={contentRef}
+            className={!expanded && overflows ? "max-h-48 overflow-hidden" : ""}
+          >
+            <MarkdownView source={readme} />
+          </div>
+          {overflows && (
+            <>
+              {!expanded && (
+                <div className="pointer-events-none absolute inset-x-0 bottom-7 h-12 bg-gradient-to-t from-background to-transparent" />
+              )}
+              <button
+                onClick={() => setExpanded((v) => !v)}
+                className="mt-1 text-xs font-medium text-primary hover:underline"
+              >
+                {expanded ? uiText("Show less") : uiText("Show more")}
+              </button>
+            </>
+          )}
+          {canEdit && (
+            <button
+              onClick={startEdit}
+              className="absolute top-0 right-0 flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium text-foreground bg-background border border-border rounded hover:bg-muted opacity-0 group-hover/readme:opacity-100 transition-opacity"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+              {uiText(" Edit")}
+            </button>
+          )}
+        </div>
+      ) : (
+        <button
+          onClick={startEdit}
+          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <FileText className="w-4 h-4" />
+          {uiText(" Add a description for this collection")}
+        </button>
+      )}
+    </div>
+  );
+}

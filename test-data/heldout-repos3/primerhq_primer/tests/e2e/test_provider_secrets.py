@@ -1,0 +1,212 @@
+"""E2E: provider secret-handling invariant.
+
+Covers backlog item T0027 — spec §7 says API keys round-trip via
+``dump_for_storage`` for the storage path but are NEVER echoed back
+to API consumers. The GET response's config.api_key must therefore
+be either absent, null, or a fixed mask — never the plaintext.
+"""
+
+from __future__ import annotations
+
+import httpx
+import pytest
+from tests._support.model_profiles import seed_llm_provider
+
+
+_PLAINTEXT_KEY = "sk-test-PLAINTEXT-MUST-NEVER-LEAK"
+
+
+def _llm_body(entity_id: str) -> dict:
+    return {
+        "id": entity_id,
+        "provider": "anthropic",
+        "models": [{"name": "claude-sonnet-4-6", "context_length": 200_000}],
+        "config": {"api_key": _PLAINTEXT_KEY},
+        "limits": {"max_concurrency": 1},
+    }
+
+
+def _find_secret_leak(node: object) -> str | None:
+    """Walk a JSON tree and return the first string equal to the
+    plaintext key, or ``None`` if it does not appear anywhere."""
+    if isinstance(node, str):
+        return node if node == _PLAINTEXT_KEY else None
+    if isinstance(node, dict):
+        for value in node.values():
+            hit = _find_secret_leak(value)
+            if hit is not None:
+                return hit
+        return None
+    if isinstance(node, list):
+        for item in node:
+            hit = _find_secret_leak(item)
+            if hit is not None:
+                return hit
+        return None
+    return None
+
+
+@pytest.mark.asyncio
+async def test_t0027_provider_secrets_never_echoed(
+    client: httpx.AsyncClient, unique_suffix: str,
+) -> None:
+    entity_id = f"llm-secret-{unique_suffix}"
+    body = _llm_body(entity_id)
+    create = await seed_llm_provider(client, body)
+    assert create.status_code == 201, create.text
+
+    try:
+        # The CREATE response itself must not echo the plaintext.
+        leak = _find_secret_leak(create.json())
+        assert leak is None, (
+            f"plaintext api_key leaked through CREATE response: {leak!r}"
+        )
+
+        got = await client.get(f"/v1/llm_providers/{entity_id}")
+        assert got.status_code == 200, got.text
+        body_out = got.json()
+        leak = _find_secret_leak(body_out)
+        assert leak is None, (
+            f"plaintext api_key leaked through GET response: {leak!r}"
+        )
+
+        # Sanity: the api_key field must STILL appear (we don't want it
+        # silently stripped — that would also be a bug). It just must
+        # not equal the plaintext.
+        api_key = body_out["config"].get("api_key")
+        assert api_key is not None, (
+            f"config.api_key field missing from GET response: {body_out!r}"
+        )
+        assert api_key != _PLAINTEXT_KEY
+
+        # The same invariant must hold across the list endpoint.
+        listed = await client.get("/v1/llm_providers?limit=200&offset=0")
+        assert listed.status_code == 200
+        leak = _find_secret_leak(listed.json())
+        assert leak is None, (
+            f"plaintext api_key leaked through LIST response: {leak!r}"
+        )
+    finally:
+        await client.delete(f"/v1/llm_providers/{entity_id}")
+
+
+# ============================================================================
+# T0211 — POST with unknown extra body field is silently accepted
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_t0211_post_with_unknown_extra_field_silently_accepted(
+    client: httpx.AsyncClient, unique_suffix: str,
+) -> None:
+    """T0211 — Pydantic's default config silently drops unknown fields
+    (extra="ignore"). POSTing /v1/llm_providers with an extra top-level
+    field must succeed (201) and the field must NOT appear on the
+    persisted row when GET-ed back.
+
+    Mirrors T0174's "extra fields ignored on /search" invariant for
+    the CRUD create path.
+    """
+    entity_id = f"llm-t0211-{unique_suffix}"
+    extra_field_name = f"x_unknown_{unique_suffix}"
+    body = _llm_body(entity_id)
+    body[extra_field_name] = "this-should-be-dropped"
+
+    create = await seed_llm_provider(client, body)
+    # Either silently accepted (Pydantic extra="ignore", common default)
+    # or rejected (Pydantic extra="forbid"). Pin no 5xx.
+    assert create.status_code < 500, create.text
+    if create.status_code == 201:
+        try:
+            got = await client.get(f"/v1/llm_providers/{entity_id}")
+            assert got.status_code == 200, got.text
+            row = got.json()
+            assert extra_field_name not in row, (
+                f"unknown extra field {extra_field_name!r} survived "
+                f"the create + read round-trip: {row!r}"
+            )
+            assert "this-should-be-dropped" not in str(row), (
+                f"extra field value leaked into row body: {row!r}"
+            )
+        finally:
+            await client.delete(f"/v1/llm_providers/{entity_id}")
+    else:
+        assert 400 <= create.status_code < 500, create.text
+        envelope = create.json()
+        assert envelope["type"].startswith("/errors/"), envelope
+        assert envelope["type"] != "/errors/internal", envelope
+
+
+# ============================================================================
+# T0726 — POST with deeply-nested unknown extra config keys silently dropped
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_t0726_post_with_deeply_nested_unknown_extra_keys_clean_envelope(
+    client: httpx.AsyncClient, unique_suffix: str,
+) -> None:
+    """T0726 — Sister of T0211 (top-level unknown extra field). T0726
+    deepens the probe: unknown extra keys are nested inside
+    ``config:`` and inside one of the ``models[]`` entries — 2-3
+    levels deep. The Pydantic config-discriminator must still
+    silently drop them (or cleanly reject 422); never leak
+    /errors/internal from a recursive validator panic or asyncpg
+    JSONB-coercion edge.
+
+    Priority 4 (JSONB sibling) + priority 6 (envelope leak hunt).
+    """
+    entity_id = f"llm-t0726-{unique_suffix}"
+    extra_nested = f"x_nested_{unique_suffix}"
+    body = _llm_body(entity_id)
+    # Nest extras one level inside config and inside a model entry.
+    body["config"]["__extra_top"] = "this-should-be-dropped"
+    body["config"]["__extra_obj"] = {
+        "deeper": {extra_nested: "even-deeper"},
+        "list": [{"k": "v"}, {extra_nested: "list-deep"}],
+    }
+    # The former third probe put an extra key inside a models[] entry.
+    # That field is gone; the equivalent surface is a ModelProfile body,
+    # which seed_llm_provider builds from the declared models below.
+    resp = await seed_llm_provider(client, body)
+    envelope = resp.json() if resp.content else {}
+
+    # Primary invariant — no internal-error leak under deep nesting.
+    assert envelope.get("type") != "/errors/internal", (
+        f"deeply-nested extra keys leaked /errors/internal: "
+        f"{resp.status_code}: {resp.text}"
+    )
+    # Documented outcomes match T0211 — Pydantic default extra="ignore"
+    # accepts; if a future tightening flips to extra="forbid" we
+    # still want 4xx, never 5xx.
+    assert resp.status_code in (201, 400, 422), (
+        f"deeply-nested extra keys unexpected status: "
+        f"{resp.status_code}: {resp.text}"
+    )
+
+    if resp.status_code == 201:
+        try:
+            got = await client.get(f"/v1/llm_providers/{entity_id}")
+            assert got.status_code == 200, got.text
+            row = got.json()
+            row_text = str(row)
+            # None of the nested extra keys should survive the round-trip.
+            for needle in (
+                "__extra_top", "__extra_obj", "__extra_in_model",
+                "this-should-be-dropped", "even-deeper", "drop-me-too",
+                extra_nested,
+            ):
+                assert needle not in row_text, (
+                    f"deeply-nested extra key/value {needle!r} survived "
+                    f"the create + read round-trip — Pydantic should "
+                    f"have dropped it; full row: {row}"
+                )
+        finally:
+            await client.delete(f"/v1/llm_providers/{entity_id}")
+    else:
+        # On 4xx, no row should exist (no partial persist).
+        got = await client.get(f"/v1/llm_providers/{entity_id}")
+        assert got.status_code == 404, (
+            f"4xx on POST should not leave a persisted row: "
+            f"{got.status_code}: {got.text}"
+        )

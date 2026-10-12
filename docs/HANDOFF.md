@@ -1,5 +1,11 @@
 # Bàn giao — L3 Generator
 
+## Chạy thật nsidnev, gói dữ liệu test, kéo về chạy — 12/10/2026
+
+- Chạy thật gpt-5 trên nsidnev/fastapi-realworld qua giao diện (đọc một lần): agent `partial` (`REPAIR_ROUNDS`), 3 request, **0,462 USD** (vượt trần dừng 0,35 vì trần chỉ chặn request kế tiếp). 14 route, 12 model; 57 lần nộp bị từ chối, 13 vấn đề còn mở. Chưa so với gold, chưa phân loại lỗi model hay bộ kiểm quá chặt. Kết quả: `ket-qua-chay/chay-that-qua-giao-dien-20261012/`.
+- Tiền OpenAI cả ngày 11–12/10 theo `result.json`/`cost.json`: khoảng 0,442 (11/10) + 0,23 (repo nhỏ) + 0,462 (nsidnev) = khoảng 1,13 USD. Số tiền thật phải đối chiếu với trang OpenAI.
+- `test-data/`: repo ngoài và gold dùng để chạy/đo (khoảng 233 MB, bỏ file lớn, media, `.git`, `.env` thật). Bảng đổi đường dẫn `D:/VSF/...` sang `test-data/...` ở `test-data/README.md`.
+
 ## Chạy thật qua giao diện, repo nhỏ — 12/10/2026
 
 Người dùng: "tự ấn vào tự kiểm đi (kiểm với repo nhỏ) cho đến khi hoạt động". Chạy `docweb` với gpt-5-2025-08-07, đọc một lần, trên tdd-docker (6 file đọc), qua HTTP như giao diện (script `drive.py` ngoài repo). Khóa lấy từ biến `open_ai`, không in.

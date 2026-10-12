@@ -1,0 +1,375 @@
+import {
+  refreshDaysBadgeLabel,
+  recencyBadgeLabel,
+  watchedBadgeLabel,
+} from "@/lib/constants";
+import { effectiveSources } from "@/components/rows/row-sources-field";
+import { placementLabel } from "@/lib/placement";
+import {
+  GENERATED_OVER_TIME_DEFAULTS,
+  generatedRowInputDefaults,
+} from "@/lib/row-templates.generated";
+import { withoutWebSearchWhenSeasonal } from "@/lib/seasonal-sources";
+import { showDaysSummary } from "@/lib/show-days";
+import { SOURCES, sourceBlockedReason, sourceShortLabel } from "@/lib/sources";
+import type {
+  Collection,
+  CollectionInput,
+  PlexLibrary,
+  Settings,
+  User,
+} from "@/lib/types";
+
+/** A fresh row definition with sensible defaults, for the "Add a row" editor. */
+export function blankInput(): CollectionInput {
+  return generatedRowInputDefaults();
+}
+
+/**
+ * The AI row's Explore and over-time settings at their defaults (#138): one fixed theme, no brief, and
+ * every control off. A row with no theme sends these, matching what the server resets them to.
+ */
+export const OVER_TIME_DEFAULTS = GENERATED_OVER_TIME_DEFAULTS;
+
+/** Project a saved collection onto the editable input shape the editor and PATCH share. */
+export function toInput(collection: Collection): CollectionInput {
+  return {
+    name: collection.name,
+    defer_rename: false,
+    build: collection.build,
+    audience: collection.audience,
+    audience_user_ids: collection.audience_user_ids,
+    enabled: collection.enabled,
+    schedule: collection.schedule ?? "",
+    size: collection.size,
+    media: collection.media,
+    sort_order: collection.sort_order,
+    name_template: collection.name_template,
+    fallback_name: collection.fallback_name ?? "",
+    description: collection.description ?? "",
+    sort_title_prefix: collection.sort_title_prefix ?? "",
+    min_watchers: collection.min_watchers,
+    request_tag: collection.request_tag,
+    candidate_sources: collection.candidate_sources,
+    library_keys: collection.library_keys,
+    watched_pct: collection.watched_pct ?? null,
+    rewatch: collection.rewatch ?? false,
+    unstarted_only: collection.unstarted_only ?? false,
+    refresh_days: collection.refresh_days ?? null,
+    idle_hold_days: collection.idle_hold_days ?? null,
+    rewatch_cooldown_days: collection.rewatch_cooldown_days ?? 30,
+    requests_row: collection.requests_row ?? false,
+    requests_window_days: collection.requests_window_days ?? 90,
+    requests_tag_pattern: collection.requests_tag_pattern ?? "",
+    recency: collection.recency ?? null,
+    recent_count: collection.recent_count ?? null,
+    max_seeds: collection.max_seeds ?? null,
+    max_runtime: collection.max_runtime ?? null,
+    min_year: collection.min_year ?? null,
+    max_year: collection.max_year ?? null,
+    min_rating: collection.min_rating ?? null,
+    cold_start: collection.cold_start ?? null,
+    req_min_rating: collection.req_min_rating ?? null,
+    req_min_votes: collection.req_min_votes ?? null,
+    req_min_demand: collection.req_min_demand ?? null,
+    req_min_year: collection.req_min_year ?? null,
+    req_max_year: collection.req_max_year ?? null,
+    req_auto_send: collection.req_auto_send ?? null,
+    req_auto_min_demand: collection.req_auto_min_demand ?? null,
+    req_auto_min_rating: collection.req_auto_min_rating ?? null,
+    req_max_per_row: collection.req_max_per_row ?? null,
+    req_radarr_quality_profile_id:
+      collection.req_radarr_quality_profile_id ?? null,
+    req_radarr_root_folder: collection.req_radarr_root_folder ?? null,
+    req_sonarr_quality_profile_id:
+      collection.req_sonarr_quality_profile_id ?? null,
+    req_sonarr_root_folder: collection.req_sonarr_root_folder ?? null,
+    req_sonarr_monitor: collection.req_sonarr_monitor ?? null,
+    req_language_mode: collection.req_language_mode ?? null,
+    req_preferred_languages: collection.req_preferred_languages ?? null,
+    req_min_rating_other: collection.req_min_rating_other ?? null,
+    req_auto_user_tag: collection.req_auto_user_tag ?? null,
+    seed_window: collection.seed_window ?? 1,
+    pick_order: collection.pick_order ?? "best",
+    placement: collection.placement ?? "both",
+    placement_friends: collection.placement_friends ?? "both",
+    show_days: collection.show_days ?? [],
+    seasons: collection.seasons ?? [],
+    season_lead_days: collection.season_lead_days ?? 30,
+    season_after_days: collection.season_after_days ?? 0,
+    pin_top: collection.pin_top ?? false,
+    hub_anchor: collection.hub_anchor ?? {},
+    poster: {
+      // Legacy "generate" rows edit as "ai" (the renamed engine).
+      mode:
+        collection.poster?.mode === "generate"
+          ? "ai"
+          : (collection.poster?.mode ?? ""),
+      title: collection.poster?.title ?? "",
+      subtitle: collection.poster?.subtitle ?? "",
+      style: collection.poster?.style ?? "",
+    },
+    // Only the two fields: the response model is open, and the request model refuses any other key.
+    ai_instructions: {
+      mode: collection.ai_instructions?.mode ?? "default",
+      text: collection.ai_instructions?.text ?? "",
+    },
+    theme_id: collection.theme_id ?? null,
+    theme_mode: collection.theme_mode ?? "fixed",
+    explore_brief: collection.explore_brief ?? "",
+    theme_days: collection.theme_days ?? null,
+    refresh_share: collection.refresh_share ?? null,
+    repeat_cooldown_days: collection.repeat_cooldown_days ?? null,
+    avoid_rows: collection.avoid_rows ?? null,
+  };
+}
+
+/** Value equality over the JSON the editor form holds — objects, arrays and primitives. */
+function sameValue(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  // An array is never equal to a plain object. Without this, a one-sided array falls through to the
+  // object branch below, where `Object.keys([1])` is `["0"]` — so `[]` compared equal to `{}` and
+  // `[1]` to `{0: 1}`. Unreachable through `CollectionInput` today, since every field has a fixed
+  // array-or-object type, but this is a general-purpose comparison and the trap costs one line.
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  if (Array.isArray(a) && Array.isArray(b)) {
+    return a.length === b.length && a.every((item, i) => sameValue(item, b[i]));
+  }
+  if (
+    typeof a === "object" &&
+    typeof b === "object" &&
+    a !== null &&
+    b !== null
+  ) {
+    const left = a as Record<string, unknown>;
+    const right = b as Record<string, unknown>;
+    const keys = new Set([...Object.keys(left), ...Object.keys(right)]);
+    return [...keys].every((key) => sameValue(left[key], right[key]));
+  }
+  return false;
+}
+
+/**
+ * Does the editor form differ from the row as last saved?
+ *
+ * Compared by VALUE, not by `JSON.stringify`. Every field goes through nested objects (`poster`,
+ * `hub_anchor`) that the form rebuilds wholesale as you edit, and stringify is sensitive to the key
+ * order those rebuilds happen to produce — which would report a row as edited for having been
+ * looked at. This drives the editor's "you have unsaved changes" note beside Run, where a false
+ * positive is a warning about nothing.
+ */
+export function hasUnsavedChanges(
+  input: CollectionInput,
+  collection: Collection | null,
+): boolean {
+  if (!collection) return false; // an unsaved new row has nothing to differ from
+  return !sameValue(asStored(input), asStored(toInput(collection)));
+}
+
+/**
+ * The form as the server would store it, for comparison only. The draft keeps text typed under Add
+ * after a switch back to the default, so choosing Add again restores it; but the server stores no
+ * text for the default and trims the rest (`_stored_instructions`), so neither is a change.
+ */
+function asStored(input: CollectionInput): CollectionInput {
+  const { mode, text } = input.ai_instructions;
+  return {
+    ...input,
+    ai_instructions: { mode, text: mode === "default" ? "" : text.trim() },
+  };
+}
+
+/** One-line "who sees this row" summary for a row card. */
+export function audienceSummary(collection: Collection, users: User[]): string {
+  if (collection.audience === "everyone") return "Everyone";
+  const names = collection.audience_user_ids
+    .map((id) => {
+      const user = users.find((u) => u.id === id);
+      return user && (user.display_name || user.username);
+    })
+    .filter(Boolean);
+  if (names.length === 0) return "No one yet";
+  return names.length <= 2
+    ? names.join(" & ")
+    : `${names.slice(0, 2).join(", ")} +${names.length - 2}`;
+}
+
+/**
+ * The ways this row departs from the global defaults, in plain English.
+ *
+ * Every one of these is editable per row, but a row card that only showed "everyone · 15 titles"
+ * made the overrides invisible — an owner couldn't tell a Trakt-only, cinephile-toned row from a
+ * stock one without opening the editor. Empty array = this row is entirely on the defaults.
+ *
+ * `libraries` is null while the library list is still loading or unavailable: a raw section key is
+ * not a name an owner recognises, so the libraries part is withheld rather than guessed at.
+ */
+export function rowOverrides(
+  collection: Collection,
+  libraries: PlexLibrary[] | null,
+  settings?: Settings,
+): string[] {
+  const parts: string[] = [];
+
+  if (collection.candidate_sources.length > 0) {
+    if (!settings) {
+      // Settings not known yet — list every chosen source without judging what can run.
+      parts.push(
+        `Sources: ${collection.candidate_sources.map(sourceShortLabel).join(", ")}`,
+      );
+    } else {
+      // Capability-aware: a source whose global dependency (key/curator) isn't met can't run, so it's
+      // badged "Needs setup" rather than advertised as active — the card never claims a dead source.
+      const runnable: string[] = [];
+      const blocked: string[] = [];
+      for (const id of collection.candidate_sources) {
+        const source = SOURCES.find((s) => s.id === id);
+        const isBlocked = source
+          ? sourceBlockedReason(source, settings) !== null
+          : false;
+        (isBlocked ? blocked : runnable).push(sourceShortLabel(id));
+      }
+      if (runnable.length > 0) parts.push(`Sources: ${runnable.join(", ")}`);
+      if (blocked.length > 0) parts.push(`Needs setup: ${blocked.join(", ")}`);
+    }
+  }
+
+  if (collection.library_keys.length > 0 && libraries !== null) {
+    const titles = collection.library_keys.map(
+      (key) => libraries.find((l) => l.key === key)?.title ?? `Library ${key}`,
+    );
+    parts.push(`Libraries: ${titles.join(", ")}`);
+  }
+
+  // Badged BEFORE the watched cap, and instead of it: on a rewatch row the cap is plumbing (it only
+  // stops the pool dropping finished titles), so "Watched: no filter" describes the mechanism while
+  // this badge describes the row. Showing both would read as two competing settings.
+  //
+  // Worded as the row editor's own switch is ("Make this a 'watch it again' row"). "Rewatches
+  // first" was our internal name for the ordering rule and meant nothing on a card.
+  if (collection.rewatch) {
+    parts.push("“Watch it again” row");
+  } else if (
+    // null inherits the global recommendations.watched_pct, so there's nothing to badge. Unlike the
+    // prompt, this override IS honoured on the default row, so it isn't gated on the slug.
+    collection.watched_pct !== null &&
+    collection.watched_pct !== undefined
+  ) {
+    parts.push(watchedBadgeLabel(collection.watched_pct));
+  }
+
+  if (collection.unstarted_only) {
+    parts.push("Never started only");
+  }
+
+  // null inherits the global cadence, so only badge a per-row override.
+  if (
+    collection.refresh_days !== null &&
+    collection.refresh_days !== undefined
+  ) {
+    parts.push(refreshDaysBadgeLabel(collection.refresh_days));
+  }
+
+  // null inherits the global release-date weight, so only badge a per-row override.
+  if (collection.recency !== null && collection.recency !== undefined) {
+    parts.push(recencyBadgeLabel(collection.recency));
+  }
+
+  // These two badges are the same unit — a number of watches — for two different scopes, and they
+  // used to read "Recent watches: 3" and "Built from 1 watch": two counts of watches, neither
+  // saying what counted them, on the same card. Named for the scope each governs instead, so the
+  // pair reads as one setting and the slice of it that it is (`candidates.py` searches
+  // `seeds[:recent_count]`). null inherits the global on both, so only an override is badged.
+  if (collection.max_seeds !== null && collection.max_seeds !== undefined) {
+    parts.push(
+      `All sources: ${collection.max_seeds} ${collection.max_seeds === 1 ? "watch" : "watches"}`,
+    );
+  }
+
+  if (
+    collection.recent_count !== null &&
+    collection.recent_count !== undefined
+  ) {
+    parts.push(
+      `AI web search: ${collection.recent_count} ${collection.recent_count === 1 ? "watch" : "watches"}`,
+    );
+  }
+
+  // The instructions only reach AI web search, so a row that doesn't use it has nothing to badge.
+  // Before settings load the global set is unknown, so a row with no sources of its own keeps the badge.
+  // An AI row is filled from its theme (`rows.effective_row_sources`), so it never searches the web.
+  const isAiRow = collection.theme_id != null;
+  const usesAiWebSearch =
+    !isAiRow &&
+    (collection.candidate_sources.length > 0 || settings
+      ? withoutWebSearchWhenSeasonal(
+          effectiveSources(collection.candidate_sources, settings),
+          collection.seasons ?? [],
+        ).includes("llm_web")
+      : true);
+  if (usesAiWebSearch && collection.ai_instructions?.mode === "add") {
+    parts.push("AI instructions: adds to the default");
+  }
+  if (usesAiWebSearch && collection.ai_instructions?.mode === "own") {
+    parts.push("AI instructions: own");
+  }
+  // On an AI row the same field holds the guidance "Write the list" is given, so it is badged as that.
+  if (isAiRow && collection.ai_instructions?.mode === "add") {
+    parts.push("AI prompt: adds to the default");
+  }
+  if (isAiRow && collection.ai_instructions?.mode === "own") {
+    parts.push("AI prompt: own");
+  }
+  if (isAiRow && collection.ai_paused) {
+    parts.push("AI paused");
+  }
+
+  // null = no limit, so only a limit that is set gets a badge.
+  if (collection.max_runtime != null) parts.push(`Max length ${collection.max_runtime} min`);
+  const { min_year: fromYear, max_year: toYear } = collection;
+  if (fromYear != null && toYear != null) parts.push(`Released ${fromYear}–${toYear}`);
+  else if (fromYear != null) parts.push(`From ${fromYear}`);
+  else if (toYear != null) parts.push(`Up to ${toYear}`);
+  if (collection.min_rating != null) parts.push(`Rating ${collection.min_rating}+`);
+
+  // null inherits the global cold-start behaviour, so only badge a row that overrides it — and only
+  // "skip" is worth a badge: it is the one that makes a row silently absent for someone.
+  if (collection.cold_start === "skip") {
+    parts.push("Skipped without watch history");
+  }
+
+  // 1 = always their most recent watch (the default), so only badge a row that actually cycles —
+  // otherwise the setting is invisible on the rows page and nobody discovers they turned it on.
+  if ((collection.seed_window ?? 1) > 1) {
+    parts.push(`Cycles ${collection.seed_window} recent watches`);
+  }
+
+  // Only a row that actually NARROWS its days is worth a badge. The API collapses all seven to [],
+  // so a non-empty list always means a real restriction.
+  const days = collection.show_days ?? [];
+  if (days.length > 0) {
+    parts.push(showDaysSummary(days));
+  }
+
+  // Only badge when placement differs from the "both" default.
+  if (
+    collection.placement !== "both" ||
+    collection.placement_friends !== "both"
+  ) {
+    const owner = placementLabel(collection.placement);
+    const friends = placementLabel(collection.placement_friends);
+    if (collection.placement === collection.placement_friends) {
+      if (collection.placement !== "both") parts.push(`Shows on: ${owner}`);
+    } else {
+      parts.push(`Owner: ${owner} · Friends: ${friends}`);
+    }
+  }
+  // Legacy row-level pin, or a per-library "Top" set via the Position control.
+  const anchors = Object.values(collection.hub_anchor ?? {});
+  if (collection.pin_top || anchors.some((a) => a.top))
+    parts.push("Pinned to top");
+  else if (anchors.some((a) => a.anchor || a.row))
+    parts.push("Custom shelf position");
+
+  return parts;
+}

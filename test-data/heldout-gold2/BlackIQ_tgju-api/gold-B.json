@@ -1,0 +1,183 @@
+{
+  "schema": "fr029-gold-v1",
+  "fixture": "BlackIQ_tgju-api",
+  "repository": "BlackIQ/tgju-api",
+  "commit": "82578875caf421b61d39b830c2d7cbc169817ccd",
+  "root": ".",
+  "pydantic_major": 2,
+  "fastapi_version": "0.140.0",
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/api/price/currency",
+      "handler": "routers/price.py::currency",
+      "declared_at": "routers/price.py:22",
+      "params": [],
+      "request_body": null,
+      "response": {
+        "model": "PriceItem",
+        "model_file": "schemas/price.py",
+        "array": true
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "GET",
+      "path": "/api/price/gold",
+      "handler": "routers/price.py::gold",
+      "declared_at": "routers/price.py:92",
+      "params": [],
+      "request_body": null,
+      "response": {
+        "model": "PriceCategory",
+        "model_file": "schemas/price.py",
+        "array": true
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "GET",
+      "path": "/api/price/oil",
+      "handler": "routers/price.py::oil",
+      "declared_at": "routers/price.py:159",
+      "params": [],
+      "request_body": null,
+      "response": {
+        "model": "PriceCategory",
+        "model_file": "schemas/price.py",
+        "array": true
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    }
+  ],
+  "models": [
+    {
+      "name": "PriceItem",
+      "file": "schemas/price.py",
+      "line": 4,
+      "fields": [
+        {
+          "name": "title",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "price",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "key",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "status",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "low_price",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "high_price",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        }
+      ]
+    },
+    {
+      "name": "PriceCategory",
+      "file": "schemas/price.py",
+      "line": 13,
+      "fields": [
+        {
+          "name": "title",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "prices",
+          "alias": null,
+          "type": "array[PriceItem]",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    }
+  ],
+  "excluded_routes": [],
+  "limitations": [],
+  "http_calls": [
+    {
+      "where": "scrap/tgju.py:279",
+      "alt_where": [],
+      "library": "httpx",
+      "method": "GET",
+      "target": {
+        "kind": "unknown",
+        "reason": "URL là tham số url của _get_soup (scrap/tgju.py:273); giá trị là hằng CURRENCY_URL/GOLD_URL/OIL_URL do 3 hàm gọi truyền vào (dòng 340, 350, 370), không phải một literal tại dòng gọi"
+      }
+    }
+  ],
+  "non_http_calls": [
+    {
+      "where": "scrap/tgju.py:291",
+      "why": "status.get(\"class\", []) là Tag.get của BeautifulSoup (đọc thuộc tính HTML)"
+    },
+    {
+      "where": "scrap/tgju.py:320",
+      "why": "link.get(\"href\") là Tag.get của BeautifulSoup"
+    },
+    {
+      "where": "middlewares/request.py:23",
+      "why": "request.headers.get(\"X-Request-ID\") đọc header của request đến"
+    },
+    {
+      "where": "middlewares/request.py:37",
+      "why": "request.headers.get(\"User-Agent\")"
+    },
+    {
+      "where": "services/price.py:21",
+      "why": "redis.set(...) là Redis client, không phải HTTP"
+    }
+  ],
+  "notes": [
+    "root = \".\": mọi file .py production nằm ở gốc repository; code import theo gốc này (from routers import price, main.py:7). pyproject.toml:19-20 entrypoint main:app.",
+    "Prefix: main.py:44 include_router(price.router, prefix=\"/api\") + routers/price.py:16-19 APIRouter(prefix=\"/price\") + decorator \"/currency\" => /api/price/currency. Tương tự /gold, /oil.",
+    "Ba route khai response_model=list[PriceItem] / list[PriceCategory] (routers/price.py:22, 92, 159) => response model, array=true. Không có kiểu trả về ở def; response_model thắng.",
+    "Status 200 mặc định (không khai status_code); status_source default. Không có tham số, không có Depends trong route (dependencies/database.py get_db không được route nào dùng).",
+    "routers/price.py chỉ có 3 decorator thật; code ở dòng 75-87, 142-154, 238-250 là comment, không phải route.",
+    "fastapi_version: pyproject.toml:11 'fastapi[standard]>=0.140.0' không ghim; uv.lock:223-224 ghim 0.140.0, chọn giá trị này. pydantic 2.13.4 (uv.lock:633-634), pydantic_major 2.",
+    "PriceItem.status/low_price/high_price kiểu `str | None = None` (schemas/price.py:8-10): required false, nullable true. PriceCategory.prices: list[PriceItem] => array[PriceItem] (schemas/price.py:15).",
+    "Models: chỉ PriceItem và PriceCategory (dùng làm response_model). BaseSchema (base/schema.py:6) và Settings (core/settings.py:6) không dùng trong route nên không ghi.",
+    "http_calls: chỉ có httpx tại scrap/tgju.py:279 `client.get(url)`; dòng 274 httpx.AsyncClient(...) là tạo client, không phải lời gọi. url là tham số hàm nên đích unknown (không phải literal toàn URL hay khóa Settings); ba hằng URL ở dòng 268-270 là literal nhưng đi qua tham số.",
+    "Không có add_api_route/add_route/add_websocket_route, không có urllib/requests/aiohttp, nên limitations rỗng. Không có test trong repo; migrations/ không có route.",
+    "app.add_middleware (main.py:25, 40), CORSMiddleware và RequestMiddleware (middlewares/request.py:15) không phải route."
+  ]
+}

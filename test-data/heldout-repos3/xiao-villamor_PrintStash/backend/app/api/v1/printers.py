@@ -1,0 +1,1433 @@
+"""Printer management, send-to-print, live WS status, and farm dashboard (Stage 3 / The Hub)."""
+
+from __future__ import annotations
+
+import asyncio
+from typing import Awaitable, Callable, List, Optional
+
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    WebSocket,
+    WebSocketDisconnect,
+)
+from printstash_core.printers import ProviderError, ProviderRegistry
+from sqlmodel import Session, select
+
+from app.api.edit_preconditions import edit_precondition
+from app.bootstrap.dependencies import get_hub, get_hub_from_ws
+from app.core.http import get_or_404
+from app.core.logging import get_logger
+from app.core.security import require_superuser, require_user
+from app.core.time import utcnow
+from app.db.models import (
+    CollectionRole,
+    File,
+    FileType,
+    Model,
+    Printer,
+    PrinterFile,
+    PrinterPermission,
+    PrinterProvider,
+    PrinterRole,
+    PrintJob,
+    PrintJobState,
+    User,
+)
+from app.db.scopes import live
+from app.db.session import get_session
+from app.modules.identity import printer_rbac, rbac, ws_tickets
+from app.modules.identity.auth import get_user_by_id, verify_access_token
+from app.modules.printing import dispatch, materials, printer_edits
+from app.modules.printing.printer_files import (
+    list_printer_files,
+    sync_printer_files,
+)
+from app.modules.printing.printer_hub import PrinterHub
+from app.modules.printing.printer_jobs import (
+    reproducibility_payload,
+)
+from app.modules.printing.printer_provider import (
+    capabilities_for_provider,
+    detect_printer_model,
+    get_provider_client,
+    provider_diagnostic_summary,
+)
+from app.modules.printing.unattributed import ensure_unattributed_artifact
+from app.modules.storage.storage_backend.runtime import get_backend
+from app.schemas.editing import EditPrecondition
+from app.schemas.materials import ManualMaterialStateUpdate, PrinterMaterialStateRead
+from app.schemas.printers import (
+    HomeAxes,
+    MoonrakerConfigRead,
+    PrinterCapabilities,
+    PrinterCreate,
+    PrinterFileRead,
+    PrinterPermissionRead,
+    PrinterPermissionUpdate,
+    PrinterRead,
+    PrinterUpdate,
+    PrintJobRead,
+    SendToPrinter,
+    SetTemperature,
+    StartPrinterFile,
+)
+
+logger = get_logger(__name__)
+
+router = APIRouter(prefix="/printers", tags=["printers"])
+
+_DIAGNOSTIC_CHECK_TIMEOUT_SECONDS = 5.0
+
+_PRINTER_CONNECTION_FIELDS = frozenset(
+    {
+        "provider",
+        "moonraker_url",
+        "api_key",
+        "provider_variant",
+        "bambu_host",
+        "bambu_serial",
+        "bambu_access_code",
+        "prusalink_url",
+        "prusalink_auth_mode",
+        "prusalink_username",
+        "prusalink_password",
+        "prusalink_api_key",
+        "elegoo_centauri_host",
+        "elegoo_centauri_access_code",
+        "elegoo_centauri_mainboard_id",
+        "octoprint_url",
+        "octoprint_api_key",
+    }
+)
+
+
+def _require_superuser_for_connection_update(
+    payload: PrinterUpdate, current_user: User
+) -> None:
+    """Keep delegated printer admins inside the configured printer boundary."""
+    if current_user.is_superuser:
+        return
+    if payload.model_fields_set & _PRINTER_CONNECTION_FIELDS:
+        raise HTTPException(status_code=403, detail="admin_required")
+
+
+def _provider_client(request: Request, printer: Printer):
+    """Build a provider using this application's explicitly composed registry."""
+    registry: ProviderRegistry = request.app.state.printer_provider_registry
+    return get_provider_client(printer, registry=registry)
+
+
+def _provider_action_code(exc: ProviderError) -> str:
+    """Return the precise persisted reason when a provider supplies one."""
+
+    return str(getattr(exc, "action_code", None) or exc.code)
+
+
+def _validate_provider_config(p: Printer) -> None:
+    if p.provider == PrinterProvider.MOONRAKER and not p.moonraker_url:
+        raise HTTPException(status_code=400, detail="moonraker_url_required")
+    if p.provider == PrinterProvider.BAMBU_LAN:
+        if not p.bambu_host:
+            raise HTTPException(status_code=400, detail="bambu_host_required")
+        if not p.bambu_serial:
+            raise HTTPException(status_code=400, detail="bambu_serial_required")
+        if not p.bambu_access_code:
+            raise HTTPException(status_code=400, detail="bambu_access_code_required")
+    if p.provider == PrinterProvider.PRUSALINK:
+        if not p.prusalink_url:
+            raise HTTPException(status_code=400, detail="prusalink_url_required")
+        if p.prusalink_auth_mode == "digest":
+            if not p.prusalink_username or not p.prusalink_password:
+                raise HTTPException(
+                    status_code=400,
+                    detail="prusalink_digest_credentials_required",
+                )
+        elif p.prusalink_auth_mode == "api_key":
+            if not p.prusalink_api_key:
+                raise HTTPException(
+                    status_code=400, detail="prusalink_api_key_required"
+                )
+        else:
+            raise HTTPException(status_code=400, detail="prusalink_auth_mode_required")
+    if p.provider == PrinterProvider.ELEGOO_CENTAURI:
+        if p.provider_variant not in {
+            "elegoo_centauri_carbon",
+            "elegoo_centauri_carbon_2",
+        }:
+            raise HTTPException(
+                status_code=400, detail="elegoo_centauri_model_required"
+            )
+        if not p.elegoo_centauri_host:
+            raise HTTPException(status_code=400, detail="elegoo_centauri_host_required")
+        if (
+            p.provider_variant == "elegoo_centauri_carbon_2"
+            and not p.elegoo_centauri_access_code
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="elegoo_centauri_access_code_required",
+            )
+    if p.provider == PrinterProvider.OCTOPRINT:
+        if not p.octoprint_url:
+            raise HTTPException(status_code=400, detail="octoprint_url_required")
+        if not p.octoprint_api_key:
+            raise HTTPException(status_code=400, detail="octoprint_api_key_required")
+
+
+def _to_read(p: Printer, role: PrinterRole = PrinterRole.ADMIN) -> PrinterRead:
+    caps = capabilities_for_provider(p.provider)
+    can_admin = printer_rbac.role_allows(role, PrinterRole.ADMIN)
+    return PrinterRead(
+        id=p.id,  # type: ignore[arg-type]
+        name=p.name,
+        edit_version=p.edit_version,
+        edit_epoch=p.edit_epoch,
+        provider=p.provider,
+        moonraker_url=p.moonraker_url if can_admin else "",
+        has_api_key=bool(p.api_key) if can_admin else False,
+        provider_variant=p.provider_variant,
+        bambu_host=p.bambu_host if can_admin else None,
+        bambu_serial=p.bambu_serial,
+        has_bambu_access_code=bool(p.bambu_access_code) if can_admin else False,
+        prusalink_url=p.prusalink_url if can_admin else None,
+        prusalink_auth_mode=p.prusalink_auth_mode,
+        prusalink_username=p.prusalink_username if can_admin else None,
+        has_prusalink_password=bool(p.prusalink_password) if can_admin else False,
+        has_prusalink_api_key=bool(p.prusalink_api_key) if can_admin else False,
+        elegoo_centauri_host=p.elegoo_centauri_host if can_admin else None,
+        elegoo_centauri_mainboard_id=p.elegoo_centauri_mainboard_id,
+        has_elegoo_centauri_access_code=(
+            bool(p.elegoo_centauri_access_code) if can_admin else False
+        ),
+        octoprint_url=p.octoprint_url if can_admin else None,
+        has_octoprint_api_key=bool(p.octoprint_api_key) if can_admin else False,
+        model_name=p.model_name,
+        detected_model=p.detected_model,
+        capabilities=PrinterCapabilities(**caps.as_api_dict()),
+        access={
+            "role": role,
+            "can_view": True,
+            "can_print": printer_rbac.role_allows(role, PrinterRole.PRINT),
+            "can_control": printer_rbac.role_allows(role, PrinterRole.CONTROL),
+            "can_admin": can_admin,
+        },
+        notes=p.notes,
+        group=p.group,
+        is_default=p.is_default,
+        drain_mode=p.drain_mode,
+        drain_reason=p.drain_reason,
+        drain_updated_at=p.drain_updated_at,
+        provider_material_sync_enabled=p.provider_material_sync_enabled,
+        operator_release_required=p.operator_release_required,
+        status=p.status,
+        last_seen_at=p.last_seen_at,
+        last_error=p.last_error,
+        created_at=p.created_at,
+        updated_at=p.updated_at,
+    )
+
+
+def _to_printer_file_read(
+    row: PrinterFile,
+    *,
+    printer_name: str | None = None,
+    file_row: File | None = None,
+    model_row: Model | None = None,
+) -> PrinterFileRead:
+    return PrinterFileRead(
+        id=row.id,  # type: ignore[arg-type]
+        printer_id=row.printer_id,
+        printer_name=printer_name,
+        file_id=row.file_id,
+        model_id=file_row.model_id if file_row else None,
+        model_name=model_row.name if model_row else None,
+        original_filename=file_row.original_filename if file_row else None,
+        remote_filename=row.remote_filename,
+        size_bytes=row.size_bytes,
+        sha256=row.sha256,
+        matched_by=row.matched_by,
+        modified_at=row.modified_at,
+        last_seen_at=row.last_seen_at,
+        missing_since=row.missing_since,
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+    )
+
+
+def _printer_file_reads(
+    session: Session,
+    rows: list[PrinterFile],
+    *,
+    printer_name: str,
+    user: User | None = None,
+) -> list[PrinterFileRead]:
+    """Compose PrinterFileReads with one batched File/Model lookup."""
+    file_ids = {row.file_id for row in rows if row.file_id is not None}
+    files_by_id: dict[int, tuple[File, Model | None]] = {}
+    if file_ids:
+        for file_row, model_row in session.exec(
+            select(File, Model)
+            .outerjoin(Model, Model.id == File.model_id)
+            .where(File.id.in_(file_ids))  # type: ignore[union-attr]
+        ).all():
+            files_by_id[int(file_row.id)] = (file_row, model_row)
+    out: list[PrinterFileRead] = []
+    for row in rows:
+        file_row, model_row = files_by_id.get(row.file_id or 0, (None, None))
+        if user is not None and not _can_view_file(session, user, file_row):
+            file_row, model_row = None, None
+        out.append(
+            _to_printer_file_read(
+                row,
+                printer_name=printer_name,
+                file_row=file_row,
+                model_row=model_row,
+            )
+        )
+    return out
+
+
+def _can_view_file(session: Session, user: User, file_row: File | None) -> bool:
+    if file_row is None:
+        return user.is_superuser
+    model = session.get(Model, file_row.model_id)
+    if model is None or model.deleted_at is not None:
+        return False
+    return rbac.role_allows(
+        rbac.effective_collection_role(session, user, model.collection_id),
+        CollectionRole.VIEW,
+    )
+
+
+def _require_file_role(
+    session: Session,
+    user: User,
+    file_row: File,
+    minimum: CollectionRole,
+) -> None:
+    model = session.get(Model, file_row.model_id)
+    if model is None or model.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="file_not_found")
+    rbac.require_model_collection_role(session, user, model.collection_id, minimum)
+
+
+async def _diagnostic_check(
+    name: str,
+    action: Callable[[], Awaitable[object]],
+    *,
+    timeout: float | None = None,
+) -> dict[str, object]:
+    timeout = timeout or _DIAGNOSTIC_CHECK_TIMEOUT_SECONDS
+    try:
+        await asyncio.wait_for(action(), timeout=timeout)
+        return {"name": name, "ok": True}
+    except asyncio.TimeoutError:
+        return {
+            "name": name,
+            "ok": False,
+            "code": "provider_timeout",
+            "detail": f"timed out after {timeout:.0f}s",
+        }
+    except ProviderError as exc:
+        return {
+            "name": name,
+            "ok": False,
+            "code": exc.code,
+            "detail": exc.detail,
+        }
+
+
+# ---------------------------------------------------------------------------
+# Printer CRUD
+# ---------------------------------------------------------------------------
+
+
+@router.get("", response_model=List[PrinterRead], summary="List printers")
+def list_printers(
+    group: Optional[str] = Query(default=None, description="Filter by printer group"),
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> List[PrinterRead]:
+    stmt = select(Printer).order_by(Printer.name)
+    stmt = stmt.where(live(Printer))  # type: ignore[union-attr]
+    if group is not None:
+        stmt = stmt.where(Printer.group == group)
+    printers = list(session.exec(stmt).all())
+    roles = printer_rbac.effective_roles_for_printers(
+        session, current_user, [int(p.id) for p in printers]
+    )
+    return [
+        _to_read(p, role)
+        for p in printers
+        if (role := roles.get(int(p.id))) is not None
+    ]
+
+
+@router.get(
+    "/dashboard",
+    summary="Aggregated farm health summary",
+    description=(
+        "Returns counts per PrinterStatus plus total printers, active print jobs, "
+        "and a per-group breakdown."
+    ),
+)
+def farm_dashboard(
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    visible_ids = printer_rbac.accessible_printer_ids(session, current_user)
+    printers = (
+        session.exec(
+            select(Printer).where(Printer.id.in_(visible_ids), live(Printer))  # type: ignore[union-attr]
+        ).all()
+        if visible_ids
+        else []
+    )
+    status_counts: dict[str, int] = {}
+    group_counts: dict[str, dict[str, int]] = {}
+
+    for p in printers:
+        s = p.status.value
+        status_counts[s] = status_counts.get(s, 0) + 1
+        g = p.group or "__ungrouped"
+        if g not in group_counts:
+            group_counts[g] = {}
+        group_counts[g][s] = group_counts[g].get(s, 0) + 1
+
+    active_jobs = session.exec(
+        select(PrintJob).where(
+            PrintJob.printer_id.in_(visible_ids),  # type: ignore[union-attr]
+            live(PrintJob),
+            PrintJob.state.in_(
+                [
+                    PrintJobState.QUEUED,
+                    PrintJobState.STARTED,
+                    PrintJobState.PRINTING,
+                    PrintJobState.PAUSED,
+                    PrintJobState.UPLOADING,
+                ]
+            ),
+            live(PrintJob),
+        )
+    ).all()
+
+    return {
+        "total_printers": len(printers),
+        "status_counts": status_counts,
+        "active_jobs": len(active_jobs),
+        "groups": [
+            {"name": name, "count": sum(counts.values()), "status_counts": counts}
+            for name, counts in sorted(group_counts.items())
+        ],
+    }
+
+
+@router.get(
+    "/{printer_id}/diagnostics",
+    summary="Check provider configuration and connectivity",
+    description=(
+        "Returns provider support level, configured capabilities, and live "
+        "configuration/connectivity checks without exposing stored secrets. "
+        "Bambu LAN is reported as beta/status-control-only until upload/send "
+        "support is implemented."
+    ),
+)
+async def printer_diagnostics(
+    printer_id: int,
+    request: Request,
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    printer_rbac.require_printer_role(
+        session, current_user, printer_id, PrinterRole.ADMIN
+    )
+    # `require_printer_role` above selects `live(Printer)` and raises the same 404,
+    # so a trashed printer never reaches here. It owns that check; repeating it
+    # here only produced a statement no request could execute.
+    p = get_or_404(session, Printer, printer_id, "printer_not_found")
+
+    summary = provider_diagnostic_summary(p.provider)
+    checks: list[dict[str, object]] = []
+
+    try:
+        provider = _provider_client(request, p)
+        checks.append({"name": "configuration", "ok": True})
+    except ProviderError as exc:
+        checks.append(
+            {
+                "name": "configuration",
+                "ok": False,
+                "code": exc.code,
+                "detail": exc.detail,
+            }
+        )
+        return {
+            "printer_id": p.id,
+            "provider": p.provider.value,
+            "support_level": summary["support_level"],
+            "capabilities": summary["capabilities"],
+            "unsupported_actions": summary["unsupported_actions"],
+            "notes": summary["notes"],
+            "checks": checks,
+            "ok": False,
+        }
+
+    checks.append(await _diagnostic_check("provider_info", provider.info))
+    checks.append(await _diagnostic_check("live_status", provider.query_status))
+
+    return {
+        "printer_id": p.id,
+        "provider": p.provider.value,
+        "support_level": summary["support_level"],
+        "capabilities": summary["capabilities"],
+        "unsupported_actions": summary["unsupported_actions"],
+        "notes": summary["notes"],
+        "checks": checks,
+        "ok": all(bool(check["ok"]) for check in checks),
+    }
+
+
+@router.get(
+    "/{printer_id}/config",
+    response_model=MoonrakerConfigRead,
+    summary="Get Moonraker and Klipper configuration",
+)
+async def printer_config(
+    printer_id: int,
+    request: Request,
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> MoonrakerConfigRead:
+    printer_rbac.require_printer_role(
+        session, current_user, printer_id, PrinterRole.ADMIN
+    )
+    p = get_or_404(session, Printer, printer_id, "printer_not_found")
+    if p.provider != PrinterProvider.MOONRAKER:
+        raise HTTPException(
+            status_code=409,
+            detail="operation_not_supported_for_provider",
+        )
+
+    try:
+        provider = _provider_client(request, p)
+        server_info, printer_info, server_config, klipper_config = await asyncio.gather(
+            provider.server_info(),
+            provider.info(),
+            provider.server_config(),
+            provider.printer_config(),
+        )
+    except ProviderError as exc:
+        raise HTTPException(status_code=502, detail=exc.code) from exc
+
+    return MoonrakerConfigRead(
+        printer_id=printer_id,
+        server_info=server_info.get("result", server_info),
+        printer_info=printer_info.get("result", printer_info),
+        moonraker_config=server_config.get("result", server_config),
+        klipper_config=klipper_config.get("result", {}).get("status", klipper_config),
+    )
+
+
+@router.get("/{printer_id}", response_model=PrinterRead, summary="Get a printer")
+def get_printer(
+    printer_id: int,
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> PrinterRead:
+    role = printer_rbac.require_printer_role(
+        session, current_user, printer_id, PrinterRole.VIEW
+    )
+    p = get_or_404(session, Printer, printer_id, "printer_not_found")
+    return _to_read(p, role)
+
+
+@router.get(
+    "/{printer_id}/material-state",
+    response_model=PrinterMaterialStateRead,
+    summary="Read effective tools and loaded material slots",
+)
+def get_printer_material_state(
+    printer_id: int,
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> PrinterMaterialStateRead:
+    printer_rbac.require_printer_role(
+        session, current_user, printer_id, PrinterRole.VIEW
+    )
+    try:
+        return materials.read_material_state(session, printer_id)
+    except materials.MaterialStateError as exc:
+        raise HTTPException(status_code=404, detail=exc.code) from exc
+
+
+@router.put(
+    "/{printer_id}/material-state/manual",
+    response_model=PrinterMaterialStateRead,
+    summary="Replace operator-maintained tools and loaded material slots",
+)
+def put_printer_manual_material_state(
+    printer_id: int,
+    payload: ManualMaterialStateUpdate,
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> PrinterMaterialStateRead:
+    printer_rbac.require_printer_role(
+        session, current_user, printer_id, PrinterRole.PRINT
+    )
+    try:
+        return materials.replace_manual_state(
+            session, printer_id, payload, current_user
+        )
+    except materials.MaterialStateError as exc:
+        status_code = 409 if exc.code == "material_state_changed" else 400
+        if exc.code == "printer_not_found":
+            status_code = 404
+        raise HTTPException(status_code=status_code, detail=exc.code) from exc
+
+
+@router.post(
+    "",
+    response_model=PrinterRead,
+    status_code=201,
+    dependencies=[Depends(require_superuser)],
+    summary="Register a new printer",
+)
+async def create_printer(
+    payload: PrinterCreate,
+    session: Session = Depends(get_session),
+    hub: PrinterHub = Depends(get_hub),
+) -> PrinterRead:
+    p = Printer(
+        name=payload.name.strip(),
+        provider=payload.provider,
+        moonraker_url=(payload.moonraker_url or "").strip().rstrip("/"),
+        api_key=payload.api_key or None,
+        provider_variant=payload.provider_variant,
+        bambu_host=payload.bambu_host,
+        bambu_serial=payload.bambu_serial,
+        bambu_access_code=payload.bambu_access_code,
+        prusalink_url=(payload.prusalink_url or "").strip().rstrip("/") or None,
+        prusalink_auth_mode=payload.prusalink_auth_mode,
+        prusalink_username=payload.prusalink_username or None,
+        prusalink_password=payload.prusalink_password or None,
+        prusalink_api_key=payload.prusalink_api_key or None,
+        elegoo_centauri_host=(payload.elegoo_centauri_host or "").strip() or None,
+        elegoo_centauri_access_code=payload.elegoo_centauri_access_code or None,
+        elegoo_centauri_mainboard_id=payload.elegoo_centauri_mainboard_id or None,
+        octoprint_url=(payload.octoprint_url or "").strip().rstrip("/") or None,
+        octoprint_api_key=payload.octoprint_api_key or None,
+        model_name=payload.model_name.strip() if payload.model_name else None,
+        notes=payload.notes,
+        group=payload.group.strip() if payload.group else None,
+        provider_material_sync_enabled=payload.provider_material_sync_enabled,
+        operator_release_required=payload.operator_release_required,
+    )
+    _validate_provider_config(p)
+    p.detected_model = detect_printer_model(p)
+    session.add(p)
+    session.commit()
+    session.refresh(p)
+    assert p.id is not None
+    await hub.add_printer(p.id)
+    return _to_read(p)
+
+
+@router.patch(
+    "/{printer_id}",
+    response_model=PrinterRead,
+    summary="Update a printer",
+)
+async def update_printer(
+    printer_id: int,
+    payload: PrinterUpdate,
+    precondition: EditPrecondition = Depends(edit_precondition),
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+    hub: PrinterHub = Depends(get_hub),
+) -> PrinterRead:
+    printer_rbac.require_printer_role(
+        session, current_user, printer_id, PrinterRole.ADMIN
+    )
+    _require_superuser_for_connection_update(payload, current_user)
+    p = get_or_404(session, Printer, printer_id, "printer_not_found")
+    printer_edits.claim(session, current_user, p, precondition)
+    _require_superuser_for_connection_update(payload, current_user)
+    if payload.provider is not None:
+        p.provider = payload.provider
+    if payload.name is not None:
+        p.name = payload.name.strip() or p.name
+    if payload.moonraker_url is not None:
+        p.moonraker_url = payload.moonraker_url.strip().rstrip("/")
+    if payload.api_key is not None:
+        p.api_key = payload.api_key or None
+    if payload.provider_variant is not None:
+        p.provider_variant = payload.provider_variant
+    if payload.bambu_host is not None:
+        p.bambu_host = payload.bambu_host or None
+    if payload.bambu_serial is not None:
+        p.bambu_serial = payload.bambu_serial or None
+    if payload.bambu_access_code is not None:
+        p.bambu_access_code = payload.bambu_access_code or None
+    if payload.prusalink_url is not None:
+        p.prusalink_url = payload.prusalink_url.strip().rstrip("/") or None
+    if payload.prusalink_auth_mode is not None:
+        p.prusalink_auth_mode = payload.prusalink_auth_mode
+    if payload.prusalink_username is not None:
+        p.prusalink_username = payload.prusalink_username or None
+    if payload.prusalink_password is not None:
+        p.prusalink_password = payload.prusalink_password or None
+    if payload.prusalink_api_key is not None:
+        p.prusalink_api_key = payload.prusalink_api_key or None
+    if payload.elegoo_centauri_host is not None:
+        p.elegoo_centauri_host = payload.elegoo_centauri_host.strip() or None
+    if payload.elegoo_centauri_access_code is not None:
+        p.elegoo_centauri_access_code = payload.elegoo_centauri_access_code or None
+    if payload.elegoo_centauri_mainboard_id is not None:
+        p.elegoo_centauri_mainboard_id = (
+            payload.elegoo_centauri_mainboard_id.strip() or None
+        )
+    if payload.octoprint_url is not None:
+        p.octoprint_url = payload.octoprint_url.strip().rstrip("/") or None
+    if payload.octoprint_api_key is not None:
+        p.octoprint_api_key = payload.octoprint_api_key or None
+    if payload.model_name is not None:
+        p.model_name = payload.model_name.strip() or None
+    if payload.notes is not None:
+        p.notes = payload.notes
+    if payload.group is not None:
+        p.group = payload.group.strip() or None
+    if payload.provider_material_sync_enabled is not None:
+        p.provider_material_sync_enabled = payload.provider_material_sync_enabled
+    if payload.operator_release_required is not None:
+        p.operator_release_required = payload.operator_release_required
+    _validate_provider_config(p)
+    p.detected_model = detect_printer_model(p)
+    p.updated_at = utcnow()
+    session.add(p)
+    session.flush()
+    session.refresh(p)
+    # Capture this write while its lock is held, before another editor can save.
+    receipt = _to_read(p)
+    session.commit()
+    await hub.restart_printer(printer_id)
+    return receipt
+
+
+@router.delete(
+    "/{printer_id}",
+    status_code=204,
+    response_class=Response,
+    summary="Remove a printer",
+)
+async def delete_printer(
+    printer_id: int,
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+    hub: PrinterHub = Depends(get_hub),
+) -> Response:
+    printer_rbac.require_printer_role(
+        session, current_user, printer_id, PrinterRole.ADMIN
+    )
+    p = get_or_404(session, Printer, printer_id, "printer_not_found")
+    p.deleted_at = utcnow()
+    session.add(p)
+    session.commit()
+    await hub.remove_printer(printer_id)
+    return Response(status_code=204)
+
+
+@router.get(
+    "/{printer_id}/permissions",
+    response_model=List[PrinterPermissionRead],
+    summary="List direct permissions for a printer",
+)
+def list_printer_permissions(
+    printer_id: int,
+    current_user: User = Depends(require_superuser),
+    session: Session = Depends(get_session),
+) -> List[PrinterPermissionRead]:
+    printer_rbac.require_printer_role(
+        session, current_user, printer_id, PrinterRole.ADMIN
+    )
+    rows = session.exec(
+        select(PrinterPermission, User)
+        .join(User, User.id == PrinterPermission.user_id)
+        .where(PrinterPermission.printer_id == printer_id)
+        .order_by(User.username)
+    ).all()
+    return [
+        PrinterPermissionRead(
+            id=permission.id,  # type: ignore[arg-type]
+            user_id=permission.user_id,
+            username=user.username,
+            printer_id=permission.printer_id,
+            role=permission.role,
+            created_at=permission.created_at,
+            updated_at=permission.updated_at,
+        )
+        for permission, user in rows
+    ]
+
+
+@router.put(
+    "/{printer_id}/permissions/{user_id}",
+    response_model=PrinterPermissionRead,
+    summary="Grant or update a printer permission",
+)
+def upsert_printer_permission(
+    printer_id: int,
+    user_id: int,
+    payload: PrinterPermissionUpdate,
+    current_user: User = Depends(require_superuser),
+    session: Session = Depends(get_session),
+) -> PrinterPermissionRead:
+    printer_rbac.require_printer_role(
+        session, current_user, printer_id, PrinterRole.ADMIN
+    )
+    target = session.get(User, user_id)
+    if target is None or target.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="user_not_found")
+    permission = session.exec(
+        select(PrinterPermission).where(
+            PrinterPermission.printer_id == printer_id,
+            PrinterPermission.user_id == user_id,
+        )
+    ).first()
+    if permission is None:
+        permission = PrinterPermission(
+            printer_id=printer_id, user_id=user_id, role=payload.role
+        )
+    else:
+        permission.role = payload.role
+        permission.updated_at = utcnow()
+    session.add(permission)
+    session.commit()
+    session.refresh(permission)
+    return PrinterPermissionRead(
+        id=permission.id,  # type: ignore[arg-type]
+        user_id=permission.user_id,
+        username=target.username,
+        printer_id=permission.printer_id,
+        role=permission.role,
+        created_at=permission.created_at,
+        updated_at=permission.updated_at,
+    )
+
+
+@router.delete(
+    "/{printer_id}/permissions/{user_id}",
+    status_code=204,
+    response_class=Response,
+    summary="Remove a printer permission",
+)
+def delete_printer_permission(
+    printer_id: int,
+    user_id: int,
+    current_user: User = Depends(require_superuser),
+    session: Session = Depends(get_session),
+) -> Response:
+    printer_rbac.require_printer_role(
+        session, current_user, printer_id, PrinterRole.ADMIN
+    )
+    permission = session.exec(
+        select(PrinterPermission).where(
+            PrinterPermission.printer_id == printer_id,
+            PrinterPermission.user_id == user_id,
+        )
+    ).first()
+    if permission is None:
+        raise HTTPException(status_code=404, detail="permission_not_found")
+    session.delete(permission)
+    session.commit()
+    return Response(status_code=204)
+
+
+# ---------------------------------------------------------------------------
+# Send-to-print + control
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/{printer_id}/send",
+    response_model=PrintJobRead,
+    summary="Upload a vault file to the printer (optionally start the print)",
+    description=(
+        "Streams the chosen vault File to the configured provider. The File must "
+        "be a printable G-code artifact accepted by the provider. If start_print "
+        "is true, the provider is asked to "
+        "start the print immediately after upload."
+    ),
+)
+async def send_to_printer(
+    printer_id: int,
+    payload: SendToPrinter,
+    request: Request,
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> PrintJobRead:
+    return await dispatch.send_to_printer(
+        printer_id,
+        payload,
+        current_user,
+        session,
+        provider_builder=lambda printer: _provider_client(request, printer),
+        backend_provider=get_backend,
+    )
+
+
+@router.post(
+    "/{printer_id}/start",
+    response_model=PrintJobRead,
+    summary="Start a G-code file already present on the printer",
+    description=(
+        "Asks the provider to start a remote G-code file already in the printer's "
+        "file store. When the remote file is matched to a vault File, the job is "
+        "linked to that model; otherwise it is recorded as an external job."
+    ),
+)
+async def start_printer_file(
+    printer_id: int,
+    payload: StartPrinterFile,
+    request: Request,
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> PrintJobRead:
+    printer_rbac.require_printer_role(
+        session, current_user, printer_id, PrinterRole.PRINT
+    )
+    p = get_or_404(session, Printer, printer_id, "printer_not_found")
+    provider = _provider_client(request, p)
+    if not provider.capabilities.can_start:
+        raise HTTPException(
+            status_code=409,
+            detail="operation_not_supported_for_provider",
+        )
+
+    file_row: File | None = None
+    source = "external"
+    if payload.file_id is not None:
+        candidate = get_or_404(session, File, payload.file_id, "file_not_found")
+        if candidate.file_type != FileType.GCODE:
+            raise HTTPException(status_code=400, detail="file_not_gcode")
+        _require_file_role(session, current_user, candidate, CollectionRole.EDIT)
+        file_row = candidate
+        source = "vault"
+    else:
+        printer_file = session.exec(
+            select(PrinterFile).where(
+                PrinterFile.printer_id == printer_id,
+                PrinterFile.remote_filename == payload.remote_filename,
+                PrinterFile.missing_since.is_(None),  # type: ignore[union-attr]
+            )
+        ).first()
+        if printer_file and printer_file.file_id is not None:
+            candidate = session.get(File, printer_file.file_id)
+            if candidate and candidate.deleted_at is None:
+                _require_file_role(
+                    session, current_user, candidate, CollectionRole.EDIT
+                )
+                file_row = candidate
+                source = "vault"
+
+    if file_row is not None:
+        file_id = int(file_row.id)
+        model_id = file_row.model_id
+    else:
+        file_id, model_id = ensure_unattributed_artifact(session)
+
+    job = PrintJob(
+        printer_id=printer_id,
+        file_id=file_id,
+        model_id=model_id,
+        remote_filename=payload.remote_filename,
+        state=PrintJobState.STARTED,
+        source=source,
+        started_at=utcnow(),
+    )
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+
+    try:
+        await provider.start(payload.remote_filename)
+    except ProviderError as exc:
+        job.state = PrintJobState.FAILED
+        job.error = _provider_action_code(exc)
+        job.finished_at = utcnow()
+        job.updated_at = utcnow()
+        session.add(job)
+        session.commit()
+        raise HTTPException(status_code=502, detail=_provider_action_code(exc)) from exc
+    except Exception as exc:
+        logger.error("printer start failed printer=%s", printer_id)
+        job.state = PrintJobState.FAILED
+        job.error = "provider_error"
+        job.finished_at = utcnow()
+        job.updated_at = utcnow()
+        session.add(job)
+        session.commit()
+        raise HTTPException(status_code=502, detail="provider_error") from exc
+
+    return PrintJobRead(
+        **job.model_dump(
+            exclude={"artifact_capture_error_code", "artifact_capture_error_message"}
+        ),
+        **reproducibility_payload(
+            job,
+            file_type=file_row.file_type if file_row is not None else None,
+            download_url=(
+                f"/api/v1/files/{job.file_id}/download"
+                if job.source == "vault" or job.artifact_evidence.endswith("_archived")
+                else None
+            ),
+        ),
+    )
+
+
+async def _printer_control(
+    request: Request, printer_id: int, session: Session, action: str
+) -> dict:
+    p = get_or_404(session, Printer, printer_id, "printer_not_found")
+    client = _provider_client(request, p)
+    cap_map = {
+        "start": client.capabilities.can_start,
+        "pause": client.capabilities.can_pause,
+        "resume": client.capabilities.can_resume,
+        "cancel": client.capabilities.can_cancel,
+    }
+    if action in cap_map and not cap_map[action]:
+        raise HTTPException(
+            status_code=409,
+            detail="operation_not_supported_for_provider",
+        )
+    try:
+        await getattr(client, action)()
+    except ProviderError as exc:
+        raise HTTPException(status_code=502, detail=exc.code) from exc
+    except Exception as exc:
+        logger.error("printer control failed action=%s printer=%s", action, printer_id)
+        raise HTTPException(status_code=502, detail="provider_error") from exc
+    if action == "cancel":
+        now = utcnow()
+        active_jobs = session.exec(
+            select(PrintJob).where(
+                PrintJob.printer_id == printer_id,
+                live(PrintJob),
+                PrintJob.state.in_(  # type: ignore[union-attr]
+                    [
+                        PrintJobState.STARTED,
+                        PrintJobState.PRINTING,
+                        PrintJobState.PAUSED,
+                    ]
+                ),
+                live(PrintJob),
+            )
+        ).all()
+        for job in active_jobs:
+            job.state = PrintJobState.CANCELLED
+            job.finished_at = now
+            job.updated_at = now
+            session.add(job)
+        if active_jobs:
+            session.commit()
+    return {"ok": True}
+
+
+@router.post(
+    "/{printer_id}/pause",
+    summary="Pause the current print",
+)
+async def pause_printer(
+    printer_id: int,
+    request: Request,
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    printer_rbac.require_printer_role(
+        session, current_user, printer_id, PrinterRole.CONTROL
+    )
+    return await _printer_control(request, printer_id, session, "pause")
+
+
+@router.post(
+    "/{printer_id}/resume",
+    summary="Resume the paused print",
+)
+async def resume_printer(
+    printer_id: int,
+    request: Request,
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    printer_rbac.require_printer_role(
+        session, current_user, printer_id, PrinterRole.CONTROL
+    )
+    return await _printer_control(request, printer_id, session, "resume")
+
+
+@router.post(
+    "/{printer_id}/cancel",
+    summary="Cancel the current print",
+)
+async def cancel_printer(
+    printer_id: int,
+    request: Request,
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    printer_rbac.require_printer_role(
+        session, current_user, printer_id, PrinterRole.CONTROL
+    )
+    return await _printer_control(request, printer_id, session, "cancel")
+
+
+def _require_gcode_provider(request: Request, session: Session, printer_id: int):
+    # Every caller runs `require_printer_role` first, which selects `live(Printer)`
+    # and raises this same 404 for a trashed printer, so the liveness check has one
+    # owner rather than two and this helper cannot hold a branch nothing reaches.
+    p = get_or_404(session, Printer, printer_id, "printer_not_found")
+    provider = _provider_client(request, p)
+    if not provider.capabilities.can_send_gcode:
+        raise HTTPException(
+            status_code=409, detail="operation_not_supported_for_provider"
+        )
+    return provider
+
+
+async def _run_gcode(provider, script: str) -> dict:
+    try:
+        await provider.run_gcode(script)
+    except ProviderError as exc:
+        raise HTTPException(status_code=502, detail=exc.code) from exc
+    except Exception as exc:
+        logger.error("printer gcode failed script=%s", script)
+        raise HTTPException(status_code=502, detail="provider_error") from exc
+    return {"ok": True}
+
+
+@router.post(
+    "/{printer_id}/temperature",
+    summary="Set a heater target temperature",
+)
+async def set_printer_temperature(
+    printer_id: int,
+    payload: SetTemperature,
+    request: Request,
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    printer_rbac.require_printer_role(
+        session, current_user, printer_id, PrinterRole.CONTROL
+    )
+    provider = _require_gcode_provider(request, session, printer_id)
+    code = "M104" if payload.heater == "extruder" else "M140"
+    return await _run_gcode(provider, f"{code} S{payload.target:g}")
+
+
+@router.post(
+    "/{printer_id}/home",
+    summary="Home the toolhead (all axes, or a subset)",
+)
+async def home_printer(
+    printer_id: int,
+    payload: HomeAxes,
+    request: Request,
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    printer_rbac.require_printer_role(
+        session, current_user, printer_id, PrinterRole.CONTROL
+    )
+    provider = _require_gcode_provider(request, session, printer_id)
+    script = "G28" if not payload.axes else "G28 " + " ".join(payload.axes.upper())
+    return await _run_gcode(provider, script)
+
+
+@router.post(
+    "/{printer_id}/emergency_stop",
+    summary="Immediately halt the printer (Klipper emergency stop)",
+)
+async def emergency_stop_printer(
+    printer_id: int,
+    request: Request,
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> dict:
+    printer_rbac.require_printer_role(
+        session, current_user, printer_id, PrinterRole.CONTROL
+    )
+    provider = _require_gcode_provider(request, session, printer_id)
+    try:
+        await provider.emergency_stop()
+    except ProviderError as exc:
+        raise HTTPException(status_code=502, detail=exc.code) from exc
+    except Exception as exc:
+        logger.error("printer emergency_stop failed printer=%s", printer_id)
+        raise HTTPException(status_code=502, detail="provider_error") from exc
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# Live snapshots & print history
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/{printer_id}/status",
+    summary="One-shot snapshot of cached printer state",
+)
+def printer_status(
+    printer_id: int,
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+    hub: PrinterHub = Depends(get_hub),
+) -> dict:
+    role = printer_rbac.require_printer_role(
+        session, current_user, printer_id, PrinterRole.VIEW
+    )
+    p = get_or_404(session, Printer, printer_id, "printer_not_found")
+    return {
+        "printer": _to_read(p, role).model_dump(mode="json"),
+        "snapshot": hub.snapshots.get(printer_id, {}),
+    }
+
+
+@router.get(
+    "/{printer_id}/files",
+    response_model=List[PrinterFileRead],
+    summary="List files known to exist on a printer",
+)
+def list_files_on_printer(
+    printer_id: int,
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> List[PrinterFileRead]:
+    printer_rbac.require_printer_role(
+        session, current_user, printer_id, PrinterRole.VIEW
+    )
+    p = get_or_404(session, Printer, printer_id, "printer_not_found")
+    rows = list(list_printer_files(session, printer_id=printer_id))
+    return _printer_file_reads(session, rows, printer_name=p.name, user=current_user)
+
+
+@router.post(
+    "/{printer_id}/files/sync",
+    response_model=List[PrinterFileRead],
+    summary="Sync the printer's remote G-code file inventory",
+)
+async def sync_files_on_printer(
+    printer_id: int,
+    request: Request,
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> List[PrinterFileRead]:
+    printer_rbac.require_printer_role(
+        session, current_user, printer_id, PrinterRole.ADMIN
+    )
+    p = get_or_404(session, Printer, printer_id, "printer_not_found")
+    provider = _provider_client(request, p)
+    if not provider.capabilities.can_list_files:
+        raise HTTPException(
+            status_code=409,
+            detail="operation_not_supported_for_provider",
+        )
+    try:
+        remote_files = await provider.list_files()
+    except ProviderError as exc:
+        p.last_error = exc.detail
+        p.updated_at = utcnow()
+        session.add(p)
+        session.commit()
+        raise HTTPException(status_code=502, detail=exc.code) from exc
+
+    rows = sync_printer_files(session, printer_id=printer_id, remote_files=remote_files)
+    return _printer_file_reads(
+        session, list(rows), printer_name=p.name, user=current_user
+    )
+
+
+@router.delete(
+    "/{printer_id}/files/{printer_file_id}",
+    response_model=List[PrinterFileRead],
+    summary="Delete a remote G-code file from the printer",
+)
+async def delete_file_on_printer(
+    printer_id: int,
+    printer_file_id: int,
+    request: Request,
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> List[PrinterFileRead]:
+    printer_rbac.require_printer_role(
+        session, current_user, printer_id, PrinterRole.ADMIN
+    )
+    p = get_or_404(session, Printer, printer_id, "printer_not_found")
+    provider = _provider_client(request, p)
+    if not provider.capabilities.can_list_files:
+        raise HTTPException(
+            status_code=409,
+            detail="operation_not_supported_for_provider",
+        )
+    row = session.exec(
+        select(PrinterFile).where(
+            PrinterFile.id == printer_file_id,
+            PrinterFile.printer_id == printer_id,
+            PrinterFile.missing_since.is_(None),  # type: ignore[union-attr]
+        )
+    ).first()
+    if row is None:
+        raise HTTPException(status_code=404, detail="printer_file_not_found")
+
+    try:
+        await provider.delete_file(row.remote_filename)
+    except ProviderError as exc:
+        p.last_error = exc.detail
+        p.updated_at = utcnow()
+        session.add(p)
+        session.commit()
+        raise HTTPException(status_code=502, detail=exc.code) from exc
+
+    session.delete(row)
+    session.commit()
+
+    try:
+        remote_files = await provider.list_files()
+    except ProviderError:
+        rows = list_printer_files(session, printer_id=printer_id)
+    else:
+        rows = sync_printer_files(
+            session, printer_id=printer_id, remote_files=remote_files
+        )
+    return _printer_file_reads(
+        session, list(rows), printer_name=p.name, user=current_user
+    )
+
+
+@router.get(
+    "/{printer_id}/jobs",
+    response_model=List[PrintJobRead],
+    summary="List recent print jobs for a printer",
+)
+def list_jobs(
+    printer_id: int,
+    limit: int = 50,
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> List[PrintJobRead]:
+    printer_rbac.require_printer_role(
+        session, current_user, printer_id, PrinterRole.VIEW
+    )
+    stmt = select(PrintJob).where(
+        PrintJob.printer_id == printer_id,
+        live(PrintJob),
+    )
+    rows = session.exec(
+        stmt.order_by(PrintJob.created_at.desc()).limit(limit)  # type: ignore[attr-defined]
+    ).all()
+    file_types = {
+        file.id: file.file_type
+        for file in session.exec(
+            select(File).where(File.id.in_({job.file_id for job in rows}))  # type: ignore[attr-defined]
+        ).all()
+    }
+    return [
+        PrintJobRead(
+            **j.model_dump(
+                exclude={
+                    "artifact_capture_error_code",
+                    "artifact_capture_error_message",
+                }
+            ),
+            **reproducibility_payload(
+                j,
+                file_type=file_types.get(j.file_id),
+                download_url=(
+                    f"/api/v1/files/{j.file_id}/download"
+                    if j.source == "vault" or j.artifact_evidence.endswith("_archived")
+                    else None
+                ),
+            ),
+        )
+        for j in rows
+    ]
+
+
+@router.post("/{printer_id}/ws-ticket")
+def create_ws_ticket(
+    printer_id: int,
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> dict[str, str | int]:
+    printer_rbac.require_printer_role(
+        session, current_user, printer_id, PrinterRole.VIEW
+    )
+    return {
+        "ticket": ws_tickets.issue(
+            current_user.id, ws_tickets.printer_scope(printer_id)
+        ),
+        "expires_in": ws_tickets.TTL_SECONDS,
+    }
+
+
+@router.websocket("/{printer_id}/ws")
+async def printer_ws(
+    websocket: WebSocket,
+    printer_id: int,
+    hub: PrinterHub = Depends(get_hub_from_ws),
+    session: Session = Depends(get_session),
+) -> None:
+    """Live status stream for a single printer.
+
+    Pushes JSON messages of the form::
+
+        {"type": "snapshot", "printer_id": <id>, "data": {...full snapshot...}}
+        {"type": "update",   "printer_id": <id>, "data": {...changed objects...}}
+    """
+    ticket = websocket.query_params.get("ticket")
+    token = None
+    payload = None
+    auth_header = websocket.headers.get("authorization")
+    if auth_header and auth_header.lower().startswith("bearer "):
+        token = auth_header.split(" ", 1)[1].strip()
+    user_id = (
+        ws_tickets.consume(ticket, ws_tickets.printer_scope(printer_id))
+        if ticket
+        else None
+    )
+    if user_id is None and token:
+        payload = verify_access_token(token)
+        try:
+            user_id = int(payload["sub"]) if payload and payload.get("sub") else None
+        except TypeError, ValueError, KeyError:
+            user_id = None
+    user = get_user_by_id(session, user_id) if user_id is not None else None
+    p = session.get(Printer, printer_id)
+    if (
+        user is None
+        or not user.is_active
+        or not printer_rbac.role_allows(
+            printer_rbac.effective_printer_role(session, user, printer_id),
+            PrinterRole.VIEW,
+        )
+        or (payload is not None and payload.get("auth_version") != user.auth_version)
+        or p is None
+        or p.deleted_at is not None
+    ):
+        await websocket.close(code=1008)
+        return
+
+    await websocket.accept()
+    await hub.attach(printer_id, websocket.send_json)
+    try:
+        while True:
+            # Client messages are ignored; we just need to detect disconnect.
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        pass
+    finally:
+        await hub.detach(printer_id, websocket.send_json)

@@ -1,0 +1,925 @@
+"""Concrete :class:`AgentSession` for the Workspace abstraction.
+
+One execution of one agent on one workspace. Holds the per-session
+state handle, mediates writes to the shared :class:`StateRepo` and the
+shared :class:`TruncationStore`, validates lifecycle transitions, and
+exposes the user-facing surface (``append_instruction`` /
+``request_pause`` / ``request_resume`` / ``request_end``) plus the
+runtime-facing surface (``commit_state`` / ``cache_output`` /
+``set_status`` / ``take_pending_messages``).
+
+Use :meth:`AgentSession.start` to allocate a fresh slot; the workspace
+calls this from its ``start_session()`` method. A session created on one
+process can be re-attached on another by reconstructing it from its
+persisted on-disk slot (session.json + agent.json) via the constructor;
+``LocalWorkspace.get_session`` does this so a worker process can run a
+session the API process allocated.
+
+See ``docs/superpowers/specs/2026-05-02-workspace-design.md`` (the
+"AgentSession" section + "Session lifecycle" section) for the full
+design.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+import uuid
+from contextlib import AbstractAsyncContextManager
+from datetime import datetime, timezone
+from pathlib import Path, PurePosixPath
+from typing import TYPE_CHECKING, Literal, NamedTuple
+
+from pydantic import TypeAdapter
+
+from primer.model.chat import CompactionSummary, Message, Part, TextPart
+from primer.model.except_ import ConflictError
+from primer.model.workspace_session import (
+    AgentBinding,
+    Instruction,
+    SessionInfo,
+    SessionMessageKind,
+    SessionStatus,
+    WaitingState,
+)
+
+
+if TYPE_CHECKING:
+    from primer.model.workspace import Op
+    from primer.workspace.local.cache import LocalTruncationStore
+    from primer.workspace.local.state import LocalStateRepo
+    from primer.workspace.tool import WorkspaceTool
+
+
+logger = logging.getLogger(__name__)
+
+
+# Used by both ``waiting_state()`` and ``set_status()`` for round-tripping
+# the discriminated union to / from JSON.
+_waiting_state_adapter: TypeAdapter[WaitingState] = TypeAdapter(WaitingState)
+
+
+# ===========================================================================
+# Helpers
+# ===========================================================================
+
+
+def workspace_system_prompt_fragment(session_id: str) -> str:
+    """The markdown the executor appends to every agent's system prompt in a workspace session.
+
+    A function of the session id alone, so a caller with no live session (the manual compaction route,
+    which sizes the fixed part of the prompt) renders exactly what the executor does."""
+    return _SYSTEM_PROMPT_TEMPLATE.format(session_id=session_id)
+
+
+_SYSTEM_PROMPT_TEMPLATE = """\
+You are running inside a primer Workspace as session `{session_id}`.
+
+You have access to the following workspace tools (file + shell):
+ls, read, write, edit, glob, grep, exec.
+
+Your conversation state and persistent notes for THIS session live under
+`.state/sessions/{session_id}/`. Every assistant turn is committed to a
+git repo at `.state/`. You can inspect your own history with:
+  exec("git log -- sessions/{session_id}/", workdir=".state")
+  exec("git show <sha>", workdir=".state")
+
+Other sessions may be running concurrently on the same workspace --
+you share the filesystem and shell with them. Use `.state/shared/` to
+coordinate if you need to.
+
+Large tool outputs are automatically saved to `.tmp/{session_id}/tool_<id>.txt`
+and the tool result will give you the path. Use read with offset/limit
+or grep to inspect them; do NOT try to dump them with cat.
+
+If you have a todo list, store it at
+`.state/sessions/{session_id}/todos.json`. Keep it updated as you
+work; history is preserved automatically.
+
+The user can append further instructions to your session at any time.
+These appear as new user-role messages between your turns -- treat
+them as you would any user message in your conversation.
+"""
+
+
+def _generate_instruction_id() -> str:
+    return f"ins-{uuid.uuid4().hex[:16]}"
+
+
+def _normalise_path(path: str) -> str:
+    """Stable canonical form for the read-tracker keys.
+
+    POSIX-flavoured because workspaces present a unified filesystem
+    surface to the agent regardless of host OS. Trailing separators
+    are collapsed; ``./`` prefixes are dropped; relative segments
+    are kept literal so ``a`` and ``./a`` collapse to the same key.
+    """
+    return PurePosixPath(path.replace("\\", "/")).as_posix()
+
+
+UNREADABLE_TAIL_NOTE = (
+    "[note: the most recent messages kept after the summary above could not be read and were dropped; "
+    "if the user's last request is not clear from the summary, ask them to repeat it]"
+)
+
+
+def _kept_tail(payload: dict) -> tuple[list[Message], int]:
+    """The messages a compaction marker kept verbatim, and where the summary goes among them.
+
+    The summary goes after ``summary_after`` of the kept messages (``0``, the default and what every
+    older marker means, puts it in front); a turn whose early tool rounds were summarised puts it
+    after the user run that opened the turn.
+
+    All or nothing: a tail with one unreadable entry could hold a tool call
+    without its result, which providers reject, so it is dropped whole and the
+    summary stands alone (what every marker did before the tail was recorded).
+    The model is told, in a synthetic note after the summary, that messages were
+    dropped, rather than being left to assume the summary is all there was.
+    """
+    raw = payload.get("kept_tail_messages")
+    if not isinstance(raw, list):
+        return [], 0
+    after = payload.get("summary_after")
+    after = after if isinstance(after, int) and not isinstance(after, bool) and after > 0 else 0
+    try:
+        return [Message.model_validate(m) for m in raw], after
+    except ValueError:  # pydantic.ValidationError is a ValueError
+        logger.warning(
+            "compaction marker carries an unreadable kept tail (%d entries); "
+            "dropping it and keeping the summary",
+            len(raw),
+        )
+        return [Message(role="assistant", parts=[TextPart(text=UNREADABLE_TAIL_NOTE)])], 0
+
+
+def reconstruct_compacted_history(raw_lines: "list[str]") -> list[Message]:
+    """Rebuild the LLM history from ``messages.jsonl`` lines, honoring markers.
+
+    ``messages.jsonl`` is APPEND-ONLY and interleaves two record types:
+    role/parts :class:`Message` lines (LLM history) and seq/kind
+    :class:`~primer.model.workspace_session.SessionMessageRecord` event-log
+    lines (written by the dispatch writer). Only the Message lines are LLM
+    history; other event-log records are skipped.
+
+    When the session has been compacted, a ``compaction_marker`` event-log
+    record is appended. Every Message line PHYSICALLY BEFORE the LAST marker is
+    replaced by a single synthetic assistant summary carrying the marker's
+    ``summary`` payload, followed by the marker's ``kept_tail_messages`` (the
+    tail the compactor kept verbatim, when the marker records one) (mirrors the chat surface's positional
+    ``rows[last_marker_idx + 1:]`` reassembly in primer/chat/executor.py).
+    Message lines are seqless, so physical position in the append-only file IS
+    the ``replaced_to_seq`` boundary. A later marker supersedes an earlier one
+    (its summary already subsumes the earlier head + tail).
+
+    Shared by both history readers -- ``WorkspaceAgentExecutor.
+    _read_messages_jsonl`` and :meth:`AgentSession.take_pending_messages` -- so
+    neither replays uncompacted history after a compaction.
+    """
+    summary_text: str | None = None
+    summary_after = 0
+    # Each Message is carried with the last seq seen before it was
+    # written. Message lines are seqless, so that is the only way to
+    # decide later whether a rewind naming a seq covers them.
+    carried: list[tuple[int, Message]] = []
+    summary_seq = -1
+    seen_seq = 0
+    marker_kind = SessionMessageKind.COMPACTION_MARKER.value
+    rewind_kind = SessionMessageKind.REWIND_MARKER.value
+    for line in raw_lines:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            obj = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(obj, dict):
+            continue
+        seq = obj.get("seq")
+        if isinstance(seq, int):
+            seen_seq = seq
+        if obj.get("kind") == marker_kind:
+            # A marker replaces everything read so far EXCEPT the tail it was
+            # written with: the compactor kept those messages verbatim (the last
+            # few turns and the input the model had not answered), and they are
+            # carried at the marker's own seq so a rewind treats them as written
+            # with it.
+            payload = obj.get("payload") or {}
+            summary_text = payload.get("summary") or None
+            summary_seq = seen_seq
+            kept, summary_after = _kept_tail(payload)
+            carried = [(seen_seq, m) for m in kept]
+            continue
+        if obj.get("kind") == rewind_kind:
+            to_seq = (obj.get("payload") or {}).get("to_seq")
+            if isinstance(to_seq, int):
+                carried = [(s, m) for s, m in carried if s <= to_seq]
+                # A compaction inside the rewound span goes with it:
+                # its summary stood in for messages that are now cut,
+                # so replaying it would resurrect them as prose.
+                if summary_text is not None and summary_seq > to_seq:
+                    summary_text = None
+                    summary_seq = -1
+            continue
+        if "role" in obj and "parts" in obj:
+            carried.append((seen_seq, Message.model_validate(obj)))
+        # else: a non-marker event-log record -> not LLM history, skip.
+    msgs = [m for _s, m in carried]
+    if summary_text:
+        summary = CompactionSummary(role="assistant", parts=[TextPart(text=summary_text)])
+        k = min(summary_after, len(msgs))
+        return [*msgs[:k], summary, *msgs[k:]]
+    return msgs
+
+
+class LastCompaction(NamedTuple):
+    """What ``messages.jsonl`` says about the newest compaction: see :func:`last_compaction_state`."""
+
+    tokens_after: int | None = None
+    noted: tuple[str, str] | None = None
+    """``(outcome, reason)`` of the newest ``compaction_note`` since the newest marker, ``None`` when there is none."""
+
+
+def last_compaction_state(raw_lines: "list[str]") -> LastCompaction:
+    """What the compaction strategy and the executor need to know about the newest compaction.
+
+    ``tokens_after`` is the estimated prompt size the newest compaction marker left. It is ``None`` when
+    the session has no marker, when the newest one was rewound away (its summary no longer stands, as in
+    :func:`reconstruct_compacted_history`), or when it did not record a size (a marker written before the
+    figure was kept says ``0``). The strategy reads it to avoid summarising its own summary again before
+    the prompt has grown.
+
+    ``noted`` is the ``(outcome, reason)`` of the newest ``compaction_note`` record since that marker (or
+    since the start of the session, with none): a compaction that reaches the same verdict again is part
+    of the same run and is not noted again, so a prompt that stays unreducible or skipped is noted once,
+    not on every turn. The next marker, a different verdict, or a rewind that cuts the note away ends the run.
+    """
+    marker_kind = SessionMessageKind.COMPACTION_MARKER.value
+    rewind_kind = SessionMessageKind.REWIND_MARKER.value
+    note_kind = SessionMessageKind.COMPACTION_NOTE.value
+    last: tuple[int, int | None] | None = None  # (seq of the marker, its tokens_after)
+    noted: tuple[int, tuple[str, str]] | None = None  # (seq of the note, (outcome, reason))
+    for line in raw_lines:
+        if marker_kind not in line and rewind_kind not in line and note_kind not in line:
+            continue  # the file is mostly messages and event records: only these lines are parsed
+        try:
+            obj = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(obj, dict):
+            continue
+        seq = obj.get("seq") if isinstance(obj.get("seq"), int) else 0
+        payload = obj.get("payload") or {}
+        kind = obj.get("kind")
+        if kind == marker_kind:
+            tokens = payload.get("tokens_after")
+            known = isinstance(tokens, int) and not isinstance(tokens, bool) and tokens > 0
+            last = (seq, tokens if known else None)
+            noted = None
+        elif kind == rewind_kind:
+            to_seq = payload.get("to_seq")
+            if isinstance(to_seq, int):
+                if last is not None and last[0] > to_seq:
+                    last, noted = None, None
+                elif noted is not None and noted[0] > to_seq:
+                    noted = None       # the note was cut away: its verdict is no longer on the record
+        elif kind == note_kind and isinstance(payload.get("outcome"), str) and isinstance(payload.get("reason"), str):
+            noted = (seq, (payload["outcome"], payload["reason"]))
+    return LastCompaction(last[1] if last else None, noted[1] if noted else None)
+
+
+# ---------------------------------------------------------------------------
+# Status transition table
+# ---------------------------------------------------------------------------
+#
+# ENDED is terminal; once entered, no other transitions are allowed.
+# WAITING requires a `waiting_state` argument. Every other transition
+# is a free move.
+
+_LEGAL_TRANSITIONS: dict[SessionStatus, frozenset[SessionStatus]] = {
+    SessionStatus.RUNNING: frozenset(
+        {
+            SessionStatus.RUNNING,  # idempotent
+            SessionStatus.WAITING,
+            SessionStatus.PAUSED,
+            SessionStatus.ENDED,
+        }
+    ),
+    SessionStatus.WAITING: frozenset(
+        {
+            SessionStatus.RUNNING,
+            SessionStatus.WAITING,  # idempotent (e.g. re-arm with new waiting_state)
+            SessionStatus.PAUSED,
+            SessionStatus.ENDED,
+        }
+    ),
+    SessionStatus.PAUSED: frozenset(
+        {
+            SessionStatus.RUNNING,
+            SessionStatus.WAITING,
+            SessionStatus.PAUSED,  # idempotent
+            SessionStatus.ENDED,
+        }
+    ),
+    SessionStatus.ENDED: frozenset({SessionStatus.ENDED}),  # terminal
+}
+
+
+# ===========================================================================
+# AgentSession
+# ===========================================================================
+
+
+class AgentSession:
+    """One execution of one agent on one workspace.
+
+    Created by :meth:`AgentSession.start` (or directly via the
+    constructor for tests / restoring an existing slot). The constructor
+    is cheap; ``start`` writes the initial slot to the state repo.
+
+    Concurrency: every state mutation is wrapped in this session's
+    ``_lock``. The :class:`StateRepo`'s commit lock further serialises
+    writes across sibling sessions sharing the same repo, so callers do
+    not need to synchronise externally.
+    """
+
+    def __init__(
+        self,
+        *,
+        session_info: SessionInfo,
+        agent_binding: AgentBinding,
+        state_repo: "LocalStateRepo",
+        truncation_store: "LocalTruncationStore",
+        workspace_tools: "list[WorkspaceTool] | tuple[WorkspaceTool, ...]" = (),
+    ) -> None:
+        # Identity is deliberately NOT asserted here. A session's binding
+        # is mutable and the DB row is its sole truth, so a slot written
+        # when the session started under one agent legitimately
+        # disagrees with a row that has since switched to another.
+        # Raising would make a switched session fail to rehydrate after
+        # a restart, which is the durability half of the switch.
+        self._info = session_info
+        self._binding = agent_binding
+        self._state = state_repo
+        self._cache = truncation_store
+        self._tools: list["WorkspaceTool"] = list(workspace_tools)
+        self._lock = asyncio.Lock()
+        self._pause_requested = False
+        self._end_requested = False
+        # Read-tracker for the write tool's read-before-write rule.
+        # Populated by the read tool via :meth:`mark_read`; consulted by
+        # the write tool via :meth:`was_read`. Volatile (in-memory only).
+        self._read_files: set[str] = set()
+
+    # ---- Construction / lifecycle ----------------------------------------
+
+    @classmethod
+    async def start(
+        cls,
+        *,
+        session_id: str,
+        workspace_id: str,
+        agent_binding: AgentBinding,
+        state_repo: "LocalStateRepo",
+        truncation_store: "LocalTruncationStore",
+        workspace_tools: "list[WorkspaceTool] | tuple[WorkspaceTool, ...]" = (),
+        instructions: str | None = None,
+        parent_session_id: str | None = None,
+        name: str | None = None,
+    ) -> "AgentSession":
+        """Allocate a fresh slot and return a live session handle.
+
+        Writes ``session.json`` and ``agent.json`` via
+        :meth:`StateRepo.create_session` (one ``attach`` commit), then
+        appends the ``instructions`` (if any) as the first user-role
+        message in ``messages.jsonl`` (one ``user_instruction`` commit
+        from :meth:`append_instruction`).
+
+        The new session starts in :attr:`SessionStatus.RUNNING`.
+        """
+        now = datetime.now(timezone.utc)
+        info = SessionInfo(
+            session_id=session_id,
+            agent_id=agent_binding.agent_id,
+            workspace_id=workspace_id,
+            # Normalize blank/whitespace to None so the on-disk SessionInfo
+            # matches the scheduler-row normalization in create_session and
+            # set_name — otherwise "   " renders as a blank sidebar label
+            # (the UI falls back to the id only on a falsy name).
+            name=(name or "").strip() or None,
+            status=SessionStatus.RUNNING,
+            started_at=now,
+            last_activity_at=now,
+            initial_instructions=instructions,
+            parent_session_id=parent_session_id,
+        )
+        await state_repo.create_session(info, agent_binding)
+        session = cls(
+            session_info=info,
+            agent_binding=agent_binding,
+            state_repo=state_repo,
+            truncation_store=truncation_store,
+            workspace_tools=workspace_tools,
+        )
+        if instructions:
+            await session.append_instruction(instructions)
+        return session
+
+    # ---- Identity properties ---------------------------------------------
+
+    @property
+    def session_id(self) -> str:
+        return self._info.session_id
+
+    @property
+    def agent_id(self) -> str:
+        return self._binding.agent_id
+
+    @property
+    def workspace_id(self) -> str:
+        return self._info.workspace_id
+
+    @property
+    def workspace_root(self) -> Path | None:
+        """Absolute workspace root (the ``.state`` repo's parent), or None.
+
+        Local repos expose ``.path`` (the ``.state/`` dir); its parent is the
+        workspace working root where ``artifacts/`` lives. Sandbox repos have no
+        local path -> None (callers rely on create-on-write).
+        """
+        state_path = getattr(self._state, "path", None)
+        return state_path.parent if state_path is not None else None
+
+    @property
+    def workspace_tools(self) -> list["WorkspaceTool"]:
+        """Snapshot of the workspace tool set for this session."""
+        return list(self._tools)
+
+    @property
+    def system_prompt_fragment(self) -> str:
+        """Markdown injected into the agent's system prompt at session start."""
+        return workspace_system_prompt_fragment(self.session_id)
+
+    @property
+    def messages_lock(self) -> AbstractAsyncContextManager[None]:
+        """Mutual exclusion for THIS session's messages.jsonl writers.
+
+        Every writer that rewrites the WHOLE file from a snapshot it read
+        (this class's :meth:`append_instruction`, the workspace executor's
+        ``_persist_turn`` / ``_replace_compacted_head``) must hold this
+        across its read->rewrite window, and the O_APPEND event-row writer
+        (``Workspace.append_message_line``) must hold it across its append.
+        Otherwise a write landing in a rewriter's read->rewrite gap is
+        silently truncated by the rewrite.
+
+        Returns a fresh context manager on each access; use it as
+        ``async with session.messages_lock:``. The repo's lock table is
+        keyed by session id, so writers to OTHER sessions never contend --
+        the key is supplied here so callers cannot key it inconsistently.
+        """
+        return self._state.messages_lock(self.session_id)
+
+    # ---- Pause / end flag accessors (set by request_*; read by runtime) --
+
+    @property
+    def pause_requested(self) -> bool:
+        return self._pause_requested
+
+    @property
+    def end_requested(self) -> bool:
+        return self._end_requested
+
+    # ---- Runtime-facing per-turn surface ---------------------------------
+
+    async def commit_state(
+        self,
+        *,
+        summary: str,
+        op: "Op",
+        tool: str | None = None,
+        call_id: str | None = None,
+        files: dict[str, str | bytes] | None = None,
+    ) -> str:
+        """Commit one turn's writes to this session's slot. Returns SHA."""
+        if self._info.status == SessionStatus.ENDED:
+            raise ConflictError(
+                f"cannot commit state on ENDED session {self.session_id!r}"
+            )
+        sha = await self._state.commit(
+            self.session_id,
+            summary=summary,
+            op=op,
+            tool=tool,
+            call_id=call_id,
+            files=files,
+        )
+        self._touch_last_activity()
+        return sha
+
+    async def cache_output(self, text: str) -> str:
+        """Write ``text`` to this session's tmp cache; return absolute path."""
+        path = await self._cache.write(text, session_id=self.session_id)
+        return str(path)
+
+    # ---- Read-tracker (in-memory; consumed by the write tool) ------------
+
+    def mark_read(self, path: str) -> None:
+        """Record that the agent read ``path`` during this session.
+
+        Called by the ``read`` workspace tool. The ``write`` tool
+        consults :meth:`was_read` to enforce the read-before-write rule
+        unless the caller passes ``force=True``.
+        """
+        self._read_files.add(_normalise_path(path))
+
+    def was_read(self, path: str) -> bool:
+        """Whether the agent has read ``path`` in this session."""
+        return _normalise_path(path) in self._read_files
+
+    # ---- User-facing operations ------------------------------------------
+
+    async def status(self) -> SessionStatus:
+        """Current lifecycle state. Cheap; backed by in-memory cache."""
+        return self._info.status
+
+    async def waiting_state(self) -> WaitingState | None:
+        """If status is WAITING, return what the session is waiting on.
+
+        Returns ``None`` when status is anything else; consults
+        ``waiting.json`` on disk when status is WAITING (so a runtime
+        that updated waiting.json without going through this object
+        is still seen).
+        """
+        if self._info.status != SessionStatus.WAITING:
+            return None
+        return await self._state.load_waiting_state(self.session_id)
+
+    async def info(self) -> SessionInfo:
+        """Full :class:`SessionInfo` (timestamps, ended_reason, etc.)."""
+        return self._info
+
+    async def refresh_from_disk(self) -> None:
+        """Re-sync the in-memory :class:`SessionInfo` from ``session.json``.
+
+        The cached ``_info`` is a snapshot taken when this handle was built;
+        when the session's turn ran through a DIFFERENT handle (a worker
+        process, or a worker-mode workspace cache distinct from this one),
+        the authoritative terminal status is committed to ``session.json``
+        on shared disk but this handle's ``_info`` is never updated. Callers
+        that read status across the process / cache boundary
+        (``LocalWorkspace.get_session`` / ``list_sessions``) invoke this so
+        the read reflects disk.
+
+        No-op once this handle is already ENDED (terminal is immutable) and
+        when disk has no slot. Only ADVANCES the cached status toward the
+        on-disk one; it never rewinds a locally-set terminal state.
+        """
+        if self._info.status == SessionStatus.ENDED:
+            return
+        disk = await self._state.load_session_info(self.session_id)
+        if disk is None:
+            return
+        # Adopt disk only when it is at/ahead of the cached view. The only
+        # cross-boundary staleness we need to heal is "disk ENDED, cache
+        # still RUNNING/WAITING"; adopting a terminal disk view is always
+        # safe and is the case the workspace tools depend on.
+        if disk.status == SessionStatus.ENDED:
+            async with self._lock:
+                if self._info.status != SessionStatus.ENDED:
+                    self._info = disk
+
+    async def append_instruction(
+        self, content: str, *, extra_parts: list[Part] | None = None,
+    ) -> Instruction:
+        """Queue a user instruction for delivery to the next turn.
+
+        Allowed in any non-ENDED status. In WAITING, the runtime
+        typically observes the new message and transitions back to
+        RUNNING (clearing ``waiting.json``); the transition itself is
+        the runtime's responsibility, not this method's.
+
+        ``extra_parts`` (vision/document attachments) are appended after
+        the instruction's own :class:`TextPart` in the stored
+        :class:`Message`. ``None`` (every existing caller) is unchanged
+        behaviour: a single-TextPart message exactly as before.
+
+        Returns the :class:`Instruction` record (id + timestamps) for
+        caller bookkeeping.
+        """
+        if not content:
+            raise ValueError("instruction content must be non-empty")
+        if self._info.status == SessionStatus.ENDED:
+            raise ConflictError(
+                f"cannot append instruction to ENDED session {self.session_id!r}"
+            )
+
+        async with self._lock:
+            now = datetime.now(timezone.utc)
+            instruction = Instruction(
+                instruction_id=_generate_instruction_id(),
+                session_id=self.session_id,
+                content=content,
+                queued_at=now,
+            )
+            parts: list[Part] = [TextPart(text=content)]
+            if extra_parts:
+                parts.extend(extra_parts)
+            message = Message(role="user", parts=parts)
+
+            # Updated session metadata: last_activity_at moves forward.
+            updated_info = self._info.model_copy(
+                update={"last_activity_at": now},
+            )
+            sid_short = self.session_id[-12:]
+            excerpt = " ".join(content.split())
+            if len(excerpt) > 60:
+                excerpt = excerpt[:59].rstrip() + "…"
+            # Hold the session's messages lock across BOTH the read
+            # (_appended_messages_jsonl) and the full-file rewrite (commit),
+            # so a concurrent event-row append (Workspace.append_message_line)
+            # or a concurrent full-file rewriter (the executor's _persist_turn)
+            # cannot slip into the read->rewrite gap and be truncated. The
+            # rewrite still takes the repo's _commit_lock internally;
+            # messages_lock is a distinct lock so there is no re-entrancy, and
+            # the acquisition order (messages_lock -> _commit_lock) is never
+            # inverted by any other acquirer.
+            async with self.messages_lock:
+                # Steer-during-compaction deferral (PR-C, Decision 5). The
+                # compacting flag + pending list live on the repo keyed by
+                # session id (same sharing model as messages_lock) and are only
+                # ever touched under THIS lock -- so the flag-check here is
+                # atomic vs the executor's window open/close. A steer that
+                # arrives while compacting must NOT be committed now: the
+                # compaction marker will be appended after the pre-compaction
+                # snapshot, and folding this steer into that drop-zone (without
+                # it being in the summary) would silently lose it. Record it
+                # PENDING; the executor drains it to messages.jsonl AFTER the
+                # marker once compaction completes, preserving submission order.
+                if self._state.is_compacting(self.session_id):
+                    self._state.add_pending_steer(self.session_id, message)
+                    logger.info(
+                        "session %s: steer recorded PENDING during compaction",
+                        self.session_id,
+                    )
+                    self._info = updated_info
+                    return instruction
+                new_messages_jsonl = await self._appended_messages_jsonl(message)
+                await self._state.commit(
+                    self.session_id,
+                    summary=f"user[{sid_short}]: {excerpt}" if excerpt else f"user[{sid_short}]: user_instruction",
+                    op="user_instruction",
+                    files={
+                        "messages.jsonl": new_messages_jsonl,
+                        "session.json": updated_info.model_dump_json(indent=2),
+                    },
+                )
+            self._info = updated_info
+            return instruction
+
+    async def set_name(self, name: str | None) -> SessionInfo:
+        """Set (or clear) the session's friendly display name.
+
+        Rewrites ``session.json`` with the new ``name`` in a single
+        ``rename`` commit. An empty / whitespace-only value clears the
+        name (the console then falls back to the id). Allowed in any
+        status -- the name is pure display metadata and does not affect
+        the lifecycle. Returns the updated :class:`SessionInfo`.
+        """
+        normalised = (name or "").strip() or None
+        async with self._lock:
+            now = datetime.now(timezone.utc)
+            updated_info = self._info.model_copy(
+                update={"name": normalised, "last_activity_at": now},
+            )
+            sid_short = self.session_id[-12:]
+            await self._state.commit(
+                self.session_id,
+                summary=f"rename[{sid_short}]: {normalised or '(cleared)'}",
+                op="rename",
+                files={"session.json": updated_info.model_dump_json(indent=2)},
+            )
+            self._info = updated_info
+            return updated_info
+
+    async def request_pause(self, *, reason: str | None = None) -> None:
+        """Set the pause flag the runtime checks before each turn.
+
+        Idempotent. Raises :class:`ConflictError` if the session is
+        already ENDED. The actual status transition to PAUSED happens
+        when the runtime observes the flag at the next turn boundary
+        and calls :meth:`set_status`.
+        """
+        del reason  # captured by callers for logging; not persisted here
+        if self._info.status == SessionStatus.ENDED:
+            raise ConflictError(
+                f"cannot pause ENDED session {self.session_id!r}"
+            )
+        self._pause_requested = True
+
+    async def request_resume(self) -> None:
+        """Clear the pause flag.
+
+        Idempotent. Raises :class:`ConflictError` if the session is
+        ENDED. The runtime moves PAUSED back to RUNNING (or WAITING if
+        ``waiting.json`` is still present) at its next opportunity.
+        """
+        if self._info.status == SessionStatus.ENDED:
+            raise ConflictError(
+                f"cannot resume ENDED session {self.session_id!r}"
+            )
+        self._pause_requested = False
+
+    async def request_end(
+        self,
+        *,
+        reason: Literal["cancelled"] = "cancelled",
+    ) -> None:
+        """Set the terminal flag. Idempotent.
+
+        The runtime aborts the in-flight turn (if any) and calls
+        :meth:`set_status` with ``ENDED`` and the supplied
+        ``ended_reason``. If a runtime isn't driving this session
+        (e.g. a teardown path), call :meth:`aclose` for the same
+        effect plus tmp cleanup.
+        """
+        del reason  # the runtime reads it from the request when transitioning
+        self._end_requested = True
+
+    # ---- Runtime-only mutators -------------------------------------------
+
+    async def set_status(
+        self,
+        status: SessionStatus,
+        *,
+        ended_reason: Literal["completed", "failed", "cancelled", "tool_turn_cap"] | None = None,
+        waiting_state: WaitingState | None = None,
+    ) -> None:
+        """Persist a status transition. Called by the agent runtime.
+
+        Validates the transition. When entering WAITING, ``waiting_state``
+        MUST be supplied -- it's serialised to ``waiting.json`` in the
+        same commit. When leaving WAITING, ``waiting.json`` is deleted
+        in the same commit. When entering ENDED, ``ended_reason`` MUST
+        be supplied; the per-session tmp subdirectory is reaped.
+        """
+        async with self._lock:
+            current = self._info.status
+            allowed = _LEGAL_TRANSITIONS.get(current, frozenset())
+            if status not in allowed:
+                raise ConflictError(
+                    f"illegal transition {current.value!r} -> {status.value!r}"
+                )
+            if status == SessionStatus.WAITING and waiting_state is None:
+                raise ConflictError(
+                    "transition to WAITING requires a waiting_state"
+                )
+            if status == SessionStatus.ENDED and ended_reason is None:
+                raise ConflictError(
+                    "transition to ENDED requires an ended_reason"
+                )
+
+            now = datetime.now(timezone.utc)
+            updates: dict[str, object] = {
+                "status": status,
+                "last_activity_at": now,
+            }
+            if status == SessionStatus.ENDED:
+                updates["ended_reason"] = ended_reason
+                updates["ended_at"] = now
+            updated_info = self._info.model_copy(update=updates)
+
+            files: dict[str, str | bytes] = {
+                "session.json": updated_info.model_dump_json(indent=2),
+            }
+            delete_files: list[str] = []
+            if status == SessionStatus.WAITING:
+                files["waiting.json"] = _waiting_state_adapter.dump_json(
+                    waiting_state, indent=2
+                ).decode("utf-8")
+            if (
+                current == SessionStatus.WAITING
+                and status != SessionStatus.WAITING
+            ):
+                delete_files.append("waiting.json")
+
+            sid_short = self.session_id[-12:]
+            await self._state.commit(
+                self.session_id,
+                summary=f"status[{sid_short}]: -> {status.value}",
+                op="status_change",
+                files=files,
+                delete_files=delete_files or None,
+            )
+            self._info = updated_info
+
+            if status == SessionStatus.ENDED:
+                # Reap the per-session tmp subdir so disk is released
+                # immediately rather than waiting for the retention sweep.
+                try:
+                    await self._cache.cleanup_session(self.session_id)
+                except Exception as exc:  # noqa: BLE001 -- cleanup is advisory
+                    logger.warning(
+                        "AgentSession: tmp cleanup failed on ENDED transition",
+                        extra={"session_id": self.session_id, "error": str(exc)},
+                    )
+
+    async def reopen(self) -> None:
+        """Force an ENDED slot back to RUNNING for reset-same-session.
+
+        The ONLY sanctioned way out of the terminal ENDED state
+        (studio-agents-interact §5.2). Bypasses ``_LEGAL_TRANSITIONS`` (which
+        makes ENDED terminal), clears ``ended_reason``/``ended_at``, and
+        commits ``session.json``. Idempotent no-op when not currently ENDED.
+        The append-only ``messages.jsonl`` history is preserved.
+        """
+        async with self._lock:
+            if self._info.status != SessionStatus.ENDED:
+                return
+            now = datetime.now(timezone.utc)
+            updated_info = self._info.model_copy(update={
+                "status": SessionStatus.RUNNING,
+                "ended_reason": None,
+                "ended_at": None,
+                "last_activity_at": now,
+            })
+            sid_short = self.session_id[-12:]
+            await self._state.commit(
+                self.session_id,
+                summary=f"reopen[{sid_short}]: ended -> running",
+                op="status_change",
+                files={"session.json": updated_info.model_dump_json(indent=2)},
+            )
+            self._info = updated_info
+
+    async def take_pending_messages(self) -> list[Message]:
+        """Return the messages added since the last assistant turn.
+
+        Reads ``messages.jsonl``, rebuilds the LLM history via
+        :func:`reconstruct_compacted_history` (so a compaction marker folds the
+        pre-compaction head into one synthetic assistant summary -- WITHOUT
+        this, a resumed turn would replay uncompacted history), then returns
+        every message after the most recent ``role == "assistant"`` entry
+        (the synthetic summary counts as an assistant message). If no assistant
+        message exists yet (fresh session), returns every message in the
+        rebuilt log -- typically just the initial user instruction.
+
+        Uses the :class:`StateRepo` protocol's ``read_state_file`` so this
+        works for both local and sandbox (container/k8s) backends, and shares
+        the marker reassembly with ``WorkspaceAgentExecutor._read_messages_jsonl``.
+        """
+        rel = f"sessions/{self.session_id}/messages.jsonl"
+        raw: bytes | None = await self._state.read_state_file(rel)
+
+        def _parse(data: bytes) -> list[Message]:
+            return reconstruct_compacted_history(data.decode("utf-8").splitlines())
+
+        all_messages = _parse(raw) if raw else []
+        last_assistant_idx = -1
+        for i, msg in enumerate(all_messages):
+            if msg.role == "assistant":
+                last_assistant_idx = i
+        return all_messages[last_assistant_idx + 1 :]
+
+    async def aclose(self) -> None:
+        """Release the session handle.
+
+        Equivalent to ``set_status(ENDED, ended_reason="completed")``
+        when the session isn't already ended. Idempotent.
+        """
+        if self._info.status == SessionStatus.ENDED:
+            return
+        await self.set_status(SessionStatus.ENDED, ended_reason="completed")
+
+    # ---- Internals -------------------------------------------------------
+
+    async def _appended_messages_jsonl(self, message: Message) -> str:
+        """Return the new messages.jsonl content with ``message`` appended.
+
+        Uses the :class:`StateRepo` protocol's ``read_state_file`` so
+        this works for both local and sandbox (container/k8s) backends.
+        """
+        rel = f"sessions/{self.session_id}/messages.jsonl"
+        raw: bytes | None = await self._state.read_state_file(rel)
+        existing = raw.decode("utf-8") if raw else ""
+        if existing and not existing.endswith("\n"):
+            existing += "\n"
+        return existing + message.model_dump_json() + "\n"
+
+    def _touch_last_activity(self) -> None:
+        """Update last_activity_at on the in-memory SessionInfo only.
+
+        On-disk session.json is not rewritten by this -- callers that
+        commit external files have already taken the commit lock and
+        included whatever updates they need. This method just keeps the
+        in-memory mirror fresh for cheap status() / info() reads.
+        """
+        self._info = self._info.model_copy(
+            update={"last_activity_at": datetime.now(timezone.utc)}
+        )
+
+
+__all__ = [
+    "AgentSession",
+    "reconstruct_compacted_history",
+]

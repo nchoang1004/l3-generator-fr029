@@ -1,0 +1,892 @@
+name: Release
+
+# Publishes a release from a pushed tag. Nothing is tagged in a registry or
+# published on the Releases page until three gates pass (#1226):
+#
+#   1. The tag names a release and sits on main, and CI passed on it
+#      (the ``meta`` job). Tags are not covered by any branch ruleset, so
+#      without the ancestry check anyone with write access could release
+#      any commit.
+#   2. Every image, BOTH architectures, passes Trivy + trivy-gate.sh (the
+#      ``scan`` job) before any image is tagged or the chart or ISO is
+#      built. #1218 shipped a BIND image with 7 HIGH CVEs because nothing on
+#      this path scanned it. Each image is built once and pushed by digest
+#      only, with no tag; the scan pulls that digest, and ``images`` then
+#      tags the same digest. So what is released is byte-for-byte what was
+#      scanned, which a rebuild after the scan could not promise.
+#   3. ``:latest`` moves last (the ``promote-latest`` job), after the GitHub
+#      release exists. It used to move with each image push, so a release
+#      that failed later had already moved every compose install onto it
+#      (``docker-compose.yml`` defaults to ``:latest``).
+#
+# There is deliberately no workflow-level ``concurrency``: GitHub keeps at
+# most one PENDING run per group and cancels the older one, so with ``meta``
+# waiting up to an hour on CI a queued release tag could be dropped without
+# a trace. Two releases can run at once instead, so "is this the newest
+# release" is re-checked right before each of the two things it decides
+# (GitHub's latest release, and ``:latest``), not only in ``meta``.
+
+on:
+  push:
+    tags:
+      # CalVer (2026.04.13-1) until 1.0.0, SemVer (1.0.0, 1.0.0-rc.1) after
+      # it (#1182). The globs are loose on purpose; ``meta`` validates the
+      # tag exactly and FAILS on anything else rather than skipping it, so a
+      # mistyped tag is loud. Nightly tags are ``nightly-YYYY.MM.DD`` and
+      # match neither glob.
+      - "[0-9]+.[0-9]+.[0-9]+"
+      - "[0-9]+.[0-9]+.[0-9]+-*"
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}
+
+# Default to read-only; individual jobs widen with packages:write / contents:write.
+permissions:
+  contents: read
+
+jobs:
+  # ── Gate 1: is this a release, from main, that CI passed? ─────────────────
+  meta:
+    name: Check the tag
+    # Forks inherit this workflow (#830); never run the publisher outside
+    # the canonical repo. Every other job needs this one, so the guard
+    # cascades.
+    if: github.repository_owner == 'spatiumnorth'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # To read ci.yml's runs for the tagged commit.
+      actions: read
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+      sha_short: ${{ steps.ver.outputs.sha_short }}
+      prerelease: ${{ steps.ver.outputs.prerelease }}
+      make_latest: ${{ steps.ver.outputs.make_latest }}
+      prev_tag: ${{ steps.ver.outputs.prev_tag }}
+      images: ${{ steps.ver.outputs.images }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - id: ver
+        name: Validate the tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME}"
+          SHA=$(git rev-parse HEAD)
+
+          # Exactly a release tag: CalVer with its -N, or SemVer >= 1.0.0
+          # with no build metadata. Prints prerelease=true|false.
+          python3 scripts/release_version.py check "$VERSION" >> "$GITHUB_OUTPUT"
+
+          # On main, or it is not a release. A tag on a feature branch, an
+          # unmerged PR head or a local commit would otherwise publish.
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          if ! git merge-base --is-ancestor "$SHA" origin/main; then
+            echo "::error::${VERSION} points at ${SHA}, which is not on main. Tag a commit on main."
+            exit 1
+          fi
+
+          # Ranked only against tags on main that were actually released:
+          # see release-tags.sh for why a stray tag must not count.
+          TAGS=$(.github/scripts/release-tags.sh)
+          PREV_TAG=$(printf '%s\n' "$TAGS" | python3 scripts/release_version.py previous "$VERSION")
+          MAKE_LATEST=$(printf '%s\n' "$TAGS" | python3 scripts/release_version.py is-newest "$VERSION")
+
+          {
+            echo "version=${VERSION}"
+            echo "sha_short=${SHA::7}"
+            echo "prev_tag=${PREV_TAG}"
+            echo "make_latest=${MAKE_LATEST}"
+            # The one list of shipped images, shared with nightly.yml and
+            # scripts/lint_image_upgrades.py.
+            echo "images=$(jq -c . .github/images.json)"
+          } >> "$GITHUB_OUTPUT"
+          echo "→ ${VERSION} at ${SHA::7}: previous release ${PREV_TAG:-<none>}, becomes latest: ${MAKE_LATEST}"
+
+      - name: Require CI to have passed on this commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          SHA=$(git rev-parse HEAD)
+          # The tag is normally pushed right after the release-prep PR
+          # merges, while main's CI for that commit is still running, so
+          # wait for it rather than failing. An hour covers the full
+          # backend suite with room to spare.
+          deadline=$((SECONDS + 3600))
+          while :; do
+            runs=$(gh api "repos/${REPO}/actions/workflows/ci.yml/runs?head_sha=${SHA}&event=push&per_page=20" \
+                     --jq '.workflow_runs[] | "\(.id)\t\(.status)\t\(.conclusion // "")\t\(.html_url)"')
+            if awk -F '\t' '$2 == "completed" && $3 == "success" { f = 1 } END { exit !f }' <<< "$runs"; then
+              echo "✓ CI passed on ${SHA::7}"
+              exit 0
+            fi
+            pending=0
+            if awk -F '\t' 'NF && $2 != "completed" { f = 1 } END { exit !f }' <<< "$runs"; then
+              pending=1
+            fi
+            # No run yet: give GitHub a few minutes to queue the push run.
+            if [ -z "$runs" ] && [ "$SECONDS" -lt 300 ]; then
+              pending=1
+            fi
+            if [ "$pending" -eq 1 ] && [ "$SECONDS" -lt "$deadline" ]; then
+              echo "… CI on ${SHA::7} has not finished; checking again in 60 s"
+              sleep 60
+              continue
+            fi
+            echo "::error::CI has not passed on ${SHA::7}, so this commit cannot be released."
+            if [ -n "$runs" ]; then
+              echo "ci.yml runs for this commit (id, status, conclusion):"
+              printf '%s\n' "$runs"
+              echo "A run cancelled by a later push to main can be re-run with 'gh run rerun <id>'; then re-run this workflow."
+            else
+              echo "ci.yml never ran on this commit as a push to main."
+            fi
+            exit 1
+          done
+
+  # ── Gate 2: build each image once, scan both architectures ───────────────
+  # The image is built multi-arch and pushed BY DIGEST ONLY: it lands in the
+  # registry untagged, so nothing can pull it by version and no install sees
+  # it. Each architecture's manifest is then pulled by digest and gated with
+  # Trivy + trivy-gate.sh (arm64 runs under QEMU for the gate's package-index
+  # probe). ``images`` tags the digest this job built and scanned, so there
+  # is no second build whose bytes could differ from the scanned ones. An
+  # image refused here stays untagged; GHCR's untagged-version retention
+  # collects it.
+  #
+  # A matrix over IMAGES, never over platforms: a platform matrix pushes each
+  # platform to the same tag separately, so the second push overwrites the
+  # first. ``fail-fast: false`` so one run reports every image's verdict.
+  scan:
+    name: Build and scan ${{ matrix.image }}
+    runs-on: ubuntu-latest
+    needs: meta
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.meta.outputs.images) }}
+    env:
+      REF: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}
+      IMAGE: ${{ matrix.image }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: build
+        name: Build and push by digest
+        uses: docker/build-push-action@v7
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          # #732 — the api entry carries ``target: runtime``. ``dev`` is the
+          # LAST stage in backend/Dockerfile, so an unpinned build publishes
+          # an api image carrying pytest + coverage installed as root.
+          target: ${{ matrix.target }}
+          platforms: linux/amd64,linux/arm64
+          outputs: type=image,name=${{ env.REF }},push-by-digest=true,name-canonical=true,push=true
+          # APP_VERSION: the version the supervisor (#1183) and the agents
+          # (#1182) report. An image that declares no such ARG ignores it.
+          build-args: |
+            VITE_APP_VERSION=${{ needs.meta.outputs.version }}
+            APP_VERSION=${{ needs.meta.outputs.version }}
+          labels: |
+            org.opencontainers.image.version=${{ needs.meta.outputs.version }}
+            org.opencontainers.image.revision=${{ needs.meta.outputs.sha_short }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+
+      - name: Pull each architecture for scanning
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+          raw=$(docker buildx imagetools inspect --raw "${REF}@${DIGEST}")
+          for arch in amd64 arm64; do
+            # Exactly one manifest per platform. The index also carries
+            # provenance attestations (platform unknown/unknown), filtered out.
+            d=$(jq -r --arg a "$arch" '
+                  [.manifests[] | select(.platform.os == "linux" and .platform.architecture == $a)]
+                  | if length == 1 then .[0].digest else empty end' <<< "$raw")
+            if [ -z "$d" ]; then
+              echo "::error::${REF}@${DIGEST} has no single linux/${arch} manifest"
+              exit 1
+            fi
+            docker pull --quiet --platform "linux/${arch}" "${REF}@${d}"
+            docker tag "${REF}@${d}" "scan-target:${IMAGE}-${arch}"
+          done
+          mkdir -p digests
+          printf '%s\n' "$DIGEST" > "digests/${IMAGE}"
+
+      # Trivy reports; trivy-gate.sh decides (see its header: a fix Trivy
+      # knows about but the package mirrors do not have yet is deferred,
+      # anything a rebuild would cure fails). ``exit-code: 0`` because the
+      # verdict belongs to the gate step.
+      - name: Trivy (amd64)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: scan-target:${{ matrix.image }}-amd64
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "0"
+          format: json
+          output: trivy-amd64.json
+      - name: Gate on the scan (amd64)
+        run: .github/scripts/trivy-gate.sh trivy-amd64.json "scan-target:${IMAGE}-amd64"
+
+      - name: Trivy (arm64)
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: scan-target:${{ matrix.image }}-arm64
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "0"
+          format: json
+          output: trivy-arm64.json
+      - name: Gate on the scan (arm64)
+        run: .github/scripts/trivy-gate.sh trivy-arm64.json "scan-target:${IMAGE}-arm64"
+
+      # Only a digest that passed both gates reaches the tagging job.
+      - uses: actions/upload-artifact@v7
+        with:
+          name: digest-${{ matrix.image }}
+          path: digests/${{ matrix.image }}
+          if-no-files-found: error
+          retention-days: 1
+
+  # ── Tag the scanned digests as :<version> ──────────────────────────────────
+  # Runs only when every image passed ``scan``. Nothing is rebuilt: each tag
+  # points at the exact multi-arch digest that was scanned. ``:latest`` is
+  # promote-latest's job.
+  images:
+    name: Tag images :${{ needs.meta.outputs.version }}
+    runs-on: ubuntu-latest
+    needs: [meta, scan]
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: digest-*
+          merge-multiple: true
+          path: digests/
+      - name: Tag each digest
+        env:
+          IMAGES_JSON: ${{ needs.meta.outputs.images }}
+          VERSION: ${{ needs.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          # Every image must have a scanned digest before any is tagged.
+          IMAGES=$(printf '%s' "$IMAGES_JSON" | jq -r '.[].image')
+          for img in $IMAGES; do
+            [ -s "digests/${img}" ] || { echo "::error::no scanned digest for ${img}"; exit 1; }
+          done
+          # A registry hiccup on one image must not fail the release.
+          tag() {
+            local attempt
+            for attempt in 1 2 3; do
+              docker buildx imagetools create --tag "$1" "$2" && return 0
+              echo "… ${1}: attempt ${attempt} failed; retrying"
+              sleep $((attempt * 15))
+            done
+            return 1
+          }
+          for img in $IMAGES; do
+            digest=$(cat "digests/${img}")
+            echo "→ ${img}:${VERSION} = ${img}@${digest}"
+            tag "${IMAGE_PREFIX}/${img}:${VERSION}" "${IMAGE_PREFIX}/${img}@${digest}"
+          done
+
+  # ── Publish Helm chart (OCI) ───────────────────────────────────────────────
+  # Packages `charts/spatiumddi` (umbrella: api + frontend + worker + beat
+  # + migrate + Postgres/Redis subcharts + optional DNS/DHCP agents) and
+  # pushes it as an OCI artifact to ghcr.io/<owner>/charts/spatiumddi:
+  # <chart_version>. Consumers then:
+  #
+  #   helm install ddi oci://ghcr.io/spatiumnorth/charts/spatiumddi \
+  #     --version <chart_version>
+  #
+  # The in-repo Chart.yaml version is a placeholder; the release tag
+  # (with leading zeroes stripped for SemVer-2 compliance) is the
+  # authoritative published version.
+  publish-chart:
+    name: Publish Helm chart (OCI)
+    runs-on: ubuntu-latest
+    # After the images are TAGGED, not merely scanned: a chart published
+    # before that points at <image>:<version> tags that may never exist
+    # (ImagePullBackOff on install), and its version number is then taken
+    # for any re-cut.
+    needs: [meta, images]
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      chart_version: ${{ steps.pkg.outputs.chart_version }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: azure/setup-helm@v5
+        with:
+          version: v4.3.0
+      - name: Log in to GHCR
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" \
+            | helm registry login ghcr.io \
+                -u "${{ github.actor }}" \
+                --password-stdin
+      - name: Pull chart dependencies
+        # Umbrella chart has no subcharts; the appliance chart (#272
+        # Phase 1) bundles MetalLB + CNPG. Both lines are no-ops when
+        # the target chart has no ``dependencies:`` block.
+        run: |
+          helm dependency update charts/spatiumddi
+          helm dependency update charts/spatiumddi-appliance
+      - id: pkg
+        name: Package + push chart
+        run: |
+          VERSION="${{ needs.meta.outputs.version }}"
+          # Helm enforces strict SemVer 2, which forbids leading zeroes in
+          # MAJOR.MINOR.PATCH, so a CalVer tag drops them (2026.04.20-1 ->
+          # 2026.4.20-1); a SemVer tag is published unchanged (#1182). The
+          # original tag is kept as appVersion so the human-readable
+          # release identity survives on the artifact.
+          CHART_VERSION=$(python3 scripts/release_version.py chart-version "$VERSION")
+          echo "chart_version=${CHART_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "→ packaging spatiumddi version=${CHART_VERSION} appVersion=${VERSION}"
+          mkdir -p dist
+          helm package charts/spatiumddi \
+            --version "$CHART_VERSION" \
+            --app-version "$VERSION" \
+            --destination ./dist
+          helm push \
+            "./dist/spatiumddi-${CHART_VERSION}.tgz" \
+            "oci://ghcr.io/${{ github.repository_owner }}/charts"
+
+  # ── Build appliance ISO ─────────────────────────────────────────────────────
+  # The build itself lives in build-appliance.yml (reusable, #823), so the
+  # nightly exercises the exact same assembly daily instead of it only ever
+  # running when a release is cut. The release tag serves as both the
+  # appliance-release stamp and the baked-image tag, and stable_copies
+  # stays on (default) so the un-versioned spatiumddi-appliance-amd64.*
+  # names exist for the /releases/latest/download/ stable URLs.
+  #
+  # Depends on every image-build job: the ISO is fully baked (#170 A4) —
+  # we can't bake what hasn't been pushed yet.
+  build-appliance-iso:
+    name: Build appliance ISO
+    needs: [meta, images]
+    permissions:
+      contents: read
+      packages: read
+    # #1026 — one leg per architecture. ``fail-fast: false`` so an arm64
+    # regression does not withhold the amd64 ISO from a release: the two
+    # are independent artifacts and one being broken is not a reason to
+    # ship neither.
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [amd64, arm64]
+    uses: ./.github/workflows/build-appliance.yml
+    with:
+      version: ${{ needs.meta.outputs.version }}
+      image_tag: ${{ needs.meta.outputs.version }}
+      arch: ${{ matrix.arch }}
+      # The un-versioned names back the /releases/latest/download/ URLs,
+      # which only ever resolve to the newest final release. Anything else
+      # (a pre-release, a final release cut below a newer one) would upload
+      # several GB that prune-assets deletes in the same run.
+      stable_copies: ${{ needs.meta.outputs.make_latest == 'true' }}
+
+  # ── Export the OpenAPI contract (#903) ─────────────────────────────────────
+  #
+  # The native app lives in its own repo, so the schema is the contract
+  # BETWEEN two repos rather than a file a client reads off this working tree.
+  # Attaching it per release tag lets that client codegen against an exact
+  # server version instead of against whatever ``main`` happens to be.
+  #
+  # Runs inside the api image this release just published, not a fresh venv:
+  # the artifact is the contract for THAT build, so it is generated by the
+  # same interpreter and dependency set the build ships. ``--network none``
+  # both proves and enforces that the export touches no database, Redis or
+  # network — verified locally against a bare image.
+  export-openapi:
+    name: Export OpenAPI contract
+    runs-on: ubuntu-latest
+    needs: [meta, images]
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate openapi.json
+        run: |
+          set -euo pipefail
+          docker run --rm --network none \
+            -v "$PWD/scripts:/scripts:ro" \
+            -e VERSION="${{ needs.meta.outputs.version }}" \
+            "${{ env.IMAGE_PREFIX }}/spatiumddi-api:${{ needs.meta.outputs.version }}" \
+            python3 /scripts/export_openapi.py > openapi.json
+
+      # Assert the two properties that make this artifact worth publishing.
+      # Both have silently regressed before and neither is visible in a diff:
+      # ``info.version`` was hardcoded to 0.1.0 for every release up to now,
+      # and swapping ``app.openapi()`` for ``get_openapi`` would drop the
+      # validation-detail widening without changing a single call site.
+      - name: Verify the exported contract
+        run: |
+          python3 - <<'EOF'
+          import json, sys
+          doc = json.load(open("openapi.json"))
+          expected = "${{ needs.meta.outputs.version }}"
+          got = doc["info"]["version"]
+          if got != expected:
+              sys.exit(f"info.version is {got!r}, expected the tag {expected!r}")
+          if doc["info"]["title"] != "SpatiumDDI":
+              sys.exit(f"info.title leaked operator branding: {doc['info']['title']!r}")
+          detail = (
+              doc["components"]["schemas"]["HTTPValidationError"]["properties"]["detail"]
+          )
+          if "anyOf" not in detail:
+              sys.exit(
+                  "HTTPValidationError.detail is not widened — the export bypassed "
+                  "app.openapi()'s wrapper, so generated clients will reject this "
+                  "server's real string-form 4xx bodies"
+              )
+          print(f"ok: {len(doc['paths'])} paths, version {got}")
+          EOF
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: openapi-contract
+          path: openapi.json
+          if-no-files-found: error
+
+  # ── Create GitHub Release ──────────────────────────────────────────────────
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [meta, images, build-appliance-iso, publish-chart, export-openapi]
+    permissions:
+      contents: write
+    outputs:
+      make_latest: ${{ steps.latest.outputs.make_latest }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Extract bundled component versions
+        id: bundled
+        # Pulls the just-published DNS + DHCP agent images and reads the
+        # ``/etc/spatiumddi-versions`` file each Dockerfile writes at build
+        # time (post ``apk add bind`` / ``apk add pdns`` / ``apk add kea …``).
+        # Surfaces the exact BIND9 + PowerDNS + Kea + Alpine package versions
+        # in the release notes so operators can map a release tag to the bytes
+        # inside.
+        #
+        # PowerDNS was added in #638: it is the one bundled component whose
+        # MAJOR version change is operationally load-bearing (5.0 performs a
+        # one-way LMDB schema migration), so "which pdns does this tag ship"
+        # has to be answerable from the release notes without pulling the image.
+        run: |
+          set -euo pipefail
+          VERSION="${{ needs.meta.outputs.version }}"
+          DNS_IMG="${{ env.IMAGE_PREFIX }}/dns-bind9:${VERSION}"
+          PDNS_IMG="${{ env.IMAGE_PREFIX }}/dns-powerdns:${VERSION}"
+          DHCP_IMG="${{ env.IMAGE_PREFIX }}/dhcp-kea:${VERSION}"
+
+          docker pull --platform linux/amd64 "$DNS_IMG"
+          docker pull --platform linux/amd64 "$PDNS_IMG"
+          docker pull --platform linux/amd64 "$DHCP_IMG"
+
+          BIND_VERSIONS=$(docker run --rm --platform linux/amd64 --entrypoint cat \
+            "$DNS_IMG" /etc/spatiumddi-versions)
+          PDNS_VERSIONS=$(docker run --rm --platform linux/amd64 --entrypoint cat \
+            "$PDNS_IMG" /etc/spatiumddi-versions)
+          KEA_VERSIONS=$(docker run --rm --platform linux/amd64 --entrypoint cat \
+            "$DHCP_IMG" /etc/spatiumddi-versions)
+
+          {
+            echo "BIND_VERSIONS<<BV_EOF"
+            printf '%s\n' "$BIND_VERSIONS"
+            echo "BV_EOF"
+            echo "PDNS_VERSIONS<<PV_EOF"
+            printf '%s\n' "$PDNS_VERSIONS"
+            echo "PV_EOF"
+            echo "KEA_VERSIONS<<KV_EOF"
+            printf '%s\n' "$KEA_VERSIONS"
+            echo "KV_EOF"
+          } >> "$GITHUB_ENV"
+
+      - name: Generate changelog
+        id: changelog
+        env:
+          VERSION: ${{ needs.meta.outputs.version }}
+          PREV_TAG: ${{ needs.meta.outputs.prev_tag }}
+        run: |
+          set -euo pipefail
+          # The "## <VERSION>" section, matched exactly (#1182): a prefix
+          # match took "## 1.0.10" when asked for "## 1.0.1".
+          NOTES=$(python3 scripts/release_version.py notes "$VERSION" CHANGELOG.md)
+
+          # Fall back to a commit shortlog if the CHANGELOG section is empty
+          # or missing (e.g. forgot to update it before tagging).
+          if [ -z "$(printf '%s' "$NOTES" | tr -d '[:space:]')" ]; then
+            echo "::notice::No CHANGELOG section for $VERSION — using commit shortlog"
+            if [ -n "$PREV_TAG" ]; then
+              NOTES=$(git log "${PREV_TAG}..HEAD" --oneline --no-merges)
+            else
+              NOTES=$(git log HEAD --oneline --no-merges | head -30)
+            fi
+          else
+            # Run through the changelog transformer so the GitHub release
+            # body reads as flowing prose instead of a wall of forced
+            # `<br>`s. The release renderer applies GFM with breaks=true,
+            # so every `\n` in the source becomes a literal break — but
+            # CHANGELOG.md is hard-wrapped at ~70 chars for terminal
+            # reading. The transformer joins consecutive prose lines into
+            # one (preserving blank-line paragraph breaks, code fences,
+            # bullet lists, and headings), wraps the top summary in
+            # `### 🚀 Highlights`, and emoji-prefixes the standard
+            # Keep-a-Changelog section headers (`✨ Added`, `🔧 Changed`,
+            # `🐛 Fixed`, `🔒 Security`, `🗃️ Migrations`, …). Idempotent
+            # — re-running on already-transformed text is a no-op.
+            #
+            # GitHub refuses a release body over 125,000 characters, and
+            # the release is created only after every image is built and
+            # scanned. Notes over the formatter's limit come out condensed:
+            # each entry cut to its headline, linking the full text.
+            NOTES=$(printf '%s\n' "$NOTES" | python3 scripts/format_release_notes.py \
+              --full-notes-url "https://github.com/${GITHUB_REPOSITORY}/blob/${VERSION}/CHANGELOG.md")
+          fi
+
+          {
+            echo "CHANGELOG<<CHANGELOG_EOF"
+            printf '%s\n' "$NOTES"
+            echo "CHANGELOG_EOF"
+          } >> "$GITHUB_ENV"
+
+          # The previous release (#1182): picked by the product's own
+          # ordering, which puts every SemVer release after every CalVer
+          # one. `sort -V` does the opposite, so the compare link for 1.0.0
+          # would have started from the newest CalVer tag forever.
+          if [ -n "$PREV_TAG" ]; then
+            echo "PREV_TAG=$PREV_TAG" >> "$GITHUB_ENV"
+          fi
+
+      # Re-checked here rather than trusted from ``meta``: runs are not
+      # serialised (see the header), and a newer release may have been
+      # published while this one built. ``meta`` said no → still no.
+      - name: Is this still the newest release?
+        id: latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.meta.outputs.version }}
+          MAKE_LATEST: ${{ needs.meta.outputs.make_latest }}
+        run: |
+          set -euo pipefail
+          if [ "$MAKE_LATEST" = "true" ]; then
+            MAKE_LATEST=$(.github/scripts/release-tags.sh | python3 scripts/release_version.py is-newest "$VERSION")
+          fi
+          echo "make_latest=${MAKE_LATEST}" >> "$GITHUB_OUTPUT"
+          echo "→ ${VERSION} becomes GitHub's latest release: ${MAKE_LATEST}"
+
+      - name: Download appliance artifacts (ISO + slot image, per arch)
+        uses: actions/download-artifact@v8
+        with:
+          # #1026 — the appliance job is a matrix now, so it uploads
+          # ``appliance-artifacts-<arch>`` per leg. A bare ``name:`` of
+          # the old value matches nothing and download-artifact ERRORS,
+          # which would fail the release job outright — no assets, no
+          # release. ``merge-multiple`` flattens both legs into dist/,
+          # where the existing globs pick them up unchanged.
+          pattern: appliance-artifacts-*
+          merge-multiple: true
+          path: dist/
+
+      # #903 — the versioned API contract. Kept OUT of dist/ so the
+      # appliance globs in the ``files:`` list below cannot accidentally
+      # widen onto it.
+      - name: Download the OpenAPI contract
+        uses: actions/download-artifact@v8
+        with:
+          name: openapi-contract
+          path: contract/
+
+      - uses: softprops/action-gh-release@v3
+        with:
+          name: "SpatiumDDI ${{ needs.meta.outputs.version }}"
+          # A SemVer pre-release (1.0.0-rc.1) is published as a GitHub
+          # pre-release, which /releases/latest and so the in-product update
+          # check skip (#1182).
+          prerelease: ${{ needs.meta.outputs.prerelease == 'true' }}
+          # Explicit, not GitHub's default ("the newest by date"): a final
+          # release cut below a newer one must not take over the stable
+          # download URLs. Decided with the product's ordering, just above.
+          make_latest: ${{ steps.latest.outputs.make_latest }}
+          files: |
+            dist/spatiumddi-appliance-*.iso
+            dist/spatiumddi-appliance-slot-*.raw.xz
+            dist/spatiumddi-appliance-slot-*.sha256
+            contract/openapi.json
+          body: |
+            ${{ needs.meta.outputs.prerelease == 'true' && '> **Pre-release.** Not offered as an in-product update and not tagged `:latest`; install it by its version.' || '' }}
+
+            ## What's Changed
+
+            ${{ env.CHANGELOG }}
+
+            ## OS Appliance ISO
+
+            Hybrid USB/CD installer images for **x86-64 and arm64**,
+            attached as release assets
+            (``spatiumddi-appliance-${{ needs.meta.outputs.version }}-amd64.iso``
+            and ``…-arm64.iso``). The arm64 image is **UEFI-only** —
+            AArch64 has no BIOS boot path. Burn
+            to USB with ``sudo dd if=… of=/dev/sdX bs=4M conv=fsync`` or
+            attach as a CD-ROM in your hypervisor. See
+            [docs/deployment/APPLIANCE.md](https://github.com/${{ github.repository }}/blob/${{ needs.meta.outputs.version }}/docs/deployment/APPLIANCE.md)
+            for the install walkthrough. The ISO is the **slim** variant —
+            no images baked in; first boot pulls every service from ghcr.io.
+
+            **Stable URL** (always points at the latest release):
+
+            ```
+            https://github.com/${{ github.repository }}/releases/latest/download/spatiumddi-appliance-amd64.iso
+            https://github.com/${{ github.repository }}/releases/latest/download/spatiumddi-appliance-arm64.iso
+            ```
+
+            ## OS Appliance Slot Upgrade Image
+
+            For Phase 8 atomic A/B upgrades on the installed appliance.
+            Paste this URL into the OS Image card on ``/appliance``'s
+            Releases tab, or run on the appliance:
+
+            ```
+            spatium-upgrade-slot apply \
+              https://github.com/${{ github.repository }}/releases/latest/download/spatiumddi-appliance-slot-amd64.raw.xz \
+              --checksum https://github.com/${{ github.repository }}/releases/latest/download/spatiumddi-appliance-slot-amd64.sha256
+            ```
+
+            …or ``-arm64`` for an arm64 appliance. Pointing a node at
+            the other architecture's image is refused twice — by the
+            control plane before it stamps desired state, and by the
+            runner on the real decompressed bytes before it touches the
+            bootloader (#1026).
+
+            Writes the image into the inactive A/B slot, arms grub to
+            try it on next boot, auto-rolls back if `/health/live`
+            doesn't come up healthy. Active slot is never touched
+            during apply. Versioned filenames
+            (``spatiumddi-appliance-slot-${{ needs.meta.outputs.version }}-<arch>.raw.xz``)
+            attached too for archival.
+
+            ## API Contract (`openapi.json`)
+
+            The complete OpenAPI 3.1 document for this exact server
+            version, attached as a release asset. Generate a client
+            against it rather than against `main`, so the client is
+            pinned to a server it was actually built for:
+
+            ```
+            https://github.com/${{ github.repository }}/releases/download/${{ needs.meta.outputs.version }}/openapi.json
+            ```
+
+            `info.version` is `${{ needs.meta.outputs.version }}`, and a
+            running server reports its own version at
+            `GET /api/v1/version` (unauthenticated) — so a client can
+            compare the two and gate features by version instead of
+            probing for endpoints. Reproduce this file locally at any tag
+            with `make openapi VERSION=${{ needs.meta.outputs.version }}`.
+
+            Retained on every release, including old ones — pinning to an
+            older server is exactly what it is for.
+
+            ## Docker Images
+
+            ```
+            docker pull ghcr.io/${{ github.repository_owner }}/spatiumddi-api:${{ needs.meta.outputs.version }}
+            docker pull ghcr.io/${{ github.repository_owner }}/spatiumddi-frontend:${{ needs.meta.outputs.version }}
+            docker pull ghcr.io/${{ github.repository_owner }}/dns-bind9:${{ needs.meta.outputs.version }}
+            docker pull ghcr.io/${{ github.repository_owner }}/dns-powerdns:${{ needs.meta.outputs.version }}
+            docker pull ghcr.io/${{ github.repository_owner }}/dns-technitium:${{ needs.meta.outputs.version }}
+            docker pull ghcr.io/${{ github.repository_owner }}/dhcp-kea:${{ needs.meta.outputs.version }}
+            docker pull ghcr.io/${{ github.repository_owner }}/spatium-supervisor:${{ needs.meta.outputs.version }}
+            docker pull ghcr.io/${{ github.repository_owner }}/looking-glass:${{ needs.meta.outputs.version }}
+            ```
+
+            ## Bundled Component Versions
+
+            Resolved at build time by `apk info` inside the agent images and
+            also written to `/etc/spatiumddi-versions` inside each container
+            for runtime inspection.
+
+            **DNS agent image** (`dns-bind9:${{ needs.meta.outputs.version }}`)
+            ```
+            ${{ env.BIND_VERSIONS }}
+            ```
+
+            **DNS agent image** (`dns-powerdns:${{ needs.meta.outputs.version }}`)
+            ```
+            ${{ env.PDNS_VERSIONS }}
+            ```
+
+            **DHCP agent image** (`dhcp-kea:${{ needs.meta.outputs.version }}`)
+            ```
+            ${{ env.KEA_VERSIONS }}
+            ```
+
+            ## Helm Chart
+
+            ```
+            helm install ddi oci://ghcr.io/${{ github.repository_owner }}/charts/spatiumddi \
+              --version ${{ needs.publish-chart.outputs.chart_version }} \
+              --namespace spatiumddi --create-namespace
+            ```
+
+            ## Full Changelog
+            ${{ env.PREV_TAG && format('https://github.com/{0}/compare/{1}...{2}', github.repository, env.PREV_TAG, needs.meta.outputs.version) || format('https://github.com/{0}/commits/{1}', github.repository, needs.meta.outputs.version) }}
+          generate_release_notes: false
+
+  # ── Gate 3: move :latest, only now ────────────────────────────────────────
+  # Every image was tagged :<version> alone. :latest moves here, after the
+  # GitHub release exists, so a release that fails anywhere earlier leaves
+  # every compose install (``${SPATIUMDDI_VERSION:-latest}``) where it was.
+  # Skipped for a pre-release, and for a final release that is not the
+  # newest; the second is re-checked here, since runs are not serialised.
+  #
+  # All nine move or none do. Each image is its own repository, so there is
+  # no atomic multi-tag; instead every source is checked and every current
+  # :latest recorded first, each move is retried, and if one still fails the
+  # ones already moved are put back. A half-moved :latest would pair, say,
+  # this release's api with the previous release's frontend on the next
+  # ``docker compose pull``.
+  promote-latest:
+    name: Tag :latest
+    runs-on: ubuntu-latest
+    needs: [meta, release]
+    if: needs.release.outputs.make_latest == 'true'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Point :latest at this release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IMAGES_JSON: ${{ needs.meta.outputs.images }}
+          VERSION: ${{ needs.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          newest=$(.github/scripts/release-tags.sh | python3 scripts/release_version.py is-newest "$VERSION")
+          if [ "$newest" != "true" ]; then
+            echo "::notice::a newer release was published while ${VERSION} built; :latest stays where it is"
+            exit 0
+          fi
+
+          IMAGES=$(printf '%s' "$IMAGES_JSON" | jq -r '.[].image')
+          digest_of() {
+            docker buildx imagetools inspect "$1" --format '{{json .Manifest}}' | jq -r .digest
+          }
+          tag() {
+            local attempt
+            for attempt in 1 2 3; do
+              docker buildx imagetools create --tag "$1" "$2" && return 0
+              echo "… ${1}: attempt ${attempt} failed; retrying"
+              sleep $((attempt * 15))
+            done
+            return 1
+          }
+
+          # Before moving anything: every source exists, and where every
+          # :latest points now (empty for an image that never had one).
+          declare -A previous
+          for img in $IMAGES; do
+            digest_of "${IMAGE_PREFIX}/${img}:${VERSION}" >/dev/null
+            previous[$img]=$(digest_of "${IMAGE_PREFIX}/${img}:latest" 2>/dev/null || true)
+          done
+
+          moved=()
+          for img in $IMAGES; do
+            echo "→ ${img}:latest = ${img}:${VERSION}"
+            if tag "${IMAGE_PREFIX}/${img}:latest" "${IMAGE_PREFIX}/${img}:${VERSION}"; then
+              moved+=("$img")
+              continue
+            fi
+            echo "::error::could not move ${img}:latest; restoring the ${#moved[@]} already moved"
+            for back in "${moved[@]}"; do
+              if [ -n "${previous[$back]}" ]; then
+                tag "${IMAGE_PREFIX}/${back}:latest" "${IMAGE_PREFIX}/${back}@${previous[$back]}" \
+                  || echo "::error::${back}:latest could not be restored to ${previous[$back]}"
+              fi
+            done
+            exit 1
+          done
+
+  # ── Prune heavy assets off old releases (#392) ─────────────────────────────
+  # Version-aware retention: drop the generic-named duplicate ISO / slot
+  # assets from every non-latest release, plus the heavy *versioned*
+  # .iso + slot .raw.xz beyond the keep window. The release, tag, notes,
+  # and versioned .sha256 provenance sidecars are ALWAYS kept. Runs after
+  # the release is published, so the keep window rolls forward on its own.
+  # Pre-releases do not take window slots (see the script). A weekly scheduled run
+  # (.github/workflows/prune-release-assets.yml) is the safety net + the
+  # ad-hoc / dry-run knob; both call the same script.
+  #
+  # Its own job, so housekeeping failing cannot hold back :latest and
+  # :latest failing cannot skip the housekeeping.
+  prune-assets:
+    name: Prune old release assets
+    runs-on: ubuntu-latest
+    needs: [meta, release]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - name: Prune old appliance release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          KEEP_VERSIONED: "15"
+          # Never prune the just-cut release's generic /latest/-backing
+          # assets even if GitHub hasn't propagated isLatest=true to it yet.
+          # Only when it IS becoming latest: a pre-release or an older final
+          # release is not what /latest/ resolves to.
+          PROTECT_TAG: ${{ needs.release.outputs.make_latest == 'true' && needs.meta.outputs.version || '' }}
+        run: |
+          chmod +x scripts/prune-release-assets.sh
+          scripts/prune-release-assets.sh

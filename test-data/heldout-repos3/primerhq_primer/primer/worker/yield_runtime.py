@@ -1,0 +1,1100 @@
+"""Worker-side helpers for the yielding-tool park / resume flow.
+
+Spec: ``docs/superpowers/specs/2026-05-22-yielding-tools-design.md``
+§5 (DB shape), §7 (worker semantics).
+
+This module is the bridge between the pure-protocol primitives in
+:mod:`primer.model.yield_` and the worker pool's turn-execution loop.
+It owns three responsibilities:
+
+* **Park-state serialisation** — package a turn's mid-flight LLM
+  message history + the Yielded sentinel + turn metadata into the
+  JSONB blob the sessions row stores under ``parked_state``.
+* **Resume-state rehydration** — rebuild the turn-in-progress from
+  a serialised blob, decide what resume payload to feed to the
+  tool's :meth:`resume` hook (real event payload vs ``YieldTimeout``
+  vs ``YieldCancelled``), and return a structured object the worker
+  can act on.
+* **Resume-payload classification** — the bus delivers a generic
+  ``dict`` payload alongside two sentinel markers
+  (``__yield_timeout__``, ``__yield_cancelled__``); this module
+  detects the markers and synthesises the right Python-side
+  :class:`YieldTimeout` / :class:`YieldCancelled` instances.
+
+None of this module touches the DB directly — callers (the worker
+pool and the session API endpoints) thread the parked Session row
+through. Keeping I/O at the edges makes the helpers fast to unit
+test and easy to reason about.
+"""
+
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from typing import Any, Literal, NamedTuple
+
+from primer.model.chat import ToolCallPart, ToolResultPart
+from primer.model.yield_ import (
+    YieldCancelled,
+    YieldTimeout,
+    Yielded,
+)
+
+
+# Schema version for the parked_state blob. Bumped only on
+# backwards-incompatible shape changes. The rehydrate helper rejects
+# unknown versions loudly so a future runtime can't silently misread
+# old parks.
+PARKED_STATE_SCHEMA_VERSION = 1
+
+
+# Marker keys placed inside resume_event_payload by the timeout
+# sweeper / cancel-yielded-tool API. The runtime detects these and
+# routes to the matching synthetic resume payload.
+_YIELD_TIMEOUT_KEY = "__yield_timeout__"
+_YIELD_CANCELLED_KEY = "__yield_cancelled__"
+
+
+# ===========================================================================
+# Serialisation
+# ===========================================================================
+
+
+@dataclass(frozen=True)
+class ParkedState:
+    """Structured view of the JSONB blob stored under sessions.parked_state.
+
+    Constructed at park time from the Yielded sentinel + the
+    in-progress turn's message history. Round-trips losslessly
+    through JSON via :meth:`to_jsonable` / :meth:`from_jsonable`.
+
+    Attributes
+    ----------
+    yielded
+        The :class:`Yielded` instance the tool returned.
+    llm_messages
+        LLM message history up to and including the assistant
+        message that emitted the yielding tool call. Canonical
+        Primer message-dict format (per-LLM-family translation
+        happens on rehydration).
+    turn_no
+        Turn number this park was made in. The same turn-no is
+        used on resume (the resumed turn is a continuation of the
+        parked one, not a new turn).
+    started_at
+        Timestamp the original turn began. Carried through so
+        post-resume reporting (e.g. session.last_turn_at) reflects
+        the true latency.
+    resume_event_payload
+        Set by the publisher of the resume event (the event bus
+        listener or the cancel-yielded-tool API). ``None`` until
+        the park has been flipped to resumable. Marker keys inside
+        this dict trigger the synthetic-payload paths (see
+        :func:`classify_resume_payload`).
+    """
+
+    yielded: Yielded
+    llm_messages: list[dict[str, Any]]
+    turn_no: int
+    started_at: datetime
+    tool_call_id: str | None = None
+    resume_event_payload: dict[str, Any] | None = None
+    # Spec B Phase 6/11 — set when a graph-bound session parks at a
+    # ToolCall approval gate. Carries the JSON-able payload produced by
+    # :meth:`Graph.snapshot_state` so any worker can rehydrate the
+    # mid-flight graph executor on resume. ``None`` for agent-bound
+    # parks (their continuation runs through the LLM history alone).
+    graph_checkpoint: dict[str, Any] | None = None
+    # Unified nested-yield continuation stack: an ordered (root-first) list
+    # of AgentFrame/GraphFrame instances capturing every in-flight caller
+    # above the leaf yield. Empty for a flat (single-frame) park written by
+    # an older runtime; ``from_jsonable`` synthesises a one-frame stack in
+    # that case so downstream resume code always sees at least one frame.
+    # The session's binding_epoch AT PARK TIME. A switch applied while
+    # the session was parked bumps the row's epoch, so the resume can
+    # compare and void itself rather than running a continuation under a
+    # binding nobody is on any more. Optional so pre-S1 blobs still load
+    # without a schema-version bump.
+    # S3: did the turn that parked carry the client toolset? Frozen here so
+    # a fenced resume rebuilds the SAME toolset even after the attachment
+    # TTL expired. Absent in pre-S3 blobs, hence the tolerant read.
+    client_tools_attached: bool = False
+    binding_epoch: int | None = None
+    frames: list = field(default_factory=list)
+    # 01a0690a: per-node monotonic tool-call-seq high-water mark, snapshotted
+    # from dispatch.py's coalesce_state.tool_call_seq at park time -- ONLY
+    # meaningful for a graph park (None for an agent-bound park, which has
+    # no node_id keying to begin with). A resumed graph drain that mints
+    # MORE scoped ids (Gap 2: tool calls after the resumed node continues)
+    # must seed its own fresh _CoalesceState.tool_call_seq from this instead
+    # of restarting every node's counter at 0 -- a fresh counter would
+    # re-mint node:tool:turn_no:1.. and collide with ids this SAME turn_no
+    # already minted before the park (turn_no does not bump until
+    # on_release, so the resume drain observes the identical turn_no).
+    # None for a checkpoint written before this field existed.
+    node_tool_call_seq: dict[str, int] | None = None
+    schema_version: int = PARKED_STATE_SCHEMA_VERSION
+    # 01a068ea-dc95: the DURABLE TOOL_CALL SessionMessageRecord this park
+    # answers was minted with the SCOPED id (primer.session.persistence's
+    # ToolCallStart handler, node:tool:turn_no:seq) -- not this ParkedState's
+    # own tool_call_id, which is the raw provider id (correct for LLM-
+    # context reconstruction, but never the id the display-record pairing
+    # keys off). Stashed at park time, when the minting _CoalesceState is
+    # still in scope (primer.session.dispatch's except YieldToWorker
+    # handler); every repark path carries it forward unchanged, since a
+    # phase-2 re-dispatch (post-approval bypass) re-enters the SAME tool
+    # call outside the LLM-streaming pipeline and mints no new id. ``None``
+    # for a park written before this field existed, or if the scoped-id
+    # lookup somehow missed (defensive) -- the resume write falls back to
+    # the raw id in that case, exactly today's behaviour. Optional so
+    # pre-existing blobs load without a schema-version bump.
+    scoped_tool_call_id: str | None = None
+
+    def to_jsonable(self) -> dict[str, Any]:
+        """Render to a JSON-safe dict for persistence in sessions.data."""
+        # Lazy import: frames.py imports from this module, so a top-level
+        # import would create a cycle.
+        from primer.worker.frames import frames_to_jsonable
+        return {
+            "schema_version": self.schema_version,
+            "tool_call_id": self.tool_call_id,
+            "scoped_tool_call_id": self.scoped_tool_call_id,
+            "yielded": self.yielded.to_jsonable(),
+            "llm_messages": list(self.llm_messages),
+            "turn_no": self.turn_no,
+            "binding_epoch": self.binding_epoch,
+            "client_tools_attached": self.client_tools_attached,
+            "started_at": self.started_at.isoformat(),
+            "resume_event_payload": (
+                dict(self.resume_event_payload)
+                if self.resume_event_payload is not None
+                else None
+            ),
+            "graph_checkpoint": (
+                dict(self.graph_checkpoint)
+                if self.graph_checkpoint is not None
+                else None
+            ),
+            "frames": frames_to_jsonable(self.frames),
+            "node_tool_call_seq": (
+                dict(self.node_tool_call_seq)
+                if self.node_tool_call_seq is not None
+                else None
+            ),
+        }
+
+    @classmethod
+    def from_jsonable(cls, data: dict[str, Any]) -> "ParkedState":
+        version = data.get("schema_version", PARKED_STATE_SCHEMA_VERSION)
+        if version != PARKED_STATE_SCHEMA_VERSION:
+            # Loud fail — better than silently mis-rehydrating an
+            # old park whose layout doesn't match what we expect.
+            raise ValueError(
+                f"unknown parked_state schema_version {version!r}; "
+                f"this runtime understands {PARKED_STATE_SCHEMA_VERSION}"
+            )
+        missing = {"yielded", "llm_messages", "turn_no", "started_at"} - set(data)
+        if missing:
+            # A corrupt / truncated blob: a clear ValueError beats a bare
+            # KeyError so the resume path's guard logs an actionable reason.
+            raise ValueError(
+                f"parked_state blob missing required keys: {sorted(missing)}"
+            )
+        # Lazy import: frames.py imports from this module (cycle avoidance).
+        from primer.worker.frames import (
+            GraphFrame,
+            frames_from_jsonable,
+        )
+
+        yielded = Yielded.from_jsonable(data["yielded"])
+        llm_messages = list(data["llm_messages"])
+        tool_call_id = data.get("tool_call_id")
+        graph_checkpoint = (
+            dict(data["graph_checkpoint"])
+            if data.get("graph_checkpoint") is not None
+            else None
+        )
+
+        raw_frames = data.get("frames")
+        if raw_frames:
+            frames = frames_from_jsonable(raw_frames)
+        elif yielded.tool_name == "invoke_graph" or graph_checkpoint is not None:
+            # Back-compat shim for a pre-unification invoke_graph park: it has
+            # no ``frames`` key, so reconstruct the single GraphFrame the
+            # invoke_graph resume path expects. (This branch is kept until
+            # task 5.1 migrates invoke_graph onto the continuation walk.)
+            md = yielded.resume_metadata or {}
+            frames = [
+                GraphFrame(
+                    graph_id=md.get("graph_id"),
+                    gsid=md.get("sub_gsid"),
+                    checkpoint=graph_checkpoint,
+                    # tool_call_id = the AGENT's invoke_graph call id (the
+                    # park's own tool_call_id); node_tcid = the child graph's
+                    # parked-node id (the resumed_tcid).
+                    tool_call_id=tool_call_id,
+                    node_tcid=md.get("child_tcid"),
+                )
+            ]
+        else:
+            # An OLD agent park (or a session that yielded directly) carries
+            # NO nested-invocation frames: the session's own turn lives in
+            # ``llm_messages``, not in a frame. Shim to an EMPTY stack so the
+            # resume path routes through the existing per-tool_name switch.
+            frames = []
+
+        return cls(
+            yielded=yielded,
+            llm_messages=llm_messages,
+            turn_no=int(data["turn_no"]),
+            binding_epoch=(
+                int(data["binding_epoch"])
+                if data.get("binding_epoch") is not None
+                else None
+            ),
+            client_tools_attached=bool(data.get("client_tools_attached", False)),
+            started_at=_parse_iso(data["started_at"]),
+            tool_call_id=tool_call_id,
+            resume_event_payload=(
+                dict(data["resume_event_payload"])
+                if data.get("resume_event_payload") is not None
+                else None
+            ),
+            graph_checkpoint=graph_checkpoint,
+            frames=frames,
+            schema_version=version,
+            scoped_tool_call_id=data.get("scoped_tool_call_id"),
+            node_tool_call_seq=(
+                dict(data["node_tool_call_seq"])
+                if data.get("node_tool_call_seq") is not None
+                else None
+            ),
+        )
+
+
+# ===========================================================================
+# Tool-wait batch park state (Phase 3 stage 7a, 01a0518b)
+# ===========================================================================
+
+
+TOOL_WAIT_PARKED_STATE_KIND = "tool_wait"
+
+
+@dataclass(frozen=True)
+class ToolWaitParkedState:
+    """Structured view of a tool_wait park's ``parked_state`` blob.
+
+    Written by ``primer.session.dispatch``'s ``except ToolWaitPark``
+    branch; read by ``primer.worker.tool_wait_resume_coordinator`` once
+    every sibling ``ToolCallTask`` for ``(session_id, turn_no)`` has gone
+    terminal (the last one's ``on_release`` is what re-arms the session's
+    lease in the first place -- ruling 2). Deliberately a SEPARATE
+    dataclass from :class:`ParkedState`, not a subclass or variant: a
+    tool_wait park has no ``Yielded`` sentinel at all (see
+    :class:`~primer.model.yield_.ToolWaitPark`'s own docstring for why a
+    batch park across N tasks is not ``Yielded``-shaped), so sharing the
+    shape would mean fake/sentinel field values instead of an honestly
+    different blob.
+
+    ``outstanding_task_ids`` / ``notifying_task_ids`` are stored
+    separately (rather than a single combined list, or a live
+    ``(session_id, turn_no)`` storage query at resume time) so the
+    resume coordinator can fetch every sibling task by direct ``id``
+    lookup -- no new predicate/find query needed, and the split itself
+    records which half of the batch was ever actually claimable versus
+    answered inline, which is useful for debugging independent of the
+    read path.
+
+    ``llm_messages`` mirrors ``ParkedState.llm_messages`` exactly, same
+    reasoning: the in-progress turn's assistant message (carrying the
+    tool_use parts every sibling task answers) is not yet
+    ``_persist_turn``'d when the park fires, and the resume coordinator
+    needs it to reconstruct ``[assistant_tool_use, tool_result...]``
+    history.
+
+    ``graph_checkpoint`` (01a0518b boundary d): the mid-flight graph
+    executor snapshot, present ONLY for a graph-bound park (``None`` for
+    the chat/workspace surface, mirroring ``ParkedState.graph_checkpoint``
+    itself). The pure agent-only resume path (``resume_engine_tool_wait``)
+    never reads it; the graph-bound resume path rebuilds the WHOLE
+    executor from it via ``restore_state`` before it can even know which
+    node(s) each terminal sibling belongs to.
+    """
+
+    outstanding_task_ids: list[str]
+    notifying_task_ids: list[str]
+    event_key: str
+    llm_messages: list[dict[str, Any]]
+    turn_no: int
+    started_at: datetime
+    graph_checkpoint: dict[str, Any] | None = None
+    # 01a0518b boundary d: mirrors ParkedState.node_tool_call_seq exactly
+    # (01a0690a piece 3) - a resumed node that dispatches a FURTHER
+    # tool_calls_as_claims round before finishing must not re-mint a
+    # scoped id the pre-park turn already used for this turn_no. None
+    # (chat/workspace surface, or a graph park with no prior mints) skips
+    # seeding, same as the classic field's own default.
+    node_tool_call_seq: dict[str, int] | None = None
+
+    def to_jsonable(self) -> dict[str, Any]:
+        return {
+            "kind": TOOL_WAIT_PARKED_STATE_KIND,
+            "outstanding_task_ids": list(self.outstanding_task_ids),
+            "notifying_task_ids": list(self.notifying_task_ids),
+            "event_key": self.event_key,
+            "llm_messages": list(self.llm_messages),
+            "turn_no": self.turn_no,
+            "started_at": self.started_at.isoformat(),
+            "graph_checkpoint": (
+                dict(self.graph_checkpoint)
+                if self.graph_checkpoint is not None else None
+            ),
+            "node_tool_call_seq": (
+                dict(self.node_tool_call_seq)
+                if self.node_tool_call_seq is not None else None
+            ),
+        }
+
+    @classmethod
+    def from_jsonable(cls, data: dict[str, Any]) -> "ToolWaitParkedState":
+        if data.get("kind") != TOOL_WAIT_PARKED_STATE_KIND:
+            raise ValueError(
+                f"not a tool_wait parked_state blob: kind={data.get('kind')!r}"
+            )
+        missing = {"outstanding_task_ids", "event_key", "llm_messages", "turn_no", "started_at"} - set(data)
+        if missing:
+            raise ValueError(
+                f"tool_wait parked_state blob missing required keys: {sorted(missing)}"
+            )
+        return cls(
+            outstanding_task_ids=list(data["outstanding_task_ids"]),
+            notifying_task_ids=list(data.get("notifying_task_ids") or []),
+            event_key=data["event_key"],
+            llm_messages=list(data["llm_messages"]),
+            turn_no=int(data["turn_no"]),
+            started_at=_parse_iso(data["started_at"]),
+            graph_checkpoint=(
+                dict(data["graph_checkpoint"])
+                if data.get("graph_checkpoint") is not None else None
+            ),
+            node_tool_call_seq=(
+                dict(data["node_tool_call_seq"])
+                if data.get("node_tool_call_seq") is not None else None
+            ),
+        )
+
+
+# ===========================================================================
+# Resume payload classification
+# ===========================================================================
+
+
+@dataclass(frozen=True)
+class ResumePayload:
+    """What :func:`classify_resume_payload` produces.
+
+    Wraps one of three Python-side payloads the tool's
+    :meth:`resume` hook will receive:
+
+    * a real event dict (the external source's payload),
+    * :class:`YieldTimeout`,
+    * :class:`YieldCancelled`.
+
+    Plus the elapsed-seconds since park, which several tools want
+    to surface in their tool result.
+    """
+
+    payload: dict[str, Any] | YieldTimeout | YieldCancelled
+    elapsed_seconds: float
+
+
+def classify_resume_payload(
+    parked_state: ParkedState,
+    *,
+    parked_at: datetime,
+    now: datetime | None = None,
+) -> ResumePayload:
+    """Decide which Python-side payload to feed the tool's resume hook.
+
+    Inspects ``parked_state.resume_event_payload`` for the two
+    documented marker keys; if neither is present, treats the dict
+    as a real event payload.
+
+    Parameters
+    ----------
+    parked_state
+        The rehydrated state. Must have ``resume_event_payload`` set
+        (caller is responsible for not invoking this function until
+        the park is resumable).
+    parked_at
+        When the park was originally written — drives
+        ``elapsed_seconds`` calculation and the
+        ``YieldCancelled.elapsed_seconds`` field. Passed in
+        explicitly (rather than read from ``parked_state``) because
+        callers already have it as a typed Session field.
+    now
+        Override for "current time" — useful for deterministic
+        tests. Defaults to ``datetime.now(timezone.utc)``.
+
+    Returns
+    -------
+    ResumePayload
+        Structured wrapper carrying the Python-side payload plus the
+        computed ``elapsed_seconds``.
+
+    Raises
+    ------
+    ValueError
+        If ``resume_event_payload`` is ``None`` (the caller invoked
+        this before the park became resumable).
+    """
+    if parked_state.resume_event_payload is None:
+        raise ValueError(
+            "classify_resume_payload called before resume_event_payload "
+            "was set — the park is still in 'parked' state, not "
+            "'resumable'"
+        )
+    return classify_marker_payload(
+        parked_state.resume_event_payload, parked_at=parked_at, now=now,
+    )
+
+
+def classify_marker_payload(
+    raw: dict[str, Any],
+    *,
+    parked_at: datetime,
+    now: datetime | None = None,
+) -> ResumePayload:
+    """Classify one raw stored resume payload: timeout, cancel or a real reply.
+
+    The body of :func:`classify_resume_payload`, for a caller that holds the
+    raw dict instead of a :class:`ParkedState`: the multi-event graph drain
+    (``resume_graph_engine``'s ``payloads_map`` branch) converts every
+    accumulated entry through it, so every node there (a value-yielding
+    tool_call node, an agent node, a nested leaf) receives the same
+    :class:`YieldTimeout` / :class:`YieldCancelled` the single-event path
+    builds (a hook that recognises a marker only by ``isinstance`` would
+    otherwise take the dict for an operator reply).
+
+    A marker is recognised by its KEY being present, whatever its value.
+    ``elapsed_seconds`` is measured from ``parked_at`` (the park's own
+    ``parked_at``) to ``now``. A real reply comes back with the
+    primer-internal control keys (``__yield_*``, ``cancelled_at``) stripped;
+    ``raw`` itself is not modified.
+    """
+    current = now or datetime.now(timezone.utc)
+    elapsed = (current - parked_at).total_seconds()
+
+    if _YIELD_TIMEOUT_KEY in raw:
+        return ResumePayload(
+            payload=YieldTimeout(elapsed_seconds=elapsed),
+            elapsed_seconds=elapsed,
+        )
+
+    if _YIELD_CANCELLED_KEY in raw:
+        cancelled_at_iso = raw.get("cancelled_at")
+        cancelled_at = (
+            _parse_iso(cancelled_at_iso)
+            if cancelled_at_iso
+            else current
+        )
+        return ResumePayload(
+            payload=YieldCancelled(
+                reason=raw.get("reason"),
+                cancelled_at=cancelled_at,
+                elapsed_seconds=elapsed,
+            ),
+            elapsed_seconds=elapsed,
+        )
+
+    # Real event payload — strip the primer-internal control keys if
+    # the publisher happened to include them, then pass through.
+    payload = {
+        k: v for k, v in raw.items()
+        if not k.startswith("__yield_") and k != "cancelled_at"
+    }
+    return ResumePayload(payload=payload, elapsed_seconds=elapsed)
+
+
+# ===========================================================================
+# Publishers' payload helpers
+# ===========================================================================
+
+
+def make_timeout_payload() -> dict[str, Any]:
+    """Build the marker payload the timeout sweeper publishes.
+
+    Tiny convenience so the sweeper doesn't have to know the marker
+    key by string.
+    """
+    return {_YIELD_TIMEOUT_KEY: True}
+
+
+def make_cancelled_payload(
+    *,
+    reason: str | None,
+    cancelled_at: datetime | None = None,
+) -> dict[str, Any]:
+    """Build the marker payload the cancel-yielded-tool API publishes."""
+    at = cancelled_at or datetime.now(timezone.utc)
+    return {
+        _YIELD_CANCELLED_KEY: True,
+        "reason": reason,
+        "cancelled_at": at.isoformat(),
+    }
+
+
+def reply_payloads_equal(
+    a: dict[str, Any] | None,
+    b: dict[str, Any] | None,
+) -> bool:
+    """Whether two stored reply payloads carry the same reply.
+
+    Each side is read as ``dict(p or {})`` (so ``None`` equals ``{}``), then
+    compared in a normal form: a payload carrying ``__yield_cancelled__``
+    compares as ``{"__yield_cancelled__": True, "reason": <reason>}`` (its
+    ``cancelled_at`` is stamped when the marker is BUILT, so a resend of the
+    same cancel differs there), a payload carrying ``__yield_timeout__``
+    compares as ``{"__yield_timeout__": True}``, anything else compares as it
+    is. A marker is recognised by its KEY being present, as
+    :func:`classify_marker_payload` recognises it.
+
+    The comparison is :func:`primer.storage._patch.json_equal`, the
+    JSON-typed rule a storage ``where`` uses (``True`` is not ``1``, ``1``
+    equals ``1.0``), so a check made here and a ``where`` on the same stored
+    value cannot disagree.
+    """
+    # Lazy: this module imports only model modules at load time.
+    from primer.storage._patch import json_equal
+
+    return json_equal(_reply_identity(a), _reply_identity(b))
+
+
+def _reply_identity(payload: dict[str, Any] | None) -> dict[str, Any]:
+    """The normal form :func:`reply_payloads_equal` compares."""
+    p = dict(payload or {})
+    if _YIELD_TIMEOUT_KEY in p:
+        return {_YIELD_TIMEOUT_KEY: True}
+    if _YIELD_CANCELLED_KEY in p:
+        return {_YIELD_CANCELLED_KEY: True, "reason": p.get("reason")}
+    return p
+
+
+# ===========================================================================
+# Internals
+# ===========================================================================
+
+
+def _parse_iso(value: str) -> datetime:
+    """Parse an ISO-8601 timestamp, defaulting to UTC if no tz.
+
+    Postgres' ``timestamptz`` round-trips as a tz-aware ISO string,
+    so the fallback is defensive (e.g. for test fixtures).
+    """
+    dt = datetime.fromisoformat(value)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
+# ===========================================================================
+# Tool-approval resume path
+# ===========================================================================
+
+
+class ApprovalClassification(NamedTuple):
+    """Return shape of :func:`classify_approval_payload`.
+
+    01a08be8: ``kind`` is additive alongside the pre-existing
+    ``(decision, reason)`` pair - what ``decision``/``reason`` MEAN for
+    any given input is unchanged, this only adds a third field. Every
+    call site that used to do ``decision, reason =
+    classify_approval_payload(payload)`` now needs a third unpack
+    target (``decision, reason, kind = ...`` if it wants ``kind``, or
+    ``decision, reason, _kind = ...`` if it doesn't) - a 3-element
+    NamedTuple raises on a 2-target unpack, same as a plain 3-tuple
+    would. That is deliberate: there is no silent-degradation path
+    where forgetting to update a call site yields plausible-but-wrong
+    data. It fails loudly, at the call site, immediately.
+
+    ``kind`` disambiguates WHY ``decision == "rejected"``: an explicit
+    human "no" (``"rejected"``), an approval timeout (``"timeout"``), or
+    a cancellation (``"cancelled"``). ``None`` when ``decision ==
+    "approved"`` - there is no rejection to explain. A malformed/
+    unrecognised payload fails closed to ``kind="rejected"``, the same
+    bucket an explicit rejection produces, not a 4th kind - malformed
+    payloads are rare/defensive-only; an anonymous rejection is the
+    right read, not a new category to plumb through every consumer.
+    """
+
+    decision: str
+    reason: str | None
+    kind: Literal["rejected", "timeout", "cancelled"] | None
+
+
+def classify_approval_payload(
+    payload: "dict[str, Any] | YieldTimeout | YieldCancelled | Any",
+) -> ApprovalClassification:
+    """Classify a resume payload into ``(decision, reason, kind)``.
+
+    The single source of truth for how an approval park interprets its
+    resume payload: a timeout or cancellation becomes a rejection with a
+    canned reason, an explicit ``{"decision": ...}`` dict is honoured, and
+    anything malformed fails closed to a rejection. Both the agent-session
+    resume (:func:`_resume_tool_approval`) and the graph resume adapter
+    (:func:`primer.worker.graph_resume._decision_from_payload`) call this so
+    the two paths cannot drift.
+
+    01a07be5 gate-review-2 finding 3: recognises the RAW
+    ``__yield_timeout__``/``__yield_cancelled__`` marker dict shape, not
+    just the already-classified ``YieldTimeout``/``YieldCancelled``
+    instances :func:`classify_resume_payload` builds for the single-event
+    resume path. The multi-event graph drain (``resume_graph_engine``'s
+    ``payloads_map`` branch) replays ``resume_event_payloads`` entries as
+    plain JSON dicts, never converting them to typed instances -- a
+    genuine multi-event timeout/cancel used to classify here as
+    "malformed approval payload (missing decision)" instead of
+    "timed-out"/"cancelled", landing that wrong reason in the durable
+    audit record.
+
+    01a08be8: see :class:`ApprovalClassification` for the ``kind`` field
+    this now also returns - added here, not re-derived downstream from
+    ``reason``'s free text (nv-platform.jsx's own UI-side derivation of
+    exactly this distinction from ``reason`` labels itself "HEURISTIC,
+    not spec" - this function is where the real answer already lived).
+    """
+    if isinstance(payload, YieldTimeout):
+        return ApprovalClassification("rejected", "timed-out", "timeout")
+    if isinstance(payload, YieldCancelled):
+        return ApprovalClassification(
+            "rejected", payload.reason or "cancelled", "cancelled",
+        )
+    if isinstance(payload, dict):
+        if payload.get(_YIELD_TIMEOUT_KEY):
+            return ApprovalClassification("rejected", "timed-out", "timeout")
+        if payload.get(_YIELD_CANCELLED_KEY):
+            return ApprovalClassification(
+                "rejected", payload.get("reason") or "cancelled", "cancelled",
+            )
+        raw = payload.get("decision")
+        reason = payload.get("reason")
+        if raw == "approved":
+            return ApprovalClassification("approved", reason, None)
+        if raw == "rejected":
+            return ApprovalClassification("rejected", reason, "rejected")
+        return ApprovalClassification(
+            "rejected", "malformed approval payload (missing decision)",
+            "rejected",
+        )
+    return ApprovalClassification(
+        "rejected", "malformed approval payload (non-dict)", "rejected",
+    )
+
+
+async def _resume_tool_approval(
+    *,
+    blob: dict,
+    payload: "dict | YieldTimeout | YieldCancelled | Any",
+    tool_manager: Any,
+) -> ToolResultPart:
+    """Resume a session parked on a tool-approval gate.
+
+    Classifies the event payload and either re-dispatches the
+    original tool call (decision=approved) or synthesises an error
+    ToolResultPart (decision=rejected, timeout, cancelled, or any
+    malformed payload — fail-closed).
+
+    Parameters
+    ----------
+    blob
+        The raw parked-state JSON blob (the ``"yielded"`` key carries
+        the Yielded sentinel including ``resume_metadata``).
+    payload
+        The classified resume payload — either a real event dict
+        (with ``"decision": "approved"`` or ``"decision": "rejected"``),
+        a :class:`YieldTimeout`, or a :class:`YieldCancelled`.
+        Any other type is treated as malformed and synthesises a
+        rejection.
+    tool_manager
+        A :class:`~primer.agent.tool_manager.ToolExecutionManager`
+        (or compatible duck-type) that exposes
+        ``execute(call, *, bypass_approval=True) -> ToolResultPart``.
+        Only called on the approved path.
+
+    Returns
+    -------
+    ToolResultPart
+        Either the real tool result (approved) or a synthetic error
+        result (rejected / timeout / cancelled / malformed).
+    """
+    metadata = (blob.get("yielded") or {}).get("resume_metadata") or {}
+    original_raw = metadata.get("original_call") or {}
+    original_call = ToolCallPart(
+        id=original_raw.get("id", "unknown"),
+        name=original_raw.get("name", "unknown"),
+        arguments=original_raw.get("arguments") or {},
+    )
+
+    decision, reason, _kind = classify_approval_payload(payload)
+
+    if decision == "approved":
+        # ``system__call_tool`` parks the INNER (toolset_id, tool_name) it
+        # was asked to meta-dispatch, which is not necessarily part of the
+        # agent's registered tool surface - so it cannot be re-routed
+        # through ``tool_manager.execute``. Re-dispatch it directly via the
+        # owning toolset provider, mirroring how the call_tool handler does
+        # it. ``via_call_tool`` carries the inner toolset id + principal.
+        via = metadata.get("via_call_tool")
+        if via is not None:
+            return await _resume_call_tool_dispatch(
+                via=via,
+                original_call=original_call,
+                tool_manager=tool_manager,
+            )
+        return await tool_manager.execute(original_call, bypass_approval=True)
+
+    return ToolResultPart(
+        id=original_call.id,
+        output=json.dumps({
+            "rejected": True,
+            "reason": reason or "(no reason supplied)",
+            "tool_name": original_call.name,
+            "arguments": original_call.arguments,
+        }),
+        error=True,
+    )
+
+
+async def _resume_call_tool_dispatch(
+    *,
+    via: dict[str, Any],
+    original_call: ToolCallPart,
+    tool_manager: Any,
+) -> ToolResultPart:
+    """Dispatch an approved ``call_tool`` inner tool via its toolset provider.
+
+    The inner tool was gated through ``system__call_tool``; on approval we
+    invoke it the same way the call_tool handler would (resolve the owning
+    toolset provider from the registry, then ``provider.call(...)``) rather
+    than routing it through the agent's tool surface (which may not list it).
+    Fails closed to an error ToolResultPart if the registry/provider is
+    unavailable.
+    """
+    registry = getattr(tool_manager, "_provider_registry", None)
+    toolset_id = via.get("toolset_id")
+    if registry is None or not toolset_id:
+        return ToolResultPart(
+            id=original_call.id,
+            output=json.dumps({
+                "is_error": True,
+                "reason": "call_tool resume: provider registry unavailable",
+                "tool_name": original_call.name,
+            }),
+            error=True,
+        )
+    try:
+        provider = await registry.get_toolset(toolset_id)
+        result = await provider.call(
+            tool_name=original_call.name,
+            arguments=original_call.arguments,
+            principal=via.get("principal"),
+        )
+    except Exception as exc:  # noqa: BLE001 - fail-closed synthesis
+        return ToolResultPart(
+            id=original_call.id,
+            output=json.dumps({
+                "is_error": True,
+                "reason": f"call_tool resume failed: {type(exc).__name__}: {exc}",
+                "tool_name": original_call.name,
+            }),
+            error=True,
+        )
+    return ToolResultPart(
+        id=original_call.id,
+        output=result.output,
+        error=result.is_error,
+    )
+
+
+# ===========================================================================
+# Post-park channel dispatch
+# ===========================================================================
+
+
+from primer.model.envelope import PromptEnvelope
+
+
+def _build_prompt_envelope(
+    *,
+    kind: str,
+    workspace_id: str,
+    session_id: str,
+    fallback_tool_call_id: str,
+    metadata: dict[str, Any],
+    workspace_name: str | None = None,
+    session_label: str | None = None,
+) -> "PromptEnvelope | None":
+    """Build the channel PromptEnvelope for one parked human-interaction.
+
+    ``kind`` is the yielding tool name: ``ask_user`` (free-text question)
+    or ``_approval`` (tool-approval gate). Returns ``None`` for any other
+    tool (e.g. sleep/watch_files), which are not forwarded to channels.
+    Shared by the single- and multi-event dispatch paths so the envelope
+    mapping lives in exactly one place.
+    """
+    metadata = metadata or {}
+    if kind == "ask_user":
+        return PromptEnvelope(
+            kind="ask_user",
+            workspace_id=workspace_id,
+            session_id=session_id,
+            tool_call_id=fallback_tool_call_id,
+            prompt=metadata.get("prompt", ""),
+            response_schema=metadata.get("response_schema"),
+            choices=None,
+            timeout_at_iso=None,
+            workspace_name=workspace_name,
+            session_label=session_label,
+        )
+    if kind == "_approval":
+        original = metadata.get("original_call") or {}
+        gate_reason = metadata.get("gate_reason")
+        prompt = (
+            f"Approve {original.get('name', '<unknown>')}"
+            f"({original.get('arguments') or {}})?"
+        )
+        if gate_reason:
+            prompt += f"\nReason: {gate_reason}"
+        return PromptEnvelope(
+            kind="tool_approval",
+            workspace_id=workspace_id,
+            session_id=session_id,
+            tool_call_id=original.get("id") or fallback_tool_call_id,
+            prompt=prompt,
+            response_schema=None,
+            choices=["Approve", "Reject"],
+            timeout_at_iso=None,
+            tool_name=original.get("name"),
+            tool_args=original.get("arguments") or {},
+            workspace_name=workspace_name,
+            session_label=session_label,
+        )
+    return None
+
+
+async def _resolve_files_to_media(
+    *, workspace_registry, artifact_registry, workspace_id, files, session_id: str | None = None,
+) -> "list[dict] | None":
+    """Read ask_user/inform workspace files into artifact-backed media part
+    dicts for a PromptEnvelope. None when files/registries are missing, or
+    when reading them fails (logged at ERROR with the session id: the prompt
+    is worth more than its attachment, so the caller sends it without media)."""
+    import logging
+    if not files or workspace_registry is None or artifact_registry is None:
+        return None
+    from primer.channel.media import media_from_workspace_files
+    try:
+        workspace = await workspace_registry.get_workspace(workspace_id)
+        store = await artifact_registry.get_default()
+    except Exception:
+        logging.getLogger(__name__).warning(
+            "ask_user files: workspace/artifact resolve failed")
+        return None
+    try:
+        parts = await media_from_workspace_files(workspace, store, files)
+        return [p.model_dump(mode="json") for p in parts] or None
+    except Exception:
+        logging.getLogger(__name__).exception(
+            "ask_user files for session %s could not be read into media; sending the prompt without them", session_id,
+        )
+        return None
+
+
+async def _dispatch_to_channels(
+    *,
+    dispatcher,
+    session,
+    yielded,
+    workspace_registry=None,
+    artifact_registry=None,
+    workspace_name: str | None = None,
+    session_label: str | None = None,
+) -> None:
+    """Fan a parked-on-user-input session out to every channel
+    associated with the session's workspace.
+
+    AWAITED at the call site, on the lease-holding turn, so delivery is
+    attempted before the lease drops (docs/dev/subsystems/channels.md: it
+    is not scheduled as a separate task). BEST EFFORT: this function never
+    raises. The park it announces was already decided, so a failure of the
+    fan-out (building the envelope, reading an ask_user's ``files``, the
+    dispatcher itself) must never fail or abort it: each is logged at ERROR
+    with the session id and the function carries on (an unreadable
+    attachment is dropped and the prompt is sent without media; an envelope
+    that cannot be built sends nothing). No-ops when no dispatcher is wired.
+    """
+    import logging
+    if dispatcher is None:
+        return
+    metadata = yielded.resume_metadata or {}
+    try:
+        envelope = _build_prompt_envelope(
+            kind=yielded.tool_name,
+            workspace_id=session.workspace_id,
+            session_id=session.id,
+            fallback_tool_call_id=_tool_call_id_from_event_key(yielded.event_key),
+            metadata=metadata,
+            workspace_name=workspace_name,
+            session_label=session_label,
+        )
+    except Exception:
+        logging.getLogger(__name__).exception(
+            "channel prompt envelope for session %s could not be built; no prompt is sent", session.id,
+        )
+        return
+    if envelope is None:
+        return
+    # Attach any ask_user `files` as media (read from the workspace + stored).
+    if envelope.kind == "ask_user" and metadata.get("files"):
+        envelope.media = await _resolve_files_to_media(
+            workspace_registry=workspace_registry,
+            artifact_registry=artifact_registry,
+            workspace_id=session.workspace_id,
+            files=metadata.get("files"),
+            session_id=session.id,
+        )
+    try:
+        await dispatcher.dispatch_prompt(envelope=envelope, session=session)
+    except Exception:
+        logging.getLogger(__name__).exception(
+            "_dispatch_to_channels failed for session %s", session.id,
+        )
+
+
+def merge_pending_dispatch(checkpoint: dict[str, Any]) -> list[dict[str, Any]]:
+    """Build the full per-node channel-dispatch list for a parked graph.
+
+    The checkpoint persists ``pending_dispatch`` only for tool-call nodes:
+    those entries bake the graph node's ``tool_id`` into ``original_call``,
+    which the channel layer can't recompute without the graph. Agent yields
+    are derived here from ``pending_agent_yields`` so their resume_metadata
+    is stored once, not duplicated into ``pending_dispatch`` as well.
+
+    Backward compatible: a pre-slim checkpoint that still carries agent-yield
+    entries inside ``pending_dispatch`` produces a duplicate here, but the
+    channel dispatcher dedups by ``(node_id, tool_call_id)`` so the prompt is
+    sent once. Each entry carries ``node_id`` (01a0518f: two concurrent
+    fan-out siblings can legitimately share a raw provider tool_call_id -
+    deduping by tool_call_id alone silently dropped one sibling's channel
+    prompt entirely, not just risked cross-wired resume).
+    """
+    stored = list(checkpoint.get("pending_dispatch") or [])
+    derived = [
+        {
+            "kind": ay.get("tool_name", ""),
+            "node_id": ay.get("node_id"),
+            "tool_call_id": ay.get("tool_call_id"),
+            "resume_metadata": dict(ay.get("resume_metadata") or {}),
+        }
+        for ay in (checkpoint.get("pending_agent_yields") or [])
+    ]
+    return stored + derived
+
+
+async def _dispatch_to_channels_multi(
+    *,
+    dispatcher,
+    workspace_id: str,
+    session_id: str,
+    pending: list[dict[str, Any]],
+    already_sent: set[tuple[str | None, str]],
+    workspace_name: str | None = None,
+    session_label: str | None = None,
+    session=None,
+) -> set[tuple[str | None, str]]:
+    """Send one channel prompt per pending human-interaction node.
+
+    For a multi-event graph park (several agent/tool_call nodes yielding
+    in one superstep), each pending node gets its own message. ``pending``
+    items are ``{"kind": "ask_user"|"_approval", "node_id", "tool_call_id",
+    "resume_metadata"}``. Returns the union of ``already_sent`` and the
+    ``(node_id, tool_call_id)`` pairs dispatched this call, so a re-park
+    does not re-send a message for a node already prompted. Never raises.
+
+    Deduped by ``(node_id, tool_call_id)``, NOT ``tool_call_id`` alone
+    (01a0518f): two concurrent fan-out siblings can legitimately share a
+    raw provider tool_call_id, and a tool_call_id-only dedup silently
+    dropped one sibling's channel prompt entirely - a genuinely different
+    (and worse) failure than the cross-wired-resume bug this fix's
+    sibling changes address, since the operator never even sees a
+    request to respond to. ``node_id`` is ``None`` for entries built
+    before this fix (an in-flight checkpoint at deploy time); dedup then
+    degrades to the old tool_call_id-only behaviour for exactly those
+    entries, same as today.
+    """
+    import logging
+    if dispatcher is None:
+        return set(already_sent)
+    sent = set(already_sent)
+    for p in pending:
+        tcid = p.get("tool_call_id")
+        if not tcid:
+            continue
+        key = (p.get("node_id"), tcid)
+        if key in sent:
+            continue
+        try:
+            envelope = _build_prompt_envelope(
+                kind=p.get("kind", ""),
+                workspace_id=workspace_id,
+                session_id=session_id,
+                fallback_tool_call_id=tcid,
+                metadata=p.get("resume_metadata") or {},
+                workspace_name=workspace_name,
+                session_label=session_label,
+            )
+        except Exception:
+            # one node's bad metadata must not drop the other nodes' prompts or abort the park; it is not marked
+            # sent, so a later re-park may try it again
+            logging.getLogger(__name__).exception(
+                "channel prompt envelope for session %s node %s (%s) could not be built; skipping it",
+                session_id, p.get("node_id"), tcid,
+            )
+            continue
+        if envelope is None:
+            continue
+        try:
+            await dispatcher.dispatch_prompt(envelope=envelope, session=session)
+            sent.add(key)
+        except Exception:
+            logging.getLogger(__name__).exception(
+                "_dispatch_to_channels_multi failed for %s/%s",
+                session_id, tcid,
+            )
+    return sent
+
+
+def _tool_call_id_from_event_key(event_key: str) -> str:
+    """Pull the tool_call_id segment out of an event_key."""
+    parts = event_key.split(":")
+    return parts[-1] if len(parts) >= 3 else ""
+
+
+__all__ = [
+    "ParkedState",
+    "PARKED_STATE_SCHEMA_VERSION",
+    "ResumePayload",
+    "TOOL_WAIT_PARKED_STATE_KIND",
+    "ToolWaitParkedState",
+    "_dispatch_to_channels",
+    "_dispatch_to_channels_multi",
+    "_resume_tool_approval",
+    "_tool_call_id_from_event_key",
+    "classify_marker_payload",
+    "classify_resume_payload",
+    "make_cancelled_payload",
+    "make_timeout_payload",
+    "merge_pending_dispatch",
+    "reply_payloads_equal",
+]

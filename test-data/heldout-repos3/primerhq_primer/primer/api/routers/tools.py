@@ -1,0 +1,145 @@
+"""GET /v1/tools/catalogue — flat tool catalogue for the graph editor.
+
+Spec B §3.4. Returns a flat list of ``{id, description, input_schema}``
+records — one per tool exposed by any reachable toolset provider on the
+platform (built-in + user-defined). Each ``id`` is the scoped form
+``<toolset_id>__<tool_name>`` so the Phase 9 ToolCall picker can route
+invocations back to the right toolset.
+
+Distinct from the pre-existing ``GET /v1/tools`` endpoint in
+:mod:`primer.api.routers.providers`, which returns the same data
+grouped by toolset for the operator console's per-toolset views. The
+flat shape here is what Spec B §3.4 contracts, and it lives at
+``/tools/catalogue`` so both endpoints can coexist without breaking
+existing UI consumers.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+
+from fastapi import APIRouter, Depends
+
+from primer.api.deps import (
+    get_principal,
+    get_provider_registry,
+    get_storage_provider,
+)
+from primer.api.errors import common_responses
+from primer.api.registries import ProviderRegistry
+from primer.api.routers.providers import _BUILTIN_TOOLSETS
+from primer.model.chat import tool_catalogue_flags
+from primer.model.storage import OffsetPage
+
+logger = logging.getLogger(__name__)
+
+
+# The built-in toolset ids, taken from the ONE list in
+# :mod:`primer.api.routers.providers` (``_BUILTIN_TOOLSETS``, which also feeds
+# ``GET /v1/tools`` and the built-in toolset cards). This module used to keep a
+# hand-copied tuple "in step" with it, and the copy lacked ``trigger``: the flat
+# catalogue (and the Tools page built on it) omitted that toolset's tools while
+# every picker listed them.
+_BUILTIN_TOOLSET_IDS: tuple[str, ...] = tuple(spec["id"] for spec in _BUILTIN_TOOLSETS)
+
+
+tools_router = APIRouter(tags=["tools"])
+
+# Per-toolset ceiling for catalogue enumeration. A toolset backed by an
+# unreachable MCP server blocks rather than raising, so the skip-broken-
+# provider contract needs a clock behind it, not just except handlers.
+_ENUMERATE_TIMEOUT_S = 10.0
+
+
+@tools_router.get(
+    "/tools/catalogue",
+    summary="Flat catalogue of every tool exposed by every reachable toolset",
+    responses=common_responses(500),
+)
+async def list_tools(
+    principal: str | None = Depends(get_principal),
+    registry: ProviderRegistry = Depends(get_provider_registry),
+    storage_provider=Depends(get_storage_provider),
+) -> dict:
+    """Return ``{items: [{id, description, input_schema}, ...]}``.
+
+    Each ``id`` is scoped as ``<toolset_id>__<tool_name>``. Toolsets
+    that fail to enumerate (unreachable MCP server, missing OAuth
+    consent, search subsystem not bootstrapped) are skipped silently
+    so one broken provider doesn't blank the whole picker. Failures
+    are logged at WARNING for operator visibility.
+    """
+    from primer.model.provider import Toolset
+
+    items: list[dict] = []
+    seen_ids: set[str] = set()
+
+    async def _emit(toolset_id: str) -> None:
+        try:
+            async with asyncio.timeout(_ENUMERATE_TIMEOUT_S):
+                provider = await registry.get_toolset(toolset_id)
+                async for tool in provider.list_tools(principal=principal):
+                    scoped = f"{toolset_id}__{tool.id}"
+                    if scoped in seen_ids:
+                        continue
+                    seen_ids.add(scoped)
+                    items.append({
+                        "id": scoped,
+                        "description": tool.description or "",
+                        "input_schema": tool.args_schema or {},
+                        # y/w/r/n capability badges, excluded from Tool's own
+                        # wire serialisation (chat.py) since they must never
+                        # reach the LLM-facing tool schema;
+                        # tool_catalogue_flags() is the one seam every
+                        # "list tools" route re-adds them from.
+                        **tool_catalogue_flags(tool),
+                    })
+        except TimeoutError:
+            # An unreachable MCP server accepts the connection and then
+            # never answers; it does not raise. Without this bound one
+            # such toolset stalls the whole catalogue forever.
+            logger.warning(
+                "list_tools: enumerate %r timed out after %ss; skipped",
+                toolset_id, _ENUMERATE_TIMEOUT_S,
+            )
+        except BaseExceptionGroup as group:
+            logger.warning(
+                "list_tools: enumerate %r raised group: %s",
+                toolset_id, group,
+            )
+        except Exception as exc:  # noqa: BLE001 -- skip broken toolset
+            logger.warning(
+                "list_tools: enumerate %r failed: %s: %s",
+                toolset_id, type(exc).__name__, exc,
+            )
+
+    # 1. Built-in toolsets (resolved by the registry without a row).
+    for tid in _BUILTIN_TOOLSET_IDS:
+        await _emit(tid)
+
+    # 2. User-defined Toolset rows. Page so the catalogue scales beyond
+    # the default 200-row cap.
+    ts_storage = storage_provider.get_storage(Toolset)
+    offset = 0
+    page_size = 200
+    try:
+        while True:
+            page = await ts_storage.list(
+                OffsetPage(offset=offset, length=page_size),
+            )
+            for row in page.items:
+                await _emit(row.id)
+            if len(page.items) < page_size:
+                break
+            offset += page_size
+    except Exception as exc:  # noqa: BLE001 -- never fail the picker
+        logger.warning(
+            "list_tools: iterating user toolsets failed: %s: %s",
+            type(exc).__name__, exc,
+        )
+
+    return {"items": items}
+
+
+__all__ = ["tools_router"]

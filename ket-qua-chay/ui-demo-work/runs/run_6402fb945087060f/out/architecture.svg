@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 568 104" width="568" height="104" font-family="sans-serif" font-size="13">
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#555"/></marker></defs>
+<g data-node="cmp_f8f1171a95c896f343c328040449ccdef8aff726a56326d669803500c1b24a71"><rect x="24" y="24" width="220" height="56" rx="6" fill="#f4f6fb" stroke="#3b5998"/><text x="134.0" y="56.0" text-anchor="middle">(root)</text><title>(root)</title></g>
+<g data-node="cmp_fb03cc18340268abdbf9d389e8b1706d58add53a1ef8197715f354109c4107db"><rect x="324" y="24" width="220" height="56" rx="6" fill="#f4f6fb" stroke="#3b5998"/><text x="434.0" y="56.0" text-anchor="middle">src</text><title>src</title></g>
+</svg>

@@ -1,0 +1,594 @@
+"""Real local Artifact bytes survive resumable geometric analysis unchanged."""
+
+import hashlib
+import io
+import json
+from pathlib import Path
+
+import pytest
+from printstash_core.mesh.similarity import GeometryError
+from sqlmodel import select
+
+from app.core.config import _overlay
+from app.db.models import (
+    FileType,
+    GeometryFingerprint,
+    SimilarityCandidate,
+    SimilarityRun,
+)
+from app.db.session import get_session_factory
+from app.modules.media import mesh_isolation, verification_isolation
+from app.modules.media.mesh_contracts import ThumbnailFailureReason
+from app.modules.media.mesh_facts import FingerprintFailureCode
+from app.modules.media.mesh_isolation import MeshWorkerError
+from app.modules.similarity import configuration, runs
+from app.modules.similarity.processing import SimilarityProcessor
+from app.modules.storage.storage_backend.runtime import get_backend
+from tests.factories import content
+from tests.factories.geometry import tetrahedron
+from tests.factories.similarity import advance_oldest_run
+
+
+@pytest.fixture
+def local_pair(db_session, make_model, make_file, make_user, local_storage):
+    actor = make_user(superuser=True)
+    configuration.update_settings(
+        db_session, actor, {"enabled": True, "sample_points": 256}
+    )
+    backend = get_backend()
+    files = []
+    for index in range(2):
+        mesh = tetrahedron()
+        if index:
+            mesh.apply_translation([35, -8, 2])
+        content = mesh.export(file_type="stl")
+        file = make_file(
+            make_model(),
+            file_type=FileType.STL,
+            size_bytes=len(content),
+            sha256=hashlib.sha256(content).hexdigest(),
+        )
+        file.path = backend.blob_key(
+            file.model.slug, file.version, file.original_filename
+        )
+        db_session.add(file)
+        db_session.commit()
+        backend.write_stream(io.BytesIO(content), file.path)
+        files.append(file)
+    return actor, files
+
+
+class TestProcessing:
+    def test_rejects_corrupted_cached_source(self, db_session, local_pair):
+        actor, files = local_pair
+        processor = SimilarityProcessor(get_session_factory(), get_backend())
+        original = runs.start(db_session, actor)
+        for _ in range(35):
+            assert advance_oldest_run(processor)
+            db_session.refresh(original)
+            if original.state in runs.TERMINAL:
+                break
+        assert original.state == "completed"
+        assert db_session.exec(select(SimilarityCandidate)).one().exact_equivalence
+        # Simulate bytes changed outside the immutable StorageBackend writer.
+        Path(files[0].path).write_bytes(b"changed source")
+        repeated = runs.start(db_session, actor)
+
+        for _ in range(35):
+            assert advance_oldest_run(processor)
+            db_session.refresh(repeated)
+            if repeated.state in runs.TERMINAL:
+                break
+
+        assert repeated.state == "completed"
+        counters = json.loads(repeated.counters_json)
+        assert counters.get("verification_cached", 0) == 0
+        assert counters.get("verified", 0) == 0
+        assert counters["stale"] > 0
+
+    def test_reuses_verified_unchanged_pairs(self, db_session, local_pair):
+        actor, _ = local_pair
+        processor = SimilarityProcessor(get_session_factory(), get_backend())
+        for _ in range(2):
+            run = runs.start(db_session, actor)
+            for _ in range(35):
+                assert advance_oldest_run(processor)
+                db_session.refresh(run)
+                if run.state in runs.TERMINAL:
+                    break
+            assert run.state == "completed", run.failure_code
+
+        counters = json.loads(run.counters_json)
+        assert counters.get("verified", 0) == 0
+        assert counters["verification_cached"] > 0
+        candidate = db_session.exec(select(SimilarityCandidate)).one()
+        assert candidate.exact_equivalence is True
+
+    def test_preserves_source_bytes_during_analysis(
+        self, db_session, local_pair, make_file
+    ):
+        actor, files = local_pair
+        revision = make_file(files[0].model, file_type=FileType.GCODE, recommended=True)
+        run = runs.start(db_session, actor)
+        # Construct a fresh processor each time, as after process restarts. The
+        # durable database checkpoint, not an in-memory iterator, owns progress.
+        for _ in range(35):
+            advance_oldest_run(
+                SimilarityProcessor(get_session_factory(), get_backend())
+            )
+            db_session.expire_all()
+            if db_session.get(SimilarityRun, run.id).state in runs.TERMINAL:
+                break
+        db_session.refresh(run)
+        assert run.state == "completed", run.failure_code
+        candidates = db_session.exec(select(SimilarityCandidate)).all()
+        assert len(candidates) == 1, (
+            run.counters_json,
+            [
+                (fp.state, fp.failure_code)
+                for fp in db_session.exec(select(GeometryFingerprint)).all()
+            ],
+        )
+        assert candidates[0].evidence_class == "identical_geometry"
+        assert candidates[0].confidence == 1.0
+        assert json.loads(run.counters_json)["ready"] == 2
+        for file in files:
+            assert (
+                hashlib.sha256(get_backend().read_bytes(file.path)).hexdigest()
+                == file.sha256
+            )
+        db_session.refresh(revision)
+        assert revision.model_id == files[0].model_id
+        assert revision.is_recommended
+
+    def test_cancel_stops_before_next_mesh(self, db_session, local_pair):
+        actor, _ = local_pair
+        run = runs.start(db_session, actor)
+        processor = SimilarityProcessor(get_session_factory(), get_backend())
+        advance_oldest_run(processor)
+        db_session.refresh(run)
+        assert json.loads(run.counters_json)["ready"] == 1
+        runs.cancel(db_session, actor, run.id)
+        advance_oldest_run(processor)
+        db_session.refresh(run)
+        assert run.state == "cancelled"
+        assert len(db_session.exec(select(GeometryFingerprint)).all()) == 2
+
+
+class TestDisabledCancellation:
+    def test_drains_cancel_request_after_disabling(self, db_session, local_pair):
+        from app.db.session import get_session_factory
+        from app.modules.similarity import runs
+        from app.modules.similarity.configuration import update_settings
+        from app.modules.similarity.processing import SimilarityProcessor
+
+        actor, _files = local_pair
+        backend = get_backend()
+        run = runs.start(db_session, actor, scope="library")
+        runs.cancel(db_session, actor, run.id)
+        update_settings(db_session, actor, {"enabled": False})
+        assert (
+            advance_oldest_run(SimilarityProcessor(get_session_factory(), backend))
+            is True
+        )
+        db_session.refresh(run)
+        assert run.state == "cancelled"
+        assert run.active_scope_key is None
+
+
+class TestProcessingFailures:
+    @pytest.mark.parametrize("owner", ["inactive", "absent", "permission_lost"])
+    def test_stops_when_scope_owner_is_unavailable(self, db_session, local_pair, owner):
+        actor, _ = local_pair
+        run = runs.start(
+            db_session, actor, scope="models", ids=[local_pair[1][0].model_id]
+        )
+        if owner == "absent":
+            run.actor_id = None
+        elif owner == "inactive":
+            actor.is_active = False
+        else:
+            actor.is_superuser = False
+        db_session.add_all([actor, run])
+        db_session.commit()
+        assert advance_oldest_run(
+            SimilarityProcessor(get_session_factory(), get_backend())
+        )
+        db_session.refresh(run)
+        assert run.state == "failed"
+        assert run.failure_code == (
+            "scope_permission_changed"
+            if owner == "permission_lost"
+            else "actor_unavailable"
+        )
+        assert run.active_scope_key is None
+        assert db_session.exec(select(SimilarityCandidate)).all() == []
+
+    def test_uses_previously_committed_fingerprints(self, db_session, local_pair):
+        actor, _ = local_pair
+        run = runs.start(db_session, actor)
+        processor = SimilarityProcessor(get_session_factory(), get_backend())
+        advance_oldest_run(processor)
+        db_session.refresh(run)
+        run.checkpoint_json = "{}"
+        db_session.add(run)
+        db_session.commit()
+        advance_oldest_run(processor)
+        db_session.refresh(run)
+        assert json.loads(run.counters_json)["cached"] == 1
+        whole = db_session.exec(
+            select(GeometryFingerprint).where(GeometryFingerprint.component_index == 0)
+        ).one()
+        assert whole.attempts == 1
+        assert len(db_session.exec(select(GeometryFingerprint)).all()) == 2
+
+    def test_changed_storage_bytes_fail_the_derivative(self, db_session, local_pair):
+        actor, files = local_pair
+        # Simulate source corruption outside the immutable StorageBackend writer.
+        source = Path(files[0].path)
+        source.write_bytes(b"changed-source")
+        assert get_backend().read_bytes(files[0].path) == b"changed-source"
+        run = runs.start(db_session, actor)
+        advance_oldest_run(SimilarityProcessor(get_session_factory(), get_backend()))
+        db_session.refresh(run)
+        assert json.loads(run.counters_json)["failed"] == 1
+        fp = db_session.exec(select(GeometryFingerprint)).one()
+        assert fp.failure_code == "source_changed"
+
+    def test_cancels_between_committed_verification_pairs(self, db_session, local_pair):
+        actor, _ = local_pair
+        run = runs.start(db_session, actor)
+        processor = SimilarityProcessor(get_session_factory(), get_backend())
+        for _ in range(35):
+            advance_oldest_run(processor)
+            db_session.refresh(run)
+            if json.loads(run.counters_json).get("verified", 0):
+                break
+        assert json.loads(run.counters_json)["verified"] > 0
+        assert json.loads(run.checkpoint_json)["pending_pairs"]
+        before = [
+            (row.id, row.version)
+            for row in db_session.exec(select(SimilarityCandidate))
+        ]
+        runs.cancel(db_session, actor, run.id)
+        advance_oldest_run(processor)
+        db_session.refresh(run)
+        assert run.state == "cancelled"
+        assert [
+            (row.id, row.version)
+            for row in db_session.exec(select(SimilarityCandidate))
+        ] == before
+
+
+class TestPairRecovery:
+    @pytest.mark.parametrize(
+        "failure",
+        [
+            GeometryError("verification_time_limit"),
+            MeshWorkerError(ThumbnailFailureReason.RESOURCE_LIMIT),
+            MeshWorkerError(ThumbnailFailureReason.TIMEOUT),
+            MeshWorkerError(ThumbnailFailureReason.WORKER_FAILED),
+        ],
+        ids=["time-limit", "worker-memory", "worker-timeout", "worker-died"],
+    )
+    def test_records_a_failed_pair_then_advances_checkpoint(
+        self, db_session, local_pair, monkeypatch, failure
+    ):
+        actor, _ = local_pair
+        run = runs.start(db_session, actor)
+        worker = SimilarityProcessor(get_session_factory(), get_backend())
+        advance_oldest_run(worker)
+        advance_oldest_run(worker)
+        fingerprints = db_session.exec(
+            select(GeometryFingerprint)
+            .where(GeometryFingerprint.component_index == 0)
+            .order_by(GeometryFingerprint.id)
+        ).all()
+        db_session.refresh(run)
+        run.phase = "candidates"
+        run.checkpoint_json = json.dumps(
+            {"pending_pairs": [[row.id for row in fingerprints]]}
+        )
+        db_session.add(run)
+        db_session.commit()
+
+        def failed(*args, **kwargs):
+            raise failure
+
+        monkeypatch.setattr(verification_isolation, "verify_paths", failed)
+
+        assert advance_oldest_run(worker)
+        db_session.refresh(run)
+        assert run.state == "running"
+        assert json.loads(run.checkpoint_json)["pending_pairs"] == []
+        assert json.loads(run.counters_json)["verification_failed"] == 1
+        assert db_session.exec(select(SimilarityCandidate)).all() == []
+
+    @pytest.mark.parametrize(
+        "failure",
+        [
+            "source_hash",
+            "source_bytes",
+            "missing_content",
+            "missing_component",
+            "missing_fingerprint",
+            "same_model",
+        ],
+    )
+    def test_discards_unusable_pair_without_publishing(
+        self, db_session, local_pair, failure
+    ):
+        actor, files = local_pair
+        run = runs.start(db_session, actor)
+        worker = SimilarityProcessor(get_session_factory(), get_backend())
+        advance_oldest_run(worker)
+        advance_oldest_run(worker)
+        fingerprints = db_session.exec(
+            select(GeometryFingerprint)
+            .where(GeometryFingerprint.component_index == 0)
+            .order_by(GeometryFingerprint.id)
+        ).all()
+        assert len(fingerprints) == 2
+        pair = [row.id for row in fingerprints]
+        if failure == "source_hash":
+            files[1].sha256 = "e" * 64
+            db_session.add(files[1])
+        elif failure in ("source_bytes", "missing_content"):
+            # Corrupt the real local_pair source, never its prepared copy.
+            source = Path(files[1].path)
+            if failure == "source_bytes":
+                source.write_bytes(b"changed source")
+                assert get_backend().read_bytes(files[1].path) == b"changed source"
+            else:
+                source.unlink()
+                assert not get_backend().exists(files[1].path)
+        elif failure == "missing_component":
+            fingerprints[1].component_index = 999
+            db_session.add(fingerprints[1])
+        elif failure == "missing_fingerprint":
+            pair[1] = 999999
+        else:
+            pair[1] = pair[0]
+        db_session.refresh(run)
+        run.phase = "candidates"
+        run.checkpoint_json = json.dumps({"pending_pairs": [pair]})
+        db_session.add(run)
+        db_session.commit()
+        assert advance_oldest_run(worker)
+        db_session.refresh(run)
+        assert run.state == "running"
+        assert json.loads(run.checkpoint_json)["pending_pairs"] == []
+        counts = json.loads(run.counters_json)
+        if failure in ("source_hash", "source_bytes"):
+            assert counts["stale"] == 1
+        elif failure in ("missing_content", "missing_component"):
+            assert counts["verification_failed"] == 1
+        assert counts.get("verified", 0) == 0
+        assert db_session.exec(select(SimilarityCandidate)).all() == []
+
+
+class TestIsolatedAnalysis:
+    """A file whose analysis kills its worker fails alone, never the whole run.
+
+    Fingerprinting walks the entire library, so it is the pass most likely to meet
+    the one file that exhausts memory (#259). The analysis runs in a disposable
+    worker; whatever it does, the run has to record that file and move on.
+    """
+
+    @pytest.mark.parametrize(
+        "reason",
+        [
+            ThumbnailFailureReason.RESOURCE_LIMIT,
+            ThumbnailFailureReason.TIMEOUT,
+            ThumbnailFailureReason.WORKER_FAILED,
+        ],
+    )
+    def test_a_killed_worker_fails_only_that_file(
+        self, db_session, local_pair, monkeypatch, reason
+    ):
+        actor, files = local_pair
+
+        def killed(_request):
+            raise MeshWorkerError(reason)
+
+        monkeypatch.setattr(mesh_isolation, "generate", killed)
+        run = runs.start(db_session, actor)
+        for _ in files:
+            advance_oldest_run(
+                SimilarityProcessor(get_session_factory(), get_backend())
+            )
+        db_session.refresh(run)
+
+        assert run.state == "running", run.failure_code
+        assert json.loads(run.counters_json)["failed"] == len(files)
+        rows = db_session.exec(select(GeometryFingerprint)).all()
+        assert [(row.state, row.failure_code) for row in rows] == [
+            ("failed", reason.value)
+        ] * len(files)
+
+
+class TestPreparedSourceAdmission:
+    def test_oversized_fingerprint_source_fails_before_native_work(
+        self, db_session, local_pair, monkeypatch
+    ):
+        actor, files = local_pair
+        source = content.binary_stl(triangles=12_000)
+        file = files[0]
+        Path(file.path).write_bytes(source)
+        file.size_bytes = len(source)
+        file.sha256 = hashlib.sha256(source).hexdigest()
+        db_session.add(file)
+        db_session.commit()
+        monkeypatch.setitem(_overlay, "mesh_prepared_max_mb", 1)
+        assert 2 * len(source) > 1024**2
+
+        def unexpected(*_args, **_kwargs):
+            pytest.fail("oversized prepared source reached native fingerprinting")
+
+        monkeypatch.setattr(mesh_isolation, "generate", unexpected)
+        run = runs.start(db_session, actor)
+        assert advance_oldest_run(
+            SimilarityProcessor(get_session_factory(), get_backend())
+        )
+        db_session.refresh(run)
+
+        assert run.state == "running"
+        assert json.loads(run.counters_json)["failed"] == 1
+        assert json.loads(run.checkpoint_json)["file_id"] == file.id
+        fingerprint = db_session.exec(select(GeometryFingerprint)).one()
+        assert fingerprint.file_id == file.id
+        assert fingerprint.source_sha256 == file.sha256
+        assert fingerprint.state == "failed"
+        assert fingerprint.failure_code == FingerprintFailureCode.RESOURCE_LIMIT
+        assert fingerprint.lease_token is None
+        assert db_session.exec(select(SimilarityCandidate)).all() == []
+        assert get_backend().read_bytes(file.path) == source
+
+    def test_combined_pair_sources_refuse_without_publishing_evidence(
+        self, db_session, local_pair, make_geometry_fingerprint, monkeypatch
+    ):
+        actor, files = local_pair
+        sources = [
+            content.binary_stl(triangles=6_000, offset=(index * 35, 0, 0))
+            for index in range(2)
+        ]
+        for file, source in zip(files, sources, strict=True):
+            Path(file.path).write_bytes(source)
+            file.size_bytes = len(source)
+            file.sha256 = hashlib.sha256(source).hexdigest()
+            db_session.add(file)
+        db_session.commit()
+        fingerprints = [
+            make_geometry_fingerprint(file, state="ready") for file in files
+        ]
+        monkeypatch.setitem(_overlay, "mesh_prepared_max_mb", 1)
+        assert all(2 * len(source) <= 1024**2 for source in sources)
+        assert 2 * sum(map(len, sources)) > 1024**2
+
+        def unexpected(*_args, **_kwargs):
+            pytest.fail("oversized prepared pair reached native verification")
+
+        monkeypatch.setattr(verification_isolation, "verify_paths", unexpected)
+        run = runs.start(db_session, actor)
+        run.phase = "candidates"
+        run.checkpoint_json = json.dumps(
+            {"pending_pairs": [[row.id for row in fingerprints]]}
+        )
+        db_session.add(run)
+        db_session.commit()
+        assert advance_oldest_run(
+            SimilarityProcessor(get_session_factory(), get_backend())
+        )
+        db_session.refresh(run)
+
+        assert run.state == "running"
+        assert json.loads(run.counters_json)["verification_failed"] == 1
+        assert json.loads(run.counters_json).get("verified", 0) == 0
+        assert json.loads(run.checkpoint_json)["pending_pairs"] == []
+        assert db_session.exec(select(SimilarityCandidate)).all() == []
+        for file, fingerprint, source in zip(files, fingerprints, sources, strict=True):
+            db_session.refresh(fingerprint)
+            assert fingerprint.state == "ready"
+            assert get_backend().read_bytes(file.path) == source
+
+
+class TestUnexpectedAnalysisFailure:
+    @pytest.mark.parametrize("failure", ["busy", "forbidden", "unexpected"])
+    def test_preserves_checkpoint_when_engine_fails(
+        self, db_session, local_pair, monkeypatch, failure
+    ):
+        from app.core.errors import ErrorKind, OperationError
+
+        actor, _ = local_pair
+
+        def refuse(*args, **kwargs):
+            if failure == "unexpected":
+                raise ValueError("private/source/path")
+            raise OperationError(
+                "private/source/path",
+                kind=ErrorKind.BUSY if failure == "busy" else ErrorKind.FORBIDDEN,
+            )
+
+        monkeypatch.setattr(mesh_isolation, "generate", refuse)
+        run = runs.start(db_session, actor)
+        result = advance_oldest_run(
+            SimilarityProcessor(get_session_factory(), get_backend())
+        )
+        db_session.refresh(run)
+        assert result is (failure != "busy")
+        assert run.state == ("running" if failure == "busy" else "failed")
+        assert (
+            run.failure_code
+            == {
+                "busy": None,
+                "forbidden": "analysis_unavailable",
+                "unexpected": "analysis_failed",
+            }[failure]
+        )
+        assert json.loads(run.checkpoint_json) == {}
+        assert "private" not in run.counters_json
+        assert db_session.exec(select(SimilarityCandidate)).all() == []
+
+
+@pytest.fixture
+def reanalysis_source(db_session, local_storage, make_user, make_model, make_file):
+    from tests.paths import TESTDATA_DIR
+
+    actor = make_user(superuser=True)
+    configuration.update_settings(db_session, actor, {"enabled": True})
+    content = (TESTDATA_DIR / "Calibration Cube.stl").read_bytes()
+    file = make_file(
+        make_model(),
+        file_type=FileType.STL,
+        size_bytes=len(content),
+        sha256=hashlib.sha256(content).hexdigest(),
+    )
+    file.path = get_backend().blob_key(
+        file.model.slug, file.version, file.original_filename
+    )
+    get_backend().write_stream(io.BytesIO(content), file.path)
+    db_session.add(file)
+    db_session.commit()
+    return actor, file
+
+
+class TestIncompleteReanalysis:
+    @pytest.mark.parametrize("state", ["failed", "unsupported", "partial"])
+    def test_manual_run_retries_incomplete_geometry(
+        self, db_session, reanalysis_source, make_geometry_fingerprint, state
+    ):
+        actor, file = reanalysis_source
+        fingerprint = make_geometry_fingerprint(file, state=state, attempts=1)
+        run = runs.start(db_session, actor)
+
+        assert advance_oldest_run(
+            SimilarityProcessor(get_session_factory(), get_backend())
+        )
+
+        db_session.refresh(fingerprint)
+        db_session.refresh(run)
+        assert fingerprint.state == "ready"
+        assert fingerprint.attempts == 2
+        assert json.loads(run.counters_json)["ready"] == 1
+        assert (
+            hashlib.sha256(get_backend().read_bytes(file.path)).hexdigest()
+            == file.sha256
+        )
+
+    @pytest.mark.parametrize("state", ["failed", "unsupported", "partial"])
+    def test_scheduled_run_keeps_cached_incomplete_geometry(
+        self, db_session, reanalysis_source, make_geometry_fingerprint, state
+    ):
+        actor, file = reanalysis_source
+        fingerprint = make_geometry_fingerprint(file, state=state, attempts=1)
+        run = runs.start(db_session, actor, trigger="scheduled")
+
+        assert advance_oldest_run(
+            SimilarityProcessor(get_session_factory(), get_backend())
+        )
+
+        db_session.refresh(fingerprint)
+        db_session.refresh(run)
+        assert fingerprint.state == state
+        assert fingerprint.attempts == 1
+        assert json.loads(run.counters_json)["cached"] == 1

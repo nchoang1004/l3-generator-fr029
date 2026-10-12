@@ -1,0 +1,50 @@
+{
+ "acceptance-repos": {
+  "from": "D:\\VSF\\l3-acceptance-repos",
+  "files": 788,
+  "bytes": 2153290,
+  "skipped": 50
+ },
+ "acceptance-gold": {
+  "from": "D:\\VSF\\l3-acceptance-gold",
+  "files": 10,
+  "bytes": 570479,
+  "skipped": 0
+ },
+ "heldout-repos": {
+  "from": "D:\\VSF\\l3-heldout-repos",
+  "files": 218,
+  "bytes": 377955,
+  "skipped": 4
+ },
+ "heldout-repos2": {
+  "from": "D:\\VSF\\l3-heldout-repos2",
+  "files": 635,
+  "bytes": 3768783,
+  "skipped": 50
+ },
+ "heldout-repos3": {
+  "from": "D:\\VSF\\l3-heldout-repos3",
+  "files": 12413,
+  "bytes": 161640290,
+  "skipped": 228
+ },
+ "heldout-repos4": {
+  "from": "D:\\VSF\\l3-heldout-repos4",
+  "files": 2367,
+  "bytes": 37061989,
+  "skipped": 37
+ },
+ "heldout-gold2": {
+  "from": "D:\\VSF\\l3-heldout-gold2",
+  "files": 16,
+  "bytes": 203827,
+  "skipped": 0
+ },
+ "sample-repos": {
+  "from": "D:\\VSF\\l3-generator-quote-evidence\\sample-repos",
+  "files": 538,
+  "bytes": 1034204,
+  "skipped": 20
+ }
+}

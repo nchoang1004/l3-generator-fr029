@@ -1,0 +1,640 @@
+"""Behavioral tests for deterministic and fallback mapping paths."""
+
+import json
+
+import pytest
+
+from pdf_autofiller import mapping as mapping_module
+from pdf_autofiller.mapping import (
+    coerce_value,
+    expected_type_for_semantic,
+    find_deterministic_match,
+    map_user_data_to_fields,
+    normalize_key,
+    semantic_fallback_mapping,
+)
+from pdf_autofiller.models import (
+    EnrichedFormField,
+    FieldSemantics,
+    FormField,
+    MappingResult,
+)
+from pdf_autofiller.pipeline import enrich_fields, fallback_semantics
+
+
+@pytest.fixture
+def sample_enriched_fields():
+    """Representative form fields used across mapping tests."""
+    return [
+        EnrichedFormField(
+            field=FormField(name="txtFirstName", field_type="text", required=True, page_number=1),
+            semantics=FieldSemantics(
+                semantic_meaning="first_name", expected_data_type="string", confidence_score=0.95
+            ),
+        ),
+        EnrichedFormField(
+            field=FormField(name="txtLastName", field_type="text", required=True, page_number=1),
+            semantics=FieldSemantics(
+                semantic_meaning="last_name", expected_data_type="string", confidence_score=0.95
+            ),
+        ),
+        EnrichedFormField(
+            field=FormField(name="txtDOB", field_type="text", required=True, page_number=1),
+            semantics=FieldSemantics(
+                semantic_meaning="date_of_birth", expected_data_type="date", confidence_score=0.90
+            ),
+        ),
+        EnrichedFormField(
+            field=FormField(name="txtEmail", field_type="text", required=False, page_number=1),
+            semantics=FieldSemantics(
+                semantic_meaning="email_address", expected_data_type="string", confidence_score=0.88
+            ),
+        ),
+    ]
+
+
+def test_normalize_key():
+    """Test key normalization including AcroForm camelCase names."""
+    assert normalize_key("First-Name!") == "first_name"
+    assert normalize_key("Email Address") == "email_address"
+    assert normalize_key("phone_number") == "phone_number"
+    assert normalize_key("DOB") == "dob"
+    assert normalize_key("first__name") == "first_name"
+    assert normalize_key("txtFirstName") == "txt_first_name"
+    assert normalize_key("txtNameLine1") == "txt_name_line_1"
+    assert normalize_key("chkConsent") == "chk_consent"
+
+
+def test_coerce_value_string():
+    """Test value coercion for string type."""
+    value, requires_review = coerce_value("John", "string")
+    assert value == "John"
+    assert requires_review is False
+
+
+def test_coerce_value_date():
+    """Test value coercion for date type."""
+    value, requires_review = coerce_value("2024-01-15", "date")
+    assert value == "2024-01-15"
+    assert requires_review is False
+
+    # Valid dates are written verbatim (the caller's format is preserved).
+    value, requires_review = coerce_value("01/15/2024", "date")
+    assert value == "01/15/2024"
+    assert requires_review is False
+
+    value, requires_review = coerce_value("January 15, 2024", "date")
+    assert value == "January 15, 2024"
+    assert requires_review is False
+
+    # Two-digit years have an ambiguous century and need review.
+    value, requires_review = coerce_value("01/15/30", "date")
+    assert value == "01/15/30"
+    assert requires_review is True
+
+    value, requires_review = coerce_value("not-a-date", "date")
+    assert value == "not-a-date"
+    assert requires_review is True
+
+
+def test_coerce_value_number():
+    """Test value coercion for number type."""
+    value, requires_review = coerce_value("123", "number")
+    assert value == "123"
+    assert requires_review is False
+
+    value, requires_review = coerce_value("123.45", "number")
+    assert value == "123.45"
+    assert requires_review is False
+
+    value, requires_review = coerce_value("abc", "number")
+    assert value == "abc"
+    assert requires_review is True
+
+
+@pytest.mark.parametrize("raw", ["02134", "12345678901234567890", "-0.50", "7."])
+def test_coerce_value_number_is_written_verbatim(raw):
+    assert coerce_value(raw, "number") == (raw, False)
+
+
+# Non-ASCII digits: Arabic-Indic, fullwidth (escaped, they look like ASCII), superscript.
+@pytest.mark.parametrize(
+    "raw", ["nan", "inf", "1_000", "1e5", "12 34", "٠٢١٣٤", "\uff10\uff11\uff12", "²", "1²"]
+)
+def test_coerce_value_number_flags_non_numeric_text(raw):
+    assert coerce_value(raw, "number") == (raw, True)
+
+
+def test_coerce_value_boolean():
+    """Test value coercion for boolean type."""
+    value, requires_review = coerce_value("true", "boolean")
+    assert value == "true"
+    assert requires_review is False
+
+    value, requires_review = coerce_value("yes", "boolean")
+    assert value == "true"
+    assert requires_review is False
+
+    value, requires_review = coerce_value("false", "boolean")
+    assert value == "false"
+    assert requires_review is False
+
+    value, requires_review = coerce_value("maybe", "boolean")
+    assert value == "maybe"
+    assert requires_review is True
+
+
+def test_find_deterministic_match_direct():
+    """Test deterministic matching with direct match."""
+    user_data = {"first_name": "John", "lastname": "Doe"}
+
+    matched_key, matched_value, confidence, reason, requires_review = find_deterministic_match(
+        "first_name", user_data, "string"
+    )
+
+    assert matched_key == "first_name"
+    assert matched_value == "John"
+    assert confidence >= 0.90
+    assert "Direct match" in reason or "direct" in reason.lower()
+
+
+def test_find_deterministic_match_alias():
+    """Test deterministic matching with alias match."""
+    user_data = {"surname": "Smith", "email": "test@example.com"}
+
+    matched_key, matched_value, confidence, reason, requires_review = find_deterministic_match(
+        "last_name", user_data, "string"
+    )
+
+    assert matched_key == "surname"
+    assert matched_value == "Smith"
+    assert confidence >= 0.85
+    assert "Alias match" in reason
+
+
+def test_find_deterministic_match_no_match():
+    """Test deterministic matching when no match found."""
+    user_data = {"unrelated": "value"}
+
+    matched_key, matched_value, confidence, reason, requires_review = find_deterministic_match(
+        "first_name", user_data, "string"
+    )
+
+    assert matched_key is None
+    assert matched_value is None
+    assert confidence == 0.0
+
+
+def test_map_user_data_to_fields_success(sample_enriched_fields):
+    """Test successful mapping with deterministic matching."""
+    user_data = {"firstname": "John", "lastname": "Doe", "dob": "1990-05-15", "email": "john@example.com"}
+
+    result = map_user_data_to_fields(sample_enriched_fields, user_data, strict=True)
+
+    assert len(result.decisions) == 4
+    assert len(result.missing_required) == 0
+
+    first_name_decision = next(d for d in result.decisions if d.field_name == "txtFirstName")
+    assert first_name_decision.selected_value == "John"
+    assert first_name_decision.confidence >= 0.90
+
+    dob_decision = next(d for d in result.decisions if d.field_name == "txtDOB")
+    assert dob_decision.selected_value == "1990-05-15"
+    assert dob_decision.requires_review is False
+
+
+def test_map_user_data_to_fields_missing_required(sample_enriched_fields):
+    """Test mapping with missing required field."""
+    user_data = {"firstname": "John", "email": "john@example.com"}
+
+    result = map_user_data_to_fields(sample_enriched_fields, user_data, strict=True)
+
+    assert len(result.decisions) == 2
+
+    assert len(result.missing_required) == 2
+    assert "txtLastName" in result.missing_required
+    assert "txtDOB" in result.missing_required
+
+
+def test_map_user_data_to_fields_ambiguous_requires_review(sample_enriched_fields):
+    """Test mapping with ambiguous value that requires review."""
+    user_data = {
+        "firstname": "John",
+        "lastname": "Doe",
+        "dob": "15th of May, 1990",
+        "email": "john@example.com",
+    }
+
+    result = map_user_data_to_fields(sample_enriched_fields, user_data, strict=True)
+
+    assert len(result.decisions) == 4
+
+    dob_decision = next(d for d in result.decisions if d.field_name == "txtDOB")
+    assert dob_decision.requires_review is True
+    assert dob_decision.selected_value == "15th of May, 1990"
+
+
+def test_map_user_data_to_fields_preserves_us_dates(sample_enriched_fields):
+    """Valid US date strings pass validation and are written verbatim."""
+    result = map_user_data_to_fields(
+        sample_enriched_fields,
+        {
+            "firstname": "John",
+            "lastname": "Doe",
+            "dob": "05/15/1990",
+            "email": "john@example.com",
+        },
+        strict=True,
+    )
+    dob_decision = next(d for d in result.decisions if d.field_name == "txtDOB")
+    assert dob_decision.requires_review is False
+    assert dob_decision.selected_value == "05/15/1990"
+
+
+def test_map_user_data_to_fields_unmapped_keys(sample_enriched_fields):
+    """Test mapping with unmapped user data keys."""
+    user_data = {
+        "firstname": "John",
+        "lastname": "Doe",
+        "dob": "1990-05-15",
+        "unused_key": "unused_value",
+        "another_unused": "value",
+    }
+
+    result = map_user_data_to_fields(sample_enriched_fields, user_data, strict=True)
+
+    assert len(result.unmapped_user_keys) == 2
+    assert "unused_key" in result.unmapped_user_keys
+    assert "another_unused" in result.unmapped_user_keys
+
+
+def test_map_user_data_to_fields_normalized_matching(sample_enriched_fields):
+    """Test that normalization handles various key formats."""
+    user_data = {
+        "First-Name": "John",
+        "Last Name": "Doe",
+        "DOB": "1990-05-15",
+        "Email_Address": "john@example.com",
+    }
+
+    result = map_user_data_to_fields(sample_enriched_fields, user_data, strict=True)
+
+    assert len(result.decisions) == 4
+    assert len(result.missing_required) == 0
+
+    first_name_decision = next(d for d in result.decisions if d.field_name == "txtFirstName")
+    assert first_name_decision.selected_value == "John"
+
+
+def test_semantic_fallback_mapping_returns_empty_on_client_error():
+    fields = [
+        EnrichedFormField(
+            field=FormField(name="txtDOB", field_type="text", required=True, page_number=1),
+            semantics=FieldSemantics(
+                semantic_meaning="date_of_birth",
+                expected_data_type="date",
+                confidence_score=0.9,
+            ),
+        )
+    ]
+
+    class BrokenClient:
+        def __init__(self, api_key=None):
+            del api_key
+
+        @staticmethod
+        def is_available():
+            return True
+
+        @staticmethod
+        def create_json_completion(**_kwargs):
+            raise RuntimeError("provider failure")
+
+    original_client = mapping_module.SemanticClient
+    mapping_module.SemanticClient = BrokenClient
+    try:
+        result = semantic_fallback_mapping(fields, {"dob": "1990-01-15"})
+    finally:
+        mapping_module.SemanticClient = original_client
+
+    assert result == {}
+
+
+def test_semantic_fallback_mapping_parses_markdown_and_coerces_values():
+    fields = [
+        EnrichedFormField(
+            field=FormField(name="txtConsent", field_type="text", required=False, page_number=1),
+            semantics=FieldSemantics(
+                semantic_meaning="consent",
+                expected_data_type="boolean",
+                confidence_score=0.95,
+            ),
+        )
+    ]
+
+    class GoodClient:
+        def __init__(self, api_key=None):
+            del api_key
+
+        @staticmethod
+        def is_available():
+            return True
+
+        @staticmethod
+        def create_json_completion(**_kwargs):
+            return """```json
+{"txtConsent":{"matched_key":"agree","confidence":0.88,"reason":"Matched consent"}}
+```"""
+
+    original_client = mapping_module.SemanticClient
+    mapping_module.SemanticClient = GoodClient
+    try:
+        result = semantic_fallback_mapping(fields, {"agree": "yes"})
+    finally:
+        mapping_module.SemanticClient = original_client
+
+    assert "txtConsent" in result
+    matched_key, matched_value, confidence, reason = result["txtConsent"]
+    assert matched_key == "agree"
+    assert matched_value == "true"
+    assert confidence == 0.88
+    assert reason == "Matched consent"
+
+
+def test_semantic_fallback_prompt_includes_keys_beyond_preview_limit():
+    fields = [
+        EnrichedFormField(
+            field=FormField(name="txtExtra", field_type="text", required=False, page_number=1),
+            semantics=FieldSemantics(
+                semantic_meaning="extra_field",
+                expected_data_type="string",
+                confidence_score=0.95,
+            ),
+        )
+    ]
+    captured_prompt: dict[str, str] = {}
+
+    class RecordingClient:
+        def __init__(self, api_key=None):
+            del api_key
+
+        @staticmethod
+        def is_available():
+            return True
+
+        @staticmethod
+        def create_json_completion(**kwargs):
+            captured_prompt["user_prompt"] = kwargs["user_prompt"]
+            return '{"txtExtra":{"matched_key":null,"confidence":0.0,"reason":"No match"}}'
+
+    original_client = mapping_module.SemanticClient
+    mapping_module.SemanticClient = RecordingClient
+    try:
+        semantic_fallback_mapping(
+            fields,
+            {f"extra_{index}": f"value_{index}" for index in range(11)},
+        )
+    finally:
+        mapping_module.SemanticClient = original_client
+
+    assert '"extra_10"' in captured_prompt["user_prompt"]
+
+
+def test_semantic_fallback_prompt_withholds_raw_user_values():
+    fields = [
+        EnrichedFormField(
+            field=FormField(name="txtName", field_type="text", required=False, page_number=1),
+            semantics=FieldSemantics(
+                semantic_meaning="first_name",
+                expected_data_type="string",
+                confidence_score=0.95,
+            ),
+        )
+    ]
+    captured_prompt: dict[str, str] = {}
+
+    class RecordingClient:
+        def __init__(self, api_key=None):
+            del api_key
+
+        @staticmethod
+        def is_available():
+            return True
+
+        @staticmethod
+        def create_json_completion(**kwargs):
+            captured_prompt["user_prompt"] = kwargs["user_prompt"]
+            return '{"txtName":{"matched_key":null,"confidence":0.0,"reason":"No match"}}'
+
+    original_client = mapping_module.SemanticClient
+    mapping_module.SemanticClient = RecordingClient
+    try:
+        semantic_fallback_mapping(fields, {"firstname": "TopSecretValue"})
+    finally:
+        mapping_module.SemanticClient = original_client
+
+    prompt = captured_prompt["user_prompt"]
+    # Key names and value types are shared; raw PII values are not.
+    assert "firstname" in prompt
+    assert "str" in prompt
+    assert "TopSecretValue" not in prompt
+
+
+@pytest.mark.parametrize(
+    ("semantic_meaning", "user_key", "user_value"),
+    [
+        ("street_address", "addr1", "123 Main St"),
+        ("city", "town", "Springfield"),
+        ("state", "province", "IL"),
+        ("postal_code", "zipcode", "62701"),
+        ("social_security_number", "ssn", "123-45-6789"),
+        ("employer", "company", "Acme Corp"),
+        ("job_title", "position", "Engineer"),
+    ],
+)
+def test_find_deterministic_match_expanded_aliases(
+    semantic_meaning: str,
+    user_key: str,
+    user_value: str,
+):
+    """Expanded alias vocabulary covers common intake and HR form fields."""
+    matched_key, matched_value, confidence, reason, requires_review = find_deterministic_match(
+        semantic_meaning,
+        {user_key: user_value},
+        "string",
+    )
+
+    assert matched_key == user_key
+    assert matched_value == user_value
+    assert confidence >= 0.85
+    assert "Alias match" in reason
+
+
+def test_community_w9_alias_pack_loaded():
+    """W-9 alias pack extends matching for tax form field names."""
+    matched_key, matched_value, confidence, reason, requires_review = find_deterministic_match(
+        "taxpayer_name",
+        {"name_line_1": "Jane Doe"},
+        "string",
+    )
+    assert matched_key == "name_line_1"
+    assert matched_value == "Jane Doe"
+    assert confidence >= 0.85
+    assert "Alias match" in reason
+
+
+@pytest.mark.parametrize(
+    ("derived_semantic", "user_key", "user_value"),
+    [
+        ("firstname", "given_name", "Pat"),
+        ("lastname", "surname", "Nguyen"),
+        ("dob", "birthdate", "2001-12-31"),
+        ("email", "e_mail", "pat@example.com"),
+        ("phone", "tel", "555-0000"),
+    ],
+)
+def test_alias_cluster_matches_synonym_semantics(
+    derived_semantic: str,
+    user_key: str,
+    user_value: str,
+):
+    """Field-name fallback synonyms still resolve through the alias pack cluster.
+
+    Without AI, ``txtFirstName`` normalizes to ``first_name`` (camelCase split).
+    Older synonym-only semantics like ``firstname`` must still resolve profile
+    keys such as ``given_name`` via the alias cluster.
+    """
+    matched_key, matched_value, confidence, reason, _requires_review = find_deterministic_match(
+        derived_semantic,
+        {user_key: user_value},
+        "string",
+    )
+
+    assert matched_key == user_key
+    assert matched_value == user_value
+    assert confidence >= 0.85
+    assert "Alias match" in reason
+
+
+def test_canonicalize_semantic_maps_synonyms_to_pack_keys():
+    """canonicalize_semantic prefers the alias-pack canonical key."""
+    from pdf_autofiller.mapping import canonicalize_semantic
+
+    assert canonicalize_semantic("firstname") == "first_name"
+    assert canonicalize_semantic("given_name") == "first_name"
+    assert canonicalize_semantic("birthdate") == "date_of_birth"
+    assert canonicalize_semantic("mystery_field") == "mystery_field"
+
+
+def test_expected_type_for_semantic_dates_and_booleans():
+    assert expected_type_for_semantic("date_of_birth") == "date"
+    assert expected_type_for_semantic("start_date") == "date"
+    assert expected_type_for_semantic("custom_expiry_date") == "date"
+    assert expected_type_for_semantic("consent") == "boolean"
+    assert expected_type_for_semantic("first_name") == "string"
+    assert expected_type_for_semantic("anything", field_type="button") == "boolean"
+
+
+def test_fallback_semantics_types_dob_and_checkbox():
+    dob = fallback_semantics(FormField(name="txtDOB", field_type="text", required=True, page_number=1))
+    assert dob.semantics.semantic_meaning == "date_of_birth"
+    assert dob.semantics.expected_data_type == "date"
+
+    consent = fallback_semantics(
+        FormField(name="chkConsent", field_type="button", required=False, page_number=1)
+    )
+    assert consent.semantics.semantic_meaning == "consent"
+    assert consent.semantics.expected_data_type == "boolean"
+
+
+def test_enrich_fields_preserves_us_dates_without_ai():
+    """Default path (no AI) must coerce US dates for date_of_birth fields."""
+    fields = [
+        FormField(name="txtFirstName", field_type="text", required=True, page_number=1),
+        FormField(name="txtDOB", field_type="text", required=True, page_number=1),
+    ]
+    enriched = enrich_fields(fields, use_semantic_inference=False)
+    result = map_user_data_to_fields(
+        enriched,
+        {"firstname": "Jane", "dob": "01/15/1990"},
+        strict=True,
+    )
+    dob = next(d for d in result.decisions if d.field_name == "txtDOB")
+    assert dob.selected_value == "01/15/1990"
+    assert dob.requires_review is False
+
+
+def _fallback_with(response: str, monkeypatch) -> tuple[MappingResult, list[EnrichedFormField]]:
+    """Run mapping with fallback on, where the provider answers ``response`` verbatim."""
+
+    class ScriptedClient:
+        def __init__(self, api_key=None):
+            del api_key
+
+        @staticmethod
+        def is_available():
+            return True
+
+        @staticmethod
+        def create_json_completion(**_kwargs):
+            return response
+
+    monkeypatch.setattr(mapping_module, "SemanticClient", ScriptedClient)
+    fields = [
+        EnrichedFormField(
+            field=FormField(name="Text1", field_type="text", required=True, page_number=1),
+            semantics=FieldSemantics(
+                semantic_meaning="text_1", expected_data_type="string", confidence_score=0.9
+            ),
+        )
+    ]
+    result = map_user_data_to_fields(
+        fields, {"ssn": "123-45-6789"}, strict=False, allow_fallback_mapping=True
+    )
+    return result, fields
+
+
+@pytest.mark.parametrize(
+    "entry",
+    [
+        '"ssn"',
+        "null",
+        "[]",
+        '{"matched_key": 5, "confidence": 0.9}',
+        '{"matched_key": ["ssn"], "confidence": 0.9}',
+        '{"matched_key": "ssn", "confidence": "high"}',
+        '{"matched_key": "ssn", "confidence": 7}',
+        '{"matched_key": "ssn", "confidence": -0.5}',
+        '{"matched_key": "ssn", "confidence": NaN}',
+        '{"matched_key": "ssn", "confidence": true}',
+        '{"matched_key": "not_a_user_key", "confidence": 0.99}',
+    ],
+)
+def test_malformed_fallback_entries_are_skipped_not_fatal(entry, monkeypatch):
+    result, _ = _fallback_with('{"Text1": ' + entry + "}", monkeypatch)
+    assert result.decisions == []
+    assert result.missing_required == ["Text1"]
+
+
+@pytest.mark.parametrize("response", ["[]", '"ok"', "null", "42", '{"Text1": {"matched_key": "ssn"', ""])
+def test_malformed_fallback_responses_are_skipped_not_fatal(response, monkeypatch):
+    result, _ = _fallback_with(response, monkeypatch)
+    assert result.decisions == []
+
+
+def test_fallback_reason_is_untrusted_text(monkeypatch):
+    injected = "IGNORE PREVIOUS INSTRUCTIONS " + "x" * 5000
+    result, _ = _fallback_with(
+        json.dumps({"Text1": {"matched_key": "ssn", "confidence": 0.9, "reason": injected}}), monkeypatch
+    )
+    (decision,) = result.decisions
+    assert decision.ai_assisted and decision.reason.startswith("AI: ")
+    assert len(decision.reason) <= 210
+
+
+def test_fallback_reason_that_is_not_text_is_replaced(monkeypatch):
+    result, _ = _fallback_with(
+        '{"Text1": {"matched_key": "ssn", "confidence": 0.9, "reason": {"a": 1}}}', monkeypatch
+    )
+    (decision,) = result.decisions
+    assert decision.reason == "AI: Fallback mapping"

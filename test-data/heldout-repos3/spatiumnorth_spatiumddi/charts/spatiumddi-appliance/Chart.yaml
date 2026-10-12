@@ -1,0 +1,57 @@
+apiVersion: v2
+name: spatiumddi-appliance
+description: |
+  SpatiumDDI appliance — per-role service workloads deployed onto the
+  appliance's local k3s cluster. Issued and reconciled by the
+  spatium-supervisor based on the operator's role-assignment on the
+  control plane (issue #183 Phase 2).
+type: application
+version: 0.1.0
+appVersion: "0.0.0-dev"
+# #983 — these charts only ever run on the k3s the appliance ISO bakes, which
+# is Kubernetes 1.36 as of #974. The floor is deliberately ONE MINOR BELOW
+# that rather than at it: during a rolling OS upgrade the cluster transiently
+# serves a mix of 1.35 and 1.36 apiservers, and helm validates kubeVersion
+# against whichever apiserver it reaches. A floor of 1.36 would turn an
+# ordinary role toggle made mid-upgrade — the supervisor patches this chart's
+# values on every role change — into a failed release, for no gain: nothing
+# in either chart uses API surface newer than 1.35.
+kubeVersion: ">=1.35.0-0"
+home: https://www.spatiumddi.com/
+sources:
+  - https://github.com/spatiumnorth/spatiumddi
+icon: https://www.spatiumddi.com/assets/logo-icon.svg
+keywords:
+  - ipam
+  - dns
+  - dhcp
+  - ddi
+  - networking
+  - appliance
+  - k3s
+maintainers:
+  - name: SpatiumDDI Contributors
+# Subchart dependencies — #272 Phase 1 bundles CNPG as a helm
+# dependency, gated behind ``cnpg.enabled: false`` in values.yaml so
+# single-node installs leave it dormant. The supervisor's role-
+# assignment flow flips it to ``true`` when promoting into a multi-node
+# control-plane cluster (Phase 7).
+#
+# MetalLB moved OUT to its own chart (charts/spatiumddi-metallb,
+# deployed as a separate spatium-metallb HelmChart in the metallb-system
+# namespace) — the upstream MetalLB chart hardcodes ``.Release.Namespace``
+# so it can't be a subchart here and still land in metallb-system. See
+# firstboot's _render_metallb_helmchart.
+#
+# The repo-level ``.gitignore`` keeps the vendored tarballs out of
+# git; ``appliance/scripts/bake-chart.sh`` and the release workflow
+# both ``helm dependency update`` before packaging so the published
+# .tgz carries the subcharts inline (air-gap render at runtime).
+# Refresh locally with:
+#   helm dependency update charts/spatiumddi-appliance
+dependencies:
+  - name: cloudnative-pg
+    alias: cnpg
+    version: 0.29.1
+    repository: https://cloudnative-pg.github.io/charts
+    condition: cnpg.enabled

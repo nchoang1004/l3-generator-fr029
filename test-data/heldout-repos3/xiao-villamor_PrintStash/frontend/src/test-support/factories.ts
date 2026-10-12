@@ -1,0 +1,1010 @@
+import type { GcPlan } from "@/lib/api/gc";
+import type { TrashedModelRead } from "@/types";
+import type { VolumeMeasurement } from "@/types/models";
+import type { ArtifactCacheRead } from "@/lib/api/artifact-cache";
+/**
+ * Builders for API-shaped objects — the frontend's arrange step.
+ *
+ * The counterpart to `backend/tests/factories/`, for the same reason but a
+ * different failure. A backend row that encodes state wrongly is invisible to
+ * the code under test; a frontend response object that is *missing a field* is
+ * worse, because TypeScript stops helping the moment the literal is written
+ * inline. `PrinterRead` has thirty-odd fields, most of them boilerplate `access`
+ * and `capabilities` blocks, so two test files that each spell one out drift
+ * apart — and when the wire type gains a field, every literal has to be found
+ * and updated by hand.
+ *
+ * Each builder returns a complete, valid object and takes a shallow `Partial`,
+ * so a test names only the fields its assertion depends on:
+ *
+ *     const printer = aPrinter({ status: "printing" });
+ *
+ * Nested blocks are **composed, not deep-merged** — they have their own
+ * builders:
+ *
+ *     const printer = aPrinter({ access: printerAccess({ can_print: false }) });
+ *
+ * That is deliberate rather than a shortcut. A generic deep merge needs
+ * `unknown` parameters and a runtime `typeof` walk, both of which this repo's
+ * anti-slop lint rules forbid — they erase the contract a caller is relying on.
+ * Composition keeps every override fully typed, and it reads better: the block
+ * being customised is named, not inferred from nesting depth.
+ *
+ * Defaults describe the *ordinary* case — a reachable, fully-capable printer the
+ * caller may operate — because that is what most tests need, and it makes an
+ * interesting variant obvious at the call site.
+ *
+ * Timestamps are absolute ISO strings, never `Date.now()`: a clock-derived
+ * fixture makes a snapshot differ between runs and a relative-time assertion
+ * pass only on the day it was written.
+ */
+
+import type {
+  CollectionNodeRead,
+  CollectionPage,
+  CollectionRead,
+  DerivativeRead,
+  ExternalLibrary,
+  JobStatus,
+  ModelListItem,
+  OutlinerModelRead,
+  PrinterAccess,
+  PrinterCapabilities,
+  PrinterRead,
+  PrintJobRead,
+  StorageConnection,
+  StorageUsageRead,
+  TagRead,
+  VaultStatsRead,
+  WorkOverview,
+} from "@/types";
+
+/** A fixed instant. Every builder's timestamps derive from this one. */
+export const FROZEN_NOW = "2026-01-01T00:00:00Z";
+
+/** Full access. Narrow it in a test that asserts a permission boundary. */
+export function printerAccess(override?: Partial<PrinterAccess>): PrinterAccess {
+  return {
+    role: "admin",
+    can_view: true,
+    can_print: true,
+    can_control: true,
+    can_admin: true,
+    ...override,
+  };
+}
+
+/**
+ * Every capability enabled, at `stable` support.
+ *
+ * The UI disables controls from this block, so a test asserting a control is
+ * *absent* has to turn the matching capability off rather than trust a default —
+ * and one asserting a control is present needs it on, which is why the default
+ * is fully capable.
+ */
+export function printerCapabilities(override?: Partial<PrinterCapabilities>): PrinterCapabilities {
+  return {
+    can_start: true,
+    can_pause: true,
+    can_resume: true,
+    can_cancel: true,
+    can_live_status: true,
+    can_upload: true,
+    can_list_files: true,
+    can_send_gcode: true,
+    can_measure_consumption: true,
+    support_level: "stable",
+    support_notes: [],
+    unsupported_actions: [],
+    accepted_print_formats: ["gcode_text"],
+    ...override,
+  };
+}
+
+/** A reachable Moonraker printer the caller may fully operate. */
+export function aPrinter(override?: Partial<PrinterRead>): PrinterRead {
+  return {
+    ...anEditingBase(),
+    id: 1,
+    name: "Voron",
+    provider: "moonraker",
+    moonraker_url: "http://printer.invalid:7125",
+    provider_material_sync_enabled: true,
+    operator_release_required: false,
+    has_bambu_access_code: false,
+    has_prusalink_password: false,
+    has_prusalink_api_key: false,
+    has_elegoo_centauri_access_code: false,
+    has_octoprint_api_key: false,
+    has_api_key: false,
+    capabilities: printerCapabilities(),
+    access: printerAccess(),
+    notes: null,
+    group: null,
+    is_default: false,
+    drain_mode: false,
+    drain_reason: null,
+    drain_updated_at: null,
+    status: "ready",
+    last_seen_at: FROZEN_NOW,
+    last_error: null,
+    created_at: FROZEN_NOW,
+    updated_at: FROZEN_NOW,
+    ...override,
+  };
+}
+
+/**
+ * A queued, vault-backed job for printer 1.
+ *
+ * Every required field is spelled out rather than cast, deliberately: an `as`
+ * here would let the object drift out of shape the moment the wire type gains a
+ * field, which is the drift this module exists to stop. If TypeScript complains
+ * after a schema change, that complaint is the feature.
+ */
+export function aPrintJob(override?: Partial<PrintJobRead>): PrintJobRead {
+  return {
+    id: 1,
+    printer_id: 1,
+    file_id: 1,
+    model_id: 1,
+    remote_filename: "bracket.gcode",
+    state: "queued",
+    progress: 0,
+    source: "vault",
+    external_display_name: null,
+    external_task_id: null,
+    external_subtask_id: null,
+    external_project_id: null,
+    external_profile_id: null,
+    external_gcode_file: null,
+    external_plate_index: null,
+    external_current_layer: null,
+    external_total_layers: null,
+    external_nozzle_diameter: null,
+    // `vault` is the ordinary case: PrintStash owns the bytes. The other values
+    // describe a job observed on the printer whose artifact could not be
+    // captured, which is a different scenario a test asks for by name.
+    artifact_evidence: "vault",
+    artifact_capture_error: null,
+    error: null,
+    routing_strategy: "manual",
+    queue_position: 0,
+    provider_job_id: null,
+    blocked_reason: null,
+    dispatch_claimed_at: null,
+    dispatch_attempts: 0,
+    retryable: false,
+    requested_by: null,
+    spool_id: null,
+    spool_name: null,
+    started_at: null,
+    finished_at: null,
+    created_at: FROZEN_NOW,
+    updated_at: FROZEN_NOW,
+    ...override,
+  };
+}
+
+/** A folder in the library, at the root, that the caller may administer. */
+export function aCollection(override?: Partial<CollectionRead>): CollectionRead {
+  return {
+    id: 1,
+    name: "Parts",
+    slug: "parts",
+    path: "parts",
+    parent_id: null,
+    model_count: 2,
+    effective_role: "admin",
+    tags: [],
+    has_readme: false,
+    ...override,
+  };
+}
+
+/** A node of the lazily loaded tree: a top-level folder with nothing below it. */
+export function aCollectionNode(override?: Partial<CollectionNodeRead>): CollectionNodeRead {
+  return {
+    ...aCollection(),
+    child_count: 0,
+    descendant_count: 0,
+    display_path: "Parts",
+    ...override,
+  };
+}
+
+/** The last page of a tree level, search or lookup listing. */
+export function aCollectionPage(items: CollectionNodeRead[]): CollectionPage {
+  return { items, next_cursor: null };
+}
+
+export function aTag(override?: Partial<TagRead>): TagRead {
+  return { id: 1, name: "functional", slug: "functional", model_count: 3, ...override };
+}
+
+export function storageUsage(override?: Partial<StorageUsageRead>): StorageUsageRead {
+  return {
+    backend: "local",
+    prefix: null,
+    bucket: null,
+    object_count: 40,
+    total_size_bytes: 1024,
+    ok: true,
+    error: null,
+    ...override,
+  };
+}
+
+/** One enabled S3 location that may be reused by backup and library workflows. */
+export function aStorageConnection(override?: Partial<StorageConnection>): StorageConnection {
+  return {
+    edit_epoch: "a".repeat(32),
+    edit_version: 1,
+    id: 1,
+    name: "Workshop storage",
+    kind: "s3",
+    purpose: "both",
+    configuration: { bucket: "printstash", root: "PrintStash" },
+    secret_fields_set: ["access_key", "secret_key"],
+    enabled: true,
+    manual_backup_enabled: true,
+    automatic_backup_enabled: true,
+    ...override,
+  };
+}
+
+/**
+ * The library-wide totals the vault header and the settings overview render.
+ *
+ * `storage` is composed rather than deep-merged, like every other nested block
+ * here: `vaultStats({ storage: storageUsage({ ok: false }) })`.
+ */
+export function vaultStats(override?: Partial<VaultStatsRead>): VaultStatsRead {
+  return {
+    model_count: 12,
+    file_count: 40,
+    source_file_count: 20,
+    gcode_file_count: 20,
+    collection_count: 3,
+    tag_count: 5,
+    printer_count: 1,
+    indexed_size_bytes: 1024,
+    storage: storageUsage(),
+    ...override,
+  };
+}
+
+/** One row of the model library listing, with nothing printed yet. */
+export function aModelListItem(override?: Partial<ModelListItem>): ModelListItem {
+  return {
+    edit_epoch: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    edit_version: 1,
+    id: 1,
+    name: "Bracket",
+    slug: "bracket",
+    collection: null,
+    collection_id: null,
+    collection_label: null,
+    source_url: null,
+    effective_role: null,
+    tags: [],
+    thumbnail_url: null,
+    file_count: 1,
+    mesh_file_id: null,
+    printer_presence: [],
+    updated_at: FROZEN_NOW,
+    print_summary: null,
+    starred: false,
+    similarity: { open_candidates: 0, confirmed: 0 },
+    ...override,
+  };
+}
+
+/** A local model detail with no revisions until a test selects one explicitly. */
+export function aModel(
+  override?: Partial<import("@/types").ModelRead>,
+): import("@/types").ModelRead {
+  return {
+    edit_epoch: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    edit_version: 1,
+    id: 1,
+    name: "Leg",
+    slug: "leg",
+    hash: "a".repeat(64),
+    collection: null,
+    collection_id: null,
+    collection_label: null,
+    description: null,
+    source_url: null,
+    effective_role: "admin",
+    tags: [],
+    thumbnail_url: null,
+    created_at: FROZEN_NOW,
+    updated_at: FROZEN_NOW,
+    files: [],
+    starred: false,
+    similarity: { open_candidates: 0, confirmed: 0 },
+    ...override,
+  };
+}
+
+export function aRevision(
+  override?: Partial<import("@/types").FileRead>,
+): import("@/types").FileRead {
+  return {
+    id: 1,
+    model_id: 1,
+    original_filename: "leg.gcode",
+    file_type: "gcode",
+    version: 1,
+    size_bytes: 128,
+    sha256: "a".repeat(64),
+    revision_status: null,
+    revision_notes: null,
+    is_recommended: false,
+    uploaded_at: FROZEN_NOW,
+    metadata: null,
+    tags: [],
+    ...override,
+  };
+}
+
+/** Scalar-only overrides retain legacy provenance; certified values require evidence. */
+export function aMetadata(
+  override: Partial<import("@/types").MetadataRead> = {},
+): import("@/types").MetadataRead {
+  const measurement: VolumeMeasurement =
+    override.volume_measurement ??
+    (override.volume_mm3 !== undefined
+      ? {
+          state: "legacy_unassessed",
+          unit: "mm3",
+          method: null,
+          value_mm3: override.volume_mm3,
+          cause: null,
+        }
+      : {
+          state: "not_calculated",
+          unit: "mm3",
+          method: null,
+          value_mm3: null,
+          cause: "enrichment_pending",
+        });
+  if (
+    measurement.state === "measured" &&
+    (!Number.isFinite(measurement.value_mm3) || measurement.value_mm3 <= 0)
+  ) {
+    throw new Error("Measured volume must be finite and positive");
+  }
+  if (
+    measurement.state === "legacy_unassessed" &&
+    measurement.value_mm3 !== null &&
+    !Number.isFinite(measurement.value_mm3)
+  ) {
+    throw new Error("Legacy volume must be finite");
+  }
+  if (override.volume_mm3 !== undefined && override.volume_mm3 !== measurement.value_mm3) {
+    throw new Error("Volume evidence must match volume_mm3");
+  }
+  return {
+    slicer_name: null,
+    slicer_version: null,
+    printer_model: null,
+    nozzle_diameter_mm: null,
+    layer_height_mm: null,
+    first_layer_height_mm: null,
+    infill_percent: null,
+    wall_loops: null,
+    top_shell_layers: null,
+    bottom_shell_layers: null,
+    support_material: null,
+    nozzle_temperature_c: null,
+    bed_temperature_c: null,
+    estimated_time_s: null,
+    filament_weight_g: null,
+    filament_length_mm: null,
+    filament_cost: null,
+    material_type: null,
+    material_brand: null,
+    bbox_x_mm: null,
+    bbox_y_mm: null,
+    bbox_z_mm: null,
+    triangle_count: null,
+    ...override,
+    volume_mm3: measurement.value_mm3,
+    volume_measurement: { ...measurement },
+  };
+}
+
+export function aBuildAttempt(
+  override?: Partial<import("@/types/multipart-builds").MultipartBuildAttempt>,
+): import("@/types/multipart-builds").MultipartBuildAttempt {
+  return {
+    id: 1,
+    job_id: 1,
+    historical_job_id: 1,
+    revision_id: 1,
+    planned_units: 4,
+    valid_units: null,
+    suggested_valid_units: 0,
+    state: "failed",
+    version: 0,
+    ...override,
+  };
+}
+
+export function aBuildPart(
+  override?: Partial<import("@/types/multipart-builds").MultipartBuildPart>,
+): import("@/types/multipart-builds").MultipartBuildPart {
+  return {
+    id: 1,
+    name: "Leg",
+    quantity: 4,
+    required_units: 4,
+    valid_units: 0,
+    missing_units: 4,
+    active_units: 0,
+    unreviewed_units: 0,
+    unreserved_units: 4,
+    selected_model_id: 1,
+    selected_choice_id: 1,
+    revision_id: 1,
+    queueable: true,
+    choices: [{ choice_id: 1, model_id: 1, name: "Leg", available: true }],
+    attempts: [],
+    ...override,
+  };
+}
+
+export function aBuild(
+  override?: Partial<import("@/types/multipart-builds").MultipartBuild>,
+): import("@/types/multipart-builds").MultipartBuild {
+  return {
+    id: 1,
+    name: "Kitchen table",
+    composition_name: "Table",
+    multipart_model_id: 1,
+    object_quantity: 1,
+    version: 0,
+    effective_role: "admin",
+    archived_at: null,
+    created_at: FROZEN_NOW,
+    completed: false,
+    parts: [aBuildPart()],
+    ...override,
+  };
+}
+
+export function aMultipartModel(
+  override?: Partial<import("@/types/multipart-models").MultipartModelRead>,
+): import("@/types/multipart-models").MultipartModelRead {
+  return {
+    edit_epoch: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    edit_version: 1,
+    id: 7,
+    name: "Table",
+    slug: "table",
+    description: null,
+    collection: null,
+    collection_id: null,
+    collection_label: null,
+    part_count: 1,
+    model_count: 1,
+    guide_count: 0,
+    cover_model_id: null,
+    cover_image_url: null,
+    cover_image_uploaded: false,
+    cover_thumbnail_url: null,
+    member_model_ids: [1],
+    tags: [],
+    starred: false,
+    effective_role: "admin",
+    updated_at: "2026-01-01T00:00:00Z",
+    created_at: "2026-01-01T00:00:00Z",
+    parts: [],
+    guides: [],
+    ...override,
+  };
+}
+
+export function anArtifactCache(overrides: Partial<ArtifactCacheRead> = {}): ArtifactCacheRead {
+  return {
+    edit_epoch: "00000000000000000000000000000001",
+    edit_version: 1,
+    policy: {
+      enabled: false,
+      root: "/cache",
+      max_bytes: 1000,
+      max_entries: 100,
+      max_fills: 2,
+      headroom_bytes: 100,
+      verify_every_hits: 100,
+      fill_wait_seconds: 30,
+    },
+    effective_root: "/cache",
+    restart_required: false,
+    source: "environment",
+    available: true,
+    health: "ready",
+    labels: { representation: "artifact", backend: "s3" },
+    usage: { bytes: 100, entries: 1, leases: 0 },
+    ...overrides,
+  };
+}
+export function anAuditPolicy(
+  overrides: Partial<import("@/types/maintenance").AuditPolicy> = {},
+): import("@/types/maintenance").AuditPolicy {
+  return {
+    estimated_remote_bytes: 0,
+    overdue: false,
+    mode: "quick",
+    enabled: false,
+    paused: false,
+    cadence: "weekly",
+    timezone: "UTC",
+    weekday: 6,
+    month_day: 1,
+    start_time: "02:00",
+    window_minutes: 120,
+    bytes_per_second: 10485760,
+    read_concurrency: 1,
+    auto_repair: false,
+    repair_actions: [],
+    full_cost_acknowledged: false,
+    revision: 1,
+    next_due_at: null,
+    last_attempt_at: null,
+    last_success_at: null,
+    deferred_reason: null,
+    ...overrides,
+  };
+}
+
+/** A mounted, read-only source with its root verified. */
+export function anExternalLibrary(override?: Partial<ExternalLibrary>): ExternalLibrary {
+  return {
+    edit_epoch: "a".repeat(32),
+    edit_version: 1,
+    id: 1,
+    name: "My models",
+    root_path: "/libraries/models",
+    source_kind: "mounted",
+    writeback_enabled: false,
+    enabled: true,
+    scan_interval_minutes: 60,
+    scan_schedule: "0 * * * *",
+    watch_mode: "auto",
+    fs_kind: "local",
+    watch_active: false,
+    binding_state: "bound",
+    binding_reason: null,
+    root_enrollable: false,
+    collection_mode: "mirror",
+    target_collection_id: null,
+    last_scanned_at: null,
+    last_scan_status: null,
+    last_scan_summary: null,
+    ...override,
+  };
+}
+
+/** A completed import Job; callers supply distinct IDs to isolate the task cache. */
+export function aJob(override?: Partial<JobStatus>): JobStatus {
+  return {
+    job_id: "test-job",
+    kind: "ingestion.upload",
+    state: "completed",
+    priority: "interactive",
+    attempts: 1,
+    resubmits: 0,
+    model_id: 1,
+    file_id: 1,
+    error: null,
+    retryable: false,
+    created_at: FROZEN_NOW,
+    updated_at: FROZEN_NOW,
+    started_at: FROZEN_NOW,
+    finished_at: FROZEN_NOW,
+    committed_at: null,
+    step: null,
+    total_steps: null,
+    label: null,
+    progress: null,
+    result: null,
+    stage: null,
+    current_item: null,
+    processed: 0,
+    total: null,
+    succeeded: 0,
+    deduplicated: 0,
+    skipped: 0,
+    failed: 0,
+    completion: null,
+    failed_items: [],
+    staging: null,
+    ...override,
+  };
+}
+
+/** One derivative of an Artifact; `ready` unless the test says otherwise. */
+export function aDerivative(override?: Partial<DerivativeRead>): DerivativeRead {
+  return {
+    kind: "thumbnail",
+    recipe_version: 1,
+    state: "ready",
+    attempts: 1,
+    failure_reason: null,
+    updated_at: FROZEN_NOW,
+    retryable: false,
+    ...override,
+  };
+}
+
+/** The Background work overview of a single-process install with nothing queued. */
+export function aWorkOverview(override?: Partial<WorkOverview>): WorkOverview {
+  return {
+    lanes: [
+      {
+        name: "derive.native",
+        concurrency: 1,
+        default_concurrency: 1,
+        overridden: false,
+        scope: "worker",
+        partitioned: false,
+        queued: 0,
+        running: 0,
+      },
+    ],
+    definitions: [
+      {
+        name: "derivatives.mesh",
+        enabled: true,
+        default_enabled: true,
+        overridden: false,
+        label: "Mesh derivatives",
+        lane: "derive.native",
+        queued: 0,
+        running: 0,
+        interrupted: 0,
+        failed: 0,
+        completed: 3,
+        derivative_kinds: ["metadata", "thumbnail"],
+        next_due_at: null,
+        last_finished_at: FROZEN_NOW,
+      },
+    ],
+    executors: [
+      {
+        executor_id: "all-host-1",
+        role: "all",
+        hostname: "host",
+        app_version: "0.14.0",
+        lanes: ["derive.native"],
+        started_at: FROZEN_NOW,
+        heartbeat_at: FROZEN_NOW,
+        stale: false,
+      },
+    ],
+    failed_jobs: [],
+    failed_derivatives: 0,
+    ...override,
+  };
+}
+
+export function aVaultMigration(
+  override?: Partial<import("@/lib/api/vault-migration").VaultMigrationRun>,
+): import("@/lib/api/vault-migration").VaultMigrationRun {
+  return {
+    source_provider_ref: "source-identity",
+    destination_provider_ref: "destination-identity",
+    capacity_resources: [{ role: "destination", required_bytes: 100, available_bytes: 1000 }],
+    policy: { retention_days: 7, concurrency: 1, bandwidth_bytes_per_second: null },
+    copied_objects: 0,
+    copied_bytes: 0,
+    verified_bytes: 0,
+    skipped_objects: 0,
+    skipped_bytes: 0,
+    failed_objects: 0,
+    failed_bytes: 0,
+    delta_objects: 0,
+    throughput_bytes_per_second: null,
+    last_activity_at: FROZEN_NOW,
+    retryable: false,
+    phase_history: [{ phase: "planned", at: FROZEN_NOW }],
+    pre_audit: null,
+    post_audit: null,
+    full_audit: null,
+    cleanup_outcome: null,
+    notification_events: 0,
+    id: "migration-1",
+    state: "planned",
+    backup_summary: {
+      backup_id: "backup-1",
+      source_ref: "exact-backup-source",
+      verified_at: FROZEN_NOW,
+    },
+    plan_digest: "plan-digest",
+    objects: 10,
+    verified_objects: 0,
+    bytes: 100,
+    error_code: null,
+    cleanup_after: null,
+    cleanup_findings: [],
+    source_retained: true,
+    expires_at: "2099-01-01T00:00:00Z",
+    source: { provider: "local", data_dir: "/source/files", thumb_dir: "/source/thumbs" },
+    destination: {
+      provider: "local",
+      data_dir: "/destination/files",
+      thumb_dir: "/destination/thumbs",
+    },
+    capacity_warnings: [],
+    recovery_required: false,
+    ...override,
+  };
+}
+
+export function aMigrationBackup(
+  override?: Partial<import("@/lib/api/backup").BackupMeta>,
+): import("@/lib/api/backup").BackupMeta {
+  return {
+    backup_id: "backup-1",
+    created_at: FROZEN_NOW,
+    size_bytes: 100,
+    file_count: 1,
+    storage_backend: "local",
+    app_version: "0.14.0",
+    location: "local",
+    source_ref: "exact-backup-source",
+    ...override,
+  };
+}
+
+/** A local-storage vault configuration as `GET /api/v1/config` returns it. */
+export function aVaultConfig(
+  override?: Partial<import("@/types").VaultConfigRead>,
+): import("@/types").VaultConfigRead {
+  return {
+    ...anEditingBase(),
+    derivatives_mesh_enabled: true,
+    derivatives_gcode_enabled: true,
+    derivatives_toolpath_enabled: true,
+    storage_backend: "local",
+    storage_provider: "local",
+    storage_provider_config: {
+      provider: "local",
+      data_dir: "/data/files",
+      thumb_dir: "/data/thumbs",
+    },
+    storage_tier: "verified",
+    storage_warnings: [],
+    storage_unverified_acknowledged: false,
+    data_dir: "/data/files",
+    thumb_dir: "/data/thumbs",
+    s3_bucket: "",
+    s3_endpoint_url: "",
+    s3_region: "auto",
+    s3_access_key: "",
+    s3_secret_key: "",
+    has_s3_access_key: false,
+    has_s3_secret_key: false,
+    backup_retention_days: 30,
+    automatic_backups_enabled: false,
+    automatic_backup_time_utc: "02:00",
+    automatic_backup_last_attempt_at: null,
+    manual_local_backup_enabled: true,
+    automatic_local_backup_enabled: true,
+    trash_retention_days: 30,
+    backup_s3_bucket: "",
+    backup_s3_endpoint_url: "",
+    backup_s3_region: "auto",
+    backup_s3_access_key: "",
+    backup_s3_secret_key: "",
+    has_backup_s3_access_key: false,
+    has_backup_s3_secret_key: false,
+    has_backup_s3: false,
+    auto_mark_known_good: true,
+    external_libraries_enabled: false,
+    currency: "USD",
+    model_thumbnail_width: 640,
+    oidc_enabled: false,
+    oidc_issuer_url: "",
+    oidc_client_id: "",
+    has_oidc_client_secret: false,
+    oidc_scopes: "openid profile email",
+    oidc_username_claim: "preferred_username",
+    oidc_groups_claim: "groups",
+    oidc_admin_groups: "",
+    oidc_display_name: "",
+    oidc_redirect_uri: "",
+    oidc_allow_insecure_http: false,
+    ...override,
+  };
+}
+
+export function aMigrationProvider(
+  override?: Partial<import("@/types").StorageProvider>,
+): import("@/types").StorageProvider {
+  return {
+    id: "local",
+    label: "Local storage",
+    category: "this_machine",
+    description: "Mounted filesystem",
+    expected_tier: "verified",
+    expected_tier_note: "Requires verification",
+    consequences: [],
+    documentation_url: "/docs/storage-providers",
+    available: true,
+    selectable: true,
+    fields: [
+      {
+        name: "data_dir",
+        label: "Data directory",
+        help: "Existing empty directory",
+        input_type: "path",
+        required: true,
+        secret: false,
+      },
+      {
+        name: "thumb_dir",
+        label: "Thumbnail directory",
+        help: "Existing empty directory",
+        input_type: "path",
+        required: true,
+        secret: false,
+      },
+    ],
+    ...override,
+  };
+}
+
+/** A scheduled service window for printer 1. */
+export function aMaintenanceWindow(
+  override?: Partial<import("@/types").MaintenanceWindow>,
+): import("@/types").MaintenanceWindow {
+  return {
+    id: 1,
+    printer_id: 1,
+    starts_at: "2026-08-01T09:00:00Z",
+    ends_at: "2026-08-01T11:00:00Z",
+    reason: "Nozzle swap",
+    created_at: FROZEN_NOW,
+    updated_at: FROZEN_NOW,
+    ...override,
+  };
+}
+
+/** One completed printer service record. */
+export function aMaintenanceLog(
+  override?: Partial<import("@/types").MaintenanceLog>,
+): import("@/types").MaintenanceLog {
+  return {
+    id: 1,
+    printer_id: 1,
+    performed_at: FROZEN_NOW,
+    category: "belt",
+    note: "Tensioned X belt",
+    counter_value: null,
+    counter_unit: null,
+    created_at: FROZEN_NOW,
+    updated_at: FROZEN_NOW,
+    ...override,
+  };
+}
+
+/** A known remote file linked to a vault Artifact. */
+export function aPrinterFile(
+  override?: Partial<import("@/types").PrinterFileRead>,
+): import("@/types").PrinterFileRead {
+  return {
+    id: 50,
+    printer_id: 4,
+    printer_name: "Voron",
+    file_id: 20,
+    model_id: 1,
+    model_name: "Bracket",
+    original_filename: "bracket.gcode",
+    remote_filename: "bracket.gcode",
+    size_bytes: 4096,
+    sha256: "b".repeat(64),
+    matched_by: "sha256",
+    modified_at: FROZEN_NOW,
+    last_seen_at: FROZEN_NOW,
+    missing_since: null,
+    created_at: FROZEN_NOW,
+    updated_at: FROZEN_NOW,
+    ...override,
+  };
+}
+
+/** A captured Model source with an explicit editing version and absent cover. */
+export function aModelProvenance(
+  override?: Partial<import("@/types").ModelProvenanceRead>,
+): import("@/types").ModelProvenanceRead {
+  return {
+    edit_epoch: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    edit_version: 1,
+    sources: [
+      {
+        id: 8,
+        provider: "printables",
+        source_item_id: "41",
+        canonical_url: "https://www.printables.com/model/41",
+        source_revision: null,
+        tags: [],
+        first_captured_at: FROZEN_NOW,
+        last_checked_at: FROZEN_NOW,
+        captures: [],
+        cover: null,
+        fields: [
+          {
+            field_name: "title",
+            captured_value: "Source title",
+            captured_origin: "confirmed",
+            user_value: null,
+            user_override_set: false,
+            effective_value: "Source title",
+            effective_origin: "confirmed",
+            captured_at: null,
+            user_updated_at: null,
+          },
+        ],
+      },
+    ],
+    ...override,
+  };
+}
+
+/** Minimal versioned tree leaf; its location is explicit without rich Model hydration. */
+export function aOutlinerModel(override: Partial<OutlinerModelRead> = {}): OutlinerModelRead {
+  return {
+    id: 1,
+    edit_epoch: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    edit_version: 1,
+    name: "Benchy",
+    collection: "parts",
+    collection_id: 1,
+    collection_label: "Parts",
+    ...override,
+  };
+}
+
+/** An acknowledged editing base in the test library's stable database history. */
+export function anEditingBase(
+  override?: Partial<import("@/types").EditingBase>,
+): import("@/types").EditingBase {
+  return { edit_epoch: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", edit_version: 1, ...override };
+}
+
+/** A restorable model and a separately reviewed cleanup plan. */
+export function aTrashedModel(override?: Partial<TrashedModelRead>): TrashedModelRead {
+  return {
+    id: 7,
+    name: "Old bracket",
+    slug: "old-bracket",
+    collection: null,
+    tags: [],
+    thumbnail_url: null,
+    file_count: 2,
+    size_bytes: 2048,
+    deleted_at: "2026-01-01T00:00:00Z",
+    expires_at: "2026-02-01T00:00:00Z",
+    ...override,
+  };
+}
+export function aGcPlan(override?: Partial<GcPlan>): GcPlan {
+  return {
+    id: 12,
+    state: "preview",
+    digest: "a".repeat(64),
+    resource_count: 3,
+    candidate_pool_count: 3,
+    key_count: 5,
+    size_bytes: 2048,
+    quarantine_until: null,
+    backup_id: null,
+    last_error: null,
+    items: [],
+    ...override,
+  };
+}

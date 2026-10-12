@@ -1,0 +1,769 @@
+"""Integration tests for the /v1/sessions/{id}/{ask_user,yields} surface.
+
+Covers M3 of the yielding-tools feature: the ask_user pending/respond
+endpoints + the tool-agnostic cancel-yielded-tool endpoint.
+
+The fixture wires a real in-memory EventBus + the new listener so the
+end-to-end flow (POST respond -> publish -> listener -> storage flip +
+engine.mark_resumable) actually flips the parked session in the test
+process. The listener now reads from storage.find rather than the old
+scheduler path.
+"""
+
+from __future__ import annotations
+
+import asyncio
+from datetime import datetime, timedelta, timezone
+
+import pytest
+import pytest_asyncio
+from fastapi import FastAPI
+from httpx import ASGITransport, AsyncClient
+
+from primer.api.app import create_test_app
+from primer.bus.in_memory import InMemoryEventBus
+from primer.bus.listener import YieldEventListener
+from primer.claim.adapters.sessions import SessionClaimAdapter
+from primer.claim.in_memory import InMemoryClaimEngine
+from primer.int.claim import ClaimKind
+from primer.model.workspace_session import (
+    GraphSessionBinding,
+    AgentSessionBinding,
+    WorkspaceSession,
+    SessionStatus,
+)
+
+
+@pytest.fixture
+def app(
+    fake_storage_provider,
+    fake_provider_registry,
+) -> FastAPI:
+    return create_test_app(
+        storage_provider=fake_storage_provider,
+        provider_registry=fake_provider_registry,
+    )
+
+
+@pytest_asyncio.fixture
+async def bus_and_listener(app):
+    """Wire a real bus + listener to the app's session storage + engine.
+
+    The endpoint POST publishes to the bus; the listener finds parked
+    sessions via storage.find, flips them resumable in storage, and
+    re-arms the engine lease via engine.mark_resumable.
+    """
+    bus = InMemoryEventBus()
+    await bus.initialize()
+    app.state.event_bus = bus
+    session_storage = app.state.storage_provider.get_storage(WorkspaceSession)
+    engine = InMemoryClaimEngine(
+        adapters={
+            ClaimKind.SESSION: SessionClaimAdapter(session_storage=session_storage),
+        },
+    )
+    listener = YieldEventListener(
+        bus=bus, session_storage=session_storage, engine=engine,
+    )
+    listener.start()
+    try:
+        yield bus, listener, session_storage
+    finally:
+        await listener.stop()
+        await bus.aclose()
+
+
+@pytest_asyncio.fixture
+async def client(app, bus_and_listener):
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://t",
+    ) as c:
+        try:
+            await c.post(
+                "/v1/auth/register",
+                json={"username": "testuser", "password": "testpassword"},
+            )
+        except Exception:
+            pass
+        yield c
+
+
+def _make_parked_session(
+    *,
+    session_id: str,
+    tool_call_id: str,
+    prompt: str = "What is your name?",
+    response_schema: dict | None = None,
+    parked_until: datetime | None = None,
+) -> WorkspaceSession:
+    sess = WorkspaceSession(
+        id=session_id,
+        workspace_id="ws-x",
+        binding=AgentSessionBinding(kind="agent", agent_id="ag-x"),
+        status=SessionStatus.RUNNING,
+        created_at=datetime.now(timezone.utc),
+    )
+    now = datetime.now(timezone.utc)
+    sess.parked_status = "parked"
+    sess.parked_event_key = f"ask_user:{session_id}:{tool_call_id}"
+    sess.parked_until = parked_until or (now + timedelta(seconds=600))
+    sess.parked_at = now
+    sess.parked_state = {
+        "schema_version": 1,
+        "tool_call_id": tool_call_id,
+        "yielded": {
+            "tool_name": "ask_user",
+            "event_key": f"ask_user:{session_id}:{tool_call_id}",
+            "timeout": 600.0,
+            "resume_metadata": {
+                "prompt": prompt,
+                "response_schema": response_schema,
+                "tool_call_id": tool_call_id,
+                "parked_at_iso": now.isoformat(),
+            },
+        },
+        "llm_messages": [],
+        "turn_no": 1,
+        "started_at": now.isoformat(),
+        "resume_event_payload": None,
+    }
+    return sess
+
+
+def _make_graph_toolcall_ask_user_session(
+    *,
+    session_id: str,
+    tool_call_id: str,
+    event_key: str,
+    prompt: str,
+    response_schema: dict | None = None,
+) -> WorkspaceSession:
+    """Build a graph session parked on a tool_call ``system__ask_user`` node.
+
+    Mirrors what :meth:`Graph.snapshot_state` writes for a value-yielding
+    tool_call park: the OUTER yield is typed ``_approval`` (the graph park
+    label), the real ask_user prompt lives in ``pending_dispatch``
+    (``kind="ask_user"``), and the wake key is the ``pending_toolcalls``
+    entry's ``parked_event_key``.
+    """
+    now = datetime.now(timezone.utc)
+    sess = WorkspaceSession(
+        id=session_id, workspace_id="ws-x",
+        binding=GraphSessionBinding(graph_id="g-x"),
+        status=SessionStatus.RUNNING, created_at=now,
+    )
+    sess.parked_status = "parked"
+    sess.parked_event_key = event_key
+    sess.parked_event_keys = [event_key]
+    sess.parked_at = now
+    sess.parked_until = now + timedelta(seconds=600)
+    resume_md = {"prompt": prompt, "response_schema": response_schema,
+                 "tool_call_id": tool_call_id}
+    sess.parked_state = {
+        "schema_version": 1,
+        "tool_call_id": tool_call_id,
+        "yielded": {"tool_name": "_approval", "event_key": event_key,
+                    "timeout": 600.0, "resume_metadata": {},
+                    "event_keys": [event_key]},
+        "llm_messages": [], "turn_no": 1, "started_at": now.isoformat(),
+        "resume_event_payload": None,
+        "graph_checkpoint": {
+            "pending_agent_yields": [],
+            "pending_toolcalls": [
+                {"node_id": "ask", "tool_call_id": tool_call_id,
+                 "parked_event_key": event_key, "arguments": {"prompt": prompt},
+                 "tool_name": "ask_user", "resume_metadata": resume_md}],
+            "pending_dispatch": [
+                {"kind": "ask_user", "tool_call_id": tool_call_id,
+                 "resume_metadata": resume_md}],
+        },
+    }
+    return sess
+
+
+async def _seed_session(app, sess: WorkspaceSession) -> None:
+    """Insert the session row into storage.
+
+    Storage is what both the GET endpoint reads and what the new
+    YieldEventListener queries via storage.find to flip parked rows.
+    """
+    storage = app.state.storage_provider.get_storage(WorkspaceSession)
+    await storage.create(sess)
+
+
+# ===========================================================================
+# GET /v1/sessions/{id}/ask_user/pending
+# ===========================================================================
+
+
+@pytest.mark.asyncio
+class TestAskUserPending:
+    async def test_pending_returns_prompt_for_parked_session(
+        self, app, client,
+    ):
+        sess = _make_parked_session(
+            session_id="sess-1",
+            tool_call_id="tc-1",
+            prompt="What is your name?",
+        )
+        await _seed_session(app, sess)
+        resp = await client.get("/v1/sessions/sess-1/ask_user/pending")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["tool_call_id"] == "tc-1"
+        assert body["prompt"] == "What is your name?"
+        assert body["response_schema"] is None
+        assert "parked_at" in body
+
+    async def test_pending_returns_response_schema_when_present(
+        self, app, client,
+    ):
+        schema = {"type": "object", "properties": {"x": {"type": "string"}}}
+        sess = _make_parked_session(
+            session_id="sess-2",
+            tool_call_id="tc-2",
+            response_schema=schema,
+        )
+        await _seed_session(app, sess)
+        resp = await client.get("/v1/sessions/sess-2/ask_user/pending")
+        assert resp.status_code == 200
+        assert resp.json()["response_schema"] == schema
+
+    async def test_pending_404_when_session_has_no_park(
+        self, app, client,
+    ):
+        sess = WorkspaceSession(
+            id="sess-np",
+            workspace_id="ws-x",
+            binding=AgentSessionBinding(kind="agent", agent_id="ag-x"),
+            status=SessionStatus.RUNNING,
+            created_at=datetime.now(timezone.utc),
+        )
+        await _seed_session(app, sess)
+        resp = await client.get("/v1/sessions/sess-np/ask_user/pending")
+        assert resp.status_code == 404
+
+    async def test_pending_404_for_unknown_session(self, app, client):
+        resp = await client.get("/v1/sessions/does-not-exist/ask_user/pending")
+        assert resp.status_code == 404
+
+    async def test_pending_returns_prompt_for_graph_toolcall_ask_user(
+        self, app, client,
+    ):
+        """A graph tool_call ask_user park (outer yield _approval) surfaces
+        its prompt from the checkpoint's pending_dispatch, not a 404."""
+        schema = {"type": "object", "properties": {"y": {"type": "string"}}}
+        sess = _make_graph_toolcall_ask_user_session(
+            session_id="sess-tcp", tool_call_id="tc-p",
+            event_key="ask_user:sess-tcp:tc-p",
+            prompt="Approve access to prod?", response_schema=schema,
+        )
+        await _seed_session(app, sess)
+        resp = await client.get("/v1/sessions/sess-tcp/ask_user/pending")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["tool_call_id"] == "tc-p"
+        assert body["prompt"] == "Approve access to prod?"
+        assert body["response_schema"] == schema
+        assert "parked_at" in body
+
+    async def test_pending_404_when_park_is_not_ask_user(self, app, client):
+        # A sleep park has no prompt — the endpoint must not leak it.
+        sess = WorkspaceSession(
+            id="sess-sl",
+            workspace_id="ws-x",
+            binding=AgentSessionBinding(kind="agent", agent_id="ag-x"),
+            status=SessionStatus.RUNNING,
+            created_at=datetime.now(timezone.utc),
+        )
+        sess.parked_status = "parked"
+        sess.parked_event_key = "timer:tc-sl"
+        sess.parked_until = datetime.now(timezone.utc) + timedelta(seconds=30)
+        sess.parked_at = datetime.now(timezone.utc)
+        sess.parked_state = {
+            "schema_version": 1,
+            "tool_call_id": "tc-sl",
+            "yielded": {
+                "tool_name": "sleep",
+                "event_key": "timer:tc-sl",
+                "timeout": 30.0,
+                "resume_metadata": {"requested_seconds": 30.0},
+            },
+            "llm_messages": [],
+            "turn_no": 1,
+            "started_at": datetime.now(timezone.utc).isoformat(),
+            "resume_event_payload": None,
+        }
+        await _seed_session(app, sess)
+        resp = await client.get("/v1/sessions/sess-sl/ask_user/pending")
+        assert resp.status_code == 404
+
+
+# ===========================================================================
+# POST /v1/sessions/{id}/ask_user/respond
+# ===========================================================================
+
+
+@pytest.mark.asyncio
+class TestAskUserRespond:
+    async def test_respond_publishes_and_flips_parked_to_resumable(
+        self, app, client,
+    ):
+        sess = _make_parked_session(session_id="sess-r", tool_call_id="tc-r")
+        await _seed_session(app, sess)
+        resp = await client.post(
+            "/v1/sessions/sess-r/ask_user/respond",
+            json={"tool_call_id": "tc-r", "response": "Alice"},
+        )
+        assert resp.status_code == 202
+        # Let the listener observe the event + flip the row in storage.
+        storage = app.state.storage_provider.get_storage(WorkspaceSession)
+        row = None
+        for _ in range(50):
+            await asyncio.sleep(0.02)
+            row = await storage.get("sess-r")
+            if row is not None and row.parked_status == "resumable":
+                break
+        assert row is not None
+        assert row.parked_status == "resumable"
+        assert row.parked_state is not None
+        assert row.parked_state["resume_event_payload"] == {"response": "Alice"}
+
+    async def test_respond_accepts_graph_park_via_checkpoint(self, app, client):
+        """A graph agent-node ask_user park (outer yield typed _approval)
+        can be answered over REST by matching the tool_call_id in the
+        checkpoint's pending_agent_yields and publishing to its event_key."""
+        now = datetime.now(timezone.utc)
+        ek = "ask_user:sess-gp:tc-g"
+        sess = WorkspaceSession(
+            id="sess-gp", workspace_id="ws-x",
+            binding=GraphSessionBinding(graph_id="g-x"),
+            status=SessionStatus.RUNNING, created_at=now,
+        )
+        sess.parked_status = "parked"
+        sess.parked_event_key = ek
+        sess.parked_event_keys = [ek]
+        sess.parked_at = now
+        sess.parked_until = now + timedelta(seconds=600)
+        sess.parked_state = {
+            "schema_version": 1,
+            "tool_call_id": "tc-g",
+            "yielded": {"tool_name": "_approval", "event_key": ek, "timeout": 600.0,
+                        "resume_metadata": {}, "event_keys": [ek]},
+            "llm_messages": [], "turn_no": 1, "started_at": now.isoformat(),
+            "resume_event_payload": None,
+            "graph_checkpoint": {"pending_agent_yields": [
+                {"node_id": "A", "tool_call_id": "tc-g", "event_key": ek,
+                 "tool_name": "ask_user", "resume_metadata": {"prompt": "color?"},
+                 "llm_messages": [], "iteration": 1}]},
+        }
+        await _seed_session(app, sess)
+        resp = await client.post(
+            "/v1/sessions/sess-gp/ask_user/respond",
+            json={"tool_call_id": "tc-g", "response": "blue"},
+        )
+        assert resp.status_code == 202
+        storage = app.state.storage_provider.get_storage(WorkspaceSession)
+        row = None
+        for _ in range(50):
+            await asyncio.sleep(0.02)
+            row = await storage.get("sess-gp")
+            if row is not None and row.parked_status == "resumable":
+                break
+        assert row is not None and row.parked_status == "resumable"
+        # multi-event accumulation map carries the reply
+        assert row.parked_state["resume_event_payloads"]["tc-g"]["payload"] == {"response": "blue"}
+
+    async def test_respond_to_ask_user_entry_in_a_mixed_checkpoint(
+        self, app, client,
+    ):
+        """01a06b82 gate-review R2: a checkpoint with an agent-node
+        ask_user yield (pending_agent_yields) AND a ToolCall-node
+        approval gate (pending_toolcalls) pending at the SAME time --
+        the mixed case commit 1 headline-claims (enumerate_pending_gates
+        combines both arms) but that had zero coverage. Answering the
+        ask_user entry must still work exactly as
+        test_respond_accepts_graph_park_via_checkpoint proves alone, with
+        the coexisting approval gate present and untouched.
+        """
+        now = datetime.now(timezone.utc)
+        ask_key = "ask_user:sess-mixed:tc-ask"
+        approval_key = "tool_approval:sess-mixed:call-approve"
+        sess = WorkspaceSession(
+            id="sess-mixed", workspace_id="ws-x",
+            binding=GraphSessionBinding(graph_id="g-x"),
+            status=SessionStatus.RUNNING, created_at=now,
+        )
+        sess.parked_status = "parked"
+        sess.parked_event_key = approval_key
+        sess.parked_event_keys = [approval_key, ask_key]
+        sess.parked_at = now
+        sess.parked_until = now + timedelta(seconds=600)
+        sess.parked_state = {
+            "schema_version": 1,
+            "tool_call_id": "call-approve",
+            "yielded": {
+                "tool_name": "_approval", "event_key": approval_key,
+                "timeout": 600.0, "resume_metadata": {},
+                "event_keys": [approval_key, ask_key],
+            },
+            "llm_messages": [], "turn_no": 1, "started_at": now.isoformat(),
+            "resume_event_payload": None,
+            "graph_checkpoint": {
+                "pending_toolcalls": [{
+                    "node_id": "worker[0]", "tool_call_id": "call-approve",
+                    "parked_event_key": approval_key,
+                    "arguments": {"id": "ws-x"}, "tool_name": "_approval",
+                    "resume_metadata": {
+                        "original_call": {
+                            "id": "call-approve", "name": "delete_workspace",
+                            "arguments": {"id": "ws-x"},
+                        },
+                    },
+                }],
+                "pending_agent_yields": [{
+                    "node_id": "worker[1]", "tool_call_id": "tc-ask",
+                    "event_key": ask_key, "tool_name": "ask_user",
+                    "resume_metadata": {"prompt": "color?"},
+                    "llm_messages": [], "iteration": 1,
+                }],
+            },
+        }
+        await _seed_session(app, sess)
+        resp = await client.post(
+            "/v1/sessions/sess-mixed/ask_user/respond",
+            json={"tool_call_id": "tc-ask", "response": "blue"},
+        )
+        assert resp.status_code == 202
+        storage = app.state.storage_provider.get_storage(WorkspaceSession)
+        row = None
+        for _ in range(50):
+            await asyncio.sleep(0.02)
+            row = await storage.get("sess-mixed")
+            if row is not None and row.parked_status == "resumable":
+                break
+        assert row is not None and row.parked_status == "resumable"
+        assert (
+            row.parked_state["resume_event_payloads"]["tc-ask"]["payload"]
+            == {"response": "blue"}
+        )
+
+    async def test_respond_accepts_graph_toolcall_ask_user_park(
+        self, app, client,
+    ):
+        """A graph TOOL_CALL ask_user node (tool_id=system__ask_user) parks
+        with the outer yield typed _approval; the real prompt + event key
+        live in the checkpoint's pending_dispatch (kind=ask_user) +
+        pending_toolcalls. The respond endpoint must recognise it, validate,
+        and publish to the tool_call's parked_event_key so the graph resumes
+        with the operator reply as the node result.
+        """
+        now = datetime.now(timezone.utc)
+        ek = "ask_user:sess-tc:tc-tool"
+        sess = _make_graph_toolcall_ask_user_session(
+            session_id="sess-tc", tool_call_id="tc-tool",
+            event_key=ek, prompt="Approve access?",
+        )
+        await _seed_session(app, sess)
+        resp = await client.post(
+            "/v1/sessions/sess-tc/ask_user/respond",
+            json={"tool_call_id": "tc-tool", "response": "approve"},
+        )
+        assert resp.status_code == 202
+        storage = app.state.storage_provider.get_storage(WorkspaceSession)
+        row = None
+        for _ in range(50):
+            await asyncio.sleep(0.02)
+            row = await storage.get("sess-tc")
+            if row is not None and row.parked_status == "resumable":
+                break
+        assert row is not None and row.parked_status == "resumable"
+        assert row.parked_state["resume_event_payloads"]["tc-tool"]["payload"] == {
+            "response": "approve"
+        }
+
+    async def test_respond_graph_toolcall_ask_user_unknown_tcid_404(
+        self, app, client,
+    ):
+        now = datetime.now(timezone.utc)
+        ek = "ask_user:sess-tc2:tc-tool"
+        sess = _make_graph_toolcall_ask_user_session(
+            session_id="sess-tc2", tool_call_id="tc-tool",
+            event_key=ek, prompt="Approve access?",
+        )
+        await _seed_session(app, sess)
+        resp = await client.post(
+            "/v1/sessions/sess-tc2/ask_user/respond",
+            json={"tool_call_id": "nope", "response": "x"},
+        )
+        assert resp.status_code == 404
+
+    async def test_respond_graph_park_unknown_tcid_404(self, app, client):
+        now = datetime.now(timezone.utc)
+        ek = "ask_user:sess-gp2:tc-g"
+        sess = WorkspaceSession(
+            id="sess-gp2", workspace_id="ws-x",
+            binding=GraphSessionBinding(graph_id="g-x"),
+            status=SessionStatus.RUNNING, created_at=now)
+        sess.parked_status = "parked"; sess.parked_event_key = ek
+        sess.parked_event_keys = [ek]; sess.parked_at = now
+        sess.parked_state = {
+            "schema_version": 1, "tool_call_id": "tc-g",
+            "yielded": {"tool_name": "_approval", "event_key": ek, "resume_metadata": {}},
+            "llm_messages": [], "turn_no": 1, "started_at": now.isoformat(),
+            "resume_event_payload": None,
+            "graph_checkpoint": {"pending_agent_yields": [
+                {"node_id": "A", "tool_call_id": "tc-g", "event_key": ek,
+                 "tool_name": "ask_user", "resume_metadata": {}, "llm_messages": [], "iteration": 1}]},
+        }
+        await _seed_session(app, sess)
+        resp = await client.post(
+            "/v1/sessions/sess-gp2/ask_user/respond",
+            json={"tool_call_id": "nope", "response": "x"})
+        assert resp.status_code == 404
+
+    async def test_respond_accepts_complex_response(self, app, client):
+        sess = _make_parked_session(
+            session_id="sess-rc",
+            tool_call_id="tc-rc",
+        )
+        await _seed_session(app, sess)
+        resp = await client.post(
+            "/v1/sessions/sess-rc/ask_user/respond",
+            json={"tool_call_id": "tc-rc", "response": {"k": "v", "n": 7}},
+        )
+        assert resp.status_code == 202
+        storage = app.state.storage_provider.get_storage(WorkspaceSession)
+        row = None
+        for _ in range(50):
+            await asyncio.sleep(0.02)
+            row = await storage.get("sess-rc")
+            if row is not None and row.parked_status == "resumable":
+                break
+        assert row is not None
+        assert row.parked_state is not None
+        assert row.parked_state["resume_event_payload"] == {
+            "response": {"k": "v", "n": 7}
+        }
+
+    async def test_respond_404_when_tool_call_id_does_not_match(
+        self, app, client,
+    ):
+        sess = _make_parked_session(
+            session_id="sess-mm",
+            tool_call_id="tc-real",
+        )
+        await _seed_session(app, sess)
+        resp = await client.post(
+            "/v1/sessions/sess-mm/ask_user/respond",
+            json={"tool_call_id": "tc-wrong", "response": "ok"},
+        )
+        assert resp.status_code == 404
+        assert sess.parked_status == "parked"
+
+    async def test_respond_404_when_session_has_no_park(self, app, client):
+        sess = WorkspaceSession(
+            id="sess-nopark",
+            workspace_id="ws-x",
+            binding=AgentSessionBinding(kind="agent", agent_id="ag-x"),
+            status=SessionStatus.RUNNING,
+            created_at=datetime.now(timezone.utc),
+        )
+        await _seed_session(app, sess)
+        resp = await client.post(
+            "/v1/sessions/sess-nopark/ask_user/respond",
+            json={"tool_call_id": "tc-x", "response": "ok"},
+        )
+        assert resp.status_code == 404
+
+    async def test_respond_422_when_response_violates_schema(
+        self, app, client,
+    ):
+        schema = {
+            "type": "object",
+            "properties": {"name": {"type": "string"}},
+            "required": ["name"],
+        }
+        sess = _make_parked_session(
+            session_id="sess-sc",
+            tool_call_id="tc-sc",
+            response_schema=schema,
+        )
+        await _seed_session(app, sess)
+        # Response missing required "name" field -- must 422 and NOT flip.
+        resp = await client.post(
+            "/v1/sessions/sess-sc/ask_user/respond",
+            json={"tool_call_id": "tc-sc", "response": {"wrong": "field"}},
+        )
+        assert resp.status_code == 422
+        await asyncio.sleep(0.1)
+        storage = app.state.storage_provider.get_storage(WorkspaceSession)
+        row = await storage.get("sess-sc")
+        assert row is not None
+        assert row.parked_status == "parked"
+
+    async def test_respond_succeeds_when_response_satisfies_schema(
+        self, app, client,
+    ):
+        schema = {
+            "type": "object",
+            "properties": {"name": {"type": "string"}},
+            "required": ["name"],
+        }
+        sess = _make_parked_session(
+            session_id="sess-sok",
+            tool_call_id="tc-sok",
+            response_schema=schema,
+        )
+        await _seed_session(app, sess)
+        resp = await client.post(
+            "/v1/sessions/sess-sok/ask_user/respond",
+            json={"tool_call_id": "tc-sok", "response": {"name": "Alice"}},
+        )
+        assert resp.status_code == 202
+
+
+# ===========================================================================
+# POST /v1/sessions/{id}/yields/{tool_call_id}/cancel
+# ===========================================================================
+
+
+@pytest.mark.asyncio
+class TestCancelYieldedTool:
+    async def test_cancel_publishes_marker_and_flips_to_resumable(
+        self, app, client,
+    ):
+        sess = _make_parked_session(
+            session_id="sess-c", tool_call_id="tc-c",
+        )
+        await _seed_session(app, sess)
+        resp = await client.post(
+            "/v1/sessions/sess-c/yields/tc-c/cancel",
+            json={"reason": "operator skipped"},
+        )
+        assert resp.status_code == 202
+        storage = app.state.storage_provider.get_storage(WorkspaceSession)
+        row = None
+        for _ in range(50):
+            await asyncio.sleep(0.02)
+            row = await storage.get("sess-c")
+            if row is not None and row.parked_status == "resumable":
+                break
+        assert row is not None
+        assert row.parked_status == "resumable"
+        assert row.parked_state is not None
+        payload = row.parked_state["resume_event_payload"]
+        assert payload.get("__yield_cancelled__") is True
+        assert payload.get("reason") == "operator skipped"
+
+    async def test_cancel_works_without_reason(self, app, client):
+        sess = _make_parked_session(
+            session_id="sess-cn", tool_call_id="tc-cn",
+        )
+        await _seed_session(app, sess)
+        resp = await client.post(
+            "/v1/sessions/sess-cn/yields/tc-cn/cancel",
+            json={},
+        )
+        assert resp.status_code == 202
+        storage = app.state.storage_provider.get_storage(WorkspaceSession)
+        row = None
+        for _ in range(50):
+            await asyncio.sleep(0.02)
+            row = await storage.get("sess-cn")
+            if row is not None and row.parked_status == "resumable":
+                break
+        assert row is not None
+        assert row.parked_state is not None
+        assert row.parked_state["resume_event_payload"].get("reason") is None
+
+    async def test_cancel_404_when_tool_call_id_does_not_match(
+        self, app, client,
+    ):
+        sess = _make_parked_session(
+            session_id="sess-cm", tool_call_id="tc-real",
+        )
+        await _seed_session(app, sess)
+        resp = await client.post(
+            "/v1/sessions/sess-cm/yields/tc-wrong/cancel",
+            json={"reason": "skip"},
+        )
+        assert resp.status_code == 404
+
+    async def test_cancel_404_when_session_has_no_park(self, app, client):
+        sess = WorkspaceSession(
+            id="sess-np2",
+            workspace_id="ws-x",
+            binding=AgentSessionBinding(kind="agent", agent_id="ag-x"),
+            status=SessionStatus.RUNNING,
+            created_at=datetime.now(timezone.utc),
+        )
+        await _seed_session(app, sess)
+        resp = await client.post(
+            "/v1/sessions/sess-np2/yields/tc-x/cancel",
+            json={"reason": "x"},
+        )
+        assert resp.status_code == 404
+
+    async def test_cancel_409_when_session_cancel_already_requested(
+        self, app, client,
+    ):
+        sess = _make_parked_session(
+            session_id="sess-409", tool_call_id="tc-409",
+        )
+        sess.cancel_requested = True
+        await _seed_session(app, sess)
+        resp = await client.post(
+            "/v1/sessions/sess-409/yields/tc-409/cancel",
+            json={"reason": "x"},
+        )
+        assert resp.status_code == 409
+
+    async def test_cancel_works_for_sleep_yield_too(self, app, client):
+        # Cancel-yielded-tool must be tool-agnostic — works for sleep
+        # parks the same as ask_user parks.
+        sess = WorkspaceSession(
+            id="sess-slc",
+            workspace_id="ws-x",
+            binding=AgentSessionBinding(kind="agent", agent_id="ag-x"),
+            status=SessionStatus.RUNNING,
+            created_at=datetime.now(timezone.utc),
+        )
+        sess.parked_status = "parked"
+        sess.parked_event_key = "timer:tc-slc"
+        sess.parked_until = datetime.now(timezone.utc) + timedelta(seconds=60)
+        sess.parked_at = datetime.now(timezone.utc)
+        sess.parked_state = {
+            "schema_version": 1,
+            "tool_call_id": "tc-slc",
+            "yielded": {
+                "tool_name": "sleep",
+                "event_key": "timer:tc-slc",
+                "timeout": 60.0,
+                "resume_metadata": {"requested_seconds": 60.0},
+            },
+            "llm_messages": [],
+            "turn_no": 1,
+            "started_at": datetime.now(timezone.utc).isoformat(),
+            "resume_event_payload": None,
+        }
+        await _seed_session(app, sess)
+        resp = await client.post(
+            "/v1/sessions/sess-slc/yields/tc-slc/cancel",
+            json={"reason": "skip"},
+        )
+        assert resp.status_code == 202
+        storage = app.state.storage_provider.get_storage(WorkspaceSession)
+        row = None
+        for _ in range(50):
+            await asyncio.sleep(0.02)
+            row = await storage.get("sess-slc")
+            if row is not None and row.parked_status == "resumable":
+                break
+        assert row is not None
+        assert row.parked_status == "resumable"
+        assert row.parked_state is not None
+        assert (
+            row.parked_state["resume_event_payload"].get("__yield_cancelled__")
+            is True
+        )

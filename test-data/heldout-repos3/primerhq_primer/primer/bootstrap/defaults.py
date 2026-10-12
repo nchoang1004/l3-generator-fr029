@@ -1,0 +1,191 @@
+"""Reserved-id constants and factory specs for auto-bootstrap providers.
+
+Defines one reserved id per built-in provider kind, and a matching
+factory-spec dict describing the CREATE body shape that
+:class:`primer.bootstrap.runner.BootstrapRunner` uses to upsert the
+row idempotently on first boot.
+
+Design note
+-----------
+Factory specs are plain dicts that exactly mirror the Pydantic model
+fields so callers can do ``Model(**spec)`` directly.  They are NOT
+consulted at registry lookup time — a reserved id that has been
+bootstrapped lives in storage like any other row.  The lookup-time
+role of reserved ids is limited to API protection (Task 3):
+POST → 409, DELETE → 403.
+
+Reserved ids by kind
+--------------------
+* ``local``         — :class:`primer.model.workspace.WorkspaceProvider`
+* ``huggingface``   — :class:`primer.model.provider.EmbeddingProvider`
+* ``lance``         — :class:`primer.model.provider.SemanticSearchProvider`
+* ``huggingface-ce``— :class:`primer.model.provider.CrossEncoderProvider`
+
+LLM providers are intentionally excluded — they require API keys and
+must be provisioned explicitly by the operator.
+"""
+
+from __future__ import annotations
+
+# ---------------------------------------------------------------------------
+# Reserved-id string constants
+# ---------------------------------------------------------------------------
+
+RESERVED_LOCAL_WORKSPACE_PROVIDER: str = "local"
+RESERVED_HUGGINGFACE_EMBEDDER: str = "huggingface"
+RESERVED_LANCE_SSP: str = "lance"
+RESERVED_HUGGINGFACE_CROSS_ENCODER: str = "huggingface-ce"
+RESERVED_LOCAL_WORKSPACE_TEMPLATE: str = "local-default"
+
+# S5 seeded-world reserved ids. Deliberately NOT part of ALL_RESERVED_IDS:
+# that set is consumed by the provider router guards (POST -> 409,
+# DELETE -> 403) and these are not provider rows. They are ensure-seeded
+# by primer.bootstrap.seed and remain user-editable and deletable.
+RESERVED_OPERATOR_AGENT: str = "operator"
+RESERVED_BUILDER_AGENT: str = "builder"
+RESERVED_PLANNER_AGENT: str = "planner"
+RESERVED_EXPLORER_AGENT: str = "explorer"
+RESERVED_TOOL_RUNNER_AGENT: str = "tool-runner"
+RESERVED_DEFAULT_WORKSPACE: str = "primer"
+
+# Convenience set of all reserved ids — for quick membership tests in
+# router guards (Task 3) and BootstrapRunner (Task 4).
+ALL_RESERVED_IDS: frozenset[str] = frozenset({
+    RESERVED_LOCAL_WORKSPACE_PROVIDER,
+    RESERVED_HUGGINGFACE_EMBEDDER,
+    RESERVED_LANCE_SSP,
+    RESERVED_HUGGINGFACE_CROSS_ENCODER,
+    RESERVED_LOCAL_WORKSPACE_TEMPLATE,
+})
+
+# ---------------------------------------------------------------------------
+# Factory specs
+#
+# Each value is a dict whose keys match the Pydantic model's fields.
+# ``BootstrapRunner`` passes these dicts to ``Model(**spec)`` after
+# substituting any path templates (``~`` expansion, tmp_path injection).
+#
+# The ``~`` in path strings is intentionally left unresolved here so
+# BootstrapRunner can expand them relative to its ``root_dir`` argument
+# rather than the process cwd at import time.
+# ---------------------------------------------------------------------------
+
+# ---- local workspace provider -------------------------------------------
+
+RESERVED_WORKSPACE_PROVIDERS: dict[str, dict] = {
+    RESERVED_LOCAL_WORKSPACE_PROVIDER: {
+        "id": RESERVED_LOCAL_WORKSPACE_PROVIDER,
+        "provider": "local",
+        "config": {
+            "kind": "local",
+            # Tilde is resolved by BootstrapRunner at creation time.
+            "root_path": "~/.primer/workspaces",
+        },
+    },
+}
+
+# ---- HuggingFace embedder -----------------------------------------------
+#
+# BAAI/bge-small-en-v1.5 is a public model; no HF token is required.
+# HuggingFaceConfig.token is a mandatory SecretStr, so we supply an
+# empty string — the adapter converts empty strings to None when
+# calling SentenceTransformer(..., token=None).
+
+RESERVED_EMBEDDERS: dict[str, dict] = {
+    RESERVED_HUGGINGFACE_EMBEDDER: {
+        "id": RESERVED_HUGGINGFACE_EMBEDDER,
+        "provider": "huggingface",
+        "models": [
+            {"name": "BAAI/bge-small-en-v1.5"},
+        ],
+        "config": {
+            # Empty string → token=None inside HuggingFaceEmbedder._get_model.
+            # bge-small-en-v1.5 is public; no real token needed.
+            "token": "",
+        },
+        "limits": {
+            "max_concurrency": 2,
+        },
+    },
+}
+
+# ---- LanceDB semantic-search provider -----------------------------------
+#
+# ``path`` uses a tilde prefix — BootstrapRunner expands it via
+# Path("~/.primer/vector").expanduser() before constructing the model.
+
+RESERVED_SSPS: dict[str, dict] = {
+    RESERVED_LANCE_SSP: {
+        "id": RESERVED_LANCE_SSP,
+        "provider": "lance",
+        "config": {
+            # Tilde is resolved by BootstrapRunner at creation time.
+            "path": "~/.primer/vector",
+            "hnsw_m": 16,
+            "hnsw_ef_construction": 64,
+            "hnsw_ef_search": 40,
+            "index_min_rows": 1000,
+        },
+    },
+}
+
+# ---- HuggingFace cross-encoder ------------------------------------------
+#
+# cross-encoder/ms-marco-MiniLM-L-6-v2 is public; no token required.
+# HuggingFaceCrossEncoderConfig.token is optional (None is fine).
+
+RESERVED_CROSS_ENCODERS: dict[str, dict] = {
+    RESERVED_HUGGINGFACE_CROSS_ENCODER: {
+        "id": RESERVED_HUGGINGFACE_CROSS_ENCODER,
+        "provider": "huggingface",
+        "models": [
+            {
+                "name": "cross-encoder/ms-marco-MiniLM-L-6-v2",
+                "max_pair_length": None,
+            },
+        ],
+        "config": {
+            "token": None,
+        },
+        "limits": {
+            "max_concurrency": 2,
+        },
+    },
+}
+
+# ---- Local workspace template -------------------------------------------
+#
+# Minimal Local-backed template that references the reserved ``local``
+# workspace provider. Lets a fresh install materialise a workspace via
+# ``POST /v1/workspaces {"template_id": "local-default"}`` without any
+# operator setup.
+
+RESERVED_WORKSPACE_TEMPLATES: dict[str, dict] = {
+    RESERVED_LOCAL_WORKSPACE_TEMPLATE: {
+        "id": RESERVED_LOCAL_WORKSPACE_TEMPLATE,
+        "description": "Default minimal local workspace template (auto-bootstrapped).",
+        "provider_id": RESERVED_LOCAL_WORKSPACE_PROVIDER,
+        "backend": {"kind": "local"},
+    },
+}
+
+
+__all__ = [
+    "RESERVED_OPERATOR_AGENT",
+    "RESERVED_BUILDER_AGENT",
+    "RESERVED_PLANNER_AGENT",
+    "RESERVED_EXPLORER_AGENT",
+    "RESERVED_TOOL_RUNNER_AGENT",
+    "RESERVED_DEFAULT_WORKSPACE",
+    "ALL_RESERVED_IDS",
+    "RESERVED_CROSS_ENCODERS",
+    "RESERVED_EMBEDDERS",
+    "RESERVED_HUGGINGFACE_CROSS_ENCODER",
+    "RESERVED_HUGGINGFACE_EMBEDDER",
+    "RESERVED_LANCE_SSP",
+    "RESERVED_LOCAL_WORKSPACE_PROVIDER",
+    "RESERVED_LOCAL_WORKSPACE_TEMPLATE",
+    "RESERVED_SSPS",
+    "RESERVED_WORKSPACE_PROVIDERS",
+    "RESERVED_WORKSPACE_TEMPLATES",
+]

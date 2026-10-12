@@ -1,0 +1,131 @@
+"""Tests for data-driven moment discovery (models/moment_discovery.py).
+
+Uses synthetic, well-separated embedding clusters with distinctive captions, so
+no model is loaded. Requires hdbscan + scikit-learn (both project deps).
+"""
+
+import json
+import sqlite3
+
+import numpy as np
+import pytest
+
+from models.moment_discovery import discover_moments, run_discovery, _slugify
+from utils.embedding import embedding_to_bytes
+
+pytest.importorskip("hdbscan")
+pytest.importorskip("sklearn")
+
+DIM = 12
+PER = 25
+
+
+def _synthetic():
+    rng = np.random.default_rng(0)
+    specs = [
+        (0, "a sunny beach with waves and sand"),
+        (1, "a mountain hiking trail in the alps"),
+        (2, "a birthday cake celebration party"),
+    ]
+    embeddings, captions = [], []
+    for axis, text in specs:
+        for i in range(PER):
+            v = np.zeros(DIM, dtype=np.float32)
+            v[axis] = 1.0
+            v += rng.normal(0, 0.03, DIM).astype(np.float32)
+            v /= np.linalg.norm(v)
+            embeddings.append(v)
+            captions.append(f"{text} number {i}")
+    return embeddings, captions
+
+
+def test_discovers_three_clusters():
+    embeddings, captions = _synthetic()
+    clusters = discover_moments(embeddings, captions, min_cluster_size=8)
+    assert len(clusters) == 3
+    assert [c['size'] for c in clusters] == [PER, PER, PER]
+
+
+def test_clusters_named_from_distinctive_keywords():
+    embeddings, captions = _synthetic()
+    clusters = discover_moments(embeddings, captions, min_cluster_size=8)
+    blob = " ".join(c['name'] + " " + " ".join(c['keywords']) for c in clusters)
+    # Each cluster is named from its own distinctive vocabulary (TF-IDF can pick
+    # any of a topic's co-occurring terms, so check topic coverage, not one word).
+    assert any(w in blob for w in ('beach', 'waves', 'sand', 'sunny'))
+    assert any(w in blob for w in ('mountain', 'hiking', 'trail', 'alps'))
+    assert any(w in blob for w in ('birthday', 'cake', 'celebration', 'party'))
+
+
+def test_prompts_are_member_captions():
+    embeddings, captions = _synthetic()
+    caption_set = set(captions)
+    for c in discover_moments(embeddings, captions, min_cluster_size=8):
+        assert c['prompts']
+        assert all(p in caption_set for p in c['prompts'])
+
+
+def test_below_min_cluster_size_returns_empty():
+    embeddings, captions = _synthetic()
+    assert discover_moments(embeddings[:3], captions[:3], min_cluster_size=8) == []
+
+
+def test_mixed_dims_kept_to_dominant():
+    embeddings, captions = _synthetic()
+    # Inject one rogue-dimension embedding; it must be dropped, not crash np.vstack.
+    embeddings = list(embeddings) + [np.ones(DIM + 1, dtype=np.float32)]
+    captions = list(captions) + ["an odd dimension caption"]
+    clusters = discover_moments(embeddings, captions, min_cluster_size=8)
+    assert len(clusters) == 3
+
+
+def test_names_are_unique_slugs():
+    embeddings, captions = _synthetic()
+    names = [c['name'] for c in discover_moments(embeddings, captions, min_cluster_size=8)]
+    assert len(names) == len(set(names))
+    assert all(n == _slugify(n, n) for n in names)
+
+
+def test_run_discovery_writes_side_file_and_never_the_live_config(tmp_path):
+    embeddings, captions = _synthetic()
+    db = str(tmp_path / "disc.db")
+    conn = sqlite3.connect(db)
+    conn.execute(
+        "CREATE TABLE photos (path TEXT PRIMARY KEY, caption TEXT, caption_embedding BLOB)"
+    )
+    conn.executemany(
+        "INSERT INTO photos (path, caption, caption_embedding) VALUES (?, ?, ?)",
+        [(f"/p{i}.jpg", captions[i], embedding_to_bytes(embeddings[i]))
+         for i in range(len(captions))],
+    )
+    conn.commit()
+    conn.close()
+
+    out = str(tmp_path / "scoring_config.discovered.json")
+    result = run_discovery(db, None, min_cluster_size=8, output_path=out)
+
+    assert result['clusters'] == 3
+    assert result['analyzed'] == len(captions)
+    assert result['output'] == out
+
+    # The proposal is written under event_types.discovered (the adoptable shape),
+    # and nothing else — it is a review artifact, not the live config.
+    with open(out) as f:
+        proposal = json.load(f)
+    assert set(proposal) == {'narrative_moments'}
+    discovered = proposal['narrative_moments']['event_types']['discovered']
+    assert len(discovered) == 3
+    assert all(isinstance(prompts, list) and prompts for prompts in discovered.values())
+
+
+def test_run_discovery_skips_when_no_caption_embeddings(tmp_path):
+    db = str(tmp_path / "empty.db")
+    conn = sqlite3.connect(db)
+    conn.execute(
+        "CREATE TABLE photos (path TEXT PRIMARY KEY, caption TEXT, caption_embedding BLOB)"
+    )
+    conn.commit()
+    conn.close()
+    assert run_discovery(db, None, output_path=str(tmp_path / "out.json")) == {
+        'skipped': 'no_caption_embeddings'
+    }

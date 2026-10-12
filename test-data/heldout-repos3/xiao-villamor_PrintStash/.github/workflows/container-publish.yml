@@ -1,0 +1,214 @@
+name: Publish Container Images
+
+on:
+  workflow_call:
+    inputs:
+      nightly:
+        description: Publish nightly tags instead of release or latest tags
+        type: boolean
+        default: false
+
+permissions:
+  actions: read
+  contents: read
+  packages: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  REGISTRY: ghcr.io
+
+jobs:
+  build:
+    name: Build and smoke (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            platform: linux/amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            platform: linux/arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v6
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Normalize image names
+        id: names
+        env:
+          OWNER: ${{ github.repository_owner }}
+        run: echo "owner=${OWNER,,}" >> "$GITHUB_OUTPUT"
+      # One BuildKit solve per native architecture. The unified target consumes
+      # the API and frontend targets from this same graph, not another build.
+      - name: Build four platform images by digest
+        id: bake
+        uses: docker/bake-action@v7
+        with:
+          files: docker-bake.hcl
+          targets: publish
+          set: |
+            *.platform=${{ matrix.platform }}
+            *.labels.org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            *.labels.org.opencontainers.image.revision=${{ github.sha }}
+            api.output=type=image,name=ghcr.io/${{ steps.names.outputs.owner }}/printstash-api,push-by-digest=true,name-canonical=true,push=true
+            api-lite.output=type=image,name=ghcr.io/${{ steps.names.outputs.owner }}/printstash-api-lite,push-by-digest=true,name-canonical=true,push=true
+            frontend.output=type=image,name=ghcr.io/${{ steps.names.outputs.owner }}/printstash-frontend,push-by-digest=true,name-canonical=true,push=true
+            unified.tags=
+            unified.output=type=image,name=ghcr.io/${{ steps.names.outputs.owner }}/printstash,push-by-digest=true,name-canonical=true,push=true
+            *.cache-from=type=gha,scope=printstash-${{ matrix.arch }}
+            api-lite.cache-from=type=gha,scope=printstash-lite-${{ matrix.arch }}
+            unified.cache-to=type=gha,scope=printstash-${{ matrix.arch }},mode=max,ignore-error=true
+            api-lite.cache-to=type=gha,scope=printstash-lite-${{ matrix.arch }},mode=max,ignore-error=true
+      - uses: astral-sh/setup-uv@v8.1.0
+        with:
+          enable-cache: true
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14.8"
+      - name: Install image test clients once
+        working-directory: backend
+        run: uv sync --extra dev --extra full --frozen
+      - name: Smoke every final image before exporting digests
+        working-directory: backend
+        env:
+          API_DIGEST: ${{ fromJSON(steps.bake.outputs.metadata).api['containerimage.digest'] }}
+          API_LITE_DIGEST: ${{ fromJSON(steps.bake.outputs.metadata)['api-lite']['containerimage.digest'] }}
+          FRONTEND_DIGEST: ${{ fromJSON(steps.bake.outputs.metadata).frontend['containerimage.digest'] }}
+          UNIFIED_DIGEST: ${{ fromJSON(steps.bake.outputs.metadata).unified['containerimage.digest'] }}
+          OWNER: ${{ steps.names.outputs.owner }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          for digest in "$API_DIGEST" "$API_LITE_DIGEST" "$FRONTEND_DIGEST" "$UNIFIED_DIGEST"; do
+            [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]] || exit 1
+          done
+          for entry in 'api printstash-api full' 'api-lite printstash-api-lite lite'; do
+            read -r target image variant <<< "$entry"
+            case "$target" in
+              api) digest="$API_DIGEST" ;;
+              api-lite) digest="$API_LITE_DIGEST" ;;
+              *) exit 1 ;;
+            esac
+            reference="ghcr.io/${OWNER}/${image}@${digest}"
+            docker pull "$reference"
+            ./scripts/test.sh image --image "$reference" --variant "$variant"
+          done
+          unified_image="ghcr.io/${OWNER}/printstash@${UNIFIED_DIGEST}"
+          docker pull "$unified_image"
+          bash scripts/test-unified-image.sh "$unified_image"
+          frontend_image="ghcr.io/${OWNER}/printstash-frontend@${FRONTEND_DIGEST}"
+          docker pull "$frontend_image"
+          api_image="ghcr.io/${OWNER}/printstash-api@${API_DIGEST}"
+          network="printstash-smoke-${ARCH}-${GITHUB_RUN_ID}"
+          docker network create "$network" >/dev/null
+          api_container=''
+          frontend_container=''
+          cleanup() {
+            if [[ -n "$frontend_container" ]]; then
+              docker rm -f "$frontend_container" >/dev/null 2>&1 || true
+            fi
+            if [[ -n "$api_container" ]]; then
+              docker rm -f "$api_container" >/dev/null 2>&1 || true
+            fi
+            docker network rm "$network" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+          api_container=$(docker run -d --network "$network" --network-alias api \
+            -e VAULT_SETUP_MODE=trusted_network "$api_image")
+          frontend_container=$(docker run -d --network "$network" \
+            -p 127.0.0.1::3000 "$frontend_image")
+          frontend_port=$(docker port "$frontend_container" 3000/tcp | awk -F: '{print $NF}')
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent "http://127.0.0.1:${frontend_port}/" | grep -q '<html' \
+               && curl --fail --silent "http://127.0.0.1:${frontend_port}/api/v1/health" \
+                  | jq -e '.status == "ok"' >/dev/null; then
+              break
+            fi
+            if [[ "$attempt" -eq 60 ]]; then
+              docker logs "$api_container"
+              docker logs "$frontend_container"
+              exit 1
+            fi
+            sleep 1
+          done
+          cleanup
+          trap - EXIT
+          # Each artifact contains all four image digests for exactly one arch.
+          images=(printstash-api printstash-api-lite printstash-frontend printstash)
+          digests=("$API_DIGEST" "$API_LITE_DIGEST" "$FRONTEND_DIGEST" "$UNIFIED_DIGEST")
+          for index in "${!images[@]}"; do
+            image="${images[$index]}"
+            digest="${digests[$index]}"
+            mkdir -p "${RUNNER_TEMP}/digests/${image}"
+            touch "${RUNNER_TEMP}/digests/${image}/${ARCH}--${digest#sha256:}"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ matrix.arch }}
+          path: ${{ runner.temp }}/digests/
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    name: Publish ${{ matrix.image }}
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [printstash-api, printstash-api-lite, printstash-frontend, printstash]
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: digests-*
+          path: ${{ runner.temp }}/digests
+          merge-multiple: true
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/metadata-action@v6
+        id: meta
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.image }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=ref,event=tag
+            type=raw,value=latest,enable=${{ !inputs.nightly && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+            type=raw,value=nightly,enable=${{ inputs.nightly }}
+            type=sha,prefix=nightly-,enable=${{ inputs.nightly }}
+      - name: Promote both tested native digests
+        working-directory: ${{ runner.temp }}/digests/${{ matrix.image }}
+        shell: bash
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.image }}
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          set -euo pipefail
+          IMAGE="${IMAGE,,}"
+          tag_args=()
+          while IFS= read -r tag; do
+            [[ -z "$tag" ]] || tag_args+=(--tag "$tag")
+          done <<< "$TAGS"
+          test "${#tag_args[@]}" -gt 0
+          digest_args=()
+          for arch in amd64 arm64; do
+            mapfile -t files < <(find . -maxdepth 1 -type f -name "${arch}--*" -printf '%f\n')
+            test "${#files[@]}" -eq 1
+            digest="${files[0]#*--}"
+            [[ "$digest" =~ ^[0-9a-f]{64}$ ]] || exit 1
+            digest_args+=("${IMAGE}@sha256:${digest}")
+          done
+          test "$(find . -maxdepth 1 -type f | wc -l)" -eq 2
+          docker buildx imagetools create "${tag_args[@]}" "${digest_args[@]}"
+          docker buildx imagetools inspect "${tag_args[1]}"

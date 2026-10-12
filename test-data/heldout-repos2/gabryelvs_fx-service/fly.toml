@@ -1,0 +1,23 @@
+app = "fx-service"
+primary_region = "lhr"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  FRANKFURTER_BASE_URL = "https://api.frankfurter.dev/v1"
+  REFRESH_INTERVAL_SECONDS = "3600"
+  BASE_CURRENCY = "EUR"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[http_service.checks]]
+  interval = "15s"
+  timeout = "2s"
+  method = "GET"
+  path = "/healthz"

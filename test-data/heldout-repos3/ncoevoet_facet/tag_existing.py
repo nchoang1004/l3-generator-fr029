@@ -1,0 +1,202 @@
+#!/usr/bin/env python3
+"""
+Script to add tags to existing photos using stored CLIP embeddings.
+This is much faster than rescanning as it doesn't require GPU inference.
+"""
+
+import logging
+import sqlite3
+import argparse
+
+logger = logging.getLogger("facet.tag_existing")
+
+from models.tagger import CLIPTagger
+from utils import tags_to_string, get_tag_params
+from db.tags import migrate_tags_to_lookup
+
+
+def tag_untagged_photos(db_path, tagger, threshold=0.22, max_tags=5, verbose=False, force=False):
+    """
+    Tag photos that have CLIP embeddings but no tags.
+
+    Args:
+        db_path: Path to the SQLite database
+        tagger: Initialized CLIPTagger instance
+        threshold: Minimum similarity threshold for tags
+        max_tags: Maximum tags per image
+        verbose: Print each tagged photo
+        force: Re-tag all photos, not just untagged ones
+
+    Returns:
+        Number of photos tagged
+    """
+    with sqlite3.connect(db_path) as conn:
+        conn.row_factory = sqlite3.Row
+        if force:
+            rows = conn.execute('''
+                SELECT path, filename, clip_embedding
+                FROM photos
+                WHERE clip_embedding IS NOT NULL
+            ''').fetchall()
+        else:
+            rows = conn.execute('''
+                SELECT path, filename, clip_embedding
+                FROM photos
+                WHERE clip_embedding IS NOT NULL
+                AND (tags IS NULL OR tags = '')
+            ''').fetchall()
+
+        if not rows:
+            return 0
+
+        tagged_count = 0
+        for row in rows:
+            tag_list = tagger.get_tags_from_embedding(
+                row['clip_embedding'], threshold=threshold, max_tags=max_tags
+            )
+            if tag_list:
+                tags_str = tags_to_string(tag_list)
+                conn.execute('UPDATE photos SET tags = ? WHERE path = ?', (tags_str, row['path']))
+                tagged_count += 1
+                if verbose:
+                    logger.info("  %s: %s", row['filename'], tags_str)
+
+        conn.commit()
+        skipped = getattr(tagger, 'skipped_dim_mismatch', 0)
+        if skipped:
+            logger.warning(
+                "%d photo(s) skipped: their stored embedding does not match this "
+                "tagger's text tower. They stay untagged until re-embedded.", skipped)
+        return tagged_count
+
+
+def run_tagging(db_path, tagger, config):
+    """
+    Run tagging using settings from config.
+
+    Args:
+        db_path: Path to SQLite database
+        tagger: Initialized CLIPTagger instance
+        config: ScoringConfig instance
+
+    Returns:
+        Number of photos tagged, or None if disabled
+    """
+    tag_settings = config.get_tagging_settings()
+    if not tag_settings.get('enabled', True):
+        return None
+
+    threshold, max_tags = get_tag_params(config)
+
+    return tag_untagged_photos(db_path, tagger, threshold, max_tags)
+
+
+def build_clip_tagger(config, device=None):
+    """Load the active profile's CLIP/SigLIP model and return a ready CLIPTagger.
+
+    The model identity (name + backend) is resolved from the profile via
+    ``config.get_clip_config()`` so the tag-vocabulary text is encoded by the
+    same model that produced the stored image embeddings. Shared by the
+    standalone re-tagging CLI and the scan's finalization auto-tag step.
+    """
+    clip_cfg = config.get_clip_config()
+    clip_model_name = clip_cfg.get('model_name', 'ViT-L-14')
+    clip_backend = clip_cfg.get('backend', 'open_clip')
+
+    if device is None:
+        from utils.device import get_device
+        device = get_device()
+
+    if clip_backend == 'transformers':
+        from transformers import AutoModel
+        model = AutoModel.from_pretrained(clip_model_name, trust_remote_code=True)
+        model = model.to(device).eval()
+    else:
+        import open_clip
+        clip_pretrained = clip_cfg.get('pretrained', 'laion2b_s32b_b82k')
+        model, _, _ = open_clip.create_model_and_transforms(
+            clip_model_name, pretrained=clip_pretrained)
+        model = model.to(device).eval()
+
+    return CLIPTagger(model, device, config=config,
+                      model_name=clip_model_name, backend=clip_backend)
+
+
+def resolve_scan_tagger(scorer):
+    """Pick the tagger for a scan's finalization auto-tag step.
+
+    Single-pass scans keep the embedding model resident on ``scorer.tagger``.
+    Multi-pass scans load/release the embedding model per pass, leaving
+    ``scorer.tagger`` and ``scorer.model`` as ``None`` — so the profile's
+    CLIP/SigLIP model must be reloaded to encode the tag vocabulary. (Building a
+    tagger from ``scorer.model is None`` silently yields zero tags.)
+    """
+    if scorer.tagger:
+        return scorer.tagger
+    return build_clip_tagger(scorer.config, device=getattr(scorer, 'device', None))
+
+
+def main():
+    from utils.cli_logging import configure_cli_logging
+    configure_cli_logging()
+
+    parser = argparse.ArgumentParser(description='Tag existing photos using stored CLIP embeddings')
+    parser.add_argument('--db', default='photo_scores_pro.db', help='Database path')
+    parser.add_argument('--config', default=None, help='Config file path')
+    parser.add_argument('--threshold', type=float, default=None, help='Override similarity threshold')
+    parser.add_argument('--max-tags', type=int, default=None, help='Override max tags per image')
+    parser.add_argument('--dry-run', action='store_true', help='Show what would be tagged without saving')
+    parser.add_argument('--force', action='store_true', help='Re-tag all photos, not just untagged ones')
+    args = parser.parse_args()
+
+    if not args.dry_run:
+        from facet import LIBRARY_JOB_TAGGING, hold_library_lock_or_exit
+        hold_library_lock_or_exit(args.db, LIBRARY_JOB_TAGGING)
+
+    # Load config
+    from config import ScoringConfig
+    config = ScoringConfig(args.config)
+    clip_settings = config.get_clip_settings()
+    tag_settings = config.get_tagging_settings()
+
+    threshold = args.threshold or clip_settings.get('similarity_threshold_percent', 22) / 100
+    max_tags = args.max_tags or tag_settings.get('max_tags', 5)
+
+    logger.info("Loading CLIP model for tagging...")
+    logger.info("  Threshold: %s", threshold)
+    logger.info("  Max tags: %s", max_tags)
+
+    # Load CLIP model and tagger
+    tagger = build_clip_tagger(config)
+    logger.info("Tagger initialized with %d tag categories", len(tagger.tag_vocabulary))
+
+    # Count photos to tag
+    conn = sqlite3.connect(args.db)
+    if args.force:
+        count = conn.execute('''
+            SELECT COUNT(*) FROM photos WHERE clip_embedding IS NOT NULL
+        ''').fetchone()[0]
+    else:
+        count = conn.execute('''
+            SELECT COUNT(*) FROM photos
+            WHERE clip_embedding IS NOT NULL AND (tags IS NULL OR tags = '')
+        ''').fetchone()[0]
+    conn.close()
+
+    mode = "[FORCE] Re-tagging all" if args.force else "Found"
+    logger.info("%s %d photos to tag", mode, count)
+
+    if args.dry_run:
+        logger.info("[DRY RUN] Would tag up to %d photos", count)
+    else:
+        tagged = tag_untagged_photos(args.db, tagger, threshold, max_tags, verbose=True, force=args.force)
+        logger.info("Tagged %d photos", tagged)
+
+        # Update photo_tags lookup table for fast queries
+        if tagged > 0:
+            logger.info("Updating photo_tags lookup table...")
+            migrate_tags_to_lookup(args.db)
+
+
+if __name__ == '__main__':
+    main()

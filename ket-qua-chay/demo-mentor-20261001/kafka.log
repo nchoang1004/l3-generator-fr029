@@ -1,0 +1,9 @@
+README.md
+architecture.mmd
+architecture.svg
+result.json
+tech-specs/ORDERS/events/EVT-KAFKA-ORDERS-ORDER-CREATED.md
+tech-specs/STOCK/events/EVT-KAFKA-STOCK-ORDER-CREATED.md
+
+model_not_run: Giới hạn MODEL_NOT_RUN
+slice_scope: Giới hạn SLICE_SCOPE

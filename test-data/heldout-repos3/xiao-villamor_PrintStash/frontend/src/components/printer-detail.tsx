@@ -1,0 +1,1973 @@
+"use client";
+
+import { usePrinterSettingsCommand } from "@/features/printers/settings-edit";
+import { PrinterSettingsReview } from "@/features/printers/settings-review";
+
+import {
+  currentLocale,
+  knownUiText,
+  uiMessage,
+  uiText,
+  type MessageDescriptor,
+} from "@/lib/locale";
+import { formatNumber } from "@/lib/format";
+import { useUiLocale } from "@/lib/i18n";
+
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { Link } from "@/lib/link";
+import type { ProviderJsonObject, ProviderJsonValue } from "@/types/printers";
+import {
+  PrinterFileRead,
+  PrinterRead,
+  PrinterSnapshot,
+  PrinterStatus,
+  PrinterUpdate,
+} from "@/types";
+import {
+  cancelPrinter,
+  emergencyStopPrinter,
+  homePrinter,
+  openPrinterWS,
+  pausePrinter,
+  resumePrinter,
+  setPrinterTemperature,
+} from "@/lib/api";
+import {
+  printerKeys,
+  usePrinterResources,
+  usePrinterFileMutation,
+} from "@/features/printers/queries";
+import { getSessionVersion } from "@/lib/session-transport";
+import { userMessage } from "@/lib/errors";
+import { isLoggedIn, onAuthChange } from "@/lib/auth-store";
+import { toast } from "@/lib/toast";
+import { useRequireAuth } from "@/lib/use-require-auth";
+import { formatBytes, formatDuration } from "@/lib/format";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { TabBar } from "@/components/ui/tabs";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { FleetMaintenancePanel } from "@/components/fleet-panels";
+import { PrinterMaterials } from "@/components/printer-materials";
+import { PrintJobReproducibility } from "@/components/print-job-reproducibility";
+import { cn } from "@/lib/utils";
+import { printJobArtifactLabel } from "@/lib/print-job-reproducibility";
+import { Localized } from "@/components/ui/localized";
+import { PRINTER_MODEL_OPTIONS, providerAddress, providerLabel } from "@/lib/printer-providers";
+import {
+  ArrowLeft,
+  AlertTriangle,
+  CheckCircle2,
+  FileText,
+  Info,
+  Loader2,
+  Home,
+  Pause,
+  Play,
+  Power,
+  Square,
+  RefreshCcw,
+  Settings,
+  Thermometer,
+  Trash2,
+  Wifi,
+  WifiOff,
+  XCircle,
+} from "lucide-react";
+
+const PREHEAT_PRESETS: { name: string; hotend: number; bed: number }[] = [
+  { name: "PLA", hotend: 200, bed: 60 },
+  { name: "PETG", hotend: 240, bed: 80 },
+  { name: "ABS", hotend: 245, bed: 100 },
+];
+
+const STATUS_COLORS = {
+  ready: "bg-success",
+  printing: "bg-primary",
+  paused: "bg-warning",
+  offline: "bg-muted-foreground",
+  unknown: "bg-muted-foreground",
+  error: "bg-destructive",
+} satisfies Record<PrinterStatus, string>;
+
+const BTN_SECONDARY = cn(buttonVariants({ variant: "outline", size: "xs" }), "hover:bg-muted");
+const BTN_DANGER = cn(
+  buttonVariants({ variant: "outline", size: "xs" }),
+  "border-red-300/50 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40",
+);
+const SECTION_CLASS = "overflow-hidden rounded-lg border border-border bg-background";
+const SECTION_HEADER_CLASS =
+  "flex items-center justify-between gap-3 border-b border-border bg-muted/40 px-5 py-4";
+
+function checkLabel(name: string): string {
+  return knownUiText(name);
+}
+
+function actionLabel(name: string): string {
+  return knownUiText(name);
+}
+
+/**
+ * A nested printer object inside a snapshot. `instanceof Object` is false for every
+ * JSON scalar and for null, and `Array.isArray` peels off `toolhead.position` and
+ * friends, leaving exactly the values that are worth merging into.
+ */
+function isSnapshotSection(value: ProviderJsonValue): value is ProviderJsonObject {
+  return value instanceof Object && !Array.isArray(value);
+}
+
+/**
+ * Fold one field of a Moonraker `update` patch over the field the snapshot already
+ * holds. A patch carries only what changed, so two nested objects merge key-by-key;
+ * arrays and scalars replace the previous value wholesale.
+ */
+function mergeSnapshotField(
+  previous: ProviderJsonValue,
+  next: ProviderJsonValue,
+): ProviderJsonValue {
+  if (!isSnapshotSection(previous) || !isSnapshotSection(next)) return next;
+  const merged: ProviderJsonObject = { ...previous };
+  for (const k of Object.keys(next)) merged[k] = mergeSnapshotField(previous[k], next[k]);
+  return merged;
+}
+
+/** Apply a Moonraker `update` patch to the held snapshot without dropping untouched fields. */
+function mergeSnapshot(a: PrinterSnapshot, b: PrinterSnapshot): PrinterSnapshot {
+  const out: PrinterSnapshot = { ...a };
+  for (const k of Object.keys(b)) out[k] = mergeSnapshotField(a[k], b[k]);
+  return out;
+}
+
+export function PrinterDetailPage({
+  printerId,
+  initialPrinter,
+}: {
+  printerId: number;
+  initialPrinter?: PrinterRead;
+}) {
+  const session = useSyncExternalStore(onAuthChange, getSessionVersion, getSessionVersion);
+  const [initialSession] = useState(session);
+  return (
+    <PrinterDetailView
+      key={`${printerId}:${session}`}
+      printerId={printerId}
+      initialPrinter={session === initialSession ? initialPrinter : undefined}
+    />
+  );
+}
+
+function PrinterDetailView({
+  printerId,
+  initialPrinter,
+}: {
+  printerId: number;
+  initialPrinter?: PrinterRead;
+}) {
+  useUiLocale();
+  const auth = useRequireAuth();
+  const resources = usePrinterResources(printerId, initialPrinter);
+  const fileMutation = usePrinterFileMutation();
+  const { refresh, refreshAll } = resources;
+  const {
+    printer,
+    accessDenied,
+    jobs,
+    files: printerFiles,
+    diagnostics,
+    config: moonrakerConfig,
+    checkingDiagnostics,
+    loadingConfig,
+  } = resources;
+  const [snapshot, setSnapshot] = useState<PrinterSnapshot>({});
+  const [wsConnected, setWsConnected] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState<"pause" | "resume" | "cancel" | null>(null);
+  const [machineBusy, setMachineBusy] = useState<string | null>(null);
+  const [hotendTarget, setHotendTarget] = useState("");
+  const [bedTarget, setBedTarget] = useState("");
+  const [activeTab, setActiveTab] = useState<
+    | "status"
+    | "files"
+    | "jobs"
+    | "materials"
+    | "maintenance"
+    | "config"
+    | "diagnostics"
+    | "settings"
+  >("status");
+  const [startingFileId, setStartingFileId] = useState<number | null>(null);
+  const [deletingFileId, setDeletingFileId] = useState<number | null>(null);
+  const [syncingFiles, setSyncingFiles] = useState(false);
+  const [confirmEmergencyStop, setConfirmEmergencyStop] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<PrinterFileRead | null>(null);
+  const lifetime = useRef(0);
+
+  const viewRequests = useRef(new AbortController());
+  const loadJobs = useCallback(() => refresh(printerKeys.jobs(printerId)), [refresh, printerId]);
+  const loadDiagnostics = () => resources.refresh(printerKeys.diagnostics(printerId));
+  const loadMoonrakerConfig = () => resources.refresh(printerKeys.config(printerId));
+
+  useEffect(() => {
+    let disposed = false;
+    let generation = 0;
+    let socket: WebSocket | null = null;
+    let controller: AbortController | null = null;
+    let reconnect: ReturnType<typeof setTimeout> | null = null;
+    let opened = false;
+
+    function retire() {
+      generation += 1;
+      lifetime.current += 1;
+      viewRequests.current.abort();
+      viewRequests.current = new AbortController();
+      controller?.abort();
+      controller = null;
+      if (reconnect !== null) clearTimeout(reconnect);
+      reconnect = null;
+      const previous = socket;
+      socket = null;
+      if (previous) {
+        previous.onopen = null;
+        previous.onclose = null;
+        previous.onmessage = null;
+        previous.onerror = null;
+        previous.close();
+      }
+    }
+
+    async function connect() {
+      if (disposed || accessDenied || !isLoggedIn()) return;
+      const version = generation;
+      const ticket = new AbortController();
+      controller = ticket;
+      try {
+        const ws = await openPrinterWS(printerId, ticket.signal);
+        if (disposed || version !== generation) {
+          ws.close();
+          return;
+        }
+        controller = null;
+        socket = ws;
+        const current = () => !disposed && version === generation && socket === ws;
+        ws.onopen = () => {
+          if (!current()) return;
+          setWsConnected(true);
+          if (opened) void refreshAll();
+          opened = true;
+        };
+        ws.onclose = () => {
+          if (!current()) return;
+          socket = null;
+          ws.onopen = null;
+          ws.onclose = null;
+          ws.onmessage = null;
+          ws.onerror = null;
+          setWsConnected(false);
+          reconnect = setTimeout(() => {
+            reconnect = null;
+            void connect();
+          }, 3000);
+        };
+        ws.onerror = () => {};
+        ws.onmessage = (ev) => {
+          if (!current()) return;
+          try {
+            const msg = JSON.parse(ev.data);
+            if (msg.type === "snapshot") {
+              setSnapshot(msg.data || {});
+            } else if (msg.type === "update") {
+              setSnapshot((prev) => mergeSnapshot(prev, msg.data || {}));
+            }
+            if (msg?.data?.print_stats?.state) void loadJobs();
+          } catch {
+            /* Ignore malformed frames. */
+          }
+        };
+      } catch (e) {
+        if (disposed || version !== generation) return;
+        controller = null;
+        setError(
+          uiText("WS error: {value1}", { value1: String(e instanceof Error ? e.message : e) }),
+        );
+      }
+    }
+
+    retire();
+    void connect();
+    const stopAuth = onAuthChange(() => {
+      retire();
+      setSnapshot({});
+      setWsConnected(false);
+      setError(null);
+      if (isLoggedIn()) void connect();
+    });
+    return () => {
+      disposed = true;
+      stopAuth();
+      retire();
+    };
+  }, [accessDenied, printerId, loadJobs, refreshAll]);
+
+  async function control(action: "pause" | "resume" | "cancel", fn: () => Promise<void>) {
+    if (!auth.isAuthenticated) {
+      auth.showAuthRequiredToast();
+      return;
+    }
+    const version = lifetime.current;
+    setBusy(action);
+    try {
+      await fn();
+    } catch (e) {
+      if (version === lifetime.current) toast.error(e);
+    } finally {
+      if (version === lifetime.current) setBusy(null);
+    }
+  }
+
+  async function machineAction<T>(key: string, fn: () => Promise<T>, success: MessageDescriptor) {
+    if (!auth.isAuthenticated) {
+      auth.showAuthRequiredToast();
+      return;
+    }
+    const version = lifetime.current;
+    setMachineBusy(key);
+    try {
+      await fn();
+      if (version === lifetime.current) toast.success(uiText(success.key, success.values));
+    } catch (e) {
+      if (version === lifetime.current) toast.error(e);
+    } finally {
+      if (version === lifetime.current) setMachineBusy(null);
+    }
+  }
+
+  function applyTemp(heater: "extruder" | "bed", raw: string, clear: () => void) {
+    const t = Number(raw);
+    if (!Number.isFinite(t) || t < 0 || t > 500) {
+      toast.error(uiText("Enter a temperature between 0 and 500."));
+      return;
+    }
+    void machineAction(
+      `set-${heater}`,
+      () => setPrinterTemperature(printerId, heater, t).then(clear),
+      uiMessage("{value1} set to {value2}°C", {
+        value1: String(heater === "extruder" ? "Hotend" : "Bed"),
+        value2: String(t),
+      }),
+    );
+  }
+
+  function preheat(p: (typeof PREHEAT_PRESETS)[number]) {
+    void machineAction(
+      `preheat-${p.name}`,
+      async () => {
+        await setPrinterTemperature(printerId, "extruder", p.hotend);
+        await setPrinterTemperature(printerId, "bed", p.bed);
+      },
+      uiMessage("Preheating for {value1}", { value1: String(p.name) }),
+    );
+  }
+
+  function cooldown() {
+    void machineAction(
+      "cooldown",
+      async () => {
+        await setPrinterTemperature(printerId, "extruder", 0);
+        await setPrinterTemperature(printerId, "bed", 0);
+      },
+      uiMessage("printer.cooldownSuccess"),
+    );
+  }
+
+  function emergencyStop() {
+    if (!auth.isAuthenticated) {
+      auth.showAuthRequiredToast();
+      return;
+    }
+    setConfirmEmergencyStop(true);
+  }
+
+  async function confirmEmergencyStopAction() {
+    const version = lifetime.current;
+    await machineAction(
+      "estop",
+      () => emergencyStopPrinter(printerId),
+      uiMessage("printer.emergencyStopSuccess"),
+    );
+    if (version === lifetime.current) setConfirmEmergencyStop(false);
+  }
+
+  async function syncFiles() {
+    if (!auth.isAuthenticated) {
+      auth.showAuthRequiredToast();
+      return;
+    }
+    const version = lifetime.current;
+    setSyncingFiles(true);
+    setError(null);
+    try {
+      await fileMutation.mutateAsync({
+        kind: "sync",
+        printerId,
+        signal: viewRequests.current.signal,
+      });
+      if (version !== lifetime.current) return;
+      toast.success(uiText("Printer files synced"));
+    } catch (e) {
+      if (version === lifetime.current) toast.error(e);
+    } finally {
+      if (version === lifetime.current) setSyncingFiles(false);
+    }
+  }
+
+  async function startRemoteFile(file: PrinterFileRead) {
+    if (!auth.isAuthenticated) {
+      auth.showAuthRequiredToast();
+      return;
+    }
+    const version = lifetime.current;
+    setStartingFileId(file.id);
+    setError(null);
+    try {
+      const job = await fileMutation.mutateAsync({
+        kind: "start",
+        printerId,
+        signal: viewRequests.current.signal,
+        payload: {
+          remote_filename: file.remote_filename,
+          file_id: file.file_id,
+        },
+      });
+      if (version !== lifetime.current || !job) return;
+      toast.success(uiText("Print started (job #{value1})", { value1: String(job.id) }));
+      setActiveTab("status");
+    } catch (e) {
+      if (version === lifetime.current) toast.error(e);
+    } finally {
+      if (version === lifetime.current) setStartingFileId(null);
+    }
+  }
+
+  function deleteRemoteFile(file: PrinterFileRead) {
+    if (!auth.isAuthenticated) {
+      auth.showAuthRequiredToast();
+      return;
+    }
+    setDeleteTarget(file);
+  }
+
+  async function confirmDeleteRemoteFile() {
+    if (!deleteTarget) return;
+    const file = deleteTarget;
+    const version = lifetime.current;
+    setDeletingFileId(file.id);
+    setError(null);
+    try {
+      await fileMutation.mutateAsync({
+        kind: "delete",
+        printerId,
+        fileId: file.id,
+        signal: viewRequests.current.signal,
+      });
+      if (version !== lifetime.current) return;
+      toast.success(uiText("Printer file deleted"));
+    } catch (e) {
+      if (version === lifetime.current) toast.error(e);
+    } finally {
+      if (version === lifetime.current) {
+        setDeletingFileId(null);
+        setDeleteTarget(null);
+      }
+    }
+  }
+
+  const ps = snapshot.print_stats || {};
+  const vs = snapshot.virtual_sdcard || {};
+  const ext = snapshot.extruder || {};
+  const bed = snapshot.heater_bed || {};
+  const toolhead = snapshot.toolhead || {};
+  const webhook = snapshot.webhooks || {};
+  const progress = vs.progress == null ? null : vs.progress * 100;
+  const hasCurrentPrint = Boolean(ps.filename || ps.state === "printing" || ps.state === "paused");
+
+  if (!printer) {
+    if (resources.error)
+      return (
+        <div role="alert">
+          {userMessage(resources.error)}
+          <Button onClick={() => void resources.refreshAll()}>{uiText("Retry")}</Button>
+        </div>
+      );
+    return (
+      <div className="w-full space-y-4">
+        <div className="h-8 w-48 animate-pulse rounded bg-muted" />
+        <div className="h-64 w-full animate-pulse rounded bg-muted" />
+      </div>
+    );
+  }
+
+  return (
+    <Localized>
+      <>
+        <ConfirmModal
+          open={confirmEmergencyStop}
+          onClose={() => {
+            if (machineBusy !== "estop") setConfirmEmergencyStop(false);
+          }}
+          onConfirm={confirmEmergencyStopAction}
+          busy={machineBusy === "estop"}
+          title={uiText("Emergency stop printer?")}
+          description={uiText(
+            "This halts the printer immediately and requires a firmware restart.",
+          )}
+          confirmLabel={uiText("Emergency stop")}
+        />
+        <ConfirmModal
+          open={!!deleteTarget}
+          onClose={() => {
+            if (deletingFileId === null) setDeleteTarget(null);
+          }}
+          onConfirm={confirmDeleteRemoteFile}
+          busy={deletingFileId !== null}
+          title={uiText("Delete printer file?")}
+          description={
+            deleteTarget
+              ? uiText("{value1} will be deleted from {value2}.", {
+                  value1: String(deleteTarget.remote_filename),
+                  value2: String(printer.name),
+                })
+              : uiText("This file will be deleted from the printer.")
+          }
+        />
+        <div className="w-full space-y-6">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <Link
+              href="/printers"
+              className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              {uiText(" Printers")}
+            </Link>
+            <div className="flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1.5">
+              {wsConnected ? (
+                <>
+                  <Wifi className="h-3 w-3 text-emerald-500" />
+                  <span className="font-mono text-3xs font-semibold uppercase tracking-wider text-emerald-600">
+                    {uiText("Live")}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <WifiOff className="h-3 w-3 text-amber-500" />
+                  <span className="font-mono text-3xs uppercase tracking-wider text-amber-500">
+                    {uiText("Reconnecting…")}
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Title */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-2xl font-bold tracking-tight text-foreground">{printer.name}</h1>
+              <span className="rounded border border-border px-2 py-1 font-mono text-3xs uppercase tracking-wider text-muted-foreground">
+                {providerLabel(printer)}
+              </span>
+              {printer.capabilities.support_level === "beta" && (
+                <span className="rounded border border-amber-500/40 bg-amber-500/10 px-2 py-1 font-mono text-3xs uppercase tracking-wider text-amber-600">
+                  {uiText("Beta")}
+                </span>
+              )}
+              <span className="flex items-center gap-1.5 rounded border border-border bg-background px-2 py-1">
+                <span
+                  className={`w-2 h-2 rounded-full ${STATUS_COLORS[printer.status] || "bg-slate-400"}`}
+                />
+                <span className="font-mono text-3xs uppercase tracking-wider text-muted-foreground">
+                  {knownUiText(printer.status)}
+                </span>
+              </span>
+            </div>
+            <p className="font-mono text-xs text-muted-foreground break-all">
+              {printer.access.can_admin
+                ? providerAddress(printer)
+                : uiText("{value1} access", { value1: String(printer.access.role) })}
+            </p>
+          </div>
+
+          {printer.capabilities.support_notes.length > 0 && (
+            <div className="rounded border border-border bg-muted/40 p-3 text-xs leading-5 text-muted-foreground">
+              {printer.capabilities.support_notes.join(" ")}
+            </div>
+          )}
+
+          {(error || resources.error) && (
+            <div className="rounded border border-red-300/50 bg-red-50/30 p-3 font-mono text-sm text-red-600 dark:bg-red-950/20">
+              {error ?? userMessage(resources.error)}
+              {resources.error && (
+                <Button size="xs" onClick={() => void resources.refreshAll()}>
+                  {uiText("Retry")}
+                </Button>
+              )}
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <StatusMetric label="Klipper" value={webhook.state || printer.status} />
+            <StatusMetric label={uiText("File")} value={ps.filename || "Idle"} truncate />
+            <StatusMetric
+              label={uiText("Progress")}
+              value={
+                progress != null
+                  ? `${formatNumber(progress, { maximumFractionDigits: 1, minimumFractionDigits: 1 })}%`
+                  : "—"
+              }
+            />
+            <StatusMetric label={uiText("Homed")} value={toolhead.homed_axes || "—"} />
+          </div>
+
+          <div className="border-b border-border">
+            <TabBar
+              tabs={[
+                {
+                  key: "status" as const,
+                  get label() {
+                    return uiText("Status");
+                  },
+                },
+                {
+                  key: "files" as const,
+                  get label() {
+                    return uiText("Files");
+                  },
+                },
+                {
+                  key: "jobs" as const,
+                  get label() {
+                    return uiText("Jobs");
+                  },
+                },
+                ...(printer.access.can_print
+                  ? [
+                      {
+                        key: "materials" as const,
+                        get label() {
+                          return uiText("Materials & tools");
+                        },
+                      },
+                    ]
+                  : []),
+                ...(printer.access.can_admin
+                  ? [
+                      {
+                        key: "maintenance" as const,
+                        get label() {
+                          return uiText("Maintenance");
+                        },
+                      },
+                    ]
+                  : []),
+                ...(printer.provider === "moonraker" && printer.access.can_admin
+                  ? [
+                      {
+                        key: "config" as const,
+                        get label() {
+                          return uiText("Config");
+                        },
+                      },
+                    ]
+                  : []),
+                ...(printer.access.can_admin
+                  ? [
+                      {
+                        key: "diagnostics" as const,
+                        get label() {
+                          return uiText("Diagnostics");
+                        },
+                      },
+                      {
+                        key: "settings" as const,
+                        get label() {
+                          return uiText("Settings");
+                        },
+                      },
+                    ]
+                  : []),
+              ]}
+              active={activeTab}
+              onChange={(k) => {
+                setActiveTab(k);
+              }}
+              className="gap-1 overflow-x-auto -mb-px"
+              tabClassName="px-3 py-2 font-mono text-xs uppercase tracking-wider transition-colors text-muted-foreground hover:text-foreground"
+              activeTabClassName="text-primary"
+            />
+          </div>
+
+          {activeTab === "status" && (
+            <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3 animate-panel-in">
+              {/* Current print */}
+              <section className={`${SECTION_CLASS} lg:col-span-2`}>
+                <div className={SECTION_HEADER_CLASS}>
+                  <h2 className="text-sm font-semibold text-foreground">
+                    {uiText("Current print")}
+                  </h2>
+                </div>
+                {hasCurrentPrint ? (
+                  <div className="space-y-5 p-6">
+                    <Row label={uiText("FILE")} value={ps.filename || "—"} truncate />
+                    <Row label={uiText("STATE")} value={ps.state || "—"} capitalize />
+
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-mono text-3xs uppercase tracking-wider text-muted-foreground">
+                          {uiText("Progress")}
+                        </span>
+                        <span className="font-mono text-xs text-foreground font-semibold">
+                          {progress != null
+                            ? `${formatNumber(progress, { maximumFractionDigits: 1, minimumFractionDigits: 1 })}%`
+                            : "—"}
+                        </span>
+                      </div>
+                      <div className="h-2 w-full overflow-hidden rounded bg-muted">
+                        <div
+                          className="h-full w-full origin-left bg-primary transition-transform duration-slow ease-linear"
+                          style={{ transform: `scaleX(${Math.min(100, progress ?? 0) / 100})` }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <Row
+                        label={uiText("ELAPSED")}
+                        value={formatDuration(ps.print_duration)}
+                        stack
+                      />
+                      <Row
+                        label={uiText("TOTAL")}
+                        value={formatDuration(ps.total_duration)}
+                        stack
+                      />
+                    </div>
+
+                    <div className="border-t border-border pt-4 space-y-3">
+                      <div className="flex flex-wrap gap-2">
+                        <ControlButton
+                          onClick={() => control("pause", () => pausePrinter(printerId))}
+                          disabled={
+                            !printer.access.can_control ||
+                            !printer.capabilities.can_pause ||
+                            ps.state !== "printing" ||
+                            busy !== null
+                          }
+                          busy={busy === "pause"}
+                          icon={Pause}
+                          label={printer.access.can_control ? uiText("Pause") : uiText("No access")}
+                        />
+                        <ControlButton
+                          onClick={() => control("resume", () => resumePrinter(printerId))}
+                          disabled={
+                            !printer.access.can_control ||
+                            !printer.capabilities.can_resume ||
+                            ps.state !== "paused" ||
+                            busy !== null
+                          }
+                          busy={busy === "resume"}
+                          icon={Play}
+                          label={
+                            printer.access.can_control ? uiText("Resume") : uiText("No access")
+                          }
+                        />
+                        <ControlButton
+                          onClick={() => control("cancel", () => cancelPrinter(printerId))}
+                          disabled={
+                            !printer.access.can_control ||
+                            !printer.capabilities.can_cancel ||
+                            (ps.state !== "printing" && ps.state !== "paused") ||
+                            busy !== null
+                          }
+                          busy={busy === "cancel"}
+                          icon={Square}
+                          label={
+                            printer.access.can_control ? uiText("Cancel") : uiText("No access")
+                          }
+                          destructive
+                        />
+                      </div>
+                      <p className="font-mono text-3xs uppercase tracking-wider text-muted-foreground">
+                        {printer.access.can_control
+                          ? uiText("Controls permitted by your printer role.")
+                          : uiText("Control role required.")}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex min-h-64 flex-col items-center justify-center px-6 py-10 text-center">
+                    <span className="mb-4 inline-flex rounded-full bg-muted p-3 text-muted-foreground">
+                      <FileText className="h-5 w-5" />
+                    </span>
+                    <h3 className="text-sm font-semibold text-foreground">
+                      {uiText("No active print")}
+                    </h3>
+                    <p className="mt-1 max-w-sm text-xs leading-5 text-muted-foreground">
+                      {printer.status === "offline"
+                        ? uiText(
+                            "Printer is offline. Print details will appear after it reconnects.",
+                          )
+                        : uiText(
+                            "Start a file from the Files tab to see live progress and controls here.",
+                          )}
+                    </p>
+                    {printer.status !== "offline" && printer.capabilities.can_list_files && (
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab("files")}
+                        className={cn(BTN_SECONDARY, "mt-5")}
+                      >
+                        <FileText className="h-3.5 w-3.5" />
+                        {uiText("Browse files")}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </section>
+
+              {/* Temperatures */}
+              <section className={SECTION_CLASS}>
+                <div className={SECTION_HEADER_CLASS}>
+                  <div className="flex items-center gap-2">
+                    <Thermometer className="h-4 w-4 text-muted-foreground" />
+                    <h2 className="text-sm font-semibold text-foreground">
+                      {uiText("Temperatures")}
+                    </h2>
+                  </div>
+                </div>
+                <div className="space-y-5 p-5">
+                  <div className="grid grid-cols-2 gap-3">
+                    <TempRow label={uiText("Hotend")} cur={ext.temperature} tgt={ext.target} />
+                    <TempRow label={uiText("Bed")} cur={bed.temperature} tgt={bed.target} />
+                  </div>
+
+                  {printer.capabilities.can_send_gcode && (
+                    <div className="border-t border-border pt-4 space-y-4">
+                      <div className="space-y-2">
+                        <span className="font-mono text-3xs uppercase tracking-wider text-muted-foreground">
+                          {uiText("Preheat")}
+                        </span>
+                        <div className="flex flex-wrap gap-2">
+                          {PREHEAT_PRESETS.map((p) => (
+                            <button
+                              key={p.name}
+                              onClick={() => preheat(p)}
+                              disabled={!printer.access.can_control || machineBusy !== null}
+                              title={uiText("Hotend {value1}°C · Bed {value2}°C", {
+                                value1: String(p.hotend),
+                                value2: String(p.bed),
+                              })}
+                              className={BTN_SECONDARY}
+                            >
+                              {machineBusy === `preheat-${p.name}` && (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              )}
+                              {p.name}
+                            </button>
+                          ))}
+                          <button
+                            onClick={cooldown}
+                            disabled={!printer.access.can_control || machineBusy !== null}
+                            className={BTN_SECONDARY}
+                          >
+                            {machineBusy === "cooldown" && (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            )}
+                            {uiText("Cooldown")}
+                          </button>
+                        </div>
+                      </div>
+
+                      <SetTempInput
+                        label={uiText("Hotend target")}
+                        value={hotendTarget}
+                        onChange={setHotendTarget}
+                        onApply={() =>
+                          applyTemp("extruder", hotendTarget, () => setHotendTarget(""))
+                        }
+                        busy={machineBusy === "set-extruder"}
+                        disabled={!printer.access.can_control || machineBusy !== null}
+                      />
+                      <SetTempInput
+                        label={uiText("Bed target")}
+                        value={bedTarget}
+                        onChange={setBedTarget}
+                        onApply={() => applyTemp("bed", bedTarget, () => setBedTarget(""))}
+                        busy={machineBusy === "set-bed"}
+                        disabled={!printer.access.can_control || machineBusy !== null}
+                      />
+
+                      <div className="border-t border-border pt-4 flex flex-wrap gap-2">
+                        <button
+                          onClick={() =>
+                            void machineAction(
+                              "home",
+                              () => homePrinter(printerId),
+                              uiMessage("printer.homeSuccess"),
+                            )
+                          }
+                          disabled={!printer.access.can_control || machineBusy !== null}
+                          className={BTN_SECONDARY}
+                        >
+                          {machineBusy === "home" ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Home className="h-3.5 w-3.5" />
+                          )}
+                          {uiText("Home all")}
+                        </button>
+                        <button
+                          onClick={emergencyStop}
+                          disabled={!printer.access.can_control || machineBusy !== null}
+                          className={BTN_DANGER}
+                        >
+                          {machineBusy === "estop" ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Power className="h-3.5 w-3.5" />
+                          )}
+                          {uiText("E-stop")}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </section>
+            </div>
+          )}
+
+          {activeTab === "files" && (
+            <section className={`${SECTION_CLASS} animate-panel-in`}>
+              <div className={SECTION_HEADER_CLASS}>
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  <h2 className="text-sm font-semibold text-foreground">
+                    {uiText("Printer files")}
+                  </h2>
+                  <span className="rounded-full bg-muted px-2 py-0.5 text-3xs font-semibold text-muted-foreground">
+                    {printerFiles.length}
+                  </span>
+                </div>
+                <button
+                  onClick={syncFiles}
+                  disabled={
+                    syncingFiles ||
+                    !printer.access.can_admin ||
+                    !printer.capabilities.can_list_files
+                  }
+                  title={auth.blockReason ?? uiText("Sync printer files")}
+                  className={BTN_SECONDARY}
+                >
+                  {syncingFiles ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <RefreshCcw className="h-3.5 w-3.5" />
+                  )}
+                  {syncingFiles ? uiText("Syncing") : uiText("Sync")}
+                </button>
+              </div>
+              {printer.last_error && printer.status === "offline" && (
+                <div className="border-b border-border bg-red-50/30 px-6 py-3 font-mono text-2xs text-red-600 break-words dark:bg-red-950/20">
+                  {printer.last_error}
+                </div>
+              )}
+              {printerFiles.length === 0 ? (
+                <div className="p-10 text-center font-mono text-xs text-muted-foreground">
+                  {printer.capabilities.can_list_files
+                    ? uiText("No printer files synced yet.")
+                    : uiText("Printer file inventory is not supported by this provider.")}
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border text-left font-mono text-3xs uppercase tracking-wider text-muted-foreground">
+                        <th className="py-3 px-4 font-medium">{uiText("Remote file")}</th>
+                        <th className="py-3 px-4 font-medium">{uiText("Vault match")}</th>
+                        <th className="py-3 px-4 font-medium text-right">{uiText("Size")}</th>
+                        <th className="py-3 px-4 font-medium">{uiText("Status")}</th>
+                        <th className="py-3 px-4 font-medium">{uiText("Last seen")}</th>
+                        <th className="py-3 px-4 font-medium text-right">{uiText("Action")}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {printerFiles.map((f) => (
+                        <tr
+                          key={f.id}
+                          className="border-b border-border transition-colors last:border-0 hover:bg-muted/30"
+                        >
+                          <td
+                            className="py-3 px-4 font-mono text-xs text-foreground max-w-[320px] truncate"
+                            title={f.remote_filename}
+                          >
+                            {f.remote_filename}
+                          </td>
+                          <td className="py-3 px-4">
+                            {f.model_id ? (
+                              <Link
+                                href={`/models/${f.model_id}`}
+                                className="font-mono text-xs text-foreground hover:text-primary hover:underline"
+                              >
+                                {f.model_name ?? f.original_filename}
+                              </Link>
+                            ) : (
+                              <span className="font-mono text-xs text-muted-foreground">
+                                {uiText("External")}
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-right font-mono text-xs text-foreground whitespace-nowrap">
+                            {f.size_bytes != null ? formatBytes(f.size_bytes) : "—"}
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className="font-mono text-3xs uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600">
+                              {f.matched_by}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 font-mono text-xs text-muted-foreground whitespace-nowrap">
+                            {new Date(f.last_seen_at).toLocaleString(currentLocale())}
+                          </td>
+                          <td className="py-3 px-4 text-right">
+                            <div className="flex justify-end gap-2">
+                              <button
+                                onClick={() => startRemoteFile(f)}
+                                disabled={
+                                  !printer.access.can_print ||
+                                  !printer.capabilities.can_start ||
+                                  startingFileId !== null ||
+                                  deletingFileId !== null
+                                }
+                                title={auth.blockReason ?? uiText("Start this printer file")}
+                                className={BTN_SECONDARY}
+                              >
+                                {startingFileId === f.id ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Play className="h-3 w-3" />
+                                )}
+                                {uiText("Start")}
+                              </button>
+                              <button
+                                onClick={() => deleteRemoteFile(f)}
+                                disabled={
+                                  !printer.access.can_admin ||
+                                  printer.provider !== "moonraker" ||
+                                  deletingFileId !== null ||
+                                  startingFileId !== null ||
+                                  ps.filename === f.remote_filename
+                                }
+                                title={
+                                  ps.filename === f.remote_filename
+                                    ? uiText("Cannot delete active print file")
+                                    : (auth.blockReason ?? uiText("Delete this printer file"))
+                                }
+                                className={BTN_DANGER}
+                              >
+                                {deletingFileId === f.id ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-3 w-3" />
+                                )}
+                                {uiText("Delete")}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          )}
+
+          {activeTab === "settings" && (
+            <PrinterSettings
+              printer={printer}
+              canEdit={printer.access.can_admin}
+              key={printer.id}
+            />
+          )}
+
+          {activeTab === "materials" && <PrinterMaterials printer={printer} />}
+
+          {activeTab === "maintenance" && (
+            <div className="animate-panel-in">
+              <FleetMaintenancePanel
+                printers={[printer]}
+                onPrintersChanged={() => {
+                  void resources.refresh(printerKeys.detail(printerId));
+                }}
+              />
+            </div>
+          )}
+
+          {/* History */}
+          {activeTab === "jobs" && (
+            <section className={`${SECTION_CLASS} animate-panel-in`}>
+              <div className={SECTION_HEADER_CLASS}>
+                <h2 className="text-sm font-semibold text-foreground">{uiText("Print history")}</h2>
+                {jobs.length > 0 && (
+                  <span className="rounded-full bg-muted px-2 py-0.5 font-mono text-3xs font-semibold text-muted-foreground">
+                    {uiText("counts.jobs", { count: jobs.length })}
+                  </span>
+                )}
+              </div>
+              {jobs.length === 0 ? (
+                <div className="p-10 text-center font-mono text-xs text-muted-foreground">
+                  {uiText("No print jobs yet.")}
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border text-left font-mono text-3xs uppercase tracking-wider text-muted-foreground">
+                        <th className="py-3 px-4 font-medium">{uiText("When")}</th>
+                        <th className="py-3 px-4 font-medium">{uiText("File")}</th>
+                        <th className="py-3 px-4 font-medium">{uiText("State")}</th>
+                        <th className="py-3 px-4 font-medium text-right">{uiText("Progress")}</th>
+                        <th className="py-3 px-4 font-medium">{uiText("Started")}</th>
+                        <th className="py-3 px-4 font-medium">{uiText("Finished")}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {jobs.map((j) => (
+                        <tr
+                          key={j.id}
+                          className="border-b border-border transition-colors last:border-0 hover:bg-muted/30"
+                        >
+                          <td className="py-3 px-4 font-mono text-xs text-muted-foreground whitespace-nowrap">
+                            {new Date(j.created_at).toLocaleString(currentLocale())}
+                          </td>
+                          <td className="py-3 px-4 max-w-[260px]">
+                            {j.artifact_evidence === "vault" ||
+                            j.artifact_evidence.endsWith("_archived") ? (
+                              <Link
+                                href={`/models/${j.model_id}`}
+                                className="font-mono text-xs text-foreground hover:text-primary hover:underline"
+                                title={printJobArtifactLabel(j)}
+                              >
+                                {printJobArtifactLabel(j)}
+                              </Link>
+                            ) : (
+                              <span
+                                className="font-mono text-xs text-foreground"
+                                title={printJobArtifactLabel(j)}
+                              >
+                                {printJobArtifactLabel(j)}
+                              </span>
+                            )}
+                            {j.source === "external" && (
+                              <span className="mt-1 block font-mono text-3xs uppercase tracking-wider text-muted-foreground">
+                                {knownUiText(j.artifact_evidence)}
+                              </span>
+                            )}
+                            <PrintJobReproducibility
+                              job={j}
+                              previewHref={
+                                j.artifact_evidence === "vault" ||
+                                j.artifact_evidence.endsWith("_archived")
+                                  ? `/models/${j.model_id}`
+                                  : null
+                              }
+                            />
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className="rounded bg-muted px-2 py-0.5 font-mono text-3xs uppercase tracking-wider text-foreground">
+                              {knownUiText(j.state)}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-right font-mono text-xs text-foreground">
+                            {formatNumber(j.progress * 100, { maximumFractionDigits: 0 })}%
+                          </td>
+                          <td className="py-3 px-4 font-mono text-xs text-muted-foreground whitespace-nowrap">
+                            {j.started_at
+                              ? new Date(j.started_at).toLocaleTimeString(currentLocale())
+                              : "—"}
+                          </td>
+                          <td className="py-3 px-4 font-mono text-xs text-muted-foreground whitespace-nowrap">
+                            {j.finished_at
+                              ? new Date(j.finished_at).toLocaleTimeString(currentLocale())
+                              : "—"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+          )}
+
+          {activeTab === "config" && printer.provider === "moonraker" && (
+            <section className={`${SECTION_CLASS} animate-panel-in`}>
+              <div className={SECTION_HEADER_CLASS}>
+                <div className="flex items-center gap-2">
+                  <Settings className="h-4 w-4 text-muted-foreground" />
+                  <h2 className="text-sm font-semibold text-foreground">
+                    {uiText("Moonraker and Klipper config")}
+                  </h2>
+                </div>
+                <button
+                  onClick={loadMoonrakerConfig}
+                  disabled={loadingConfig}
+                  className={BTN_SECONDARY}
+                >
+                  {loadingConfig ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <RefreshCcw className="h-3.5 w-3.5" />
+                  )}
+                  {loadingConfig ? uiText("Loading") : uiText("Refresh")}
+                </button>
+              </div>
+              {!moonrakerConfig ? (
+                <div className="p-10 text-center font-mono text-xs text-muted-foreground">
+                  {loadingConfig ? uiText("Loading config…") : uiText("Config not loaded.")}
+                </div>
+              ) : (
+                <div className="p-4 sm:p-6 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <ConfigSummary title="Moonraker" data={moonrakerConfig.server_info} />
+                    <ConfigSummary title="Klipper" data={moonrakerConfig.printer_info} />
+                  </div>
+                  <ConfigBlock
+                    title={uiText("Moonraker config")}
+                    data={moonrakerConfig.moonraker_config}
+                  />
+                  <ConfigBlock
+                    title={uiText("Klipper config")}
+                    data={moonrakerConfig.klipper_config}
+                  />
+                </div>
+              )}
+            </section>
+          )}
+
+          {activeTab === "diagnostics" && (
+            <section className={`${SECTION_CLASS} animate-panel-in`}>
+              <div className={SECTION_HEADER_CLASS}>
+                <div className="flex items-center gap-2">
+                  <Info className="h-4 w-4 text-muted-foreground" />
+                  <h2 className="text-sm font-semibold text-foreground">
+                    {uiText("Provider diagnostics")}
+                  </h2>
+                </div>
+                <button
+                  onClick={loadDiagnostics}
+                  disabled={checkingDiagnostics}
+                  className={BTN_SECONDARY}
+                >
+                  {checkingDiagnostics ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <RefreshCcw className="h-3.5 w-3.5" />
+                  )}
+                  {checkingDiagnostics ? uiText("Checking") : uiText("Refresh")}
+                </button>
+              </div>
+
+              {!diagnostics ? (
+                <div className="p-10 text-center font-mono text-xs text-muted-foreground">
+                  {uiText("Diagnostics have not loaded yet.")}
+                </div>
+              ) : (
+                <div className="p-4 sm:p-6 space-y-5">
+                  <div
+                    className={`rounded border p-4 ${
+                      diagnostics.ok
+                        ? "border-emerald-500/30 bg-emerald-500/10"
+                        : "border-amber-500/40 bg-amber-500/10"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      {diagnostics.ok ? (
+                        <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                      ) : (
+                        <AlertTriangle className="h-4 w-4 text-amber-600" />
+                      )}
+                      <span
+                        className={`font-mono text-xs uppercase tracking-wider font-semibold ${
+                          diagnostics.ok ? "text-emerald-600" : "text-amber-600"
+                        }`}
+                      >
+                        {diagnostics.ok ? uiText("Provider reachable") : uiText("Needs attention")}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      {uiText("{value1} is marked {value2}.", {
+                        value1: String(providerLabel({ provider: diagnostics.provider }) ?? ""),
+                        value2: String(diagnostics.support_level ?? ""),
+                      })}
+                    </p>
+                  </div>
+
+                  {diagnostics.notes.length > 0 && (
+                    <div className="rounded border border-border bg-muted/40 p-4 space-y-2">
+                      {diagnostics.notes.map((note) => (
+                        <p
+                          key={knownUiText(note)}
+                          className="text-sm text-muted-foreground leading-relaxed"
+                        >
+                          {knownUiText(note)}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="rounded border border-border overflow-hidden">
+                      <div className="border-b border-border px-4 py-3">
+                        <h3 className="text-sm font-semibold text-foreground">
+                          {uiText("Checks")}
+                        </h3>
+                      </div>
+                      <div className="divide-y divide-border">
+                        {diagnostics.checks.map((check) => (
+                          <div key={check.name} className="px-4 py-3 flex items-start gap-3">
+                            {check.ok ? (
+                              <CheckCircle2 className="mt-0.5 h-4 w-4 flex-shrink-0 text-emerald-600" />
+                            ) : (
+                              <XCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-600" />
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <div className="font-mono text-xs uppercase tracking-wider text-foreground">
+                                {checkLabel(check.name)}
+                              </div>
+                              {!check.ok && (
+                                <div className="mt-1 font-mono text-2xs text-red-600 break-words">
+                                  {check.code ?? uiText("provider_error")}
+                                  {check.detail ? `: ${check.detail}` : ""}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="rounded border border-border overflow-hidden">
+                      <div className="border-b border-border px-4 py-3">
+                        <h3 className="text-sm font-semibold text-foreground">
+                          {uiText("Capabilities")}
+                        </h3>
+                      </div>
+                      <div className="grid grid-cols-2 gap-px bg-border">
+                        {Object.entries(diagnostics.capabilities).map(([name, enabled]) => (
+                          <div key={name} className="bg-background px-4 py-3">
+                            <div className="font-mono text-3xs uppercase tracking-wider text-muted-foreground">
+                              {checkLabel(name.replace(/^can_/, ""))}
+                            </div>
+                            <div
+                              className={`mt-1 font-mono text-xs font-semibold ${
+                                enabled ? "text-emerald-600" : "text-muted-foreground"
+                              }`}
+                            >
+                              {enabled ? uiText("Supported") : uiText("Unavailable")}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {diagnostics.unsupported_actions.length > 0 && (
+                    <div className="rounded border border-amber-500/40 bg-amber-500/10 p-4">
+                      <div className="font-mono text-3xs uppercase tracking-wider text-amber-600 font-semibold">
+                        {uiText("Unsupported in this provider")}
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {diagnostics.unsupported_actions.map((action) => (
+                          <span
+                            key={action}
+                            className="rounded border border-amber-500/40 px-2 py-1 font-mono text-3xs uppercase tracking-wider text-amber-600"
+                          >
+                            {actionLabel(action)}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </section>
+          )}
+        </div>
+      </>
+    </Localized>
+  );
+}
+
+function ConfigSummary({ title, data }: { title: string; data: ProviderJsonObject }) {
+  useUiLocale();
+  // Scalars only: nested objects and arrays are unreadable in a two-column summary and
+  // are already shown in full by the raw ConfigBlock below. `instanceof Object` is false
+  // for every JSON scalar and for null, which is exactly the set worth summarising.
+  const rows = Object.entries(data)
+    .filter(([, value]) => !(value instanceof Object))
+    .slice(0, 8);
+
+  return (
+    <div className="rounded border border-border overflow-hidden">
+      <div className="border-b border-border px-4 py-3">
+        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+      </div>
+      <div className="divide-y divide-border">
+        {rows.length === 0 ? (
+          <div className="px-4 py-3 font-mono text-xs text-muted-foreground">—</div>
+        ) : (
+          rows.map(([key, value]) => (
+            <div key={key} className="grid grid-cols-[minmax(120px,0.45fr)_1fr] gap-3 px-4 py-3">
+              <div className="font-mono text-3xs uppercase tracking-wider text-muted-foreground truncate">
+                {checkLabel(key)}
+              </div>
+              <div className="font-mono text-xs text-foreground break-words">
+                {String(value ?? "—")}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PrinterSettings({
+  printer: initialPrinter,
+  canEdit,
+}: {
+  printer: PrinterRead;
+  canEdit: boolean;
+}) {
+  useUiLocale();
+  const [printer, setPrinter] = useState(initialPrinter);
+  const command = usePrinterSettingsCommand(printer.id);
+  const active = useRef(true);
+  const form = useRef<HTMLFormElement>(null);
+  useEffect(() => {
+    active.current = true;
+
+    return () => {
+      active.current = false;
+    };
+  }, []);
+  const [name, setName] = useState(printer.name);
+  const [modelName, setModelName] = useState(printer.model_name ?? "");
+  const [group, setGroup] = useState(printer.group ?? "");
+  const [notes, setNotes] = useState(printer.notes ?? "");
+  const [address, setAddress] = useState(providerAddress(printer));
+  const [serial, setSerial] = useState(printer.bambu_serial ?? "");
+  const [username, setUsername] = useState(printer.prusalink_username ?? "");
+  const [mainboardId, setMainboardId] = useState(printer.elegoo_centauri_mainboard_id ?? "");
+  const [secret, setSecret] = useState("");
+  const [providerMaterialSync, setProviderMaterialSync] = useState(
+    printer.provider_material_sync_enabled,
+  );
+  const [operatorReleaseRequired, setOperatorReleaseRequired] = useState(
+    printer.operator_release_required,
+  );
+  const saving = command.busy;
+  const [error, setError] = useState<string | null>(null);
+
+  const secretLabel =
+    printer.provider === "bambu_lan"
+      ? "LAN access code"
+      : printer.provider === "prusalink"
+        ? printer.prusalink_auth_mode === "api_key"
+          ? "API key"
+          : "Password"
+        : printer.provider === "elegoo_centauri"
+          ? "Printer access code"
+          : printer.provider === "octoprint"
+            ? "API key"
+            : "Moonraker API key";
+
+  function adopt(snapshot: PrinterRead) {
+    setPrinter(snapshot);
+    setName(snapshot.name);
+    setModelName(snapshot.model_name ?? "");
+    setGroup(snapshot.group ?? "");
+    setNotes(snapshot.notes ?? "");
+    setAddress(providerAddress(snapshot));
+    setSerial(snapshot.bambu_serial ?? "");
+    setUsername(snapshot.prusalink_username ?? "");
+    setMainboardId(snapshot.elegoo_centauri_mainboard_id ?? "");
+    setProviderMaterialSync(snapshot.provider_material_sync_enabled);
+    setOperatorReleaseRequired(snapshot.operator_release_required);
+    setSecret("");
+    setError(null);
+  }
+
+  async function save(e?: React.FormEvent, revised = false) {
+    e?.preventDefault();
+    if (!canEdit || saving || (!revised && command.blocked)) return;
+    if (form.current && !form.current.reportValidity()) return;
+    const session = getSessionVersion();
+    const current = () => active.current && session === getSessionVersion();
+    setError(null);
+    const payload: PrinterUpdate = {};
+    if (name.trim() !== printer.name) payload.name = name.trim();
+    if (modelName !== (printer.model_name ?? "")) payload.model_name = modelName;
+    if (group !== (printer.group ?? "")) payload.group = group;
+    if (notes !== (printer.notes ?? "")) payload.notes = notes;
+    if (providerMaterialSync !== printer.provider_material_sync_enabled)
+      payload.provider_material_sync_enabled = providerMaterialSync;
+    if (operatorReleaseRequired !== printer.operator_release_required)
+      payload.operator_release_required = operatorReleaseRequired;
+    if (printer.provider === "moonraker") {
+      if (address !== providerAddress(printer)) payload.moonraker_url = address;
+      if (secret) payload.api_key = secret;
+    } else if (printer.provider === "bambu_lan") {
+      if (address !== providerAddress(printer)) payload.bambu_host = address;
+      if (serial !== (printer.bambu_serial ?? "")) payload.bambu_serial = serial;
+      if (secret) payload.bambu_access_code = secret;
+    } else if (printer.provider === "prusalink") {
+      if (address !== providerAddress(printer)) payload.prusalink_url = address;
+      if (username !== (printer.prusalink_username ?? "")) payload.prusalink_username = username;
+      if (secret) {
+        if (printer.prusalink_auth_mode === "api_key") payload.prusalink_api_key = secret;
+        else payload.prusalink_password = secret;
+      }
+    } else if (printer.provider === "elegoo_centauri") {
+      if (address !== providerAddress(printer)) payload.elegoo_centauri_host = address;
+      if (mainboardId !== (printer.elegoo_centauri_mainboard_id ?? ""))
+        payload.elegoo_centauri_mainboard_id = mainboardId;
+      if (secret) payload.elegoo_centauri_access_code = secret;
+    } else if (printer.provider === "octoprint") {
+      if (address !== providerAddress(printer)) payload.octoprint_url = address;
+      if (secret) payload.octoprint_api_key = secret;
+    }
+    try {
+      const updated = await command.save(printer, payload, revised);
+      if (!current()) return;
+      adopt(updated);
+      toast.success(uiText("Printer settings saved"));
+    } catch (err) {
+      if (!current()) return;
+      const message = err instanceof Error ? err.message : "Could not save printer settings";
+      setError(message);
+      toast.error(err);
+    }
+  }
+
+  return (
+    <Localized>
+      <form ref={form} onSubmit={save} className={`${SECTION_CLASS} animate-panel-in`}>
+        <div className={SECTION_HEADER_CLASS}>
+          <div className="flex items-center gap-2">
+            <Settings className="h-4 w-4 text-muted-foreground" />
+            <div>
+              <h2 className="text-sm font-semibold text-foreground">
+                {uiText("Printer settings")}
+              </h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {uiText("Connection and display details")}
+              </p>
+            </div>
+          </div>
+          <Button
+            type="submit"
+            size="sm"
+            loading={saving}
+            disabled={!canEdit || command.blocked || !name.trim()}
+          >
+            {uiText("Save changes")}
+          </Button>
+        </div>
+        <div className="grid gap-6 p-5 lg:grid-cols-2 lg:p-6">
+          <div className="space-y-4">
+            <SettingsField label={uiText("Name")}>
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                disabled={!canEdit || saving}
+              />
+            </SettingsField>
+            <SettingsField
+              label={uiText("Model")}
+              hint={uiText("Pick a known model or type your own")}
+            >
+              {/* ponytail: native datalist — suggestions from the catalog, free text still allowed */}
+              <Input
+                list="printer-model-options"
+                value={modelName}
+                onChange={(e) => setModelName(e.target.value)}
+                placeholder={printer.detected_model ?? uiText("Auto-detected")}
+                disabled={!canEdit || saving}
+              />
+              <datalist id="printer-model-options">
+                {PRINTER_MODEL_OPTIONS.map((model) => (
+                  <option key={model} value={model} />
+                ))}
+              </datalist>
+            </SettingsField>
+            <SettingsField label={uiText("Group")} hint={uiText("Optional farm grouping")}>
+              <Input
+                value={group}
+                onChange={(e) => setGroup(e.target.value)}
+                placeholder={uiText("Workshop")}
+                disabled={!canEdit || saving}
+              />
+            </SettingsField>
+            <SettingsField label={uiText("Notes")}>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={4}
+                disabled={!canEdit || saving}
+                className="w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </SettingsField>
+          </div>
+          <div className="space-y-4 rounded-lg border border-border bg-muted/20 p-4">
+            <div>
+              <p className="text-sm font-semibold text-foreground">{uiText("Connection")}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {uiText("{value1} configuration", { value1: String(providerLabel(printer) ?? "") })}
+              </p>
+            </div>
+            <SettingsField
+              label={
+                printer.provider === "moonraker" ||
+                printer.provider === "prusalink" ||
+                printer.provider === "octoprint"
+                  ? "URL"
+                  : uiText("Host or IP")
+              }
+            >
+              <Input
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                required
+                disabled={!canEdit || saving}
+              />
+            </SettingsField>
+            {printer.provider === "bambu_lan" && (
+              <SettingsField label={uiText("Printer serial")}>
+                <Input
+                  value={serial}
+                  onChange={(e) => setSerial(e.target.value)}
+                  required
+                  disabled={!canEdit || saving}
+                />
+              </SettingsField>
+            )}
+            {printer.provider === "prusalink" && printer.prusalink_auth_mode !== "api_key" && (
+              <SettingsField label={uiText("Username")}>
+                <Input
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
+                  disabled={!canEdit || saving}
+                />
+              </SettingsField>
+            )}
+            {printer.provider === "elegoo_centauri" &&
+              printer.provider_variant === "elegoo_centauri_carbon" && (
+                <SettingsField
+                  label={uiText("Mainboard ID")}
+                  hint={uiText(
+                    "Needed for reliable printer commands while idle, paused, or errored.",
+                  )}
+                >
+                  <Input
+                    value={mainboardId}
+                    onChange={(e) => setMainboardId(e.target.value)}
+                    disabled={!canEdit || saving}
+                  />
+                </SettingsField>
+              )}
+            <SettingsField label={secretLabel} hint={uiText("Leave blank to keep current value")}>
+              <Input
+                type="password"
+                value={secret}
+                onChange={(e) => setSecret(e.target.value)}
+                placeholder={uiText("Unchanged")}
+                disabled={!canEdit || saving}
+              />
+            </SettingsField>
+            <label className="flex items-start gap-3 rounded-md border border-border bg-background p-3">
+              <input
+                type="checkbox"
+                checked={providerMaterialSync}
+                onChange={(event) => setProviderMaterialSync(event.target.checked)}
+                disabled={!canEdit || saving}
+                className="mt-0.5 h-4 w-4"
+              />
+              <span>
+                <span className="block text-sm font-medium text-foreground">
+                  {uiText("Provider material sync")}
+                </span>
+                <span className="mt-0.5 block text-xs text-muted-foreground">
+                  {uiText(
+                    "Import supported AMS or active-Spoolman state. Turn off to use manual state exclusively.",
+                  )}
+                </span>
+              </span>
+            </label>
+            <label className="flex items-start gap-3 rounded-md border border-border bg-background p-3">
+              <input
+                type="checkbox"
+                checked={operatorReleaseRequired}
+                onChange={(event) => setOperatorReleaseRequired(event.target.checked)}
+                disabled={!canEdit || saving}
+                className="mt-0.5 h-4 w-4"
+              />
+              <span>
+                <span className="block text-sm font-medium text-foreground">
+                  {uiText("Require operator release")}
+                </span>
+                <span className="mt-0.5 block text-xs text-muted-foreground">
+                  {uiText(
+                    "After a managed print completes, block scheduling until an operator releases or holds the printer.",
+                  )}
+                </span>
+              </span>
+            </label>
+            {!canEdit && (
+              <p className="text-xs text-warning">{uiText("Sign in to edit printer settings.")}</p>
+            )}
+            {error && (
+              <p role="alert" className="text-xs text-destructive">
+                {error}
+              </p>
+            )}
+          </div>
+        </div>
+        <PrinterSettingsReview
+          canSave={Boolean(name.trim())}
+          state={command.state}
+          original={printer}
+          onReview={() => {
+            void command.review().catch((err) => {
+              if (active.current) setError(userMessage(err));
+            });
+          }}
+          onAdopt={() => adopt(command.adopt())}
+          onSave={() => {
+            void save(undefined, true);
+          }}
+        />
+      </form>
+    </Localized>
+  );
+}
+
+function SettingsField({
+  label,
+  hint,
+  children,
+}: {
+  label: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  useUiLocale();
+  return (
+    <label className="block space-y-1.5">
+      <span className="flex items-center justify-between gap-3 text-xs font-medium text-foreground">
+        {label}
+        {hint && <span className="font-normal text-muted-foreground">{hint}</span>}
+      </span>
+      {children}
+    </label>
+  );
+}
+
+function ConfigBlock({ title, data }: { title: string; data: ProviderJsonObject }) {
+  useUiLocale();
+  return (
+    <div className="rounded border border-border overflow-hidden">
+      <div className="border-b border-border px-4 py-3">
+        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+      </div>
+      <pre className="max-h-[420px] overflow-auto bg-muted/40 p-4 font-mono text-2xs leading-5 text-foreground">
+        {JSON.stringify(data, null, 2)}
+      </pre>
+    </div>
+  );
+}
+
+function StatusMetric({
+  label,
+  value,
+  truncate,
+}: {
+  label: string;
+  value: string;
+  truncate?: boolean;
+}) {
+  useUiLocale();
+  return (
+    <div className="rounded border border-border bg-background p-3">
+      <div className="font-mono text-3xs uppercase tracking-wider text-muted-foreground">
+        {label}
+      </div>
+      <div
+        className={`mt-1 font-mono text-sm font-semibold text-foreground ${truncate ? "truncate" : ""}`}
+        title={value}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function Row({
+  label,
+  value,
+  truncate,
+  capitalize,
+  stack,
+}: {
+  label: string;
+  value: string;
+  truncate?: boolean;
+  capitalize?: boolean;
+  stack?: boolean;
+}) {
+  useUiLocale();
+  if (stack) {
+    return (
+      <div className="space-y-1">
+        <div className="font-mono text-3xs uppercase tracking-wider text-muted-foreground">
+          {label}
+        </div>
+        <div className="font-mono text-sm text-foreground font-semibold">{value}</div>
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="font-mono text-3xs uppercase tracking-wider text-muted-foreground flex-shrink-0">
+        {label}
+      </span>
+      <span
+        className={`font-mono text-xs text-foreground font-medium ${truncate ? "truncate" : ""} ${capitalize ? "capitalize" : ""}`}
+      >
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function ControlButton({
+  onClick,
+  disabled,
+  busy,
+  icon: Icon,
+  label,
+  destructive,
+}: {
+  onClick: () => void;
+  disabled?: boolean;
+  busy?: boolean;
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  destructive?: boolean;
+}) {
+  useUiLocale();
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`flex items-center gap-1.5 px-3 py-2 rounded font-mono text-xs uppercase tracking-wider transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+        destructive
+          ? "bg-red-600 text-white hover:opacity-90"
+          : "border border-border text-foreground hover:bg-muted"
+      }`}
+    >
+      {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Icon className="h-3.5 w-3.5" />}
+      {label}
+    </button>
+  );
+}
+
+function SetTempInput({
+  label,
+  value,
+  onChange,
+  onApply,
+  busy,
+  disabled,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  onApply: () => void;
+  busy?: boolean;
+  disabled?: boolean;
+}) {
+  useUiLocale();
+  return (
+    <div className="flex items-end gap-2">
+      <label className="flex-1 space-y-1">
+        <span className="font-mono text-3xs uppercase tracking-wider text-muted-foreground">
+          {label}
+        </span>
+        <input
+          type="number"
+          min={0}
+          max={500}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !disabled) onApply();
+          }}
+          placeholder="°C"
+          className="w-full rounded-md border border-border bg-background px-2.5 py-1.5 font-mono text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+        />
+      </label>
+      <button onClick={onApply} disabled={disabled || value === ""} className={BTN_SECONDARY}>
+        {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+        {uiText("Set")}
+      </button>
+    </div>
+  );
+}
+
+function TempRow({ label, cur, tgt }: { label: string; cur?: number; tgt?: number }) {
+  useUiLocale();
+  const pct =
+    tgt != null && tgt > 0 && cur != null ? Math.min(100, Math.max(0, (cur / tgt) * 100)) : null;
+  return (
+    <div className="rounded-md border border-border bg-muted/30 p-3">
+      <div className="flex items-center gap-1.5">
+        <Thermometer className="h-3.5 w-3.5 text-muted-foreground" />
+        <span className="font-mono text-3xs uppercase tracking-wider text-muted-foreground">
+          {label}
+        </span>
+      </div>
+      <div className="mt-2 font-mono text-xl font-semibold leading-none text-foreground">
+        {cur != null
+          ? formatNumber(cur, { maximumFractionDigits: 1, minimumFractionDigits: 1 })
+          : "—"}
+        <span className="ml-0.5 text-xs font-normal text-muted-foreground">°C</span>
+      </div>
+      <div className="mt-1 min-h-4 font-mono text-3xs text-muted-foreground">
+        {tgt != null && tgt > 0
+          ? uiText("Target {value1}°C", {
+              value1: String(formatNumber(tgt, { maximumFractionDigits: 0 })),
+            })
+          : uiText("No target")}
+      </div>
+      {pct != null && (
+        <div className="mt-2 h-1 w-full overflow-hidden rounded bg-muted">
+          <div
+            className="h-full w-full origin-left bg-primary transition-transform duration-slow ease-linear"
+            style={{ transform: `scaleX(${pct / 100})` }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}

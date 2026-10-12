@@ -1,0 +1,301 @@
+#!/bin/bash
+# spatiumddi-slot-upgrade — host-side slot-image upgrade runner
+# (Phase 8b-3, issue #138; extended in #386).
+#
+# The supervisor (or api container) writes /var/lib/spatiumddi/
+# release-state/slot-upgrade-pending. Format:
+#   line 1: URL or absolute path to slot .raw.xz (any #fragment is
+#           stripped — #386 fire-once nonce, client-side only)
+#   then any of these directive lines (order-independent):
+#     sha256=<hex>   — expected image hash; verified with no 2nd fetch
+#     insecure-tls   — skip TLS cert-verify for the https:// fetch
+#                      (self-served image behind the appliance's
+#                      self-signed cert); only honoured WITH a hash
+#     checksum=<src> — URL/path to a .sha256 sidecar (legacy / external)
+#   A bare URL/path on line 2 is still accepted as a legacy checksum src.
+#
+# Then `spatiumddi-slot-upgrade.path` notices the file and runs this
+# script as root. It:
+#   1. Reads + parses the trigger file
+#   2. Invokes /usr/local/bin/spatium-upgrade-slot apply <url> [flags]
+#   3. On success, invokes spatium-upgrade-slot set-next-boot
+#   4. Renames the trigger to .done / .failed so the .path unit doesn't
+#      re-fire on the next watch
+#
+# Throughout, it maintains two sidecars the supervisor ships on its
+# heartbeat so the Fleet UI shows full status (#386 Part C):
+#   slot-upgrade-pending.state  — coarse state (in-flight/done/failed)
+#   slot-upgrade.progress       — structured {step,pct,detail,at}; this
+#       wrapper owns the terminal steps, spatium-upgrade-slot writes the
+#       in-apply steps (downloading/verifying/writing/bootloader).
+
+set -euo pipefail
+
+# Paths are env-overridable (defaulting to the production appliance
+# locations) so appliance/tests/test_slot_upgrade_runner.py can drive this
+# against a synthetic tmp tree without rewriting the script — same pattern
+# as spatium-host-migrate's SPATIUM_HOST_* overrides.
+TRIGGER="${SPATIUM_SLOT_TRIGGER:-/var/lib/spatiumddi/release-state/slot-upgrade-pending}"
+PROGRESS="${SPATIUM_SLOT_PROGRESS:-/var/lib/spatiumddi/release-state/slot-upgrade.progress}"
+
+# The supervisor container runs unprivileged (``su-exec spatium``) while
+# these sidecars are written by THIS script as root, into a sticky
+# directory. A non-owner therefore gets EACCES overwriting a root-owned
+# 0644 file and EPERM unlinking it — so every supervisor-side reset of a
+# failed upgrade silently no-op'd (#786). Publish them group-writable to
+# the spatium-host gid the supervisor and api carry, so an in-place
+# overwrite works; the sticky bit still stops unlink-by-others. They were
+# 0666 until GHSA-h2j9-qrg7-grfw, which let any local account forge the
+# upgrade status the Fleet UI shows.
+SIDECAR_GID="${SPATIUM_HOST_GID:-2770}"
+publish_sidecar() {  # $1 = path
+    chgrp "$SIDECAR_GID" "$1" 2>/dev/null || true
+    chmod 0660 "$1" 2>/dev/null || true
+}
+LOG_DIR="${SPATIUM_SLOT_LOG_DIR:-/var/log/spatiumddi}"
+LOG="$LOG_DIR/slot-upgrade.log"
+UPGRADE_SLOT_BIN="${SPATIUM_UPGRADE_SLOT_BIN:-/usr/local/bin/spatium-upgrade-slot}"
+
+# #421 — a slot-upgrade apply that dies or stalls part-way must never
+# leave the state stuck at "in-flight" forever. Three guards work
+# together (see issue for the field case that wedged at in-flight for two
+# days):
+#   * a background ticker refreshes the in-flight stamp every
+#     $INFLIGHT_TICK_SECONDS so the supervisor's staleness backstop can
+#     tell a live-but-slow apply (stamp keeps advancing) from a dead
+#     runner (stamp frozen) — without it the supervisor would have to
+#     wait out the whole worst-case apply time before declaring failure;
+#   * a hard $APPLY_TIMEOUT_SECONDS cap on the apply so a stalled
+#     download / dd self-fails instead of hanging;
+#   * an EXIT trap that records "failed" on any abrupt exit (signal,
+#     timeout, set -e error) the explicit fail() path didn't already
+#     cover — only SIGKILL / power-loss escape it, and the supervisor
+#     backstop catches those via the frozen stamp.
+INFLIGHT_TICK_SECONDS="${SPATIUM_SLOT_TICK_SECONDS:-60}"
+APPLY_TIMEOUT_SECONDS="${SPATIUM_SLOT_APPLY_TIMEOUT:-2700}"  # 45 min ceiling
+TICKER_PID=
+
+mkdir -p "$LOG_DIR"
+exec >> "$LOG" 2>&1
+echo
+echo "[$(date -Iseconds)] === spatiumddi-slot-upgrade fired ==="
+
+# Structured progress for the Fleet UI. Best-effort — never abort the
+# upgrade on a progress-write hiccup.
+write_progress() {  # $1 = step, $2 = human detail
+    local detail
+    detail=$(printf '%s' "${2:-}" | tr -d '"\\\r\n')
+    printf '{"step":"%s","pct":null,"detail":"%s","at":"%s"}' \
+        "$1" "$detail" "$(date -Iseconds)" > "${PROGRESS}.new" 2>/dev/null \
+        && mv "${PROGRESS}.new" "$PROGRESS" 2>/dev/null || true
+    publish_sidecar "$PROGRESS"
+}
+
+# #421 — keep the coarse in-flight stamp fresh while we work. Best-effort:
+# a transient write hiccup must not kill the ticker subshell under set -e
+# (a dead ticker would let the supervisor falsely reap a live apply).
+mark_inflight() {
+    echo "in-flight $(date -Iseconds)" > "${TRIGGER}.state" 2>/dev/null || true
+    publish_sidecar "${TRIGGER}.state"
+}
+
+# Background loop that re-stamps in-flight every $INFLIGHT_TICK_SECONDS
+# until the main script exits. Guarded on the parent still being alive so
+# a SIGKILL of the main pid (which skips the EXIT trap) lets the ticker
+# self-terminate within one tick rather than masking the death by keeping
+# the stamp fresh forever.
+start_inflight_ticker() {
+    local parent=$$
+    (
+        while kill -0 "$parent" 2>/dev/null; do
+            sleep "$INFLIGHT_TICK_SECONDS"
+            kill -0 "$parent" 2>/dev/null || break
+            mark_inflight
+        done
+    ) &
+    TICKER_PID=$!
+}
+
+stop_inflight_ticker() {
+    if [ -n "${TICKER_PID:-}" ]; then
+        kill "$TICKER_PID" 2>/dev/null || true
+        wait "$TICKER_PID" 2>/dev/null || true
+        TICKER_PID=
+    fi
+}
+
+fail() {  # $1 = human reason
+    stop_inflight_ticker  # before the terminal write so it can't be reverted
+    echo
+    echo "  ✗ $1"
+    echo "failed $(date -Iseconds)" > "${TRIGGER}.state"
+    publish_sidecar "${TRIGGER}.state"
+    write_progress "failed" "$1"
+    mv "$TRIGGER" "${TRIGGER}.failed.$(date +%s)" 2>/dev/null || true
+    exit 1
+}
+
+# #421 — last line of defence. Fires on ANY exit once the apply region
+# has been entered (the trap is armed only there). If we leave without a
+# terminal state already on disk, the run died abruptly (SIGTERM from
+# systemd's TimeoutStartSec, an unhandled error under set -e, a killed
+# subprocess) — record it as failed so the upgrade never sticks at
+# in-flight. A clean done/failed exit leaves a terminal state, so this is
+# a no-op then.
+on_exit() {
+    local rc=$?
+    stop_inflight_ticker
+    if [ -f "${TRIGGER}.state" ]; then
+        local st
+        st=$(cut -d' ' -f1 < "${TRIGGER}.state" 2>/dev/null || true)
+        if [ "$st" = "in-flight" ]; then
+            echo
+            echo "  ✗ runner exited (rc=$rc) without writing a terminal state"
+            echo "failed $(date -Iseconds)" > "${TRIGGER}.state"
+    publish_sidecar "${TRIGGER}.state"
+            write_progress "failed" "runner exited (rc=$rc) without completing"
+            [ -f "$TRIGGER" ] && mv "$TRIGGER" "${TRIGGER}.failed.$(date +%s)" 2>/dev/null || true
+        fi
+    fi
+}
+
+if [ ! -f "$TRIGGER" ]; then
+    echo "  no trigger file at $TRIGGER, nothing to do"
+    exit 0
+fi
+
+# Line 1 = image source, fragment stripped.
+IMAGE_SRC=$(sed -n '1p' "$TRIGGER" | tr -d '\r\n')
+IMAGE_SRC=${IMAGE_SRC%%#*}
+
+# Remaining lines = directives (#386) or a legacy bare checksum URL.
+EXPECTED_SHA256=
+INSECURE=
+CHECKSUM_SRC=
+while IFS= read -r line; do
+    line=$(printf '%s' "$line" | tr -d '\r\n')
+    [ -z "$line" ] && continue
+    case "$line" in
+        sha256=*)              EXPECTED_SHA256=${line#sha256=} ;;
+        insecure-tls)          INSECURE=1 ;;
+        checksum=*)            CHECKSUM_SRC=${line#checksum=} ;;
+        https://*|http://*|/*) CHECKSUM_SRC=$line ;;   # legacy bare line 2
+        *) echo "  WARN: ignoring unrecognised trigger line: $line" ;;
+    esac
+done < <(tail -n +2 "$TRIGGER")
+
+if [ -z "$IMAGE_SRC" ]; then
+    echo "  ERROR: trigger file empty, aborting"
+    mv "$TRIGGER" "${TRIGGER}.invalid.$(date +%s)"
+    exit 1
+fi
+
+# Reject anything that doesn't look like a URL or absolute path — basic
+# guard against shell metachars.
+case "$IMAGE_SRC" in
+    https://*|http://*|/*)  ;;
+    *)
+        echo "  ERROR: image src must be http(s):// or absolute path: $IMAGE_SRC"
+        mv "$TRIGGER" "${TRIGGER}.invalid.$(date +%s)"
+        exit 1
+        ;;
+esac
+if [ -n "$CHECKSUM_SRC" ]; then
+    case "$CHECKSUM_SRC" in
+        https://*|http://*|/*)  ;;
+        *)
+            echo "  ERROR: checksum src must be http(s):// or absolute path: $CHECKSUM_SRC"
+            mv "$TRIGGER" "${TRIGGER}.invalid.$(date +%s)"
+            exit 1
+            ;;
+    esac
+fi
+if [ -n "$EXPECTED_SHA256" ]; then
+    case "$EXPECTED_SHA256" in
+        *[!0-9a-fA-F]*)
+            echo "  ERROR: sha256 directive is not hex: $EXPECTED_SHA256"
+            mv "$TRIGGER" "${TRIGGER}.invalid.$(date +%s)"
+            exit 1
+            ;;
+    esac
+fi
+
+echo "  image:    $IMAGE_SRC"
+[ -n "$EXPECTED_SHA256" ] && echo "  sha256:   $EXPECTED_SHA256"
+[ -n "$CHECKSUM_SRC" ] && echo "  checksum: $CHECKSUM_SRC"
+[ -n "$INSECURE" ] && echo "  insecure-tls: yes (self-served URL; bytes verified by hash)"
+echo
+
+# #551 — insecure-tls requires an out-of-band ``sha256=`` literal. A
+# ``checksum=`` sidecar is fetched over the SAME unverified channel, so it
+# is no protection (a MITM serves a matching image+sidecar). spatium-upgrade-
+# slot now rejects ``--insecure`` without ``--expected-sha256`` (exit 2);
+# catch it here with a clear message instead of a cryptic argparse abort.
+if [ -n "$INSECURE" ] && [ -z "$EXPECTED_SHA256" ]; then
+    echo "  ERROR: insecure-tls requires an out-of-band 'sha256=<hex>'"
+    echo "         directive — a 'checksum=' sidecar over the same"
+    echo "         unverified channel provides no real protection."
+    mv "$TRIGGER" "${TRIGGER}.invalid.$(date +%s)"
+    exit 1
+fi
+
+# Mark trigger as in-flight so the UI can show "applying" state. We
+# don't rename it (the .path unit fires on close-after-write, not on
+# every read) but we do touch a sibling marker + progress. From here on
+# we're in the apply region: arm the abrupt-exit trap and start the
+# liveness ticker (#421).
+mark_inflight
+write_progress "queued" "starting slot upgrade"
+trap on_exit EXIT
+start_inflight_ticker
+
+APPLY_ARGS=("apply" "$IMAGE_SRC")
+[ -n "$EXPECTED_SHA256" ] && APPLY_ARGS+=("--expected-sha256" "$EXPECTED_SHA256")
+[ -n "$CHECKSUM_SRC" ] && APPLY_ARGS+=("--checksum" "$CHECKSUM_SRC")
+[ -n "$INSECURE" ] && APPLY_ARGS+=("--insecure")
+
+# #421 — cap the apply so a stalled download / dd self-fails instead of
+# hanging forever. `timeout` sends SIGTERM at the deadline, SIGKILL 30s
+# later; capture the rc without tripping set -e so we can branch on it.
+echo "  → $UPGRADE_SLOT_BIN ${APPLY_ARGS[*]} (timeout ${APPLY_TIMEOUT_SECONDS}s)"
+apply_rc=0
+timeout --kill-after=30 "$APPLY_TIMEOUT_SECONDS" \
+    "$UPGRADE_SLOT_BIN" "${APPLY_ARGS[@]}" || apply_rc=$?
+if [ "$apply_rc" -eq 0 ]; then
+    echo
+    echo "  apply succeeded — calling set-next-boot"
+    write_progress "arming" "arming next-boot"
+    if "$UPGRADE_SLOT_BIN" set-next-boot; then
+        echo
+        echo "  ✓ next-boot armed. Operator needs to reboot to switch slots."
+        stop_inflight_ticker  # before the terminal write so it can't be reverted
+        echo "done $(date -Iseconds)" > "${TRIGGER}.state"
+        publish_sidecar "${TRIGGER}.state"
+        write_progress "reboot-pending" "upgrade staged — reboot to boot the new slot"
+        # Parity with every other terminal mv: never let a rename race
+        # (e.g. supervisor already reaped the trigger) abort under set -e
+        # after the correct terminal state is already on disk (#421).
+        mv "$TRIGGER" "${TRIGGER}.done.$(date +%s)" 2>/dev/null || true
+    else
+        fail "set-next-boot failed (image is written but next-boot not armed)"
+    fi
+elif [ "$apply_rc" -eq 124 ] || [ "$apply_rc" -eq 137 ]; then
+    fail "apply timed out after ${APPLY_TIMEOUT_SECONDS}s (stalled download or dd) — see slot-upgrade.log"
+else
+    # rc=5 is #1026's architecture refusal: the image was written to the
+    # inactive slot and the bootloader deliberately NOT pointed at it.
+    # Named separately because "apply failed" reads as a broken download
+    # or a bad disk, and this one is neither — the operator has to fetch
+    # a different image, not retry this one.
+    if [ "$apply_rc" -eq 5 ]; then
+        fail "apply refused: the image is built for a different CPU architecture than this node (rc=5) — the active slot is untouched; fetch the image for this node's architecture"
+    # rc=6 is #1216: the image download was cut short and the retries did
+    # not recover it. Named separately because it is neither a bad image
+    # nor a bad disk — nothing was written, and retrying the upgrade once
+    # the path to the image is stable again is the whole remedy.
+    elif [ "$apply_rc" -eq 6 ]; then
+        fail "apply failed: the image download was interrupted and did not complete after retries (rc=6) — nothing was written to the inactive slot; retry the upgrade (see slot-upgrade.log)"
+    else
+        fail "apply failed (rc=${apply_rc}) — see slot-upgrade.log for the cause (download / verify / write / architecture)"
+    fi
+fi

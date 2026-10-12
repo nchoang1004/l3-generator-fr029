@@ -1,0 +1,190 @@
+import { Component, inject, signal, computed, effect, OnInit, DestroyRef } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Router, ActivatedRoute } from '@angular/router';
+import { DecimalPipe } from '@angular/common';
+import { MatIconModule } from '@angular/material/icon';
+import { MatButtonModule } from '@angular/material/button';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { firstValueFrom } from 'rxjs';
+import { ApiService } from '../../core/services/api.service';
+import { PageHelpService } from '../../core/services/page-help.service';
+import { TranslatePipe } from '../../shared/pipes/translate.pipe';
+import { ThumbnailUrlPipe } from '../../shared/pipes/thumbnail-url.pipe';
+import { I18N, I18N_KEYS } from '../../core/i18n/keys';
+import { buildFolderBreadcrumbs, type FolderItem, type FoldersResponse } from './folders.util';
+import { GalleryStore } from '../gallery/gallery.store';
+
+@Component({
+  selector: 'app-folders',
+  standalone: true,
+  imports: [
+    DecimalPipe,
+    MatIconModule,
+    MatButtonModule,
+    MatProgressSpinnerModule,
+    MatTooltipModule,
+    TranslatePipe,
+    ThumbnailUrlPipe,
+  ],
+  host: { class: 'block px-4 pt-4 pb-4' },
+  template: `
+    @if (loading() && folders().length === 0) {
+      <div class="flex justify-center py-16">
+        <mat-spinner diameter="48" [attr.aria-label]="I18N.ui.labels.loading | translate" />
+      </div>
+    }
+
+    <!-- Breadcrumb -->
+    @if (breadcrumbs().length > 0) {
+      <nav class="flex items-center gap-1 text-sm mb-3 flex-wrap">
+        <button mat-button class="!min-w-0 !px-2" (click)="navigateTo('')">
+          <mat-icon class="!text-base !w-4 !h-4 !leading-4 mr-1">home</mat-icon>
+          {{ I18N.folders.root | translate }}
+        </button>
+        @for (crumb of breadcrumbs(); track crumb.path) {
+          <mat-icon class="!text-base !w-4 !h-4 !leading-4 opacity-40">chevron_right</mat-icon>
+          @if (!$last) {
+            <button mat-button class="!min-w-0 !px-2" (click)="navigateTo(crumb.path)">
+              {{ crumb.name }}
+            </button>
+          } @else {
+            <span class="px-2 font-medium">{{ crumb.name }}</span>
+          }
+        }
+      </nav>
+    }
+
+    @if (!loading() && folders().length === 0) {
+      <div class="text-center py-16 opacity-60">
+        <mat-icon class="!text-5xl !w-12 !h-12 mb-4">folder_off</mat-icon>
+        <p>{{ I18N.folders.empty | translate }}</p>
+      </div>
+    }
+
+    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+      @for (folder of folders(); track folder.path) {
+        <div class="relative">
+          <button
+            class="group flex flex-col w-full rounded-xl overflow-hidden bg-[var(--mat-sys-surface-container)] hover:shadow-lg transition-shadow cursor-pointer text-left"
+            (click)="openFolder(folder)">
+            @if (folder.cover_photo_path) {
+              <div class="relative w-full aspect-[4/3] overflow-hidden">
+                <img [src]="folder.cover_photo_path | thumbnailUrl:320"
+                     [alt]="folder.name"
+                     loading="lazy"
+                     class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                <div class="absolute inset-x-0 top-0 z-[5] flex items-start gap-1 bg-gradient-to-b from-black/70 to-transparent px-2 pt-1.5 pb-4 pointer-events-none">
+                  <span class="text-white text-xs font-medium truncate">{{ folder.name }}</span>
+                </div>
+              </div>
+            } @else {
+              <div class="relative w-full aspect-[4/3] flex items-center justify-center overflow-hidden bg-[var(--mat-sys-surface-container-high)]">
+                <mat-icon class="!text-4xl !w-10 !h-10 opacity-30">folder</mat-icon>
+                <div class="absolute inset-x-0 top-0 z-[5] flex items-start gap-1 bg-gradient-to-b from-black/70 to-transparent px-2 pt-1.5 pb-4 pointer-events-none">
+                  <span class="text-white text-xs font-medium truncate">{{ folder.name }}</span>
+                </div>
+              </div>
+            }
+            <div class="p-3">
+              <div class="text-xs opacity-60">{{ folder.photo_count | number }} {{ I18N.folders.photos_count | translate }}</div>
+            </div>
+          </button>
+          <button
+            mat-icon-button
+            class="!absolute top-0.5 right-0.5 z-10 !text-white !bg-black/40"
+            [matTooltip]="I18N.folders.filter_gallery | translate"
+            [attr.aria-label]="(I18N.folders.filter_gallery | translate) + ' — ' + folder.name"
+            (click)="filterInGallery(folder)">
+            <mat-icon class="!text-base !w-5 !h-5 !leading-5">filter_alt</mat-icon>
+          </button>
+        </div>
+      }
+    </div>
+  `,
+})
+export class FoldersComponent implements OnInit {
+  protected readonly I18N = I18N_KEYS;
+  private readonly api = inject(ApiService);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly pageHelp = inject(PageHelpService);
+  private readonly store = inject(GalleryStore);
+
+  protected readonly folders = signal<FolderItem[]>([]);
+  protected readonly loading = signal(false);
+  protected readonly currentPrefix = signal('');
+
+  protected readonly breadcrumbs = computed(() => buildFolderBreadcrumbs(this.currentPrefix()));
+
+  constructor() {
+    // Re-fetch on prefix navigation AND whenever the gallery's effective hide
+    // toggles change — deep-linking to /folders can race loadConfig() (it's
+    // fired without awaiting), so reading the store signal here is what makes
+    // the counts self-heal once config lands.
+    effect(() => {
+      this.currentPrefix();
+      this.store.viewFilterParams();
+      this.loadFolders();
+    });
+  }
+
+  ngOnInit(): void {
+    this.pageHelp.setDescription(I18N.folders.help);
+    this.destroyRef.onDestroy(() => this.pageHelp.setDescription(null));
+    this.route.queryParams.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(params => {
+      this.currentPrefix.set(params['prefix'] || '');
+    });
+  }
+
+  private async loadFolders(): Promise<void> {
+    this.loading.set(true);
+    try {
+      const res = await firstValueFrom(
+        this.api.get<FoldersResponse>('/folders', {
+          prefix: this.currentPrefix(),
+          ...this.store.viewFilterParams(),
+        }),
+      );
+      // Auto-redirect to gallery if no subfolders (leaf directory)
+      // replaceUrl avoids a back-button loop (back → leaf folder → redirect → gallery → …)
+      if (res.folders.length === 0 && this.currentPrefix()) {
+        this.router.navigate(['/'], {
+          queryParams: {
+            path_prefix: this.currentPrefix(),
+            sort: 'date_taken',
+            sort_direction: 'DESC',
+          },
+          replaceUrl: true,
+        });
+        return;
+      }
+      this.folders.set(res.folders);
+    } finally {
+      this.loading.set(false);
+    }
+  }
+
+  protected navigateTo(prefix: string): void {
+    this.router.navigate(['/folders'], {
+      queryParams: prefix ? { prefix } : {},
+    });
+  }
+
+  protected openFolder(folder: FolderItem): void {
+    this.router.navigate(['/folders'], {
+      queryParams: { prefix: folder.path },
+    });
+  }
+
+  protected filterInGallery(folder: FolderItem): void {
+    this.router.navigate(['/'], {
+      queryParams: {
+        path_prefix: folder.path,
+        sort: 'date_taken',
+        sort_direction: 'DESC',
+      },
+    });
+  }
+}

@@ -1,0 +1,158 @@
+{{- if and .Values.redis.enabled (eq (.Values.redis.kind | default "standalone") "standalone") }}
+{{- $cmp := "redis" -}}
+{{- $secretName := printf "%s-redis" (include "spatiumddi.fullname" .) -}}
+# ─────────────────────────────────────────────────────────────────────────────
+# In-chart Redis — single-node StatefulSet using the official
+# ``redis:8.10.2-alpine`` image. Sized for a small lab / single-VM
+# deployment. Real production HA installs flip ``redis.kind=sentinel``
+# (#272 Phase 3 — templates/redis-sentinel.yaml) or set
+# ``redis.enabled=false`` and point ``externalRedis`` at a
+# self-managed Redis.
+#
+# The credentials Secret is rendered by templates/redis-secret.yaml —
+# shared with the sentinel kind so a kind switch reuses the password.
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "spatiumddi.fullname" . }}-redis
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "spatiumddi.componentLabels" (merge (dict "component" $cmp) .) | nindent 4 }}
+spec:
+  serviceName: {{ include "spatiumddi.fullname" . }}-redis-headless
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "spatiumddi.componentSelectorLabels" (merge (dict "component" $cmp) .) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "spatiumddi.componentSelectorLabels" (merge (dict "component" $cmp) .) | nindent 8 }}
+    spec:
+      {{- include "spatiumddi.hostUsers" (dict "value" .Values.redis.hostUsers "conflict" false "workload" "redis" "why" "") | nindent 6 }}
+      {{- with (include "spatiumddi.priorityClassName" (dict "component" .Values.redis.priorityClassName "fallback" (.Values.global).priorityClassName)) }}
+      priorityClassName: {{ . | quote }}
+      {{- end }}
+      terminationGracePeriodSeconds: 30
+      securityContext:
+        {{- with (include "spatiumddi.seccompProfileType" $) }}
+        seccompProfile:
+          type: {{ . }}
+        {{- end }}
+        # Redis Alpine image runs as 999:999 by default.
+        fsGroup: 999
+      containers:
+        - name: redis
+          image: "{{ .Values.redis.image.repository }}:{{ .Values.redis.image.tag }}"
+          imagePullPolicy: {{ .Values.redis.image.pullPolicy }}
+          ports:
+            - name: redis
+              containerPort: 6379
+          # Match the cache-friendly ``maxmemory`` policy used in
+          # docker-compose.yml — keeps the in-cluster Redis bounded
+          # and behaves like the compose stack on eviction.
+          # #590 — ``--aof-load-corrupt-tail-max-size`` tolerates the torn
+          # AOF tail a hard power loss leaves behind. Redis defaults it to
+          # 0 (refuse to start on any corruption), which turns a few bytes
+          # of expendable cache into a permanent crashloop. Same rationale
+          # as the sentinel path; see redis-sentinel.yaml. The value is a
+          # plain byte count — redis rejects a "16mb"-style suffix here.
+          {{- if .Values.redis.auth.enabled }}
+          command:
+            - sh
+            - -c
+            - exec redis-server --requirepass "$REDIS_PASSWORD" --maxmemory {{ .Values.redis.maxmemory | quote }} --maxmemory-policy allkeys-lru --appendonly yes --aof-load-corrupt-tail-max-size {{ int .Values.redis.aofLoadCorruptTailMaxBytes }}
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "spatiumddi.redisSecretName" . }}
+                  key: {{ include "spatiumddi.redisSecretPasswordKey" . }}
+          {{- else }}
+          command:
+            - redis-server
+            - --maxmemory
+            - {{ .Values.redis.maxmemory | quote }}
+            - --maxmemory-policy
+            - allkeys-lru
+            - --appendonly
+            - "yes"
+            - --aof-load-corrupt-tail-max-size
+            - {{ int .Values.redis.aofLoadCorruptTailMaxBytes | quote }}
+          {{- end }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          livenessProbe:
+            tcpSocket:
+              port: redis
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.redis.resources | nindent 12 }}
+      {{- include "spatiumddi.controlPlaneNodeSelector" (merge (dict "componentNodeSelector" .Values.redis.nodeSelector) .) | nindent 6 }}
+      {{- with .Values.redis.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.redis.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  {{- if .Values.redis.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- with .Values.redis.persistence.storageClass }}
+        storageClassName: {{ . | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.redis.persistence.size | quote }}
+  {{- else }}
+      volumes:
+        - name: data
+          emptyDir: {}
+  {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "spatiumddi.fullname" . }}-redis-master
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "spatiumddi.componentLabels" (merge (dict "component" $cmp) .) | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "spatiumddi.componentSelectorLabels" (merge (dict "component" $cmp) .) | nindent 4 }}
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: redis
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "spatiumddi.fullname" . }}-redis-headless
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "spatiumddi.componentLabels" (merge (dict "component" $cmp) .) | nindent 4 }}
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    {{- include "spatiumddi.componentSelectorLabels" (merge (dict "component" $cmp) .) | nindent 4 }}
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: redis
+{{- end }}

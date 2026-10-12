@@ -1,0 +1,193 @@
+"""Caption routes use the Subject's own VIEW/EDIT boundary for all four kinds."""
+
+import pytest
+from sqlmodel import select
+
+from app.db.models import AuditLog, CollectionRole, SubjectCaption
+from tests.factories import bearer
+
+
+class TestCaptionAPI:
+    @pytest.mark.parametrize(
+        "payload",
+        [
+            {"action": "edit"},
+            {"action": "edit", "text": " \n\t"},
+            {"action": "dismiss", "text": "unexpected"},
+            {"action": "reset", "text": "unexpected"},
+            {"action": "generate", "text": "unexpected"},
+        ],
+    )
+    def test_rejects_inconsistent_edits(
+        self, client, db_session, make_model, auth_headers, payload
+    ):
+        model = make_model()
+        response = client.patch(
+            f"/api/v1/subjects/model/{model.id}/caption",
+            headers=auth_headers,
+            json=payload,
+        )
+        assert response.status_code == 422, response.text
+        assert db_session.exec(select(SubjectCaption)).all() == []
+
+    @pytest.mark.parametrize(
+        "kind", ["model", "collection", "multipart_model", "document"]
+    )
+    def test_enforces_subject_edit_permissions(
+        self,
+        client,
+        db_session,
+        make_user,
+        make_model,
+        make_collection,
+        make_document,
+        make_multipart_model,
+        grant_role,
+        kind,
+    ):
+        parent = make_collection("Shared")
+        owner = {
+            "model": lambda: make_model(collection=parent),
+            "collection": lambda: parent,
+            "document": lambda: make_document(collection_id=parent.id),
+            "multipart_model": lambda: make_multipart_model(collection=parent),
+        }[kind]()
+        viewer, editor, outsider = make_user(), make_user(), make_user()
+        grant_role(viewer, parent, CollectionRole.VIEW)
+        grant_role(editor, parent, CollectionRole.EDIT)
+        url = f"/api/v1/subjects/{kind}/{owner.id}/caption"
+        viewed = client.get(url, headers=bearer(viewer))
+        assert viewed.status_code == 200
+        assert not viewed.json()["can_edit"]
+        assert (
+            client.patch(
+                url,
+                headers=bearer(viewer),
+                json={"action": "edit", "text": "Unauthorized"},
+            ).status_code
+            == 403
+        )
+        assert client.get(url, headers=bearer(outsider)).status_code == 404
+        assert (
+            client.patch(
+                url, headers=bearer(outsider), json={"action": "dismiss"}
+            ).status_code
+            == 404
+        )
+        updated = client.patch(
+            url,
+            headers=bearer(editor),
+            json={"action": "edit", "text": "<img src=x onerror=alert(1)>"},
+        )
+        assert updated.status_code == 200
+        assert updated.json()["state"] == "edited"
+        assert updated.json()["text"] == "<img src=x onerror=alert(1)>"
+        assert updated.json()["edited_by"] == editor.id
+        assert (
+            client.patch(
+                url, headers=bearer(editor), json={"action": "edit", "text": "x" * 2049}
+            ).status_code
+            == 422
+        )
+        dismissed = client.patch(
+            url,
+            headers=bearer(editor),
+            json={
+                "action": "dismiss",
+                "version_token": updated.json()["version_token"],
+            },
+        )
+        assert dismissed.status_code == 200
+        assert dismissed.json()["text"] == ""
+        assert db_session.exec(select(SubjectCaption)).one().state == "dismissed"
+        audit = db_session.exec(
+            select(AuditLog).where(AuditLog.action == "subject_caption_edit")
+        ).one()
+        assert audit.actor_id == editor.id
+        assert "onerror" not in audit.diff_json
+
+    def test_requires_a_signed_in_principal(self, client, make_model):
+        model = make_model()
+        url = f"/api/v1/subjects/model/{model.id}/caption"
+        assert client.get(url).status_code == 401
+        assert client.patch(url, json={"action": "dismiss"}).status_code == 401
+
+    def test_rejects_read_scope_caption_edits(
+        self, client, db_session, make_user, make_model, make_collection, grant_role
+    ):
+        collection = make_collection()
+        model = make_model(collection=collection)
+        editor = make_user()
+        grant_role(editor, collection, CollectionRole.EDIT)
+
+        response = client.patch(
+            f"/api/v1/subjects/model/{model.id}/caption",
+            headers=bearer(editor, scope="read"),
+            json={"action": "edit", "text": "Forbidden edit"},
+        )
+
+        assert response.status_code == 401, response.text
+        assert response.json()["detail"] == "insufficient_scope"
+        assert db_session.exec(select(SubjectCaption)).all() == []
+
+    def test_permits_read_scope_caption_reads(
+        self, client, make_user, make_model, make_collection, grant_role
+    ):
+        collection = make_collection()
+        model = make_model(collection=collection)
+        viewer = make_user()
+        grant_role(viewer, collection, CollectionRole.VIEW)
+
+        response = client.get(
+            f"/api/v1/subjects/model/{model.id}/caption",
+            headers=bearer(viewer, scope="read"),
+        )
+
+        assert response.status_code == 200, response.text
+        assert response.json()["can_edit"] is False
+
+
+class TestEditedCaptionSearch:
+    def test_an_uploaded_models_edited_caption_is_searchable(
+        self, client, auth_headers, tmp_path
+    ):
+        # The real-backend flow: a Model committed by its ingest Job and then
+        # derived and projected by theirs, whose caption a user then edits.
+        from tests._env import use_local_storage
+        from tests.integration.api.v1._ingest_assertions import drain_work
+
+        use_local_storage(tmp_path)
+        accepted = client.post(
+            "/api/v1/ingest/model",
+            headers=auth_headers,
+            files={
+                "file": (
+                    "cube.stl",
+                    b"solid cube\nfacet normal 0 0 1\nouter loop\n"
+                    b"endloop\nendfacet\nendsolid cube\n",
+                    "application/sla",
+                )
+            },
+        )
+        assert accepted.status_code == 202, accepted.text
+        drain_work()
+        job = client.get(
+            f"/api/v1/jobs/{accepted.json()['job_id']}", headers=auth_headers
+        ).json()
+        model_id = job["model_id"]
+        caption = client.patch(
+            f"/api/v1/subjects/model/{model_id}/caption",
+            headers=auth_headers,
+            json={"action": "edit", "text": "zygomaticphrase mounting fixture"},
+        )
+        assert caption.status_code == 200, caption.text
+        drain_work()
+
+        found = client.get(
+            "/api/v1/search",
+            headers=auth_headers,
+            params={"q": "zygomaticphrase", "mode": "lexical"},
+        )
+
+        assert found.status_code == 200, found.text
+        assert [item["subject_id"] for item in found.json()["items"]] == [model_id]

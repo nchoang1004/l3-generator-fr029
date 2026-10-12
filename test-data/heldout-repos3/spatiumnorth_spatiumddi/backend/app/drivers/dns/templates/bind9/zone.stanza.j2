@@ -1,0 +1,47 @@
+{%- if zone.zone_type == "forward" %}
+zone "{{ zone.name }}" {
+    type forward;
+    forward {{ "only" if zone.forward_only else "first" }};
+    forwarders { {% for f in zone.forwarders %}{{ f }}; {% endfor %}};
+};
+{%- elif zone.zone_type in ("secondary", "slave", "stub") %}
+zone "{{ zone.name }}" {
+    type {{ "stub" if zone.zone_type == "stub" else "slave" }};
+    file "/var/cache/bind/zones/{{ zone.name }}db";
+    masters { {% for m in zone.masters %}{{ m.replace("@", " port ") }}; {% endfor %}};
+    {%- if zone.allow_query %}
+    allow-query { {% for a in zone.allow_query %}{{ a }}; {% endfor %}};
+    {%- endif %}
+    {%- if zone.allow_transfer %}
+    allow-transfer { {% for a in zone.allow_transfer %}{{ a }}; {% endfor %}};
+    {%- endif %}
+};
+{%- else %}
+zone "{{ zone.name }}" {
+    type master;
+    file "/var/cache/bind/zones/{{ zone.name }}db";
+    {%- if zone.dnssec_enabled and zone.zone_type == "primary" %}
+    dnssec-policy "{{ zone.dnssec_policy_name or "default" }}";
+    inline-signing yes;
+    {%- endif %}
+    {%- if zone.allow_query %}
+    allow-query { {% for a in zone.allow_query %}{{ a }}; {% endfor %}};
+    {%- endif %}
+    {%- if zone.allow_transfer %}
+    allow-transfer { {% for a in zone.allow_transfer %}{{ a }}; {% endfor %}};
+    {%- endif %}
+    {#- Dynamic-update (RFC 2136) ACL (issue #641). ``update_clause`` is
+        computed in the driver (``_render_update_clause``): coarse
+        ``allow-update`` for IP/TSIG grants, or fine ``update-policy`` when the
+        ACL uses name-scope / per-type / deny. Empty when the zone has no ACL. #}
+    {%- if update_clause %}
+    {{ update_clause }}
+    {%- endif %}
+    {%- if zone.also_notify %}
+    also-notify { {% for a in zone.also_notify %}{{ a }}; {% endfor %}};
+    {%- endif %}
+    {%- if zone.notify_enabled %}
+    notify {{ zone.notify_enabled }};
+    {%- endif %}
+};
+{%- endif %}

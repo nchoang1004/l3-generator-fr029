@@ -1,0 +1,125 @@
+# Facet Dependencies
+# Install with: pip install -r requirements.txt
+# Note: Also requires 'exiftool' command-line tool (install via system package manager)
+
+# Deep Learning / GPU
+# PyTorch is installed separately with the correct CUDA index URL.
+# Run: bash install.sh (auto-detects GPU)
+# Or manually: pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+open-clip-torch>=2.20.0
+
+# HuggingFace Transformers - required for BiRefNet saliency, SigLIP 2 NaFlex embeddings,
+# and VLM taggers (Qwen3.5 / Qwen3-VL / Qwen2.5-VL on 16gb/24gb profiles).
+# Floor is 5.3.0: it patches GHSA-29pf-2h5f-8g72 / CVE-2026-4372 (RCE via a malicious
+# config.json _attn_implementation_internal). 5.3 also added the per-token
+# mm_token_type_ids key to the Qwen3.5 processor, which models/vlm_tagger.py
+# _batch_qwen3 now left-pads like input_ids instead of raw-concatenating.
+# Upper-bounded at the newest validated release rather than left open, so a future
+# processor-output change cannot break batched tagging silently.
+transformers>=5.3.0,<5.16
+# accelerate is required for VLM taggers (device_map="auto") and SigLIP 2.
+# install.sh installs it unconditionally — keep it here for direct pip users too.
+accelerate>=0.25.0
+
+# Image Processing
+opencv-python>=4.8.0
+pillow>=11.3
+pillow-heif>=1.5.0
+imagehash>=4.3.0
+rawpy>=0.18.0
+
+# Face Detection
+insightface>=0.7.0
+# ONNX Runtime — install.sh auto-detects nvidia-smi and installs the right
+# variant (onnxruntime-gpu for CUDA 11.8/12.x/13.x, plain onnxruntime on CPU).
+# If you bypass install.sh and pip install directly, pick ONE of:
+#   onnxruntime>=1.15.0           # CPU only
+#   onnxruntime-gpu>=1.17.0       # GPU acceleration for CUDA 12.x / 13.x
+#   onnxruntime-gpu>=1.15.0,<1.18 # GPU acceleration for CUDA 11.8
+
+# Quality Assessment (PyIQA models: TOPIQ, HyperIQA, DBCNN, MUSIQ).
+# >=0.1.16 also exposes Q-ReAlign (qrealign) — see models/pyiqa_scorer.py
+# PYIQA_MODELS for the registered models and their score ranges.
+pyiqa>=0.1.16
+# pyiqa's liqe/clipiqa archs depend on PyPI openai-clip, which still imports
+# pkg_resources at runtime (LIQE/CLIPIQA); setuptools 81 removed pkg_resources.
+setuptools<81
+
+# Extended IQA tier (OPTIONAL — see docs/CONFIGURATION.md "Extended IQA tier").
+# Enabled per-metric via scoring_config.json "iqa_extended". Only aesthetic_v25
+# needs a package of its own, and it is heavy + GPU-bound, so it is left
+# commented to keep the default install / Docker image lean. Uncomment (or
+# `pip install .[iqa-extended]`) if you enable it:
+#   aesthetic-predictor-v2-5   # iqa_extended.aesthetic_v25 (SigLIP aesthetic head, ~2GB)
+# (Q-ReAlign comes from pyiqa above and needs no quantisation backend;
+# DeQA-Score downloads via transformers.)
+
+# Scientific Computing
+numpy>=1.24.0
+scipy>=1.10.0
+hdbscan>=0.8.40  # Face clustering (standalone library, sklearn's HDBSCAN has epsilon bug)
+
+# Web Interface
+fastapi>=0.100.0
+uvicorn>=0.23.0
+pyjwt>=2.8.0
+
+# Utilities
+tqdm>=4.65.0
+exifread>=3.0.0
+
+# System Monitoring (for batch processing auto-tuning)
+psutil>=5.9.0
+
+# Reverse Geocoding (offline, local GeoNames dataset ~30MB)
+reverse_geocoder>=1.5.1
+
+# Config schema validation (scoring_config.json structural checks)
+jsonschema>=4.18.0
+
+# Powers POST /api/cull/apply's trash_rejects action, gated at runtime by
+# viewer.cull.allow_trash (off by default) — recoverable OS-trash, never a
+# permanent delete. Pure Python, no dependencies of its own. Shipped as a base
+# dependency rather than an optional extra: the Docker/Podman image installs
+# from requirements.lock.txt / requirements.legacy.lock.txt, never from a
+# pyproject extra, so an extra-gated install never reached the image and the
+# endpoint 400'd on every container (issue #125).
+send2trash>=1.8.0
+
+# In-photo OCR text search (OPTIONAL, OFF by default — scoring_config.json "ocr").
+# Powers `--detect-text`, which fills photos.ocr_text and is indexed by photos_fts.
+# Apache-2.0 and torch-based, so it reuses the stack already installed above: it
+# adds only easyocr + ninja + pyclipper + python-bidi and pins no numpy/torch/cv2
+# version. Weights (~113MB) download on first run. Install via .[ocr]:
+#   easyocr>=1.7.2
+# The tesseract binary + pytesseract works as an alternative engine (like
+# exiftool, an optional external tool), but reads scene text markedly less well.
+
+# Vector search (sqlite-vec for CLIP/SigLIP embedding KNN queries)
+sqlite-vec>=0.1.6
+
+# Lightroom Classic 13+ "Merge to HDR/Panorama"/Enhance DNGs are JPEG XL
+# compressed (DNG 1.7, TIFF compression 52546) end to end, previews included,
+# so LibRaw rejects them and Pillow cannot decode the preview either.
+# utils.image_loading.extract_dng_jxl_preview decodes it with tifffile, which
+# reads JPEG XL tiles through imagecodecs.
+tifffile>=2024.1.1
+imagecodecs>=2024.1.1
+
+# Async SQLite for FastAPI read endpoints (see api/database.py get_async_db)
+aiosqlite>=0.20.0
+
+# Subject Saliency: BiRefNet loaded via transformers (see above). Its remote
+# modeling code imports kornia, which transformers does not pull in — without it
+# the saliency pass fails with "requires ... kornia" and stores no subject metrics.
+kornia>=0.7.0
+
+# GPU Face Clustering (optional, requires conda + CUDA)
+# cuml
+# cupy
+
+# Testing — async test support (tests/test_async_db.py uses @pytest.mark.asyncio)
+pytest-asyncio>=0.23.0
+# Testing — per-test timeouts (tests/test_batch_processor_e2e.py uses @pytest.mark.timeout
+# so a threaded-engine regression fails instead of hanging the suite forever)
+pytest-timeout>=2.3.0

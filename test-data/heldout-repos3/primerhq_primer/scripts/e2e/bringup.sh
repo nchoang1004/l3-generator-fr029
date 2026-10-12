@@ -1,0 +1,306 @@
+#!/usr/bin/env bash
+# Bring up the primer test environment.
+#
+# Container runtime: Podman or Docker. The script auto-detects which one
+# is on $PATH (podman first, then docker) and uses its `compose`
+# subcommand. Override with PRIMER_E2E_CONTAINER_RUNTIME=podman|docker
+# if both are installed and you need to pin one explicitly.
+#
+# Steps:
+#   1. $RUNTIME compose up -d, wait for postgres healthcheck
+#   2. drop+recreate the primer_e2e database with the pgvector extension
+#   3. render tests/.e2e/config.yaml
+#   4. launch `uv run primer api` in the background (worker runs by default)
+#   5. poll /v1/health until 200 (30 s timeout)
+#
+# Exit code 0 means the server is up and ready for tests.
+# Exit code 1 means something failed — relevant diagnostics are dumped to
+# stderr before exiting, and the caller (the test loop) should NOT try to
+# run tests; it should mark the iteration BLOCKED and call teardown.sh.
+
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+cd "$ROOT"
+
+# Windows-friendly PATH augmentation: when this script is invoked from
+# pytest / a Claude Code Bash tool / a bare git-bash window, $PATH may
+# not include the Windows app dirs where podman lives. Prepend the
+# common locations idempotently so the script can find it. Mirrors
+# scripts/e2e/ui-bringup.sh's shim.
+case "${OS:-}${OSTYPE:-}" in
+    *win*|*Win*|*msys*|*cygwin*)
+        for p in \
+            "/c/Users/${USERNAME:-$USER}/AppData/Local/Programs/Podman" \
+            "/c/Users/${USERNAME:-$USER}/AppData/Local/Microsoft/WindowsApps" \
+            "/c/Program Files/podman" ; do
+            if [[ -d "$p" && ":$PATH:" != *":$p:"* ]]; then
+                PATH="$p:$PATH"
+            fi
+        done
+        export PATH
+        ;;
+esac
+
+# Container-runtime autodetect. PRIMER_E2E_CONTAINER_RUNTIME pins it
+# explicitly; otherwise we prefer podman (the documented default) and
+# fall back to docker. Either way the variable expands to the binary
+# name; both have a `compose` subcommand against the same compose file.
+RUNTIME="${PRIMER_E2E_CONTAINER_RUNTIME:-}"
+if [[ -z "$RUNTIME" ]]; then
+    if command -v podman >/dev/null 2>&1; then
+        RUNTIME="podman"
+    elif command -v docker >/dev/null 2>&1; then
+        RUNTIME="docker"
+    else
+        echo "[bringup] FATAL: neither podman nor docker on PATH" >&2
+        exit 1
+    fi
+fi
+echo "[bringup] using container runtime: $RUNTIME" >&2
+
+E2E_DIR="$ROOT/tests/.e2e"
+LOG_DIR="$E2E_DIR/logs"
+CONFIG="$E2E_DIR/config.yaml"
+PID_FILE="$E2E_DIR/server.pid"
+STDOUT_FILE="$E2E_DIR/server.stdout"
+
+PORT="${PRIMER_E2E_PORT:-8765}"
+DB_USER="${PRIMER_DB_USER:-primer}"
+DB_PASSWORD="${PRIMER_DB_PASSWORD:-primer}"
+DB_NAME="primer_e2e"
+# docker-compose.yml already publishes the container on ${PRIMER_DB_PORT:-5432};
+# the rendered config has to agree with it, or bring-up fails on any machine
+# that already has something else bound to 5432.
+DB_PORT="${PRIMER_DB_PORT:-5432}"
+# Set PRIMER_E2E_NO_VECTOR=1 to render an AppConfig without a vector_store
+# block. Used by gating tests that need to assert 503 behaviour on the
+# collection / document / search routes when the subsystem is disabled.
+NO_VECTOR="${PRIMER_E2E_NO_VECTOR:-0}"
+
+mkdir -p "$E2E_DIR" "$LOG_DIR"
+
+# ---- 1. Docker --------------------------------------------------------------
+
+echo "[bringup] starting postgres container..." >&2
+$RUNTIME compose up -d postgres >&2
+
+echo "[bringup] waiting for postgres healthcheck..." >&2
+deadline=$(( $(date +%s) + 60 ))
+until $RUNTIME compose exec -T postgres pg_isready -U "$DB_USER" -d postgres -q; do
+    if [[ $(date +%s) -ge $deadline ]]; then
+        echo "[bringup] FATAL: postgres failed healthcheck within 60s" >&2
+        $RUNTIME compose logs --tail=50 postgres >&2 || true
+        exit 1
+    fi
+    sleep 1
+done
+echo "[bringup] postgres ready" >&2
+
+# ---- 2. Reset DB ------------------------------------------------------------
+#
+# pg_isready (above) can report ready against the Postgres image's TEMPORARY
+# init server, which is shut down before the REAL server starts. A psql run in
+# that window dies with "FATAL: the database system is shutting down" — observed
+# as a flaky CI bring-up failure (the reset, not any test, fails with exit 2).
+# Retry the reset until the real server accepts it so the init-restart race
+# cannot fail the whole bring-up. DROP ... IF EXISTS keeps each attempt
+# idempotent (a CREATE that half-succeeded is dropped and redone next attempt).
+
+echo "[bringup] resetting database $DB_NAME..." >&2
+reset_deadline=$(( $(date +%s) + 60 ))
+until $RUNTIME compose exec -T -e PGPASSWORD="$DB_PASSWORD" postgres \
+        psql -U "$DB_USER" -d postgres -v ON_ERROR_STOP=1 \
+        -c "DROP DATABASE IF EXISTS $DB_NAME;" \
+        -c "CREATE DATABASE $DB_NAME;" >&2 \
+    && $RUNTIME compose exec -T -e PGPASSWORD="$DB_PASSWORD" postgres \
+        psql -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 \
+        -c "CREATE EXTENSION IF NOT EXISTS vector;" >&2
+do
+    if [[ $(date +%s) -ge $reset_deadline ]]; then
+        echo "[bringup] FATAL: database reset did not succeed within 60s" >&2
+        $RUNTIME compose logs --tail=50 postgres >&2 || true
+        exit 1
+    fi
+    echo "[bringup] reset failed (postgres likely still initialising) — retry in 2s" >&2
+    sleep 2
+done
+echo "[bringup] database reset" >&2
+
+# ---- 3. Render config -------------------------------------------------------
+
+cat > "$CONFIG" <<EOF
+# Auto-rendered by scripts/e2e/bringup.sh — DO NOT EDIT MANUALLY.
+db:
+  provider: postgres
+  config:
+    hostname: localhost
+    port: $DB_PORT
+    database: $DB_NAME
+    username: $DB_USER
+    password: $DB_PASSWORD
+    # Yielding-tools (M2+) holds one perpetual LISTEN connection plus
+    # several polling background tasks; min=1/max=5 deadlocks the
+    # lifespan on Windows. min=5/max=20 leaves comfortable headroom.
+    pool:
+      min_size: 5
+      max_size: 20
+
+host: 127.0.0.1
+port: $PORT
+
+log_level: info
+log_json: true
+log_file: ./tests/.e2e/logs/primer.log
+
+scheduler:
+  provider: postgres
+  config: {}
+
+EOF
+
+if [[ "$NO_VECTOR" != "1" ]]; then
+    cat >> "$CONFIG" <<EOF
+vector_store:
+  provider: pgvector
+  config:
+    hostname: localhost
+    port: $DB_PORT
+    database: $DB_NAME
+    username: $DB_USER
+    password: $DB_PASSWORD
+
+EOF
+else
+    echo "[bringup] PRIMER_E2E_NO_VECTOR=1 — omitting vector_store block from config" >&2
+fi
+
+cat >> "$CONFIG" <<EOF
+worker:
+  concurrency: 4
+  heartbeat_interval_seconds: 5
+  lease_ttl_seconds: 15
+  poll_interval_seconds: 1.0
+  drain_timeout_seconds: 30
+
+# MCP stdio safety: when set (non-null), MCP toolsets whose stdio
+# command[0] is not in this list are refused at session-open with
+# ConfigError → 503 /errors/service-unavailable. Pinned for T0245.
+# Includes npx so T0767 (open-websearch) still runs; any binary
+# outside this list is rejected.
+mcp_stdio_allowed_commands:
+  - npx
+  - python
+  - uv
+EOF
+
+# Optionally disable auth. Some suites seed fixtures over plain httpx with
+# no login (e.g. tests/ui_e2e, which exercises the console UI and never
+# drives the auth flow). Opt in with PRIMER_E2E_AUTH_DISABLED=1; unset (the
+# default) keeps the production default of auth.enabled=true, so tests/e2e —
+# which registers + logs in a real operator — is unaffected.
+if [[ "${PRIMER_E2E_AUTH_DISABLED:-0}" == "1" ]]; then
+    cat >> "$CONFIG" <<EOF
+auth:
+  enabled: false
+EOF
+    echo "[bringup] auth disabled (PRIMER_E2E_AUTH_DISABLED=1)" >&2
+fi
+
+# US-011e: mounting the instrumentation endpoints (primer/api/routers/
+# _test_endpoints.py, incl. POST /_test/park_session used by the
+# deterministic-park BDD scenario) needs no action here. It is not a
+# config.yaml field: the router is gated by PRIMER_ENABLE_TEST_ENDPOINTS
+# directly (see primer/api/_app_routes.py), and this script launches
+# `uv run primer api` as a plain host subprocess below (unlike
+# scripts/e2e/ui-bringup.sh's docker container, which needs an explicit
+# compose-env passthrough), so a caller-exported
+# PRIMER_ENABLE_TEST_ENDPOINTS=1 reaches the server on its own. Same
+# opt-in-by-the-caller shape as PRIMER_E2E_AUTH_DISABLED above.
+
+# Merge storage/vector backend choice from tests/testconfig.yaml (if present).
+# render-server-config prints nothing when sqlite/lance are selected, so this
+# is a no-op for the default hermetic run.
+if [ -f "$ROOT/tests/testconfig.yaml" ]; then
+  uv run python -m tests._support.testconfig render-server-config >> "$CONFIG" || {
+    echo "[bringup] FATAL: testconfig render-server-config failed" >&2; exit 1; }
+fi
+echo "[bringup] rendered $CONFIG" >&2
+
+# ---- 4. Defensive: stop the docker-compose primer-app container if it's
+#         running. The UI loop's bring-up leaves the container alive between
+#         iterations (per docs/testing/04-ui-test-loop.md Phase 6 step 1) on
+#         the same host port we use here. The container's image is built
+#         from `./Dockerfile` at compose-up time, so it may carry older code
+#         than the host's working tree — letting it win the bind race causes
+#         spurious 404s when the host's newer routes aren't present.
+#         This stop is idempotent: no-op when the container isn't up.
+if "$RUNTIME" compose ps --services --filter "status=running" 2>/dev/null | grep -qx "primer"; then
+    echo "[bringup] stopping leftover primer-app container so the host process can bind $PORT..." >&2
+    "$RUNTIME" compose stop primer >&2 || true
+fi
+
+# ---- 5. Defensive: kill any leftover host server from a previous crashed run
+
+if [[ -f "$PID_FILE" ]]; then
+    old_pid="$(cat "$PID_FILE" || true)"
+    if [[ -n "$old_pid" ]] && kill -0 "$old_pid" 2>/dev/null; then
+        echo "[bringup] killing leftover server pid=$old_pid" >&2
+        kill "$old_pid" 2>/dev/null || true
+        sleep 2
+        kill -9 "$old_pid" 2>/dev/null || true
+    fi
+    rm -f "$PID_FILE"
+fi
+
+# ---- 5. Launch primer in background -----------------------------------------
+
+echo "[bringup] launching primer on port $PORT..." >&2
+: > "$STDOUT_FILE"
+(
+    uv run primer api --config "$CONFIG" \
+        > "$STDOUT_FILE" 2>&1 &
+    echo $! > "$PID_FILE"
+    disown
+) </dev/null
+
+server_pid="$(cat "$PID_FILE")"
+echo "[bringup] server started pid=$server_pid" >&2
+
+# ---- 6. Poll health ---------------------------------------------------------
+
+# 60s deadline accommodates slow Windows postgres handshakes when the
+# pool pre-allocates min connections + the yielding-tools background
+# tasks (M2+) initialise their pool conns. 30s was tight enough to
+# race the lifespan on cold-cache laptops.
+deadline=$(( $(date +%s) + 60 ))
+while true; do
+    if ! kill -0 "$server_pid" 2>/dev/null; then
+        echo "[bringup] FATAL: server died during startup" >&2
+        echo "--- last 100 lines of server.stdout ---" >&2
+        tail -n 100 "$STDOUT_FILE" >&2 || true
+        echo "--- last 100 lines of primer.log ---" >&2
+        [[ -f "$LOG_DIR/primer.log" ]] && tail -n 100 "$LOG_DIR/primer.log" >&2 || true
+        exit 1
+    fi
+    if curl -fsS "http://127.0.0.1:$PORT/v1/health" > /dev/null 2>&1; then
+        echo "READY"
+        echo "[bringup] healthy after $((30 - (deadline - $(date +%s))))s" >&2
+        # Hint to anything that sources this script: e2e tests are
+        # opt-in via PRIMER_RUN_E2E=1. The runbook tells pytest about it
+        # via the inline env-var prefix, but exporting it here is
+        # harmless and saves a step for ad-hoc debugging.
+        echo "export PRIMER_RUN_E2E=1" > "$E2E_DIR/env.sh"
+        exit 0
+    fi
+    if [[ $(date +%s) -ge $deadline ]]; then
+        echo "[bringup] FATAL: /v1/health did not respond within 60s" >&2
+        echo "--- last 100 lines of server.stdout ---" >&2
+        tail -n 100 "$STDOUT_FILE" >&2 || true
+        echo "--- last 100 lines of primer.log ---" >&2
+        [[ -f "$LOG_DIR/primer.log" ]] && tail -n 100 "$LOG_DIR/primer.log" >&2 || true
+        kill "$server_pid" 2>/dev/null || true
+        exit 1
+    fi
+    sleep 1
+done

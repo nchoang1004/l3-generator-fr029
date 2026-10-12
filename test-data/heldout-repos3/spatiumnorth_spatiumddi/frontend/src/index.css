@@ -1,0 +1,107 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+    --radius: 0.5rem;
+
+    /* Sidebar — stays dark in light mode so it doesn't blend into the page.
+       Active item: white pill with dark text. Hover: subtle lighter fill. */
+    --sidebar-background: 222.2 47.4% 11.2%;
+    --sidebar-foreground: 210 40% 96.1%;
+    --sidebar-muted-foreground: 215 20% 65%;
+    --sidebar-border: 217.2 32.6% 17.5%;
+    --sidebar-accent: 217.2 32.6% 20%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-primary: 210 40% 98%;
+    --sidebar-primary-foreground: 222.2 47.4% 11.2%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+
+    /* Sidebar in dark mode — slightly darker than the page background so
+       the nav still reads as a distinct surface. */
+    --sidebar-background: 222.2 84% 3%;
+    --sidebar-foreground: 210 40% 96.1%;
+    --sidebar-muted-foreground: 215 20% 55%;
+    --sidebar-border: 217.2 32.6% 14%;
+    --sidebar-accent: 217.2 32.6% 14%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-primary: 210 40% 98%;
+    --sidebar-primary-foreground: 222.2 47.4% 11.2%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    font-size: 14px;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* ── Search-result landing highlight ────────────────────────────────────
+ * Used by the IPAM + DNS pages when a Global Search result navigates
+ * to a specific IP address / DNS record. The destination row fades in
+ * amber and stays amber so the operator can tell WHICH row in the
+ * table matched their search — otherwise a subnet with 50 rows is a
+ * wall of identical cells after a redirect. The tint is cleared when
+ * the operator clicks away / navigates away (the active-id state in
+ * ``useRowHighlight`` is scoped to the current SubnetDetail instance).
+ */
+@keyframes spatium-highlight-fade-in {
+  0% {
+    background-color: transparent;
+    box-shadow: inset 3px 0 0 0 transparent;
+  }
+  100% {
+    background-color: rgb(251 191 36 / 0.35); /* amber-400 @ 35% */
+    box-shadow: inset 3px 0 0 0 rgb(245 158 11);
+  }
+}
+.spatium-row-highlight {
+  animation: spatium-highlight-fade-in 400ms ease-out forwards;
+}

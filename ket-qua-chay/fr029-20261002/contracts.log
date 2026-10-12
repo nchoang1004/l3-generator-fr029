@@ -1,0 +1,5 @@
+8 draft contracts; 7 JSON Schemas; OpenAPI 3.1.1
+136 schema refs resolved offline; 71 local links
+20 positive examples; 31 negative checks
+NOT checked: real analyzer, LLM provider, full binding semantics, gold accuracy, UI, or gates.
+

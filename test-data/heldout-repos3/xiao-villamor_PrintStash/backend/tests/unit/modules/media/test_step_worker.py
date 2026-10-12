@@ -1,0 +1,183 @@
+"""The disposable subprocess that turns a STEP file into a mesh.
+
+This worker exists because tessellating a STEP file is unbounded work on untrusted input:
+a CAD file can expand into hundreds of millions of triangles and take the whole process
+down with it. Running it out-of-process means the parent can cap its memory and time and
+kill it without losing anything, and it is why the worker holds **no application state**
+and talks to its parent only through an exit code and a written file.
+
+So the exit codes are the contract, and each one means something different to the parent:
+`0` the mesh is written and can be used, `2` the parent invoked it wrongly, `3` the file
+tessellated to more triangles than the ceiling allows, `4` the file contained no mesh at
+all. Collapsing 3 and 4 would lose the difference between "too big to show" and "nothing
+to show", which the UI reports differently.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import cascadio
+import pytest
+import trimesh
+
+from app.modules.media import step_worker
+from tests.paths import FIXTURES_DIR
+
+TRIANGLE_LIMIT_ENV = "PRINTSTASH_STEP_TRIANGLE_LIMIT"
+
+
+@pytest.fixture
+def run_worker(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """Invoke `main()` the way the parent process does, and hand back its exit code."""
+
+    def run(loaded: object, *, triangle_limit: int = 1_000_000) -> tuple[int, Path]:
+        source = tmp_path / "part.step"
+        source.write_bytes(b"ISO-10303-21;")
+        destination = tmp_path / "part.glb"
+        monkeypatch.setenv(TRIANGLE_LIMIT_ENV, str(triangle_limit))
+        monkeypatch.setattr(
+            step_worker.sys, "argv", ["step_worker", str(source), str(destination)]
+        )
+
+        def write_intermediate(_source, output, **_kwargs):
+            Path(output).write_bytes(b"test intermediate")
+            return 0
+
+        monkeypatch.setattr(cascadio, "step_to_glb", write_intermediate)
+        monkeypatch.setattr(trimesh, "load_mesh", lambda *_a, **_k: loaded)
+        return step_worker.main(), destination
+
+    return run
+
+
+def _box() -> trimesh.Trimesh:
+    return trimesh.creation.box(extents=(1.0, 1.0, 1.0))
+
+
+class TestMain:
+    def test_writes_the_tessellated_mesh(self, run_worker) -> None:
+        code, destination = run_worker(_box())
+
+        assert code == 0
+        assert destination.exists()
+
+    def test_flattens_a_scene_into_one_mesh(self, run_worker) -> None:
+        scene = trimesh.Scene({"a": _box(), "b": _box()})
+
+        code, destination = run_worker(scene)
+
+        # A STEP assembly arrives as a scene; the viewer wants one mesh.
+        assert code == 0
+        assert destination.exists()
+
+    def test_reports_a_file_with_no_mesh_in_it(self, run_worker) -> None:
+        code, _ = run_worker(trimesh.Scene({}))
+
+        assert code == 4
+
+    def test_reports_something_that_is_not_a_mesh_at_all(self, run_worker) -> None:
+        code, _ = run_worker(trimesh.PointCloud([[0, 0, 0], [1, 1, 1]]))
+
+        assert code == 4
+
+    def test_reports_a_mesh_past_the_triangle_ceiling(self, run_worker) -> None:
+        code, destination = run_worker(_box(), triangle_limit=1)
+
+        # "Too big to show" is not the same answer as "nothing to show".
+        assert code == 3
+        assert not destination.exists()
+
+    def test_reports_a_parent_that_invoked_it_wrongly(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(step_worker.sys, "argv", ["step_worker"])
+
+        assert step_worker.main() == 2
+
+    def test_refuses_a_file_that_tessellates_past_the_ceiling(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    ) -> None:
+        source = FIXTURES_DIR / "cascadio_material.stp"
+        destination = tmp_path / "over-cap.glb"
+        monkeypatch.setenv("PRINTSTASH_STEP_TRIANGLE_LIMIT", "1")
+        monkeypatch.setattr(
+            step_worker.sys, "argv", ["step_worker", str(source), str(destination)]
+        )
+
+        # Exit 3, and nothing written: a partial or over-cap mesh on disk would
+        # be indistinguishable to the parent from a usable one.
+        assert step_worker.main() == 3
+        assert not destination.exists()
+
+
+class TestBrepFailureProtocol:
+    @pytest.mark.parametrize(
+        "failure,expected",
+        [
+            pytest.param("dependency", 7, id="missing-native-dependency"),
+            pytest.param("geometry_work_limit", 3, id="triangle-budget"),
+            pytest.param("invalid_step", 4, id="invalid-document"),
+            pytest.param("native", 4, id="unexpected-native-error"),
+            pytest.param("io", 4, id="filesystem-error"),
+        ],
+    )
+    def test_classifies_native_failure(self, tmp_path, monkeypatch, failure, expected):
+        from app.modules.media import step_geometry
+
+        def failed_tessellation(*args, **kwargs):
+            if failure == "dependency":
+                raise ImportError("OCP unavailable")
+            if failure == "io":
+                raise OSError(13, "permission denied")
+            if failure == "native":
+                raise RuntimeError("native library failure")
+            raise step_geometry.StepGeometryError(failure)
+
+        monkeypatch.setattr(step_geometry, "tessellate", failed_tessellation)
+        destination = tmp_path / "result.npz"
+
+        assert (
+            step_worker._write_brep(tmp_path / "input.step", destination, 12)
+            == expected
+        )
+        assert not destination.exists()
+        assert not destination.with_suffix(".json").exists()
+
+
+class TestNativeResourceFailure:
+    @pytest.mark.parametrize("failure", [MemoryError(), OSError(12, "out of memory")])
+    def test_preserves_resource_refusal(self, tmp_path, monkeypatch, failure):
+        from app.modules.media import step_geometry
+
+        def exhausted(*_args, **_kwargs):
+            raise failure
+
+        monkeypatch.setattr(step_geometry, "tessellate", exhausted)
+        destination = tmp_path / "result.npz"
+        with pytest.raises(type(failure)):
+            step_worker._write_brep(tmp_path / "input.step", destination, 12)
+        assert not destination.exists()
+
+    def test_refuses_failed_native_conversion(self, tmp_path, monkeypatch):
+        temporary_directory = step_worker.tempfile.TemporaryDirectory
+        monkeypatch.setattr(
+            step_worker.tempfile,
+            "TemporaryDirectory",
+            lambda **kwargs: temporary_directory(dir=tmp_path, **kwargs),
+        )
+
+        def failed_conversion(_source, intermediate, **_kwargs):
+            Path(intermediate).write_bytes(b"partial native output")
+            return 1
+
+        monkeypatch.setattr(cascadio, "step_to_glb", failed_conversion)
+        destination = tmp_path / "result.glb"
+        assert (
+            step_worker.convert(
+                tmp_path / "input.step", destination, 12, include_brep=False
+            )
+            == 4
+        )
+        assert not destination.exists()
+        assert list(tmp_path.iterdir()) == []

@@ -1,0 +1,1533 @@
+"""Privacy module tests — the merge code is the highest-consequence code in the repo."""
+
+from __future__ import annotations
+
+from types import SimpleNamespace
+
+import pytest
+from hypothesis import given
+from hypothesis import strategies as st
+
+from shortlist.engine import privacy
+from shortlist.engine.clients.plextv import PlexTvUser
+from shortlist.engine.models import UserType
+from shortlist.engine.privacy import (
+    AmbiguousFilterError,
+    FilterParseError,
+    merge_label_excludes,
+    parse_filter,
+    remove_label_excludes,
+    resolve_restore_targets,
+    serialize_filter,
+    shortlist_labels_in,
+    summarise_filter_diff,
+    sync_user_restrictions,
+    unhidden_rows_visible_to,
+)
+from tests.conftest import make_profile, plextv_user
+from tests.strategies import filter_string
+
+
+class TestParseSerializeRoundTrip:
+    @given(filter_string)
+    def test_round_trip_is_byte_identical(self, raw: str):
+        assert serialize_filter(parse_filter(raw)) == raw
+
+    def test_parse_empty_returns_no_conditions(self):
+        assert parse_filter("") == []
+
+    def test_parse_preserves_raw_urlencoded_values(self):
+        # Asserted field-by-field, not by dataclass equality: the condition also carries the
+        # separators it was read with, and this test is about the VALUES surviving undecoded.
+        (cond,) = parse_filter("label!=Some%20Label,other")
+        assert (cond.field, cond.op, cond.values) == ("label", "!=", ("Some%20Label", "other"))
+
+    def test_parse_rejects_garbage_instead_of_clobbering(self):
+        with pytest.raises(FilterParseError):
+            parse_filter("label!=ok|garbage-without-operator")
+
+
+class TestTheFormsPlexActuallyWrites:
+    """Issue #77. plex.tv stores a filter byte-for-byte and hands it straight back — verified live on
+    2026-08-10 against a real account: `|`+plain, `|`+`%2C`, `&`+plain and `&`+`%2C` all round-tripped
+    identically, with no server-side normalization.
+
+    So the shape we read is whichever writer last touched that account. Plex Web writes `&` with
+    URL-encoded values, plexapi writes `|` with `%2C` (`myplex.py:_filterDictToStr`), and Shortlist
+    writes plain commas. Splitting only on `|` and `,` mis-parsed Plex Web's form into ONE condition
+    whose field was `'label=Age%200%2CAge%203&label'`, so the existing exclude clause was invisible,
+    the merge appended a second one, and the account's Restrictions tab in Plex Web died with
+    "Something went wrong" until the value was rewritten by hand.
+    """
+
+    # The exact string from the report, captured from Plex Web's own save request.
+    PLEX_WEB = "label=Age%200%2CAge%203&label!=Shortlist_a%2CShortlist_b"
+
+    def test_the_allow_clause_is_not_swallowed_into_the_field_name(self):
+        allow, exclude = parse_filter(self.PLEX_WEB)
+
+        assert (allow.field, allow.op, allow.values) == ("label", "=", ("Age%200", "Age%203"))
+        assert (exclude.field, exclude.op, exclude.values) == ("label", "!=", ("Shortlist_a", "Shortlist_b"))
+
+    def test_a_new_label_joins_the_existing_exclude_clause(self):
+        """The corruption itself: a second `label!=` fragment appended with a THIRD separator.
+        Plex Web cannot read the result, and the user is locked out of their own Restrictions tab."""
+        merged = merge_label_excludes(self.PLEX_WEB, {"shortlist_test"})
+
+        assert merged == "label=Age%200%2CAge%203&label!=Shortlist_a%2CShortlist_b%2Cshortlist_test"
+        assert merged.count("label!=") == 1, "a second exclude clause is what breaks Plex Web"
+
+    def test_an_appended_label_matches_the_encoding_already_in_use(self):
+        """Joining with a plain comma inside a `%2C`-joined clause leaves a value no reader can split."""
+        merged = merge_label_excludes("label!=A%2CB", {"shortlist_x"})
+
+        assert merged == "label!=A%2CB%2Cshortlist_x"
+
+    def test_our_own_excludes_are_visible_when_percent_encoded(self):
+        """`shortlist_labels_in` drives the uninstall and every count of "is this row hidden". Reading
+        an encoded copy of our own label as foreign made Shortlist blind to its own writes."""
+        assert shortlist_labels_in("label!=Shortlist%5Fmike%2CShortlist_dan", "shortlist") == {
+            "Shortlist%5Fmike",
+            "Shortlist_dan",
+        }
+
+    def test_removal_works_on_the_encoded_form_so_uninstall_can_finish(self):
+        assert remove_label_excludes(self.PLEX_WEB, {"Shortlist_a"}) == "label=Age%200%2CAge%203&label!=Shortlist_b"
+
+    def test_an_already_excluded_label_is_not_added_again_in_the_other_encoding(self):
+        assert merge_label_excludes("label!=Age%200", {"Age 0"}) == "label!=Age%200"
+
+    def test_a_new_exclude_clause_uses_the_separator_the_filter_already_uses(self):
+        """An allow-list with no exclude clause yet. Appending with the wrong separator is how the
+        three-fragment value appeared in the first place."""
+        merged = merge_label_excludes("label=Age 0,Age 3&contentRating=PG", {"shortlist_x"})
+
+        assert merged == "label=Age 0,Age 3&contentRating=PG&label!=shortlist_x"
+
+    @pytest.mark.parametrize(
+        "raw",
+        [
+            "label=Age%200%2CAge%203&label!=Shortlist_a%2CShortlist_b",
+            "label=Age 0,Age 3|label!=Shortlist_a,Shortlist_b",
+            "label=Age 0,Age 3&label!=Shortlist_a,Shortlist_b",
+            "label=A%2CB|label!=C%2CD",
+            "label!=A,B|contentRating!=R",
+            "label!=",
+        ],
+    )
+    def test_every_real_world_shape_round_trips_byte_identical(self, raw):
+        assert serialize_filter(parse_filter(raw)) == raw
+
+    @pytest.mark.parametrize(
+        "raw",
+        [
+            "label!=Kids & Family",
+            "label!=Kids & Family,Shortlist_a",
+            "label=Age 0,Age 3|label!=Kids & Family",
+            "contentRating!=R|label!=Rock & Roll",
+        ],
+    )
+    def test_an_ampersand_inside_a_LABEL_is_not_a_separator(self, raw):
+        """`&` is a condition separator in Plex Web's dialect AND an ordinary character in a label —
+        "Kids & Family" is a label a person can create. Splitting on it unconditionally left
+        `' Family'` with no operator, which raised, which blocks promotion for EVERY user on the
+        server until somebody hand-edits that one account (the #14 shape). These parsed fine before
+        `&` was understood at all, and must keep parsing fine."""
+        assert serialize_filter(parse_filter(raw)) == raw
+
+    @pytest.mark.parametrize("raw", ["label!=Kids & Family", "label!=Kids & Family,Shortlist_a"])
+    def test_an_ampersand_label_even_in_the_enforced_exclude_clause_is_refused(self, raw):
+        """Measured 2026-09-13: Plex answers that account's Home with HTTP 500 for any literal `&` in a
+        label, so a filter carrying one cannot be written into and verified."""
+        with pytest.raises(AmbiguousFilterError):
+            merge_label_excludes(raw, {"shortlist_new"})
+
+    @pytest.mark.parametrize("raw", ["label=Age 0,Age 3|label!=Kids & Family", "contentRating!=R|label!=Rock & Roll"])
+    def test_an_ampersand_label_where_ours_must_be_joined_with_and_is_refused(self, raw):
+        """Ours has to go on the end with `&` (a `|` would void it, #116), and `Kids & Family&label!=x`
+        cannot be read back as two conditions. The old merge wrote `|` here — stored, never enforced."""
+        with pytest.raises(AmbiguousFilterError):
+            merge_label_excludes(raw, {"shortlist_new"})
+
+    def test_a_bare_ampersand_in_a_value_beside_an_ampersand_separator_is_refused(self):
+        """The one shape the `|`-only fallback cannot rescue, pinned deliberately.
+
+        `_split_conditions` retries on `|` alone when the greedy `[|&]` split leaves a piece with no
+        operator — which saves `label!=Kids & Family`. But when `&` is ALSO the separator, the retry
+        leaves `label=Kids & Family&label!=X`, whose head still carries both, and parsing refuses.
+
+        Refusing is the correct end state, not a gap to paper over: an account whose filter we cannot
+        read has no excludes we can trust, and promoting rows for the server while one account's
+        hiding is unknown is the leak this machinery exists to prevent (rule 1). It costs promotion
+        for everyone that night, which is loud, recoverable, and the safe direction.
+
+        Not believed reachable from real Plex data — Plex Web percent-encodes separators inside
+        values (`Age 0%2CAge 3`), so a literal `&` arrives as `%26` and parses fine, which the row
+        below asserts.
+        """
+        with pytest.raises(FilterParseError):
+            parse_filter("label=Kids & Family&label!=Shortlist_a")
+
+    def test_the_encoded_form_plex_actually_writes_parses_and_merges(self):
+        raw = "label=Kids %26 Family&label!=Shortlist_a"
+        assert serialize_filter(parse_filter(raw)) == raw
+        merged = merge_label_excludes(raw, {"shortlist_new"})
+        assert merged.startswith(raw) and "shortlist_new" in merged
+        assert merged.count("label!=") == 1
+
+    def test_a_field_that_still_holds_a_separator_is_refused_not_rewritten(self):
+        """Belt to the parser's braces. If Plex ever invents a fourth shape, refusing to touch it is
+        the safe failure — rewriting one we only half-understand is how filters get corrupted."""
+        with pytest.raises(FilterParseError):
+            parse_filter("label=A;;label!=B")
+
+
+class TestMergeLabelExcludes:
+    """Filter-state matrix: empty / shortlist-only / pre-existing-foreign / mixed."""
+
+    def test_merge_into_empty_filter(self):
+        assert merge_label_excludes("", {"Shortlist_sarah"}) == "label!=Shortlist_sarah"
+
+    def test_merge_into_existing_shortlist_excludes_appends(self):
+        merged = merge_label_excludes("label!=Shortlist_mike", {"Shortlist_sarah"})
+        assert merged == "label!=Shortlist_mike,Shortlist_sarah"
+
+    def test_merge_preserves_foreign_conditions_byte_identical(self):
+        """Joined with `&`, never `|`: a real PMS reads `|` as OR, and `raw|label!=Shortlist_sarah` hid
+        nothing while voiding the owner's own rating exclude (#116, pms_share_filter_boolean_semantics)."""
+        raw = "contentRating!=R,NC-17|genre=Horror"
+        merged = merge_label_excludes(raw, {"Shortlist_sarah"})
+        assert merged == raw + "&label!=Shortlist_sarah"
+
+    def test_merge_mixed_keeps_the_owners_conditions_and_moves_ours_to_the_end(self):
+        """The owner's conditions stay byte-identical — but ours never stay in a clause a `|` joins, where
+        Plex ORs them away (#116). They go on the end, ANDed with the whole filter."""
+        raw = "contentRating!=R|label!=kids_hide,Shortlist_mike|genre=Horror"
+        merged = merge_label_excludes(raw, {"Shortlist_sarah"})
+        assert merged == "contentRating!=R|label!=kids_hide|genre=Horror&label!=Shortlist_mike,Shortlist_sarah"
+
+    def test_merge_is_idempotent(self):
+        once = merge_label_excludes("label!=x", {"Shortlist_a", "Shortlist_b"})
+        assert merge_label_excludes(once, {"Shortlist_a", "Shortlist_b"}) == once
+
+    def test_merge_already_present_returns_input_unchanged(self):
+        raw = "contentRating!=R&label!=Shortlist_sarah"
+        assert merge_label_excludes(raw, {"Shortlist_sarah"}) is raw
+
+    def test_merge_is_case_insensitive_like_plex_tag_matching(self):
+        # A case-variant of an already excluded label must never be appended as a duplicate.
+        raw = "label!=Shortlist_sarah"
+        assert merge_label_excludes(raw, {"shortlist_sarah"}) is raw
+
+    def test_desired_excludes_only_covers_users_with_real_collections(self):
+        stored = {"mike": "Shortlist_mike"}  # newbie has no collection yet — nothing to leak
+        assert privacy.desired_excludes("Shortlist_sarah", stored) == {"Shortlist_mike"}
+
+    def test_desired_excludes_covers_rows_whose_owner_shortlist_does_not_manage(self):
+        """A row is visible to anyone whose filter doesn't exclude it. Plex does not care that
+        Shortlist considers its owner disabled, paused, or a stranger — so the excludes come from
+        the rows that EXIST, never from the roster of users we happen to be processing."""
+        stored = {"sarah": "Shortlist_sarah", "mike": "Shortlist_mike"}
+
+        # An account that owns no row (own_label=None) is excluded from every one of them.
+        assert privacy.desired_excludes(None, stored) == {"Shortlist_sarah", "Shortlist_mike"}
+
+    def test_a_user_is_never_excluded_from_their_own_row(self):
+        assert privacy.desired_excludes("Shortlist_sarah", {"sarah": "Shortlist_sarah"}) == set()
+
+    def test_identity_is_the_label_not_the_name(self):
+        """Two Plex display names can slugify to the same string, and anyone can rename
+        themselves. If "is this row mine?" were answered from a name, one account would be let
+        off an exclude it needs (they see someone else's row) and another would be excluded from
+        their own. The caller resolves the label from the ACCOUNT ID and passes it here."""
+        stored = {"bob_smith": "Shortlist_bob_smith", "mike": "Shortlist_mike"}
+
+        # A different account whose name happens to slugify to "bob_smith" owns no row...
+        assert privacy.desired_excludes(None, stored) == {"Shortlist_bob_smith", "Shortlist_mike"}
+        # ...while the account that really owns it is not excluded from itself.
+        assert privacy.desired_excludes("Shortlist_bob_smith", stored) == {"Shortlist_mike"}
+
+
+class TestSharedRowExcludes:
+    """A shared 'popular on this server' row follows its audience: public rows are hidden from
+    nobody; subset rows are hidden from everyone NOT in the audience. Classification is by CONFIG
+    (the `shared_labels` map), never by the label string."""
+
+    def test_public_shared_row_is_excluded_from_nobody(self):
+        stored = {"sarah": "Shortlist_sarah", "shared_popular": "Shortlist__shared_popular"}
+        shared = {"shortlist__shared_popular": None}  # configured public shared row
+        # The public shared row is excluded from nobody; the per-person label still is.
+        assert privacy.desired_excludes(None, stored, account_id=202, shared_labels=shared) == {"Shortlist_sarah"}
+
+    def test_hide_all_shared_hides_even_a_public_row_from_an_opted_out_account(self):
+        # A DISABLED (opted-out) Shortlist account: hide_all_shared hides EVERY shared row from them,
+        # including the public one that everyone else sees.
+        stored = {"sarah": "Shortlist_sarah", "shared_popular": "Shortlist__shared_popular"}
+        shared = {"shortlist__shared_popular": None}  # public
+        assert privacy.desired_excludes(None, stored, account_id=202, shared_labels=shared) == {"Shortlist_sarah"}
+        assert privacy.desired_excludes(None, stored, account_id=202, shared_labels=shared, hide_all_shared=True) == {
+            "Shortlist_sarah",
+            "Shortlist__shared_popular",
+        }
+
+    def test_subset_shared_row_is_hidden_from_accounts_outside_the_audience(self):
+        stored = {"shared_staff": "Shortlist__shared_staff"}
+        shared = {"shortlist__shared_staff": {201, 202}}
+        assert privacy.desired_excludes(None, stored, account_id=201, shared_labels=shared) == set()
+        assert privacy.desired_excludes(None, stored, account_id=202, shared_labels=shared) == set()
+        assert privacy.desired_excludes(None, stored, account_id=203, shared_labels=shared) == {
+            "Shortlist__shared_staff"
+        }
+
+    def test_hide_all_shared_hides_a_subset_row_even_from_an_in_audience_account(self):
+        # An opted-out account that WAS in a subset row's audience still has it hidden under
+        # hide_all_shared — the same guard as the public case.
+        stored = {"shared_staff": "Shortlist__shared_staff"}
+        shared = {"shortlist__shared_staff": {201, 202}}
+        assert privacy.desired_excludes(None, stored, account_id=202, shared_labels=shared) == set()
+        assert privacy.desired_excludes(None, stored, account_id=202, shared_labels=shared, hide_all_shared=True) == {
+            "Shortlist__shared_staff"
+        }
+
+    def test_a_private_row_is_never_misread_as_shared_by_its_slug(self):
+        """A per-person user whose slug looks shared (label shortlist_shared_tv) is NOT in the config
+        map, so it's treated as private and excluded — never leaked. This is the HIGH bug regression."""
+        stored = {"shared_tv": "Shortlist_shared_tv"}  # a real user's private label, single underscore
+        shared = {"shortlist__shared_popular": None}  # the only configured shared row is something else
+        assert privacy.desired_excludes(None, stored, account_id=202, shared_labels=shared) == {"Shortlist_shared_tv"}
+
+    def test_a_stale_shared_label_not_in_config_is_excluded_not_leaked(self):
+        # A shared collection left on the server but no longer configured -> hidden, not public.
+        stored = {"gone": "Shortlist__shared_gone"}
+        assert privacy.desired_excludes(None, stored, account_id=202, shared_labels={}) == {"Shortlist__shared_gone"}
+
+    def test_subset_shared_and_private_rows_compose(self):
+        stored = {"sarah": "Shortlist_sarah", "shared_staff": "Shortlist__shared_staff"}
+        shared = {"shortlist__shared_staff": {202}}
+        # Mike (202) is in the staff audience but must still be hidden from sarah's private row.
+        assert privacy.desired_excludes(None, stored, account_id=202, shared_labels=shared) == {"Shortlist_sarah"}
+
+    @given(st.sets(st.integers(min_value=1, max_value=5), min_size=0, max_size=5), st.integers(1, 6))
+    def test_shared_label_is_excluded_from_exactly_the_non_audience(self, audience: set[int], account_id: int):
+        """Property: a subset shared row is excluded from an account iff that account is not in its
+        audience — for any audience and any account. Never leaks in, never over-hides."""
+        stored = {"shared_x": "Shortlist__shared_x"}
+        shared = {"shortlist__shared_x": audience}
+        excludes = privacy.desired_excludes(None, stored, account_id=account_id, shared_labels=shared)
+        if account_id in audience:
+            assert "Shortlist__shared_x" not in excludes
+        else:
+            assert excludes == {"Shortlist__shared_x"}
+
+    @given(
+        filter_string,
+        st.sets(
+            st.sampled_from(["Shortlist_a", "Shortlist_b", "Shortlist_c", "Shortlist__shared_x"]),
+            min_size=1,
+            max_size=4,
+        ),
+    )
+    def test_merge_never_drops_existing_conditions(self, raw: str, labels: set[str]):
+        merged_conditions = parse_filter(merge_label_excludes(raw, labels))
+        for original in parse_filter(raw):
+            match = [c for c in merged_conditions if c.field == original.field and c.op == original.op]
+            assert match, f"condition {original} vanished"
+            surviving_values = set().union(*(set(c.values) for c in match))
+            assert set(original.values) <= surviving_values
+
+    @given(
+        filter_string,
+        st.sets(st.sampled_from(["Shortlist_a", "Shortlist_b", "Shortlist__shared_x"]), min_size=1, max_size=3),
+    )
+    def test_remove_inverts_merge_when_labels_were_absent(self, raw: str, labels: set[str]):
+        for cond in parse_filter(raw):
+            if cond.field == "label" and cond.op == "!=" and set(cond.values) & labels:
+                return  # labels pre-existed; removal would legitimately alter the original
+        assert remove_label_excludes(merge_label_excludes(raw, labels), labels) == raw
+
+
+class TestShortlistLabelsIn:
+    def test_finds_only_prefixed_labels_case_insensitive(self):
+        raw = "label!=Shortlist_sarah,kids_hide,shortlist_mike"
+        assert shortlist_labels_in(raw, "shortlist") == {"Shortlist_sarah", "shortlist_mike"}
+
+
+class TestSyncUserRestrictions:
+    """User-type matrix: owner (never restricted) / shared / managed all flow through here."""
+
+    def _users(self):
+        sarah = make_profile("sarah", account_id=100)
+        mike = make_profile("mike", account_id=200)
+        owner = make_profile("steve", user_type=UserType.OWNER, account_id=1)
+        return sarah, mike, owner
+
+    def test_managed_user_gets_only_filter_fields_never_profile_writes(self, mock_plextv, snapshot_store):
+        # MANAGED collapses with SHARED for sync (no branch on user_type besides OWNER) —
+        # this pins the contract that only filterMovies/filterTelevision are ever PUT
+        # (a managed user's restriction PROFILE is parental controls; rule 5).
+        managed = make_profile("kid", user_type=UserType.MANAGED, account_id=400)
+        mock_plextv.users = [plextv_user(400, "kid")]
+        mock_plextv.update_user_filters.side_effect = lambda _id, fields: mock_plextv.users[0].filters.update(fields)
+        sync_user_restrictions(
+            mock_plextv,
+            managed,
+            mock_plextv.get_user(managed.plex_account_id),
+            {"sarah": "Shortlist_sarah"},
+            snapshot_store,
+        )
+        call = mock_plextv.update_user_filters.call_args
+        assert call.args[0] == 400
+        # The FIELDS: only the two filter fields, never a restriction-profile write (rule 5)...
+        assert sorted(call.args[1]) == ["filterMovies", "filterTelevision"]
+        # ...and their VALUES. Asserting only the field names is bug-blind: a managed user written
+        # the wrong exclude sees every row the filter was supposed to hide, with the test still green.
+        assert call.args[1]["filterMovies"] == "label!=Shortlist_sarah"
+        assert call.args[1]["filterTelevision"] == "label!=Shortlist_sarah"
+
+    def test_a_kids_allow_list_survives_the_whole_write_path(self, mock_plextv, snapshot_store):
+        """Issue #77, end to end — the primitives being right is not enough, because this is the
+        path that actually reaches plex.tv.
+
+        The account is a managed user with an age allow-list, written by Plex Web in its own form
+        (`&` between conditions, `%2C` between values). That is the exact shape 2 of one reporter's
+        16 accounts carried. What used to go out was a THIRD fragment appended with `|`, which Plex
+        Web could not parse: the user was locked out of their own Restrictions tab until somebody
+        rewrote the value by hand, and their allow-list was left inside a bogus field name.
+
+        Asserted on the VALUE plex.tv is handed, not on "a write happened" — the call count was
+        always right here; the string was not.
+        """
+        kid = make_profile("kid", user_type=UserType.MANAGED, account_id=400)
+        plex_web_form = "label=Age%200%2CAge%203&label!=Shortlist_sarah"
+        mock_plextv.users = [
+            plextv_user(400, "kid", filters={"filterMovies": plex_web_form, "filterTelevision": plex_web_form})
+        ]
+        mock_plextv.update_user_filters.side_effect = lambda _id, fields: mock_plextv.users[0].filters.update(fields)
+
+        sync_user_restrictions(
+            mock_plextv,
+            kid,
+            mock_plextv.get_user(kid.plex_account_id),
+            {"sarah": "Shortlist_sarah", "mike": "Shortlist_mike"},
+            snapshot_store,
+        )
+
+        sent = mock_plextv.update_user_filters.call_args.args[1]["filterMovies"]
+        assert sent == "label=Age%200%2CAge%203&label!=Shortlist_sarah%2CShortlist_mike"
+        assert sent.count("label!=") == 1, "a second exclude clause is what breaks Plex Web"
+        assert sent.startswith("label=Age%200%2CAge%203&"), "the kid's age allow-list must survive untouched"
+
+    def test_a_kids_allow_list_makes_no_write_when_already_correct(self, mock_plextv, snapshot_store):
+        """Steady state on the combined form. Before the fix this account was rewritten EVERY run,
+        because the exclude clause it already had was invisible to the parser."""
+        kid = make_profile("kid", user_type=UserType.MANAGED, account_id=400)
+        settled = "label=Age%200%2CAge%203&label!=Shortlist_sarah"
+        mock_plextv.users = [plextv_user(400, "kid", filters={"filterMovies": settled, "filterTelevision": settled})]
+
+        wrote = sync_user_restrictions(
+            mock_plextv,
+            kid,
+            mock_plextv.get_user(kid.plex_account_id),
+            {"sarah": "Shortlist_sarah"},
+            snapshot_store,
+        )
+
+        assert wrote is None
+        mock_plextv.update_user_filters.assert_not_called()
+
+    def test_owner_is_never_restricted(self, mock_plextv, snapshot_store):
+        _sarah, _mike, owner = self._users()
+        # The owner is not even on plex.tv's user list, so `remote` is None: they are skipped
+        # before it is ever read (Plex cannot restrict the owner — rule 5).
+        wrote = sync_user_restrictions(mock_plextv, owner, None, {}, snapshot_store)
+        assert wrote is None
+        mock_plextv.update_user_filters.assert_not_called()
+
+    def _managed(self, profile: str, filters: str = "") -> PlexTvUser:
+        """A Plex Home account. `restricted` is True either way — that is the whole point of #20:
+        `/api/users` cannot tell a parental-controlled account from a plain managed one."""
+        return PlexTvUser(
+            id=500,
+            username="kid",
+            user_type=UserType.MANAGED,
+            home=True,
+            restricted=True,
+            protected=False,
+            restriction_profile=profile,
+            filters={
+                "filterAll": "",
+                "filterMovies": filters,
+                "filterTelevision": "",
+                "filterMusic": "",
+                "filterPhotos": "",
+            },
+        )
+
+    def test_a_parental_profile_is_skipped_without_calling_plextv(self, mock_plextv, snapshot_store):
+        """Plex refuses label restrictions outright while a preset is applied — its own docs say the
+        profile "must be set to None if you wish to edit Rating and Label restrictions". Live-confirmed
+        2026-07-29: a `little_kid` account 422s the write and sees 0 collections of any kind, so there
+        is nothing an exclude could hide. Skipping keeps one such account from blocking promotion for
+        the whole server (#14)."""
+        kid = make_profile("kid", user_type=UserType.MANAGED, account_id=500)
+
+        wrote = sync_user_restrictions(
+            mock_plextv,
+            kid,
+            self._managed("little_kid", "contentRating=G"),
+            {"sarah": "Shortlist_sarah"},
+            snapshot_store,
+        )
+
+        assert wrote is None
+        mock_plextv.update_user_filters.assert_not_called()
+
+    def test_a_managed_account_with_NO_profile_gets_its_excludes(self, mock_plextv, snapshot_store):
+        """Issue #20. `/api/users` reports `restricted="1"` for every managed account, so keying the
+        skip on it also skipped managed users with no age restriction — who see everything and are
+        exactly who the excludes exist for. Plex accepts label restrictions for these."""
+        kid = make_profile("kid", user_type=UserType.MANAGED, account_id=500)
+
+        wrote = sync_user_restrictions(
+            mock_plextv, kid, self._managed(""), {"sarah": "Shortlist_sarah"}, snapshot_store
+        )
+
+        assert wrote is not None, "a managed user with no parental profile must be given their excludes"
+        assert "Shortlist_sarah" in wrote["filterMovies"][1]
+        mock_plextv.update_user_filters.assert_called_once()
+
+    def test_a_profile_less_account_keeps_any_filters_it_already_had(self, mock_plextv, snapshot_store):
+        """Rule 3 — merge, never rebuild. Writing excludes for a managed user must not disturb whatever
+        the owner set by hand."""
+        kid = make_profile("kid", user_type=UserType.MANAGED, account_id=500)
+
+        wrote = sync_user_restrictions(
+            mock_plextv, kid, self._managed("", "contentRating=PG"), {"sarah": "Shortlist_sarah"}, snapshot_store
+        )
+
+        assert wrote["filterMovies"][1].startswith("contentRating=PG")
+        assert "Shortlist_sarah" in wrote["filterMovies"][1]
+
+    def test_first_sync_snapshots_then_merges_with_stored_labels(self, mock_plextv, snapshot_store):
+        sarah = self._users()[0]
+        mock_plextv.users = [plextv_user(100, "sarah", filters={"filterMovies": "contentRating!=R"})]
+
+        def put(account_id, fields):
+            user = mock_plextv.users[0].filters
+            user.update(fields)
+
+        mock_plextv.update_user_filters.side_effect = put
+        stored = {"mike": "Shortlist_mike", "steve": "Shortlist_steve"}
+
+        wrote = sync_user_restrictions(
+            mock_plextv, sarah, mock_plextv.get_user(sarah.plex_account_id), stored, snapshot_store
+        )
+
+        # The return value IS the audit record: what changed, on which field, from what to what.
+        assert wrote == {
+            # `&`, not `|` — the `|` form is stored verbatim and hides nothing (#116).
+            "filterMovies": ("contentRating!=R", "contentRating!=R&label!=Shortlist_mike,Shortlist_steve"),
+            "filterTelevision": ("", "label!=Shortlist_mike,Shortlist_steve"),
+        }
+        assert snapshot_store.saved[100].filters["filterMovies"] == "contentRating!=R"
+        call = mock_plextv.update_user_filters.call_args
+        assert call.args[0] == 100
+        # Both fields merged; foreign condition preserved byte-identical; stored (title-cased) labels used.
+        assert call.args[1]["filterMovies"] == "contentRating!=R&label!=Shortlist_mike,Shortlist_steve"
+        assert call.args[1]["filterTelevision"] == "label!=Shortlist_mike,Shortlist_steve"
+
+    def test_prunes_a_stale_shared_exclude_but_keeps_private_and_foreign(self, mock_plextv, snapshot_store):
+        """A re-enabled user (or one added to a shared row's audience) must get the shared-row exclude
+        REMOVED so the row is restored — but a private-row exclude and any foreign condition stay.
+        This is the only place we remove an exclude, and only ever for a shared row (never a leak)."""
+        sarah = self._users()[0]  # account 100, not opted out
+        mock_plextv.users = [
+            plextv_user(
+                100,
+                "sarah",
+                filters={
+                    # A public shared exclude left from when she was disabled, plus a private exclude and
+                    # a foreign condition that must both survive.
+                    "filterMovies": "contentRating!=R|label!=Shortlist__shared_popular,Shortlist_mike",
+                    "filterTelevision": "label!=Shortlist__shared_popular,Shortlist_mike",
+                },
+            )
+        ]
+        stored = {"mike": "Shortlist_mike", "shared_popular": "Shortlist__shared_popular"}
+        shared = {"shortlist__shared_popular": None}  # configured PUBLIC shared row
+
+        wrote = sync_user_restrictions(
+            mock_plextv,
+            sarah,
+            mock_plextv.get_user(sarah.plex_account_id),
+            stored,
+            snapshot_store,
+            shared_labels=shared,
+            # Required for ANY prune. `wanted` is derived from `stored`, so a PMS that answers with no
+            # collections makes every shared exclude look unwanted — this says the enumeration is real.
+            collections_known=True,
+        )
+
+        # The public shared exclude is pruned; the private one and the foreign condition remain — and the
+        # private one moves out from behind the `|` that stopped Plex applying it (#116).
+        assert wrote["filterMovies"][1] == "contentRating!=R&label!=Shortlist_mike"
+        assert wrote["filterTelevision"][1] == "label!=Shortlist_mike"
+
+    def test_a_stale_private_exclude_is_never_pruned(self, mock_plextv, snapshot_store):
+        """The leak-safe boundary: only SHARED excludes are ever removed. A stale PRIVATE exclude (a
+        label not in stored/wanted and not a configured shared row) stays — removing a private exclude
+        is the leak direction, so the sync never does it, even for a label pointing at a deleted row."""
+        sarah = self._users()[0]
+        both = "label!=Shortlist_ghost,Shortlist_mike"  # a stale private exclude (ghost) + a live one
+        mock_plextv.users = [plextv_user(100, "sarah", filters={"filterMovies": both, "filterTelevision": both})]
+        stored = {"mike": "Shortlist_mike"}  # Shortlist_ghost is gone from the server, and it's private
+        wrote = sync_user_restrictions(
+            mock_plextv, sarah, mock_plextv.get_user(100), stored, snapshot_store, shared_labels={}
+        )
+        # Nothing to add (mike present) and ghost is private, so nothing is pruned -> zero writes, and
+        # the stale private exclude is left exactly where it is (removing it would be the leak direction).
+        assert wrote is None
+
+    def test_steady_state_makes_zero_writes(self, mock_plextv, snapshot_store):
+        sarah = self._users()[0]
+        mock_plextv.users = [
+            plextv_user(
+                100,
+                "sarah",
+                filters={
+                    "filterMovies": "label!=Shortlist_mike,Shortlist_steve",
+                    "filterTelevision": "label!=Shortlist_mike,Shortlist_steve",
+                },
+            )
+        ]
+        stored = {"mike": "Shortlist_mike", "steve": "Shortlist_steve"}
+        wrote = sync_user_restrictions(
+            mock_plextv, sarah, mock_plextv.get_user(sarah.plex_account_id), stored, snapshot_store
+        )
+        assert wrote is None
+        mock_plextv.update_user_filters.assert_not_called()
+
+    def test_dry_run_writes_nothing_but_reports_pending_change(self, mock_plextv, snapshot_store):
+        sarah = self._users()[0]
+        mock_plextv.users = [plextv_user(100, "sarah")]
+        wrote = sync_user_restrictions(
+            mock_plextv,
+            sarah,
+            mock_plextv.get_user(sarah.plex_account_id),
+            {"mike": "Shortlist_mike"},
+            snapshot_store,
+            dry_run=True,
+        )
+        assert wrote == {
+            "filterMovies": ("", "label!=Shortlist_mike"),
+            "filterTelevision": ("", "label!=Shortlist_mike"),
+        }
+        mock_plextv.update_user_filters.assert_not_called()
+        assert snapshot_store.saved == {}
+
+    def test_writes_without_a_per_user_readback(self, mock_plextv, snapshot_store):
+        """The per-user GET/verify was O(A^2) and moved to one batched roster read in the pipeline
+        (the read-back at the end of _privacy_sync_phase). sync_user_restrictions now only writes +
+        returns the diff; it must NOT read the roster back itself."""
+        sarah = self._users()[0]
+        mock_plextv.users = [plextv_user(100, "sarah")]
+        mock_plextv.update_user_filters.side_effect = lambda _id, fields: mock_plextv.users[0].filters.update(fields)
+        remote = mock_plextv.get_user(sarah.plex_account_id)
+        mock_plextv.get_user.reset_mock()
+
+        diff = sync_user_restrictions(mock_plextv, sarah, remote, {"mike": "Shortlist_mike"}, snapshot_store)
+
+        assert diff == {
+            "filterMovies": ("", "label!=Shortlist_mike"),
+            "filterTelevision": ("", "label!=Shortlist_mike"),
+        }
+        mock_plextv.update_user_filters.assert_called_once()
+        mock_plextv.get_user.assert_not_called()
+
+
+class TestRestore:
+    def test_restore_puts_only_diverged_fields_byte_identical(self, mock_plextv):
+        from datetime import UTC, datetime
+
+        from shortlist.engine.models import FilterSnapshot
+
+        snapshot = FilterSnapshot(
+            plex_account_id=100,
+            username="sarah",
+            taken_at=datetime.now(UTC),
+            filters={
+                "filterAll": "",
+                "filterMovies": "contentRating!=R",
+                "filterTelevision": "",
+                "filterMusic": "",
+                "filterPhotos": "",
+            },
+        )
+        mock_plextv.users = [
+            plextv_user(
+                100,
+                "sarah",
+                filters={
+                    "filterMovies": "contentRating!=R|label!=Shortlist_mike",
+                    "filterTelevision": "label!=Shortlist_mike",
+                },
+            )
+        ]
+
+        def put(account_id, fields):
+            mock_plextv.users[0].filters.update(fields)
+
+        mock_plextv.update_user_filters.side_effect = put
+        assert privacy.restore_user_restrictions(mock_plextv, snapshot, mock_plextv.users[0]) is True
+        call = mock_plextv.update_user_filters.call_args
+        assert call.args[1] == {"filterMovies": "contentRating!=R", "filterTelevision": ""}
+
+    def test_restore_raises_when_the_readback_does_not_match(self, mock_plextv):
+        """The write is verified: if Plex accepts it but the value doesn't actually change, the
+        restore must FAIL loudly rather than report a clean uninstall over stale filters."""
+        from datetime import UTC, datetime
+
+        from shortlist.engine.models import FilterSnapshot
+
+        snapshot = FilterSnapshot(
+            plex_account_id=100,
+            username="sarah",
+            taken_at=datetime.now(UTC),
+            filters={"filterMovies": "contentRating!=R"},
+        )
+        mock_plextv.users = [
+            plextv_user(100, "sarah", filters={"filterMovies": "contentRating!=R|label!=Shortlist_mike"})
+        ]
+        # The write silently doesn't take — the read-back still shows the shortlist exclude.
+        mock_plextv.update_user_filters.side_effect = lambda account_id, fields: None
+        with pytest.raises(RuntimeError, match="restore mismatch"):
+            privacy.restore_user_restrictions(mock_plextv, snapshot, mock_plextv.users[0])
+
+
+class TestResolveRestoreTargets:
+    """Issue #96: one departed account used to abort the entire uninstall with a 500.
+
+    `restore_user_restrictions` asked plex.tv for each account as it went, and an account that had
+    left the share raised `LookupError` through a loop with no per-user guard. Everyone after them
+    kept Shortlist's excludes for ever, and the collection deletion and row disabling that follow the
+    loop never ran at all — after the operator had already typed UNINSTALL.
+    """
+
+    def _snapshot(self, account_id: int, username: str):
+        from datetime import UTC, datetime
+
+        from shortlist.engine.models import FilterSnapshot
+
+        return FilterSnapshot(
+            plex_account_id=account_id,
+            username=username,
+            taken_at=datetime.now(UTC),
+            filters={"filterMovies": "contentRating!=R"},
+        )
+
+    def test_a_departed_account_is_separated_rather_than_raised(self, mock_plextv):
+        """The #96 regression. plex.tv no longer lists sarah; that must not stop mike's restore."""
+        mock_plextv.users = [plextv_user(200, "mike")]
+        snapshots = [self._snapshot(100, "sarah"), self._snapshot(200, "mike")]
+
+        targets, departed, unreachable = resolve_restore_targets(
+            mock_plextv, snapshots, believed_departed=frozenset({100})
+        )
+
+        assert [s.username for s, _ in targets] == ["mike"]
+        assert [s.username for s in departed] == ["sarah"]
+        assert unreachable == []
+
+    def test_missing_from_the_roster_without_corroboration_is_unreachable_not_departed(self, mock_plextv):
+        """The distinction a truncated read turns on. Our records say sarah IS on this server, so a
+        roster that omits her is two observations disagreeing — not a departure. Collapsing the two
+        is how a partial read becomes permanent filter pollution reported as a clean uninstall."""
+        mock_plextv.users = [plextv_user(200, "mike")]
+        snapshots = [self._snapshot(100, "sarah"), self._snapshot(200, "mike")]
+
+        targets, departed, unreachable = resolve_restore_targets(mock_plextv, snapshots)
+
+        assert [s.username for s, _ in targets] == ["mike"]
+        assert departed == []
+        assert [s.username for s in unreachable] == ["sarah"]
+
+    def test_an_empty_roster_does_not_block_an_owner_who_wound_down_every_share(self, mock_plextv):
+        """This must not be a dead end. An owner who has un-shared everyone gets an EMPTY roster, and
+        `user_sync` never marks anyone departed from an empty roster (`gone = ... if roster else []`)
+        — so a hard refusal here could never be cleared by any amount of waiting or re-syncing, and
+        the operator could never uninstall at all."""
+        mock_plextv.users = []
+        snapshots = [self._snapshot(100, "sarah"), self._snapshot(200, "mike")]
+
+        targets, departed, unreachable = resolve_restore_targets(
+            mock_plextv, snapshots, believed_departed=frozenset({100, 200})
+        )
+
+        assert targets == []
+        assert [s.username for s in departed] == ["sarah", "mike"]
+        assert unreachable == []
+
+    def test_an_uncorroborated_empty_roster_is_reported_rather_than_silently_skipped(self, mock_plextv):
+        """The other half. An empty read that our records DISAGREE with must never pass as "everyone
+        left" — that would restore nobody and still report a clean uninstall, which is worse than the
+        crash it replaced because nothing about it looks wrong."""
+        mock_plextv.users = []
+
+        targets, departed, unreachable = resolve_restore_targets(mock_plextv, [self._snapshot(100, "sarah")])
+
+        assert targets == []
+        assert departed == []
+        assert [s.username for s in unreachable] == ["sarah"], "an unexplained absence must be surfaced"
+
+    def test_the_roster_is_read_once_for_the_whole_restore(self, mock_plextv):
+        """`get_user` re-fetched /api/users per call, so a 40-user uninstall paid ~80 round-trips
+        before the read-backs. If removing the batching wouldn't break this, it isn't covering it."""
+        mock_plextv.users = [plextv_user(i, f"u{i}") for i in range(100, 105)]
+
+        resolve_restore_targets(mock_plextv, [self._snapshot(i, f"u{i}") for i in range(100, 105)])
+
+        assert mock_plextv.list_users.call_count == 1
+
+    def test_no_snapshots_reads_nothing(self, mock_plextv):
+        """A server Shortlist never wrote to has nothing to restore, and must not pay a roster read
+        on the way to finding that out."""
+        assert resolve_restore_targets(mock_plextv, []) == ([], [], [])
+        mock_plextv.list_users.assert_not_called()
+
+
+class TestRestoreVerification:
+    """A write plex.tv ACCEPTED but that we could not confirm has still changed that account.
+
+    It must carry what it wrote, or the caller reports a failure with no diff and the write exists
+    nowhere in the audit log (rule 10) — on the most privacy-sensitive path in the product.
+    """
+
+    def _snapshot(self):
+        from datetime import UTC, datetime
+
+        from shortlist.engine.models import FilterSnapshot
+
+        return FilterSnapshot(
+            plex_account_id=100,
+            username="sarah",
+            taken_at=datetime.now(UTC),
+            filters={"filterMovies": "contentRating!=R"},
+        )
+
+    def test_a_readback_mismatch_carries_what_was_written(self, mock_plextv):
+        from shortlist.engine.privacy import RestoreVerificationError
+
+        mock_plextv.users = [plextv_user(100, "sarah", filters={"filterMovies": "contentRating!=R|label!=x"})]
+        mock_plextv.update_user_filters.side_effect = lambda _id, fields: None  # accepted, not applied
+
+        with pytest.raises(RestoreVerificationError) as caught:
+            privacy.restore_user_restrictions(mock_plextv, self._snapshot(), mock_plextv.users[0])
+
+        assert caught.value.attempted == {"filterMovies": "contentRating!=R"}
+
+    def test_a_readback_that_cannot_be_made_also_carries_it(self, mock_plextv):
+        """The write landed; only the confirmation failed. Reporting that as a plain transport error
+        would drop the diff for an account whose filters have already changed."""
+        from shortlist.engine.privacy import RestoreVerificationError
+
+        mock_plextv.users = [plextv_user(100, "sarah", filters={"filterMovies": "contentRating!=R|label!=x"})]
+        mock_plextv.update_user_filters.side_effect = lambda _id, fields: None
+        mock_plextv.get_user.side_effect = TimeoutError("plex.tv stopped answering")
+
+        with pytest.raises(RestoreVerificationError) as caught:
+            privacy.restore_user_restrictions(mock_plextv, self._snapshot(), mock_plextv.users[0])
+
+        assert caught.value.attempted == {"filterMovies": "contentRating!=R"}
+
+
+class TestFilterDiffSummary:
+    """A 48-user server puts every other account's exclude in each account's filter string, so
+    logging the before AND after was ~8 KB per user per field — the same 47 labels every time, with
+    the one that changed buried in the middle. The full diff still goes to the audit event."""
+
+    PREFIX = "Shortlist"
+
+    def _long_filter(self, n: int, extra: str = "") -> str:
+        labels = [f"{self.PREFIX}_user{i}" for i in range(n)]
+        if extra:
+            labels.append(extra)
+        return "label!=" + ",".join(labels)
+
+    def test_it_names_only_what_changed(self):
+        before, after = self._long_filter(47), self._long_filter(47, f"{self.PREFIX}_s_flix")
+
+        summary = summarise_filter_diff({"filterMovies": (before, after)}, self.PREFIX)
+
+        assert summary == "filterMovies +1 (Shortlist_s_flix)"
+        assert "user0" not in summary, "the 47 unchanged labels are noise"
+        assert len(summary) < 100, f"a log line, not a dump: {len(summary)} chars"
+
+    def test_a_first_run_adding_everyone_stays_short(self):
+        summary = summarise_filter_diff({"filterMovies": ("", self._long_filter(47))}, self.PREFIX)
+
+        assert "+47" in summary
+        assert "+44 more" in summary, "list a few, count the rest"
+        assert len(summary) < 120
+
+    def test_removals_are_reported_too(self):
+        before, after = self._long_filter(3), self._long_filter(2)
+
+        assert summarise_filter_diff({"filterMovies": (before, after)}, self.PREFIX) == (
+            "filterMovies -1 (Shortlist_user2)"
+        )
+
+    def test_both_fields_are_covered(self):
+        before, after = self._long_filter(1), self._long_filter(2)
+
+        summary = summarise_filter_diff(
+            {"filterMovies": (before, after), "filterTelevision": (before, after)}, self.PREFIX
+        )
+
+        assert summary.count("Shortlist_user1") == 2
+        assert "filterMovies" in summary and "filterTelevision" in summary
+
+    def test_a_change_outside_our_labels_is_still_reported(self):
+        """Pruning a shared row's label can leave our own exclude set identical — the write still
+        happened, so the log must not claim nothing changed."""
+        summary = summarise_filter_diff(
+            {"filterMovies": ("label!=Shortlist_a,other", "label!=Shortlist_a")}, self.PREFIX
+        )
+
+        assert summary == "filterMovies rewritten"
+
+
+class TestSelfExclusionIsHealed:
+    """An account's OWN label must never sit in its own filter — that hides a person from their own
+    row, permanently, because private-row excludes are otherwise union-only (removing one is the
+    leak direction, so nothing prunes them).
+
+    Reachable: delete a user's DB row while their collection still exists on Plex. `own_label`
+    resolves to None, so `desired_excludes` adds their own label to their own filter — and re-adding
+    the user later never undid it.
+    """
+
+    def _user(self):
+        from shortlist.engine.models import UserProfile, UserType
+
+        return UserProfile(username="sarah", plex_account_id=201, user_type=UserType.SHARED, slug="sarah")
+
+    def test_an_account_that_excluded_itself_gets_it_removed(self, mock_plextv):
+        from shortlist.engine.privacy import sync_user_restrictions
+        from tests.conftest import MemorySnapshotStore, plextv_user
+
+        remote = plextv_user(201, "sarah", filters={"filterMovies": "label!=Shortlist_sarah,Shortlist_mike"})
+        written = sync_user_restrictions(
+            mock_plextv,
+            self._user(),
+            remote,
+            {"sarah": "Shortlist_sarah", "mike": "Shortlist_mike"},
+            MemorySnapshotStore(),
+            own_label="Shortlist_sarah",
+        )
+
+        assert written is not None
+        after = written["filterMovies"][1]
+        assert "Shortlist_sarah" not in after  # they can see their own row again
+        assert "Shortlist_mike" in after  # everyone else's stays hidden
+
+    def test_another_persons_label_is_never_pruned(self, mock_plextv):
+        """Only the account's OWN label. Removing anyone else's is the leak direction."""
+        from shortlist.engine.privacy import sync_user_restrictions
+        from tests.conftest import MemorySnapshotStore, plextv_user
+
+        remote = plextv_user(201, "sarah", filters={"filterMovies": "label!=Shortlist_mike,Shortlist_canary"})
+        written = sync_user_restrictions(
+            mock_plextv,
+            self._user(),
+            remote,
+            {"mike": "Shortlist_mike"},  # canary's collection is gone from the server
+            MemorySnapshotStore(),
+            own_label="Shortlist_sarah",
+        )
+
+        after = (written or {}).get("filterMovies", ("", "label!=Shortlist_mike,Shortlist_canary"))[1]
+        assert "Shortlist_mike" in after
+        assert "Shortlist_canary" in after  # stale, but pruning it is the leak direction
+
+
+class TestRestrictedAccountFilters:
+    """Pins the real shape of a RESTRICTED (managed) account's share filters — recorded from a live
+    PMS, per plex-safety rule 11.
+
+    This is the assumption behind `sync_user_restrictions` skipping these accounts entirely. The
+    fixture shows the skip is not because there is nowhere to write: the account already carries
+    `contentRating=` filters, and a `label!=` condition merges alongside one like any other.
+    """
+
+    def _fixture(self) -> dict:
+        import json
+        from pathlib import Path
+
+        path = Path(__file__).resolve().parents[1] / "fixtures" / "plextv_restricted_user.json"
+        return json.loads(path.read_text())
+
+    def test_a_restricted_account_carries_content_rating_filters_not_label_ones(self):
+        from shortlist.engine.privacy import parse_filter, shortlist_labels_in
+
+        raw = self._fixture()["filters"]["filterMovies"]
+        fields = {c.field for c in parse_filter(raw)}
+
+        assert fields == {"contentRating"}  # a parental profile, not a Shortlist exclude
+        assert shortlist_labels_in(raw, "shortlist") == set()
+
+    def test_merging_excludes_preserves_the_parental_filter_byte_for_byte(self):
+        """The reason issue #20 is fixable: writing label excludes for a managed user does not mean
+        touching their parental controls. Rule 3 — merge, never rebuild."""
+        from shortlist.engine.privacy import merge_label_excludes, parse_filter
+
+        raw = self._fixture()["filters"]["filterMovies"]
+        merged = merge_label_excludes(raw, {"Shortlist_sarah", "Shortlist_mike"})
+
+        original, *rest = parse_filter(merged)
+        assert original == parse_filter(raw)[0]  # the contentRating condition is untouched
+        assert [c.field for c in rest] == ["label"]
+        assert set(rest[0].values) == {"Shortlist_mike", "Shortlist_sarah"}
+        assert raw in merged  # byte-preserved, URL-encoding and all
+
+    def test_the_merge_round_trips(self):
+        """`serialize_filter(parse_filter(s)) == s` must hold for anything plex.tv hands us — these
+        values are URL-encoded and must never be decoded on the way through."""
+        from shortlist.engine.privacy import parse_filter, serialize_filter
+
+        for raw in self._fixture()["filters"].values():
+            assert serialize_filter(parse_filter(raw)) == raw
+
+
+class TestDeadSharedRowExcludesArePruned:
+    """A `shortlist__shared_*` exclude for a row that no longer EXISTS on the server.
+
+    Deleting a shared row, or flipping it to per-person, takes its label out of `shared_labels` — so
+    the normal shared prune stops considering it and the dead entry sits in every account's filter for
+    ever. On a 48-user server each filter already carries every other account's exclude; dead ones
+    accumulate on top with nothing to ever collect them.
+
+    Safe to remove ONLY because the collection is gone: an exclude that matches nothing cannot be
+    hiding anything. That reasoning depends entirely on KNOWING it is gone, which is why it is gated
+    on a successful enumeration rather than on an empty lookup.
+    """
+
+    def _user(self):
+        from shortlist.engine.models import UserProfile, UserType
+
+        return UserProfile(username="sarah", plex_account_id=201, user_type=UserType.SHARED, slug="sarah")
+
+    def _sync(
+        self,
+        mock_plextv,
+        *,
+        stored,
+        collections_known,
+        filters,
+        departed_slugs=None,
+        # "The marker read succeeded and found nobody still present" — the default the pruning cases
+        # want. Passing None instead means "we could not read it", which blocks every private prune.
+        marker_present_slugs=frozenset(),
+    ):
+        from shortlist.engine.privacy import sync_user_restrictions
+        from tests.conftest import MemorySnapshotStore, plextv_user
+
+        return sync_user_restrictions(
+            mock_plextv,
+            self._user(),
+            plextv_user(201, "sarah", filters=filters),
+            stored,
+            MemorySnapshotStore(),
+            own_label="Shortlist_sarah",
+            shared_labels={},  # the row is no longer declared shared — that IS the scenario
+            collections_known=collections_known,
+            departed_slugs=departed_slugs,
+            marker_present_slugs=marker_present_slugs,
+        )
+
+    def test_a_dead_shared_label_is_removed_once_we_know_it_is_gone(self, mock_plextv):
+        written = self._sync(
+            mock_plextv,
+            stored={"sarah": "Shortlist_sarah", "mike": "Shortlist_mike"},
+            collections_known=True,
+            filters={"filterMovies": "label!=Shortlist_mike,shortlist__shared_popular"},
+        )
+
+        assert written is not None
+        after = written["filterMovies"][1]
+        assert "shortlist__shared_popular" not in after
+        assert "Shortlist_mike" in after  # a live private row's exclude is untouched
+
+    def test_a_shared_label_whose_collection_still_exists_is_left_alone(self, mock_plextv):
+        """The row was un-declared in config but its collection is still on the server — so the
+        exclude is doing real work, and `desired_excludes` re-adds it fail-safe. Pruning here would
+        make a live row public."""
+        written = self._sync(
+            mock_plextv,
+            stored={"sarah": "Shortlist_sarah", "shared_popular": "shortlist__shared_popular"},
+            collections_known=True,
+            filters={"filterMovies": "label!=shortlist__shared_popular"},
+        )
+
+        after = (written or {}).get("filterMovies", ("", "label!=shortlist__shared_popular"))[1]
+        assert "shortlist__shared_popular" in after
+
+    def test_nothing_is_pruned_when_the_collections_could_not_be_read(self, mock_plextv):
+        """ "I could not enumerate the collections" and "that collection is gone" look identical from
+        here, and one of those readings un-hides a live row. Not knowing must mean not touching."""
+        written = self._sync(
+            mock_plextv,
+            stored={},  # the read failed, so we know nothing
+            collections_known=False,
+            filters={"filterMovies": "label!=shortlist__shared_popular"},
+        )
+
+        after = (written or {}).get("filterMovies", ("", "label!=shortlist__shared_popular"))[1]
+        assert "shortlist__shared_popular" in after
+
+    def test_a_private_exclude_is_kept_unless_our_own_records_say_that_person_LEFT(self, mock_plextv):
+        """The leak direction, and the reason this needs TWO independent guards rather than one. A
+        missing collection may simply be a row that failed to build tonight — or a section that
+        answered 200 with nothing while really holding rows. Either way, while Shortlist's own records
+        say an ACTIVE person owns that label, the exclude is the only thing hiding their row and no
+        branch may take it away."""
+        written = self._sync(
+            mock_plextv,
+            stored={"sarah": "Shortlist_sarah"},
+            collections_known=True,
+            filters={"filterMovies": "label!=Shortlist_canary"},
+            departed_slugs=set(),  # nobody has left, whatever the server said
+        )
+
+        after = (written or {}).get("filterMovies", ("", "label!=Shortlist_canary"))[1]
+        assert "Shortlist_canary" in after
+
+    def test_a_private_exclude_goes_once_the_row_AND_its_owner_are_both_gone(self, mock_plextv):
+        """Both sources agree: no collection on the server carries the label, and nobody active owns
+        it. Nothing is left to reveal, so the exclude is dead weight — and dead weight that grows by
+        one entry per departure, on every account, for ever (a real server was at 990 characters)."""
+        written = self._sync(
+            mock_plextv,
+            stored={"sarah": "Shortlist_sarah"},
+            collections_known=True,
+            # NOT sarah's own label here: this account IS sarah, and an account's own label in its
+            # own filter is pruned by a different rule entirely (`excluded_from_self`), which would
+            # make this pass for the wrong reason.
+            filters={"filterMovies": "label!=Shortlist_mike,Shortlist_departed"},
+            departed_slugs={"departed"},  # our own records say this person left Plex
+        )
+
+        assert written is not None
+        after = written["filterMovies"][1]
+        assert "Shortlist_departed" not in after
+        assert "Shortlist_mike" in after, "a live person's exclude is untouched"
+
+    def test_a_userless_run_prunes_nothing_however_dead_the_label_looks(self, mock_plextv):
+        """The shape the first version of this guard got wrong. `engine_run(ctx, [])` is a REAL and
+        frequent call — every `privacy.sync` job and `user.restore` uses it (plex-safety rule 1 requires
+        such a run to still sweep and merge). The first guard was "this slug is not among tonight's
+        users", which such a run satisfies for EVERYBODY at once, leaving a partial PMS read as the only
+        thing between a live private row and having its exclude deleted from all 47 accounts.
+
+        Departure is positive evidence from our own database, so an empty user list proves nothing and
+        prunes nothing."""
+        written = self._sync(
+            mock_plextv,
+            stored={"sarah": "Shortlist_sarah"},
+            collections_known=True,
+            filters={"filterMovies": "label!=Shortlist_bob,Shortlist_mike"},
+            departed_slugs=set(),  # a userless run knows of no departures
+        )
+
+        after = (written or {}).get("filterMovies", ("", "label!=Shortlist_bob,Shortlist_mike"))[1]
+        assert "Shortlist_bob" in after
+        assert "Shortlist_mike" in after
+
+    def test_a_paused_persons_exclude_survives_a_partial_enumeration(self, mock_plextv):
+        """A paused or out-of-scope person is absent from tonight's user list but has NOT left, and
+        their collection may simply sit in a library this read missed. Their exclude is the only thing
+        hiding their row."""
+        written = self._sync(
+            mock_plextv,
+            stored={"sarah": "Shortlist_sarah"},  # a partial read: the other library is missing
+            collections_known=True,
+            filters={"filterMovies": "label!=Shortlist_paused"},
+            departed_slugs={"someone_else"},
+        )
+
+        after = (written or {}).get("filterMovies", ("", "label!=Shortlist_paused"))[1]
+        assert "Shortlist_paused" in after
+
+    def test_a_percent_encoded_label_for_a_live_row_is_never_pruned(self, mock_plextv):
+        """Plex Web writes filter values percent-encoded, so the same label reaches us both ways. Every
+        other comparison here goes through `_same_value` (unquote + casefold); a raw compare would make
+        an encoded LIVE label look absent — and this is the one prune whose condition is non-membership,
+        so a mismatch licenses removal instead of preventing it."""
+        written = self._sync(
+            mock_plextv,
+            stored={"sarah": "Shortlist_sarah", "bob": "Shortlist_bob"},
+            collections_known=True,
+            filters={"filterMovies": "label!=shortlist%5Fbob"},
+            departed_slugs={"someone_else"},
+        )
+
+        after = (written or {}).get("filterMovies", ("", "label!=shortlist%5Fbob"))[1]
+        assert "shortlist%5Fbob" in after, "bob's row is live — his exclude must survive in any encoding"
+
+    def test_not_knowing_who_departed_prunes_no_private_exclude(self, mock_plextv):
+        """`departed_slugs=None` means the caller could not say. Not knowing must never license the
+        removal — the same rule the enumeration gate already follows."""
+        written = self._sync(
+            mock_plextv,
+            stored={"sarah": "Shortlist_sarah"},
+            collections_known=True,
+            filters={"filterMovies": "label!=Shortlist_departed"},
+            departed_slugs=None,
+        )
+
+        after = (written or {}).get("filterMovies", ("", "label!=Shortlist_departed"))[1]
+        assert "Shortlist_departed" in after
+
+    def test_a_failed_enumeration_prunes_no_private_exclude_however_dead_it_looks(self, mock_plextv):
+        """The second guard does not replace the first. Both must agree, so an unreadable server keeps
+        every private exclude even for a slug nobody owns."""
+        written = self._sync(
+            mock_plextv,
+            stored={},
+            collections_known=False,
+            filters={"filterMovies": "label!=Shortlist_departed"},
+            departed_slugs={"departed"},
+        )
+
+        after = (written or {}).get("filterMovies", ("", "label!=Shortlist_departed"))[1]
+        assert "Shortlist_departed" in after
+
+    def test_an_empty_but_successful_read_prunes_nothing(self, mock_plextv):
+        """The exact hole the first version had. A PMS mid library-index rebuild answers 200 with no
+        collections — indistinguishable from "every row is gone" — and `collections_known` was set
+        purely from "the call did not raise". Acting on that reading strips shared excludes from every
+        account on the server at once."""
+        written = self._sync(
+            mock_plextv,
+            stored={},  # a successful call that returned nothing
+            collections_known=True,
+            filters={"filterMovies": "label!=shortlist__shared_popular,Shortlist_mike"},
+        )
+
+        after = (written or {}).get("filterMovies", ("", "label!=shortlist__shared_popular,Shortlist_mike"))[1]
+        assert "shortlist__shared_popular" in after
+
+    def test_a_live_restricted_row_keeps_its_exclude_for_an_out_of_audience_account(self, mock_plextv):
+        """The row EXISTS and the config restricts it to accounts this one is not in — so the exclude
+        is the only thing hiding it, and no branch may take it away. `dead_shared` additionally
+        requires the config to have stopped declaring it, so a live row can never reach that path."""
+        from shortlist.engine.privacy import sync_user_restrictions
+        from tests.conftest import MemorySnapshotStore, plextv_user
+
+        written = sync_user_restrictions(
+            mock_plextv,
+            self._user(),
+            plextv_user(201, "sarah", filters={"filterMovies": "label!=shortlist__shared_popular"}),
+            {"sarah": "Shortlist_sarah", "shared_popular": "shortlist__shared_popular"},
+            MemorySnapshotStore(),
+            own_label="Shortlist_sarah",
+            shared_labels={"shortlist__shared_popular": {999}},  # audience 999 — NOT this account
+            collections_known=True,
+        )
+
+        after = (written or {}).get("filterMovies", ("", "label!=shortlist__shared_popular"))[1]
+        assert "shortlist__shared_popular" in after
+
+
+class TestRowsWeCannotHide:
+    """Plex refuses label filters on a managed account with a parental profile, so those accounts get
+    no excludes. The code skipped them on the stated grounds that they "see zero collections anyway".
+
+    Measured on a real server 2026-08-11: a `little_kid` account does see zero — but an `older_kid`
+    account saw three. The assumption was generalised from the strictest profile to all of them, so
+    for the others we neither hid the rows nor said we hadn't. This finds out instead of assuming.
+    """
+
+    class _Pms:
+        """A PMS as ONE account sees it: only the collections that account is allowed."""
+
+        def __init__(self, visible: dict[str, list[int]]):
+            self._visible = visible
+
+        def sections(self):
+            return [SimpleNamespace(key=k, title=k) for k in self._visible]
+
+        def _section_collections(self, section):
+            return [SimpleNamespace(rating_key=rk, title=f"row {rk}") for rk in self._visible[section.key]]
+
+    @staticmethod
+    def _owned():
+        """What `PlexClient.owned_collections` returns: label-slug -> the ratingKeys carrying it.
+
+        The FRESH server read, not the delivery ledger. The ledger is loaded when the run's context is
+        built, so on a first run it is empty — and an empty `ours` makes every account look clean,
+        which is precisely the silence this check exists to break. `owned` is read from the PMS inside
+        the privacy phase itself, so it describes the rows that exist right now.
+        """
+        return {
+            "sarah": SimpleNamespace(label="shortlist_sarah", rating_keys=[11, 12]),
+            "mike": SimpleNamespace(label="shortlist_mike", rating_keys=[21]),
+            "kid": SimpleNamespace(label="shortlist_kid", rating_keys=[31]),
+            # A SHARED row: everyone is meant to see it, subject to its audience. Counting it as an
+            # exposure would fire this alert on every server that has one.
+            "_shared_popular": SimpleNamespace(label="shortlist__shared_popular", rating_keys=[41]),
+        }
+
+    def test_reports_another_persons_row_that_the_account_can_see(self):
+        pms = self._Pms({"1": [21, 31, 99]})  # mike's row, their own, and something not ours
+        assert unhidden_rows_visible_to(pms, self._owned(), "kid") == [21]
+
+    def test_their_own_row_is_not_an_exposure(self):
+        pms = self._Pms({"1": [31]})
+        assert unhidden_rows_visible_to(pms, self._owned(), "kid") == []
+
+    def test_a_collection_that_is_not_ours_is_ignored(self):
+        """Kometa and friends share these libraries; only rows WE delivered are ours to judge."""
+        pms = self._Pms({"1": [99, 100]})
+        assert unhidden_rows_visible_to(pms, self._owned(), "kid") == []
+
+    def test_a_shared_row_is_not_an_exposure(self):
+        """A shared row is one collection everybody is meant to see. Flagging it would make this alert
+        fire on any server running a shared row, and an alert that is always on is ignored."""
+        pms = self._Pms({"1": [41]})
+        assert unhidden_rows_visible_to(pms, self._owned(), "kid") == []
+
+    def test_an_account_that_sees_nothing_is_clean(self):
+        """The `little_kid` case the original observation was true for — it must stay quiet."""
+        assert unhidden_rows_visible_to(self._Pms({"1": []}), self._owned(), "kid") == []
+
+    def test_every_foreign_row_is_listed_across_libraries(self):
+        pms = self._Pms({"1": [11, 21], "2": [12]})
+        assert unhidden_rows_visible_to(pms, self._owned(), "kid") == [11, 12, 21]
+
+    def test_a_read_that_fails_is_not_silently_clean(self):
+        """A failed read must never be reported as "nothing visible" — that is the empty-read bug
+        this codebase already has a rule about (plex-safety rule 4)."""
+
+        class _Broken:
+            def sections(self):
+                raise RuntimeError("PMS unreachable")
+
+        with pytest.raises(RuntimeError):
+            unhidden_rows_visible_to(_Broken(), self._owned(), "kid")
+
+
+class TestThePrivatePruneNeedsTwoSourcesNotOne:
+    """`dead_private` is the one prune pointed at the LEAK direction — it removes another account's
+    private-row exclude, and getting it wrong makes a live row visible to everyone, with no Privacy
+    Check left to notice (removed 2026-07-16).
+
+    Its label evidence comes from `collection.labels`, i.e. plexapi's silent per-collection re-read,
+    and plex-safety rule 4 is explicit that a re-read which SUCCEEDS carrying no `<Label>` is
+    indistinguishable from a genuinely unlabelled row. A review demonstrated the single-source version
+    removing `Shortlist_mike` from Sarah's filter while Mike's collection was still on the server.
+
+    The second source is the invisible title marker: it rides in the title, which the collections
+    listing returns inline, so it does not fail the way a label re-read fails.
+    """
+
+    def _user(self):
+        from shortlist.engine.models import UserProfile, UserType
+
+        return UserProfile(username="sarah", plex_account_id=201, user_type=UserType.SHARED, slug="sarah")
+
+    def _sync(self, mock_plextv, *, marker_present_slugs):
+        from shortlist.engine.privacy import sync_user_restrictions
+        from tests.conftest import MemorySnapshotStore, plextv_user
+
+        return sync_user_restrictions(
+            mock_plextv,
+            self._user(),
+            plextv_user(201, "sarah", filters={"filterMovies": "label!=Shortlist_mike"}),
+            # The label read came back WITHOUT mike — the failure mode rule 4 describes. Sarah's own
+            # row read fine, so the aggregate "was the enumeration empty" check passes trivially.
+            {"sarah": "Shortlist_sarah"},
+            MemorySnapshotStore(),
+            own_label="Shortlist_sarah",
+            shared_labels={},
+            collections_known=True,
+            departed_slugs={"mike"},
+            marker_present_slugs=marker_present_slugs,
+        )
+
+    def test_a_label_less_read_alone_never_un_hides_a_row_the_marker_says_is_there(self, mock_plextv):
+        """The exact case the review reproduced. Every other condition for pruning is satisfied —
+        departed, absent from the label enumeration, not wanted this pass — and the marker is the only
+        thing standing between Mike's live row and Sarah being able to see it."""
+        written = self._sync(mock_plextv, marker_present_slugs={"mike"})
+
+        after = (written or {}).get("filterMovies", ("", "label!=Shortlist_mike"))[1]
+        assert "Shortlist_mike" in after, "a row the marker still sees must stay hidden"
+
+    def test_both_sources_agreeing_it_is_gone_still_prunes(self, mock_plextv):
+        """The control. The guard must not simply freeze pruning — the exclude it removes otherwise
+        accumulates in every account's filter for ever (a real server hit 990 characters)."""
+        written = self._sync(mock_plextv, marker_present_slugs=set())
+
+        assert written is not None
+        assert "Shortlist_mike" not in written["filterMovies"][1]
+
+    def test_an_unreadable_marker_enumeration_licenses_nothing(self, mock_plextv):
+        """None means "we could not read it". Not knowing must never license a removal — the same rule
+        `collections_known` already follows for the label side."""
+        written = self._sync(mock_plextv, marker_present_slugs=None)
+
+        after = (written or {}).get("filterMovies", ("", "label!=Shortlist_mike"))[1]
+        assert "Shortlist_mike" in after
+
+
+class TestAnEmptyLabelNeverBecomesAnExclude:
+    def test_a_falsy_label_is_dropped_rather_than_written_into_a_filter(self):
+        """The last gate before a real plex.tv share filter.
+
+        `label!=A,,B` is a filter Plex cannot act on, and it fails OPEN — the row it was meant to
+        hide is visible. Dropped at the source too (`deliver_rows` only records a label it stored);
+        this is the belt, because getting it wrong here is a leak rather than a cosmetic bug.
+        """
+        from shortlist.engine.privacy import desired_excludes
+
+        got = desired_excludes("Shortlist_bob", {"bob": "Shortlist_bob", "mike": "Shortlist_mike", "ghost": ""})
+
+        assert "" not in got
+        assert got == {"Shortlist_mike"}
+
+
+class TestLeavingAnAccountsSharingAlone:
+    """`clear_our_excludes` — the one write in this module that makes the server LESS private.
+
+    The owner sets "don't change this person's Plex sharing settings" when their own restrictions
+    conflict with ours (discussion #92: a managed account whose "allow only" label list is the thing
+    actually keeping it away from our rows). Everything here has to hold: we remove ONLY our own
+    labels, we leave every other condition byte-identical, and a steady state writes nothing at all.
+    """
+
+    def _remote(self, filter_movies: str = "", filter_tv: str = "") -> PlexTvUser:
+        return PlexTvUser(
+            id=500,
+            username="kid",
+            user_type=UserType.MANAGED,
+            home=True,
+            restricted=True,
+            protected=False,
+            restriction_profile="",
+            filters={
+                "filterAll": "",
+                "filterMovies": filter_movies,
+                "filterTelevision": filter_tv,
+                "filterMusic": "",
+                "filterPhotos": "",
+            },
+        )
+
+    def test_the_allow_only_list_survives_and_only_our_labels_go(self, mock_plextv):
+        """Discussion #92's exact filter: an "allow only" clause the owner wrote, plus the excludes we
+        merged in. The allow clause is theirs and must come back byte-identical."""
+        kid = make_profile("kid", user_type=UserType.MANAGED, account_id=500)
+        remote = self._remote("label=Kids%20Safe|label!=Shortlist_sarah,Shortlist_mike")
+
+        written = privacy.clear_our_excludes(mock_plextv, kid, remote)
+
+        assert written is not None
+        assert written["filterMovies"][1] == "label=Kids%20Safe"
+        call = mock_plextv.update_user_filters.call_args
+        assert call.args[0] == 500
+        assert call.args[1] == {"filterMovies": "label=Kids%20Safe"}
+
+    def test_a_foreign_exclude_alongside_ours_is_kept(self, mock_plextv):
+        """Rule 3 cuts both ways: the owner's own `label!=` values are not ours to remove."""
+        kid = make_profile("kid", user_type=UserType.MANAGED, account_id=500)
+        remote = self._remote("label!=Halloween,Shortlist_mike,Grown%20Ups")
+
+        written = privacy.clear_our_excludes(mock_plextv, kid, remote)
+
+        assert written["filterMovies"][1] == "label!=Halloween,Grown%20Ups"
+
+    def test_both_restricted_fields_are_cleared(self, mock_plextv):
+        kid = make_profile("kid", user_type=UserType.MANAGED, account_id=500)
+        remote = self._remote("label!=Shortlist_mike", "label!=Shortlist_mike|contentRating=TV-Y")
+
+        written = privacy.clear_our_excludes(mock_plextv, kid, remote)
+
+        assert written["filterMovies"][1] == ""
+        assert written["filterTelevision"][1] == "contentRating=TV-Y"
+
+    def test_nothing_of_ours_left_writes_nothing(self, mock_plextv):
+        """Idempotence is what makes this safe to run every night rather than once: the second pass
+        over a cleared account must not touch plex.tv at all."""
+        kid = make_profile("kid", user_type=UserType.MANAGED, account_id=500)
+
+        written = privacy.clear_our_excludes(mock_plextv, kid, self._remote("label=Kids%20Safe"))
+
+        assert written is None
+        mock_plextv.update_user_filters.assert_not_called()
+
+    def test_a_percent_encoded_label_of_ours_is_still_ours(self, mock_plextv):
+        """Plex Web re-encodes what it rewrites, so our own label can come back percent-encoded — and
+        reading it as foreign would leave the account exactly as polluted as before."""
+        kid = make_profile("kid", user_type=UserType.MANAGED, account_id=500)
+
+        written = privacy.clear_our_excludes(mock_plextv, kid, self._remote("label!=Shortlist%5Fmike"))
+
+        assert written["filterMovies"][1] == ""
+
+    def test_a_restricted_shared_rows_exclude_is_kept(self, mock_plextv):
+        """The one exclude "leave them alone" must NOT remove.
+
+        `SHARED_LABEL_PREFIX` is `shortlist__shared_`, which starts with `shortlist_` — so the
+        obvious "remove every label of ours" also strips a shared row's exclude. For a shared row
+        limited to an audience, that exclude is the ONLY thing hiding it from everyone outside the
+        audience, and nothing re-adds it: the next run skips this account entirely. So the account
+        would silently gain a row the owner restricted on the row itself.
+        """
+        kid = make_profile("kid", user_type=UserType.MANAGED, account_id=500)
+        remote = self._remote("label!=shortlist__shared_date_night,Shortlist_mike")
+
+        written = privacy.clear_our_excludes(mock_plextv, kid, remote)
+
+        assert written["filterMovies"][1] == "label!=shortlist__shared_date_night"
+
+    def test_a_filter_holding_only_a_shared_exclude_is_not_written_at_all(self, mock_plextv):
+        """The steady state for an account whose only exclude of ours is a shared row's: nothing to
+        do, so no write. Without this the run would rewrite that filter to itself every night."""
+        kid = make_profile("kid", user_type=UserType.MANAGED, account_id=500)
+
+        written = privacy.clear_our_excludes(mock_plextv, kid, self._remote("label!=shortlist__shared_date_night"))
+
+        assert written is None
+        mock_plextv.update_user_filters.assert_not_called()
+
+    def test_the_owner_is_never_written_to(self, mock_plextv):
+        """Rule 5. The owner has no share, so "leave their sharing alone" is the only possible state
+        and there is nothing to clear."""
+        owner = make_profile("steve", user_type=UserType.OWNER, account_id=1)
+
+        assert privacy.clear_our_excludes(mock_plextv, owner, self._remote("label!=Shortlist_mike")) is None
+        mock_plextv.update_user_filters.assert_not_called()
+
+    def test_an_account_that_no_longer_shares_the_server_is_skipped(self, mock_plextv):
+        kid = make_profile("kid", user_type=UserType.MANAGED, account_id=500)
+
+        assert privacy.clear_our_excludes(mock_plextv, kid, None) is None
+        mock_plextv.update_user_filters.assert_not_called()
+
+    def test_dry_run_reports_the_diff_and_writes_nothing(self, mock_plextv):
+        kid = make_profile("kid", user_type=UserType.MANAGED, account_id=500)
+        remote = self._remote("label!=Shortlist_mike")
+
+        written = privacy.clear_our_excludes(mock_plextv, kid, remote, dry_run=True)
+
+        assert written == {"filterMovies": ("label!=Shortlist_mike", "")}
+        mock_plextv.update_user_filters.assert_not_called()
+
+    def test_an_unparseable_filter_raises_rather_than_being_rewritten(self, mock_plextv):
+        """Same answer as every other path here: a filter we cannot represent is one we refuse to
+        touch. The caller downgrades it to a warning — the account simply stays as it is."""
+        kid = make_profile("kid", user_type=UserType.MANAGED, account_id=500)
+
+        with pytest.raises(FilterParseError):
+            privacy.clear_our_excludes(mock_plextv, kid, self._remote("this is not a filter"))
+        mock_plextv.update_user_filters.assert_not_called()

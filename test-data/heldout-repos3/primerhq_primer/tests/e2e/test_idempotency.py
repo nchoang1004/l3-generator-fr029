@@ -1,0 +1,583 @@
+"""E2E: idempotent operations per §17 invariant #5.
+
+DELETE is explicitly NOT idempotent — see T0009. T0026 (two-call
+invalidate idempotency) and T0028 (two-call drain idempotency) were
+pruned as subsumed:
+  * T0026 — fully covered by T0250 (5 concurrent invalidates all 204)
+    and T0364 (invalidate × delete race, both clean envelopes).
+  * T0028 — fully covered by T0218 (drain twice + a third call must
+    leave status=draining) and T0307 (capacity/started_at stable
+    across drain).
+"""
+
+from __future__ import annotations
+
+import asyncio
+
+import httpx
+import pytest
+from tests._support.model_profiles import seed_llm_provider
+
+
+def _llm_body(entity_id: str) -> dict:
+    return {
+        "id": entity_id,
+        "provider": "anthropic",
+        "models": [{"name": "claude-sonnet-4-6", "context_length": 200_000}],
+        "config": {"api_key": "sk-test-placeholder"},
+        "limits": {"max_concurrency": 1},
+    }
+
+
+@pytest.mark.asyncio
+async def test_t0218_drain_third_call_does_not_toggle_state(
+    client: httpx.AsyncClient,
+) -> None:
+    """T0218 — Distinct from T0028's two-call idempotency. After the
+    second drain leaves status=draining, a THIRD drain must still
+    return 204 AND the worker row's identifying fields (id, host, pid)
+    must remain stable across the call — no field toggling.
+
+    Catches a regression where the drain handler does a "load row →
+    flip a boolean → write back" that could cycle the state if the
+    field is interpreted as a toggle rather than an idempotent set.
+    """
+    listed = await client.get("/v1/workers")
+    assert listed.status_code == 200, listed.text
+    items = listed.json()["items"]
+    assert items
+    worker_id = items[0]["id"]
+
+    # Two drains to reach "already draining" state
+    await client.post(f"/v1/workers/{worker_id}/drain")
+    await client.post(f"/v1/workers/{worker_id}/drain")
+
+    # Snapshot before third drain
+    before = await client.get("/v1/workers")
+    assert before.status_code == 200
+    row_before = next(
+        (w for w in before.json()["items"] if w["id"] == worker_id), None,
+    )
+    assert row_before is not None
+    assert row_before["status"] == "draining"
+
+    # Third drain — must remain 204 and not flip state
+    third = await client.post(f"/v1/workers/{worker_id}/drain")
+    assert third.status_code == 204, third.text
+
+    after = await client.get("/v1/workers")
+    assert after.status_code == 200
+    row_after = next(
+        (w for w in after.json()["items"] if w["id"] == worker_id), None,
+    )
+    assert row_after is not None
+    assert row_after["status"] == "draining", (
+        f"third drain toggled status off: before={row_before!r}, "
+        f"after={row_after!r}"
+    )
+    # Identity fields stable
+    for field in ("id", "host", "pid"):
+        assert row_after.get(field) == row_before.get(field), (
+            f"field {field!r} changed across the third drain call: "
+            f"before={row_before.get(field)!r}, "
+            f"after={row_after.get(field)!r}"
+        )
+
+
+@pytest.mark.asyncio
+async def test_t0307_worker_capacity_started_at_stable_across_drain(
+    client: httpx.AsyncClient,
+) -> None:
+    """T0307 — Extends T0218 to cover the `capacity` and `started_at`
+    fields specifically. After a drain, these worker-identity fields
+    must remain unchanged.
+    """
+    listed = await client.get("/v1/workers")
+    assert listed.status_code == 200, listed.text
+    items = listed.json()["items"]
+    assert items
+    worker_id = items[0]["id"]
+
+    # Snapshot before any drain
+    row_before = items[0]
+    assert "capacity" in row_before, row_before
+    assert "started_at" in row_before, row_before
+    capacity_before = row_before["capacity"]
+    started_at_before = row_before["started_at"]
+
+    # Drain
+    rd = await client.post(f"/v1/workers/{worker_id}/drain")
+    assert rd.status_code == 204, rd.text
+
+    # Snapshot after
+    after = await client.get("/v1/workers")
+    assert after.status_code == 200
+    row_after = next(
+        (w for w in after.json()["items"] if w["id"] == worker_id), None,
+    )
+    assert row_after is not None
+    assert row_after.get("capacity") == capacity_before, (
+        f"capacity changed across drain: "
+        f"before={capacity_before!r}, after={row_after.get('capacity')!r}"
+    )
+    assert row_after.get("started_at") == started_at_before, (
+        f"started_at changed across drain: "
+        f"before={started_at_before!r}, "
+        f"after={row_after.get('started_at')!r}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_t0250_concurrent_invalidate_calls_all_204(
+    client: httpx.AsyncClient, unique_suffix: str,
+) -> None:
+    """T0250 — Five parallel POSTs to /v1/llm_providers/{id}/invalidate.
+    Every response must be 204 (no race-induced 5xx); the row body
+    after the burst is unchanged from before. Stress-tests the
+    invalidate path's concurrency safety beyond T0026's two-call
+    sequential idempotency.
+    """
+    entity_id = f"llm-conc-{unique_suffix}"
+    created = await seed_llm_provider(client, _llm_body(entity_id))
+    assert created.status_code == 201, created.text
+    try:
+        before = await client.get(f"/v1/llm_providers/{entity_id}")
+        assert before.status_code == 200, before.text
+        before_body = before.json()
+
+        # Fire 5 invalidate calls concurrently
+        results = await asyncio.gather(*[
+            client.post(f"/v1/llm_providers/{entity_id}/invalidate")
+            for _ in range(5)
+        ])
+        for i, r in enumerate(results):
+            assert r.status_code == 204, (
+                f"concurrent invalidate call {i} did not return 204: "
+                f"{r.status_code}: {r.text}"
+            )
+
+        # Row body unchanged
+        after = await client.get(f"/v1/llm_providers/{entity_id}")
+        assert after.status_code == 200, after.text
+        after_body = after.json()
+        for field in ("id", "provider", "config"):
+            assert after_body.get(field) == before_body.get(field), (
+                f"field {field!r} changed across concurrent invalidates: "
+                f"before={before_body.get(field)!r}, "
+                f"after={after_body.get(field)!r}"
+            )
+    finally:
+        await client.delete(f"/v1/llm_providers/{entity_id}")
+
+
+@pytest.mark.asyncio
+async def test_t0364_concurrent_invalidate_and_delete_same_provider(
+    client: httpx.AsyncClient, unique_suffix: str,
+) -> None:
+    """T0364 — Race POST /invalidate + DELETE on the same LLMProvider
+    id concurrently. The invalidate is unconditional (T0187 — silent
+    204 even on missing rows), so it succeeds regardless. The DELETE
+    succeeds (204) the first time. Both must produce clean envelopes;
+    subsequent GET returns 404.
+    """
+    entity_id = f"llm-race-id-{unique_suffix}"
+    created = await seed_llm_provider(client, _llm_body(entity_id))
+    assert created.status_code == 201, created.text
+
+    inv_resp, del_resp = await asyncio.gather(
+        client.post(f"/v1/llm_providers/{entity_id}/invalidate"),
+        client.delete(f"/v1/llm_providers/{entity_id}"),
+    )
+
+    # Invalidate is unconditional — always 204
+    assert inv_resp.status_code == 204, inv_resp.text
+    # DELETE is 204 (success) — never 404 (race-induced) because we
+    # held the row at race start
+    assert del_resp.status_code == 204, del_resp.text
+
+    # Subsequent GET returns 404
+    got = await client.get(f"/v1/llm_providers/{entity_id}")
+    assert got.status_code == 404, got.text
+    assert got.json()["type"] == "/errors/not-found"
+
+
+@pytest.mark.asyncio
+async def test_t0365_concurrent_find_calls_return_identical_item_sets(
+    client: httpx.AsyncClient, unique_suffix: str,
+) -> None:
+    """T0365 — Six parallel POST /v1/toolsets/find calls with the
+    SAME body must all return the EXACT same set of ids. Pins
+    determinism on a quiet table — no race-induced drift.
+    """
+    prefix = f"ts-t0365-{unique_suffix}"
+    ids: list[str] = []
+    try:
+        for i in range(4):
+            entity_id = f"{prefix}-{i:02d}"
+            r = await client.post(
+                "/v1/toolsets",
+                json={
+                    "id": entity_id,
+                    "provider": "mcp",
+                    "config": {
+                        "transport": "stdio",
+                        "config": {"command": ["echo"]},
+                    },
+                },
+            )
+            assert r.status_code == 201, r.text
+            ids.append(entity_id)
+
+        body = {
+            "predicate": {
+                "kind": "predicate",
+                "op": "~=",
+                "left": {"kind": "field", "name": "id"},
+                "right": {"kind": "value", "value": f"{prefix}%"},
+            },
+            "page": {"kind": "offset", "offset": 0, "length": 50},
+        }
+
+        # Fire 6 in parallel
+        results = await asyncio.gather(*[
+            client.post("/v1/toolsets/find", json=body) for _ in range(6)
+        ])
+        for r in results:
+            assert r.status_code == 200, r.text
+
+        sets = [
+            frozenset(item["id"] for item in r.json()["items"])
+            for r in results
+        ]
+        # All sets identical
+        assert len(set(sets)) == 1, (
+            f"concurrent /find returned different sets: {sets!r}"
+        )
+        assert sorted(sets[0]) == sorted(ids), (
+            f"set didn't match seeded: expected {sorted(ids)!r}, "
+            f"got {sorted(sets[0])!r}"
+        )
+    finally:
+        for entity_id in ids:
+            await client.delete(f"/v1/toolsets/{entity_id}")
+
+
+@pytest.mark.asyncio
+async def test_t0278_put_with_body_omitting_id_uses_path_id(
+    client: httpx.AsyncClient, unique_suffix: str,
+) -> None:
+    """T0278 — PUT existing LLMProvider with a body that has NO `id`
+    field. The handler must implicit-fill the path id (no 422 for
+    "missing required field"); subsequent GET returns the row with
+    the path id preserved.
+
+    Pin the implicit-id-fill semantic so a future regression that
+    starts requiring `id` in the body is caught at the test layer.
+    """
+    entity_id = f"llm-noid-{unique_suffix}"
+    initial = _llm_body(entity_id)
+    created = await seed_llm_provider(client, initial)
+    assert created.status_code == 201, created.text
+    try:
+        # PUT body with NO id field
+        body_no_id = {k: v for k, v in initial.items() if k != "id"}
+        body_no_id["limits"] = {"max_concurrency": 5}  # observable mutation
+        put = await client.put(
+            f"/v1/llm_providers/{entity_id}", json=body_no_id,
+        )
+        # Either 200 (implicit-fill from path) or 422 (id required) —
+        # pin which one is the live contract
+        assert put.status_code in (200, 422), put.text
+        if put.status_code == 200:
+            # Verify the row's id matches the path
+            got = await client.get(f"/v1/llm_providers/{entity_id}")
+            assert got.status_code == 200, got.text
+            assert got.json()["id"] == entity_id, got.json()
+            # And the mutation took effect
+            assert got.json()["limits"]["max_concurrency"] == 5, got.json()
+        else:
+            envelope = put.json()
+            assert envelope["type"] == "/errors/validation-error", envelope
+    finally:
+        await client.delete(f"/v1/llm_providers/{entity_id}")
+
+
+@pytest.mark.asyncio
+async def test_t0266_parallel_puts_same_row_one_body_wins(
+    client: httpx.AsyncClient, unique_suffix: str,
+) -> None:
+    """T0266 — Two parallel PUTs to the same LLMProvider row with
+    DIFFERENT bodies. Both must return 2xx (or one wins and the other
+    409 — both are documented); the GET after the race returns one of
+    the two bodies (no row corruption); never /errors/internal.
+    """
+    entity_id = f"llm-race-put-{unique_suffix}"
+    body_a = {
+        "id": entity_id,
+        "provider": "anthropic",
+        "models": [{"name": "claude-sonnet-4-6", "context_length": 200_000}],
+        "config": {"api_key": "sk-test-A"},
+        "limits": {"max_concurrency": 1},
+    }
+    body_b = {
+        "id": entity_id,
+        "provider": "anthropic",
+        "models": [
+            {"name": "claude-sonnet-4-6", "context_length": 200_000},
+            {"name": "claude-haiku-4-5", "context_length": 100_000},
+        ],
+        "config": {"api_key": "sk-test-B"},
+        "limits": {"max_concurrency": 4},
+    }
+
+    # Initial create
+    created = await seed_llm_provider(client, body_a)
+    assert created.status_code == 201, created.text
+    try:
+        # Race two PUTs concurrently
+        r_a, r_b = await asyncio.gather(
+            client.put(f"/v1/llm_providers/{entity_id}", json=body_a),
+            client.put(f"/v1/llm_providers/{entity_id}", json=body_b),
+        )
+        for r, label in ((r_a, "PUT A"), (r_b, "PUT B")):
+            assert r.status_code < 500, (
+                f"{label} leaked 5xx: {r.status_code}: {r.text}"
+            )
+            envelope = r.json() if r.content else {}
+            assert envelope.get("type") != "/errors/internal", (
+                f"{label} returned /errors/internal: {r.text}"
+            )
+
+        # GET the row — must return one of the two bodies cleanly
+        got = await client.get(f"/v1/llm_providers/{entity_id}")
+        assert got.status_code == 200, got.text
+        row = got.json()
+        # The two bodies differ on max_concurrency; the surviving row must
+        # be exactly one of them, not a blend. models[] used to be the
+        # distinguishing field before it moved to ModelProfile rows.
+        assert row["limits"]["max_concurrency"] in (1, 4), (
+            f"row corrupted across PUT race: {row!r}"
+        )
+    finally:
+        await client.delete(f"/v1/llm_providers/{entity_id}")
+
+
+@pytest.mark.asyncio
+async def test_t0104_parallel_get_and_delete_no_internal_error(
+    client: httpx.AsyncClient, unique_suffix: str,
+) -> None:
+    """T0104 — race a GET and a DELETE on the same toolset row. The
+    GET races against the DELETE in either order; both possibilities
+    must surface as clean responses (200 if GET wins the read, 404
+    if DELETE happened first), with no `/errors/internal` leak.
+
+    This catches handlers that do a "load → operate → save" pattern
+    without holding a lock, where the loaded object disappears
+    mid-handler. The contract pin is "no internal-error envelope under
+    the simplest possible race".
+    """
+    entity_id = f"ts-race-del-{unique_suffix}"
+    body = {
+        "id": entity_id,
+        "provider": "mcp",
+        "config": {
+            "transport": "stdio",
+            "config": {"command": ["echo"]},
+        },
+    }
+    create = await client.post("/v1/toolsets", json=body)
+    assert create.status_code == 201, create.text
+
+    # Fire GET and DELETE concurrently. Outcomes by ordering:
+    #   GET wins the race → GET 200, DELETE 204
+    #   DELETE wins → GET 404, DELETE 204
+    # Either way, no 500 envelope.
+    get_resp, del_resp = await asyncio.gather(
+        client.get(f"/v1/toolsets/{entity_id}"),
+        client.delete(f"/v1/toolsets/{entity_id}"),
+    )
+
+    for label, resp in (("GET", get_resp), ("DELETE", del_resp)):
+        assert resp.status_code != 500, (
+            f"{label} leaked /errors/internal under race: {resp.text}"
+        )
+        if 400 <= resp.status_code < 600:
+            assert resp.json().get("type") != "/errors/internal", (
+                f"{label} surfaced /errors/internal: {resp.text}"
+            )
+
+    # GET response is one of: 200 (saw the row), 404 (DELETE ran first)
+    assert get_resp.status_code in (200, 404), (
+        f"unexpected GET status under race: {get_resp.status_code}: "
+        f"{get_resp.text}"
+    )
+    # DELETE wins for the row: either it deleted (204) or someone else
+    # got there first (404). 204 is the typical outcome since it's the
+    # only writer in this race.
+    assert del_resp.status_code in (204, 404), (
+        f"unexpected DELETE status under race: {del_resp.status_code}: "
+        f"{del_resp.text}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_t0099_worker_drain_nonexistent_id_is_clean(
+    client: httpx.AsyncClient, unique_suffix: str,
+) -> None:
+    """T0099 — `POST /v1/workers/<bogus>/drain` must NOT 500.
+
+    The handler delegates to `Scheduler.drain_worker(worker_id)`. The
+    worker doesn't exist, so the delegate may raise NotFoundError (→
+    404 envelope) or treat it as a no-op (→ 204). Both are clean
+    behaviours; the contract pin is "no 5xx leaks through".
+    """
+    bogus = f"worker-does-not-exist-{unique_suffix}"
+    resp = await client.post(f"/v1/workers/{bogus}/drain")
+    assert resp.status_code != 500, (
+        f"unhandled exception leaked through as 500: {resp.text}"
+    )
+    assert resp.status_code < 500, (
+        f"unexpected 5xx on drain of missing worker: "
+        f"{resp.status_code}: {resp.text}"
+    )
+
+    if resp.status_code == 204:
+        # Treated as no-op — acceptable per scheduler discretion.
+        return
+    # 4xx — must carry the documented RFC 7807 envelope shape.
+    envelope = resp.json()
+    for key in ("type", "title", "status", "detail"):
+        assert key in envelope, (
+            f"problem-details key {key!r} missing in {envelope!r}"
+        )
+    assert envelope["status"] == resp.status_code
+    assert envelope["type"].startswith("/errors/"), envelope
+
+
+# ============================================================================
+# T0636 — Two concurrent POST /v1/workers/{id}/drain calls
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_t0636_concurrent_drain_calls_idempotent(
+    client: httpx.AsyncClient,
+) -> None:
+    """T0636 — Sister of T0218 (sequential drain idempotency) and
+    T0307 (field stability across drain). Race two concurrent
+    POST /v1/workers/{id}/drain calls. Both must return 204; the
+    worker row's status remains "draining"; identity fields
+    (id, host, pid, capacity) stay stable across the race.
+
+    Catches a regression where a load-flip-write race produces
+    inconsistent state under concurrent drain.
+    """
+    import asyncio
+
+    listed = await client.get("/v1/workers")
+    assert listed.status_code == 200, listed.text
+    items = listed.json()["items"]
+    assert items, "no workers registered — nothing to drain"
+    worker_id = items[0]["id"]
+
+    # Snapshot before
+    before = next(
+        (w for w in items if w["id"] == worker_id), None,
+    )
+    assert before is not None
+
+    # Race two concurrent drain calls
+    async def _drain() -> httpx.Response:
+        return await client.post(f"/v1/workers/{worker_id}/drain")
+
+    r1, r2 = await asyncio.gather(_drain(), _drain(), return_exceptions=True)
+    for i, r in enumerate((r1, r2)):
+        assert not isinstance(r, BaseException), (
+            f"drain #{i} raised: {r!r}"
+        )
+        envelope = r.json() if r.content else {}
+        assert envelope.get("type") != "/errors/internal", (
+            f"drain #{i} leaked /errors/internal: "
+            f"{r.status_code}: {r.text}"
+        )
+        assert r.status_code == 204, (
+            f"drain #{i} expected 204: {r.status_code}: {r.text}"
+        )
+
+    # Post-race state: worker still "draining", identity fields stable
+    after = await client.get("/v1/workers")
+    assert after.status_code == 200, after.text
+    row_after = next(
+        (w for w in after.json()["items"] if w["id"] == worker_id), None,
+    )
+    assert row_after is not None, "worker disappeared after concurrent drain"
+    assert row_after["status"] == "draining", (
+        f"concurrent drain failed to reach draining: {row_after!r}"
+    )
+    for field in ("id", "host", "pid", "capacity"):
+        assert row_after.get(field) == before.get(field), (
+            f"field {field!r} changed across concurrent drain: "
+            f"before={before.get(field)!r}, "
+            f"after={row_after.get(field)!r}"
+        )
+
+
+# ============================================================================
+# T0682 — POST /v1/workers/{missing-id}/drain RFC 7807 envelope shape
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_t0682_worker_drain_missing_id_rfc7807_envelope_instance_echo(
+    client: httpx.AsyncClient, unique_suffix: str,
+) -> None:
+    """T0682 — Tightens T0099 (clean-4xx pin) to assert the §3
+    RFC 7807 envelope shape on the 4xx path. Specifically: when the
+    handler returns 4xx (i.e. not the 204 no-op branch), the envelope
+    must include the documented ``instance`` field echoing the full
+    request path (per spec §3, mirrors T0375's pin on /llm_providers).
+
+    Priority 6 — error envelope correctness. A regression that
+    silently dropped ``instance`` would otherwise hide behind T0099's
+    looser "no-5xx" pin.
+    """
+    bogus = f"wrk-t0682-missing-{unique_suffix}"
+    path = f"/v1/workers/{bogus}/drain"
+    resp = await client.post(path)
+
+    # Defence: no 5xx ever (covered by T0099 too, restated for clarity).
+    assert resp.status_code < 500, (
+        f"POST drain on missing worker leaked 5xx: "
+        f"{resp.status_code}: {resp.text}"
+    )
+
+    # If the scheduler treats it as a no-op (204), there's no envelope
+    # to assert — this path is documented as acceptable by T0099 and
+    # we don't change that contract. The T0682 contract bites only on
+    # the 4xx branch.
+    if resp.status_code == 204:
+        return
+
+    # 4xx — assert the full RFC 7807 envelope shape with ``instance``
+    # echoing the request path.
+    assert 400 <= resp.status_code < 500, (
+        f"unexpected status {resp.status_code} for drain on missing "
+        f"worker: {resp.text}"
+    )
+    envelope = resp.json()
+    # The minimal RFC 7807 keys (type, title, status, detail) are
+    # pinned by T0099 already. T0682's contribution is the ``instance``
+    # field echo plus the never-/errors/internal guard.
+    assert envelope.get("type") != "/errors/internal", (
+        f"drain on missing worker leaked /errors/internal: {envelope}"
+    )
+    assert "instance" in envelope, (
+        f"RFC 7807 ``instance`` field missing on drain 4xx: {envelope}"
+    )
+    # ``instance`` SHOULD reference the request path. Earlier T0375
+    # pinned `endswith(path)`; we use the same shape so the two
+    # tests share a contract.
+    assert envelope["instance"].endswith(path), (
+        f"instance field {envelope['instance']!r} should echo "
+        f"request path {path!r}; full envelope: {envelope}"
+    )

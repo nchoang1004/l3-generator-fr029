@@ -1,0 +1,237 @@
+{{- $cmp := "frontend" -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "spatiumddi.fullname" . }}-frontend
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "spatiumddi.componentLabels" (merge (dict "component" $cmp) .) | nindent 4 }}
+spec:
+  replicas: {{ .Values.frontend.replicas }}
+  {{- if and .Values.frontend.hostNetwork (le (int .Values.frontend.replicas) 1) }}
+  # hostPort:80 is exclusive on a single node — a RollingUpdate
+  # would create the new pod before terminating the old, and it
+  # would sit Pending forever ("didn't have free ports for the
+  # requested pod ports"). Recreate ensures the old pod
+  # terminates first, freeing :80 for the new one. ~5 s of
+  # downtime on a chart upgrade is acceptable for an
+  # appliance-scale single-instance frontend.
+  strategy:
+    type: Recreate
+  {{- else }}
+  {{- /* #590 — every OTHER shape wants "terminate one, then replace it".
+         * hostNetwork + replicas > 1 (the multi-node appliance): Recreate
+           would take the ENTIRE UI down for a chart upgrade. One pod per
+           node means retiring a single pod frees that node's :80 for its
+           own replacement, so the other nodes keep serving.
+         * No hostNetwork (VIP path): required anti-affinity still makes a
+           surge pod unschedulable once replicas == nodes.
+         The strategy helper resolves both: surge-first when it is safe,
+         terminate-first when a per-node exclusive resource (a hostPort, or
+         an anti-affinity slot) has to be freed before the replacement can
+         land. */}}
+  {{- include "spatiumddi.deploymentStrategy" (dict "mode" (ternary "hard" .Values.frontend.podAntiAffinity .Values.frontend.hostNetwork) "replicas" .Values.frontend.replicas) | nindent 2 }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "spatiumddi.componentSelectorLabels" (merge (dict "component" $cmp) .) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "spatiumddi.componentSelectorLabels" (merge (dict "component" $cmp) .) | nindent 8 }}
+      {{- with .Values.frontend.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- with (include "spatiumddi.priorityClassName" (dict "component" .Values.frontend.priorityClassName "fallback" (.Values.global).priorityClassName)) }}
+      priorityClassName: {{ . | quote }}
+      {{- end }}
+      {{- with (include "spatiumddi.seccompProfileType" $) }}
+      securityContext:
+        seccompProfile:
+          type: {{ . }}
+      {{- end }}
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.frontend.hostNetwork }}
+      # Appliance use (#183 Phase 11): expose :80/:443 on the node IP
+      # directly. The umbrella chart is otherwise pure ClusterIP, but
+      # the appliance disables klipper-lb + the default NodePort range
+      # excludes :80/:443, so hostNetwork is the simplest way to land
+      # on https://<appliance>/ per node.
+      #
+      # #272 — KEPT even when a control-plane VIP is set. The frontend
+      # runs one replica per control-plane node (``# spatium:cp-size``),
+      # so hostNetwork gives every node's IP as a direct BACKUP path
+      # while the LoadBalancer VIP below (MetalLB) is the PRIMARY
+      # floating address. Both front the same pods + the same TLS cert.
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      {{- end }}
+      containers:
+        - name: frontend
+          image: {{ include "spatiumddi.image" (merge (dict "imageName" "spatiumddi-frontend") .) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 80
+              {{- if .Values.frontend.hostNetwork }}
+              hostPort: 80
+              {{- end }}
+            {{- if .Values.frontend.tls.enabled }}
+            - name: https
+              containerPort: 443
+              {{- if .Values.frontend.hostNetwork }}
+              hostPort: 443
+              {{- end }}
+            {{- end }}
+          {{- if .Values.frontend.tls.enabled }}
+          volumeMounts:
+            # Replace the image's default 80-only template with the
+            # appliance TLS template (Phase 11 wave 3 — issue #183).
+            # subPath ensures only ``default.conf.template`` gets
+            # swapped, not the whole /etc/nginx/templates dir.
+            - name: tls-config
+              mountPath: /etc/nginx/templates/default.conf.template
+              subPath: default.conf.template
+              readOnly: true
+            - name: tls-cert
+              mountPath: /etc/nginx/tls
+              readOnly: true
+          {{- end }}
+          env:
+            # Issue #176: tell the frontend nginx where the api Service
+            # is. The image defaults to ``api:8000`` (Docker Compose's
+            # service-discovery name), which doesn't resolve on K8s.
+            # nginx's ``resolver`` directive resolves names against the
+            # configured nameservers but does NOT apply the search list
+            # from /etc/resolv.conf. A bare ``<release>-api`` works in
+            # cluster-network pods (kubelet's own resolv.conf handling
+            # picks up the search domain at process start) but FAILS in
+            # hostNetwork pods (the appliance frontend toggle) — nginx
+            # logs ``Host not found`` on every /api/ request. Use the
+            # FQDN so resolution works in both cases.
+            - name: API_UPSTREAM_HOST
+              value: {{ .Values.frontend.apiUpstream.host | default (printf "%s-api.%s.svc.cluster.local" (include "spatiumddi.fullname" .) .Release.Namespace) | quote }}
+            - name: API_UPSTREAM_PORT
+              value: {{ .Values.frontend.apiUpstream.port | default .Values.api.service.port | quote }}
+            {{- with .Values.frontend.nginxLocalResolvers }}
+            # Explicit DNS resolver override. Leave unset to let the
+            # image's 15-local-resolvers.envsh auto-detect from
+            # /etc/resolv.conf — which already points at cluster DNS
+            # (kube-dns / CoreDNS) inside a Pod.
+            - name: NGINX_LOCAL_RESOLVERS
+              value: {{ . | quote }}
+            {{- end }}
+            # nginx >=1.30's upstream 15-local-resolvers.envsh script
+            # is gated on this var being set — without it the script
+            # returns early and ``NGINX_LOCAL_RESOLVERS`` is never
+            # exported, so envsubst leaves the literal ``${NGINX_
+            # LOCAL_RESOLVERS}`` in the rendered config and nginx
+            # fails to start. Our image's COPY-replaced version of
+            # the script (frontend/15-local-resolvers.envsh) doesn't
+            # need the var, but setting it here is defensive — a
+            # build that somehow loses the COPY still works.
+            - name: NGINX_ENTRYPOINT_LOCAL_RESOLVERS
+              value: "1"
+          # Probe nginx's OWN health, not ``/`` (#767). ``/`` is the SPA
+          # fallback, which now gates on an auth_request probe of the api
+          # and answers 503 while the api is unreachable. Probing it would
+          # mark the frontend NotReady during exactly the cold-boot window
+          # the initialising page exists to cover — pulling the pod out of
+          # the Service so the page can't be reached through it at all —
+          # and then CrashLoop it on liveness ~45 s later. ``/nginx-health``
+          # is answered by nginx alone and touches no upstream, which is
+          # what this container's health actually is.
+          # timeoutSeconds is EXPLICIT for the same reason as the api's:
+          # the k8s default is 1s, and a probe that is merely slow then
+          # reads as a dead container. nginx serving a static file is far
+          # less likely to blow that budget than a single-worker uvicorn,
+          # so this is prophylactic rather than a fix for an observed
+          # failure — but leaving the fleet's LAST 1s-default probe in
+          # place is how the api's own omission survived unnoticed.
+          livenessProbe:
+            httpGet: { path: /nginx-health, port: http }
+            initialDelaySeconds: 5
+            periodSeconds: 15
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet: { path: /nginx-health, port: http }
+            initialDelaySeconds: 3
+            periodSeconds: 10
+            timeoutSeconds: 5
+          resources:
+            {{- toYaml .Values.frontend.resources | nindent 12 }}
+      {{- if .Values.frontend.tls.enabled }}
+      volumes:
+        - name: tls-config
+          configMap:
+            name: {{ include "spatiumddi.fullname" . }}-frontend-tls-conf
+        - name: tls-cert
+          secret:
+            secretName: {{ .Values.frontend.tls.secretName }}
+            # ``optional: true`` so a missing Secret doesn't block
+            # pod startup — firstboot creates it just before the
+            # chart's first reconcile, but a chart upgrade that
+            # races could otherwise wedge.
+            optional: true
+      {{- end }}
+      {{- include "spatiumddi.controlPlaneNodeSelector" (merge (dict "componentNodeSelector" .Values.frontend.nodeSelector) .) | nindent 6 }}
+      {{- with .Values.frontend.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- include "spatiumddi.podAntiAffinity" (merge (dict "component" $cmp "mode" .Values.frontend.podAntiAffinity "replicas" .Values.frontend.replicas "override" .Values.frontend.affinity) .) | nindent 6 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "spatiumddi.fullname" . }}-frontend
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "spatiumddi.componentLabels" (merge (dict "component" $cmp) .) | nindent 4 }}
+  {{- if .Values.frontend.controlPlaneVIP }}
+  annotations:
+    # #272 Phase 5 — pin the control-plane VIP from MetalLB's pool.
+    metallb.universe.tf/address-pool: {{ .Values.frontend.controlPlaneVIPPool | quote }}
+    metallb.universe.tf/loadBalancerIPs: {{ .Values.frontend.controlPlaneVIP | quote }}
+  {{- end }}
+spec:
+  {{- if .Values.frontend.controlPlaneVIP }}
+  # A control-plane VIP forces a LoadBalancer Service regardless of the
+  # configured service.type, so MetalLB assigns the floating IP. With the
+  # frontend on hostNetwork (one pod per control-plane node),
+  # externalTrafficPolicy: Local makes MetalLB announce the VIP from a
+  # node that has a local frontend pod and keeps the traffic node-local —
+  # real client IP, no SNAT hairpin to a hostNetwork endpoint.
+  type: LoadBalancer
+  externalTrafficPolicy: Local
+  {{- with .Values.frontend.loadBalancerSourceRanges }}
+  # #285 Phase 6 — source-scope the Web UI VIP. Driven from
+  # platform_settings.web_ui_allowed_cidrs via the supervisor's
+  # apply_control_plane_overrides HelmChartConfig overlay; empty = open
+  # (this block is omitted). MetalLB honours loadBalancerSourceRanges, so
+  # this is the VIP-path twin of the per-node nftables 80/443 scope. SSH/22
+  # is untouched, so a bad scope is always recoverable from the console.
+  loadBalancerSourceRanges:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  {{- else }}
+  type: {{ .Values.frontend.service.type }}
+  {{- end }}
+  selector:
+    {{- include "spatiumddi.componentSelectorLabels" (merge (dict "component" $cmp) .) | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.frontend.service.port }}
+      targetPort: http
+    {{- if and .Values.frontend.controlPlaneVIP .Values.frontend.tls.enabled }}
+    # Expose :443 on the VIP. The per-node hostNetwork :443 is the backup
+    # path; this LoadBalancer port is the primary floating one.
+    - name: https
+      port: 443
+      targetPort: https
+    {{- end }}

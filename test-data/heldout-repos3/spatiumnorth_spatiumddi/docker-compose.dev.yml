@@ -1,0 +1,509 @@
+name: spatiumddi
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Development override — re-introduces `build:` for services that are
+# normally pulled from ghcr.io, so you can rebuild from the local tree.
+#
+# Enable it by layering this file on top of the base compose:
+#
+#   # one-off:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml <cmd>
+#
+#   # or pin it for the whole shell:
+#   export COMPOSE_FILE=docker-compose.yml:docker-compose.dev.yml
+#
+#   # then:
+#   docker compose build api migrate frontend dns-bind9
+#   docker compose run --rm migrate
+#   docker compose up -d --force-recreate
+#
+# `make dev` already wires both files automatically.
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    networks:
+      - spatiumddi
+    environment:
+      POSTGRES_USER: spatiumddi
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_DB: spatiumddi
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U spatiumddi"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis ───────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:8.10.2-alpine
+    restart: unless-stopped
+    networks:
+      - spatiumddi
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ── API Backend ─────────────────────────────────────────────────────────────
+  # ``image:`` is set to a non-registry tag in every dev override so
+  # ``docker compose -f prod -f dev up`` always builds locally and never
+  # silently pulls the registry copy of ``ghcr.io/spatiumnorth/...:latest``
+  # the prod compose declares. ``make build`` (prod-only) still tags as
+  # ``ghcr.io/spatiumnorth/...:latest`` for the release pipeline.
+  api:
+    image: spatiumddi-api:dev
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      # Target the ``dev`` stage so pytest + pytest-xdist + pytest-
+      # asyncio + pytest-cov are available for ``make test`` /
+      # ``make test-one`` running inside the container. The release
+      # build stops at ``runtime`` so the production image stays
+      # minimal — see backend/Dockerfile.
+      target: dev
+    restart: unless-stopped
+    networks:
+      - spatiumddi
+    ports:
+      # Localhost only by default (#1221): the api believes X-Real-IP from
+      # private-range peers, so a LAN client reaching it directly could set
+      # its own IP. Browsers and remote agents go through the frontend;
+      # host-network services here (looking-glass) use 127.0.0.1. See
+      # API_BIND in .env.example before widening it.
+      - "${API_BIND:-127.0.0.1}:${API_PORT:-8000}:8000"
+    env_file: .env
+    environment:
+      # Dev only: boot on the .env.example placeholder SECRET_KEY with a
+      # warning. docker-compose.yml deliberately does not set this (#1222).
+      ALLOW_INSECURE_SECRET_KEY: "true"
+      DATABASE_URL: postgresql+asyncpg://spatiumddi:${POSTGRES_PASSWORD:-changeme}@postgres:5432/spatiumddi
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      # pytest looks at TEST_DATABASE_URL on import (conftest.py picks
+      # the per-worker DB name suffix from it). Pre-set it here so
+      # ``make test`` doesn't need to thread it via -e on every call;
+      # CI runners override via env where appropriate.
+      TEST_DATABASE_URL: postgresql+asyncpg://spatiumddi:${POSTGRES_PASSWORD:-changeme}@postgres:5432/spatiumddi_test
+    # Docker integration — uncomment both entries to poll the host
+    # daemon over Unix socket. ``DOCKER_GID`` must match the gid of
+    # ``/var/run/docker.sock`` on the host:
+    #   stat -c '%g' /var/run/docker.sock
+    # then set ``DOCKER_GID=<that number>`` in .env. Without the
+    # group_add the api user gets EACCES on the socket.
+    volumes:
+      # Backup target storage (issue #117 Phase 1b). Named volume
+      # so archives survive container recycle. Mount path matches
+      # the default ``LocalVolumeDestination`` config.
+      - spatium_backups:/var/lib/spatiumddi/backups
+      # Slot-image upload storage (#170 follow-up). Air-gapped
+      # operators upload .raw.xz through the Fleet UI; the api
+      # streams them back authenticated for the supervisor.
+      - spatium_slot_images:/var/lib/spatiumddi/slot-images
+    # Docker integration — uncomment alongside the matching
+    # group_add. ``DOCKER_GID`` must match the gid of
+    # ``/var/run/docker.sock`` on the host.
+    #   - /var/run/docker.sock:/var/run/docker.sock:ro
+    # group_add:
+    #   - "${DOCKER_GID:-999}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      # Wait for the SCHEMA, not just the database. Without this the API
+      # can start while ``alembic upgrade head`` is still running: it
+      # serves against a half-migrated schema, and ``_seed_default_admin``
+      # runs at lifespan start, so it either creates the admin against a
+      # partly-built database or — if ``user`` does not exist yet — skips
+      # silently and never retries, leaving an install nobody can log
+      # into. The Kubernetes path has had a wait-for-migrate init
+      # container all along; this is compose catching up (#1069).
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health/live')\""]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+  # ── Celery Worker ───────────────────────────────────────────────────────────
+  worker:
+    image: spatiumddi-worker:dev
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks:
+      - spatiumddi
+    command: celery -A app.celery_app worker --loglevel=info --concurrency=4 -Q ipam,dns,dhcp,default,bundles
+    env_file: .env
+    environment:
+      # Dev only: boot on the .env.example placeholder SECRET_KEY with a
+      # warning. docker-compose.yml deliberately does not set this (#1222).
+      ALLOW_INSECURE_SECRET_KEY: "true"
+      DATABASE_URL: postgresql+asyncpg://spatiumddi:${POSTGRES_PASSWORD:-changeme}@postgres:5432/spatiumddi
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+    volumes:
+      # Backup target storage (issue #117 Phase 1b). Same named
+      # volume the api mounts — the worker runs the scheduled
+      # sweep so it has to write the same files the api reads
+      # back from the "list archives" endpoint.
+      - spatium_backups:/var/lib/spatiumddi/backups
+    # Docker integration — the worker runs the reconcile tasks, so it
+    # needs the host socket too. Uncomment alongside the matching
+    # entries on the api service above.
+    #   - /var/run/docker.sock:/var/run/docker.sock:ro
+    # group_add:
+    #   - "${DOCKER_GID:-999}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      # Wait for the SCHEMA, not just the database. Without this the API
+      # can start while ``alembic upgrade head`` is still running: it
+      # serves against a half-migrated schema, and ``_seed_default_admin``
+      # runs at lifespan start, so it either creates the admin against a
+      # partly-built database or — if ``user`` does not exist yet — skips
+      # silently and never retries, leaving an install nobody can log
+      # into. The Kubernetes path has had a wait-for-migrate init
+      # container all along; this is compose catching up (#1069).
+      migrate:
+        condition: service_completed_successfully
+    # The backend Dockerfile's HEALTHCHECK probes /health/live — correct
+    # for the api service but wrong for the worker (no HTTP listener).
+    # Override with a Celery-native ping over the broker.
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.celery_app inspect ping -d celery@$$HOSTNAME --timeout 5 >/dev/null 2>&1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+
+  # ── Celery Beat (Scheduler) ─────────────────────────────────────────────────
+  beat:
+    image: spatiumddi-beat:dev
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks:
+      - spatiumddi
+    command: celery -A app.celery_app beat --loglevel=info
+    env_file: .env
+    environment:
+      # Dev only: boot on the .env.example placeholder SECRET_KEY with a
+      # warning. docker-compose.yml deliberately does not set this (#1222).
+      ALLOW_INSECURE_SECRET_KEY: "true"
+      DATABASE_URL: postgresql+asyncpg://spatiumddi:${POSTGRES_PASSWORD:-changeme}@postgres:5432/spatiumddi
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+    depends_on:
+      - redis
+    # Beat has no HTTP listener and no broker-reachable identity, so the
+    # cheapest liveness signal is "the beat process is still pid 1".
+    healthcheck:
+      test: ["CMD-SHELL", "grep -q 'celery' /proc/1/cmdline"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+  # ── Frontend (nginx + Vite build) ───────────────────────────────────────────
+  frontend:
+    image: spatiumddi-frontend:dev
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    networks:
+      - spatiumddi
+    ports:
+      - "${HTTP_PORT:-8077}:80"
+    depends_on:
+      - api
+
+  # ── Migrations (runs once at startup) ──────────────────────────────────────
+  migrate:
+    image: spatiumddi-migrate:dev
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    networks:
+      - spatiumddi
+    command: alembic upgrade head
+    env_file: .env
+    environment:
+      # Dev only: boot on the .env.example placeholder SECRET_KEY with a
+      # warning. docker-compose.yml deliberately does not set this (#1222).
+      ALLOW_INSECURE_SECRET_KEY: "true"
+      DATABASE_URL: postgresql+asyncpg://spatiumddi:${POSTGRES_PASSWORD:-changeme}@postgres:5432/spatiumddi
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  # ── DNS agent (BIND9) ────────────────────────────────────────────────
+  # Enable with: docker compose --profile dns-bind9 up -d
+  # ``dns`` profile remains as a back-compat alias for the bind9 dev
+  # build. ``dns-powerdns`` opts into the second authoritative driver.
+  dns-bind9:
+    profiles: ["dns", "dns-bind9"]
+    image: spatiumddi-dns-bind9:dev
+    build:
+      context: .
+      dockerfile: agent/dns/images/bind9/Dockerfile
+    restart: unless-stopped
+    networks:
+      - spatiumddi
+    environment:
+      CONTROL_PLANE_URL: http://api:8000
+      DNS_AGENT_KEY: ${DNS_AGENT_KEY:-changeme-dns-agent-key}
+      SERVER_NAME: dns-bind9
+      AGENT_GROUP: default
+      AGENT_ROLES: authoritative
+    volumes:
+      - dns_bind9_state:/var/lib/spatium-dns-agent
+      - dns_bind9_cache:/var/cache/bind
+    ports:
+      # Compose MERGES port lists across files rather than replacing them,
+      # so the #50 DoT/DoH mappings in docker-compose.dns-encrypted.yml add
+      # to these — do NOT repeat them here, or the duplicate host port
+      # conflicts with itself and the container fails to start.
+      - "1053:53/udp"
+      - "1053:53/tcp"
+    depends_on:
+      api:
+        condition: service_started
+
+  # ── DNS agent (PowerDNS) ─────────────────────────────────────────────
+  # Enable with: docker compose --profile dns-powerdns up -d
+  # Distinct host port (5453, not 1053) so a side-by-side BIND9 +
+  # PowerDNS dev setup doesn't collide. AGENT_GROUP defaults to
+  # ``default-powerdns`` so both groups exist in parallel; mixing
+  # drivers inside one group is rejected by the control plane (every
+  # PowerDNS-only feature gates on it).
+  dns-powerdns:
+    profiles: ["dns-powerdns"]
+    image: spatiumddi-dns-powerdns:dev
+    build:
+      context: .
+      dockerfile: agent/dns/images/powerdns/Dockerfile
+    restart: unless-stopped
+    networks:
+      - spatiumddi
+    environment:
+      CONTROL_PLANE_URL: http://api:8000
+      DNS_AGENT_KEY: ${DNS_AGENT_KEY:-changeme-dns-agent-key}
+      SERVER_NAME: dns-powerdns
+      AGENT_GROUP: default-powerdns
+      AGENT_ROLES: authoritative
+    volumes:
+      - dns_powerdns_state:/var/lib/spatium-dns-agent
+      - dns_powerdns_lmdb:/var/lib/powerdns
+    ports:
+      - "5453:53/udp"
+      - "5453:53/tcp"
+    depends_on:
+      api:
+        condition: service_started
+
+  # dnsdist front (issue #146 Phase 2) — build-from-source override.
+  dns-dnsdist:
+    profiles: ["dns-powerdns-with-dnsdist"]
+    image: spatiumddi-dns-dnsdist:dev
+    build:
+      context: .
+      dockerfile: agent/dns/images/dnsdist/Dockerfile
+    restart: unless-stopped
+    networks:
+      - spatiumddi
+    environment:
+      DNSDIST_BACKEND: dns-powerdns:53
+    cap_add:
+      - NET_BIND_SERVICE
+    volumes:
+      - dns_powerdns_state:/agent-state:ro
+    ports:
+      - "5455:53/udp"
+      - "5455:53/tcp"
+    depends_on:
+      dns-powerdns:
+        condition: service_started
+
+  # ── DHCP agent (primary) ──────────────────────────────────────────────
+  # Enable with:
+  #   docker compose -f docker-compose.yml -f docker-compose.dev.yml \
+  #     --profile dhcp up -d                                  # single node
+  #   docker compose -f docker-compose.yml -f docker-compose.dev.yml \
+  #     --profile dhcp --profile dhcp-ha up -d                # HA pair
+  #
+  # Service names, volumes, and profiles match docker-compose.yml so the
+  # dev overlay is a clean build-from-source override of the published
+  # images.
+  dhcp-kea:
+    profiles: ["dhcp"]
+    image: spatiumddi-dhcp-kea:dev
+    build:
+      context: .
+      dockerfile: agent/dhcp/images/kea/Dockerfile
+    restart: unless-stopped
+    networks:
+      - spatiumddi
+    environment:
+      # ── Required ──────────────────────────────────────────────────
+      # Control-plane URL the agent bootstraps + long-polls against.
+      SPATIUM_API_URL: http://api:8000
+      # Pre-shared key exchanged for a rotating JWT on first join.
+      SPATIUM_AGENT_KEY: ${DHCP_AGENT_KEY:-changeme-dhcp-agent-key}
+
+      # ── Registration ──────────────────────────────────────────────
+      # Unique server name — becomes Kea's `this-server-name` under HA.
+      SPATIUM_SERVER_NAME: dhcp-kea
+      AGENT_GROUP: default
+      # Informational only — actual HA role is driven by channel membership.
+      AGENT_ROLES: primary
+
+      # ── Tuning (optional, defaults shown) ─────────────────────────
+      # LOG_LEVEL: INFO             # DEBUG | INFO | WARNING | ERROR
+      # HEARTBEAT_INTERVAL: "30"    # seconds between agent heartbeats
+      # LONGPOLL_TIMEOUT: "30"      # seconds the /config long-poll blocks
+      # CACHE_DIR: /var/lib/spatium-dhcp-agent   # bundle + JWT cache
+      # KEA_CONFIG_PATH: /etc/kea/kea-dhcp4.conf
+      # KEA_CONTROL_SOCKET: /run/kea/kea4-ctrl-socket
+      # KEA_LEASE_FILE: /var/lib/kea/kea-leases4.csv
+    volumes:
+      - dhcp_kea_state:/var/lib/spatium-dhcp-agent
+      - dhcp_kea_leases:/var/lib/kea
+    # ports:
+    #   # Host 6767/udp → container 67/udp. DHCPv4 is awkward to expose
+    #   # without host networking — use `network_mode: host` for real lab use.
+    #   - "6767:67/udp"
+    #   # HA hook peer-to-peer HTTP listener. Must stay on container :8000
+    #   # (that's the peer URL advertised to the partner). Host-side mapped
+    #   # off 8000 so the control plane API keeps :8000.
+    #   - "8001:8000/tcp"
+    #   # for why it's deliberately not on :8000.
+    depends_on:
+      api:
+        condition: service_started
+    # Kea binds UDP/67 (NET_BIND_SERVICE) and, by default, uses raw
+    # AF_PACKET sockets (NET_RAW, #365) so it hears broadcast DISCOVERs
+    # from directly-attached clients on the host LAN. A relay-only group
+    # (socket mode "relay" → udp sockets) doesn't use raw sockets, but
+    # granting NET_RAW is harmless. Pair with `network_mode: host` (or a
+    # macvlan) so the broadcasts actually reach the container.
+    cap_add:
+      - NET_BIND_SERVICE
+      - NET_RAW
+
+  # ── DHCP agent (secondary, HA peer) ───────────────────────────────────
+  # Only starts with `--profile dhcp-ha`. Pair dhcp-kea + dhcp-kea-2 in
+  # a DHCPFailoverChannel (Admin → Failover Channels) with per-peer URLs
+  # reachable on the spatiumddi bridge:
+  #   primary_peer_url:   http://dhcp-kea:8000/
+  #   secondary_peer_url: http://dhcp-kea-2:8000/
+  dhcp-kea-2:
+    profiles: ["dhcp-ha"]
+    image: spatiumddi-dhcp-kea-2:dev
+    build:
+      context: .
+      dockerfile: agent/dhcp/images/kea/Dockerfile
+    restart: unless-stopped
+    networks:
+      - spatiumddi
+    environment:
+      SPATIUM_API_URL: http://api:8000
+      SPATIUM_AGENT_KEY: ${DHCP_AGENT_KEY:-changeme-dhcp-agent-key}
+
+      # Unique — drives a distinct DHCPServer row + Kea HA this-server-name.
+      SPATIUM_SERVER_NAME: dhcp-kea-2
+      AGENT_GROUP: default
+      AGENT_ROLES: secondary
+
+      # Tuning (see dhcp-kea above for the full list).
+      # LOG_LEVEL: INFO
+      # HEARTBEAT_INTERVAL: "30"
+      # LONGPOLL_TIMEOUT: "30"
+    volumes:
+      - dhcp_kea_state_2:/var/lib/spatium-dhcp-agent
+      - dhcp_kea_leases_2:/var/lib/kea
+    # ports:
+    #   # Distinct host ports so both peers can listen without colliding.
+    #   - "6768:67/udp"
+    #   - "8002:8000/tcp"   # HA hook peer-to-peer HTTP
+    depends_on:
+      api:
+        condition: service_started
+    cap_add:
+      - NET_BIND_SERVICE
+      - NET_RAW  # #365 — raw sockets for direct-attached DHCP (see dhcp-kea)
+
+  # ── BGP Looking Glass collector (receive-only, issue #566) ────────────
+  # Only starts with `--profile looking-glass`. Builds the GoBGP collector
+  # image from source. Receive-only — never advertises a route back. Peers
+  # are configured under Network → Looking Glass. Uses host networking so
+  # the BGP session originates from the host's real NIC; it therefore
+  # reaches the API on the published host port, not the `api` bridge alias.
+  looking-glass:
+    profiles: ["looking-glass"]
+    image: spatiumddi-looking-glass:dev
+    build:
+      context: .
+      dockerfile: agent/looking-glass/images/gobgp/Dockerfile
+    restart: unless-stopped
+    hostname: ${LG_HOSTNAME:-looking-glass}
+    network_mode: host
+    environment:
+      # ── Required ──────────────────────────────────────────────────
+      CONTROL_PLANE_URL: http://127.0.0.1:${API_PORT:-8000}
+      LG_AGENT_KEY: ${LG_AGENT_KEY:-changeme-lg-agent-key}
+      # ── Registration ──────────────────────────────────────────────
+      SERVER_NAME: ${LG_HOSTNAME:-looking-glass}
+      # ── Tuning (optional, defaults shown) ─────────────────────────
+      # LOG_LEVEL: INFO
+      # HEARTBEAT_INTERVAL: "30"
+      # LONGPOLL_TIMEOUT: "30"
+      # RIB_POLL_INTERVAL: "30"
+    volumes:
+      - lg_agent_state:/var/lib/spatium-lg-agent
+    depends_on:
+      api:
+        condition: service_started
+
+
+networks:
+  spatiumddi:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  dns_bind9_state:
+  dns_bind9_cache:
+  dns_powerdns_state:
+  dns_powerdns_lmdb:
+  dhcp_kea_state:
+  dhcp_kea_leases:
+  dhcp_kea_state_2:
+  dhcp_kea_leases_2:
+  # Looking Glass collector last-known-good config cache (issue #566).
+  lg_agent_state:
+  spatium_backups:
+  spatium_slot_images:

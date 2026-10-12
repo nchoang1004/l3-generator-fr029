@@ -1,0 +1,301 @@
+# Roadmap
+
+This is the working roadmap for PrintStash. It is intentionally practical: the
+project should stay useful for home labs, single printers, and small farms before
+it grows into anything heavier.
+
+Roadmap feedback belongs in
+[the public roadmap discussion](https://github.com/xiao-villamor/PrintStash/discussions/1).
+Issues are better for confirmed bugs or scoped implementation work.
+
+## Published: 0.13.0, storage safety and capture provenance
+
+[Version 0.13.0 is published](https://github.com/xiao-villamor/PrintStash/releases/tag/v0.13.0),
+including full and lite API images and a frontend image for amd64 and arm64.
+Changes merged afterward remain under [Unreleased](../CHANGELOG.md#unreleased)
+until their own release is published. The app is useful
+for local-first 3D print library workflows and installs through Docker Compose.
+SQLite plus local filesystem storage remain the default path. Postgres,
+S3/R2-compatible storage, cloud backups, and provider adapters are optional.
+Version 0.13.0 adds runtime-probed storage safety tiers and typed remote
+providers, paired-browser marketplace capture and Model Source provenance,
+richer Bambu job evidence, safer mesh/3MF previews, and stricter storage
+ownership and recovery boundaries. See the canonical
+[0.13.0 changelog](../CHANGELOG.md#0130) for the complete scope.
+
+Developed features in the current app:
+
+- STL, 3MF, OBJ, STEP/STP, DXF, and G-code ingestion through the web UI and REST API; the OrcaSlicer post-processing hook sends G-code
+- Import from safe URLs or `.zip`, plus reviewed browser transfer for
+  authenticated Printables/MakerWorld files and extension/manual Thingiverse
+  capture; server resolution remains SSRF-guarded and archives remain
+  zip-slip/zip-bomb protected
+- Library sources: index mounted folders with optional create-only write-back,
+  or read-only S3/WebDAV/SFTP/Google Drive namespaces, with bounded discovery,
+  durable cursors, tombstones, per-source scheduling, and local-only event
+  watching
+- Public, expiring, read-only share links to a single model (view-only by default; opt-in original-file download)
+- Print statistics dashboard (cost, filament, prints, print time; time series + top collections/filaments) with a configurable display currency
+- Measured prints: real filament + duration and per-print cost captured from Moonraker, with auto known-good revision promotion
+- G-code parser coverage for OrcaSlicer, PrusaSlicer, Bambu Studio, Cura, and Klipper/Orca samples, including PrusaSlicer binary G-code (`.bgcode`) metadata and thumbnails
+- Content-hash deduplication, logical model grouping, version history, thumbnails, cached STL conversion for 3MF/OBJ preview, and in-browser mesh/G-code previews
+- Categories, tags, search, model editing, printer-presence filters, model-to-printer file badges, collection counts, collection moves, and drag-and-drop library organization
+- G-code revision upload, per-revision labels, outcome status, notes, recommended marker, and side-by-side metadata comparison
+- Filament and printer profiles (presets) for cost tracking and slicer defaults, managed from a dedicated Profiles page
+- "Open in slicer" deep-links for OrcaSlicer, Bambu Studio, and PrusaSlicer straight from a model file
+- Model print history with automatic Moonraker import for matching filenames and manual print-job logging
+- First-run setup wizard, JWT auth for UI/scripts, refresh/logout flow, per-user API keys, role-aware admin access, and audit logs
+- Alembic migrations, optional Postgres support, SQLite-to-Postgres migration script, and documented upgrade flow
+- Local and optional S3/R2 storage, multipart S3 uploads, pre-signed downloads, cached mesh conversion, read-only lifecycle auditing, and backup/restore endpoints
+- Vault stats, storage usage reporting, configurable card metrics, trash retention controls, restore/purge actions, and thumbnail rebuild jobs
+- Prometheus `/metrics` endpoint (request latency, ingestion counts, live printer status) and operational health output for database, storage, backup, background jobs, external-library scans, and printer provider readiness
+- Moonraker/Klipper provider with live status, upload/send, optional start, pause/resume/cancel, printer file inventory sync, remote-file start, and job history
+- Optional Spoolman integration (OFF by default): spool inventory display, per-print spool selection, consumption write-back on measured-print completion, and Moonraker-native-hook double-count detection
+- Bambu LAN beta provider with local status, upload/send with explicit opt-in start, and pause/resume/cancel controls; remote file inventory remains unsupported
+- PrusaLink and OctoPrint beta providers (status, upload/send, file inventory, pause/resume/cancel), plus Elegoo Neptune 4-family and Centauri Carbon/Carbon 2 support; every provider declares its capabilities, and the UI disables what a printer cannot do
+- Responsive Vite/React UI with a light/dark theme toggle (system-preference aware) and a refreshed mobile layout: a five-slot bottom navigation with an overflow "More" sheet, on-canvas mobile search, slide-out filter drawers, and a floating action button across the library, model detail, upload, taxonomy, profiles, settings, setup, and printer workflows
+- Atomic bulk editing for tags, collections, trash, and revision labels across selected Models
+- Per-user saved views and favorite/starred Models, with canonical URL-restorable filters
+- Mixed-Artifact comparison with metadata and actual measured print outcomes (success rate, duration, filament, cost)
+- Versioned full-library archive export/import (`printstash-library-v1`) and configured-root folder import
+- Read-only Quick/Full Vault audits with persisted findings, progress, cancellation, and narrow audited repairs (thumbnail/Metadata/recommended-Revision)
+- Backup archive verification and fail-closed backup creation when an owned blob is missing, unreadable, or changes size mid-archive
+- Durable Pending Imports for URL/browser capture: owner-scoped review, retry, Collection/tag assignment, and archive/file selection that survive a restart
+- Structured Artifact, Material, Slicer, printer model, Revision status, print outcome, storage, and upload-date filters with RBAC-scoped facets and Saved Views
+- Per-user, per-printer access roles (view/print/control/admin) enforced across live status, files, fleet, queue, routing, and maintenance
+- Globally sorted cursor browsing for large libraries, including SQL-backed print metrics and a lightweight desktop outliner
+- Bounded, hash-verified portable archive export/import with matching entry and uncompressed-size limits
+- Transactionally consistent SQLite backup/restore, explicit PostgreSQL backup capabilities, and structural orphan-schema validation
+- Independent backup replicas on S3-compatible storage, WebDAV, SFTP, or Google
+  Drive, with provider-identity and archive-hash checks before restore
+- Elegoo Centauri Carbon and Carbon 2 Vault upload, with capability limits and hardware-validation status kept explicit
+- Durable session invalidation, atomic refresh-token rotation, final-superuser protection, and atomic first-run setup
+- One supported API process per vault, enforced at startup and reported through detailed health
+- SeaweedFS as the bundled local S3 service, with a non-destructive transitional
+  helper for migrating existing Compose-managed MinIO volumes
+- Source-labelled printer tools and material feeds, with Bambu AMS and
+  Moonraker active-Spoolman synchronization
+- Material and nozzle compatibility preflight, atomic multi-copy batches,
+  group constraints, priority lanes, operator release gates, and a fleet board
+- Durable complete/partial import outcomes, restart recovery, and
+  memory-bounded thumbnail fallbacks for oversized STL files
+- Full and lite multi-architecture API images with explicit runtime capability
+  reporting and modernized Python dependencies
+
+The releases below are intentionally small: each is meant to be a single,
+shippable step rather than a multi-month epic. Versions are indicative, not
+promises, and the order can shift with real-world feedback.
+
+## 0.7 — Notifications, Event Hooks, and Parser Robustness (delivered in 0.7.0)
+
+Goal: tell people when something happens without making them watch a dashboard.
+
+Shipped together in 0.7.0 rather than across several patches:
+
+- Generic outbound webhooks for print-completed, print-failed, print-cancelled, and printer-offline events (cancellations are a distinct event so they can be muted separately)
+- First-party targets: Discord, Telegram, and ntfy
+- Per-event and per-printer notification toggles
+- Delivery retry with backoff and a visible "last notification" status, off by default behind a master switch
+- G-code parser robustness from real-slicer fixtures: fixes for OrcaSlicer filament-length corruption, Orca/Bambu bed-temperature detection, and PrusaSlicer infill detection
+- Library-scan reliability hardening ([#24]): dense meshes are sized before loading and skipped above `VAULT_MESH_MAX_RENDER_TRIANGLES` (2,000,000 default) so a single high-poly model can no longer OOM-kill a scan; STL/3MF downloads stream off disk, and interrupted scans land in a terminal state instead of crash-looping
+- Mesh thumbnails reworked: crease-aware smooth (Gouraud) shading and a Z-up 3/4 hero framing, matching the interactive viewer — which itself was fixed to stand models upright on the grid
+- "Open in slicer" works on self-hosted instances ([#27]), and zip imports preserve the archive's folder structure as nested collections
+
+[#24]: https://github.com/xiao-villamor/PrintStash/issues/24
+[#27]: https://github.com/xiao-villamor/PrintStash/issues/27
+
+Closed in later 0.7.x patches: the 0.7.0 binary-`.bgcode` follow-up — PrusaSlicer
+binary G-code is now a supported file type, parsed for metadata and its embedded
+thumbnail (preview/send stay disabled for it, as the toolpath is heatshrink-
+compressed and printers want plain-text G-code) — delivered in 0.7.3.
+
+## 0.8 — Spoolman Integration (delivered in 0.8.0)
+
+Goal: track filament inventory and per-print consumption by integrating with
+[Spoolman](https://github.com/Donkie/Spoolman) rather than reimplementing it.
+
+Spoolman is mature, well-documented, self-hosted filament-inventory software with
+a clean REST API, and our homelab audience already runs it. PrintStash already
+captures real consumption per print (`PrintJob.filament_used_g`, derived from
+Moonraker via `modules/printing/filament.mm_to_grams`), so the work is to *feed* that
+inventory, not duplicate it. Spoolman becomes the source of truth for spools,
+vendors, and remaining weight; PrintStash reads it for display and writes
+consumption back.
+
+This supersedes the earlier "build our own spool inventory" plan: a parallel
+inventory would split the source of truth and ship a weaker copy of what
+Spoolman already does well. Integration stays optional and OFF by default,
+behind a master switch, with no hard dependency — consistent with the
+local-first principles below.
+
+Shipped in 0.8.0:
+
+- Spoolman client + connection config (base URL, optional API key), behind a
+  master switch and OFF by default; reachability surfaced in `/health` with
+  graceful degradation that never blocks a print
+- Read side: pull spools and show inventory + remaining weight in the Settings →
+  Spoolman card
+- Filament preset sync (one-way Spoolman → PrintStash): import Spoolman filaments
+  as read-only `FilamentProfile` presets (cost/material/density/diameter), keyed
+  by `spoolman_filament_id`, so filament data lives in one source of truth
+- Spool selection when starting a vault job (send-to-printer) or logging a print
+  manually, persisted on the print record and shown in print history; a synced
+  spool drives exact per-print cost and density-accurate grams
+- Write side: on measured-print completion, decrement the selected spool by
+  `filament_used_g` (reuses the existing `print_results` + `mm_to_grams`
+  pipeline). Moonraker-measured prints only — Bambu does not report live
+  consumption
+- Double-count safety: at write time, skip our own decrement when Spoolman
+  reports an active spool that Moonraker's native hook is already counting (with
+  a manual "write back anyway" override), plus a UI warning — so a print is
+  never counted twice
+
+## 0.9 — Provider Maturity (delivered in 0.9.0)
+
+Goal: make printer integrations predictable across normal home setups, and
+cover the other common homelab print stacks. This absorbs what was previously
+listed as a separate "0.10 — More Providers" release: the provider work landed
+together, so it ships as one release.
+
+- Bambu LAN upload/send parity for plain-text Vault G-code, with idle-state
+  guardrails and explicit opt-in start
+- PrusaLink local FDM beta with Digest/API-key authentication, status, G-code
+  upload/start, file inventory/deletion, and pause/resume/cancel
+- OctoPrint beta provider: status, upload/send, file inventory, and
+  pause/resume/cancel
+- Elegoo Neptune 4-family guided setup over the existing Moonraker transport
+- Elegoo Centauri Carbon and Carbon 2 beta local status/control integration
+  with chunked HTTP upload; CC1 has a community upload-only PrintStash smoke,
+  while CC2 hardware validation and remote file inventory remain outstanding
+- Exponential reconnect backoff and circuit-breaking for repeated job-sync DB
+  failures
+- Capability-driven UI states for unsupported printer actions
+- A provider conformance test suite every provider must pass, so a new printer
+  backend is one small class rather than a new set of special cases
+- Broader hardware validation notes for Moonraker, Bambu, PrusaLink, OctoPrint,
+  and Neptune 4-family setups
+
+Not in 0.9, added on demand: Prusa Connect (cloud, unlike the local PrusaLink
+support that shipped here) and Elegoo models beyond the Neptune 4 and Centauri
+Carbon families.
+
+## 0.10 — Library Workflow Polish (delivered in 0.10.0)
+
+Goal: make the vault better as a daily-use 3D print library.
+
+- Atomic bulk editing for tags, collections, trash, and revision labels
+- Per-user saved views and favorite/starred Models
+- Mixed-Artifact comparison with metadata and actual print outcomes
+- Reprint analytics for success, duration, filament, and cost
+- Versioned full-library archive migration and configured-root folder import
+
+## 0.11 — Fleet and Scheduling (delivered in 0.11.0)
+
+Goal: help small printer farms without turning PrintStash into a full slicer or
+queue manager.
+
+- Queue visibility with a provider-normalized job model
+- Optional routing strategies: manual, default printer, least busy
+- Printer maintenance windows, soft-drain mode, and a simple maintenance log
+
+## 0.11.1 — Vault Confidence and Capture (delivered in 0.11.1)
+
+- Read-only Quick/Full Vault audits with persisted safe findings, progress,
+  cancellation, and narrow audited repairs
+- Backup archive verification and fail-closed creation when owned blobs cannot
+  be included
+- Durable Pending Imports for URL/browser capture, review, retry, Collection/tag
+  assignment, and normal ingestion-pipeline persistence
+- Structured Artifact, Metadata, Revision, print-history, storage, and upload-date
+  filters with RBAC-scoped facets, canonical URLs, and Saved Views
+- Per-user, per-printer access roles for view-only status, printing, machine
+  control, and administration across live status, files, fleet, and maintenance
+
+## 0.11.2 — Theme Toggle Fix (delivered in 0.11.2)
+
+- The theme toggle uses the theme already applied to the page, so the first
+  click switches reliably.
+
+## 0.11.3 — Printer Upload and Backup Safety (delivered in 0.11.3)
+
+- Elegoo Centauri Carbon and Carbon 2 upload over their local HTTP transports
+- Spool coverage warnings and clearer Spoolman location data
+- Transactionally consistent SQLite backup and staged rollback-safe restore
+- Atomic Revision numbering and stricter orphan-database adoption
+
+## 0.11.4 — Large-Library and Data-Safety Hardening (delivered in 0.11.4)
+
+- Global cursor pagination and SQL-backed metric sorts across complete filtered libraries
+- Bounded portable archive work with matching export/import validation limits
+- Lower-query facets, vault totals, fleet dispatch, and background-job recovery
+- Stronger session invalidation, administrator invariants, deletion cleanup, and setup atomicity
+- One enforced API process per vault with topology health reporting
+- Real PostgreSQL contract tests and explicit SQLite-only built-in backup capability
+- SeaweedFS as the bundled local S3 service, with a legacy MinIO migration profile
+
+## 0.12 — Material-Aware Fleet and Ingestion Reliability (delivered in 0.12.0)
+
+- Source-labelled printer tools and material feeds, with manual state for every
+  provider, Bambu AMS synchronization, and Moonraker active-Spoolman tracking
+- Material and nozzle compatibility preflight for direct sends and automatic
+  routing, including audited mismatch overrides and advisory color comparison
+- Atomic multi-copy batches, exact printer-group constraints, priority lanes,
+  optional operator release gates, and an at-a-glance fleet board
+- Argon2 password hashing with transparent, successful-login migration from
+  legacy bcrypt hashes
+- NumPy 2, Trimesh 5, Cascadio 0.1.1, Psycopg 3, and explicit optional async
+  database/browser/STEP extras
+- Durable import-job terminal postconditions, complete/partial outcomes,
+  restart recovery, one frontend completion event, and per-PR contract coverage
+- Memory-bounded oversized-STL thumbnails and Bulk upload refresh reliability
+  ([#67](https://github.com/xiao-villamor/PrintStash/issues/67))
+- Full and lite multi-architecture API images with runtime capability reporting
+- A verified, non-destructive MinIO-to-SeaweedFS migration helper, with MinIO
+  removed from the normal Compose stack
+
+## 0.13: Storage safety and capture provenance (release candidate)
+
+- Runtime-probed Verified, Guarded, and Unguarded storage tiers, durable
+  publication intents, provider-bound ownership, and fail-closed recovery
+- Typed setup for generic/native S3, Cloudflare R2, Backblaze B2, Wasabi,
+  self-hosted S3, Nextcloud, WebDAV, and SFTP; the remote presets remain beta
+  while local and generic/native S3 remain stable
+- Read-only Google Drive Library sources and backup replicas, with hash-verified
+  restore and fail-closed retention limits
+- Multipart Models that group reusable Models into ordered parts and alternatives
+  without moving or deleting the underlying files
+- Paired, named, revocable browsers for authenticated Printables file selection
+  and MakerWorld package transfer without sharing marketplace cookies
+- Per-user MyMiniFactory OAuth and Cults metadata connections, bounded Model
+  Source snapshots, user overrides, and portable provenance sidecars
+- Evidence-labelled Bambu LAN external-job history and best-effort G-code or
+  project 3MF recovery while the printer cache entry remains available
+- GitHub-flavoured Markdown tables, component-aware 3MF transforms, embedded
+  3MF preview preference, and denser bounded STL preview sampling
+- Safer bind-mounted container ownership through validated `PUID`/`PGID`, plus
+  guarded legacy Artifact and backup adoption paths
+
+## Auth and Platform (folded into 0.11.0)
+
+Goal: fit cleanly into existing homelab infrastructure.
+
+- OIDC / SSO login (Authentik, Authelia, and similar) — included in 0.11.0
+- Installable PWA with offline support — included in 0.11.0
+- Localization (i18n) scaffolding — included in 0.11.0
+
+## Later — Optional Cloud-Ready Adapters
+
+Goal: support larger installs while keeping the default path self-hosted and
+local-first.
+
+- More complete Postgres deployment guidance
+- Operator-owned S3/R2 lifecycle guidance and broader read-only policy
+  diagnostics; PrintStash does not create or change provider lifecycle policies
+- Multi-tenant/org routing only if there is real demand
+- Cloud printer/provider adapters only when they do not compromise local-first use
+
+## Not Planned Right Now
+
+- A slicer
+- Hard dependency on Postgres, Redis, S3, or external queues
+- Replacing Moonraker/Bambu firmware as the source of truth for print execution

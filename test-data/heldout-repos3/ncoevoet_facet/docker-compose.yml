@@ -1,0 +1,69 @@
+services:
+  facet:
+    # Pulls the published CPU image by default. `docker compose build` (or
+    # `up --build`) still builds from source using the Dockerfile below —
+    # handy for local hacking.
+    image: ghcr.io/ncoevoet/facet:latest
+    build: .
+    ports:
+      - "${PORT:-5000}:5000"
+    volumes:
+      - ${PHOTOS_DIR:-./photos}:/data/photos
+      - ./data:/app/data
+      - ./storage:/app/storage
+      # Persistent, editable config — your OVERRIDE, not the whole configuration.
+      # Everything Facet ships lives in config/scoring_config.default.json inside
+      # the image, and this file is resolved on top of it, so it only needs the
+      # settings you actually changed. docker-entrypoint.sh seeds it on first run
+      # with a generated `viewer.edition_password` (printed once to the container
+      # log; an install without one is read-only); an operator upgrading from the old
+      # `- ./scoring_config.json:/app/scoring_config.json` mount gets THEIR file
+      # carried across rather than reset, since a full config resolves to itself.
+      # Edit it by hand to customize weights, viewer password, categories, etc.
+      # It is seeded 0600: it holds the viewer password and API keys in
+      # plaintext, and the config writer preserves the mode on every later write.
+      # Mounting a directory (rather than the file itself) lets the
+      # Docker daemon auto-create the host side on a first run with no
+      # ./facet-config yet — a single-file mount target would instead get
+      # created as an empty directory, shadowing the baked config. The
+      # container side is /config, not /app/config: the latter is the
+      # `config` PYTHON PACKAGE baked into the image (api/, config/, db/,
+      # ...) — mounting over it would shadow the package itself and the
+      # container would fail to import it.
+      - ./facet-config:/config
+      # Model caches are Docker-managed named volumes so the image is fully
+      # self-contained: it never reads the host's native model caches or any
+      # shared local state. Models download once on first run into these volumes
+      # and persist across restarts. Reset with `docker compose down -v`.
+      - facet-hf-cache:/home/facet/.cache/huggingface
+      - facet-torch-cache:/home/facet/.cache/torch
+      - facet-insightface:/home/facet/.insightface
+      - facet-pretrained:/app/pretrained_models
+    environment:
+      - FACET_LOG_LEVEL=INFO
+      - DB_PATH=${DB_PATH:-/app/data/photo_scores_pro.db}
+      - FACET_CONFIG=/config/scoring_config.json
+      # Pick the VRAM profile without editing any JSON (auto|legacy|8gb|16gb|24gb).
+      - FACET_VRAM_PROFILE=${FACET_VRAM_PROFILE:-auto}
+      # Personal-ranker auto-retrain: how much new signal arms a retrain, and how
+      # long you must be idle before it runs. Empty = the config's auto_retrain block.
+      - FACET_RETRAIN_THRESHOLD=${FACET_RETRAIN_THRESHOLD:-}
+      - FACET_RETRAIN_IDLE_S=${FACET_RETRAIN_IDLE_S:-}
+    # GPU acceleration is opt-in. The default config runs in CPU mode so
+    # `docker compose up` works on any machine. To enable an NVIDIA GPU
+    # (requires the NVIDIA Container Toolkit), add the override file:
+    #   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up
+    # or a per-profile overlay (docker-compose.{8gb,16gb}.yml).
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+volumes:
+  facet-hf-cache:
+  facet-torch-cache:
+  facet-insightface:
+  facet-pretrained:

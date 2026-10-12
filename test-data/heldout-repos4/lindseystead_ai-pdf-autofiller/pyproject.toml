@@ -1,0 +1,125 @@
+[project]
+name = "pdf-autofiller"
+version = "0.8.0"
+description = "Fill PDF forms from JSON, as a Python library or a self-hosted API, with a report of every field written or skipped"
+readme = "README.md"
+requires-python = ">=3.11,<4.0"
+authors = [{ name = "Lindsey Stead" }]
+license = "MIT"
+keywords = [
+    "pdf",
+    "pdf-forms",
+    "acroform",
+    "form-filling",
+    "form-automation",
+    "fastapi",
+    "python",
+    "api",
+    "docker",
+    "automation",
+    "document-processing",
+    "workflow-automation",
+    "self-hosted",
+    "open-source",
+    "govtech",
+    "pydantic",
+    "n8n",
+    "zapier",
+    "w9",
+    "hr-onboarding",
+]
+dynamic = ["dependencies"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Office/Business",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Framework :: FastAPI",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://github.com/lindseystead/ai-pdf-autofiller"
+Repository = "https://github.com/lindseystead/ai-pdf-autofiller"
+Documentation = "https://github.com/lindseystead/ai-pdf-autofiller/tree/main/docs"
+Pages = "https://lindseystead.github.io/ai-pdf-autofiller/"
+Issues = "https://github.com/lindseystead/ai-pdf-autofiller/issues"
+Changelog = "https://github.com/lindseystead/ai-pdf-autofiller/blob/main/CHANGELOG.md"
+
+[project.scripts]
+pdf-autofiller = "pdf_autofiller.cli:main"
+pdf-autofiller-api = "pdf_autofiller.api_service:run"
+
+[tool.poetry]
+packages = [
+    { include = "pdf_autofiller", from = "src" }
+]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+# pypdf and python-multipart parse untrusted input; floors track patched
+# (CVE-fixed) releases and must stay current.
+# The crypto extra installs `cryptography`, which pypdf needs to open AES-encrypted PDFs.
+pypdf = { version = "^6.19.0", extras = ["crypto"] }
+pydantic = "^2.0.0"
+openai = "^1.0.0"
+# FastAPI >= 0.136 supports starlette >= 1.0. starlette is pinned explicitly
+# (transitive) to ensure every resolver picks the patched line.
+fastapi = ">=0.136.0"
+starlette = ">=1.3.1"
+uvicorn = "^0.30.0"
+python-multipart = ">=0.0.31"
+httpx = "^0.27.0"
+click = ">=8.3.3"
+idna = ">=3.15"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4.0"
+pytest-cov = "^4.0.0"
+ruff = "0.16.6"
+mypy = "^1.0.0"
+pre-commit = "^3.5.0"
+pip-audit = "^2.7.0"
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+ignore = [
+  # FastAPI dependency injection uses File()/Form() defaults intentionally.
+  "B008",
+  # Ternary path resolve is less readable than if/else.
+  "SIM108",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["RUF012", "RUF059"]
+"scripts/*" = ["BLE001", "T201"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_ignores = true
+check_untyped_defs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

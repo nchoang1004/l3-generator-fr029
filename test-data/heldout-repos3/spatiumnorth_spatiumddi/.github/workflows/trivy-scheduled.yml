@@ -1,0 +1,592 @@
+name: Scheduled Dependency Health
+
+# Why this exists (issue #640, Gap 2):
+#
+# The per-image ``build-*-images.yml`` workflows are path-filtered and their
+# Trivy step is PR-only, so an image is scanned ONLY when someone happens to
+# touch its Dockerfile. Between those moments upstream CVEs land and nothing
+# looks — until an unrelated PR trips the Dockerfile path filter and inherits
+# a pre-existing HIGH/CRITICAL it didn't introduce (exactly what happened to
+# #639: an Alpine bump surfaced a months-old ``golang`` stdlib CVE).
+#
+# This job scans EVERY shipped container image on a fixed weekly cadence,
+# independent of path filters, and funnels findings into a single tracking
+# issue so a newly-published CVE surfaces on its own instead of ambushing the
+# next contributor. It uses CI's exact gate — HIGH,CRITICAL + --ignore-unfixed
+# (matching ``make trivy`` and the ``build-*-images.yml`` Trivy steps).
+#
+# #1392 added an ADVISORY pass on top: MEDIUM,LOW + --ignore-unfixed, reported
+# in its own section of the same tracking issue. It never gates anything (the
+# release, nightly and PR gates stay HIGH/CRITICAL), but it can open the issue
+# on its own, so a fixable MEDIUM/LOW finding is seen here first rather than by
+# a user whose registry scanner runs at default severity, which is how the pip
+# CVEs in #1392 were found.
+#
+# Unlike ``make trivy`` (six agent images — the contributor pre-push gate),
+# this superset also covers ``backend/Dockerfile`` + ``frontend/Dockerfile``,
+# which had no Trivy coverage anywhere.
+#
+# #975 added a second, independent job: ``pin-drift``, which reports version
+# pins that have fallen behind upstream. The two answer different questions —
+# a CVE scan says "this image has a known vulnerability", drift says "this pin
+# is old", and a pin can be years stale with no CVE filed against it. They
+# share this workflow because they share a cadence and a reporting shape, not
+# because either depends on the other; neither job needs the other to run.
+
+on:
+  schedule:
+    # Mondays 06:17 UTC. Off the top of the hour to avoid the cron stampede
+    # that delays runner scheduling on shared infrastructure.
+    - cron: "17 6 * * 1"
+  workflow_dispatch: {}
+
+concurrency:
+  group: trivy-scheduled
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  scan:
+    name: Trivy — all shipped images
+    # Forks inherit this workflow (#830); never run the publisher outside
+    # the canonical repo. Repeated on every job here — a workflow-level guard
+    # does not exist, so each job that can file an issue carries its own.
+    if: github.repository_owner == 'spatiumnorth'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build and scan every image
+        id: scan
+        run: |
+          set -uo pipefail
+
+          # One spec per shipped image: name|dockerfile|context|target
+          # Contexts mirror release.yml: the agent images build from the repo
+          # root, backend from ./backend, frontend from ./frontend. Targets:
+          # backend is pinned to ``runtime`` — the documented production stage
+          # (backend/Dockerfile); its final ``dev`` stage only layers test
+          # tooling on top, which we don't ship-scan. frontend's last stage is
+          # already the nginx ``runtime``, so no target is needed;
+          # ``VITE_APP_VERSION`` defaults to ``dev`` in the Dockerfile and is
+          # irrelevant to a CVE scan.
+          specs=(
+            "kea|agent/dhcp/images/kea/Dockerfile|.|"
+            "bind9|agent/dns/images/bind9/Dockerfile|.|"
+            "powerdns|agent/dns/images/powerdns/Dockerfile|.|"
+            "technitium|agent/dns/images/technitium/Dockerfile|.|"
+            "dnsdist|agent/dns/images/dnsdist/Dockerfile|.|"
+            "supervisor|agent/supervisor/images/supervisor/Dockerfile|.|"
+            "looking-glass|agent/looking-glass/images/gobgp/Dockerfile|.|"
+            "backend|backend/Dockerfile|./backend|runtime"
+            "frontend|frontend/Dockerfile|./frontend|"
+          )
+
+          # Shared Trivy cache so the vuln DB downloads once for the whole
+          # job rather than once per image (8× ghcr pulls risks rate limits).
+          cache="$RUNNER_TEMP/trivy-cache"
+          mkdir -p "$cache"
+
+          report="$RUNNER_TEMP/findings.md"
+          : > "$report"
+          any=0
+          # #1392 — MEDIUM/LOW findings with a fix, reported as an ADVISORY:
+          # its own section of the tracking issue, never a gate and never
+          # part of ``has_findings``. The pip CVEs that started #1392 sat in
+          # the api image unreported because nothing here looked below HIGH,
+          # while a registry scanner at default severity (Harbor's) showed
+          # them on every pull.
+          advisory="$RUNNER_TEMP/advisory.md"
+          : > "$advisory"
+          adv=0
+
+          for spec in "${specs[@]}"; do
+            IFS='|' read -r name df ctx target <<< "$spec"
+            echo "::group::$name ($df)"
+
+            build=(docker build -q -f "$df" -t "trivy-scan-$name:scan")
+            [ -n "$target" ] && build+=(--target "$target")
+            build+=("$ctx")
+            if ! "${build[@]}"; then
+              echo "❌ build failed"
+              {
+                echo "### \`$name\` — ⚠️ image build FAILED"
+                echo ""
+                echo "The scheduled scan could not build this image (see the run log)."
+                echo ""
+              } >> "$report"
+              any=1
+              echo "::endgroup::"
+              continue
+            fi
+
+            # CI's exact gate: HIGH,CRITICAL + fix-available only. exit-code 1
+            # ⇒ findings, 0 ⇒ clean, ≥2 ⇒ scan error. Table → stdout, logs →
+            # stderr (kept out of the report).
+            # #975 — the ``if`` form is load-bearing, not style. This step
+            # runs under ``bash -e`` (Actions' default shell), which
+            # ``set -uo pipefail`` at the top does NOT clear, so the previous
+            # ``docker run ...`` followed by ``rc=$?`` killed the whole step
+            # the moment Trivy exited 1 — i.e. on the FIRST image with
+            # findings, which is the only case this job exists for. Every
+            # branch below was unreachable, ``has_findings`` was never
+            # written, and the reporting step's fail-safe then left the
+            # tracking issue untouched with a warning. The scan could report
+            # "clean" and could never report a CVE. Commands in an ``if``
+            # condition are exempt from ``-e``; keep this shape.
+            # #1095 — JSON, not ``--format table``. Trivy's table opens with a
+            # Report Summary carrying one row per scanned target, which for the
+            # api image is every site-packages METADATA file: measured, the
+            # full table is 107 KB and the first CVE does not appear until byte
+            # 76,926. The old ``head -c 12000`` of it therefore captured
+            # summary rows and NEVER a CVE — the tracking issue reported a
+            # count and nothing to act on. Rendering from JSON removes the
+            # truncation problem rather than mitigating it (~34 findings in
+            # ~3 KB), and is independent of Trivy's table layout.
+            if docker run --rm \
+              -v /var/run/docker.sock:/var/run/docker.sock \
+              -v "$cache":/root/.cache/ \
+              aquasec/trivy:latest image \
+              --severity HIGH,CRITICAL --ignore-unfixed --scanners vuln \
+              --format json --exit-code 1 -q \
+              "trivy-scan-$name:scan" > "$RUNNER_TEMP/trivy-$name.json" 2>"$RUNNER_TEMP/trivy-$name.log"; then
+              rc=0
+            else
+              rc=$?
+            fi
+
+            # rc=1 DOES NOT MEAN "findings" on its own. An unrecognised flag
+            # also exits 1 — verified against 0.74.0 — and writes ~15 KB of
+            # usage text to stdout, the stream captured above. With
+            # ``aquasec/trivy:latest`` unpinned, a CLI change would otherwise
+            # file a security issue whose body is Trivy's help output,
+            # presented as CVEs. A report that will not parse is a scan ERROR:
+            # never findings, and never a clean bill.
+            if [ "$rc" -eq 1 ] && ! jq -e 'has("Results")' "$RUNNER_TEMP/trivy-$name.json" >/dev/null 2>&1; then
+              echo "⚠️ exit 1 but the report is not a Trivy document — treating as a scan error"
+              rc=90
+            fi
+
+            if [ "$rc" -eq 0 ]; then
+              echo "✅ clean"
+            elif [ "$rc" -eq 1 ]; then
+              echo "🚨 findings"
+              any=1
+              # One row per finding. ``FixedVersion`` can list several; the
+              # first is the lowest that clears the CVE, matching trivy-gate.sh.
+              rows=$(jq -r '
+                .Results[]? as $r
+                | ($r.Vulnerabilities // [])[]
+                | "| \(.Severity) | `\(.PkgName)` | \(.VulnerabilityID) | `\(.InstalledVersion)` | `\((.FixedVersion // "-") | split(",")[0] | gsub("^\\s+|\\s+$"; ""))` |"
+                ' "$RUNNER_TEMP/trivy-$name.json" | sort -u)
+              total=$(printf '%s\n' "$rows" | grep -c '^|' || true)
+              # The COMPLETE set into the run log, inside this image's group.
+              # The report below may be capped, and its note says the full list
+              # is here — which was not true of the old capture, where the
+              # scan output went only to a file that nothing ever echoed.
+              printf '%s\n' "$rows"
+              {
+                echo "### \`$name\` (\`$df\`) — $total finding(s)"
+                echo ""
+                echo "| Severity | Package | CVE | Installed | Fixed |"
+                echo "|---|---|---|---|---|"
+                # Cap as a backstop only, and never silently: the reporting
+                # step has its own 60 KB body guard, so an image with a very
+                # large finding set must not crowd out the images after it.
+                # LINE cap, not ``head -c``: a byte cap can cut mid-row, and a
+                # partial line still starts with "|", so it would render as a
+                # malformed table row rather than being dropped. Rows are
+                # sorted, so CRITICAL survives truncation ahead of HIGH.
+                printf '%s\n' "$rows" | head -n 200 | grep '^|' || true
+                if [ "$total" -gt 200 ]; then
+                  echo ""
+                  echo "_Truncated: showing 200 of $total findings. Full report in the run log._"
+                fi
+                echo ""
+              } >> "$report"
+            else
+              echo "⚠️ trivy scan error (rc=$rc)"
+              any=1
+              {
+                echo "### \`$name\` — ⚠️ Trivy scan error (rc=$rc)"
+                echo ""
+                echo '```'
+                tail -c 4000 "$RUNNER_TEMP/trivy-$name.log"
+                echo '```'
+                echo ""
+              } >> "$report"
+            fi
+
+            # #1392 — the advisory pass: the same image, MEDIUM/LOW with a fix.
+            # ``--exit-code 0`` because the verdict is the JSON, not the exit:
+            # a document that does not parse is a scan error (same reasoning
+            # as the rc=1 check above), reported in the advisory section so
+            # it can never read as "clean". The ``if`` form is #975's: this
+            # step runs under ``bash -e``.
+            if docker run --rm \
+              -v /var/run/docker.sock:/var/run/docker.sock \
+              -v "$cache":/root/.cache/ \
+              aquasec/trivy:latest image \
+              --severity MEDIUM,LOW --ignore-unfixed --scanners vuln \
+              --format json --exit-code 0 -q \
+              "trivy-scan-$name:scan" > "$RUNNER_TEMP/advisory-$name.json" 2>"$RUNNER_TEMP/advisory-$name.log" \
+              && jq -e 'has("Results")' "$RUNNER_TEMP/advisory-$name.json" >/dev/null 2>&1; then
+              arows=$(jq -r '
+                .Results[]? as $r
+                | ($r.Vulnerabilities // [])[]
+                | "| \(.Severity) | `\(.PkgName)` | \(.VulnerabilityID) | `\(.InstalledVersion)` | `\((.FixedVersion // "-") | split(",")[0] | gsub("^\\s+|\\s+$"; ""))` |"
+                ' "$RUNNER_TEMP/advisory-$name.json" | sort -u)
+              atotal=$(printf '%s\n' "$arows" | grep -c '^|' || true)
+              if [ "$atotal" -gt 0 ]; then
+                echo "ℹ️ advisory: $atotal MEDIUM/LOW finding(s) with a fix"
+                printf '%s\n' "$arows"
+                adv=1
+                {
+                  echo "### \`$name\` — $atotal advisory finding(s)"
+                  echo ""
+                  echo "| Severity | Package | CVE | Installed | Fixed |"
+                  echo "|---|---|---|---|---|"
+                  printf '%s\n' "$arows" | head -n 100 | grep '^|' || true
+                  if [ "$atotal" -gt 100 ]; then
+                    echo ""
+                    echo "_Truncated: showing 100 of $atotal. Full list in the run log._"
+                  fi
+                  echo ""
+                } >> "$advisory"
+              fi
+            else
+              echo "⚠️ advisory scan error"
+              adv=1
+              {
+                echo "### \`$name\` — ⚠️ advisory scan error"
+                echo ""
+                echo '```'
+                tail -c 2000 "$RUNNER_TEMP/advisory-$name.log"
+                echo '```'
+                echo ""
+              } >> "$advisory"
+            fi
+            echo "::endgroup::"
+          done
+
+          echo "has_findings=$any" >> "$GITHUB_OUTPUT"
+          echo "has_advisory=$adv" >> "$GITHUB_OUTPUT"
+
+          # Human-readable rollup on the run's summary page regardless of outcome.
+          {
+            echo "## Scheduled Trivy scan"
+            echo ""
+            if [ "$any" -eq 0 ]; then
+              echo "✅ All shipped images clean (HIGH/CRITICAL, fix-available)."
+            else
+              cat "$report"
+            fi
+            echo ""
+            echo "### Advisory: MEDIUM/LOW, fix-available (not a gate)"
+            echo ""
+            if [ "$adv" -eq 0 ]; then
+              echo "✅ None."
+            else
+              cat "$advisory"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # Never fail the job on findings — the tracking issue is the durable
+          # signal (a red weekly run would just add notification noise). The
+          # job only fails if the scan step itself errors out above.
+          exit 0
+
+      - name: Open, update or close the tracking issue
+        if: always()
+        uses: actions/github-script@v9
+        env:
+          HAS_FINDINGS: ${{ steps.scan.outputs.has_findings }}
+          HAS_ADVISORY: ${{ steps.scan.outputs.has_advisory }}
+        with:
+          script: |
+            const fs = require('fs');
+            const { owner, repo } = context.repo;
+            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            const today = new Date().toISOString().slice(0, 10);
+
+            // Fail safe: if the scan step was killed (OOM / timeout) before it
+            // wrote its output, ``has_findings`` interpolates to '' here. We do
+            // NOT know the images are clean, so leave the tracking issue exactly
+            // as it is — closing it on an indeterminate result would mask real,
+            // still-unfixed CVEs.
+            const raw = process.env.HAS_FINDINGS;
+            const rawAdv = process.env.HAS_ADVISORY;
+            if (![raw, rawAdv].every(v => v === '0' || v === '1')) {
+              core.warning(
+                `Scan produced no definitive result (has_findings=${JSON.stringify(raw)}, ` +
+                `has_advisory=${JSON.stringify(rawAdv)}); leaving any tracking issue untouched.`);
+              return;
+            }
+            const hasFindings = raw === '1';
+            // #1392 — MEDIUM/LOW findings with a fix: their own section, and
+            // reason enough on their own to keep the issue open. Never a gate.
+            const hasAdvisory = rawAdv === '1';
+
+            const label = 'security:trivy';
+            // Generic, since an advisory-only issue is not HIGH/CRITICAL.
+            const title = 'Scheduled Trivy scan: fixable CVEs in shipped images';
+            const marker = '<!-- trivy-scheduled-scan -->';
+
+            // Ensure the label exists (idempotent).
+            try {
+              await github.rest.issues.getLabel({ owner, repo, name: label });
+            } catch (e) {
+              if (e.status !== 404) throw e;
+              await github.rest.issues.createLabel({
+                owner, repo, name: label, color: 'b60205',
+                description: 'Automated weekly Trivy image scan findings',
+              });
+            }
+
+            // Find our open tracking issue (by label, confirmed via body
+            // marker). listForRepo returns PRs too — they're issues in the REST
+            // API — so drop anything with a ``pull_request`` field before matching.
+            const open = (await github.rest.issues.listForRepo({
+              owner, repo, state: 'open', labels: label, per_page: 100,
+            })).data.filter(i => !i.pull_request).find(i => (i.body || '').includes(marker));
+
+            if (hasFindings || hasAdvisory) {
+              const read = (name) => {
+                const path = `${process.env.RUNNER_TEMP}/${name}`;
+                return fs.existsSync(path)
+                  ? fs.readFileSync(path, 'utf8')
+                  : '(report file missing — see the run log)';
+              };
+              const gate = hasFindings
+                ? `## HIGH/CRITICAL, fix-available (the release gate)\n\n${read('findings.md')}`
+                : `## HIGH/CRITICAL, fix-available (the release gate)\n\n✅ None.\n`;
+              const advisory = hasAdvisory
+                ? `## Advisory: MEDIUM/LOW, fix-available\n\n` +
+                  `Not a gate: a release still publishes with these. They are here so ` +
+                  `they get fixed before a registry scanner at default severity reports ` +
+                  `them for us (#1392).\n\n${read('advisory.md')}`
+                : `## Advisory: MEDIUM/LOW, fix-available\n\n✅ None.\n`;
+              let body =
+                `${marker}\n\n` +
+                `The weekly image vulnerability scan found **fix-available** CVEs ` +
+                `(or a scan/build error).\n\n` +
+                `- Scan run: ${runUrl}\n- Last updated: ${today}\n\n` +
+                `${gate}\n${advisory}\n\n---\n` +
+                `Reproduce an agent image locally with \`make trivy IMAGE=<name>\`; ` +
+                `\`backend\` and \`frontend\` are not agent images — build the Dockerfile ` +
+                `above (\`--target runtime\` for backend) and scan it with the same flags. ` +
+                `This issue auto-closes when a later scheduled scan is clean.`;
+              // GitHub caps issue bodies at 65536 chars.
+              if (body.length > 60000) body = body.slice(0, 60000) + '\n\n_…truncated._';
+
+              if (open) {
+                await github.rest.issues.update({ owner, repo, issue_number: open.number, title, body });
+                await github.rest.issues.createComment({
+                  owner, repo, issue_number: open.number,
+                  body: `🔁 Still failing as of ${today} — ${runUrl}`,
+                });
+                core.info(`Updated tracking issue #${open.number}`);
+              } else {
+                const created = await github.rest.issues.create({
+                  owner, repo, title, labels: [label], body,
+                });
+                core.info(`Opened tracking issue #${created.data.number}`);
+              }
+            } else if (open) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: open.number,
+                body: `✅ All shipped images clean as of ${today} — ${runUrl}. Closing.`,
+              });
+              await github.rest.issues.update({
+                owner, repo, issue_number: open.number, state: 'closed',
+              });
+              core.info(`Closed tracking issue #${open.number} (now clean)`);
+            } else {
+              core.info('All images clean; no open tracking issue to close.');
+            }
+
+  # ── Version-pin drift (#975) ────────────────────────────────────────────────
+  # The other half of the same problem the scan above solves: the CVE scan
+  # tells us an image has a known vulnerability, this tells us a pin has gone
+  # stale — and the two failure modes are different. A pin can sit years
+  # behind with no CVE against it (kube-rbac-proxy v0.12.0 was a 2022 release)
+  # and nothing anywhere notices, because Dependabot cannot see any of the
+  # pins in versions.json: it has no Helm ecosystem, does not read ARG values,
+  # chart values.yaml, action `with:` inputs or the appliance bake arrays.
+  #
+  # Separate job, not a step on `scan`: this needs no Docker and no image
+  # build, so pinning it to that job's ~20 minutes would be waste, and a
+  # Docker build failure there must not take the drift report down with it.
+  #
+  # Deliberately never fails and never gates anything. `versions.json`'s
+  # `hold` field marks the pins that are behind ON PURPOSE (MetalLB on
+  # metallb#3063, Postgres 16 on #208, the Jekyll plugins on what the
+  # github-pages gem pins), and the report separates those from real drift —
+  # a known hold that reads as a failure every week is how a report stops
+  # being read.
+  pin-drift:
+    name: Version pins — upstream drift
+    if: github.repository_owner == 'spatiumnorth'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Resolve every declared upstream
+        id: drift
+        env:
+          # Raises api.github.com's rate limit from 60/hr to 1000/hr. Most
+          # entries resolve through it, so unauthenticated runs would start
+          # reporting "check failed" rather than a version.
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          report="$RUNNER_TEMP/pin-drift.md"
+
+          # The ``if`` form, NOT ``cmd; rc=$?``. Actions runs this with
+          # ``bash -e``, and ``set -uo pipefail`` above does NOT clear that —
+          # so a bare failing command kills the step before any handler runs,
+          # and every line below would be dead code. Commands in an ``if``
+          # condition are exempt from ``-e``; this is the only shape that
+          # reliably captures a non-zero status here. (#975 — the sibling
+          # ``scan`` job had exactly this bug.)
+          if python3 scripts/lint_versions.py --check-upstream \
+               > "$report" 2>"$RUNNER_TEMP/pin-drift.err"; then
+            rc=0
+          else
+            rc=$?
+          fi
+
+          # The script is advisory and exits 0 even when components are behind,
+          # so a non-zero rc here means it could not run at all (an unparseable
+          # manifest, a missing interpreter). That is a real problem with the
+          # guard itself and must not be reported as "no drift" — the #1030
+          # lesson: an empty result and a clean result have to look different.
+          if [ "$rc" -ne 0 ]; then
+            echo "::error::lint_versions.py --check-upstream failed (rc=$rc)"
+            sed 's/^/  /' "$RUNNER_TEMP/pin-drift.err" >&2
+            echo "status=error" >> "$GITHUB_OUTPUT"
+            {
+              echo "## Version-pin drift"
+              echo ""
+              echo "⚠️ The drift check could not run (rc=$rc). See the run log."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          # Parse the machine-readable line the script prints last:
+          #   RESULT behind=N held=N failed=N total=N
+          #
+          # Reading `failed` is the load-bearing half. The PROSE line above it
+          # starts "0 behind upstream" when every single lookup failed — a
+          # rate-limited token, a GitHub outage, no egress — so a consumer that
+          # scraped only the first number would report the whole fleet current
+          # and CLOSE the drift issue on the one run that knew nothing. Any
+          # component we could not check makes the result indeterminate, which
+          # is a third state, not a clean bill of health.
+          result="$(grep -m1 '^RESULT ' "$report" || true)"
+          behind=""; failed=""
+          for field in $result; do
+            case "$field" in
+              behind=*) behind="${field#behind=}" ;;
+              failed=*) failed="${field#failed=}" ;;
+            esac
+          done
+
+          if [ -z "$behind" ] || [ -z "$failed" ]; then
+            echo "::warning::could not parse the RESULT line from the drift report"
+            echo "status=error" >> "$GITHUB_OUTPUT"
+          elif [ "$failed" -gt 0 ]; then
+            echo "::warning::$failed component(s) could not be checked — result is indeterminate"
+            echo "status=error" >> "$GITHUB_OUTPUT"
+          elif [ "$behind" -gt 0 ]; then
+            echo "status=behind" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=current" >> "$GITHUB_OUTPUT"
+          fi
+
+          {
+            echo "## Version-pin drift (\`versions.json\`)"
+            echo ""
+            cat "$report"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Open, update or close the drift tracking issue
+        if: always()
+        uses: actions/github-script@v9
+        env:
+          DRIFT_STATUS: ${{ steps.drift.outputs.status }}
+        with:
+          script: |
+            const fs = require('fs');
+            const { owner, repo } = context.repo;
+            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            const today = new Date().toISOString().slice(0, 10);
+
+            // Same fail-safe as the Trivy job: an indeterminate result leaves
+            // any existing issue exactly as it is. Closing on "we could not
+            // tell" would report stale pins as current.
+            const status = process.env.DRIFT_STATUS;
+            if (status !== 'behind' && status !== 'current') {
+              core.warning(
+                `Drift check produced no definitive result (status=${JSON.stringify(status)}); ` +
+                `leaving any tracking issue untouched.`);
+              return;
+            }
+
+            const label = 'dependencies';
+            const title = 'Version pins behind upstream (versions.json)';
+            const marker = '<!-- versions-pin-drift -->';
+
+            const open = (await github.rest.issues.listForRepo({
+              owner, repo, state: 'open', labels: label, per_page: 100,
+            })).data.filter(i => !i.pull_request).find(i => (i.body || '').includes(marker));
+
+            if (status === 'behind') {
+              let table = '(report file missing — see the run log)';
+              const path = `${process.env.RUNNER_TEMP}/pin-drift.md`;
+              if (fs.existsSync(path)) table = fs.readFileSync(path, 'utf8');
+              let body =
+                `${marker}\n\n` +
+                `One or more pins in [\`versions.json\`](../blob/main/versions.json) are ` +
+                `behind upstream. Rows marked 🔒 are held on purpose — their reason is ` +
+                `the \`hold\` field on that component, and they are NOT what this issue ` +
+                `is about.\n\n` +
+                `- Check run: ${runUrl}\n- Last updated: ${today}\n\n` +
+                `${table}\n\n---\n` +
+                `Reproduce locally with \`make versions-upstream\`. Bumping a component ` +
+                `is one edit to \`versions.json\` plus whatever \`make versions-check\` ` +
+                `then reports. This issue auto-closes when every non-held pin is current.`;
+              if (body.length > 60000) body = body.slice(0, 60000) + '\n\n_…truncated._';
+
+              if (open) {
+                await github.rest.issues.update({ owner, repo, issue_number: open.number, body });
+                await github.rest.issues.createComment({
+                  owner, repo, issue_number: open.number,
+                  body: `🔁 Still behind as of ${today} — ${runUrl}`,
+                });
+                core.info(`Updated drift issue #${open.number}`);
+              } else {
+                const created = await github.rest.issues.create({
+                  owner, repo, title, labels: [label], body,
+                });
+                core.info(`Opened drift issue #${created.data.number}`);
+              }
+            } else if (open) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: open.number,
+                body: `✅ Every non-held pin is current as of ${today} — ${runUrl}. Closing.`,
+              });
+              await github.rest.issues.update({
+                owner, repo, issue_number: open.number, state: 'closed',
+              });
+              core.info(`Closed drift issue #${open.number} (now current)`);
+            } else {
+              core.info('Every non-held pin is current; no open drift issue to close.');
+            }

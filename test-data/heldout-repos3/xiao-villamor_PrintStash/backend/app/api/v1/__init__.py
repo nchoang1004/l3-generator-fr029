@@ -1,0 +1,86 @@
+from __future__ import annotations
+
+from fastapi import APIRouter
+
+from app.api.v1 import (
+    admin,
+    artifact_cache,
+    artifact_uploads,
+    auth,
+    backup,
+    config,
+    documents,
+    external_libraries,
+    filaments,
+    files,
+    fleet,
+    health,
+    inbox,
+    ingest,
+    jobs,
+    maintenance,
+    models,
+    multipart_builds,
+    multipart_models,
+    notifications,
+    outliner,
+    printer_profiles,
+    printers,
+    provider_connections,
+    saved_views,
+    setup,
+    share,
+    spoolman,
+    storage,
+    storage_connections,
+    system,
+    taxonomy,
+    vault_migration,
+    work,
+)
+from app.bootstrap.optional_features import (
+    install_optional_routes,
+    install_search_routes,
+)
+
+api_router = APIRouter(prefix="/api/v1")
+api_router.include_router(health.router)
+api_router.include_router(setup.router)
+api_router.include_router(storage.router)
+api_router.include_router(vault_migration.router)
+api_router.include_router(storage_connections.router)
+api_router.include_router(system.router)
+api_router.include_router(auth.router)
+api_router.include_router(provider_connections.router)
+api_router.include_router(provider_connections.pairing_router)
+api_router.include_router(admin.router)
+api_router.include_router(ingest.router)
+api_router.include_router(jobs.router)
+api_router.include_router(jobs.events_router)
+api_router.include_router(work.router)
+api_router.include_router(inbox.router)
+api_router.include_router(maintenance.router)
+api_router.include_router(models.router)
+api_router.include_router(outliner.router)
+
+install_optional_routes(api_router)
+api_router.include_router(multipart_models.router)
+api_router.include_router(multipart_builds.router)
+api_router.include_router(saved_views.router)
+install_search_routes(api_router)
+api_router.include_router(files.router)
+api_router.include_router(filaments.router)
+api_router.include_router(printer_profiles.router)
+api_router.include_router(taxonomy.router)
+api_router.include_router(documents.router)
+api_router.include_router(printers.router)
+api_router.include_router(backup.router)
+api_router.include_router(config.router)
+api_router.include_router(artifact_cache.router)
+api_router.include_router(artifact_uploads.router)
+api_router.include_router(external_libraries.router)
+api_router.include_router(fleet.router)
+api_router.include_router(notifications.router)
+api_router.include_router(spoolman.router)
+api_router.include_router(share.router)
+api_router.include_router(share.admin_router)

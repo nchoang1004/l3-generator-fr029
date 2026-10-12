@@ -1,0 +1,59 @@
+{{- if .Values.migrate.enabled }}
+# Regular Job (no helm.sh/hook). The previous pre-install-hook design
+# raced the bundled postgresql subchart: hooks run before any subchart
+# resource is applied, so the migrate pod failed CreateContainerConfigError
+# trying to mount the not-yet-created <release>-postgresql Secret. The
+# install would then time out waiting for a hook that could never start.
+#
+# As a regular Job we land in normal apply order alongside the subchart;
+# the wait-for-postgres init container blocks until Postgres is accepting
+# connections, then alembic upgrade runs to head. api / worker / beat
+# carry a matching wait-for-migrate init container so their pods don't
+# come up before the schema lands.
+#
+# Job specs are immutable for fields like ``template`` after first
+# create. We sidestep that on ``helm upgrade`` by suffixing the name
+# with .Release.Revision so each install/upgrade creates a fresh Job.
+# Old Jobs (and their pods, with TTL) are garbage-collected by
+# ``ttlSecondsAfterFinished`` below — operators don't have to clean up
+# revisions manually.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "spatiumddi.fullname" . }}-migrate-r{{ .Release.Revision }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "spatiumddi.componentLabels" (merge (dict "component" "migrate") .) | nindent 4 }}
+spec:
+  backoffLimit: {{ .Values.migrate.backoffLimit }}
+  ttlSecondsAfterFinished: {{ .Values.migrate.ttlSecondsAfterFinished | default 600 }}
+  template:
+    metadata:
+      labels:
+        {{- include "spatiumddi.componentSelectorLabels" (merge (dict "component" "migrate") .) | nindent 8 }}
+    spec:
+      {{- with (include "spatiumddi.priorityClassName" (dict "component" .Values.migrate.priorityClassName "fallback" (.Values.global).priorityClassName)) }}
+      priorityClassName: {{ . | quote }}
+      {{- end }}
+      {{- with (include "spatiumddi.seccompProfileType" $) }}
+      securityContext:
+        seccompProfile:
+          type: {{ . }}
+      {{- end }}
+      restartPolicy: OnFailure
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      initContainers:
+        {{- include "spatiumddi.waitForPostgresInit" . | nindent 8 }}
+      containers:
+        - name: migrate
+          image: {{ include "spatiumddi.image" (merge (dict "imageName" "spatiumddi-api") .) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["alembic", "upgrade", "head"]
+          env:
+            {{- include "spatiumddi.commonEnv" . | nindent 12 }}
+          resources:
+            {{- toYaml .Values.migrate.resources | nindent 12 }}
+{{- end }}

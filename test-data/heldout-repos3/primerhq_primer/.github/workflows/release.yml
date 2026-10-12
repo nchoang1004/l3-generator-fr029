@@ -1,0 +1,245 @@
+name: Release
+
+# Manual-only: a release is never cut by merging to main. A maintainer with
+# write access dispatches this from the Actions tab (or `gh workflow run
+# release.yml`) when they want to publish. python-semantic-release then
+# decides the version from the conventional commits since the last tag and,
+# if a release is warranted, publishes to PyPI + GHCR. Per-PR correctness is
+# gated separately by ci.yml.
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: primer
+          POSTGRES_PASSWORD: primer
+          POSTGRES_DB: primer_e2e
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U primer"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+      - name: Sync
+        run: |
+          uv sync --all-extras --dev --group docs
+          uv pip install --no-deps ./runtime
+      - name: Lint (ruff)
+        run: uv run ruff check .
+      - name: Docs hygiene
+        run: uv run pytest tests/docs/ -q --tb=short
+      - name: Unit sweep
+        run: >-
+          uv run pytest tests/ -q
+          --ignore=tests/distributed --ignore=tests/ui_e2e
+          --ignore=tests/e2e --ignore=tests/integration
+      - name: Render smoke config
+        run: |
+          mkdir -p tests/.e2e/logs
+          cat > tests/.e2e/config.yaml <<'EOF'
+          db:
+            provider: postgres
+            config:
+              hostname: localhost
+              port: 5432
+              database: primer_e2e
+              username: primer
+              password: primer
+              pool:
+                min_size: 5
+                max_size: 20
+          host: 127.0.0.1
+          port: 8765
+          log_level: info
+          log_json: true
+          log_file: ./tests/.e2e/logs/primer.log
+          scheduler:
+            provider: postgres
+            config: {}
+          vector_store:
+            provider: pgvector
+            config:
+              hostname: localhost
+              port: 5432
+              database: primer_e2e
+              username: primer
+              password: primer
+          EOF
+      - name: Enable pgvector
+        run: PGPASSWORD=primer psql -h localhost -U primer -d primer_e2e -c "CREATE EXTENSION IF NOT EXISTS vector;"
+      # Boot smoke: the packaged app must start against Postgres + pgvector and
+      # report healthy. We do NOT run the full tests/e2e suite here: it needs
+      # the external test rig (LLM endpoint, Docker/k3s workspace backends,
+      # live channels) that a release runner does not have, so it cannot pass
+      # hermetically. The unit sweep above is the substantive gate; this proves
+      # the built artifact boots.
+      - name: Smoke - boot the packaged app
+        run: |
+          uv run primer api --config tests/.e2e/config.yaml > tests/.e2e/logs/server.log 2>&1 &
+          body=""
+          for i in $(seq 1 60); do
+            body="$(curl -sf http://localhost:8765/v1/health)" && break
+            sleep 1
+          done
+          if [ -z "$body" ]; then
+            echo "server did not become healthy; last 80 log lines:" >&2
+            tail -n 80 tests/.e2e/logs/server.log >&2 || true
+            exit 1
+          fi
+          # curl -f only checks the HTTP status. /v1/health's status field
+          # is a fixed Literal["ok"] and the route always returns 200 -
+          # even with a dead (alive=false) or degraded (in-memory scheduler
+          # under a multi-process runtime_mode) scheduler - so the status
+          # code alone certifies nothing about whether it is safe to route
+          # traffic here. Assert on the body instead.
+          if ! echo "$body" | jq -e '.scheduler.alive == true and .scheduler.degraded == false' > /dev/null; then
+            echo "server responded but its scheduler is not healthy (alive=false or degraded=true):" >&2
+            echo "$body" >&2
+            tail -n 80 tests/.e2e/logs/server.log >&2 || true
+            exit 1
+          fi
+
+  release:
+    needs: test
+    runs-on: ubuntu-latest
+    outputs:
+      released: ${{ steps.psr.outputs.released }}
+      version: ${{ steps.psr.outputs.version }}
+      tag: ${{ steps.psr.outputs.tag }}
+    steps:
+      # Mint a short-lived installation token from the release GitHub App. The
+      # default GITHUB_TOKEN cannot push the chore(release) commit + tag to the
+      # protected `main` branch (GH006); the App is on main's push-restriction
+      # and required-PR bypass lists, so its token can. Requires the org/repo
+      # to provide RELEASE_APP_ID (variable) + RELEASE_APP_PRIVATE_KEY (secret).
+      - name: Mint release app token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          # RELEASE_APP_ID is stored as a (org) SECRET alongside the private
+          # key, so read it from secrets.* — reading vars.RELEASE_APP_ID (a
+          # different namespace) resolved to empty and failed the token step
+          # with "Input required and not supplied: app-id".
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          token: ${{ steps.app-token.outputs.token }}
+      - name: Python Semantic Release
+        id: psr
+        uses: python-semantic-release/python-semantic-release@v10.7.0
+        with:
+          github_token: ${{ steps.app-token.outputs.token }}
+          # vcs_release was disabled for v0.1.0: that release spanned ~1785
+          # commits and its auto-generated notes blew past GitHub's 125k
+          # release-body limit (422). Every release since inherited the
+          # workaround and shipped without a GitHub Release object, so the
+          # Releases page stopped at v0.5.0 while PyPI and GHCR moved on.
+          #
+          # The constraint does not survive a normal release. v0.6.0 was 59
+          # commits and its hand-written notes were 4.7k chars, under 4% of
+          # the limit. Re-enabled; if a release ever does approach the cap,
+          # the fix is to summarise that release's notes, not to stop
+          # publishing them.
+          vcs_release: "true"
+
+  publish-pypi:
+    needs: release
+    if: needs.release.outputs.released == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release.outputs.tag }}
+      - uses: astral-sh/setup-uv@v7
+      - name: Build both packages
+        run: |
+          uv build --wheel --sdist -o dist_primer .
+          (cd runtime && uv build --wheel --sdist -o ../dist_runtime .)
+      - name: Upload primer
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
+        run: uv run --with twine twine upload --skip-existing dist_primer/*
+      - name: Upload primer-runtime
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
+        run: uv run --with twine twine upload --skip-existing dist_runtime/*
+
+  publish-images:
+    needs: release
+    if: needs.release.outputs.released == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release.outputs.tag }}
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # Batteries-included image: every optional backend (huggingface,
+      # docling, lance, channels, docker, kubernetes). This moves to the
+      # -full suffix; the unsuffixed tags now point at slim. The old -fat
+      # aliases are kept one release cycle so existing pulls keep working.
+      - name: Build + push primer (full)
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          build-args: |
+            UV_SYNC_EXTRAS=--all-extras
+          tags: |
+            ghcr.io/primerhq/primer:${{ needs.release.outputs.version }}-full
+            ghcr.io/primerhq/primer:latest-full
+            ghcr.io/primerhq/primer:${{ needs.release.outputs.version }}-fat
+            ghcr.io/primerhq/primer:latest-fat
+      # Slim image, now the DEFAULT: core + the light operational extras
+      # only (kubernetes, docker, channels, lance); drops the multi-GB
+      # huggingface + docling torch stack. BootstrapRunner self-skips the
+      # dep-backed default providers whose extra is absent, so it boots
+      # cleanly. It takes the unsuffixed :{version} / :latest tags; the
+      # -slim aliases stay one release cycle for compat.
+      - name: Build + push primer (slim)
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          build-args: |
+            UV_SYNC_EXTRAS=--extra kubernetes --extra docker --extra channels --extra lance
+          tags: |
+            ghcr.io/primerhq/primer:${{ needs.release.outputs.version }}
+            ghcr.io/primerhq/primer:latest
+            ghcr.io/primerhq/primer:${{ needs.release.outputs.version }}-slim
+            ghcr.io/primerhq/primer:latest-slim
+      - name: Build + push primer-runtime
+        uses: docker/build-push-action@v7
+        with:
+          context: ./runtime
+          file: ./runtime/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/primerhq/primer-runtime:${{ needs.release.outputs.version }}
+            ghcr.io/primerhq/primer-runtime:latest

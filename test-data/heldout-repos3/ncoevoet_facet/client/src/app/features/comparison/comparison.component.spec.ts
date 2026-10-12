@@ -1,0 +1,93 @@
+import type { Mock } from 'vitest';
+import { TestBed } from '@angular/core/testing';
+import { signal } from '@angular/core';
+import { of } from 'rxjs';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { ApiService } from '../../core/services/api.service';
+import { AuthService } from '../../core/services/auth.service';
+import { I18nService } from '../../core/services/i18n.service';
+import { GalleryStore } from '../gallery/gallery.store';
+import { CompareFiltersService } from './compare-filters.service';
+import { ComparisonComponent } from './comparison.component';
+
+describe('ComparisonComponent', () => {
+   
+  let component: any;
+  let mockApi: { get: Mock; post: Mock; delete: Mock };
+  let mockSnackBar: { open: Mock };
+  let mockI18n: { t: Mock };
+  let mockAuth: { isEdition: Mock };
+  let mockStore: { types: ReturnType<typeof signal<{ id: string; count: number }[]>>; loadTypeCounts: Mock };
+  let compareFilters: { selectedCategory: ReturnType<typeof signal<string>> };
+
+  beforeEach(() => {
+    mockApi = {
+      get: vi.fn(() => of({})),
+      post: vi.fn(() => of({})),
+      delete: vi.fn(() => of({})),
+    };
+    mockSnackBar = { open: vi.fn() };
+    mockI18n = { t: vi.fn((key: string) => key) };
+    mockAuth = { isEdition: vi.fn(() => true) };
+    mockStore = {
+      types: signal([]),
+      loadTypeCounts: vi.fn(() => Promise.resolve()),
+    };
+    compareFilters = { selectedCategory: signal('') };
+
+    TestBed.configureTestingModule({
+      providers: [
+        ComparisonComponent,
+        { provide: ApiService, useValue: mockApi },
+        { provide: MatSnackBar, useValue: mockSnackBar },
+        { provide: I18nService, useValue: mockI18n },
+        { provide: AuthService, useValue: mockAuth },
+        { provide: GalleryStore, useValue: mockStore },
+        { provide: CompareFiltersService, useValue: compareFilters },
+      ],
+    });
+    component = TestBed.inject(ComparisonComponent);
+  });
+
+  describe('loadCategories', () => {
+    it('should call store.loadTypeCounts when types are empty', async () => {
+      mockStore.types.set([]);
+      await component.loadCategories();
+      expect(mockStore.loadTypeCounts).toHaveBeenCalled();
+    });
+
+    it('should not call loadTypeCounts when types are already populated', async () => {
+      mockStore.types.set([{ id: 'portrait', count: 10 }]);
+      mockStore.loadTypeCounts.mockClear();
+      await component.loadCategories();
+      expect(mockStore.loadTypeCounts).not.toHaveBeenCalled();
+    });
+
+    it('should set selectedCategory to first type when none selected', async () => {
+      mockStore.types.set([{ id: 'portrait', count: 10 }, { id: 'landscape', count: 5 }]);
+      compareFilters.selectedCategory.set('');
+      await component.loadCategories();
+      expect(compareFilters.selectedCategory()).toBe('portrait');
+    });
+
+    it('should not overwrite an already-selected category', async () => {
+      mockStore.types.set([{ id: 'portrait', count: 10 }, { id: 'landscape', count: 5 }]);
+      compareFilters.selectedCategory.set('landscape');
+      await component.loadCategories();
+      expect(compareFilters.selectedCategory()).toBe('landscape');
+    });
+
+    it('should not set category when types are empty', async () => {
+      mockStore.types.set([]);
+      compareFilters.selectedCategory.set('');
+      await component.loadCategories();
+      expect(compareFilters.selectedCategory()).toBe('');
+    });
+  });
+
+  describe('constructor', () => {
+    it('should call loadCategories on construction, triggering store.loadTypeCounts when types are empty', () => {
+      expect(mockStore.loadTypeCounts).toHaveBeenCalled();
+    });
+  });
+});

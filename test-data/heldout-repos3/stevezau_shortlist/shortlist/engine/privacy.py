@@ -1,0 +1,1417 @@
+"""Share-filter parse/merge/serialize and restriction sync — the load-bearing wall.
+
+Every function here obeys plex-safety rule 3: writes are read-modify-write MERGES that leave
+every condition Shortlist didn't add byte-identical. Values are kept raw (never URL-decoded) and the
+separators are kept as they were read, so ``serialize_filter(parse_filter(s)) == s`` holds for any
+filter Plex hands us. Values are COMPARED url-decoded and case-folded, because the same label reaches
+us written several ways.
+
+Live-validated against plex.tv on 2026-07-12 (Phase 0): `PUT /api/users/{id}` persists
+`filterMovies`/`filterTelevision` verbatim with no server-side normalization.
+
+Re-validated 2026-08-10 (`tests/fixtures/plextv_combined_filters.json`), and this is the part that
+matters: "verbatim" extends to the SEPARATORS. `|` and `&` between conditions, and `,` and `%2C`
+between values, all round-trip byte-identical. plex.tv normalizes nothing, so the shape we read is
+whichever writer last touched that account — Plex Web writes `&` with encoded values, plexapi writes
+`|` with `%2C`, Shortlist writes plain — and a parser that understands only its own dialect corrupts
+the other two (issue #77).
+
+Stored is not enforced, and the separators are why (#116, measured 2026-09-13 —
+`tests/fixtures/pms_share_filter_boolean_semantics.json`). A PMS reads `|` as OR and `&` as AND, so
+`contentRating!=R|label!=shortlist_x` hides nothing of ours (a collection has no rating, so the first
+half is true for it) and switches the owner's own rating exclude off too. Our excludes therefore live
+only where no `|` joins them or anything after them: that position is ANDed with the whole filter
+under every grouping the recording allows.
+"""
+
+from __future__ import annotations
+
+import re
+from collections.abc import Iterable
+from dataclasses import dataclass, replace
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Protocol
+from urllib.parse import unquote
+
+from loguru import logger
+
+from shortlist.engine.models import LABEL_PREFIX, SHARED_LABEL_PREFIX, FilterSnapshot, UserProfile, UserType
+
+if TYPE_CHECKING:
+    from shortlist.engine.clients.plextv import PlexTvClient, PlexTvUser
+
+FILTER_FIELDS = ("filterAll", "filterMovies", "filterTelevision", "filterMusic", "filterPhotos")
+RESTRICTED_FILTER_FIELDS = ("filterMovies", "filterTelevision")
+
+
+class FilterParseError(ValueError):
+    """A share filter didn't parse; refuse to touch it rather than risk clobbering it."""
+
+
+# Plex accepts BOTH separators between conditions, and plex.tv stores whatever it is given
+# byte-for-byte — live-verified on a real account 2026-08-10: `|`+plain, `|`+`%2C`, `&`+plain and
+# `&`+`%2C` all round-tripped identically, with no server-side normalization. So the form we read is
+# whichever writer last touched that account: Plex Web writes `&` with URL-encoded values, plexapi
+# writes `|` with `%2C` (myplex.py `_filterDictToStr`), and Shortlist writes plain. All three reach us.
+_CONDITION_SEP = re.compile(r"([|&])")
+# The fallback when `&` turns out to be part of a label rather than a separator — see _split_conditions.
+_PIPE_SEP = re.compile(r"([|])")
+# `%2C` is a comma that Plex Web encoded. Splitting on the bare comma alone left `A%2CB` as ONE value,
+# so a merge appended to it and produced a value no reader could split back apart.
+_VALUE_SEP = re.compile(r"(%2C|%2c|,)")
+
+
+class AmbiguousFilterError(FilterParseError):
+    """A share filter Plex itself cannot read, so no exclude of ours can be written into it and verified.
+
+    One shape: a literal `&` inside one of the owner's labels ("Kids & Family") — measured, that account's
+    Home answers HTTP 500. Raised per FIELD, and by owner decision it does not block promotion: the run
+    records the account in `RunReport.unreadable_filters` and writes the other field if it can. A subclass
+    of `FilterParseError` so a caller that does not handle it specially still refuses it.
+    """
+
+
+@dataclass(frozen=True)
+class FilterCondition:
+    field: str
+    op: str  # "=" or "!="
+    values: tuple[str, ...]
+    # The separators as they were READ, so `serialize_filter(parse_filter(s)) == s` holds for any
+    # filter Plex hands us — including one a third-party tool wrote in a form we would not choose.
+    # `sep` joins this condition to the PREVIOUS one and is ignored on the first. `value_seps[i]`
+    # joins `values[i]` to `values[i+1]`; empty means "use the default", which is what every
+    # hand-built condition gets.
+    sep: str = "|"
+    value_seps: tuple[str, ...] = ()
+
+    def joined_values(self) -> str:
+        """The value list re-joined with exactly the separators it was parsed with."""
+        if not self.values:
+            return ""
+        seps = self._padded_seps()
+        out = self.values[0]
+        for value, sep in zip(self.values[1:], seps, strict=True):
+            out += sep + value
+        return out
+
+    def _padded_seps(self) -> tuple[str, ...]:
+        """One separator per gap. A condition built by hand (or grown by a merge) carries fewer than
+        it needs, so the last known separator is repeated — which keeps an appended label in the same
+        encoding as the values already there rather than mixing the two."""
+        needed = max(0, len(self.values) - 1)
+        if len(self.value_seps) >= needed:
+            return self.value_seps[:needed]
+        fill = self.value_seps[-1] if self.value_seps else ","
+        return self.value_seps + (fill,) * (needed - len(self.value_seps))
+
+
+def _same_value(a: str, b: str) -> bool:
+    """Do two filter values name the same Plex label?
+
+    Compared URL-DECODED and case-folded, because the same label reaches us written both ways —
+    Plex Web percent-encodes (`Age%200`), Shortlist and plexapi do not (`Age 0`) — and Plex's own tag
+    matching is case-insensitive. Comparing raw bytes made an already-excluded label look absent, so
+    a merge appended a second copy of it in the other encoding.
+    """
+    return unquote(a).casefold() == unquote(b).casefold()
+
+
+def _split_conditions(raw: str) -> list[tuple[str, str]]:
+    """Split a filter into ``(condition, separator-before-it)``, choosing which separators are real.
+
+    ``&`` is a condition separator in the form Plex Web writes — but it is also a perfectly ordinary
+    character inside a LABEL: ``label!=Kids & Family`` is a filter a person can create in Plex, and
+    splitting it unconditionally leaves ``' Family'`` with no operator. Raising on that would be a
+    regression with a server-wide blast radius: `FilterParseError` reaches the blanket handler in
+    `_privacy_sync_phase`, which blocks promotion for EVERY user until somebody hand-edits that one
+    account's filter. That is the shape this codebase already has a scar from (#14).
+
+    So try the greedy split first, and if any piece comes out without an operator, treat ``&`` as
+    ordinary text and split on ``|`` alone — which is exactly how such a filter parsed before ``&``
+    was understood at all. Only genuinely unparseable input reaches the caller's error.
+    """
+    for pattern in (_CONDITION_SEP, _PIPE_SEP):
+        # `re.split` with a capturing group yields [part, sep, part, sep, part, ...].
+        chunks = pattern.split(raw)
+        parts = [(chunks[i], chunks[i - 1] if i else "|") for i in range(0, len(chunks), 2)]
+        if all("=" in part for part, _ in parts):
+            return parts
+    return parts
+
+
+def parse_filter(raw: str) -> list[FilterCondition]:
+    """Parse ``'label!=a,b|contentRating=PG'`` into ordered conditions.
+
+    Conditions are separated by ``|`` OR ``&`` and values by ``,`` or ``%2C``; which one was used is
+    recorded on each condition so serializing gives the original bytes back. Splitting on ``|`` and
+    ``,`` alone silently mis-parsed the form Plex Web writes — ``label=Age%200%2CAge%203&label!=X``
+    became a single condition whose FIELD was ``'label=Age%200%2CAge%203&label'``, so the existing
+    exclude clause was invisible, a merge appended a second one, and the result was a three-fragment
+    string that Plex Web itself could not read: the affected user's Restrictions tab failed with
+    "Something went wrong" until the value was rewritten by hand (issue #77).
+
+    Args:
+        raw: The filter string from plex.tv (may be empty).
+
+    Returns:
+        Ordered conditions; values are raw strings, never URL-decoded.
+
+    Raises:
+        FilterParseError: If any condition has no operator, or if a parsed field still contains a
+            separator — either means a form we cannot faithfully represent, and rewriting one of
+            those is how a filter gets corrupted rather than merged.
+    """
+    if not raw:
+        return []
+    conditions = []
+    for part, sep in _split_conditions(raw):
+        for op in ("!=", "="):
+            head, found, tail = part.partition(op)
+            if not found:
+                continue
+            if any(c in head for c in "|&="):
+                raise FilterParseError(f"unparseable condition {part!r} in filter {raw!r}")
+            pieces = _VALUE_SEP.split(tail) if tail else []
+            conditions.append(
+                FilterCondition(
+                    head,
+                    op,
+                    tuple(pieces[0::2]),
+                    sep=sep,
+                    value_seps=tuple(pieces[1::2]),
+                )
+            )
+            break
+        else:
+            raise FilterParseError(f"unparseable condition {part!r} in filter {raw!r}")
+    return conditions
+
+
+def serialize_filter(conditions: list[FilterCondition]) -> str:
+    """Render conditions back to a filter string, reusing each one's own separators."""
+    return "".join((c.sep if i else "") + f"{c.field}{c.op}{c.joined_values()}" for i, c in enumerate(conditions))
+
+
+def _house_style(conditions: list[FilterCondition]) -> tuple[str, str]:
+    """The separators this particular filter already uses, so anything we add matches it.
+
+    Appending a `|` clause to a filter Plex Web wrote with `&` is precisely what produced the
+    unreadable three-fragment value in issue #77 — plex.tv stores whatever it is handed, so a string
+    mixing both separators is what the next reader (Plex Web) has to cope with, and it cannot.
+    """
+    condition_sep = "&" if any(c.sep == "&" for c in conditions[1:]) else "|"
+    value_seps = [s for c in conditions for s in c.value_seps]
+    value_sep = next((s for s in value_seps if s.casefold() == "%2c"), ",")
+    return condition_sep, value_sep
+
+
+def _enforced_positions(conditions: list[FilterCondition]) -> list[bool]:
+    """Per condition: is it ANDed with the whole filter, i.e. does no `|` join it or anything after it?
+
+    That is the only position a real PMS provably applies an exclude from. The recording rules out `&`
+    binding tighter than `|` and cannot tell strict left-to-right from `|` binding tighter; this
+    position is a top-level AND under both, so nothing here depends on which one Plex uses.
+    """
+    enforced = [False] * len(conditions)
+    rest_is_and = True
+    for i in range(len(conditions) - 1, -1, -1):
+        joined_by_and = i == 0 or conditions[i].sep == "&"
+        enforced[i] = rest_is_and and joined_by_and
+        rest_is_and = rest_is_and and joined_by_and
+    return enforced
+
+
+def _is_exclude(condition: FilterCondition) -> bool:
+    return condition.field == "label" and condition.op == "!="
+
+
+def _is_ours(value: str, label_prefix: str) -> bool:
+    """Matched decoded and case-folded, WITH the underscore — `shortlist` alone would claim the constant
+    label and every foreign label that merely starts with the word (plex-safety rule 4)."""
+    return unquote(value).lower().startswith(f"{label_prefix}_".lower())
+
+
+def _enforced_exclude_values(conditions: list[FilterCondition]) -> list[str]:
+    """Every `label!=` value sitting where Plex applies it."""
+    return [
+        value
+        for condition, enforced in zip(conditions, _enforced_positions(conditions), strict=True)
+        if enforced and _is_exclude(condition)
+        for value in condition.values
+    ]
+
+
+def _literal_ampersand_values(conditions: list[FilterCondition]) -> list[str]:
+    """Values holding a raw `&`. Measured 2026-09-13: Plex answers that account's Home with HTTP 500 for
+    any of these, so a filter carrying one hides nothing we could vouch for. `%26` is fine."""
+    return sorted({value for condition in conditions for value in condition.values if "&" in value})
+
+
+def plex_cannot_read(raw: str) -> bool:
+    """Whether Plex itself fails on this filter (a raw `&` inside a value) — see `_literal_ampersand_values`."""
+    return bool(_literal_ampersand_values(parse_filter(raw)))
+
+
+def unenforced_excludes(raw: str, labels: Iterable[str]) -> set[str]:
+    """The `labels` this filter does NOT make Plex hide — absent, or present only where a `|` voids them.
+
+    The question every "is this row hidden" check has to ask. Presence alone is what plex.tv's
+    read-back proves, and it is exactly what looked healthy while #116 leaked every row.
+
+    Args:
+        raw: The share filter string.
+        labels: Labels that should be hidden.
+
+    Returns:
+        The subset of `labels` Plex would still show.
+
+    Raises:
+        FilterParseError: If the filter cannot be parsed.
+    """
+    applied = _enforced_exclude_values(parse_filter(raw))
+    return {label for label in labels if not any(_same_value(label, present) for present in applied)}
+
+
+def voids_owner_restriction(raw: str, label_prefix: str) -> bool:
+    """Whether a clause of ours is OR-joined to a restriction the OWNER set, switching that restriction off.
+
+    `X|label!=shortlist_a` means "X, or not ours" — true for nearly everything — so the owner's X stops
+    applying. The pre-#116 merge wrote exactly that onto every account with a restriction of its own,
+    and the run reports each account it repairs, because the people on it will see less afterwards.
+
+    Counted only where the `|` touches our clause directly (its own separator, or the one after it when
+    it is first) and the filter holds a condition of the owner's. `A&label!=ours|B` is not counted: under
+    left-to-right grouping it voids nothing, and the recording cannot say Plex groups it otherwise.
+
+    Args:
+        raw: The share filter string.
+        label_prefix: The label prefix Shortlist owns.
+
+    Returns:
+        True when the owner's own restriction is being ORed away by one of our excludes.
+    """
+    if not raw:
+        return False
+    conditions = parse_filter(raw)
+    ours_only = [
+        _is_exclude(c) and bool(c.values) and all(_is_ours(v, label_prefix) for v in c.values) for c in conditions
+    ]
+    owner_condition = any(not flag for flag in ours_only)
+    or_joined = any(
+        flag and ((i > 0 and conditions[i].sep == "|") or (i == 0 and len(conditions) > 1 and conditions[1].sep == "|"))
+        for i, flag in enumerate(ours_only)
+    )
+    return owner_condition and or_joined
+
+
+def _without_values(condition: FilterCondition, drop) -> FilterCondition | None:
+    """`condition` minus every value `drop` matches, keeping each survivor's separators; None if emptied."""
+    seps = condition._padded_seps()
+    kept = [(value, index) for index, value in enumerate(condition.values) if not drop(value)]
+    if not kept:
+        return None
+    return replace(
+        condition,
+        values=tuple(value for value, _ in kept),
+        value_seps=tuple(seps[index - 1] for _, index in kept[1:]),
+    )
+
+
+def _lift_unenforced_labels(
+    conditions: list[FilterCondition], label_prefix: str
+) -> tuple[list[FilterCondition], list[str], bool]:
+    """Take our labels out of every position Plex does not enforce, so the merge can re-add them where it does.
+
+    Returns ``(conditions, carried, changed)``. Every label of ours found unenforced is CARRIED, never
+    dropped: one that is not in tonight's wanted set may belong to a live row a failed enumeration
+    missed, and removing an exclude is the prune's decision under its own guards.
+
+    Only two edits are made, and both are safe whichever way Plex groups a mixed filter. Our values
+    come out of a clause that also holds the owner's labels (the clause stays where it is). An
+    ours-only clause is dropped when it is FIRST or joined by `|` — for anything not ours such a clause
+    is always true, so dropping it can only restore what the owner's own conditions hid, never show
+    more. An ours-only clause joined by `&` with a `|` after it is left in place: dropping that one
+    would regroup the owner's conditions differently under the two groupings the recording allows.
+    """
+    enforced = _enforced_positions(conditions)
+    kept: list[FilterCondition] = []
+    carried: list[str] = []
+    changed = False
+    for i, condition in enumerate(conditions):
+        mine = [value for value in condition.values if _is_ours(value, label_prefix)]
+        if enforced[i] or not _is_exclude(condition) or not mine:
+            kept.append(condition)
+            continue
+        carried.extend(mine)
+        remainder = _without_values(condition, lambda value: _is_ours(value, label_prefix))
+        if remainder is not None:
+            kept.append(remainder)
+            changed = True
+        elif i == 0 or condition.sep == "|":
+            changed = True
+        else:
+            kept.append(condition)
+    return kept, carried, changed
+
+
+def _place_excludes(conditions: list[FilterCondition], missing: list[str], value_sep: str) -> None:
+    """Add `missing` to the first enforced `label!=` clause, or append a new one joined with `&`. In place."""
+    enforced = _enforced_positions(conditions)
+    target = next((i for i, c in enumerate(conditions) if enforced[i] and _is_exclude(c)), None)
+    if target is None:
+        conditions.append(
+            FilterCondition("label", "!=", tuple(missing), sep="&", value_seps=(value_sep,) * (len(missing) - 1))
+        )
+        return
+    cond = conditions[target]
+    # Which separator to join the NEW labels with. The clause's own, when it has one. When it holds a
+    # single value it has none, and defaulting to a plain comma there put a `,` inside a filter written
+    # entirely with `%2C` — so fall back to the encoding the rest of this filter uses, not to ours.
+    # Existing gaps keep exactly the separators they were read with.
+    existing = cond._padded_seps()
+    fill = cond.value_seps[-1] if cond.value_seps else value_sep
+    grown = cond.values + tuple(missing)
+    conditions[target] = replace(cond, values=grown, value_seps=existing + (fill,) * (len(grown) - 1 - len(existing)))
+
+
+def merge_label_excludes(raw: str, labels: set[str], *, label_prefix: str = LABEL_PREFIX) -> str:
+    """Make Plex hide `labels` from this filter, byte-preserving every condition the owner wrote.
+
+    Labels go into a ``label!=`` clause that Plex ANDs with the whole filter: the first such clause
+    already in an enforced position, or a new one appended with `&`. Never with `|` — a real PMS reads
+    that as OR, and the merged filter then hides nothing and voids the owner's own restriction (#116).
+    Our labels found anywhere Plex ignores them are moved too (`_lift_unenforced_labels`), which is what
+    repairs a filter the old merge wrote: nothing is "missing" from one, only unenforced.
+
+    Membership is case-insensitive (Plex tag matching is) and encoding-insensitive, so a case- or
+    percent-encoded variant of an already excluded label is never appended as a duplicate.
+
+    Args:
+        raw: The account's current share filter.
+        labels: Labels to hide.
+        label_prefix: The label prefix Shortlist owns.
+
+    Returns:
+        The merged filter, or `raw` itself (the same object) when nothing needs to change.
+
+    Raises:
+        AmbiguousFilterError: A raw `&` sits inside one of the owner's values — Plex itself cannot read
+            the filter, so nothing written into it could be verified.
+        FilterParseError: The filter cannot be parsed, or the merged result fails its own check (a bug
+            here, which must block promotion rather than be reported as a label to rename).
+    """
+    original = parse_filter(raw)
+    literal = _literal_ampersand_values(original)
+    if literal:
+        raise AmbiguousFilterError(
+            f"{', '.join(repr(unquote(v)) for v in literal)} has an '&' in it, which Plex can't read in a restriction"
+        )
+    _, house_value_sep = _house_style(original)
+    conditions, carried, changed = _lift_unenforced_labels(original, label_prefix)
+    wanted: list[str] = []
+    for label in [*carried, *sorted(labels)]:
+        if not any(_same_value(label, seen) for seen in wanted):
+            wanted.append(label)
+    applied = _enforced_exclude_values(conditions)
+    missing = [label for label in wanted if not any(_same_value(label, present) for present in applied)]
+    if not missing and not changed:
+        return raw
+    if missing:
+        _place_excludes(conditions, missing, house_value_sep)
+    merged = serialize_filter(conditions)
+    try:
+        unreadable = unenforced_excludes(merged, wanted)
+    except FilterParseError:
+        unreadable = set(wanted)
+    if unreadable:
+        raise FilterParseError(f"the merged filter does not enforce {sorted(unreadable)}: {merged!r}")
+    return merged
+
+
+def remove_label_excludes(raw: str, labels: set[str]) -> str:
+    """Remove exactly `labels` from ``label!=`` conditions; drop the condition if it empties.
+
+    Except where dropping it would regroup the owner's conditions: an emptied clause joined by `&` with a
+    `|` somewhere after it (`A&label!=x|B` would become `A|B`, wider than `A&(T|B)` if Plex binds `|`
+    tighter — which the recording cannot rule out). It is left as it was; an exclude of a label nothing
+    carries hides nothing.
+    """
+    conditions = parse_filter(raw)
+    out = []
+    for i, cond in enumerate(conditions):
+        if _is_exclude(cond):
+            remainder = _without_values(cond, lambda value: any(_same_value(value, t) for t in labels))
+            if remainder is None:
+                if i > 0 and cond.sep == "&" and any(later.sep == "|" for later in conditions[i + 1 :]):
+                    out.append(cond)
+                continue
+            cond = remainder
+        out.append(cond)
+    return serialize_filter(out)
+
+
+def _allow_groups(conditions: list[FilterCondition]) -> list[list[int]]:
+    """Condition indices per `&`-separated group of `|`-separated alternatives.
+
+    How a real PMS groups a filter: `(A|B)&C` — `|` binds tighter than `&`. Measured 2026-09-13
+    (`tests/fixtures/pms_share_filter_allow_lists.json`): `contentRating=XYZNOPE&label=recommended|
+    contentRating=G` showed 0 movies, where left-to-right would have shown 401.
+    """
+    groups: list[list[int]] = []
+    for i, condition in enumerate(conditions):
+        if i == 0 or condition.sep == "&":
+            groups.append([i])
+        else:
+            groups[-1].append(i)
+    return groups
+
+
+def _drop_condition(conditions: list[FilterCondition], i: int) -> list[FilterCondition]:
+    """`conditions` without condition `i`, its neighbours still grouped as they were (see `_allow_groups`).
+
+    A side of the dropped condition that was `&` was a group boundary, so the gap it leaves stays one.
+    """
+    rest = conditions[:i] + conditions[i + 1 :]
+    if 0 < i < len(conditions) - 1:
+        joined = "&" if "&" in (conditions[i].sep, conditions[i + 1].sep) else "|"
+        rest[i] = replace(rest[i], sep=joined)
+    return rest
+
+
+def _is_allow(condition: FilterCondition) -> bool:
+    return condition.op == "="
+
+
+def _admits(condition: FilterCondition, row_labels: tuple[str, ...]) -> bool:
+    """Does this condition hold for a Shortlist row — a collection with these labels and no content rating?"""
+    if condition.field != "label":
+        return condition.op == "!="
+    hit = any(_same_value(value, label) for value in condition.values for label in row_labels)
+    return hit if condition.op == "=" else not hit
+
+
+def allowed_shortlist_labels(raw: str, label_prefix: str = LABEL_PREFIX) -> set[str]:
+    """The Shortlist labels this filter ALLOWS (``label=`` values) — what `admit_own_rows` writes."""
+    return {
+        v
+        for c in parse_filter(raw)
+        if c.field == "label" and _is_allow(c)
+        for v in c.values
+        if _is_ours(v, label_prefix)
+    }
+
+
+def admit_own_rows(raw: str, own_label: str, *, show: bool, label_prefix: str = LABEL_PREFIX) -> str:
+    """Let an account whose owner set an "allow only" list see its OWN Shortlist rows (#115).
+
+    An allow list shows only what it names. A Shortlist row is a collection carrying `shortlist_<slug>`
+    and the constant `shortlist` label, with no content rating — so `label=Kids` or `contentRating=G`
+    hides a person's own rows from them. With `show`, the row's label is added as one more alternative in
+    every allow group that would otherwise hide it: into the group's `label=` clause when it has one, else
+    as `|label=<own>` after the group. Measured on a real server: the rows then show on Home and in the
+    library, holding exactly the items the allow list admits, and a label added to only one of two ANDed
+    allow groups leaves the row hidden (`tests/fixtures/pms_share_filter_allow_lists.json`).
+
+    Touches `own_label` and nothing else. Every other allow value is the owner's (rule 3) — Shortlist never
+    wrote one before #115, so a shared row or a sibling's row in an allow list is a choice they made — and
+    stays byte-identical; the excludes still decide which rows show. Of `own_label`, it converges: added
+    where a group needs it, taken out of a clause where no allow condition of the owner's is left beside
+    it (Plex Web re-saves what its form shows, so an owner who removes "Kids" but not our label would
+    otherwise leave "allow only this person's rows" — the whole library hidden), and taken out entirely
+    without `show`, handing back the owner's filter byte for byte.
+
+    Args:
+        raw: The account's share filter, BEFORE `merge_label_excludes` (see `plan_share_filter`).
+        own_label: The label this account's rows carry (`shortlist_<slug>`, any case).
+        show: Whether the account has rows to show. False takes `own_label` back out.
+        label_prefix: The label prefix Shortlist owns.
+
+    Returns:
+        The new filter, or `raw` itself (the same object) when nothing needs to change.
+
+    Raises:
+        AmbiguousFilterError: A raw `&` sits inside a value — Plex itself cannot read the filter.
+    """
+    conditions = parse_filter(raw)
+    literal = _literal_ampersand_values(conditions)
+    if literal:
+        raise AmbiguousFilterError(
+            f"{', '.join(repr(unquote(v)) for v in literal)} has an '&' in it, which Plex can't read in a restriction"
+        )
+    _, house_value_sep = _house_style(conditions)
+
+    def mine(value: str) -> bool:
+        return _same_value(value, own_label)
+
+    def repair_pending(index: int) -> bool:
+        """Whether this condition's group still holds one of OUR excludes behind a `|`. Dropping a whole
+        clause there regroups what `merge_label_excludes` has yet to lift out — review 2026-09-13 found
+        that switching an owner's own exclude off — so the drop waits for `plan_share_filter`'s next pass."""
+        group = next(g for g in _allow_groups(conditions) if index in g)
+        return len(group) > 1 and any(
+            _is_exclude(conditions[j]) and any(_is_ours(v, label_prefix) for v in conditions[j].values) for j in group
+        )
+
+    def owners_allow(condition: FilterCondition) -> bool:
+        return _is_allow(condition) and not all(mine(value) for value in condition.values)
+
+    if not show:
+        i = 0
+        while i < len(conditions):
+            condition = conditions[i]
+            if condition.field == "label" and _is_allow(condition):
+                remainder = _without_values(condition, mine)
+                if remainder is None:
+                    if repair_pending(i):
+                        i += 1
+                        continue
+                    conditions = _drop_condition(conditions, i)
+                    continue
+                conditions[i] = remainder
+            i += 1
+    else:
+        for group in reversed(_allow_groups(conditions)):
+            if any(owners_allow(conditions[j]) for j in group):
+                continue
+            for j in reversed(group):
+                if (
+                    conditions[j].field == "label"
+                    and _is_allow(conditions[j])
+                    and all(mine(v) for v in conditions[j].values)
+                    and not repair_pending(j)
+                ):
+                    conditions = _drop_condition(conditions, j)
+        row_labels = (own_label, label_prefix)
+        for group in reversed(_allow_groups(conditions)):
+            if any(_admits(conditions[j], row_labels) for j in group) or not any(
+                owners_allow(conditions[j]) for j in group
+            ):
+                continue
+            clause = next((j for j in group if conditions[j].field == "label" and _is_allow(conditions[j])), None)
+            if clause is None:
+                conditions.insert(group[-1] + 1, FilterCondition("label", "=", (own_label,), sep="|"))
+                continue
+            cond = conditions[clause]
+            existing = cond._padded_seps()
+            fill = cond.value_seps[-1] if cond.value_seps else house_value_sep
+            grown = (*cond.values, own_label)
+            conditions[clause] = replace(
+                cond, values=grown, value_seps=existing + (fill,) * (len(grown) - 1 - len(existing))
+            )
+
+    admitted = serialize_filter(conditions)
+    return raw if admitted == raw else admitted
+
+
+#: How many admit→merge passes one write may take. A filter the pre-#116 merge left behind needs the
+#: merge to lift our `|`-joined exclude out of a group before that group can be judged for the own row.
+_PLAN_PASSES = 4
+
+
+def plan_share_filter(
+    current: str,
+    wanted: set[str],
+    *,
+    own_row_label: str | None,
+    show: bool,
+    label_prefix: str = LABEL_PREFIX,
+) -> str:
+    """The filter one account should carry: its own rows admitted (#115), everyone else's excluded (#116).
+
+    Admit FIRST, then merge. `merge_label_excludes` trusts no exclude a `|` follows, so an own-row `|`
+    inserted behind an exclude it had just placed would make it move that exclude again the next night.
+    Repeated until nothing changes, so a filter the old merge damaged is settled in ONE write rather
+    than a write a night with the person's row hidden in between.
+
+    Args:
+        current: The account's filter as plex.tv holds it now.
+        wanted: The Shortlist labels this account must not see.
+        own_row_label: The label this account's rows carry, or None to leave the allow list alone.
+        show: Whether those rows exist (see `admit_own_rows`).
+        label_prefix: The label prefix Shortlist owns.
+
+    Returns:
+        The planned filter, or `current` itself when nothing needs to change.
+
+    Raises:
+        AmbiguousFilterError, FilterParseError: As `merge_label_excludes` / `admit_own_rows`.
+    """
+    planned = current
+    for _ in range(_PLAN_PASSES):
+        admitted = (
+            planned
+            if own_row_label is None
+            else admit_own_rows(planned, own_row_label, show=show, label_prefix=label_prefix)
+        )
+        merged = merge_label_excludes(admitted, wanted, label_prefix=label_prefix)
+        if merged == planned:
+            break
+        planned = merged
+    return current if planned == current else planned
+
+
+def shortlist_labels_in(raw: str, label_prefix: str) -> set[str]:
+    """Return the shortlist-owned labels currently excluded in a filter string.
+
+    Matched URL-DECODED: our own labels never need encoding (a slug is `[a-z0-9_]`), but a writer
+    that encodes everything still hands them back percent-encoded, and reading them as foreign made
+    Shortlist blind to its OWN excludes — so it could neither count them nor remove them at uninstall.
+    """
+    return {v for cond in parse_filter(raw) if _is_exclude(cond) for v in cond.values if _is_ours(v, label_prefix)}
+
+
+class SnapshotStore(Protocol):
+    """Persistence for pre-mutation snapshots; the server (and tests) provide implementations."""
+
+    def get(self, plex_account_id: int) -> FilterSnapshot | None: ...
+
+    def save(self, snapshot: FilterSnapshot) -> None: ...
+
+
+_UNSHARED = object()  # sentinel: a label the CONFIG does not declare as a shared row
+
+
+def shared_label_audiences(config) -> dict[str, set[int] | None]:
+    """Lowercased label -> audience account ids (None = public) for every CONFIGURED shared row.
+
+    The one definition of "what is a shared row, and who is allowed to see it" — used by the writer
+    to decide which `label!=` excludes each account's share needs (a shared row is public, so its own
+    label is NOT excluded on anyone).
+    """
+    return {spec.label.lower(): spec.audience for spec in config.shared_rows() if spec.label}
+
+
+def desired_excludes(
+    own_label: str | None,
+    stored_labels: dict[str, str],
+    *,
+    account_id: int | None = None,
+    shared_labels: dict[str, set[int] | None] | None = None,
+    hide_all_shared: bool = False,
+) -> set[str]:
+    """Labels an account must NOT see: every EXISTING Shortlist row's label except their own.
+
+    Derived from the rows that exist on the server — NOT from the list of users Shortlist manages.
+    A row is visible to everyone whose share filter doesn't exclude it, and Plex does not care
+    whether we consider its owner "enabled", "paused", or in tonight's run. Keying this off the
+    user list is how 45 of a live server's 48 accounts ended up able to see three other people's
+    private rows: only the three managed users ever had excludes written (SFLIX, 2026-07-12).
+
+    `own_label` is resolved by the caller from the account's ID — never from its NAME. Two Plex
+    accounts can have display names that slugify identically, and anyone can rename themselves at
+    any time; deciding "this row is mine" from a name would hand one of them somebody else's row
+    and hide the other's own row from them. `None` means the account owns no row — the right
+    answer for every account Shortlist has never built one for, and they are excluded from all of it.
+
+    Only labels that exist on real collections are excluded (`stored_labels` is built from the
+    PMS, so casing matches what Plex stored — Phase 0 finding). A user without a collection yet
+    has nothing to leak, and guessing their label's casing would poison filters with case-variants.
+
+    Shared "popular on this server" rows are classified by CONFIG, never by the label string: only a
+    label the caller declares in `shared_labels` (lowercased label -> the audience account ids, or
+    None for public) is treated as shared. A public shared row is excluded from nobody; a subset one
+    is excluded from every account not in its audience. Anything NOT in `shared_labels` — a private
+    row (even one whose owner's slug happens to look shared), or a stale/disabled shared collection
+    still on the server — is excluded, fail-safe: a leak we never write beats a leak we can't unwrite.
+
+    `hide_all_shared` is set for a DISABLED (opted-out) Shortlist account: it hides EVERY shared row
+    from them, including public ones — a disabled user should see nothing Shortlist produces, not even
+    the "Popular on this server" rows everyone else gets.
+    """
+    # A falsy label is never a real row, and writing one produces `label!=A,,B` — a filter Plex
+    # cannot act on, which fails OPEN. Dropped here as well as at the source (`deliver_rows` only
+    # records a label it actually stored) because this is the last gate before a real share filter.
+    stored_labels = {k: v for k, v in stored_labels.items() if v}
+    shared_labels = shared_labels or {}
+    excludes: set[str] = set()
+    own_lower = (own_label or "").lower()
+    for label in stored_labels.values():
+        # Case-insensitive to match the self-exclusion prune below. Both read the same PMS-cased
+        # dict today, but if that ever drifted a case-sensitive compare here would ADD the label
+        # while the prune REMOVED it — a flip-flop written to plex.tv every night.
+        if own_label and label.lower() == own_lower:
+            continue
+        audience = shared_labels.get(label.lower(), _UNSHARED)
+        if audience is not _UNSHARED and not hide_all_shared:  # a CONFIGURED shared row, account opted in
+            if audience is None:  # public -> everyone may see it -> never excluded
+                continue
+            if account_id is not None and account_id in audience:  # in the audience -> may see it
+                continue
+            # restricted, and this account isn't in the audience -> hide it, like a private row
+        excludes.add(label)
+    return excludes
+
+
+def sync_user_restrictions(
+    plextv: PlexTvClient,
+    user: UserProfile,
+    remote: PlexTvUser | None,
+    stored_labels: dict[str, str],
+    snapshots: SnapshotStore,
+    *,
+    own_label: str | None = None,
+    # The label this account's rows WOULD carry (`shortlist_<slug>`), known even when it has none, so a
+    # row that is gone takes its allow label with it (#115). None: the caller does not know the slug.
+    own_row_label: str | None = None,
+    label_prefix: str = LABEL_PREFIX,
+    shared_labels: dict[str, set[int] | None] | None = None,
+    hide_all_shared: bool = False,
+    collections_known: bool = False,
+    departed_slugs: set[str] | None = None,
+    # Slugs whose collection is still on the server according to the TITLE MARKER — the second,
+    # independent source `dead_private` needs before it removes another account's private exclude
+    # (rule 4). None = "we could not read it", which never licenses a removal.
+    marker_present_slugs: set[str] | None = None,
+    # {field: why} filled with every field Plex itself cannot read; that field is skipped and the rest
+    # written. None raises `AmbiguousFilterError` instead.
+    refused: dict[str, str] | None = None,
+    dry_run: bool = False,
+) -> dict[str, tuple[str, str]] | None:
+    """Merge the desired shortlist excludes into one user's share filters.
+
+    `remote` is this user's CURRENT plex.tv record, passed in rather than fetched: the caller
+    already holds the whole roster, and re-fetching it per user would mean a full `GET /api/users`
+    for every account on the server (~96 of them on a 48-user server) every night.
+
+    Steady state (already correct) makes ZERO writes. Returns the {field: (before, after)} diff of
+    what was written — or would be, in dry-run — and None when nothing needed changing. The diff
+    is the audit record: changing someone's Plex share permissions is the most sensitive write
+    Shortlist makes (rule 10).
+
+    `collections_known` says whether `stored_labels` is a COMPLETE enumeration of what is on the
+    server. Only then may a dead shared-row exclude be pruned — see the prune block below. It defaults
+    to False so a caller that hasn't thought about it gets the fail-safe behaviour.
+
+    The owner is never restricted (Plex limitation — skipped, not an error).
+    """
+    if user.user_type is UserType.OWNER:
+        logger.debug("{}: owner is never restricted — skipping", user.username)
+        return None
+    if remote is None:
+        # Shortlist knows this user but Plex no longer shares the server with them: there is no
+        # share, so there is no filter to write. Skipping is right — erroring here would let one
+        # stale user row stop every other user's rows from being promoted, every night.
+        logger.info("{}: no longer shares this server — nothing to restrict", user.username)
+        return None
+    if remote.restricted and remote.restriction_profile:
+        # A managed account with a PARENTAL PRESET ("little_kid" / "older_kid" / "teen"). Plex refuses
+        # label restrictions outright while one is applied — its own docs: "For Managed users, the
+        # restriction profile must be set to None if you wish to edit Rating and Label restrictions on
+        # the library types" (support.plex.tv/articles/204232573-restricting-the-shares/). Live-confirmed
+        # 2026-07-29: the write comes back 422. Skipping is therefore NECESSARY — and it is what keeps
+        # one such account from blocking promotion for the whole server (#14).
+        #
+        # It is not, however, HARMLESS, which this comment claimed for a year: "the account sees ZERO
+        # collections of any kind anyway". True of `little_kid`, FALSE of `older_kid` — one listed
+        # three collections on a real server (2026-08-11, #76). Since Plex refuses the filter, nothing
+        # here can hide them; what the run does instead is MEASURE it (`unhidden_rows_visible_to`, and
+        # `pipeline._record_unhideable`) and tell the owner, who has two fixes we do not.
+        #
+        # Gated on the PROFILE, not on `restricted` alone. `/api/users` sets `restricted="1"` for every
+        # managed account, preset or not — so keying on it also skipped managed users with NO age
+        # restriction, who see everything and genuinely need their excludes (#20).
+        #
+        # BOTH are required so the new skip is a strict SUBSET of the old one: no account that used to
+        # receive excludes can lose them here. The two flags come from different endpoints and nothing
+        # enforces a relationship, so a `restricted="0"` account that somehow reports a profile keeps
+        # its excludes rather than silently losing them.
+        logger.debug(
+            "{}: managed account with a '{}' profile — Plex refuses label filters for these, so it "
+            "is left out of them; what it can actually see is measured separately (#76)",
+            user.username,
+            remote.restriction_profile,
+        )
+        return None
+
+    wanted = desired_excludes(
+        own_label,
+        stored_labels,
+        account_id=user.plex_account_id,
+        shared_labels=shared_labels,
+        hide_all_shared=hide_all_shared,
+    )
+    # Converge SHARED-row excludes: drop any shortlist SHARED-row exclude the account should no longer
+    # have (re-enabled after a disable, or added to a subset row's audience). Un-hiding a *shared* row
+    # only ever reveals a public or in-audience row, so one gate is enough there.
+    #
+    # A PRIVATE-row exclude is the leak direction, and used to be exempt from pruning entirely for that
+    # reason. It no longer is — but only under THREE guards, because a departed person's exclude
+    # otherwise sits in every account's filter for ever (a real server reached 990-character filter
+    # strings, growing by one entry per departure). All three must agree the row is gone:
+    #
+    #   1. The SERVER, BY LABEL: a complete, non-empty enumeration in which no collection carries the
+    #      label (`existing_lower`, from `collection.labels`).
+    #   2. The SERVER, BY MARKER: no collection whose invisible title marker encodes that person's
+    #      account (`marker_present_slugs`, from `PlexClient.marked_account_ids`).
+    #   3. OUR OWN DATABASE: `departed_slugs` — people plex.tv has stopped listing, or whom the owner
+    #      has removed. POSITIVE evidence that this person is gone.
+    #
+    # 1 and 2 are two DIFFERENT reads of the same server, and that is the point. Rule 4: a label
+    # re-read that succeeds carrying no `<Label>` is indistinguishable from a genuinely unlabelled row,
+    # so guard 1 alone can be satisfied by a read that simply failed to see anything. The marker rides
+    # in the title, which the collections listing returns inline, so the two fail independently. Guard
+    # 2 was added 2026-08-12 after a review demonstrated the single-source version removing a live
+    # person's exclude from another account's filter on one label-less read.
+    #
+    # (In the assembled pipeline a single bad read was already survivable — `stored_labels` is a union
+    # of two enumerations and `sweep_broken_rows` deletes marker-carrying label-less rows first — but
+    # that was accidental, undocumented and one refactor away from being lost. This makes it explicit.)
+    #
+    # Guard 2 is deliberately an ASSERTION that someone left, not the ABSENCE of them from tonight's
+    # user list. The first version of this was the latter, and it was unsound: `engine_run(ctx, [])`
+    # is a real and frequent call — every `privacy.sync` job and `user.restore` — and a scoped or
+    # paused run is narrower still, so "not in tonight's users" is true of almost everybody almost all
+    # the time. That reduced the pair back to guard 1 alone, which is the one the code already says can
+    # lie. Absence of scope proves nothing; departure is a fact we recorded. `departed_slugs=None`
+    # means the caller could not say — and not knowing never licenses a removal.
+    #
+    # Foreign filters are untouched (both primitives byte-preserve them).
+    #
+    # EVERY removal below is gated on `existing_lower is not None` — a complete, non-empty enumeration
+    # of what is on the server. `wanted` is derived from that same enumeration, so a PMS that answers
+    # 200 with no collections (mid library-index rebuild, or just restarted) makes every shared exclude
+    # look unwanted at once. Without the gate, one such read strips them from every account on the
+    # server in a single pass, and nothing re-adds them until a read succeeds.
+    shared_lower = set(shared_labels or {})
+    wanted_lower = {w.lower() for w in wanted}
+    # Every label that EXISTS on the server right now, lowercased — but only when the caller could
+    # actually enumerate them. `None` means "we don't know", and not knowing must never license a
+    # removal (see `dead_shared` below).
+    # `collections_known and stored_labels`: an EMPTY enumeration is not evidence of absence. A PMS
+    # mid library-index rebuild answers 200 with no collections, which is indistinguishable from "every
+    # row is gone" — and acting on that reading removes excludes across every account on the server.
+    existing_lower = {v.lower() for v in stored_labels.values()} if (collections_known and stored_labels) else None
+    # NOT shared-only despite the section header above: it also collects `excluded_from_self` (an
+    # account's own label sitting in its own filter), a private-row exclude — but one whose removal
+    # is still leak-safe, since un-hiding someone from their OWN row can't expose it to anyone else.
+    prunable: set[str] = set()
+    for fieldname in RESTRICTED_FILTER_FIELDS:
+        for lbl in shortlist_labels_in(remote.filters[fieldname], label_prefix):
+            stale_shared = (
+                existing_lower is not None and lbl.lower() in shared_lower and lbl.lower() not in wanted_lower
+            )
+            # A `shortlist__shared_*` exclude for a row that no longer EXISTS on the server. Left
+            # alone it accumulated for ever: deleting a shared row, or flipping it to per-person,
+            # takes it out of `shared_labels`, so the prune above stopped considering it and the dead
+            # entry sat in all ~48 accounts' filters permanently.
+            #
+            # Safe because the collection is gone: removing an exclude that matches nothing cannot
+            # reveal anything. That reasoning depends entirely on KNOWING it is gone, which is why
+            # this is gated on a successful enumeration rather than on an empty lookup — a failed or
+            # partial PMS read would otherwise read as "deleted" and un-hide a live row.
+            dead_shared = (
+                existing_lower is not None
+                and lbl.lower().startswith(SHARED_LABEL_PREFIX.lower())
+                # NOT declared shared by the config either. Belt to the enumeration's braces: a row the
+                # config still declares is a LIVE row whose visibility is `stale_shared`'s business, and
+                # only a row that is gone from BOTH the config and the server is provably dead. Without
+                # this, a PMS that answers an empty (but successful) collections read strips the
+                # excludes hiding a configured, restricted-audience shared row from everyone.
+                and lbl.lower() not in shared_lower
+                and lbl.lower() not in existing_lower
+            )
+            if dead_shared:
+                stale_shared = True
+            # A PRIVATE row's exclude whose collection is gone AND whose owner is nobody we still
+            # build for. This is the ONE prune that removes another account's private-row exclude, so
+            # it is the one pointed at the leak direction: get it wrong and a live row becomes visible
+            # to everyone, with no Privacy Check left to notice (removed 2026-07-16).
+            #
+            # It needs TWO INDEPENDENT sources agreeing the collection is gone, because rule 4 says one
+            # is not enough. `existing_lower` comes from `collection.labels`, i.e. plexapi's silent
+            # per-collection re-read, and a re-read that SUCCEEDS carrying no `<Label>` is
+            # indistinguishable from a genuinely unlabelled row — so on its own it can license
+            # un-hiding a row that is still there. `marker_present_slugs` is the second source: the
+            # 64-zero-width-char title marker, which arrives inline in the collections listing and is
+            # therefore not the read that can come back empty (`PlexClient.marked_account_ids`).
+            #
+            # `wanted_lower` is NOT a third source and never was: `wanted` is
+            # `desired_excludes(own_label, stored_labels, ...)`, built from the same `stored_labels`
+            # that produced `existing_lower`, so for another account's private label it is strictly
+            # implied by the `existing_lower` clause. It is kept because it costs nothing and reads as
+            # intent, not because it is independent — the comment here used to claim it was.
+            #
+            # None means "we could not read it", and not knowing must never license a removal — the
+            # same rule `existing_lower` follows.
+            #
+            # Compared with `_same_value` (unquote + casefold) like every other comparison in this
+            # module, NOT raw. Plex Web writes filter values percent-encoded, so the same label reaches
+            # us written both ways — and this is the only prune whose condition is NON-membership, so a
+            # raw compare that fails to recognise an encoded live label licenses its removal instead of
+            # preventing it. The slug is taken from the decoded label for the same reason.
+            decoded = unquote(lbl)
+            decoded_slug = decoded[len(label_prefix) + 1 :].lower()
+            dead_private = (
+                existing_lower is not None
+                and departed_slugs is not None
+                and marker_present_slugs is not None
+                and not decoded.lower().startswith(SHARED_LABEL_PREFIX.lower())
+                and not any(_same_value(lbl, e) for e in existing_lower)
+                and not any(_same_value(lbl, w) for w in wanted_lower)
+                and decoded_slug not in {m.lower() for m in marker_present_slugs}
+                and decoded_slug in {d.lower() for d in departed_slugs}
+            )
+            # An account's OWN label must never sit in its own filter — that hides a person from
+            # their own row permanently, because private-row excludes are otherwise union-only.
+            # Reachable: delete a user's DB row while their collection still exists on Plex, so
+            # `own_label` is None and `desired_excludes` adds their own label to their own filter;
+            # re-adding them later never undid it. Un-hiding someone's OWN row cannot leak to anyone
+            # else — the same reasoning that makes the shared case safe to prune.
+            excluded_from_self = bool(own_label) and lbl.lower() == (own_label or "").lower()
+            if stale_shared or excluded_from_self or dead_private:
+                prunable.add(lbl)
+
+    # The label this account's own rows carry, for its allow list (#115). Taken back out only when the
+    # server's collections were COMPLETELY enumerated: a row missing from a read we cannot vouch for is
+    # not evidence it is gone, and removing the allow label would hide it until the next pass.
+    admit_label = own_label or own_row_label
+    if own_label is None and not collections_known:
+        admit_label = None
+    desired_fields = {}
+    for fieldname in RESTRICTED_FILTER_FIELDS:
+        current = remote.filters[fieldname]
+        try:
+            merged = plan_share_filter(
+                current, wanted, own_row_label=admit_label, show=own_label is not None, label_prefix=label_prefix
+            )
+        except AmbiguousFilterError as e:
+            # Per field: the other one may be perfectly readable, and leaving it unwritten would promote
+            # rows that field could hide (review 2026-09-13). Without a `refused` sink, refuse outright.
+            if refused is None:
+                raise
+            refused[fieldname] = str(e)
+            continue
+        if prunable:
+            merged = remove_label_excludes(merged, prunable)
+        if merged != current:
+            desired_fields[fieldname] = merged
+
+    if not desired_fields:
+        return None
+
+    if snapshots.get(user.plex_account_id) is None:
+        snapshot = FilterSnapshot(
+            plex_account_id=user.plex_account_id,
+            username=user.username,
+            taken_at=datetime.now(UTC),
+            filters=dict(remote.filters),
+        )
+        if dry_run:
+            logger.info("[dry-run] {}: would snapshot filters before the first write", user.username)
+        else:
+            snapshots.save(snapshot)
+            logger.info("{}: snapshot persisted before first restriction write", user.username)
+
+    diff = {k: (remote.filters[k], v) for k, v in desired_fields.items()}
+    if dry_run:
+        logger.info("[dry-run] {}: would merge filters — {}", user.username, summarise_filter_diff(diff, label_prefix))
+        return diff
+
+    plextv.update_user_filters(user.plex_account_id, desired_fields)
+    # Verification is NOT done per-user here: each read-back was a full GET /api/users, so on a night
+    # that writes A accounts it cost A full-roster fetches (~O(A²)). The caller instead reads the roster
+    # ONCE after all writes and verifies every written account's shortlist excludes persisted, still
+    # strictly before any promotion — see the batched read-back at the end of _privacy_sync_phase in
+    # pipeline.py (plex-safety rule 1).
+    logger.info("{}: filters merged — {}", user.username, summarise_filter_diff(diff, label_prefix))
+    return diff
+
+
+def clear_our_excludes(
+    plextv: PlexTvClient,
+    user: UserProfile,
+    remote: PlexTvUser | None,
+    *,
+    label_prefix: str = LABEL_PREFIX,
+    dry_run: bool = False,
+) -> dict[str, tuple[str, str]] | None:
+    """Take every Shortlist exclude back out of one account's share filters, and add none.
+
+    The "leave this account's Plex sharing alone" path. It is the only write in this module that makes
+    the server LESS private, and it does so because the owner asked: an account whose own Plex
+    restrictions conflict with our excludes (an "allow only" label list, discussion #92) needs its
+    filters left as its owner wrote them, and the price is that the account can see other people's
+    rows. Every OTHER account still excludes this one's label, so nothing here exposes a row to anyone
+    but the person the owner named.
+
+    Idempotent by construction — it converges on "no per-person `shortlist_<slug>` value anywhere in
+    this filter", so the steady state writes nothing and a single pass after the switch is flipped is
+    enough. Foreign conditions are byte-preserved (`remove_label_excludes`), so a filter that holds
+    only somebody else's rules comes back untouched.
+
+    A RESTRICTED shared row's exclude is deliberately NOT removed — see the loop below.
+
+    No snapshot is taken (rule 2 covers writes that RESTRICT). An account with our labels in its
+    filter has been through `sync_user_restrictions`, which snapshotted the true pre-Shortlist value
+    already; an account without them is a no-op here. Taking one now would capture our own pollution
+    and hand uninstall the wrong thing to restore.
+
+    Args:
+        plextv: The plex.tv client.
+        user: The account to leave alone.
+        remote: Their current plex.tv record, or None if they no longer share the server.
+        label_prefix: The label prefix Shortlist owns.
+        dry_run: Log the would-be diff instead of writing (rule 8).
+
+    Returns:
+        The ``{field: (before, after)}`` diff written, or None when there was nothing of ours to
+        remove.
+
+    Raises:
+        FilterParseError: If a filter cannot be parsed — the caller decides, and refusing to touch it
+            is the safe answer here too.
+    """
+    if user.user_type is UserType.OWNER:
+        return None
+    if remote is None:
+        return None
+    changed: dict[str, tuple[str, str]] = {}
+    for fieldname in RESTRICTED_FILTER_FIELDS:
+        current = remote.filters.get(fieldname, "")
+        if not current:
+            continue
+        # PER-PERSON excludes only. `SHARED_LABEL_PREFIX` is `shortlist__shared_`, which starts with
+        # `shortlist_` — so the obvious `shortlist_labels_in()` also matches a shared row's label, and
+        # stripping one would hand this account a shared row whose audience the owner RESTRICTED in
+        # the audience picker. That exclude is the only thing hiding it, and nothing re-adds it: the
+        # next run skips this account entirely.
+        #
+        # Two explicit owner decisions collide here — "leave this account's sharing alone" and "this
+        # row is only for those people" — and the tie goes to the one whose failure mode is a leak.
+        # The cost is that a later audience WIDENING never reaches a left-alone account, so their
+        # exclude goes stale in the direction of seeing less; switching management back on resyncs it.
+        # #92's actual complaint is the accumulating per-person excludes, which this still clears.
+        ours = {
+            label
+            for label in shortlist_labels_in(current, label_prefix)
+            if not unquote(label).lower().startswith(SHARED_LABEL_PREFIX.lower())
+        }
+        cleaned = remove_label_excludes(current, ours) if ours else current
+        # The shared-row excludes that stay must also stay ENFORCED. The pre-#116 merge left them behind
+        # a `|`, where Plex ignores them and the owner's own restriction is switched off; a left-alone
+        # account is never merged into again, so this is the only pass that can move them.
+        # SHARED labels only: a per-person clause the removal had to leave in place (it would regroup the
+        # owner's conditions) must not be carried somewhere Plex applies it — the owner asked for these
+        # excludes to go, so the move is undone for every per-person label it touched.
+        kept = {
+            label
+            for label in shortlist_labels_in(cleaned, label_prefix)
+            if unquote(label).lower().startswith(SHARED_LABEL_PREFIX.lower())
+        }
+        if kept and unenforced_excludes(cleaned, kept):
+            try:
+                moved = merge_label_excludes(cleaned, set(), label_prefix=label_prefix)
+            except AmbiguousFilterError:
+                # Plex cannot read this filter (a literal `&` label), so the shared exclude cannot be moved
+                # anywhere verifiable. The per-person excludes the owner asked to remove still come out.
+                moved = None
+            if moved is not None:
+                cleaned = remove_label_excludes(moved, ours) if ours else moved
+        # Allow values are NOT touched here, the account's own row label (#115) included. The owner may
+        # have typed it — Shortlist wrote none before #115, and the "leave alone" warning practically
+        # suggests it — and keeping it hides nothing from anyone: it only lets this person see their row.
+        if cleaned != current:
+            changed[fieldname] = (current, cleaned)
+    if not changed:
+        return None
+    if dry_run:
+        logger.info(
+            "[dry-run] {}: would remove Shortlist's excludes and leave the rest — {}",
+            user.username,
+            summarise_filter_diff(changed, label_prefix),
+        )
+        return changed
+    plextv.update_user_filters(user.plex_account_id, {k: after for k, (_before, after) in changed.items()})
+    logger.info(
+        "{}: Shortlist's excludes removed — this account's sharing is left alone from now on ({})",
+        user.username,
+        summarise_filter_diff(changed, label_prefix),
+    )
+    return changed
+
+
+def summarise_filter_diff(diff: dict[str, tuple[str, str]], label_prefix: str) -> str:
+    """A one-line description of what a filter write actually CHANGED.
+
+    The full before/after belongs in the audit event (rule 10), not in the log: on a 48-user server
+    each account's filter string carries every other account's exclude, so logging both sides put
+    ~8 KB per user per field into the file. Forty-eight of those buried everything else in the run,
+    which is the opposite of what the log is for — and it is the same 47 labels every time, so the
+    only information in it is the one that changed.
+    """
+    parts = []
+    for fieldname, (before, after) in sorted(diff.items()):
+        was = shortlist_labels_in(before, label_prefix)
+        now = shortlist_labels_in(after, label_prefix)
+        added, removed = sorted(now - was), sorted(was - now)
+        allowed_before = allowed_shortlist_labels(before, label_prefix)
+        allowed_after = allowed_shortlist_labels(after, label_prefix)
+        if allowed_before != allowed_after:
+            parts.append(f"{fieldname} own row {'allowed' if allowed_after else 'no longer allowed'}")
+            if not added and not removed:
+                continue
+        if not added and not removed:
+            if now and unenforced_excludes(before, now) and not unenforced_excludes(after, now):
+                parts.append(f"{fieldname} excludes moved to where Plex applies them")
+                continue
+            # A change outside our own excludes (pruning a shared row's label leaves the set equal).
+            parts.append(f"{fieldname} rewritten")
+            continue
+        bits = []
+        for sign, labels in (("+", added), ("-", removed)):
+            if not labels:
+                continue
+            shown = ", ".join(labels[:3])
+            more = f" +{len(labels) - 3} more" if len(labels) > 3 else ""
+            bits.append(f"{sign}{len(labels)} ({shown}{more})")
+        parts.append(f"{fieldname} {' '.join(bits)}")
+    return "; ".join(parts) or "no change"
+
+
+class RestoreVerificationError(RuntimeError):
+    """A restore write reached plex.tv but could not be confirmed.
+
+    Carries `attempted` — the fields that were PUT — because by the time this is raised the account's
+    filters have ALREADY changed on plex.tv. The caller has to be able to audit what was written even
+    though it could not verify it (rule 10): a failed restore with no recorded diff is a write nobody
+    has a record of, on the most privacy-sensitive path in the product.
+    """
+
+    def __init__(self, message: str, attempted: dict[str, str]) -> None:
+        super().__init__(message)
+        self.attempted = attempted
+
+
+def resolve_restore_targets(
+    plextv: PlexTvClient,
+    snapshots: list[FilterSnapshot],
+    *,
+    believed_departed: frozenset[int] = frozenset(),
+) -> tuple[list[tuple[FilterSnapshot, PlexTvUser]], list[FilterSnapshot], list[FilterSnapshot]]:
+    """Sort every snapshot into restorable, gone-for-good, and could-not-reach.
+
+    ONE roster read for the whole restore, and it fixes two things. `get_user` re-fetched
+    `/api/users` on every call, so a 40-user uninstall paid ~80 round-trips before the read-backs
+    even started; and an account that has since left the server raised `LookupError` straight out of
+    the per-user restore, which had no guard — so one departed user aborted the entire loop and left
+    every account after them carrying Shortlist's excludes for ever, after the operator had already
+    typed UNINSTALL (issue #96).
+
+    The third bucket is the point. "plex.tv does not list this account" has two very different
+    meanings, and collapsing them is how a truncated roster read becomes permanent pollution reported
+    as success — uninstall is ONE SHOT (it switches every row off and clears every schedule), so
+    unlike the nightly sweep there is no later pass to notice and self-correct:
+
+    * **departed** — the roster omits them AND `user_sync` already recorded them as gone
+      (`believed_departed`). Two independent observations, days apart. There is nothing to restore and
+      never will be; this needs no action from anyone.
+    * **unreachable** — the roster omits them but our own records say they were here. That is one
+      observation disagreeing with another, which is what a partial or empty read looks like. Their
+      filters still carry Shortlist's entries, so this is worth retrying and must be SAID.
+
+    This deliberately does not veto the uninstall the way `user_sync`'s departure sweep vetoes itself
+    on a suspicious roster. Two reasons. Skipping a restore is an omission rather than a destructive
+    act, and the operator has explicitly typed UNINSTALL — refusing outright would strand the one
+    person the veto is meant to protect. An owner who has genuinely wound down every share gets an
+    EMPTY roster, and `user_sync` never marks anyone departed from an empty roster
+    (`gone = ... if roster else []`), so no amount of corroboration would ever clear them: a hard stop
+    here is a permanent dead end with no override. Reporting is what keeps a bad read honest.
+
+    Args:
+        plextv: plex.tv client — the roster is read once, here.
+        snapshots: every snapshot the restore intends to apply.
+        believed_departed: plex account ids our own records already mark as gone (`users.departed_at`
+            / `users.removed_at`), which is what turns "missing from the roster" into corroborated.
+
+    Returns:
+        `(targets, departed, unreachable)`. Each target pairs a snapshot with that account as plex.tv
+        lists it now.
+    """
+    if not snapshots:
+        return [], [], []
+    roster = {u.id: u for u in plextv.list_users()}
+    targets: list[tuple[FilterSnapshot, PlexTvUser]] = []
+    departed: list[FilterSnapshot] = []
+    unreachable: list[FilterSnapshot] = []
+    for snapshot in snapshots:
+        remote = roster.get(snapshot.plex_account_id)
+        if remote is not None:
+            targets.append((snapshot, remote))
+        elif snapshot.plex_account_id in believed_departed:
+            departed.append(snapshot)
+        else:
+            unreachable.append(snapshot)
+    if unreachable:
+        logger.warning(
+            "uninstall: plex.tv did not list {} account(s) our records say are on this server — "
+            "their filters keep Shortlist's entries until a retry",
+            len(unreachable),
+        )
+    return targets, departed, unreachable
+
+
+def restore_user_restrictions(
+    plextv: PlexTvClient,
+    snapshot: FilterSnapshot,
+    remote: PlexTvUser,
+    *,
+    dry_run: bool = False,
+) -> bool:
+    """Restore a user's filters byte-identical from their pre-Shortlist snapshot (uninstall path).
+
+    Args:
+        plextv: plex.tv client, for the write and its read-back verification.
+        snapshot: the pre-Shortlist filters to put back.
+        remote: that account as plex.tv lists it NOW, from `resolve_restore_targets`. Resolved by the
+            caller on purpose: an account that has left is skipped there rather than raising through
+            here, which is what issue #96 was.
+        dry_run: log the would-be restore and write nothing (rule 8).
+
+    Returns:
+        True if a write was needed (or would be, under dry-run); False if the account already matches
+        its snapshot.
+
+    Raises:
+        RestoreVerificationError: the write reached plex.tv but the read-back disagreed or could not
+            be made. Carries `attempted` so the caller can audit a write it could not confirm.
+    """
+    # `.get` on BOTH sides. `snapshot.filters` is a JSON column holding whatever was persisted at
+    # snapshot time, not a validated five-field dict — so a snapshot missing a field the remote now
+    # has raised KeyError here, and back then that aborted the whole restore loop. A missing field
+    # restores as empty, which is what "this user had no filter here" means.
+    changed = {
+        k: snapshot.filters.get(k, "")
+        for k in FILTER_FIELDS
+        if remote.filters.get(k, "") != snapshot.filters.get(k, "")
+    }
+    if not changed:
+        return False
+    if dry_run:
+        # Field names only: a restore payload is the user's ENTIRE original filter string per field.
+        logger.info("[dry-run] {}: would restore {} from the snapshot", snapshot.username, ", ".join(sorted(changed)))
+        return True
+    # The PUT is INSIDE the try, not before it. `update_user_filters` retries connect errors, pool
+    # timeouts, 429 and a short ladder of 5xx — every one of them safe because the PUT carries a full
+    # pre-merged value, so a repeat converges rather than doubling. It deliberately lets a READ
+    # timeout propagate, precisely because "the write may have applied" — so at or past this line the
+    # account's filters may already have changed. Every failure from here therefore carries
+    # `changed`: the caller has to audit a write it could not confirm (rule 10), and the ambiguous
+    # case is the one where that audit row is the only record anyone will ever have.
+    try:
+        plextv.update_user_filters(snapshot.plex_account_id, changed)
+        readback = plextv.get_user(snapshot.plex_account_id)
+        for fieldname, expected in changed.items():
+            if readback.filters.get(fieldname, "") != expected:
+                raise RestoreVerificationError(f"{snapshot.username}: restore mismatch on {fieldname}", changed)
+    except RestoreVerificationError:
+        raise
+    except Exception as e:
+        raise RestoreVerificationError(
+            f"{snapshot.username}: the restore may have applied but could not be confirmed ({type(e).__name__}: {e})",
+            changed,
+        ) from e
+    logger.info("{}: filters restored from snapshot", snapshot.username)
+    return True
+
+
+_HUB_COLLECTION_KEY = re.compile(r"/library/collections/(\d+)")
+
+
+def unhidden_rows_on_home(hubs: list[dict], owned: dict[str, object], user_slug: str) -> list[int]:
+    """ratingKeys of OUR per-person rows on this account's HOME that are not its own.
+
+    The hub twin of `unhidden_rows_visible_to`, and the surface deliberately chosen for the
+    filter-enforcement canary. Two reasons it is the right one. It is what the complaint is actually
+    about — "every user could see all six rows on the home screen" (#88) — and it is one read rather
+    than a walk of every library's collections, which matters for something that runs each night.
+
+    The other surface is left alone on purpose: whether a real PMS applies a share `label!=` filter to
+    the library COLLECTIONS listing (as opposed to Home) is not something this repo has a recorded
+    answer for, and plex-safety rule 11 says an assumption about PMS behaviour needs a fixture from a
+    real server before code leans on it. Reporting a leak from an unverified assumption would be the
+    worst of both worlds: a privacy alarm nobody can act on.
+
+    Args:
+        hubs: `PlexClient.user_hubs(token)` for the account under test — their Home, as they see it.
+        owned: `PlexClient.owned_collections()`, label-slug -> row with `rating_keys`.
+        user_slug: Whose account this is, so their own row is not reported against them.
+
+    Returns:
+        Sorted ratingKeys of other people's rows on this account's Home. Empty means clean.
+    """
+    shared_marker = SHARED_LABEL_PREFIX[len(LABEL_PREFIX) + 1 :].lower()
+    ours: set[int] = set()
+    theirs: set[int] = set()
+    for slug, row in owned.items():
+        if slug.lower().startswith(shared_marker):
+            continue  # a shared row is meant to be seen; its audience is enforced elsewhere
+        keys = {int(k) for k in getattr(row, "rating_keys", ())}
+        ours |= keys
+        if slug.lower() == user_slug.lower():
+            theirs |= keys
+    if not ours:
+        return []
+    visible: set[int] = set()
+    for hub in hubs:
+        match = _HUB_COLLECTION_KEY.search(str(hub.get("key") or hub.get("hubKey") or ""))
+        if match:
+            visible.add(int(match.group(1)))
+    return sorted((visible & ours) - theirs)
+
+
+def unhidden_rows_visible_to(pms_as_user, owned: dict[str, object], user_slug: str) -> list[int]:
+    """ratingKeys of OUR per-person rows this account can see that are not its own.
+
+    Answers, by measurement, the question the skip above only ever assumed: when Plex refuses a label
+    filter for an account, can that account actually see anyone else's row?
+
+    The justification for skipping profiled managed accounts is that they "see zero collections of any
+    kind anyway, so there is nothing for an exclude to hide". That was confirmed against a
+    ``little_kid`` account and generalised to every profile. Measured on a real server 2026-08-11, an
+    ``older_kid`` account saw three collections — so for that account we neither hid other people's
+    rows nor reported that we could not. Whether one actually leaks then depends on whether the row's
+    contents survive the parental content filter, which is luck rather than a guarantee.
+
+    Identity is the ratingKey, never the title: every row is named from the same template
+    (``✨ {library} Picked for You``) and tells them apart only by an invisible marker, so a title
+    comparison reports a person's OWN row as somebody else's. That mistake was made while
+    investigating this, which is why it is spelled out here.
+
+    Args:
+        pms_as_user: A PMS client authenticated AS the account under test — what it can see, not what
+            the owner can.
+        owned: ``PlexClient.owned_collections()``, label-slug -> row with ``rating_keys``. The FRESH
+            server read the privacy phase already performs, deliberately not the delivery ledger: the
+            ledger is loaded when the run's context is built, so on a first run it is empty, and an
+            empty set of ours makes every account read as clean — the exact silence this exists to
+            break.
+        user_slug: Whose account this is, so their own rows are not reported against them.
+
+    Returns:
+        Sorted ratingKeys of other people's rows visible to this account. Empty means genuinely clean.
+
+    Raises:
+        Whatever the PMS read raises. A failure must NOT read as "nothing visible" — an empty answer
+        from a failed read is the shape plex-safety rule 4 exists to refuse.
+    """
+    shared_marker = SHARED_LABEL_PREFIX[len(LABEL_PREFIX) + 1 :].lower()  # "_shared_" -> what the slug keeps
+    ours: set[int] = set()
+    theirs: set[int] = set()
+    for slug, row in owned.items():
+        # A shared row is one collection everybody is meant to see, subject to its own audience — not
+        # an exposure. Including it would fire this on every server that runs one.
+        if slug.lower().startswith(shared_marker):
+            continue
+        keys = {int(k) for k in getattr(row, "rating_keys", ())}
+        ours |= keys
+        if slug.lower() == user_slug.lower():
+            theirs |= keys
+    if not ours:
+        return []
+    visible: set[int] = set()
+    for section in pms_as_user.sections():
+        for collection in pms_as_user._section_collections(section):
+            key = getattr(collection, "rating_key", None) or getattr(collection, "ratingKey", None)
+            if key is not None:
+                visible.add(int(key))
+    return sorted((ours & visible) - theirs)

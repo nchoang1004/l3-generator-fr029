@@ -1,0 +1,1572 @@
+"""The backup endpoints an operator's disaster recovery depends on.
+
+Two things make this router worth its own tests rather than trusting the service's.
+First, it is the surface that tells an operator what the vault *can* do: on PostgreSQL
+there is no supported database backup, and the endpoint must say so — 501 before
+creating anything and 501 before restoring anything, so nobody is handed an archive
+that cannot be restored. Second, a restore is the most destructive operation in the
+product, so it refuses while ingestion work is in flight rather than replacing the
+database underneath it.
+
+Everything here is superuser-only. The archive format, the round-trip, and what a
+restore actually recovers live in `integration/modules/backups/backup/test_core.py`.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import hashlib
+import io
+from concurrent.futures import ThreadPoolExecutor
+from datetime import timedelta
+from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
+from fastapi import BackgroundTasks, HTTPException
+from fastapi.testclient import TestClient
+
+import app.modules.backups.backup.adoption as backup_adoption
+import app.modules.backups.backup.caches as backup_caches
+import app.modules.backups.backup.catalogue as backup_catalogue
+import app.modules.backups.backup.contracts as backup_contracts
+import app.modules.backups.backup.creation as backup_creation
+import app.modules.backups.backup.deletion as backup_deletion
+import app.modules.backups.backup.restore as backup_restore
+import app.modules.backups.backup.verification as backup_verification
+import app.modules.storage.storage_backend.local as storage_local
+from app.api.v1 import backup as backup_api
+from app.core.time import utcnow
+from app.db.models import (
+    IngestRequestKind,
+    JobKind,
+    JobState,
+    OwnedStorageObject,
+    StagingLease,
+)
+from app.modules.backups import backup_destination
+from app.modules.backups.backup_catalogue import BackupIdentityConflictError
+from app.modules.backups.backup_destination import RemoteBackupDestination
+from app.modules.storage.storage_backend.contracts import StorageObjectInfo
+from tests.factories import (
+    build_ingest_request,
+    build_owned_storage_object,
+    build_user,
+)
+from tests.integration._backup_harness import (
+    BackupEnv,
+    backup_admin_headers,
+    seed_model_with_blob,
+    store_owned_bytes,
+    user_headers_in_env,
+)
+from tests.integration.api.v1._ingest_assertions import drain_work
+
+POSTGRES_URL = "postgresql://printstash:secret@database/printstash"
+UNSUPPORTED_DB_URL = "mysql://printstash:secret@database/printstash"
+
+
+def _assert_source_identity_conflict(
+    client: TestClient,
+    admin_headers: dict[str, str],
+    backup_id: str,
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    method: str,
+    path_suffix: str,
+    service_name: str,
+) -> None:
+    def conflict(*_args: object, **_kwargs: object) -> None:
+        raise BackupIdentityConflictError("backup_identity_conflict")
+
+    owner = {
+        "get_backup": backup_catalogue,
+        "get_backup_archive_path": backup_catalogue,
+        "verify_backup": backup_verification,
+        "delete_backup": backup_deletion,
+        "restore_backup": backup_restore,
+    }[service_name]
+    monkeypatch.setattr(owner, service_name, conflict)
+    response = client.request(
+        method,
+        f"/api/v1/backups/{backup_id}{path_suffix}",
+        params={"source_ref": "exact-source"},
+        headers=admin_headers,
+    )
+
+    assert response.status_code == 409, response.text
+    assert response.json()["detail"] == "backup_identity_conflict"
+
+
+@pytest.fixture
+def admin_headers(backup_env: BackupEnv) -> dict[str, str]:
+    return backup_admin_headers(backup_env)
+
+
+@pytest.fixture
+def a_backup(backup_env: BackupEnv):
+    """One real archive of a vault holding one model."""
+    seed_model_with_blob(backup_env, name="Widget", content=b"solid widget\n")
+    return backup_creation.create_backup()
+
+
+def _backup_job(client: TestClient, headers: dict[str, str]) -> dict:
+    """Queue a manual backup, run it, and return its finished Job."""
+    response = client.post("/api/v1/backups", headers=headers)
+    assert response.status_code == 202, response.text
+    drain_work()
+    job = client.get(f"/api/v1/jobs/{response.json()['job_id']}", headers=headers)
+    assert job.status_code == 200, job.text
+    return job.json()
+
+
+class TestCreateBackup:
+    def test_the_job_result_carries_the_new_backups_metadata(
+        self, client: TestClient, backup_env: BackupEnv, admin_headers: dict[str, str]
+    ) -> None:
+        seed_model_with_blob(backup_env, name="Widget", content=b"x")
+
+        job = _backup_job(client, admin_headers)
+
+        assert (job["kind"], job["state"]) == (JobKind.BACKUPS_CREATE, "completed")
+        assert job["result"]["backup_id"]
+        assert job["result"]["file_count"] == 1
+        assert job["result"]["outcome"] == "completed"
+
+    def test_writes_the_archive(
+        self, client: TestClient, backup_env: BackupEnv, admin_headers: dict[str, str]
+    ) -> None:
+        seed_model_with_blob(backup_env, name="Widget", content=b"x")
+
+        _backup_job(client, admin_headers)
+
+        assert list(backup_env.backup_dir.glob("*.tar.gz"))
+
+    def test_a_second_backup_while_one_is_queued_is_refused(
+        self, client: TestClient, backup_env: BackupEnv, admin_headers: dict[str, str]
+    ) -> None:
+        first = client.post("/api/v1/backups", headers=admin_headers)
+
+        second = client.post("/api/v1/backups", headers=admin_headers)
+
+        assert first.status_code == 202, first.text
+        assert second.status_code == 409, second.text
+        assert second.json()["detail"] == "backup_in_progress"
+
+    def test_a_backup_after_the_last_one_finished_is_accepted(
+        self, client: TestClient, backup_env: BackupEnv, admin_headers: dict[str, str]
+    ) -> None:
+        _backup_job(client, admin_headers)
+
+        assert client.post("/api/v1/backups", headers=admin_headers).status_code == 202
+
+    def test_refuses_on_a_database_it_cannot_back_up(
+        self,
+        client: TestClient,
+        backup_env: BackupEnv,
+        admin_headers: dict[str, str],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        from app.core.config import _overlay
+
+        monkeypatch.setitem(_overlay, "db_url", UNSUPPORTED_DB_URL)
+
+        job = _backup_job(client, admin_headers)
+
+        assert (job["state"], job["error"]) == (
+            "failed",
+            "database_backup_not_supported",
+        )
+
+    def test_writes_nothing_when_it_refuses(
+        self,
+        client: TestClient,
+        backup_env: BackupEnv,
+        admin_headers: dict[str, str],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        from app.core.config import _overlay
+
+        monkeypatch.setitem(_overlay, "db_url", UNSUPPORTED_DB_URL)
+
+        _backup_job(client, admin_headers)
+
+        # A half-written archive would look restorable and is not.
+        assert list(backup_env.backup_dir.glob("*.tar.gz")) == []
+
+    def test_a_missing_destination_fails_the_job_without_a_retry(
+        self,
+        client: TestClient,
+        backup_env: BackupEnv,
+        admin_headers: dict[str, str],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        def refuse(**_kwargs):
+            raise RuntimeError("backup_destination_required")
+
+        monkeypatch.setattr(backup_creation, "create_backup", refuse)
+
+        job = _backup_job(client, admin_headers)
+
+        # No retry fixes a missing destination; configuring one does.
+        assert (job["state"], job["error"], job["retryable"]) == (
+            "failed",
+            "backup_destination_required",
+            False,
+        )
+
+    def test_failed_destinations_fail_the_job_as_retryable(
+        self,
+        client: TestClient,
+        backup_env: BackupEnv,
+        admin_headers: dict[str, str],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        def unreachable(**_kwargs):
+            error = RuntimeError("backup_all_destinations_failed")
+            error.run_id = 41  # type: ignore[attr-defined]
+            raise error
+
+        monkeypatch.setattr(backup_creation, "create_backup", unreachable)
+
+        job = _backup_job(client, admin_headers)
+
+        assert (job["state"], job["error"], job["retryable"]) == (
+            "failed",
+            "backup_all_destinations_failed",
+            True,
+        )
+        assert job["result"] == {"run_id": 41}
+
+    def test_rejects_an_unauthenticated_caller(self, client: TestClient) -> None:
+        assert client.post("/api/v1/backups").status_code == 401
+
+    def test_rejects_a_non_superuser(
+        self, client: TestClient, backup_env: BackupEnv
+    ) -> None:
+        response = client.post(
+            "/api/v1/backups", headers=user_headers_in_env(backup_env)
+        )
+
+        assert response.status_code == 403, response.text
+
+
+class TestUploadBackup:
+    def test_registers_a_valid_archive(
+        self,
+        client: TestClient,
+        backup_env: BackupEnv,
+        admin_headers: dict[str, str],
+    ) -> None:
+        original = backup_creation.create_backup()
+        archive = Path(original.path)
+        payload = archive.read_bytes()
+        filename = archive.name
+        assert backup_deletion.delete_backup(
+            original.id, source_ref=original.source_ref
+        )
+
+        response = client.post(
+            "/api/v1/backups/upload",
+            headers=admin_headers,
+            files={"file": (filename, io.BytesIO(payload), "application/gzip")},
+        )
+
+        assert response.status_code == 201, response.text
+        assert response.json()["backup_id"] == original.id
+
+    def test_rejects_an_invalid_archive_without_publishing_it(
+        self,
+        client: TestClient,
+        backup_env: BackupEnv,
+        admin_headers: dict[str, str],
+    ) -> None:
+        response = client.post(
+            "/api/v1/backups/upload",
+            headers=admin_headers,
+            files={
+                "file": (
+                    "printstash-backup-20260101-000000-invalid.tar.gz",
+                    b"not an archive",
+                    "application/gzip",
+                )
+            },
+        )
+
+        assert response.status_code == 409, response.text
+        assert list(backup_env.backup_dir.glob("*.tar.gz")) == []
+
+    def test_rejects_an_oversized_archive(
+        self,
+        client: TestClient,
+        backup_env: BackupEnv,
+        admin_headers: dict[str, str],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        from app.core.config import _overlay
+
+        monkeypatch.setitem(_overlay, "max_upload_mb", 1)
+
+        response = client.post(
+            "/api/v1/backups/upload",
+            headers=admin_headers,
+            files={
+                "file": (
+                    "printstash-backup-20260101-000000-large.tar.gz",
+                    b"x" * (1024 * 1024 + 1),
+                    "application/gzip",
+                )
+            },
+        )
+
+        assert response.status_code == 413, response.text
+
+    def test_rejects_a_non_superuser(
+        self, client: TestClient, backup_env: BackupEnv
+    ) -> None:
+        response = client.post(
+            "/api/v1/backups/upload",
+            headers=user_headers_in_env(backup_env),
+            files={
+                "file": (
+                    "printstash-backup-20260101-000000-denied.tar.gz",
+                    b"archive",
+                    "application/gzip",
+                )
+            },
+        )
+
+        assert response.status_code == 403, response.text
+
+
+class TestListBackups:
+    def test_lists_the_stored_backups(
+        self, client: TestClient, admin_headers: dict[str, str], a_backup
+    ) -> None:
+        response = client.get("/api/v1/backups", headers=admin_headers)
+
+        assert response.status_code == 200, response.text
+        assert a_backup.id in {row["backup_id"] for row in response.json()}
+
+    def test_returns_an_empty_list_with_no_backups(
+        self, client: TestClient, backup_env: BackupEnv, admin_headers: dict[str, str]
+    ) -> None:
+        assert client.get("/api/v1/backups", headers=admin_headers).json() == []
+
+    def test_rejects_a_non_superuser(
+        self, client: TestClient, backup_env: BackupEnv
+    ) -> None:
+        response = client.get(
+            "/api/v1/backups", headers=user_headers_in_env(backup_env)
+        )
+
+        assert response.status_code == 403, response.text
+
+
+class TestListBackupSources:
+    def test_exact_sources_endpoint_exposes_replicas(
+        self,
+        client: TestClient,
+        backup_env: BackupEnv,
+        admin_headers: dict[str, str],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        sources = [
+            backup_contracts.BackupMeta(
+                id="same-id",
+                created_at="2020-01-01T00:00:00+00:00",
+                size_bytes=10,
+                storage_backend="local",
+                file_count=1,
+                app_version="0.13.0",
+                path="/vault/one.tar.gz",
+                archive_sha256="a" * 64,
+                source_ref="local-ref",
+                provider_ref="local-provider",
+                namespace="local-vault",
+                canonical=True,
+                precedence=0,
+            ),
+            backup_contracts.BackupMeta(
+                id="same-id",
+                created_at="2020-01-01T00:00:00+00:00",
+                size_bytes=10,
+                storage_backend="s3",
+                file_count=1,
+                app_version="0.13.0",
+                path="nexus3d-backups/one.tar.gz",
+                location="s3",
+                archive_sha256="a" * 64,
+                source_ref="legacy-ref",
+                provider_ref="legacy-provider",
+                namespace="archive-bucket/nexus3d-backups/",
+                canonical=False,
+                precedence=1,
+            ),
+        ]
+        monkeypatch.setattr(backup_catalogue, "list_backup_sources", lambda: sources)
+
+        response = client.get("/api/v1/backups/sources", headers=admin_headers)
+
+        assert response.status_code == 200, response.text
+        assert [item["source_ref"] for item in response.json()] == [
+            "local-ref",
+            "legacy-ref",
+        ]
+        assert response.json()[0]["canonical"] is True
+        assert response.json()[1]["precedence"] == 1
+        assert response.json()[1]["namespace"] == "archive-bucket/nexus3d-backups/"
+        assert response.json()[0]["key"] == "/vault/one.tar.gz"
+        assert response.json()[0]["provider_ref"] == "local-provider"
+        assert response.json()[0]["prefix"] is None
+        assert response.json()[1]["key"] == "nexus3d-backups/one.tar.gz"
+        assert response.json()[1]["provider_ref"] == "legacy-provider"
+        assert response.json()[1]["prefix"] == "nexus3d-backups/"
+
+
+class TestDatabaseCapabilities:
+    def test_reports_sqlite_as_fully_supported(
+        self, client: TestClient, backup_env: BackupEnv, admin_headers: dict[str, str]
+    ) -> None:
+        response = client.get(
+            "/api/v1/backups/capabilities/database", headers=admin_headers
+        )
+
+        assert response.status_code == 200, response.text
+        assert response.json() == {
+            "database_backend": "sqlite",
+            "create_supported": True,
+            "restore_supported": True,
+        }
+
+    def test_reports_postgresql_as_supported(
+        self,
+        client: TestClient,
+        backup_env: BackupEnv,
+        admin_headers: dict[str, str],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        from app.core.config import _overlay
+
+        monkeypatch.setitem(_overlay, "db_url", POSTGRES_URL)
+
+        response = client.get(
+            "/api/v1/backups/capabilities/database", headers=admin_headers
+        )
+
+        assert response.json() == {
+            "database_backend": "postgresql",
+            "create_supported": True,
+            "restore_supported": True,
+        }
+
+    def test_rejects_a_non_superuser(
+        self, client: TestClient, backup_env: BackupEnv
+    ) -> None:
+        response = client.get(
+            "/api/v1/backups/capabilities/database",
+            headers=user_headers_in_env(backup_env),
+        )
+
+        assert response.status_code == 403, response.text
+
+
+class TestGetBackup:
+    def test_returns_the_backups_metadata(
+        self, client: TestClient, admin_headers: dict[str, str], a_backup
+    ) -> None:
+        response = client.get(f"/api/v1/backups/{a_backup.id}", headers=admin_headers)
+
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body["backup_id"] == a_backup.id
+        assert body["file_count"] == a_backup.file_count
+        assert body["location"] == "local"
+
+    def test_reports_an_unknown_backup_as_not_found(
+        self, client: TestClient, backup_env: BackupEnv, admin_headers: dict[str, str]
+    ) -> None:
+        response = client.get("/api/v1/backups/does-not-exist", headers=admin_headers)
+
+        assert response.status_code == 404, response.text
+        assert response.json()["detail"] == "backup_not_found"
+
+    def test_rejects_a_non_superuser(
+        self, client: TestClient, backup_env: BackupEnv, a_backup
+    ) -> None:
+        response = client.get(
+            f"/api/v1/backups/{a_backup.id}", headers=user_headers_in_env(backup_env)
+        )
+
+        assert response.status_code == 403, response.text
+
+    def test_forwards_exact_source_reference(
+        self, client: TestClient, admin_headers, a_backup, monkeypatch
+    ):
+        observed: dict[str, str | None] = {}
+
+        def get(_backup_id: str, *, source_ref: str | None = None):
+            observed["source_ref"] = source_ref
+            return a_backup
+
+        monkeypatch.setattr(backup_catalogue, "get_backup", get)
+        response = client.get(
+            f"/api/v1/backups/{a_backup.id}",
+            params={"source_ref": "exact-source"},
+            headers=admin_headers,
+        )
+
+        assert response.status_code == 200, response.text
+        assert observed == {"source_ref": "exact-source"}
+
+    def test_maps_source_identity_conflict_to_http_conflict(
+        self, client: TestClient, admin_headers, a_backup, monkeypatch
+    ) -> None:
+        _assert_source_identity_conflict(
+            client,
+            admin_headers,
+            a_backup.id,
+            monkeypatch,
+            method="get",
+            path_suffix="",
+            service_name="get_backup",
+        )
+
+
+class TestDownloadBackup:
+    def test_serves_the_archive(
+        self, client: TestClient, admin_headers: dict[str, str], a_backup
+    ) -> None:
+        response = client.get(
+            f"/api/v1/backups/{a_backup.id}/download", headers=admin_headers
+        )
+
+        assert response.status_code == 200, response.text
+        assert response.content[:2] == b"\x1f\x8b", "a gzip archive"
+        assert (
+            f'filename="{Path(a_backup.path).name}"'
+            in response.headers["content-disposition"]
+        )
+
+    def test_download_cleans_the_cache_after_the_response(
+        self,
+        client: TestClient,
+        backup_env: BackupEnv,
+        admin_headers: dict[str, str],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        cache = backup_env.backup_dir / ".cloud-cache" / "download.tar.gz"
+        cache.parent.mkdir(parents=True)
+        with backup_env.new_session() as session:
+            store_owned_bytes(
+                session,
+                storage_local.LocalStorageBackend(),
+                str(cache),
+                b"cache response",
+                object_kind="backup-cloud-cache",
+            )
+        monkeypatch.setattr(
+            backup_catalogue,
+            "get_backup",
+            lambda _backup_id, **_kwargs: backup_contracts.BackupMeta(
+                id="cache",
+                created_at="2026-01-01T00:00:00+00:00",
+                size_bytes=len(b"cache response"),
+                storage_backend="s3",
+                file_count=0,
+                app_version="0.13.0",
+                path="printstash-backup-cache.tar.gz",
+                location="s3",
+                source_ref="cache-source",
+            ),
+        )
+        monkeypatch.setattr(
+            backup_catalogue,
+            "get_backup_archive_path",
+            lambda _backup_id, **_kwargs: cache,
+        )
+
+        response = client.get(
+            "/api/v1/backups/cache/download",
+            headers=admin_headers,
+        )
+
+        assert response.status_code == 200, response.text
+        assert response.content == b"cache response"
+        assert not cache.exists()
+
+    def test_cleanup_task_is_idempotent_for_a_cloud_cache(
+        self,
+        backup_env: BackupEnv,
+        admin_headers: dict[str, str],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        cache = backup_env.backup_dir / ".cloud-cache" / "idempotent.tar.gz"
+        cache.parent.mkdir(parents=True)
+        with backup_env.new_session() as session:
+            store_owned_bytes(
+                session,
+                storage_local.LocalStorageBackend(),
+                str(cache),
+                b"cache response",
+                object_kind="backup-cloud-cache",
+            )
+        meta = backup_contracts.BackupMeta(
+            id="idempotent",
+            created_at="2026-01-01T00:00:00+00:00",
+            size_bytes=len(b"cache response"),
+            storage_backend="s3",
+            file_count=0,
+            app_version="0.13.0",
+            path="printstash-backup-idempotent.tar.gz",
+            location="s3",
+            source_ref="idempotent-source",
+        )
+        monkeypatch.setattr(
+            backup_catalogue, "get_backup", lambda *_args, **_kwargs: meta
+        )
+        monkeypatch.setattr(
+            backup_catalogue, "get_backup_archive_path", lambda *_args, **_kwargs: cache
+        )
+
+        response = backup_api.download_backup("idempotent", source_ref=meta.source_ref)
+        assert response.filename == meta.path
+        assert response.headers["content-disposition"].endswith(
+            f'filename="{meta.path}"'
+        )
+
+        assert response.background is not None
+        asyncio.run(response.background())
+        backup_caches.cleanup_backup_cache(cache)
+
+        assert not cache.exists()
+
+    def test_concurrent_downloads_keep_request_unique_archives(
+        self, backup_env: BackupEnv, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        payloads = {name: f"payload-{name}".encode() for name in ("one", "two")}
+        metas: dict[str, backup_contracts.BackupMeta] = {}
+        paths: dict[str, Path] = {}
+        for name, payload in payloads.items():
+            cache = backup_env.backup_dir / ".cloud-cache" / f"{name}.tar.gz"
+            cache.parent.mkdir(parents=True, exist_ok=True)
+            with backup_env.new_session() as session:
+                store_owned_bytes(
+                    session,
+                    storage_local.LocalStorageBackend(),
+                    str(cache),
+                    payload,
+                    object_kind="backup-cloud-cache",
+                )
+            paths[name] = cache
+            metas[name] = backup_contracts.BackupMeta(
+                id=name,
+                created_at="2026-01-01T00:00:00+00:00",
+                size_bytes=len(payload),
+                storage_backend="s3",
+                file_count=0,
+                app_version="0.13.0",
+                path=f"printstash-backup-{name}.tar.gz",
+                location="s3",
+                source_ref=f"{name}-source",
+            )
+
+        monkeypatch.setattr(
+            backup_catalogue,
+            "get_backup",
+            lambda backup_id, **_kwargs: metas[backup_id],
+        )
+        monkeypatch.setattr(
+            backup_catalogue,
+            "get_backup_archive_path",
+            lambda backup_id, **_kwargs: paths[backup_id],
+        )
+
+        def download(name: str):
+            return backup_api.download_backup(name, source_ref=f"{name}-source")
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            results = list(executor.map(download, payloads))
+
+        assert {result.filename for result in results} == {
+            meta.path for meta in metas.values()
+        }
+        assert {result.path for result in results} == {path for path in paths.values()}
+        for result in results:
+            assert result.background is not None
+            asyncio.run(result.background())
+        assert all(not path.exists() for path in paths.values())
+
+    def test_reports_an_unknown_backup_as_not_found(
+        self, client: TestClient, backup_env: BackupEnv, admin_headers: dict[str, str]
+    ) -> None:
+        response = client.get(
+            "/api/v1/backups/does-not-exist/download", headers=admin_headers
+        )
+
+        assert response.status_code == 404, response.text
+        assert response.json()["detail"] == "backup_not_found"
+
+    def test_surfaces_an_unexpected_failure(
+        self,
+        client: TestClient,
+        a_backup: backup_contracts.BackupMeta,
+        admin_headers: dict[str, str],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        def unreadable(_backup_id: str):
+            raise RuntimeError("disk on fire")
+
+        monkeypatch.setattr(backup_catalogue, "get_backup_archive_path", unreadable)
+
+        response = client.get(
+            f"/api/v1/backups/{a_backup.id}/download", headers=admin_headers
+        )
+
+        assert response.status_code == 500, response.text
+        assert "disk on fire" in response.json()["detail"]
+
+    def test_rejects_a_non_superuser(
+        self, client: TestClient, backup_env: BackupEnv, a_backup
+    ) -> None:
+        response = client.get(
+            f"/api/v1/backups/{a_backup.id}/download",
+            headers=user_headers_in_env(backup_env),
+        )
+
+        assert response.status_code == 403, response.text
+
+    def test_forwards_exact_source_reference(
+        self, client: TestClient, admin_headers, a_backup, monkeypatch
+    ):
+        observed: dict[str, str | None] = {}
+
+        def path(_backup_id: str, *, source_ref: str | None = None) -> Path:
+            observed["source_ref"] = source_ref
+            return Path(a_backup.path)
+
+        monkeypatch.setattr(
+            backup_catalogue, "get_backup", lambda *_args, **_kwargs: a_backup
+        )
+        monkeypatch.setattr(backup_catalogue, "get_backup_archive_path", path)
+        response = client.get(
+            f"/api/v1/backups/{a_backup.id}/download",
+            params={"source_ref": "exact-source"},
+            headers=admin_headers,
+        )
+
+        assert response.status_code == 200, response.text
+        assert observed == {"source_ref": "exact-source"}
+
+    def test_maps_source_identity_conflict_to_http_conflict(
+        self, client: TestClient, admin_headers, a_backup, monkeypatch
+    ) -> None:
+        monkeypatch.setattr(
+            backup_catalogue, "get_backup", lambda *_args, **_kwargs: a_backup
+        )
+        _assert_source_identity_conflict(
+            client,
+            admin_headers,
+            a_backup.id,
+            monkeypatch,
+            method="get",
+            path_suffix="/download",
+            service_name="get_backup_archive_path",
+        )
+
+    def test_maps_filename_identity_conflict_to_http_conflict(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        def conflict(*_args: object, **_kwargs: object) -> None:
+            raise BackupIdentityConflictError("backup_identity_conflict")
+
+        monkeypatch.setattr(backup_catalogue, "get_backup", conflict)
+
+        with pytest.raises(HTTPException) as raised:
+            backup_api.download_backup(BackgroundTasks(), "ambiguous")
+
+        assert raised.value.status_code == 409
+        assert raised.value.detail == "backup_identity_conflict"
+
+
+class TestVerifyBackup:
+    def test_reports_a_sound_archive(
+        self, client: TestClient, admin_headers: dict[str, str], a_backup
+    ) -> None:
+        response = client.post(
+            f"/api/v1/backups/{a_backup.id}/verify", headers=admin_headers
+        )
+
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body["valid"] is True
+        assert body["app_compatible"] is True
+        assert body["findings"] == []
+
+    def test_reports_an_unknown_backup_as_not_found(
+        self, client: TestClient, backup_env: BackupEnv, admin_headers: dict[str, str]
+    ) -> None:
+        response = client.post(
+            "/api/v1/backups/does-not-exist/verify", headers=admin_headers
+        )
+
+        assert response.status_code == 404, response.text
+
+    def test_rejects_a_non_superuser(
+        self, client: TestClient, backup_env: BackupEnv, a_backup
+    ) -> None:
+        response = client.post(
+            f"/api/v1/backups/{a_backup.id}/verify",
+            headers=user_headers_in_env(backup_env),
+        )
+
+        assert response.status_code == 403, response.text
+
+    def test_forwards_exact_source_reference(
+        self, client: TestClient, admin_headers, a_backup, monkeypatch
+    ):
+        observed: dict[str, str | None] = {}
+
+        def verify(_backup_id: str, *, source_ref: str | None = None):
+            observed["source_ref"] = source_ref
+            return backup_contracts.BackupVerification(
+                backup_id=a_backup.id,
+                valid=True,
+                app_compatible=True,
+                manifest_version="1",
+                checked_members=1,
+                findings=[],
+            )
+
+        monkeypatch.setattr(backup_verification, "verify_backup", verify)
+        response = client.post(
+            f"/api/v1/backups/{a_backup.id}/verify",
+            params={"source_ref": "exact-source"},
+            headers=admin_headers,
+        )
+
+        assert response.status_code == 200, response.text
+        assert observed == {"source_ref": "exact-source"}
+
+    def test_maps_source_identity_conflict_to_http_conflict(
+        self, client: TestClient, admin_headers, a_backup, monkeypatch
+    ) -> None:
+        _assert_source_identity_conflict(
+            client,
+            admin_headers,
+            a_backup.id,
+            monkeypatch,
+            method="post",
+            path_suffix="/verify",
+            service_name="verify_backup",
+        )
+
+
+class TestDeleteBackup:
+    @pytest.mark.parametrize("replacement", [False, True])
+    def test_manual_confirmation_cannot_delete_an_unversioned_replica(
+        self,
+        client: TestClient,
+        backup_env: BackupEnv,
+        admin_headers,
+        monkeypatch,
+        tmp_path: Path,
+        replacement: bool,
+    ) -> None:
+        remote_bytes = tmp_path / "remote-archive"
+        original = b"backup1"
+        remote_bytes.write_bytes(b"backup2" if replacement else original)
+        key = "sftp/root/printstash-backups/archive.tar.gz"
+
+        class UnversionedStorage:
+            backend_name = "backup-opendal-sftp"
+            source_namespace = "sftp/root"
+            operator_capabilities = SimpleNamespace(delete_with_version=False)
+
+            def object_info(self, requested):
+                assert requested == key
+                return StorageObjectInfo(size=remote_bytes.stat().st_size)
+
+            def delete_owned_unversioned(self, requested, **_kwargs):
+                assert requested == key
+                remote_bytes.unlink()
+
+        destination = RemoteBackupDestination(
+            1, "SFTP backup", "sftp", UnversionedStorage(), "provider"
+        )  # type: ignore[arg-type]
+        with backup_env.new_session() as session:
+            row = build_owned_storage_object(
+                session,
+                backend="backup-opendal-sftp",
+                namespace="sftp/root",
+                key=key,
+                object_kind="backup",
+                provider_ref="provider",
+                sha256=hashlib.sha256(original).hexdigest(),
+                size_bytes=len(original),
+            )
+            row_id, token = row.id, row.token
+        meta = backup_contracts.BackupMeta(
+            id="archive",
+            created_at="2026-01-01T00:00:00+00:00",
+            size_bytes=len(original),
+            storage_backend="local",
+            file_count=0,
+            app_version="0.13.0",
+            path=key,
+            location="opendal:sftp",
+            provider_ref="provider",
+            namespace="sftp/root",
+            source_ref="exact-source",
+        )
+        monkeypatch.setattr(backup_catalogue, "get_backup", lambda *_a, **_k: meta)
+        monkeypatch.setattr(
+            backup_destination, "destination_for_ownership", lambda _: destination
+        )
+
+        response = client.delete(
+            "/api/v1/backups/archive",
+            headers=admin_headers,
+            params={
+                "source_ref": "exact-source",
+                "confirm_storage_risk": "true",
+                "allow_unversioned": "true",
+            },
+        )
+
+        assert response.status_code == 409, response.text
+        assert response.json()["detail"] == "backup_exact_delete_unsupported"
+        assert remote_bytes.read_bytes() == (b"backup2" if replacement else original)
+        with backup_env.new_session() as session:
+            retained = session.get(OwnedStorageObject, row_id)
+            assert retained is not None and retained.token == token
+            assert retained.provider_ref == "provider"
+            assert retained.sha256 == hashlib.sha256(original).hexdigest()
+
+    def test_reports_the_deletion(
+        self, client: TestClient, admin_headers: dict[str, str], a_backup
+    ) -> None:
+        response = client.delete(
+            f"/api/v1/backups/{a_backup.id}", headers=admin_headers
+        )
+
+        assert response.status_code == 200, response.text
+        assert response.json() == {"backup_id": a_backup.id, "deleted": True}
+
+    def test_removes_the_archive(
+        self, client: TestClient, admin_headers: dict[str, str], a_backup
+    ) -> None:
+        client.delete(f"/api/v1/backups/{a_backup.id}", headers=admin_headers)
+
+        assert not Path(a_backup.path).exists()
+
+    def test_reports_an_unknown_backup_as_not_found(
+        self, client: TestClient, backup_env: BackupEnv, admin_headers: dict[str, str]
+    ) -> None:
+        response = client.delete(
+            "/api/v1/backups/does-not-exist", headers=admin_headers
+        )
+
+        assert response.status_code == 404, response.text
+        assert response.json()["detail"] == "backup_not_found"
+
+    def test_refuses_when_storage_ownership_is_unverified(
+        self,
+        client: TestClient,
+        admin_headers: dict[str, str],
+        a_backup,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        # Deleting a blob the vault cannot prove it owns is how another
+        # application's data gets destroyed; the service refuses and the router
+        # must surface that rather than reporting success.
+        def unverified(_backup_id: str, **_kwargs: object):
+            raise backup_contracts.BackupOwnershipError("cannot verify ownership")
+
+        monkeypatch.setattr(backup_deletion, "delete_backup", unverified)
+
+        response = client.delete(
+            f"/api/v1/backups/{a_backup.id}", headers=admin_headers
+        )
+
+        assert response.status_code == 409, response.text
+        assert response.json()["detail"] == "backup_storage_ownership_unverified"
+
+    def test_rejects_a_non_superuser(
+        self, client: TestClient, backup_env: BackupEnv, a_backup
+    ) -> None:
+        response = client.delete(
+            f"/api/v1/backups/{a_backup.id}", headers=user_headers_in_env(backup_env)
+        )
+
+        assert response.status_code == 403, response.text
+
+    def test_forwards_exact_source_reference(
+        self, client: TestClient, admin_headers, a_backup, monkeypatch
+    ):
+        observed: dict[str, str | bool | None] = {}
+
+        def delete(
+            _backup_id: str,
+            *,
+            source_ref: str | None = None,
+            allow_unversioned: bool = False,
+        ) -> bool:
+            observed["source_ref"] = source_ref
+            observed["allow_unversioned"] = allow_unversioned
+            return True
+
+        monkeypatch.setattr(backup_deletion, "delete_backup", delete)
+        response = client.delete(
+            f"/api/v1/backups/{a_backup.id}",
+            params={"source_ref": "exact-source"},
+            headers=admin_headers,
+        )
+
+        assert response.status_code == 200, response.text
+        assert observed == {
+            "source_ref": "exact-source",
+            "allow_unversioned": False,
+        }
+
+    def test_maps_source_identity_conflict_to_http_conflict(
+        self, client: TestClient, admin_headers, a_backup, monkeypatch
+    ) -> None:
+        _assert_source_identity_conflict(
+            client,
+            admin_headers,
+            a_backup.id,
+            monkeypatch,
+            method="delete",
+            path_suffix="",
+            service_name="delete_backup",
+        )
+
+
+class TestRestoreBackup:
+    def test_returns_what_the_restore_reports(
+        self,
+        client: TestClient,
+        admin_headers: dict[str, str],
+        a_backup,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        # The restore itself is covered end to end in the service tests; here the
+        # router's job is only to hand back what it was given.
+        monkeypatch.setattr(
+            backup_restore, "restore_backup", lambda _id: {"restored": True, "files": 1}
+        )
+
+        response = client.post(
+            f"/api/v1/backups/{a_backup.id}/restore", headers=admin_headers
+        )
+
+        assert response.status_code == 200, response.text
+        assert response.json() == {"restored": True, "files": 1}
+
+    def test_refuses_when_storage_ownership_is_unverified(
+        self,
+        client: TestClient,
+        admin_headers: dict[str, str],
+        a_backup,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        def unverified(_backup_id: str):
+            raise backup_contracts.BackupOwnershipError("cannot verify ownership")
+
+        monkeypatch.setattr(backup_restore, "restore_backup", unverified)
+
+        response = client.post(
+            f"/api/v1/backups/{a_backup.id}/restore", headers=admin_headers
+        )
+
+        assert response.status_code == 409, response.text
+        assert response.json()["detail"] == "backup_storage_ownership_unverified"
+
+    def test_reports_an_unknown_backup_as_not_found(
+        self, client: TestClient, backup_env: BackupEnv, admin_headers: dict[str, str]
+    ) -> None:
+        response = client.post(
+            "/api/v1/backups/does-not-exist/restore", headers=admin_headers
+        )
+
+        assert response.status_code == 404, response.text
+        assert response.json()["detail"] == "backup_not_found"
+
+    def test_refuses_while_a_write_stays_admitted(
+        self,
+        client: TestClient,
+        admin_headers: dict[str, str],
+        a_backup,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        # A job step mid-write is an admitted mutation: the restore waits for
+        # it to drain, and refuses rather than replacing the database under it.
+        from app.runtime import maintenance
+
+        monkeypatch.setattr(maintenance, "_RESTORE_DRAIN_TIMEOUT_S", 0.1)
+        assert maintenance.begin_mutating_operation() is True
+        try:
+            response = client.post(
+                f"/api/v1/backups/{a_backup.id}/restore", headers=admin_headers
+            )
+        finally:
+            maintenance.end_mutating_operation()
+
+        assert response.status_code == 409, response.text
+
+    @pytest.mark.parametrize(
+        ("kind", "state"),
+        [
+            pytest.param(kind, state, id=f"{kind.value}-{state.value}")
+            for kind in (
+                IngestRequestKind.UPLOAD,
+                IngestRequestKind.ARCHIVE_INSPECT,
+                IngestRequestKind.ARCHIVE_SELECTION,
+            )
+            for state in JobState
+            if (kind, state) != (IngestRequestKind.ARCHIVE_INSPECT, JobState.COMPLETED)
+        ],
+    )
+    def test_refuses_while_an_import_owns_staged_bytes(
+        self,
+        client: TestClient,
+        backup_env: BackupEnv,
+        admin_headers: dict[str, str],
+        a_backup,
+        kind,
+        state,
+    ) -> None:
+        staged = backup_env.root / "staged-import.stl"
+        staged.write_bytes(b"solid x\nendsolid x\n")
+        inspected = backup_env.root / "inspected.zip"
+        inspected.write_bytes(b"retained inspection")
+        with backup_env.new_session() as session:
+            owner = build_user(session, "restore-importer")
+            idle = build_ingest_request(
+                session,
+                owner,
+                kind=IngestRequestKind.ARCHIVE_INSPECT,
+                state=JobState.COMPLETED,
+            )
+            session.add(
+                StagingLease(
+                    id="idle-inspection-lease",
+                    path=str(inspected),
+                    owner_user_id=owner.id,
+                    job_id=idle.job_id,
+                    size_bytes=inspected.stat().st_size,
+                    sha256="e" * 64,
+                    expires_at=utcnow() + timedelta(hours=1),
+                )
+            )
+            session.commit()
+            request = build_ingest_request(session, owner, kind=kind, state=state)
+            session.add(
+                StagingLease(
+                    id="restore-lease",
+                    path=str(staged),
+                    owner_user_id=owner.id,
+                    job_id=request.job_id,
+                    size_bytes=staged.stat().st_size,
+                    sha256="f" * 64,
+                    expires_at=utcnow() + timedelta(hours=1),
+                )
+            )
+            session.commit()
+
+        response = client.post(
+            f"/api/v1/backups/{a_backup.id}/restore", headers=admin_headers
+        )
+
+        assert response.status_code == 409, response.text
+        assert response.json()["detail"] == "1 staging lease(s) active"
+        assert staged.read_bytes() == b"solid x\nendsolid x\n"
+        assert inspected.read_bytes() == b"retained inspection"
+
+    def test_refuses_on_a_database_it_cannot_restore(
+        self,
+        client: TestClient,
+        backup_env: BackupEnv,
+        admin_headers: dict[str, str],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        from app.core.config import _overlay
+
+        monkeypatch.setitem(_overlay, "db_url", UNSUPPORTED_DB_URL)
+
+        response = client.post("/api/v1/backups/any-id/restore", headers=admin_headers)
+
+        assert response.status_code == 501, response.text
+        assert response.json()["detail"] == "database_backup_not_supported"
+
+    def test_surfaces_an_unexpected_failure(
+        self,
+        client: TestClient,
+        admin_headers: dict[str, str],
+        a_backup,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        def failing(_backup_id: str):
+            raise RuntimeError("kaboom")
+
+        monkeypatch.setattr(backup_restore, "restore_backup", failing)
+
+        response = client.post(
+            f"/api/v1/backups/{a_backup.id}/restore", headers=admin_headers
+        )
+
+        assert response.status_code == 500, response.text
+        assert "kaboom" in response.json()["detail"]
+
+    def test_rejects_a_non_superuser(
+        self, client: TestClient, backup_env: BackupEnv, a_backup
+    ) -> None:
+        response = client.post(
+            f"/api/v1/backups/{a_backup.id}/restore",
+            headers=user_headers_in_env(backup_env),
+        )
+
+        assert response.status_code == 403, response.text
+
+    def test_forwards_exact_source_reference(
+        self, client: TestClient, admin_headers, a_backup, monkeypatch
+    ):
+        observed: dict[str, str | None] = {}
+
+        def restore(_backup_id: str, *, source_ref: str | None = None):
+            observed["source_ref"] = source_ref
+            return {"restored": True, "files": 1}
+
+        monkeypatch.setattr(backup_restore, "restore_backup", restore)
+        response = client.post(
+            f"/api/v1/backups/{a_backup.id}/restore",
+            params={"source_ref": "exact-source"},
+            headers=admin_headers,
+        )
+
+        assert response.status_code == 200, response.text
+        assert observed == {"source_ref": "exact-source"}
+
+    def test_maps_source_identity_conflict_to_http_conflict(
+        self, client: TestClient, admin_headers, a_backup, monkeypatch
+    ) -> None:
+        _assert_source_identity_conflict(
+            client,
+            admin_headers,
+            a_backup.id,
+            monkeypatch,
+            method="post",
+            path_suffix="/restore",
+            service_name="restore_backup",
+        )
+
+
+class TestDiscoverUnownedS3Backups:
+    def test_lists_unowned_s3_sources(
+        self, client: TestClient, admin_headers, monkeypatch
+    ):
+        candidate = {
+            "key": "nexus3d-backups/printstash-backup-legacy.tar.gz",
+            "backup_id": "legacy",
+            "created_at": "2020-01-01T00:00:00+00:00",
+            "size_bytes": 12,
+            "file_count": 1,
+            "storage_backend": "local",
+            "app_version": "0.13.0",
+            "location": "s3",
+            "namespace": "archive-bucket/nexus3d-backups/",
+            "prefix": "nexus3d-backups/",
+            "archive_sha256": "a" * 64,
+            "source_ref": "source-ref",
+        }
+        monkeypatch.setattr(
+            backup_adoption, "discover_unowned_s3_backups", lambda: [candidate]
+        )
+
+        response = client.get("/api/v1/backups/unowned-s3", headers=admin_headers)
+
+        assert response.status_code == 200, response.text
+        assert response.json() == [candidate]
+
+
+class TestAdoptS3Backup:
+    def test_adopts_an_s3_source_with_exact_query_identity(
+        self, client: TestClient, admin_headers, monkeypatch
+    ):
+        meta = backup_contracts.BackupMeta(
+            id="legacy",
+            created_at="2020-01-01T00:00:00+00:00",
+            size_bytes=12,
+            storage_backend="local",
+            file_count=1,
+            app_version="0.13.0",
+            path="nexus3d-backups/printstash-backup-legacy.tar.gz",
+            location="s3",
+            archive_sha256="a" * 64,
+            source_ref="source-ref",
+        )
+        observed: dict[str, str] = {}
+
+        def adopt(
+            key: str, *, source_ref: str, expected_archive_sha256: str
+        ) -> backup_contracts.BackupMeta:
+            observed.update(
+                key=key,
+                source_ref=source_ref,
+                expected_archive_sha256=expected_archive_sha256,
+            )
+            return meta
+
+        monkeypatch.setattr(backup_adoption, "adopt_s3_backup", adopt)
+        params = {
+            "key": meta.path,
+            "source_ref": "source-ref",
+            "expected_archive_sha256": "a" * 64,
+        }
+
+        response = client.post(
+            "/api/v1/backups/adopt-s3", params=params, headers=admin_headers
+        )
+
+        assert response.status_code == 200, response.text
+        assert observed == {
+            "key": meta.path,
+            "source_ref": "source-ref",
+            "expected_archive_sha256": "a" * 64,
+        }
+        assert response.json()["source_ref"] == "source-ref"
+        assert response.json()["archive_sha256"] == "a" * 64
+
+    def test_reports_s3_adoption_conflict(
+        self, client: TestClient, admin_headers, monkeypatch
+    ):
+        monkeypatch.setattr(
+            backup_adoption,
+            "adopt_s3_backup",
+            lambda *_args, **_kwargs: (_ for _ in ()).throw(
+                ValueError("backup_source_ref_mismatch")
+            ),
+        )
+
+        response = client.post(
+            "/api/v1/backups/adopt-s3",
+            params={
+                "key": "nexus3d-backups/printstash-backup-legacy.tar.gz",
+                "source_ref": "wrong",
+                "expected_archive_sha256": "a" * 64,
+            },
+            headers=admin_headers,
+        )
+
+        assert response.status_code == 409, response.text
+        assert response.json()["detail"] == "backup_source_ref_mismatch"
+
+
+class TestDiscoverUnownedRemoteBackups:
+    def test_lists_opendal_candidates(
+        self,
+        client: TestClient,
+        admin_headers: dict[str, str],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        candidate = {
+            "connection_id": 7,
+            "connection_name": "Recovery Drive",
+            "provider": "gdrive",
+            "key": "gdrive/PrintStash/printstash-backups/printstash-backup-old.tar.gz",
+            "backup_id": "old",
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "size_bytes": 12,
+            "file_count": 1,
+            "storage_backend": "local",
+            "app_version": "0.13.0",
+            "location": "opendal:gdrive",
+            "namespace": "gdrive/PrintStash",
+            "prefix": "gdrive/PrintStash/printstash-backups",
+            "archive_sha256": "a" * 64,
+            "source_ref": "source-ref",
+        }
+        monkeypatch.setattr(
+            backup_adoption, "discover_unowned_opendal_backups", lambda: [candidate]
+        )
+
+        response = client.get("/api/v1/backups/unowned-remote", headers=admin_headers)
+
+        assert response.status_code == 200, response.text
+        assert response.json() == [candidate]
+
+    def test_rejects_a_non_superuser(
+        self, client: TestClient, backup_env: BackupEnv
+    ) -> None:
+        response = client.get(
+            "/api/v1/backups/unowned-remote",
+            headers=user_headers_in_env(backup_env),
+        )
+
+        assert response.status_code == 403, response.text
+
+
+class TestAdoptRemoteBackup:
+    def test_forwards_the_exact_opendal_candidate(
+        self,
+        client: TestClient,
+        admin_headers: dict[str, str],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        key = "gdrive/PrintStash/printstash-backups/printstash-backup-old.tar.gz"
+        observed: dict[str, object] = {}
+
+        def adopt(
+            connection_id: int,
+            candidate_key: str,
+            *,
+            source_ref: str,
+            expected_archive_sha256: str,
+        ) -> backup_contracts.BackupMeta:
+            observed.update(
+                connection_id=connection_id,
+                key=candidate_key,
+                source_ref=source_ref,
+                expected_archive_sha256=expected_archive_sha256,
+            )
+            return backup_contracts.BackupMeta(
+                id="old",
+                created_at="2026-01-01T00:00:00+00:00",
+                size_bytes=12,
+                storage_backend="local",
+                file_count=1,
+                app_version="0.13.0",
+                path=key,
+                location="opendal:gdrive",
+                archive_sha256="a" * 64,
+                source_ref="source-ref",
+                provider_ref="provider-ref",
+                namespace="gdrive/PrintStash",
+            )
+
+        monkeypatch.setattr(backup_adoption, "adopt_opendal_backup", adopt)
+
+        response = client.post(
+            "/api/v1/backups/adopt-remote",
+            params={
+                "connection_id": 7,
+                "key": key,
+                "source_ref": "source-ref",
+                "expected_archive_sha256": "a" * 64,
+            },
+            headers=admin_headers,
+        )
+
+        assert response.status_code == 200, response.text
+        assert observed == {
+            "connection_id": 7,
+            "key": key,
+            "source_ref": "source-ref",
+            "expected_archive_sha256": "a" * 64,
+        }
+
+    def test_rejects_a_non_superuser(
+        self, client: TestClient, backup_env: BackupEnv
+    ) -> None:
+        response = client.post(
+            "/api/v1/backups/adopt-remote",
+            params={
+                "connection_id": 7,
+                "key": "gdrive/PrintStash/printstash-backups/printstash-backup-old.tar.gz",
+                "source_ref": "source-ref",
+                "expected_archive_sha256": "a" * 64,
+            },
+            headers=user_headers_in_env(backup_env),
+        )
+
+        assert response.status_code == 403, response.text
+
+
+class TestBackupRunAdministration:
+    def test_create_exposes_durable_destination_results(
+        self, client, backup_env, admin_headers
+    ):
+        created = _backup_job(client, admin_headers)["result"]
+        assert created["outcome"] == "completed"
+        result = created["destination_results"][0]
+        assert result["outcome"] == "completed"
+        assert result["verified_at"] is None
+        run = client.get(
+            f"/api/v1/backups/runs/{created['run_id']}", headers=admin_headers
+        )
+        assert run.status_code == 200
+        assert run.json()["backup_id"] == created["backup_id"]
+        assert run.json()["destinations"][0]["ownership_id"] is not None
+        listing = client.get("/api/v1/backups/runs", headers=admin_headers)
+        assert listing.status_code == 200
+        assert [row["id"] for row in listing.json()] == [created["run_id"]]
+
+    @pytest.mark.parametrize(
+        "path", ["/api/v1/backups/runs", "/api/v1/backups/runs/unknown"]
+    )
+    def test_non_admin_cannot_read_execution_records(self, client, backup_env, path):
+        headers = user_headers_in_env(backup_env)
+        response = client.get(path, headers=headers)
+        assert response.status_code == 403
+
+    def test_non_admin_cannot_retry_a_destination(self, client, backup_env):
+        from sqlmodel import select
+
+        from app.db.models import BackupRetryAttempt, BackupRun
+
+        response = client.post(
+            "/api/v1/backups/runs/destinations/unknown/retry",
+            headers=user_headers_in_env(backup_env),
+        )
+        assert response.status_code == 403
+        with backup_env.new_session() as session:
+            assert session.exec(select(BackupRetryAttempt)).all() == []
+            assert session.exec(select(BackupRun)).all() == []
+
+    def test_all_failed_api_response_has_a_readable_run_reference(
+        self, client, backup_env, admin_headers
+    ):
+        from app.db.models import StorageConnectionPurpose, SystemConfig
+        from tests.factories import build_storage_connection
+
+        with backup_env.new_session() as session:
+            session.add(SystemConfig(id=1, manual_local_backup_enabled=False))
+            profile = build_storage_connection(
+                session, purpose=StorageConnectionPurpose.BACKUP
+            )
+            profile.config_json = "{}"
+            session.add(profile)
+            session.commit()
+        job = _backup_job(client, admin_headers)
+        assert (job["state"], job["error"]) == (
+            "failed",
+            "backup_all_destinations_failed",
+        )
+        detail = client.get(
+            f"/api/v1/backups/runs/{job['result']['run_id']}", headers=admin_headers
+        )
+        assert detail.status_code == 200
+        assert detail.json()["outcome"] == "failed"
+        assert (
+            detail.json()["destinations"][0]["error_code"]
+            == "storage_connection_invalid"
+        )
+
+    @pytest.mark.parametrize(
+        "method,path,code",
+        [
+            ("get", "/api/v1/backups/runs/missing", "backup_run_not_found"),
+            (
+                "post",
+                "/api/v1/backups/runs/destinations/missing/retry",
+                "backup_destination_result_not_found",
+            ),
+        ],
+    )
+    def test_unknown_execution_returns_stable_not_found(
+        self, client, backup_env, admin_headers, method, path, code
+    ):
+        response = getattr(client, method)(path, headers=admin_headers)
+        assert response.status_code == 404
+        assert response.json()["detail"] == code

@@ -1,0 +1,122 @@
+import { useEffect, useRef } from "react";
+
+import { eventsUrl } from "./api";
+import type {
+  RunFinishedEvent,
+  RunUserStageEvent,
+  SyncFinishedEvent,
+  SyncProgressEvent,
+  UninstallProgressEvent,
+} from "./types";
+
+export interface SSEHandlers {
+  onRunUserStage?: (event: RunUserStageEvent) => void;
+  onRunFinished?: (event: RunFinishedEvent) => void;
+  onUninstallProgress?: (event: UninstallProgressEvent) => void;
+  onSyncProgress?: (event: SyncProgressEvent) => void;
+  onSyncFinished?: (event: SyncFinishedEvent) => void;
+}
+
+const INITIAL_RETRY_MS = 1_000;
+const MAX_RETRY_MS = 30_000;
+
+function parseData<T>(raw: string): T | null {
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Subscribe to Shortlist's shared event stream (`GET /api/events`).
+ *
+ * One EventSource per page: call this once at page level and fan the events
+ * out via the handlers — never once per widget (rules/frontend.md).
+ * Reconnects automatically with exponential backoff after connection loss.
+ *
+ * Returns nothing on purpose. It used to hand back a `connected` flag that no call site read: the
+ * state existed only to re-render the whole page on every open/error/close, for no consumer. A page
+ * that needs to know its data may be stale asks about the DATA instead — `runRefetchIntervalMs`
+ * (lib/run-format.ts) polls while a run has no `finished_at` — which also covers a stream that is
+ * connected but missed a publish, where a socket-level flag reports everything is fine.
+ */
+export function useSSE(handlers: SSEHandlers): void {
+  // Keep the latest handlers in a ref so callers can pass inline objects
+  // without tearing down and re-opening the connection every render.
+  // Assigned in an effect, not during render: mutating a ref while rendering is unsafe under
+  // concurrent rendering, where a render can be discarded or replayed. Safe here because every
+  // read is inside an EventSource callback, which can only fire after the commit.
+  const handlersRef = useRef(handlers);
+  useEffect(() => {
+    handlersRef.current = handlers;
+  });
+
+  useEffect(() => {
+    let source: EventSource | null = null;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let retryMs = INITIAL_RETRY_MS;
+    let disposed = false;
+
+    const connect = (): void => {
+      if (disposed) return;
+      source = new EventSource(eventsUrl());
+
+      source.onopen = () => {
+        retryMs = INITIAL_RETRY_MS;
+      };
+
+      source.addEventListener(
+        "run.user.stage",
+        (event: MessageEvent<string>) => {
+          const data = parseData<RunUserStageEvent>(event.data);
+          if (data) handlersRef.current.onRunUserStage?.(data);
+        },
+      );
+
+      source.addEventListener("run.finished", (event: MessageEvent<string>) => {
+        const data = parseData<RunFinishedEvent>(event.data);
+        if (data) handlersRef.current.onRunFinished?.(data);
+      });
+
+      source.addEventListener(
+        "uninstall.progress",
+        (event: MessageEvent<string>) => {
+          const data = parseData<UninstallProgressEvent>(event.data);
+          if (data) handlersRef.current.onUninstallProgress?.(data);
+        },
+      );
+
+      source.addEventListener(
+        "sync.progress",
+        (event: MessageEvent<string>) => {
+          const data = parseData<SyncProgressEvent>(event.data);
+          if (data) handlersRef.current.onSyncProgress?.(data);
+        },
+      );
+
+      source.addEventListener(
+        "sync.finished",
+        (event: MessageEvent<string>) => {
+          const data = parseData<SyncFinishedEvent>(event.data);
+          if (data) handlersRef.current.onSyncFinished?.(data);
+        },
+      );
+
+      source.onerror = () => {
+        source?.close();
+        source = null;
+        retryTimer = setTimeout(connect, retryMs);
+        retryMs = Math.min(retryMs * 2, MAX_RETRY_MS);
+      };
+    };
+
+    connect();
+
+    return () => {
+      disposed = true;
+      if (retryTimer !== null) clearTimeout(retryTimer);
+      source?.close();
+    };
+  }, []);
+}

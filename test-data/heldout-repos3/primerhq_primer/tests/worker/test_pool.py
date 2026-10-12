@@ -1,0 +1,1427 @@
+"""Tests for primer.worker.pool.WorkerPool — start/stop + heartbeat skeleton."""
+
+from __future__ import annotations
+
+from primer.model_profile import ResolvedModel
+from primer.model.model_profile import ModelProfileConfig
+
+import asyncio
+from datetime import datetime, timezone
+from unittest.mock import AsyncMock, patch
+
+import pytest
+
+from primer.model.scheduler import WorkerConfig
+from primer.model.workspace_session import (
+    AgentSessionBinding,
+    WorkspaceSession,
+    SessionStatus,
+)
+from primer.claim.in_memory import InMemoryClaimEngine
+from primer.int.claim import ClaimKind, Lease as ClaimLease, ReleaseOutcome
+from primer.scheduler.in_memory import InMemoryScheduler
+from primer.worker.pool import WorkerPool
+
+
+@pytest.fixture
+async def scheduler():
+    s = InMemoryScheduler()
+    await s.initialize()
+    yield s
+    await s.aclose()
+
+
+@pytest.fixture
+def engine():
+    return InMemoryClaimEngine(adapters={})
+
+
+
+@pytest.fixture
+def worker_pool(scheduler, engine):
+    return WorkerPool(
+        config=WorkerConfig(concurrency=2),
+        scheduler=scheduler,
+        storage=None,                  # type: ignore[arg-type]
+        workspace_registry=None,       # type: ignore[arg-type]
+        provider_registry=None,        # type: ignore[arg-type]
+        engine=engine,
+    )
+
+
+async def test_pool_start_registers_worker(worker_pool, scheduler):
+    await worker_pool.start()
+    workers = await scheduler.list_workers()
+    assert len(workers) == 1
+    assert workers[0].capacity == 2
+    await worker_pool.drain_and_stop()
+
+
+async def test_pool_drain_deregisters_worker(worker_pool, scheduler):
+    await worker_pool.start()
+    await worker_pool.drain_and_stop()
+    workers = await scheduler.list_workers()
+    assert workers == []
+
+
+async def test_pool_lease_ttl_propagates_to_scheduler(worker_pool, scheduler):
+    await worker_pool.start()
+    assert scheduler.lease_ttl_seconds == worker_pool.config.lease_ttl_seconds
+    await worker_pool.drain_and_stop()
+
+
+async def test_pool_worker_id_is_unique(scheduler, engine):
+    """Two pools registered against the same scheduler get distinct IDs."""
+    p1 = WorkerPool(
+        config=WorkerConfig(concurrency=1),
+        scheduler=scheduler, storage=None,             # type: ignore[arg-type]
+        workspace_registry=None,                       # type: ignore[arg-type]
+        provider_registry=None,                        # type: ignore[arg-type]
+        engine=engine,
+    )
+    p2 = WorkerPool(
+        config=WorkerConfig(concurrency=1),
+        scheduler=scheduler, storage=None,             # type: ignore[arg-type]
+        workspace_registry=None,                       # type: ignore[arg-type]
+        provider_registry=None,                        # type: ignore[arg-type]
+        engine=engine,
+    )
+    await p1.start()
+    await p2.start()
+    try:
+        assert p1.worker_id != p2.worker_id
+        workers = await scheduler.list_workers()
+        assert len(workers) == 2
+    finally:
+        await p1.drain_and_stop()
+        await p2.drain_and_stop()
+
+
+
+async def _async_return(value):
+    return value
+
+
+# ---------------------------------------------------------------------------
+# Phase 3 stage 7a (01a0518b) - pool-class separation: claim_due kinds
+# filter + the reserved-split claim loop (ruling C). Tested directly
+# against _claim_slice / _reserve_and_dispatch (bypassing start()'s
+# heavier side effects - scheduler registration, heartbeat loop, the
+# background claim task itself) so these are fast, deterministic unit
+# tests rather than poll-interval-timed end-to-end ones.
+# ---------------------------------------------------------------------------
+
+
+def _bare_pool(
+    scheduler, engine, *, tool_call_reserved_concurrency=None, tool_calls_as_claims_enabled=False,
+):
+    pool = WorkerPool(
+        config=WorkerConfig(
+            concurrency=4,
+            tool_call_reserved_concurrency=tool_call_reserved_concurrency,
+            tool_calls_as_claims_enabled=tool_calls_as_claims_enabled,
+        ),
+        scheduler=scheduler, storage=None,             # type: ignore[arg-type]
+        workspace_registry=None,                       # type: ignore[arg-type]
+        provider_registry=None,                        # type: ignore[arg-type]
+        engine=engine,
+    )
+    pool._worker_id = "wrk-reserve-test"
+    return pool
+
+
+async def test_claim_slice_restricts_to_given_kinds(scheduler, engine):
+    pool = _bare_pool(scheduler, engine)
+    dispatched: list[str] = []
+
+    async def _fake_handler(lease):
+        dispatched.append(lease.entity_id)
+        return ReleaseOutcome(success=True, drop_lease=True)
+
+    pool._dispatch = {
+        ClaimKind.HARNESS: _fake_handler,
+        ClaimKind.SESSION: _fake_handler,
+    }
+    await engine.upsert(ClaimKind.HARNESS, "h1", priority=100)
+    await engine.upsert(ClaimKind.SESSION, "s1", priority=100)
+
+    claimed = await pool._claim_slice(kinds=[ClaimKind.HARNESS], max_count=10)
+
+    assert claimed is True
+    assert (ClaimKind.HARNESS, "h1") in pool._in_flight
+    assert (ClaimKind.SESSION, "s1") not in pool._in_flight
+
+
+async def test_claim_slice_returns_false_when_nothing_claimed(scheduler, engine):
+    pool = _bare_pool(scheduler, engine)
+    pool._dispatch = {}
+    claimed = await pool._claim_slice(kinds=[ClaimKind.HARNESS], max_count=10)
+    assert claimed is False
+    assert pool._in_flight == set()
+
+
+async def test_reserved_loop_claims_both_slices_independently(scheduler, engine):
+    """The reserved loop's two _claim_slice calls together cover every
+    kind, each restricted to its own slice - a burst on one slice must
+    not starve the other's claim (the whole point of ruling C)."""
+    pool = _bare_pool(scheduler, engine, tool_call_reserved_concurrency=1)
+    dispatched: list[tuple] = []
+
+    async def _fake_handler(lease):
+        dispatched.append((lease.kind, lease.entity_id))
+        return ReleaseOutcome(success=True, drop_lease=True)
+
+    pool._dispatch = {
+        ClaimKind.HARNESS: _fake_handler,
+        ClaimKind.SESSION: _fake_handler,
+        ClaimKind.TOOL_CALL: _fake_handler,
+    }
+    await engine.upsert(ClaimKind.HARNESS, "h1", priority=100)
+    await engine.upsert(ClaimKind.TOOL_CALL, "t1", priority=100)
+
+    general = await pool._claim_slice(
+        kinds=[k for k in pool._dispatch if k != ClaimKind.TOOL_CALL],
+        max_count=10,
+    )
+    reserved = await pool._claim_slice(kinds=[ClaimKind.TOOL_CALL], max_count=1)
+
+    assert general is True
+    assert reserved is True
+    assert (ClaimKind.HARNESS, "h1") in pool._in_flight
+    assert (ClaimKind.TOOL_CALL, "t1") in pool._in_flight
+
+
+def test_select_claim_loop_none_reserve_is_unreserved(scheduler, engine):
+    pool = _bare_pool(scheduler, engine)
+    pool._dispatch = {ClaimKind.SESSION: object()}  # reserve is None either way
+    assert pool._select_claim_loop() == pool._engine_claim_loop
+
+
+def test_select_claim_loop_reserve_with_the_flag_off_is_unreserved(scheduler, engine):
+    """The flag-off pin. A reserve can be configured with the flag OFF (WorkerConfig accepts it), and
+    from the executor slice on TOOL_CALL is always in ``_dispatch``; the loop key must still be
+    "flag AND reserve", never "reserve and TOOL_CALL in _dispatch", or an explicit reserve would
+    silently shrink general capacity for a slice nothing enqueues into."""
+    pool = _bare_pool(scheduler, engine, tool_call_reserved_concurrency=1)
+    pool._dispatch = {ClaimKind.SESSION: object(), ClaimKind.TOOL_CALL: object()}
+    assert pool._select_claim_loop() == pool._engine_claim_loop
+
+
+def test_select_claim_loop_flag_on_with_a_reserve_is_reserved(scheduler, engine):
+    """Flag on + reserve routes to the split loop, whether or not a TOOL_CALL handler is registered
+    yet (the executor slice registers it unconditionally)."""
+    pool = _bare_pool(
+        scheduler, engine, tool_call_reserved_concurrency=1, tool_calls_as_claims_enabled=True,
+    )
+    pool._dispatch = {ClaimKind.SESSION: object(), ClaimKind.HARNESS: object()}
+    assert pool._select_claim_loop() == pool._engine_claim_loop_reserved
+    pool._dispatch = {ClaimKind.SESSION: object(), ClaimKind.TOOL_CALL: object()}
+    assert pool._select_claim_loop() == pool._engine_claim_loop_reserved
+
+
+def _make_session_row(*, parked_state: dict | None = None) -> WorkspaceSession:
+    return WorkspaceSession(
+        id="sess-1",
+        workspace_id="ws-1",
+        binding=AgentSessionBinding(agent_id="ag-1"),
+        status=SessionStatus.RUNNING,
+        created_at=datetime.now(timezone.utc),
+        parked_status="resumable",
+        parked_state=parked_state,
+    )
+
+
+def test_select_resume_handler_none_parked_state_is_classic(scheduler, engine):
+    """A session with no parked_state at all (shouldn't normally reach
+    the resume branch, but the peek must degrade gracefully) routes to
+    the classic per-yield coordinator."""
+    pool = _bare_pool(scheduler, engine)
+    row = _make_session_row(parked_state=None)
+    assert pool._select_resume_handler(row) == pool._resume_engine_session
+
+
+def test_select_resume_handler_yielded_shaped_park_is_classic(scheduler, engine):
+    pool = _bare_pool(scheduler, engine)
+    row = _make_session_row(parked_state={"yielded": {"tool_name": "ask_user"}})
+    assert pool._select_resume_handler(row) == pool._resume_engine_session
+
+
+def test_select_resume_handler_tool_wait_park_is_tool_wait(scheduler, engine):
+    """01a0518b: routes a tool_wait park to the new coordinator, BEFORE
+    session_resume_coordinator (whose own rehydration assumes a
+    Yielded-shaped blob) is ever entered."""
+    pool = _bare_pool(scheduler, engine)
+    row = _make_session_row(
+        parked_state={"kind": "tool_wait", "outstanding_task_ids": ["t1"]},
+    )
+    assert pool._select_resume_handler(row) == pool._resume_engine_tool_wait
+
+
+async def test_start_routes_to_reserved_loop_only_when_configured(
+    scheduler, engine,
+):
+    """End-to-end through start(): the default AND a reserve with the flag off schedule the unified
+    loop; the flag on (reserve derived) schedules the reserved loop."""
+    # No return_value= given: patch.object auto-detects both targets are
+    # coroutine functions and builds AsyncMocks, which fabricate a fresh
+    # awaitable per call - pre-building ONE coroutine via return_value=
+    # here would leave the not-selected mock's coroutine never awaited
+    # (a real RuntimeWarning this test tripped before this fix).
+    default_pool = _bare_pool(scheduler, engine)
+    with patch.object(
+        WorkerPool, "_engine_claim_loop",
+    ) as unified, patch.object(
+        WorkerPool, "_engine_claim_loop_reserved",
+    ) as reserved:
+        await default_pool.start()
+        await default_pool.drain_and_stop()
+    unified.assert_called_once()
+    reserved.assert_not_called()
+
+    # A reserve with the flag OFF still schedules the unified loop.
+    reserve_engine = InMemoryClaimEngine(adapters={})
+    reserved_pool = _bare_pool(
+        scheduler, reserve_engine, tool_call_reserved_concurrency=1,
+    )
+    with patch.object(
+        WorkerPool, "_engine_claim_loop",
+    ) as unified2, patch.object(
+        WorkerPool, "_engine_claim_loop_reserved",
+    ) as reserved2:
+        await reserved_pool.start()
+        await reserved_pool.drain_and_stop()
+    unified2.assert_called_once()
+    reserved2.assert_not_called()
+
+    # Flag ON (the reserve is derived) schedules the reserved loop.
+    flag_engine = InMemoryClaimEngine(adapters={})
+    flag_pool = _bare_pool(scheduler, flag_engine, tool_calls_as_claims_enabled=True)
+    with patch.object(
+        WorkerPool, "_engine_claim_loop",
+    ) as unified3, patch.object(
+        WorkerPool, "_engine_claim_loop_reserved",
+    ) as reserved3:
+        await flag_pool.start()
+        await flag_pool.drain_and_stop()
+    reserved3.assert_called_once()
+    unified3.assert_not_called()
+
+
+async def test_claim_loop_runs_runnable_session(scheduler, engine, monkeypatch):
+    """End-to-end: enqueue a session via engine, start the pool, the claim
+    loop picks it up, and dispatches to run_one_session_turn."""
+    sid = "sess-claim-loop-1"
+    scheduler.register_session_for_test(sid)
+
+    pool = WorkerPool(
+        config=WorkerConfig(
+            concurrency=1, poll_interval_seconds=0.1,
+            heartbeat_interval_seconds=10,
+        ),
+        scheduler=scheduler,
+        storage=None,                 # type: ignore[arg-type]
+        workspace_registry=None,      # type: ignore[arg-type]
+        provider_registry=None,       # type: ignore[arg-type]
+        engine=engine,
+    )
+
+    dispatched: list = []
+
+    async def _fake_run_one_session_turn(lease, deps):
+        dispatched.append(lease.entity_id)
+        return ReleaseOutcome(success=True, drop_lease=True)
+
+    await pool.start()
+    try:
+        with patch(
+            "primer.worker.pool.run_one_session_turn",
+            side_effect=_fake_run_one_session_turn,
+        ):
+            await engine.upsert(ClaimKind.SESSION, sid, priority=100)
+            # Wait until run_one_session_turn is called.
+            for _ in range(50):
+                if sid in dispatched:
+                    break
+                await asyncio.sleep(0.05)
+        assert sid in dispatched, (
+            "claim loop should have dispatched to run_one_session_turn"
+        )
+    finally:
+        await pool.drain_and_stop()
+
+
+async def test_run_one_turn_now_helper_executes_one_turn(scheduler, engine, monkeypatch):
+    """Public test helper: engine.upsert + run_one_turn_now dispatches to
+    run_one_session_turn."""
+    from primer.int.claim import ClaimKind
+    sid = "sess-helper-1"
+    scheduler.register_session_for_test(sid)
+    pool = WorkerPool(
+        config=WorkerConfig(concurrency=1),
+        scheduler=scheduler, storage=None,             # type: ignore[arg-type]
+        workspace_registry=None,                       # type: ignore[arg-type]
+        provider_registry=None,                        # type: ignore[arg-type]
+        engine=engine,
+    )
+    pool._worker_id = "wrk-test"
+    await scheduler.register_worker(
+        worker_id="wrk-test", host="h", pid=1, capacity=1,
+    )
+
+    dispatched: list = []
+
+    async def _fake_run_one_session_turn(lease, deps):
+        dispatched.append(lease.entity_id)
+        return ReleaseOutcome(success=True, drop_lease=True)
+
+    # Seed the engine lease so run_one_turn_now can claim it.
+    await engine.upsert(ClaimKind.SESSION, sid, priority=100)
+
+    with patch(
+        "primer.worker.pool.run_one_session_turn",
+        side_effect=_fake_run_one_session_turn,
+    ):
+        await pool.run_one_turn_now(sid)
+
+    assert sid in dispatched, (
+        "run_one_turn_now should dispatch to run_one_session_turn"
+    )
+
+
+class _FakeAgentSessionForBuild:
+    """Just enough AgentSession surface for WorkspaceAgentExecutor wiring.
+
+    Exposes ``session_id`` + ``system_prompt_fragment`` (consumed by
+    the executor's composite-prompt builder) and ``workspace_tools``
+    (consumed by ``ToolExecutionManager.for_workspace``).
+    """
+
+    def __init__(self, sid: str) -> None:
+        self.session_id = sid
+        self.workspace_id = "ws-1"
+        self.agent_id = "ag-1"
+        self.workspace_tools: list = []
+        self.system_prompt_fragment = "[fake workspace prompt]"
+
+
+class _FakeWorkspaceForBuild:
+    """Workspace stub that returns the fake AgentSession on get_session."""
+
+    def __init__(self, sid: str) -> None:
+        self.id = "ws-1"
+        self._session = _FakeAgentSessionForBuild(sid)
+
+    async def get_session(self, session_id):
+        if session_id != self._session.session_id:
+            return None
+        return self._session
+
+
+async def test_build_agent_executor_returns_turn_driver(monkeypatch):
+    """Smoke: _build_executor for an agent binding constructs a
+    WorkspaceAgentExecutor (wrapped in _TurnDriver) without raising
+    NotImplementedError."""
+    from primer.agent.workspace_executor import WorkspaceAgentExecutor
+    from primer.model.agent import Agent, AgentModel
+    from primer.model_profile import ResolvedModel
+    from primer.worker.pool import _TurnDriver
+
+    sid = "sess-build-1"
+    agent = Agent(
+        id="ag-1",
+        description="test agent",
+        model=AgentModel(profile_id="prov-1--m-1"),
+        tools=[],
+        system_prompt=["sys"],
+    )
+    session = WorkspaceSession(
+        id=sid, workspace_id="ws-1",
+        binding=AgentSessionBinding(
+            agent_id="ag-1", agent_snapshot=agent,
+        ),
+        status=SessionStatus.RUNNING,
+        created_at=datetime.now(timezone.utc),
+        turn_no=0,
+    )
+    workspace = _FakeWorkspaceForBuild(sid)
+
+    pool = WorkerPool(
+        config=WorkerConfig(concurrency=1),
+        scheduler=None,                 # type: ignore[arg-type]
+        storage=None,                   # type: ignore[arg-type]
+        workspace_registry=None,        # type: ignore[arg-type]
+        provider_registry=None,         # type: ignore[arg-type]
+        engine=InMemoryClaimEngine(adapters={}),
+    )
+
+    # Stub the provider registry calls — the registry instance itself
+    # would otherwise need a storage_provider just to look up the LLM.
+    fake_llm = object()
+    fake_llm_model = ResolvedModel(profile_id="prov-1--m-1", provider_id="prov-1", model_name="m-1", context_length=8000, config=ModelProfileConfig())
+
+    async def _get_toolset(_id):
+        raise AssertionError("agent has no toolsets registered")
+
+    async def _resolve_llm(_agent, _override=None):
+        return fake_llm, fake_llm_model
+
+    monkeypatch.setattr(
+        pool, "_provider_registry",
+        type("R", (), {"get_toolset": staticmethod(_get_toolset)})(),
+    )
+    # build_agent_executor now goes through resolve_llm_and_model, which
+    # routes via pool._resolve_llm (the pair) -- see
+    # executor_builders.resolve_llm_and_model / pool._resolve_llm. The
+    # old two-step (pool._resolve_llm_model + a separate
+    # _provider_registry.get_llm) is gone, dead-code eliminated.
+    monkeypatch.setattr(pool, "_resolve_llm", _resolve_llm)
+
+    driver = await pool._build_executor(session, workspace)
+    assert isinstance(driver, _TurnDriver)
+    # The wrapped executor is the real WorkspaceAgentExecutor.
+    assert isinstance(driver._executor, WorkspaceAgentExecutor)
+    # The on-disk session was looked up off the workspace.
+    assert driver._executor.session is workspace._session
+    # last_done_reason starts unset.
+    assert driver.last_done_reason is None
+
+
+async def test_build_executor_raises_for_graph_binding_without_state_repo(monkeypatch):
+    """When the workspace exposes no state_repo (sandbox / container /
+    k8s backends today), graph dispatch must raise a clear ConfigError
+    naming the workspace and the missing attribute. The default
+    Workspace.state_repo is None, so backends opt in by override —
+    legacy fakes get the helpful error."""
+    from primer.model.except_ import ConfigError
+    from primer.model.graph import (
+        Graph,
+        _AgentNodeRef,
+        _BeginNode,
+        _EndNode,
+        _StaticEdge,
+    )
+    from primer.model.workspace_session import GraphSessionBinding
+
+    sid = "sess-graph-1"
+    graph_snapshot = Graph(
+        id="g-1", description="t",
+        nodes=[
+            _BeginNode(id="begin"),
+            _AgentNodeRef(id="start", agent_id="ag-1"),
+            _EndNode(id="end"),
+        ],
+        edges=[
+            _StaticEdge(from_node="begin", to_node="start"),
+            _StaticEdge(from_node="start", to_node="end"),
+        ],
+    )
+    session = WorkspaceSession(
+        id=sid, workspace_id="ws-1",
+        binding=GraphSessionBinding(graph_id="g-1", graph_snapshot=graph_snapshot),
+        status=SessionStatus.RUNNING,
+        created_at=datetime.now(timezone.utc),
+        turn_no=0,
+    )
+    pool = WorkerPool(
+        config=WorkerConfig(concurrency=1),
+        scheduler=None,                 # type: ignore[arg-type]
+        storage=None,                   # type: ignore[arg-type]
+        workspace_registry=None,        # type: ignore[arg-type]
+        provider_registry=None,         # type: ignore[arg-type]
+        engine=InMemoryClaimEngine(adapters={}),
+    )
+    # _FakeWorkspaceForBuild does not override state_repo, so the ABC
+    # default (None) flows through and triggers the ConfigError.
+    with pytest.raises(ConfigError, match="state_repo"):
+        await pool._build_executor(session, _FakeWorkspaceForBuild(sid))
+
+
+async def test_build_graph_executor_returns_graph_turn_driver(monkeypatch, tmp_path):
+    """Smoke: _build_executor for a graph binding constructs a
+    WorkspaceGraphExecutor wrapped in _GraphTurnDriver, against a
+    workspace with a real LocalStateRepo. The driver's last_done_reason
+    is the 'graph_ended' sentinel that the post-turn mapper recognises."""
+    from primer.graph.workspace_executor import WorkspaceGraphExecutor
+    from primer.model.graph import (
+        Graph,
+        _AgentNodeRef,
+        _BeginNode,
+        _EndNode,
+        _StaticEdge,
+    )
+    from primer.model.workspace_session import GraphSessionBinding
+    from primer.worker.pool import _GraphTurnDriver
+    from primer.workspace.local.state import LocalStateRepo
+
+    sid = "sess-graph-ok-1"
+    graph_snapshot = Graph(
+        id="g-ok-1", description="3-node smoke graph",
+        nodes=[
+            _BeginNode(id="begin"),
+            _AgentNodeRef(id="start", agent_id="ag-1"),
+            _EndNode(id="end"),
+        ],
+        edges=[
+            _StaticEdge(from_node="begin", to_node="start"),
+            _StaticEdge(from_node="start", to_node="end"),
+        ],
+    )
+    session = WorkspaceSession(
+        id=sid, workspace_id="ws-1",
+        binding=GraphSessionBinding(graph_id="g-ok-1", graph_snapshot=graph_snapshot),
+        status=SessionStatus.RUNNING,
+        created_at=datetime.now(timezone.utc),
+        turn_no=0,
+    )
+
+    # Workspace stub: only state_repo + id are read by _build_graph_executor.
+    repo = LocalStateRepo(tmp_path / "state", workspace_id="ws-1")
+    await repo.initialize()
+
+    class _LocalWsStub:
+        def __init__(self, sr):
+            self.id = "ws-1"
+            self.state_repo = sr
+
+        async def get_session(self, session_id):
+            # Phase 2 graph dispatch reads the holder AgentSession via
+            # workspace.get_session(session.id). For this unit test we
+            # exercise the no-holder fallback path (workspace_session
+            # is None → ToolExecutionManager() with no workspace tools).
+            return None
+
+    pool = WorkerPool(
+        config=WorkerConfig(concurrency=1),
+        scheduler=None,                 # type: ignore[arg-type]
+        storage=None,                   # type: ignore[arg-type]
+        workspace_registry=None,        # type: ignore[arg-type]
+        provider_registry=None,         # type: ignore[arg-type]
+        engine=InMemoryClaimEngine(adapters={}),
+    )
+    driver = await pool._build_executor(session, _LocalWsStub(repo))
+    assert isinstance(driver, _GraphTurnDriver)
+    assert isinstance(driver._executor, WorkspaceGraphExecutor)
+    # The sentinel that _infer_post_turn_status maps to ENDED.
+    assert driver.last_done_reason == "graph_ended"
+
+
+async def test_build_graph_executor_seeds_graph_input_from_session_metadata(
+    monkeypatch, tmp_path,
+):
+    """The worker must relay ``session.metadata['graph_input']`` into the
+    WorkspaceGraphExecutor so structured input reaches Begin and per-node
+    templates (e.g. ``{{ initial_input.task }}``). Without this, the
+    executor falls back to the (empty) messages list and every node that
+    reads a structured field of ``initial_input`` fails to render."""
+    from primer.graph.workspace_executor import WorkspaceGraphExecutor
+    from primer.model.graph import (
+        Graph,
+        _AgentNodeRef,
+        _BeginNode,
+        _EndNode,
+        _StaticEdge,
+    )
+    from primer.model.workspace_session import GraphSessionBinding
+    from primer.workspace.local.state import LocalStateRepo
+
+    graph_snapshot = Graph(
+        id="g-gi-1", description="begin->agent->end",
+        nodes=[
+            _BeginNode(id="begin"),
+            _AgentNodeRef(id="work", agent_id="ag-1"),
+            _EndNode(id="end"),
+        ],
+        edges=[
+            _StaticEdge(from_node="begin", to_node="work"),
+            _StaticEdge(from_node="work", to_node="end"),
+        ],
+    )
+    session = WorkspaceSession(
+        id="sess-graph-gi-1", workspace_id="ws-1",
+        binding=GraphSessionBinding(graph_id="g-gi-1", graph_snapshot=graph_snapshot),
+        status=SessionStatus.RUNNING,
+        created_at=datetime.now(timezone.utc),
+        turn_no=0,
+        metadata={"graph_input": {"task": "Say hello."}},
+    )
+
+    repo = LocalStateRepo(tmp_path / "state", workspace_id="ws-1")
+    await repo.initialize()
+
+    class _LocalWsStub:
+        def __init__(self, sr):
+            self.id = "ws-1"
+            self.state_repo = sr
+
+        async def get_session(self, session_id):
+            return None
+
+    pool = WorkerPool(
+        config=WorkerConfig(concurrency=1),
+        scheduler=None,                 # type: ignore[arg-type]
+        storage=None,                   # type: ignore[arg-type]
+        workspace_registry=None,        # type: ignore[arg-type]
+        provider_registry=None,         # type: ignore[arg-type]
+        engine=InMemoryClaimEngine(adapters={}),
+    )
+    driver = await pool._build_executor(session, _LocalWsStub(repo))
+    assert isinstance(driver._executor, WorkspaceGraphExecutor)
+    assert driver._executor._graph_input == {"task": "Say hello."}
+
+
+async def test_infer_post_turn_status_maps_graph_ended_to_ended():
+    """The mapper recognises the graph driver's sentinel and transitions
+    the session directly to ENDED — no re-enqueue."""
+    pool = WorkerPool(
+        config=WorkerConfig(concurrency=1),
+        scheduler=None,                 # type: ignore[arg-type]
+        storage=None,                   # type: ignore[arg-type]
+        workspace_registry=None,        # type: ignore[arg-type]
+        provider_registry=None,         # type: ignore[arg-type]
+        engine=InMemoryClaimEngine(adapters={}),
+    )
+
+    class _Driver:
+        last_done_reason = "graph_ended"
+
+    # WorkspaceSession value is unused by the agent-flavor mapper today, but
+    # we pass a stub to satisfy the signature.
+    sess = WorkspaceSession(
+        id="s", workspace_id="ws-1",
+        binding=AgentSessionBinding(agent_id="a"),  # type: ignore[arg-type]
+        status=SessionStatus.RUNNING,
+        created_at=datetime.now(timezone.utc),
+        turn_no=0,
+    )
+    assert pool._infer_post_turn_status(_Driver(), sess) == SessionStatus.ENDED
+
+
+async def test_infer_post_turn_status_reads_last_done_reason():
+    """The mapper consults executor.last_done_reason and maps the
+    documented stop-reason set to RUNNING / WAITING."""
+    pool = WorkerPool(
+        config=WorkerConfig(concurrency=1),
+        scheduler=None,                 # type: ignore[arg-type]
+        storage=None,                   # type: ignore[arg-type]
+        workspace_registry=None,        # type: ignore[arg-type]
+        provider_registry=None,         # type: ignore[arg-type]
+        engine=InMemoryClaimEngine(adapters={}),
+    )
+    session = WorkspaceSession(
+        id="s", workspace_id="ws-1",
+        binding=AgentSessionBinding(agent_id="ag-1"),
+        status=SessionStatus.RUNNING,
+        created_at=datetime.now(timezone.utc),
+        turn_no=0,
+    )
+
+    class _Exec:
+        last_done_reason: str | None = None
+
+    e = _Exec()
+    # Default: no Done observed -> RUNNING.
+    e.last_done_reason = None
+    assert pool._infer_post_turn_status(e, session) == SessionStatus.RUNNING
+    # Clean stops -> RUNNING (more turns may follow).
+    for r in ("stop", "end_turn", "stop_sequence", "tool_use"):
+        e.last_done_reason = r
+        assert pool._infer_post_turn_status(e, session) == SessionStatus.RUNNING
+    # Operator-attention reasons -> WAITING.
+    for r in ("max_tokens", "error", "content_filter"):
+        e.last_done_reason = r
+        assert pool._infer_post_turn_status(e, session) == SessionStatus.WAITING
+
+
+async def test_metrics_snapshot_includes_in_flight_and_capacity(scheduler, engine):
+    """metrics_snapshot exposes the spec §14 worker keys."""
+    pool = WorkerPool(
+        config=WorkerConfig(concurrency=3),
+        scheduler=scheduler,
+        storage=None,                  # type: ignore[arg-type]
+        workspace_registry=None,       # type: ignore[arg-type]
+        provider_registry=None,        # type: ignore[arg-type]
+        engine=engine,
+    )
+    snap = pool.metrics_snapshot()
+    # Required keys per spec §14 (worker side).
+    assert "primer_worker_id" in snap
+    assert "primer_worker_in_flight" in snap
+    assert "primer_worker_capacity" in snap
+    assert "primer_worker_claims_total" in snap
+    assert "primer_session_turns_total" in snap
+    assert "primer_session_turn_duration_seconds" in snap
+    # Capacity tracks the configured concurrency.
+    assert snap["primer_worker_capacity"] == 3
+    # Nothing has run yet — in_flight is 0, counters 0, dicts empty.
+    assert snap["primer_worker_in_flight"] == 0
+    assert snap["primer_worker_claims_total"] == 0
+    assert snap["primer_session_turns_total"] == {}
+    assert snap["primer_session_turn_duration_seconds"]["count"] == 0
+
+
+async def test_turn_driver_drains_async_generator():
+    """_TurnDriver.invoke must consume an async-generator executor to
+    completion, then expose the underlying ``last_done_reason``."""
+    from primer.worker.pool import _TurnDriver
+
+    class _StreamingExecutor:
+        def __init__(self) -> None:
+            self.last_done_reason: str | None = None
+            self.events_yielded = 0
+
+        async def invoke(self, _messages, *, response_format=None):
+            for i in range(3):
+                self.events_yielded += 1
+                yield i
+            self.last_done_reason = "end_turn"
+
+    raw = _StreamingExecutor()
+    driver = _TurnDriver(raw)
+    await driver.invoke([])
+    assert raw.events_yielded == 3
+    assert driver.last_done_reason == "end_turn"
+
+
+async def test_cancel_loop_closes_its_iterator_when_it_returns_on_stopping():
+    """The cancel loop returns from `async for` when the worker's keep-alive is over (the end of a drain).
+    That abandons a SUSPENDED async generator, whose cleanup (releasing the
+    scheduler's pooled LISTEN connection) would otherwise be left to
+    asyncio's async-generator finalizer, which closes an unreferenced
+    generator on the NEXT loop iteration. That is early enough in production,
+    but it is timing the loop should not depend on: it must close the
+    iterator itself, inline, before it returns."""
+    closed: list[str] = []
+
+    class _Scheduler:
+        def watch_cancel(self, worker_id):
+            pool_ref = pool  # set below, before the loop starts
+
+            async def _iter():
+                try:
+                    pool_ref._stopping.set()
+                    pool_ref._keepalive_done.set()  # drain has finished with the turns
+                    yield "sess-cancelled-during-drain"
+                    await asyncio.Event().wait()
+                finally:
+                    closed.append("closed")
+
+            return _iter()
+
+    pool = WorkerPool(
+        config=WorkerConfig(concurrency=1, poll_interval_seconds=0.1),
+        scheduler=_Scheduler(),                        # type: ignore[arg-type]
+        storage=None,                                  # type: ignore[arg-type]
+        workspace_registry=None,                       # type: ignore[arg-type]
+        provider_registry=None,                        # type: ignore[arg-type]
+        engine=None,                                   # type: ignore[arg-type]
+    )
+    pool._worker_id = "wrk-test"
+
+    await asyncio.wait_for(pool._cancel_loop(), timeout=2.0)
+
+    # No sleep, no gc.collect(): the finalizer path has not had a chance to
+    # run yet, so only an explicit close by the loop itself can satisfy this.
+    assert closed == ["closed"]
+
+
+async def test_cancel_loop_routes_to_active_scope(scheduler, engine, monkeypatch):
+    """Session claims dispatch to run_one_session_turn; the claim loop
+    picks up the session and calls the new handler (cancel wiring is
+    tested in tests/session/test_dispatch.py — here we just verify the
+    turn is dispatched and completes without the pool raising)."""
+    sid = "sess-cancel-loop-1"
+    scheduler.register_session_for_test(sid)
+
+    pool = WorkerPool(
+        config=WorkerConfig(concurrency=1, poll_interval_seconds=0.1),
+        scheduler=scheduler, storage=None,             # type: ignore[arg-type]
+        workspace_registry=None,                       # type: ignore[arg-type]
+        provider_registry=None,                        # type: ignore[arg-type]
+        engine=engine,
+    )
+
+    dispatched: list = []
+
+    async def _fake_run_one_session_turn(lease, deps):
+        dispatched.append(lease.entity_id)
+        return ReleaseOutcome(success=True, drop_lease=True)
+
+    await pool.start()
+    try:
+        with patch(
+            "primer.worker.pool.run_one_session_turn",
+            side_effect=_fake_run_one_session_turn,
+        ):
+            await engine.upsert(ClaimKind.SESSION, sid, priority=100)
+            for _ in range(50):
+                if sid in dispatched:
+                    break
+                await asyncio.sleep(0.05)
+
+        assert sid in dispatched, "claim loop should dispatch session to run_one_session_turn"
+        # Session path no longer uses _active_scopes (cancel is handled by
+        # _cancel_watcher inside run_one_session_turn via event bus).
+        assert sid not in pool._active_scopes
+    finally:
+        await pool.drain_and_stop()
+
+
+# ---------------------------------------------------------------------------
+# Task 8: _run_engine_session dispatches to run_one_session_turn
+# ---------------------------------------------------------------------------
+
+
+def _make_claim_lease(
+    entity_id: str,
+    *,
+    kind: ClaimKind = ClaimKind.SESSION,
+    worker_id: str = "wrk-test",
+) -> ClaimLease:
+    """Build a ClaimEngine Lease for testing."""
+    return ClaimLease(
+        kind=kind,
+        entity_id=entity_id,
+        claimed_by=worker_id,
+        claimed_at=datetime.now(timezone.utc),
+        expires_at=datetime.now(timezone.utc),
+        attempt_count=0,
+        last_error=None,
+    )
+
+
+async def test_run_engine_session_dispatches_to_run_one_session_turn(
+    scheduler, engine, monkeypatch,
+):
+    """_run_engine_session must call run_one_session_turn (not _run_one_turn)."""
+    sid = "sess-new-dispatch-1"
+    scheduler.register_session_for_test(sid, status=SessionStatus.RUNNING)
+
+    pool = WorkerPool(
+        config=WorkerConfig(concurrency=1),
+        scheduler=scheduler,
+        storage=None,               # type: ignore[arg-type]
+        workspace_registry=None,    # type: ignore[arg-type]
+        provider_registry=None,     # type: ignore[arg-type]
+        engine=engine,
+        event_bus=None,
+    )
+    pool._worker_id = "wrk-test"
+
+    fake_session = WorkspaceSession(
+        id=sid, workspace_id="ws-1",
+        binding=AgentSessionBinding(agent_id="ag-1"),
+        status=SessionStatus.RUNNING,
+        created_at=datetime.now(timezone.utc),
+        turn_no=0,
+    )
+    monkeypatch.setattr(pool, "_load_session",
+                        lambda _sid: _async_return(fake_session))
+
+    called_with: list = []
+
+    async def _fake_run_one_session_turn(lease, deps):
+        called_with.append((lease, deps))
+        return ReleaseOutcome(success=True, drop_lease=True)
+
+    # Patch at the module level where pool.py imports it.
+    with patch(
+        "primer.worker.pool.run_one_session_turn",
+        side_effect=_fake_run_one_session_turn,
+    ):
+        engine_lease = _make_claim_lease(sid)
+        await pool._run_engine_session(engine_lease)
+
+    assert len(called_with) == 1, "run_one_session_turn should be called exactly once"
+    lease_arg, deps_arg = called_with[0]
+    assert lease_arg.entity_id == sid
+    assert lease_arg.kind == ClaimKind.SESSION
+    # Deps bundle must supply the required attributes.
+    from primer.session.dispatch import SessionDispatchDeps
+    assert isinstance(deps_arg, SessionDispatchDeps)
+    assert deps_arg.storage_provider is pool._storage
+    assert deps_arg.event_bus is pool._event_bus
+    assert callable(deps_arg.build_executor)
+
+
+async def test_run_engine_session_releases_engine_lease_on_success(
+    scheduler, engine, monkeypatch,
+):
+    """_run_engine_session must call engine.release with the engine lease
+    (not drop it silently) after run_one_session_turn returns."""
+    sid = "sess-release-1"
+    scheduler.register_session_for_test(sid, status=SessionStatus.RUNNING)
+
+    pool = WorkerPool(
+        config=WorkerConfig(concurrency=1),
+        scheduler=scheduler,
+        storage=None,               # type: ignore[arg-type]
+        workspace_registry=None,    # type: ignore[arg-type]
+        provider_registry=None,     # type: ignore[arg-type]
+        engine=engine,
+        event_bus=None,
+    )
+    pool._worker_id = "wrk-test"
+
+    fake_session = WorkspaceSession(
+        id=sid, workspace_id="ws-1",
+        binding=AgentSessionBinding(agent_id="ag-1"),
+        status=SessionStatus.RUNNING,
+        created_at=datetime.now(timezone.utc),
+        turn_no=0,
+    )
+    monkeypatch.setattr(pool, "_load_session",
+                        lambda _sid: _async_return(fake_session))
+
+    released: list = []
+    orig_release = engine.release
+
+    async def _capture_release(lease, *, outcome):
+        released.append((lease, outcome))
+        return await orig_release(lease, outcome=outcome)
+
+    monkeypatch.setattr(engine, "release", _capture_release)
+
+    engine_lease = _make_claim_lease(sid)
+    # Seed the lease in the engine so release() can find it.
+    await engine.upsert(ClaimKind.SESSION, sid, priority=100)
+
+    with patch(
+        "primer.worker.pool.run_one_session_turn",
+        return_value=ReleaseOutcome(success=True, drop_lease=True),
+    ):
+        await pool._run_engine_session(engine_lease)
+
+    # engine.release was called with the original engine lease.
+    assert len(released) == 1
+    assert released[0][0].entity_id == sid
+    assert released[0][1].success is True
+
+
+async def test_run_engine_session_survives_a_raised_terminal_write_failure(
+    scheduler, engine, monkeypatch,
+):
+    """01a08bf0: the safety-net claim, proven at the layer that matters.
+
+    dispatch.py's _transition_session_status now lets a genuine storage
+    write failure propagate instead of swallowing it (see
+    tests/session/test_dispatch.py's
+    test_clean_completion_storage_failure_propagates_not_swallowed for that
+    half). This is the OTHER half: proving the exception does not strand
+    the lease when it reaches run_one_session_turn's single production
+    caller. Simulates the propagated failure directly (raising out of
+    run_one_session_turn) rather than re-deriving it from a real storage
+    double, since that trace already lives in test_dispatch.py — this test
+    is only responsible for what _run_engine_session does with it."""
+    sid = "sess-raise-1"
+    scheduler.register_session_for_test(sid, status=SessionStatus.RUNNING)
+
+    pool = WorkerPool(
+        config=WorkerConfig(concurrency=1),
+        scheduler=scheduler,
+        storage=None,               # type: ignore[arg-type]
+        workspace_registry=None,    # type: ignore[arg-type]
+        provider_registry=None,     # type: ignore[arg-type]
+        engine=engine,
+        event_bus=None,
+    )
+    pool._worker_id = "wrk-test"
+
+    fake_session = WorkspaceSession(
+        id=sid, workspace_id="ws-1",
+        binding=AgentSessionBinding(agent_id="ag-1"),
+        status=SessionStatus.RUNNING,
+        created_at=datetime.now(timezone.utc),
+        turn_no=0,
+    )
+    monkeypatch.setattr(pool, "_load_session",
+                        lambda _sid: _async_return(fake_session))
+
+    released: list = []
+    orig_release = engine.release
+
+    async def _capture_release(lease, *, outcome):
+        released.append((lease, outcome))
+        return await orig_release(lease, outcome=outcome)
+
+    monkeypatch.setattr(engine, "release", _capture_release)
+
+    await engine.upsert(ClaimKind.SESSION, sid, priority=100)
+    [engine_lease] = await engine.claim_due("wrk-test", max_count=1)
+    assert engine_lease.entity_id == sid
+    assert await engine.has_live_lease(ClaimKind.SESSION, sid) is True
+
+    with patch(
+        "primer.worker.pool.run_one_session_turn",
+        side_effect=RuntimeError("simulated propagated storage failure"),
+    ):
+        # _run_engine_session must NOT let this escape -- it's caught by
+        # its own generic except and converted into a safe release.
+        await pool._run_engine_session(engine_lease)
+
+    assert len(released) == 1, "release must still run despite the raise"
+    released_lease, outcome = released[0]
+    assert released_lease.entity_id == sid
+    assert outcome.success is False, (
+        "an unhandled exception must never be reported as success"
+    )
+    assert outcome.drop_lease is True, (
+        "the lease must still be dropped, not left claimed forever"
+    )
+    # The lease is actually gone afterward -- not merely marked
+    # drop_lease=True in an outcome nobody consumed.
+    assert await engine.has_live_lease(ClaimKind.SESSION, sid) is False
+
+
+async def test_end_session_genuine_write_failure_already_propagates():
+    """01a08bf0 Site B — unlike the vanished-row branch, _end_session's
+    storage.update() call has no try/except today: a real write failure
+    (row exists, write itself errors) already propagates uncaught. This
+    was true before this task and needed no code change, but was
+    UNTESTED -- pinning it now since the whole "propagate is safe" design
+    for Site B rests on this being what actually happens, not an
+    assumption. Safety is the same claim proven for Site A: this raises
+    inside run_one_session_turn's sibling caller path, which shares the
+    identical WorkerPool._run_engine_session safety net (see
+    test_run_engine_session_survives_a_raised_terminal_write_failure)."""
+    from tests.conftest import _FakeStorageProvider
+
+    sid = "sess-write-fails-1"
+    sp = _FakeStorageProvider()
+    session_storage = sp.get_storage(WorkspaceSession)
+    fake_session = WorkspaceSession(
+        id=sid, workspace_id="ws-1",
+        binding=AgentSessionBinding(agent_id="ag-1"),
+        status=SessionStatus.RUNNING,
+        created_at=datetime.now(timezone.utc),
+        turn_no=0,
+    )
+    await session_storage.create(fake_session)
+
+    async def _failing_update(entity, *, conn=None):
+        raise RuntimeError("simulated storage failure")
+
+    session_storage.update = _failing_update
+
+    pool = WorkerPool(
+        config=WorkerConfig(concurrency=1),
+        scheduler=None,               # type: ignore[arg-type]
+        storage=sp,
+        workspace_registry=None,      # type: ignore[arg-type]
+        provider_registry=None,       # type: ignore[arg-type]
+        engine=None,                  # type: ignore[arg-type]
+    )
+
+    with pytest.raises(RuntimeError, match="simulated storage failure"):
+        await pool._end_session(fake_session, reason="failed")
+
+    # The row must still show its pre-failure state.
+    row = await session_storage.get(sid)
+    assert row.status == SessionStatus.RUNNING
+
+
+async def test_end_session_vanished_row_mislabel_is_inert_via_on_release_recheck():
+    """01a08bf0 Q3 — pin test, NOT a designed guarantee.
+
+    'Vanished because something else already ended it' and 'vanished
+    unexpectedly' are genuinely indistinguishable at the point
+    _end_session runs: fresh is None carries no reason either way. Its
+    success=True on that branch is left unchanged (see the comment in
+    pool.py) because it is observably inert today -- but ONLY because
+    SessionClaimAdapter.on_release does its OWN independent re-fetch of
+    the row and returns immediately, before ever consulting
+    outcome.success, if that re-fetch ALSO finds nothing. That is a
+    COINCIDENTAL property of on_release's re-check, not a contract either
+    function was written to guarantee. If on_release is ever changed to
+    trust the caller's outcome instead of re-fetching, this test starts
+    failing -- and the vanished-row branch's success=True actually needs
+    to be revisited at that point, not just this test's assertion."""
+    from tests.conftest import _FakeStorageProvider
+    from primer.claim.adapters.sessions import SessionClaimAdapter
+
+    sid = "sess-vanished-1"
+    sp = _FakeStorageProvider()
+    # Deliberately never created in storage -- this IS "vanished".
+    session_stub = WorkspaceSession(
+        id=sid, workspace_id="ws-1",
+        binding=AgentSessionBinding(agent_id="ag-1"),
+        status=SessionStatus.RUNNING,
+        created_at=datetime.now(timezone.utc),
+        turn_no=3,
+    )
+
+    pool = WorkerPool(
+        config=WorkerConfig(concurrency=1),
+        scheduler=None,               # type: ignore[arg-type]
+        storage=sp,
+        workspace_registry=None,      # type: ignore[arg-type]
+        provider_registry=None,       # type: ignore[arg-type]
+        engine=None,                  # type: ignore[arg-type]
+    )
+
+    outcome = await pool._end_session(session_stub, reason="failed")
+    # Today's mislabel, left deliberately unchanged (01a08bf0 design call).
+    assert outcome.success is True
+    assert outcome.drop_lease is True
+
+    registry_calls: list[str] = []
+
+    class _TrackingRegistry:
+        async def get_workspace(self, workspace_id: str):
+            registry_calls.append(workspace_id)
+            raise AssertionError(
+                "on_release must never reach the terminal-error-record "
+                "path for a row that is genuinely gone"
+            )
+
+    adapter = SessionClaimAdapter(
+        session_storage=sp.get_storage(WorkspaceSession),
+        workspace_registry=_TrackingRegistry(),
+        event_bus=None,
+    )
+    # Must no-op cleanly: on_release's own re-fetch also finds nothing.
+    await adapter.on_release(conn=None, entity_id=sid, outcome=outcome)
+    assert registry_calls == [], (
+        "on_release's re-check no longer absorbs the vanished-row "
+        "mislabel -- _end_session's success=True is no longer inert and "
+        "needs a real fix, not just a pin"
+    )
+
+
+# ---------------------------------------------------------------------------
+# C1 — steering a RUNNING (leased) session must not strand the queued turn
+# ---------------------------------------------------------------------------
+
+
+async def test_steering_a_running_session_rearms_a_fresh_claim(scheduler, monkeypatch):
+    """C1 regression, end-to-end at the claim-engine level.
+
+    Uses a REAL InMemoryClaimEngine + SessionClaimAdapter (not the old
+    unconditionally-recording _FakeEngine) so the held-lease upsert-is-a-
+    no-op semantics of the real engine are exercised. Sequence:
+      1. Genuinely claim the session's lease (mirrors claim_due handing it
+         to this worker).
+      2. Simulate a wake_session() steer landing WHILE the lease is held:
+         set turn_status="claimable" and upsert -- on the real engine this
+         is a no-op on the held lease's claimed_by, exactly the bug.
+      3. Drive _run_engine_session to completion (a fake run_one_session_turn
+         mirrors dispatch.py's real behaviour: it always drops the lease).
+      4. Assert a FRESH claim is now possible -- proving the queued turn is
+         not stranded.
+    """
+    from tests.conftest import _FakeStorageProvider
+    from primer.claim.adapters.sessions import SessionClaimAdapter
+    from primer.claim.in_memory import InMemoryClaimEngine
+
+    sid = "sess-steer-rearm-1"
+    sp = _FakeStorageProvider()
+    session_storage = sp.get_storage(WorkspaceSession)
+    fake_session = WorkspaceSession(
+        id=sid, workspace_id="ws-1",
+        binding=AgentSessionBinding(agent_id="ag-1"),
+        status=SessionStatus.RUNNING,
+        created_at=datetime.now(timezone.utc),
+        turn_no=0,
+    )
+    await session_storage.create(fake_session)
+
+    adapter = SessionClaimAdapter(session_storage=session_storage)
+    real_engine = InMemoryClaimEngine(adapters={ClaimKind.SESSION: adapter})
+
+    pool = WorkerPool(
+        config=WorkerConfig(concurrency=1),
+        scheduler=scheduler,
+        storage=sp,
+        workspace_registry=None,     # type: ignore[arg-type]
+        provider_registry=None,      # type: ignore[arg-type]
+        engine=real_engine,
+        event_bus=None,
+    )
+    pool._worker_id = "wrk-test"
+
+    # 1. Genuinely claim the lease (as claim_due would for the worker
+    # about to run this session's turn).
+    await real_engine.upsert(ClaimKind.SESSION, sid)
+    [engine_lease] = await real_engine.claim_due("wrk-test", max_count=1)
+    assert engine_lease.entity_id == sid
+
+    # 2. Steer while the lease is held -- wake_session()'s exact write:
+    # flip turn_status + upsert. On the real engine this touches only
+    # priority/next_attempt_at on the still-claimed row.
+    row = await session_storage.get(sid)
+    row.turn_status = "claimable"
+    await session_storage.update(row)
+    await real_engine.upsert(ClaimKind.SESSION, sid)
+    held = real_engine._leases[(ClaimKind.SESSION, sid)]
+    assert held.claimed_by == "wrk-test", (
+        "steering while held must not itself release/reassign the lease"
+    )
+
+    # 3. Run the turn. dispatch.py always returns drop_lease=True.
+    with patch(
+        "primer.worker.pool.run_one_session_turn",
+        return_value=ReleaseOutcome(success=True, drop_lease=True),
+    ):
+        await pool._run_engine_session(engine_lease)
+
+    # The old lease is gone...
+    assert (ClaimKind.SESSION, sid) not in real_engine._leases or (
+        real_engine._leases[(ClaimKind.SESSION, sid)].claimed_by is None
+    )
+
+    # 4. ...but a FRESH claim must be possible: the queued turn is not
+    # stranded. A second worker can pick it up right away.
+    fresh_leases = await real_engine.claim_due("wrk-test-2", max_count=1)
+    assert [l.entity_id for l in fresh_leases] == [sid], (
+        "steering a RUNNING session left the queued turn unclaimable -- "
+        "the C1 regression"
+    )
+
+
+async def test_steering_a_running_session_no_rearm_when_nothing_queued(
+    scheduler, monkeypatch,
+):
+    """Sibling of the C1 regression test: when NO steer lands during the
+    turn, the post-release re-arm must be a no-op (no spin-claiming an
+    empty session)."""
+    from tests.conftest import _FakeStorageProvider
+    from primer.claim.adapters.sessions import SessionClaimAdapter
+    from primer.claim.in_memory import InMemoryClaimEngine
+
+    sid = "sess-steer-rearm-2"
+    sp = _FakeStorageProvider()
+    session_storage = sp.get_storage(WorkspaceSession)
+    fake_session = WorkspaceSession(
+        id=sid, workspace_id="ws-1",
+        binding=AgentSessionBinding(agent_id="ag-1"),
+        status=SessionStatus.RUNNING,
+        created_at=datetime.now(timezone.utc),
+        turn_no=0,
+        turn_status="idle",
+    )
+    await session_storage.create(fake_session)
+
+    adapter = SessionClaimAdapter(session_storage=session_storage)
+    real_engine = InMemoryClaimEngine(adapters={ClaimKind.SESSION: adapter})
+
+    pool = WorkerPool(
+        config=WorkerConfig(concurrency=1),
+        scheduler=scheduler,
+        storage=sp,
+        workspace_registry=None,     # type: ignore[arg-type]
+        provider_registry=None,      # type: ignore[arg-type]
+        engine=real_engine,
+        event_bus=None,
+    )
+    pool._worker_id = "wrk-test"
+
+    await real_engine.upsert(ClaimKind.SESSION, sid)
+    [engine_lease] = await real_engine.claim_due("wrk-test", max_count=1)
+
+    with patch(
+        "primer.worker.pool.run_one_session_turn",
+        return_value=ReleaseOutcome(success=True, drop_lease=True),
+    ):
+        await pool._run_engine_session(engine_lease)
+
+    assert (ClaimKind.SESSION, sid) not in real_engine._leases, (
+        "no steer landed -- the session must not be re-armed"
+    )
+
+
+async def test_build_session_executor_returns_callable(scheduler, engine, monkeypatch):
+    """pool._build_session_executor(session) returns an awaitable executor
+    by delegating to _build_executor after resolving the workspace."""
+    sid = "sess-bse-1"
+    fake_session = WorkspaceSession(
+        id=sid, workspace_id="ws-1",
+        binding=AgentSessionBinding(agent_id="ag-1"),
+        status=SessionStatus.RUNNING,
+        created_at=datetime.now(timezone.utc),
+        turn_no=0,
+    )
+
+    pool = WorkerPool(
+        config=WorkerConfig(concurrency=1),
+        scheduler=scheduler,
+        storage=None,               # type: ignore[arg-type]
+        workspace_registry=None,    # type: ignore[arg-type]
+        provider_registry=None,     # type: ignore[arg-type]
+        engine=engine,
+        event_bus=None,
+    )
+    pool._worker_id = "wrk-test"
+
+    class _FakeWs:
+        id = "ws-1"
+
+    fake_ws = _FakeWs()
+    monkeypatch.setattr(pool, "_load_workspace_for_persist",
+                        lambda _ws_id: _async_return(fake_ws))
+
+    class _FakeExecutor:
+        async def invoke(self, _messages):
+            if False:
+                yield  # make it an async generator
+
+    fake_driver = _FakeExecutor()
+    monkeypatch.setattr(pool, "_build_executor",
+                        lambda _s, _w: _async_return(fake_driver))
+
+    result = await pool._build_session_executor(fake_session)
+    assert result is fake_driver
+
+
+# ===========================================================================
+# _WorkspaceIOShim
+# ===========================================================================
+
+
+@pytest.mark.asyncio
+async def test_workspace_io_shim_delegates_to_workspace():
+    """_WorkspaceIOShim.append_message_line forwards to workspace.append_message_line."""
+    from primer.worker.pool import _WorkspaceIOShim
+
+    received: list[tuple[str, bytes]] = []
+
+    class _FakeWorkspace:
+        async def append_message_line(self, session_id: str, line: bytes) -> None:
+            received.append((session_id, line))
+
+    class _FakeRegistry:
+        async def get_workspace(self, workspace_id: str):
+            return _FakeWorkspace()
+
+    shim = _WorkspaceIOShim(workspace_registry=_FakeRegistry())
+    shim.register_session("sess-1", "ws-1")
+
+    await shim.append_message_line("sess-1", b'{"seq":1}\n')
+    assert len(received) == 1
+    assert received[0] == ("sess-1", b'{"seq":1}\n')
+
+
+@pytest.mark.asyncio
+async def test_workspace_io_shim_warns_when_no_registry():
+    """_WorkspaceIOShim drops the line and logs a warning when no registry."""
+    import logging
+    from primer.worker.pool import _WorkspaceIOShim
+
+    shim = _WorkspaceIOShim(workspace_registry=None)
+    shim.register_session("sess-1", "ws-1")
+
+    # Should not raise; the line is silently dropped.
+    await shim.append_message_line("sess-1", b'{"seq":1}\n')
+
+
+@pytest.mark.asyncio
+async def test_workspace_io_shim_warns_when_no_mapping():
+    """_WorkspaceIOShim drops the line when session has no workspace mapping."""
+    from primer.worker.pool import _WorkspaceIOShim
+
+    class _FakeRegistry:
+        async def get_workspace(self, workspace_id: str):
+            return None
+
+    shim = _WorkspaceIOShim(workspace_registry=_FakeRegistry())
+    # No register_session() call — the shim has no workspace_id mapping.
+    await shim.append_message_line("sess-orphan", b'{"seq":1}\n')
+    # Should complete without error.

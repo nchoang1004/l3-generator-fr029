@@ -1,0 +1,331 @@
+[project]
+name = "primer-ai"
+version = "0.6.0"
+description = "Microagents framework"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "aiosqlite>=0.22.1",
+    "aiohttp>=3.14.1",
+    "anthropic>=0.109.1",
+    "argon2-cffi>=25.1.0",
+    "itsdangerous>=2.2.0",
+    "asyncpg>=0.31.0",
+    "croniter>=6.2.2",
+    "ddgs>=9.14.4",
+    "fastapi>=0.136.3",
+    "google-genai>=2.8.0",
+    "grpcio>=1.81.1",
+    "httpx>=0.28",
+    "jinja2>=3.1.6",
+    "jsonschema>=4.26.0",
+    "mcp>=2.1.1",
+    "ollama>=0.6.2",
+    "openai>=2.41.1",
+    "opentelemetry-api>=1.42.1",
+    "opentelemetry-sdk>=1.42.1",
+    "opentelemetry-exporter-otlp>=1.42.1",
+    "opentelemetry-instrumentation-fastapi>=0.63b1",
+    "opentelemetry-instrumentation-asyncpg>=0.63b1",
+    "opentelemetry-instrumentation-httpx>=0.63b1",
+    "prometheus-client>=0.25.0",
+    "mini-racer>=0.14.1",
+    "pgvector>=0.4.2",
+    "pydantic>=2.13.4",
+    "pydantic-settings>=2.14.1",
+    "pyjwt[crypto]>=2.13,<3",
+    "regopy>=1.4.0",
+    "python-multipart>=0.0.32",
+    "pyyaml>=6.0.3",
+    "tiktoken>=0.13.0",
+    "trafilatura>=2.1.0",
+    "typer>=0.21.2",
+    "tzdata>=2026.2",
+    "uvicorn[standard]>=0.49.0",
+    "opentelemetry-instrumentation-logging>=0.63b1",
+]
+
+# Optional feature dependencies. The default `pip install primer-ai` ships a
+# lean core (REST API + console + MCP + SQLite/Postgres storage + the
+# API-based LLM/embedder providers). Heavy, feature-specific backends live
+# behind extras so a first install does not pull a multi-GB ML/CUDA stack.
+# `primer-ai[full]` restores the batteries-included experience.
+[project.optional-dependencies]
+# Local HuggingFace embeddings + cross-encoder reranking (pulls torch).
+huggingface = ["sentence-transformers>=5.5.1", "transformers>=5.8.1"]
+# Rich multi-format document ingestion (PDF/DOCX/PPTX/HTML; pulls torch + OCR).
+# LanceDB embedded vector store (the alternative to the core pgvector backend).
+lance = ["lancedb>=0.33.0"]
+# Kubernetes workspace backend.
+kubernetes = ["kubernetes-asyncio>=36.1.0"]
+# Container (Docker / Podman) workspace backend.
+docker = ["aiodocker>=0.27.0"]
+# Slack / Telegram / Discord channels.
+channels = [
+    "discord.py>=2.7.1",
+    "python-telegram-bot>=22.8",
+    "slack-bolt>=1.28.0",
+    "slack-sdk>=3.42.0",
+    # Inbound image compression (primer/channel/media.py). It used to reach
+    # the tree transitively through the primectl workspace member; removing
+    # that member is what exposed the missing declaration.
+    "pillow>=11.0.0",
+]
+# Everything: the batteries-included install.
+full = ["primer-ai[huggingface,lance,kubernetes,docker,channels]"]
+
+[project.scripts]
+primer = "primer.cli:app"
+
+
+
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+# The docs group carries the markdown-it stack used by the standalone docs
+# site build (the site source + build tooling now live in the
+# primerhq.github.io repo; the docs.yml deploy workflow installs this group).
+# Kept in the default groups so a docs checkout can build against this repo's
+# pinned stack without a separate --group docs sync.
+default-groups = ["dev", "docs"]
+
+
+[tool.hatch.build.targets.wheel]
+packages = ["primer"]
+# Docs are a standalone static site, not a runtime concern. The markdown
+# corpus + fixtures moved out to the primerhq.github.io repo, so there is
+# nothing docs-related under primer/ left to exclude from the wheel.
+
+[tool.hatch.build.targets.wheel.force-include]
+# Ship the operator-console source inside the wheel. The repo-root `ui/`
+# tree is mapped to `primer/_ui` so an installed `primer-ai` serves the
+# console without a separate checkout; `_resolve_ui_dir()` prefers it.
+"ui" = "primer/_ui"
+
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+pythonpath = [".", "runtime"]
+# tests/e2e/ is skipped unless PRIMER_RUN_E2E=1 is set in the environment
+# (see tests/e2e/conftest.py). The harness sets the env var; default unit
+# runs do not, so contributors running `uv run pytest` aren't bothered by
+# the e2e tests' need for a live server.
+# tests/distributed/ requires testcontainers + Docker; opt in with
+# `uv run pytest tests/distributed/ -m distributed`. Default runs skip them.
+#
+# Parallel by default: `-n auto` fans the suite across all CPU cores via
+# pytest-xdist, taking the full unit sweep from ~7 min to ~90 s. We use
+# `--dist loadscope` (group a module's tests onto one worker) rather than
+# the default per-test `load`: a few tests/api modules rely on
+# module/class-scoped fixtures that break when their tests are split
+# across workers. To debug a single test serially, override with `-n0`
+# (e.g. `uv run pytest tests/api/test_chats.py -n0`).
+#
+# Per-test timeout (pytest-timeout): a hung test (e.g. a leaked thread that
+# deadlocks an xdist worker) otherwise blocks the whole run indefinitely.
+# 300s is a generous ceiling — the full sweep finishes in ~2.5 min, so real
+# tests run well under it; the timeout only trips a genuine hang, failing it
+# loudly with a stack dump instead of stalling. The `thread` method works
+# under xdist and across threads; pytest-timeout auto-disables under a
+# debugger, so pdb sessions aren't killed.
+addopts = "-m 'not distributed' -n auto --dist loadscope --timeout=300 --timeout-method=thread"
+markers = [
+    "distributed: requires testcontainers + multiprocess (deselect with -m 'not distributed')",
+    "smk(ids, status): map this test to one or more docs/tests SMK ids; status full|partial",
+    "requires_llm: needs a reachable real LLM (set PRIMER_E2E_LLM_BASE_URL + PRIMER_E2E_LLM_MODEL + PRIMER_E2E_LLM_API_KEY); the mock-LLM lane deselects with -m 'not requires_llm'",
+    "requires_cluster: e2e needs a live Kubernetes cluster (deselect with -m 'not requires_cluster')",
+    "requires_channel: e2e needs live channel credentials (deselect with -m 'not requires_channel')",
+    "real_tiktoken_loader: opt a test out of the autouse offline_tiktoken fixture so it exercises primer.llm._tokenizer._tiktoken_offline itself",
+    "allow_fallback_bug: this test provokes an unexpected token-counter error on purpose; opts out of the root guard that fails any test during which primer.llm.counting recorded outcome=fallback_bug",
+    "ui_e2e: Playwright journey against a live console; the lane selects tests/ui_e2e by path, so this marks intent and keeps a typo in it from passing unnoticed",
+    "postgres: needs a live Postgres (gate: PRIMER_TEST_POSTGRES_URL, tests/pg_gate.py); fails instead of skipping when PRIMER_REQUIRE_POSTGRES_TESTS=1 (the CI Postgres lane)",
+]
+
+
+[tool.coverage.run]
+source = ["primer"]
+omit = [
+    "primer/test.py",
+    "primer/test_compaction.py",   # hand-driven LLM probe script (research/compaction.md)
+    "primer/*/test_*.py",
+    # Embedding data types — exercised once the embedder adapters and their
+    # tests land in a later sub-project.
+    "primer/model/embedding.py",
+    # CLI entry point — only invoked via `python -m primer.api`; needs
+    # a live Postgres to run, so not covered by the unit suite.
+    "primer/api/__main__.py",
+    # Typer CLI launcher — uvicorn invocation requires a live Postgres,
+    # so the no-cover lines are the uvicorn.run() and main() shims.
+    # The pure helpers (_load_config, _apply_logging) and the command
+    # functions are exercised by tests/test_cli.py via a CliRunner with
+    # uvicorn patched out.
+    # Postgres scheduler — exercised by tests/scheduler/test_postgres.py
+    # which gates on PRIMER_TEST_POSTGRES_URL. Without a live Postgres the
+    # tests skip and this file shows ~25% coverage; same treatment as
+    # the primer/storage/postgres.py family in CI-with-DSN runs.
+    "primer/scheduler/postgres.py",
+    # FakeSandbox is a test seam (production-importable but only used by tests).
+    "primer/workspace/sandbox/fake.py",
+    # ContainerRuntimeAdapter ABC has no concrete impls in Phase A.
+    "primer/workspace/runtime/adapter.py",
+    # Runtime adapters need real Docker/Podman/containerd daemons;
+    # gated contract tests cover them when env vars are set.
+    "primer/workspace/runtime/docker.py",
+    "primer/workspace/runtime/podman.py",
+    "primer/workspace/runtime/containerd/adapter.py",
+    # K8s backend needs a real cluster; gated integration tests.
+    "primer/workspace/k8s/sandbox.py",
+    "primer/workspace/k8s/backend.py",
+]
+
+[tool.coverage.report]
+fail_under = 80
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+]
+# Per-module overrides — adapter modules ramp up to 90% as they land.
+# Until primer/llm/* and primer/embedder/* contain code, the gate is
+# effectively a no-op because there are no covered statements yet.
+
+
+[tool.ruff]
+# Match the codebase: Python 3.12, 88-column source.
+target-version = "py312"
+line-length = 88
+extend-exclude = [
+    ".venv",
+    "ui/vendor",
+    "primerhq.github.io",
+    "dogfood",
+]
+
+[tool.ruff.lint]
+# The intended long-term standard. CI runs `ruff check` (lint only); we do
+# NOT run `ruff format` yet (a one-shot format would reformat ~1000 of ~1450
+# files, an unreviewable diff). Format adoption is a tracked follow-up.
+select = ["E", "F", "I", "UP", "B"]
+ignore = [
+    # --- Intentional patterns, never enforce -------------------------------
+    "B008",   # function-call-in-default: this is the FastAPI `Depends()` /
+              # typer `Argument()`/`Option()` idiom used throughout the API
+              # and CLI. Flagging it is a false positive for this stack.
+    "E402",   # module-import-not-at-top: a handful of modules import after a
+              # capability guard or sys.path setup on purpose.
+    # --- Deferred to the format-adoption follow-up -------------------------
+    "E501",   # line-too-long (~1300 hits): cannot be safely auto-fixed; line
+              # rewrapping belongs to the deferred `ruff format` adoption.
+    # --- Deferred bulk-mechanical rules ------------------------------------
+    # Each of these would rewrite 130-760 files in a single sweep, burying
+    # the meaningful changes. They are mechanical and safe; we will adopt
+    # them in their own dedicated commits after launch rather than on the
+    # release-eve DX pass. Tracked as a follow-up.
+    "I001",   # import sorting (~760 files)
+    "UP017",  # datetime.timezone.utc -> datetime.UTC (~250 files)
+    "UP037",  # remove-quotes-from-annotations (~130 files)
+    "F401",   # unused-import (~265 files; many are test re-exports)
+    # --- Pre-existing residual we are not fixing in the DX pass ------------
+    # These are real-but-isolated style/bug-class findings in production code
+    # that pre-date this change. Fixing them edits live logic and is out of
+    # scope for a tooling pass; reported as follow-ups (incl. two genuine
+    # bug-class hits: B023 in primer/bus/postgres.py, B025 in
+    # primer/toolset/misc.py).
+    "B017",   # assert-raises-exception (test patterns)
+    "B023",   # function-uses-loop-variable
+    "B025",   # duplicate-try-block-exception
+    "B904",   # raise-without-from-inside-except
+    "B905",   # zip-without-explicit-strict (autofix is unsafe)
+    "E701",   # multiple-statements-on-one-line-colon
+    "E702",   # multiple-statements-on-one-line-semicolon
+    "E741",   # ambiguous-variable-name
+    "F811",   # redefinition (mostly pytest fixtures)
+    "F821",   # undefined-name (mostly TYPE_CHECKING-only annotation names)
+    "F841",   # unused local var (some intentional in tests)
+    "UP007",  # use-pep604-annotation (Optional[X] -> X | None)
+    "UP042",  # str-enum -> StrEnum (behavioural; manual)
+    "UP046",  # non-pep695-generic (class generics; manual)
+    "UP047",  # non-pep695-generic-function
+]
+
+
+[tool.semantic_release]
+tag_format = "v{version}"
+allow_zero_version = true
+version_toml = [
+    "pyproject.toml:project.version",
+    "runtime/pyproject.toml:project.version",
+]
+build_command = ""
+commit_message = "chore(release): {version} [skip ci]"
+commit_author = "github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"
+
+[tool.semantic_release.branches.main]
+match = "main"
+
+
+
+[dependency-groups]
+dev = [
+    "grpcio-tools>=1.81.1",
+    "import-linter>=2.13",
+    "playwright>=1.60.0",
+    "pre-commit>=4.0.0",
+    "pytest>=9.1.0",
+    "pytest-asyncio>=1.4.0",
+    "pytest-cov>=7.1.0",
+    "pytest-playwright>=0.8.0",
+    "pytest-rerunfailures>=15.0",
+    "pytest-timeout>=2.3.0",
+    "pytest-xdist>=3.8.0",
+    "respx>=0.23.1",
+    "ruff>=0.15.18",
+    "testcontainers[postgres]>=4.14.2",
+]
+docs = [
+    "markdown-it-py>=3",
+    "mdit-py-plugins>=0.4",
+]
+# python-semantic-release drives the lockstep version bump + tag + GitHub
+# release in the release workflow; synced via `uv sync --group release`.
+release = ["python-semantic-release>=10.5.3,<11"]
+
+
+[tool.importlinter]
+root_packages = ["primer"]
+
+[[tool.importlinter.contracts]]
+name = "core layers do not import optional subsystems"
+type = "forbidden"
+source_modules = [
+    "primer.model",
+    "primer.int",
+    "primer.storage",
+    "primer.common",
+    "primer.claim",
+]
+forbidden_modules = [
+    "primer.channel",
+    "primer.knowledge",
+    "primer.embedder.huggingface",
+    "primer.cross_encoder.huggingface",
+    "primer.vector.lance",
+    "primer.workspace.container",
+    "primer.workspace.k8s",
+]
+allow_indirect_imports = true
+
+[[tool.importlinter.contracts]]
+name = "agent/worker reach channel only through sanctioned dispatch seams"
+type = "forbidden"
+source_modules = ["primer.agent", "primer.worker"]
+forbidden_modules = ["primer.channel"]
+allow_indirect_imports = true
+ignore_imports = [
+    "primer.agent.inform -> primer.channel.media",
+    "primer.worker.yield_runtime -> primer.channel.media",
+]

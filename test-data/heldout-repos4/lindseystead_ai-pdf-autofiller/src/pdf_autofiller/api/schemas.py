@@ -1,0 +1,92 @@
+"""HTTP response models for the PDF Autofiller API."""
+
+from __future__ import annotations
+
+from pydantic import BaseModel, Field
+
+
+class HealthResponse(BaseModel):
+    status: str
+    service: str
+    version: str
+    checks: dict[str, str] = Field(default_factory=dict)
+
+
+class VersionResponse(BaseModel):
+    service: str
+    version: str
+
+
+class InspectField(BaseModel):
+    name: str
+    field_type: str
+    required: bool
+    page_number: int
+    current_value: str | None = None
+    name_quality: str = Field(
+        default="readable",
+        description="readable or opaque — opaque names are hard to alias from JSON keys",
+    )
+
+
+class InspectResponse(BaseModel):
+    pages: int
+    field_count: int
+    fields: list[InspectField]
+    opaque_field_count: int = 0
+    opaque_fields: list[str] = Field(default_factory=list)
+    mapping_hints: list[str] = Field(default_factory=list)
+
+
+class PreviewDecision(BaseModel):
+    field_name: str
+    semantic_meaning: str
+    selected_value: str | None = None
+    confidence: float
+    reason: str
+    requires_review: bool = False
+    ai_assisted: bool = False
+
+
+class PreviewResponse(BaseModel):
+    pages: int
+    field_count: int
+    decisions: list[PreviewDecision]
+    missing_required: list[str]
+    unmapped_user_keys: list[str]
+    mapping_hints: list[str] = Field(default_factory=list)
+
+
+class FillReportResponse(BaseModel):
+    """JSON fill outcome when the client asks for ``Accept: application/json``."""
+
+    pages: int
+    field_count: int
+    written_fields: list[str]
+    skipped_review_fields: list[str]
+    skipped_empty_fields: list[str]
+    skipped_unwritable_fields: list[str] = Field(
+        default_factory=list,
+        description="Mapped fields that could not be written (see FillReport)",
+    )
+    ai_assisted_fields: list[str] = Field(
+        default_factory=list,
+        description="Written fields whose mapping an AI feature chose (see FillReport)",
+    )
+    display_warnings: list[str] = Field(
+        default_factory=list,
+        description="Written fields the standard font cannot draw (see FillReport)",
+    )
+    missing_required: list[str]
+    missing_required_fields: list[str] = Field(
+        default_factory=list,
+        description="Required fields left empty in a partial fill (allow_partial=true)",
+    )
+    unfilled_fields: list[str] = Field(
+        default_factory=list,
+        description="Form fields that received no value from user_data",
+    )
+    unmapped_user_keys: list[str]
+    decisions: list[PreviewDecision]
+    mapping_hints: list[str] = Field(default_factory=list)
+    pdf_base64: str = Field(description="Filled PDF encoded as standard base64 (not URL-safe)")

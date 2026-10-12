@@ -1,0 +1,498 @@
+"""Shared OpenAI Chat Completions request/response shaping.
+
+Helpers that translate primer's universal Message / Tool / ToolChoice /
+response_format / SSE-chunk types into the openai SDK call shape (and
+back, for SSE). Originally inlined inside ``primer/llm/openchat.py``;
+extracted so that ``OpenChatLLM`` and ``OpenRouterLLM`` (and any future
+OpenAI-compatible adapter) can both call them without duplication.
+
+These helpers are pure functions. They neither raise on transport
+errors nor talk to the network. Their only inputs are domain types.
+"""
+
+from __future__ import annotations
+
+import base64
+import json
+import logging
+from dataclasses import dataclass, field
+from typing import Any
+
+from pydantic import BaseModel
+
+from primer.llm._openai_common import (
+    build_sampling_params as _build_sampling_params_impl,
+)
+from primer.model.chat import (
+    AudioPart,
+    DocumentPart,
+    Done,
+    ExtendedPart,
+    ImagePart,
+    Message,
+    Part,
+    ReasoningDelta,
+    StopReason,
+    StreamEvent,
+    StreamStart,
+    TextDelta,
+    TextPart,
+    Tool,
+    ToolCallDelta,
+    ToolCallEnd,
+    ToolCallPart,
+    ToolCallStart,
+    ToolChoice,
+    ToolResultPart,
+    Usage,
+    VideoPart,
+)
+from primer.model.except_ import ConfigError, UnsupportedContentError
+
+
+logger = logging.getLogger(__name__)
+
+
+def _build_sampling_params(
+    *,
+    temperature: float | None,
+    top_p: float | None,
+    max_output_tokens: int | None,
+    stop: list[str] | None,
+) -> dict[str, Any]:
+    """Forward sampling knobs to the Chat Completions wire format.
+
+    Delegates to the shared builder with ``target="chat_completions"`` —
+    ``max_tokens`` is the cap key, ``stop`` is passed through natively.
+    """
+    return _build_sampling_params_impl(
+        temperature=temperature,
+        top_p=top_p,
+        max_output_tokens=max_output_tokens,
+        stop=stop,
+        target="chat_completions",
+    )
+
+
+_RECOGNISED_EXTENDED_PASSTHROUGH: frozenset[str] = frozenset({
+    "parallel_tool_calls",
+    "presence_penalty",
+    "frequency_penalty",
+    "logprobs",
+    "top_logprobs",
+    "seed",
+    "user",
+})
+
+
+def _extract_extended_kwargs(extended: dict[str, Any] | None) -> dict[str, Any]:
+    """Project the universal ``extended`` dict onto Chat Completions kwargs.
+
+    Recognised keys are forwarded; unknown keys are dropped with a
+    single DEBUG log line listing them. Chat Completions has no
+    reasoning channel, so ``reasoning_effort`` and
+    ``reasoning_summary`` are treated as unknown and dropped.
+    """
+    if not extended:
+        return {}
+
+    out: dict[str, Any] = {}
+    dropped: list[str] = []
+
+    for key, value in extended.items():
+        if key in _RECOGNISED_EXTENDED_PASSTHROUGH:
+            out[key] = value
+        else:
+            dropped.append(key)
+
+    if dropped:
+        logger.debug(
+            "OpenChat adapter dropped unknown extended kwargs: %s",
+            ", ".join(sorted(dropped)),
+        )
+    return out
+
+
+def _part_to_content(part: Part) -> dict[str, Any]:
+    """Translate one universal :class:`Part` into a Chat Completions content dict.
+
+    Pure function, no I/O. Raises :class:`UnsupportedContentError` for
+    parts the Chat Completions API does not accept.
+    """
+    if isinstance(part, TextPart):
+        return {"type": "text", "text": part.text}
+
+    if isinstance(part, ImagePart):
+        if part.file_id is not None:
+            raise UnsupportedContentError(
+                "Chat Completions does not accept image input by file_id; "
+                "fetch the bytes and pass an ImagePart(data=...) instead"
+            )
+        if part.data is not None:
+            mime = part.mime_type or "application/octet-stream"
+            url = f"data:{mime};base64,{base64.b64encode(part.data).decode()}"
+        else:
+            url = part.url  # type: ignore[assignment]
+        image_url: dict[str, Any] = {"url": url}
+        if part.detail is not None:
+            image_url["detail"] = part.detail
+        return {"type": "image_url", "image_url": image_url}
+
+    if isinstance(part, DocumentPart):
+        raise UnsupportedContentError(
+            "Chat Completions does not accept document input; "
+            "extract text from the document and pass a TextPart instead"
+        )
+
+    if isinstance(part, ExtendedPart):
+        ext = part.extended
+        if isinstance(ext, AudioPart):
+            raise UnsupportedContentError(
+                "Chat Completions does not accept audio input on this adapter"
+            )
+        if isinstance(ext, VideoPart):
+            raise UnsupportedContentError(
+                "Chat Completions does not accept video input"
+            )
+        raise UnsupportedContentError(
+            f"Chat Completions does not support extended part type {ext.type!r}"
+        )
+
+    raise UnsupportedContentError(  # pragma: no cover
+        f"unexpected part type {type(part).__name__}"
+    )
+
+
+def _messages_to_chat(messages: list[Message]) -> list[dict[str, Any]]:
+    """Walk a chat history and produce Chat Completions ``messages`` rows.
+
+    Mapping rules:
+
+    * ``role="system"`` -> one row with string ``content`` joining all
+      :class:`TextPart` text values.
+    * ``role="user"`` -> if the message is text-only, ``content`` is a
+      plain string; if any image part is present, ``content`` is the
+      multimodal content array.
+    * ``role="assistant"`` -> text concatenated into ``content`` (or
+      ``None`` when there is no text), with any :class:`ToolCallPart`
+      flattened into the ``tool_calls`` array.
+    * ``role="tool"`` -> one row per :class:`ToolResultPart`, each with
+      ``tool_call_id`` echoing the assistant's call id.
+    """
+    rows: list[dict[str, Any]] = []
+
+    for msg in messages:
+        if msg.role == "tool":
+            for part in msg.parts:
+                if not isinstance(part, ToolResultPart):
+                    raise UnsupportedContentError(
+                        f"tool-role messages must contain only ToolResultPart; "
+                        f"got {type(part).__name__}"
+                    )
+                rows.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": part.id,
+                        "content": part.output,
+                    }
+                )
+            continue
+
+        text_chunks: list[str] = []
+        non_text_contents: list[dict[str, Any]] = []
+        tool_calls: list[dict[str, Any]] = []
+
+        for part in msg.parts:
+            if isinstance(part, ToolCallPart):
+                tool_calls.append(
+                    {
+                        "id": part.id,
+                        "type": "function",
+                        "function": {
+                            "name": part.name,
+                            "arguments": json.dumps(part.arguments),
+                        },
+                    }
+                )
+            elif isinstance(part, ToolResultPart):
+                raise UnsupportedContentError(
+                    "ToolResultPart is only valid inside a tool-role message"
+                )
+            elif isinstance(part, TextPart):
+                text_chunks.append(part.text)
+            else:
+                non_text_contents.append(_part_to_content(part))
+
+        if non_text_contents:
+            content: Any = [
+                {"type": "text", "text": "".join(text_chunks)}
+            ] if text_chunks else []
+            content.extend(non_text_contents)
+        elif text_chunks:
+            content = "".join(text_chunks)
+        else:
+            content = None
+
+        row: dict[str, Any] = {"role": msg.role, "content": content}
+        if tool_calls:
+            row["tool_calls"] = tool_calls
+        rows.append(row)
+
+    return rows
+
+
+def _tool_to_chat(tool: Tool) -> dict[str, Any]:
+    """Translate a universal :class:`Tool` into one Chat Completions tool dict.
+
+    The Chat Completions envelope nests the function-spec fields under
+    ``function:`` — unlike the Responses envelope which inlines them.
+    ``tool.toolset_id`` is caller-side correlation only and is not
+    transmitted.
+    """
+    return {
+        "type": "function",
+        "function": {
+            "name": tool.id,
+            "description": tool.description,
+            "parameters": tool.args_schema,
+        },
+    }
+
+
+def _tool_choice_to_chat(choice: ToolChoice | None) -> Any:
+    """Translate the universal :data:`ToolChoice` to the Chat Completions value.
+
+    Returns ``None`` to signal "do not include in the request"; the
+    caller must drop the key from the payload.
+    """
+    if choice is None:
+        return None
+    if choice in ("auto", "required", "none"):
+        return choice
+    return {"type": "function", "function": {"name": choice}}
+
+
+def _response_format_to_param(
+    fmt: type[BaseModel] | dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    """Translate ``response_format`` into the Chat Completions parameter.
+
+    Returns ``None`` to signal "do not include"; the caller drops the
+    key. Emits the root-level ``json_schema`` shape, not the Responses
+    ``text.format`` nesting.
+    """
+    if fmt is None:
+        return None
+    if isinstance(fmt, dict):
+        schema = fmt
+        name = "schema"
+    elif isinstance(fmt, type) and issubclass(fmt, BaseModel):
+        schema = fmt.model_json_schema()
+        name = fmt.__name__
+    else:
+        raise ConfigError(
+            f"response_format must be a Pydantic class or dict; "
+            f"got {type(fmt).__name__}"
+        )
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": name,
+            "schema": schema,
+            "strict": True,
+        },
+    }
+
+
+@dataclass
+class _ToolCallInProgress:
+    """Tracked state for one tool call as it streams in."""
+
+    call_id: str
+    name: str
+    arguments_buffer: str = ""
+    index: int = 0
+
+
+@dataclass
+class _StreamState:
+    """Per-stream mutable state used by :func:`_translate_chunk`."""
+
+    stream_started: bool = False
+    saw_function_call: bool = False
+    tool_calls: dict[int, _ToolCallInProgress] = field(default_factory=dict)
+    request_id: str | None = None
+    model: str = ""
+
+
+def _build_usage(usage_obj: Any) -> Usage | None:
+    """Translate a Chat Completions ``usage`` object to a :class:`Usage` event."""
+    if usage_obj is None:
+        return None
+    prompt = getattr(usage_obj, "prompt_tokens", None)
+    completion = getattr(usage_obj, "completion_tokens", None)
+    if prompt is None or completion is None:
+        return None
+    # ``prompt_tokens`` includes the cached tokens and ``prompt_tokens_details.cached_tokens`` is a subset of it (OpenAI
+    # spec; OpenRouter and the local servers mostly follow it, UNVERIFIED for LM Studio): reported when the server sends it.
+    details = getattr(usage_obj, "prompt_tokens_details", None)
+    cached = getattr(details, "cached_tokens", None) if details is not None else None
+    return Usage(
+        input_tokens=prompt,
+        output_tokens=completion,
+        cached_input_tokens=cached if isinstance(cached, int) and 0 <= cached <= prompt else None,
+        reasoning_tokens=None,
+        cumulative=False,
+    )
+
+
+def _map_finish_reason(reason: str | None, *, saw_function_call: bool = False) -> StopReason:
+    """Translate a Chat Completions ``finish_reason`` to a universal ``StopReason``.
+
+    ``saw_function_call`` is whether the stream emitted a tool call. OpenAI itself ends a tool round with ``"tool_calls"``,
+    but servers that are not OpenAI (LM Studio, llama.cpp, vLLM and some gateways; UNVERIFIED which ones, and the same as
+    Gemini's ``STOP`` and Ollama's ``stop``, which both already look at the calls) can end one with ``"stop"``. Reporting
+    that as ``"stop"`` said "the turn ended" about a round that did not: the loop dispatched the tools regardless, but the
+    ``done`` record the persistence layer writes carries this reason, and the readers that take a ``done`` that is not
+    ``tool_use`` for the end of a turn (``scripts/analyse_estimate_ratio.py``) cut the turn in two.
+
+    Only a ``"stop"`` is reinterpreted: ``"length"`` with tool calls stays ``max_tokens`` (the call may be truncated, which is
+    not a clean tool round), ``"content_filter"`` stays itself, and an unknown reason stays ``other`` (``raw_reason`` keeps it).
+    ``"function_call"`` is the legacy spelling of ``"tool_calls"``.
+    """
+    if reason == "stop":
+        return "tool_use" if saw_function_call else "stop"
+    if reason == "length":
+        return "max_tokens"
+    if reason in ("tool_calls", "function_call"):
+        return "tool_use"
+    if reason == "content_filter":
+        return "content_filter"
+    return "other"
+
+
+def _end_tool_call(in_progress: _ToolCallInProgress) -> ToolCallEnd:
+    """The ``ToolCallEnd`` of a call whose arguments have all streamed in (a buffer that is not valid JSON ends as ``{}``)."""
+    try:
+        parsed = json.loads(in_progress.arguments_buffer or "{}")
+    except json.JSONDecodeError:
+        parsed = {}
+    return ToolCallEnd(id=in_progress.call_id, arguments=parsed, index=in_progress.index)
+
+
+def _translate_chunk(  # noqa: C901
+    chunk: Any, state: _StreamState
+) -> list[StreamEvent]:
+    """Translate one Chat Completions streaming chunk into universal events.
+
+    Pure function. Mutates ``state`` to track per-tool-call buffers and
+    whether the stream has emitted its initial :class:`StreamStart`.
+    """
+    out: list[StreamEvent] = []
+    choices = getattr(chunk, "choices", None) or []
+
+    for choice in choices:
+        delta = getattr(choice, "delta", None)
+        if delta is not None:
+            role = getattr(delta, "role", None)
+            if role and not state.stream_started:
+                state.stream_started = True
+                state.request_id = getattr(chunk, "id", None)
+                state.model = getattr(chunk, "model", "") or ""
+                out.append(
+                    StreamStart(
+                        request_id=state.request_id, model=state.model,
+                    )
+                )
+
+            content = getattr(delta, "content", None)
+            if content:
+                out.append(TextDelta(text=content, index=0))
+
+            # Extended-thinking channel used by the DeepSeek/Qwen family
+            # and served by vLLM/SGLang/many gateways as
+            # ``delta.reasoning_content`` (some proxies abbreviate to
+            # ``delta.reasoning``). Real OpenAI never sets either on
+            # chat completions, so this is a no-op there. Dropping it
+            # silently is what left thinking invisible end to end
+            # (live finding 2026-08-26).
+            thinking = getattr(delta, "reasoning_content", None) \
+                or getattr(delta, "reasoning", None)
+            if thinking and isinstance(thinking, str):
+                out.append(ReasoningDelta(text=thinking, index=0))
+
+            tool_calls = getattr(delta, "tool_calls", None) or []
+            for tc in tool_calls:
+                tc_index = getattr(tc, "index", 0)
+                tc_id = getattr(tc, "id", None)
+                fn = getattr(tc, "function", None)
+                fn_name = getattr(fn, "name", None) if fn is not None else None
+                fn_args = getattr(fn, "arguments", None) if fn is not None else None
+
+                existing = state.tool_calls.get(tc_index)
+                if existing is not None and tc_id and fn_name and tc_id != existing.call_id:
+                    # A NEW call (another id) on an index already in progress: a gateway that numbers EVERY call with the same
+                    # index (parallel calls are streamed one after the other, each with its own id, and arguments chunks that
+                    # carry no id belong to the call before them). The one in progress is complete; ending it here is what keeps
+                    # it from swallowing the new call's arguments (it ended with ``{}``) and from losing the new call's header
+                    # (the second call vanished). A chunk that repeats the SAME id is a continuation, not a new call.
+                    out.append(_end_tool_call(existing))
+                    del state.tool_calls[tc_index]
+                    existing = None
+                if existing is None and tc_id and fn_name:
+                    in_progress = _ToolCallInProgress(
+                        call_id=tc_id, name=fn_name, index=tc_index,
+                    )
+                    if fn_args:
+                        in_progress.arguments_buffer = fn_args
+                    state.tool_calls[tc_index] = in_progress
+                    state.saw_function_call = True
+                    out.append(
+                        ToolCallStart(
+                            id=in_progress.call_id,
+                            name=in_progress.name,
+                            index=tc_index,
+                        )
+                    )
+                    if fn_args:
+                        out.append(
+                            ToolCallDelta(
+                                id=in_progress.call_id,
+                                arguments_delta=fn_args,
+                                index=tc_index,
+                            )
+                        )
+                elif existing is not None and fn_args:
+                    existing.arguments_buffer += fn_args
+                    out.append(
+                        ToolCallDelta(
+                            id=existing.call_id,
+                            arguments_delta=fn_args,
+                            index=tc_index,
+                        )
+                    )
+
+        finish_reason = getattr(choice, "finish_reason", None)
+        if finish_reason is not None:
+            for tc_index in sorted(state.tool_calls.keys()):
+                out.append(_end_tool_call(state.tool_calls[tc_index]))
+            state.tool_calls.clear()
+
+            usage_event = _build_usage(getattr(chunk, "usage", None))
+            if usage_event is not None:
+                out.append(usage_event)
+
+            out.append(
+                Done(
+                    stop_reason=_map_finish_reason(finish_reason, saw_function_call=state.saw_function_call),
+                    raw_reason=finish_reason,
+                )
+            )
+            return out
+
+    if not choices:
+        usage_event = _build_usage(getattr(chunk, "usage", None))
+        if usage_event is not None:
+            out.append(usage_event)
+
+    return out

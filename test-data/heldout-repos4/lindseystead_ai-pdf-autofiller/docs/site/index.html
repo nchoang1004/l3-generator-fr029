@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PDF Autofiller — fill PDF forms from JSON</title>
+  <meta name="description" content="Fill PDF forms from JSON, as a Python library or a self-hosted API, with a report of every field written or skipped." />
+  <meta property="og:title" content="PDF Autofiller" />
+  <meta property="og:description" content="Fill PDF forms from JSON, as a Python library or a self-hosted API, with a report of every field written or skipped." />
+  <meta property="og:image" content="https://raw.githubusercontent.com/lindseystead/ai-pdf-autofiller/main/docs/assets/social-preview.png" />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="PDF Autofiller" />
+  <meta name="twitter:description" content="Fill PDF forms from JSON, as a Python library or a self-hosted API, with a report of every field written or skipped." />
+  <meta name="twitter:image" content="https://raw.githubusercontent.com/lindseystead/ai-pdf-autofiller/main/docs/assets/social-preview.png" />
+  <style>
+    :root { --bg:#0b1020; --panel:#121a2f; --text:#e8edf8; --muted:#9aa8c7; --accent:#5b8cff; --accent2:#3dd6c6; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: system-ui,sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+    .wrap { max-width: 920px; margin: 0 auto; padding: 48px 20px 80px; }
+    h1 { font-size: clamp(2rem,5vw,2.8rem); margin: 0 0 12px; }
+    .lead { color: var(--muted); font-size: 1.15rem; max-width: 640px; }
+    .hero { width:100%; max-width:720px; border-radius:14px; border:1px solid #2a3558; margin:24px 0; }
+    .cta { display: flex; flex-wrap: wrap; gap: 12px; margin: 28px 0 40px; }
+    .btn { display:inline-block; padding:14px 22px; border-radius:10px; font-weight:600; text-decoration:none; }
+    .primary { background: linear-gradient(135deg,var(--accent),#7aa2ff); color:#fff; }
+    .secondary { border:1px solid #2a3558; color:var(--text); background:var(--panel); }
+    pre { background:#0d1428; border:1px solid #2a3558; border-radius:12px; padding:16px; overflow-x:auto; font-size:0.9rem; }
+    code { font-family: ui-monospace,monospace; }
+    .grid { display:grid; grid-template-columns:1fr; gap:16px; margin-top:32px; }
+    .grid > * { min-width:0; }  /* let long code lines scroll inside their card */
+    .card { background:var(--panel); border:1px solid #2a3558; border-radius:14px; padding:20px; }
+    .card h2 { margin:0 0 8px; font-size:1rem; color:var(--accent2); }
+    footer { margin-top:48px; color:var(--muted); font-size:0.9rem; }
+    a { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>PDF Autofiller</h1>
+    <p class="lead">Fill PDF forms from JSON, as a Python library or a self-hosted API. Your keys
+      don't have to match the form's field names, and every fill reports what was written and
+      what was left blank. No AI and no network calls by default. MIT licensed.</p>
+    <p>For anyone who fills the same PDF forms again and again (a W-9 for every contractor, an
+      intake form for every client) with data that already lives in a spreadsheet, CRM or web
+      form. Set it up from code, the command line, or tools like n8n and Zapier. It does not
+      handle scanned PDFs, XFA forms or signatures.</p>
+
+    <div class="cta">
+      <a class="btn primary" href="https://github.com/lindseystead/ai-pdf-autofiller">View on GitHub</a>
+      <a class="btn secondary" href="https://codespaces.new/lindseystead/ai-pdf-autofiller">Try it in Codespaces</a>
+    </div>
+
+    <img class="hero" src="https://raw.githubusercontent.com/lindseystead/ai-pdf-autofiller/main/docs/assets/sample-filled.png"
+      alt="The sample form after filling first name, last name and date of birth" />
+
+    <div class="grid">
+      <div class="card">
+        <h2>Python</h2>
+        <pre><code>pip install git+https://github.com/lindseystead/ai-pdf-autofiller.git
+curl -LO https://raw.githubusercontent.com/lindseystead/ai-pdf-autofiller/main/samples/sample_form.pdf
+
+from pdf_autofiller import fill
+fill("sample_form.pdf",
+     {"firstname": "Jane", "lastname": "Doe", "dob": "1990-01-01"},
+     "filled.pdf")</code></pre>
+      </div>
+      <div class="card">
+        <h2>Self-hosted API</h2>
+        <pre><code>docker run --rm -p 127.0.0.1:8000:8000 \
+  -e API_AUTH_ENABLED=false \
+  ghcr.io/lindseystead/ai-pdf-autofiller:latest
+
+curl -F pdf_file=@sample_form.pdf \
+  -F 'user_data={"firstname":"Jane","lastname":"Doe","dob":"1990-01-01"}' \
+  http://localhost:8000/fill -o filled.pdf</code></pre>
+      </div>
+    </div>
+
+    <p>Auth is off in that command for local use only; in production keep it on and set
+      <code>API_AUTH_TOKEN</code>. The server also has a test page at <code>/playground</code>:</p>
+    <img class="hero" src="https://raw.githubusercontent.com/lindseystead/ai-pdf-autofiller/main/docs/assets/playground-preview.png"
+      alt="Playground: upload a PDF, paste JSON, download the filled PDF and read the fill report" />
+
+    <footer>
+      <a href="https://github.com/lindseystead/ai-pdf-autofiller#readme">README</a> ·
+      <a href="https://github.com/lindseystead/ai-pdf-autofiller/blob/main/docs/ARCHITECTURE.md">Architecture and how AI is used</a> ·
+      <a href="https://github.com/lindseystead/ai-pdf-autofiller/blob/main/docs/API.md">API reference</a> ·
+      <a href="https://github.com/lindseystead/ai-pdf-autofiller/blob/main/docs/FAQ.md">FAQ</a> ·
+      <a href="https://github.com/lindseystead/ai-pdf-autofiller/tree/main/recipes">Recipes</a>
+    </footer>
+  </div>
+</body>
+</html>

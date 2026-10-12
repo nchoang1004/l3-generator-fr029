@@ -1,0 +1,6095 @@
+{
+  "schema": "fr029-gold-v1",
+  "fixture": "kibo",
+  "root": ".",
+  "repository": "KIBO-Agenda/kibo-backend",
+  "commit": "89eb3bb6d84e64e5af99333cc0c9d39382721581",
+  "pydantic_major": 2,
+  "fastapi_version": "0.135.1",
+  "oracle_versions": {
+    "fastapi": "0.135.1",
+    "starlette": "0.52.1",
+    "pydantic": "2.12.5",
+    "pydantic-core": "2.41.5",
+    "pydantic-settings": null
+  },
+  "oracle_python": "3.12.6",
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/api/v1/auth/me",
+      "handler": "app/api/v1/auth/router.py::get_me",
+      "declared_at": "app/api/v1/auth/router.py:26",
+      "params": [
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": {
+        "model": "CurrentSessionResponse",
+        "model_file": "app/schemas/auth/auth.py",
+        "array": false
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:60",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/auth/router.py:23",
+          "prefix": "/auth"
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/login",
+      "handler": "app/api/v1/auth/router.py::login_user",
+      "declared_at": "app/api/v1/auth/router.py:36",
+      "params": [],
+      "request_body": {
+        "models": [
+          "UserLoginRequest"
+        ],
+        "model_files": [
+          "app/schemas/auth/auth.py"
+        ],
+        "required": true,
+        "media_type": "application/json",
+        "embedded": false
+      },
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:60",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/auth/router.py:23",
+          "prefix": "/auth"
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/register",
+      "handler": "app/api/v1/auth/router.py::register_public_owner",
+      "declared_at": "app/api/v1/auth/router.py:53",
+      "params": [],
+      "request_body": {
+        "models": [
+          "RegisterRequest"
+        ],
+        "model_files": [
+          "app/schemas/auth/auth.py"
+        ],
+        "required": true,
+        "media_type": "application/json",
+        "embedded": false
+      },
+      "response": {
+        "model": "RegisterResponse",
+        "model_file": "app/schemas/auth/auth.py",
+        "array": false
+      },
+      "status": [
+        201
+      ],
+      "status_source": "declared",
+      "registration": [
+        {
+          "where": "app/main.py:60",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/auth/router.py:23",
+          "prefix": "/auth"
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/super-admin/login",
+      "handler": "app/api/v1/auth/router.py::login_super_admin",
+      "declared_at": "app/api/v1/auth/router.py:68",
+      "params": [],
+      "request_body": {
+        "models": [
+          "SuperAdminLoginRequest"
+        ],
+        "model_files": [
+          "app/schemas/auth/auth.py"
+        ],
+        "required": true,
+        "media_type": "application/json",
+        "embedded": false
+      },
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:60",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/auth/router.py:23",
+          "prefix": "/auth"
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/forgot-password",
+      "handler": "app/api/v1/auth/router.py::forgot_password",
+      "declared_at": "app/api/v1/auth/router.py:81",
+      "params": [],
+      "request_body": {
+        "models": [
+          "ForgotPasswordRequest"
+        ],
+        "model_files": [
+          "app/schemas/auth/auth.py"
+        ],
+        "required": true,
+        "media_type": "application/json",
+        "embedded": false
+      },
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:60",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/auth/router.py:23",
+          "prefix": "/auth"
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/reset-password",
+      "handler": "app/api/v1/auth/router.py::reset_password",
+      "declared_at": "app/api/v1/auth/router.py:91",
+      "params": [],
+      "request_body": {
+        "models": [
+          "ResetPasswordRequest"
+        ],
+        "model_files": [
+          "app/schemas/auth/auth.py"
+        ],
+        "required": true,
+        "media_type": "application/json",
+        "embedded": false
+      },
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:60",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/auth/router.py:23",
+          "prefix": "/auth"
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/change-password",
+      "handler": "app/api/v1/auth/router.py::change_password",
+      "declared_at": "app/api/v1/auth/router.py:101",
+      "params": [
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": {
+        "models": [
+          "ChangePasswordRequest"
+        ],
+        "model_files": [
+          "app/schemas/auth/auth.py"
+        ],
+        "required": true,
+        "media_type": "application/json",
+        "embedded": false
+      },
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:60",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/auth/router.py:23",
+          "prefix": "/auth"
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/super-admins",
+      "handler": "app/api/v1/super_admin/router.py::create_super_admin",
+      "declared_at": "app/api/v1/super_admin/router.py:13",
+      "params": [],
+      "request_body": {
+        "models": [
+          "SuperAdminCreate"
+        ],
+        "model_files": [
+          "app/schemas/super_admin/super_admin.py"
+        ],
+        "required": true,
+        "media_type": "application/json",
+        "embedded": false
+      },
+      "response": null,
+      "status": [
+        201
+      ],
+      "status_source": "declared",
+      "registration": [
+        {
+          "where": "app/main.py:61",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/super_admin/router.py:10",
+          "prefix": "/super-admins"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/super-admins",
+      "handler": "app/api/v1/super_admin/router.py::list_super_admins",
+      "declared_at": "app/api/v1/super_admin/router.py:23",
+      "params": [],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:61",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/super_admin/router.py:10",
+          "prefix": "/super-admins"
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/tenants",
+      "handler": "app/api/v1/tenant/router.py::create_tenant",
+      "declared_at": "app/api/v1/tenant/router.py:24",
+      "params": [
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": {
+        "models": [
+          "TenantCreate"
+        ],
+        "model_files": [
+          "app/schemas/tenant/tenant.py"
+        ],
+        "required": true,
+        "media_type": "application/json",
+        "embedded": false
+      },
+      "response": null,
+      "status": [
+        201
+      ],
+      "status_source": "declared",
+      "registration": [
+        {
+          "where": "app/main.py:62",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/tenant/router.py:21",
+          "prefix": "/tenants"
+        }
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/tenants/settings",
+      "handler": "app/api/v1/tenant/router.py::update_tenant_settings",
+      "declared_at": "app/api/v1/tenant/router.py:44",
+      "params": [
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": {
+        "models": [
+          "TenantSettingsUpdate"
+        ],
+        "model_files": [
+          "app/schemas/tenant/tenant.py"
+        ],
+        "required": true,
+        "media_type": "application/json",
+        "embedded": false
+      },
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:62",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/tenant/router.py:21",
+          "prefix": "/tenants"
+        }
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/tenants/assign-plan",
+      "handler": "app/api/v1/tenant/router.py::assign_plan",
+      "declared_at": "app/api/v1/tenant/router.py:71",
+      "params": [
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": {
+        "models": [
+          "AssignPlanRequest"
+        ],
+        "model_files": [
+          "app/schemas/tenant/tenant.py"
+        ],
+        "required": true,
+        "media_type": "application/json",
+        "embedded": false
+      },
+      "response": {
+        "model": "TenantResponse",
+        "model_file": "app/schemas/tenant/tenant.py",
+        "array": false
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:62",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/tenant/router.py:21",
+          "prefix": "/tenants"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/tenants/settings",
+      "handler": "app/api/v1/tenant/router.py::get_tenant_settings",
+      "declared_at": "app/api/v1/tenant/router.py:83",
+      "params": [
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": {
+        "model": "TenantResponse",
+        "model_file": "app/schemas/tenant/tenant.py",
+        "array": false
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:62",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/tenant/router.py:21",
+          "prefix": "/tenants"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/tenants/settings/message-templates",
+      "handler": "app/api/v1/tenant/router.py::get_message_templates",
+      "declared_at": "app/api/v1/tenant/router.py:93",
+      "params": [
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": {
+        "model": "MessageTemplates",
+        "model_file": "app/schemas/tenant/tenant.py",
+        "array": false
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:62",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/tenant/router.py:21",
+          "prefix": "/tenants"
+        }
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/tenants/settings/message-templates",
+      "handler": "app/api/v1/tenant/router.py::update_message_templates",
+      "declared_at": "app/api/v1/tenant/router.py:107",
+      "params": [
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": {
+        "models": [
+          "MessageTemplates"
+        ],
+        "model_files": [
+          "app/schemas/tenant/tenant.py"
+        ],
+        "required": true,
+        "media_type": "application/json",
+        "embedded": false
+      },
+      "response": {
+        "model": "MessageTemplates",
+        "model_file": "app/schemas/tenant/tenant.py",
+        "array": false
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:62",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/tenant/router.py:21",
+          "prefix": "/tenants"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/tenants/{tenant_id}",
+      "handler": "app/api/v1/tenant/router.py::get_tenant",
+      "declared_at": "app/api/v1/tenant/router.py:125",
+      "params": [
+        {
+          "name": "tenant_id",
+          "in": "path",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:62",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/tenant/router.py:21",
+          "prefix": "/tenants"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/tenants",
+      "handler": "app/api/v1/tenant/router.py::list_tenants",
+      "declared_at": "app/api/v1/tenant/router.py:137",
+      "params": [
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:62",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/tenant/router.py:21",
+          "prefix": "/tenants"
+        }
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/tenants/{tenant_id}",
+      "handler": "app/api/v1/tenant/router.py::update_tenant",
+      "declared_at": "app/api/v1/tenant/router.py:148",
+      "params": [
+        {
+          "name": "tenant_id",
+          "in": "path",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": {
+        "models": [
+          "TenantUpdate"
+        ],
+        "model_files": [
+          "app/schemas/tenant/tenant.py"
+        ],
+        "required": true,
+        "media_type": "application/json",
+        "embedded": false
+      },
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:62",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/tenant/router.py:21",
+          "prefix": "/tenants"
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/payments",
+      "handler": "app/api/v1/tenant/payments_router.py::register_payment",
+      "declared_at": "app/api/v1/tenant/payments_router.py:15",
+      "params": [
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": {
+        "models": [
+          "PaymentCreate"
+        ],
+        "model_files": [
+          "app/schemas/tenant/tenant_payment.py"
+        ],
+        "required": true,
+        "media_type": "application/json",
+        "embedded": false
+      },
+      "response": null,
+      "status": [
+        201
+      ],
+      "status_source": "declared",
+      "registration": [
+        {
+          "where": "app/main.py:63",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/tenant/payments_router.py:12",
+          "prefix": "/payments"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/payments",
+      "handler": "app/api/v1/tenant/payments_router.py::list_payments",
+      "declared_at": "app/api/v1/tenant/payments_router.py:34",
+      "params": [
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:63",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/tenant/payments_router.py:12",
+          "prefix": "/payments"
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/users",
+      "handler": "app/api/v1/users/router.py::create_user",
+      "declared_at": "app/api/v1/users/router.py:22",
+      "params": [
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": {
+        "models": [
+          "UserCreate"
+        ],
+        "model_files": [
+          "app/schemas/users/user.py"
+        ],
+        "required": true,
+        "media_type": "application/json",
+        "embedded": false
+      },
+      "response": null,
+      "status": [
+        201
+      ],
+      "status_source": "declared",
+      "registration": [
+        {
+          "where": "app/main.py:64",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/users/router.py:19",
+          "prefix": "/users"
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/users/staff",
+      "handler": "app/api/v1/users/router.py::create_staff_user",
+      "declared_at": "app/api/v1/users/router.py:40",
+      "params": [
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": {
+        "models": [
+          "UserStaffCreate"
+        ],
+        "model_files": [
+          "app/schemas/users/user.py"
+        ],
+        "required": true,
+        "media_type": "application/json",
+        "embedded": false
+      },
+      "response": null,
+      "status": [
+        201
+      ],
+      "status_source": "declared",
+      "registration": [
+        {
+          "where": "app/main.py:64",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/users/router.py:19",
+          "prefix": "/users"
+        }
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/users/{user_id}/activate",
+      "handler": "app/api/v1/users/router.py::activate_staff_user",
+      "declared_at": "app/api/v1/users/router.py:56",
+      "params": [
+        {
+          "name": "user_id",
+          "in": "path",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": {
+        "model": "UserActivationResponse",
+        "model_file": "app/schemas/users/user.py",
+        "array": false
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:64",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/users/router.py:19",
+          "prefix": "/users"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/users/{user_id}",
+      "handler": "app/api/v1/users/router.py::get_user",
+      "declared_at": "app/api/v1/users/router.py:67",
+      "params": [
+        {
+          "name": "user_id",
+          "in": "path",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:64",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/users/router.py:19",
+          "prefix": "/users"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/users",
+      "handler": "app/api/v1/users/router.py::list_users",
+      "declared_at": "app/api/v1/users/router.py:81",
+      "params": [
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:64",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/users/router.py:19",
+          "prefix": "/users"
+        }
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/users/{user_id}",
+      "handler": "app/api/v1/users/router.py::update_user",
+      "declared_at": "app/api/v1/users/router.py:94",
+      "params": [
+        {
+          "name": "user_id",
+          "in": "path",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": {
+        "models": [
+          "UserUpdate"
+        ],
+        "model_files": [
+          "app/schemas/users/user.py"
+        ],
+        "required": true,
+        "media_type": "application/json",
+        "embedded": false
+      },
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:64",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/users/router.py:19",
+          "prefix": "/users"
+        }
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/users/{user_id}",
+      "handler": "app/api/v1/users/router.py::delete_user",
+      "declared_at": "app/api/v1/users/router.py:115",
+      "params": [
+        {
+          "name": "user_id",
+          "in": "path",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": null,
+      "status": [
+        204
+      ],
+      "status_source": "declared",
+      "registration": [
+        {
+          "where": "app/main.py:64",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/users/router.py:19",
+          "prefix": "/users"
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/clients",
+      "handler": "app/api/v1/clients/router.py::create_client",
+      "declared_at": "app/api/v1/clients/router.py:16",
+      "params": [
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": {
+        "models": [
+          "ClientCreate"
+        ],
+        "model_files": [
+          "app/schemas/clients/client.py"
+        ],
+        "required": true,
+        "media_type": "application/json",
+        "embedded": false
+      },
+      "response": null,
+      "status": [
+        201
+      ],
+      "status_source": "declared",
+      "registration": [
+        {
+          "where": "app/main.py:65",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/clients/router.py:13",
+          "prefix": "/clients"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/clients/{client_id}",
+      "handler": "app/api/v1/clients/router.py::get_client",
+      "declared_at": "app/api/v1/clients/router.py:32",
+      "params": [
+        {
+          "name": "client_id",
+          "in": "path",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:65",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/clients/router.py:13",
+          "prefix": "/clients"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/clients",
+      "handler": "app/api/v1/clients/router.py::list_clients",
+      "declared_at": "app/api/v1/clients/router.py:43",
+      "params": [
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:65",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/clients/router.py:13",
+          "prefix": "/clients"
+        }
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/clients/{client_id}",
+      "handler": "app/api/v1/clients/router.py::update_client",
+      "declared_at": "app/api/v1/clients/router.py:53",
+      "params": [
+        {
+          "name": "client_id",
+          "in": "path",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": {
+        "models": [
+          "ClientUpdate"
+        ],
+        "model_files": [
+          "app/schemas/clients/client.py"
+        ],
+        "required": true,
+        "media_type": "application/json",
+        "embedded": false
+      },
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:65",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/clients/router.py:13",
+          "prefix": "/clients"
+        }
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/clients/{client_id}",
+      "handler": "app/api/v1/clients/router.py::delete_client",
+      "declared_at": "app/api/v1/clients/router.py:72",
+      "params": [
+        {
+          "name": "client_id",
+          "in": "path",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": null,
+      "status": [
+        204
+      ],
+      "status_source": "declared",
+      "registration": [
+        {
+          "where": "app/main.py:65",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/clients/router.py:13",
+          "prefix": "/clients"
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/services",
+      "handler": "app/api/v1/services/router.py::create_service",
+      "declared_at": "app/api/v1/services/router.py:16",
+      "params": [
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": {
+        "models": [
+          "ServiceCreate"
+        ],
+        "model_files": [
+          "app/schemas/services/service.py"
+        ],
+        "required": true,
+        "media_type": "application/json",
+        "embedded": false
+      },
+      "response": null,
+      "status": [
+        201
+      ],
+      "status_source": "declared",
+      "registration": [
+        {
+          "where": "app/main.py:66",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/services/router.py:13",
+          "prefix": "/services"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/services/{service_id}",
+      "handler": "app/api/v1/services/router.py::get_service",
+      "declared_at": "app/api/v1/services/router.py:32",
+      "params": [
+        {
+          "name": "service_id",
+          "in": "path",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:66",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/services/router.py:13",
+          "prefix": "/services"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/services",
+      "handler": "app/api/v1/services/router.py::list_services",
+      "declared_at": "app/api/v1/services/router.py:43",
+      "params": [
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:66",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/services/router.py:13",
+          "prefix": "/services"
+        }
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/services/{service_id}",
+      "handler": "app/api/v1/services/router.py::update_service",
+      "declared_at": "app/api/v1/services/router.py:53",
+      "params": [
+        {
+          "name": "service_id",
+          "in": "path",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": {
+        "models": [
+          "ServiceUpdate"
+        ],
+        "model_files": [
+          "app/schemas/services/service.py"
+        ],
+        "required": true,
+        "media_type": "application/json",
+        "embedded": false
+      },
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:66",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/services/router.py:13",
+          "prefix": "/services"
+        }
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/services/{service_id}",
+      "handler": "app/api/v1/services/router.py::soft_delete_service",
+      "declared_at": "app/api/v1/services/router.py:71",
+      "params": [
+        {
+          "name": "service_id",
+          "in": "path",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": null,
+      "status": [
+        204
+      ],
+      "status_source": "declared",
+      "registration": [
+        {
+          "where": "app/main.py:66",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/services/router.py:13",
+          "prefix": "/services"
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/appointments",
+      "handler": "app/api/v1/appointments/router.py::create_appointment",
+      "declared_at": "app/api/v1/appointments/router.py:25",
+      "params": [
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": {
+        "models": [
+          "AppointmentCreate"
+        ],
+        "model_files": [
+          "app/schemas/appointments/appointment.py"
+        ],
+        "required": true,
+        "media_type": "application/json",
+        "embedded": false
+      },
+      "response": null,
+      "status": [
+        201
+      ],
+      "status_source": "declared",
+      "registration": [
+        {
+          "where": "app/main.py:67",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/appointments/router.py:22",
+          "prefix": "/appointments"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appointments/agenda",
+      "handler": "app/api/v1/appointments/router.py::get_agenda",
+      "declared_at": "app/api/v1/appointments/router.py:47",
+      "params": [
+        {
+          "name": "start_date",
+          "in": "query",
+          "type": "date",
+          "required": true
+        },
+        {
+          "name": "end_date",
+          "in": "query",
+          "type": "date",
+          "required": false
+        },
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": {
+        "model": "AppointmentAgendaResponse",
+        "model_file": "app/schemas/appointments/appointment.py",
+        "array": false
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:67",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/appointments/router.py:22",
+          "prefix": "/appointments"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appointments/weekly",
+      "handler": "app/api/v1/appointments/router.py::get_weekly_agenda",
+      "declared_at": "app/api/v1/appointments/router.py:64",
+      "params": [
+        {
+          "name": "start_date",
+          "in": "query",
+          "type": "date",
+          "required": true
+        },
+        {
+          "name": "staff_id",
+          "in": "query",
+          "type": "uuid",
+          "required": false
+        },
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": {
+        "model": "AppointmentWeeklyResponse",
+        "model_file": "app/schemas/appointments/appointment.py",
+        "array": false
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:67",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/appointments/router.py:22",
+          "prefix": "/appointments"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appointments",
+      "handler": "app/api/v1/appointments/router.py::list_appointments",
+      "declared_at": "app/api/v1/appointments/router.py:81",
+      "params": [
+        {
+          "name": "appointment_date",
+          "in": "query",
+          "type": "date",
+          "required": false
+        },
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:67",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/appointments/router.py:22",
+          "prefix": "/appointments"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appointments/availability",
+      "handler": "app/api/v1/appointments/router.py::get_availability",
+      "declared_at": "app/api/v1/appointments/router.py:96",
+      "params": [
+        {
+          "name": "date",
+          "in": "query",
+          "type": "date",
+          "required": true
+        },
+        {
+          "name": "staff_id",
+          "in": "query",
+          "type": "uuid",
+          "required": false
+        },
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:67",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/appointments/router.py:22",
+          "prefix": "/appointments"
+        }
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/appointments/{appointment_id}/status",
+      "handler": "app/api/v1/appointments/router.py::change_appointment_status",
+      "declared_at": "app/api/v1/appointments/router.py:112",
+      "params": [
+        {
+          "name": "appointment_id",
+          "in": "path",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": {
+        "models": [
+          "AppointmentStatusUpdate"
+        ],
+        "model_files": [
+          "app/schemas/appointments/appointment.py"
+        ],
+        "required": true,
+        "media_type": "application/json",
+        "embedded": false
+      },
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:67",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/appointments/router.py:22",
+          "prefix": "/appointments"
+        }
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/appointments/{appointment_id}/reschedule",
+      "handler": "app/api/v1/appointments/router.py::reschedule_appointment",
+      "declared_at": "app/api/v1/appointments/router.py:129",
+      "params": [
+        {
+          "name": "appointment_id",
+          "in": "path",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": {
+        "models": [
+          "AppointmentReschedule"
+        ],
+        "model_files": [
+          "app/schemas/appointments/appointment.py"
+        ],
+        "required": true,
+        "media_type": "application/json",
+        "embedded": false
+      },
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:67",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/appointments/router.py:22",
+          "prefix": "/appointments"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/appointments/{appointment_id}",
+      "handler": "app/api/v1/appointments/router.py::get_appointment",
+      "declared_at": "app/api/v1/appointments/router.py:147",
+      "params": [
+        {
+          "name": "appointment_id",
+          "in": "path",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:67",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/appointments/router.py:22",
+          "prefix": "/appointments"
+        }
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/appointments/{appointment_id}",
+      "handler": "app/api/v1/appointments/router.py::update_appointment",
+      "declared_at": "app/api/v1/appointments/router.py:158",
+      "params": [
+        {
+          "name": "appointment_id",
+          "in": "path",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": {
+        "models": [
+          "AppointmentUpdate"
+        ],
+        "model_files": [
+          "app/schemas/appointments/appointment.py"
+        ],
+        "required": true,
+        "media_type": "application/json",
+        "embedded": false
+      },
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:67",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/appointments/router.py:22",
+          "prefix": "/appointments"
+        }
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/appointments/{appointment_id}",
+      "handler": "app/api/v1/appointments/router.py::cancel_appointment",
+      "declared_at": "app/api/v1/appointments/router.py:181",
+      "params": [
+        {
+          "name": "appointment_id",
+          "in": "path",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": null,
+      "status": [
+        204
+      ],
+      "status_source": "declared",
+      "registration": [
+        {
+          "where": "app/main.py:67",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/appointments/router.py:22",
+          "prefix": "/appointments"
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/waitlists",
+      "handler": "app/api/v1/waitlists/router.py::create_waitlist",
+      "declared_at": "app/api/v1/waitlists/router.py:18",
+      "params": [
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": {
+        "models": [
+          "WaitlistCreate"
+        ],
+        "model_files": [
+          "app/schemas/waitlists/waitlist.py"
+        ],
+        "required": true,
+        "media_type": "application/json",
+        "embedded": false
+      },
+      "response": {
+        "model": "WaitlistResponse",
+        "model_file": "app/schemas/waitlists/waitlist.py",
+        "array": false
+      },
+      "status": [
+        201
+      ],
+      "status_source": "declared",
+      "registration": [
+        {
+          "where": "app/main.py:68",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/waitlists/router.py:15",
+          "prefix": "/waitlists"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/waitlists",
+      "handler": "app/api/v1/waitlists/router.py::list_waitlists",
+      "declared_at": "app/api/v1/waitlists/router.py:36",
+      "params": [
+        {
+          "name": "target_date",
+          "in": "query",
+          "type": "date",
+          "required": true
+        },
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": {
+        "model": "WaitlistResponse",
+        "model_file": "app/schemas/waitlists/waitlist.py",
+        "array": true
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:68",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/waitlists/router.py:15",
+          "prefix": "/waitlists"
+        }
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/waitlists/{waitlist_id}/resolve",
+      "handler": "app/api/v1/waitlists/router.py::resolve_waitlist",
+      "declared_at": "app/api/v1/waitlists/router.py:47",
+      "params": [
+        {
+          "name": "waitlist_id",
+          "in": "path",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": {
+        "model": "WaitlistResponse",
+        "model_file": "app/schemas/waitlists/waitlist.py",
+        "array": false
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:68",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/waitlists/router.py:15",
+          "prefix": "/waitlists"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/messaging/outbox/stats",
+      "handler": "app/api/v1/whatsapp/router.py::get_outbox_stats",
+      "declared_at": "app/api/v1/whatsapp/router.py:291",
+      "params": [
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": {
+        "model": "OutboxStatsResponse",
+        "model_file": "app/schemas/whatsapp/whatsapp.py",
+        "array": false
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:69",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/whatsapp/router.py:27",
+          "prefix": ""
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/whatsapp/create-instance",
+      "handler": "app/api/v1/whatsapp/router.py::create_whatsapp_instance",
+      "declared_at": "app/api/v1/whatsapp/router.py:302",
+      "params": [
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": {
+        "model": "WhatsAppInstanceResponse",
+        "model_file": "app/schemas/whatsapp/whatsapp.py",
+        "array": false
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:69",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/whatsapp/router.py:27",
+          "prefix": ""
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/whatsapp/get-qr",
+      "handler": "app/api/v1/whatsapp/router.py::get_whatsapp_qr",
+      "declared_at": "app/api/v1/whatsapp/router.py:312",
+      "params": [
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": {
+        "model": "WhatsAppQrResponse",
+        "model_file": "app/schemas/whatsapp/whatsapp.py",
+        "array": false
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:69",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/whatsapp/router.py:27",
+          "prefix": ""
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/whatsapp/status",
+      "handler": "app/api/v1/whatsapp/router.py::get_whatsapp_status",
+      "declared_at": "app/api/v1/whatsapp/router.py:322",
+      "params": [
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": {
+        "model": "WhatsAppStatusResponse",
+        "model_file": "app/schemas/whatsapp/whatsapp.py",
+        "array": false
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:69",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/whatsapp/router.py:27",
+          "prefix": ""
+        }
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/whatsapp/logout",
+      "handler": "app/api/v1/whatsapp/router.py::logout_whatsapp_instance",
+      "declared_at": "app/api/v1/whatsapp/router.py:332",
+      "params": [
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": {
+        "model": "WhatsAppLogoutResponse",
+        "model_file": "app/schemas/whatsapp/whatsapp.py",
+        "array": false
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:69",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/whatsapp/router.py:27",
+          "prefix": ""
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/whatsapp/sync-webhook",
+      "handler": "app/api/v1/whatsapp/router.py::sync_whatsapp_webhook",
+      "declared_at": "app/api/v1/whatsapp/router.py:342",
+      "params": [
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": {
+        "model": "WhatsAppWebhookSyncResponse",
+        "model_file": "app/schemas/whatsapp/whatsapp.py",
+        "array": false
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:69",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/whatsapp/router.py:27",
+          "prefix": ""
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/messaging/outbox/enqueue",
+      "handler": "app/api/v1/whatsapp/router.py::enqueue_message",
+      "declared_at": "app/api/v1/whatsapp/router.py:352",
+      "params": [
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": {
+        "models": [
+          "OutboxEnqueueRequest"
+        ],
+        "model_files": [
+          "app/schemas/whatsapp/whatsapp.py"
+        ],
+        "required": true,
+        "media_type": "application/json",
+        "embedded": false
+      },
+      "response": {
+        "type": "object",
+        "array": false
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:69",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/whatsapp/router.py:27",
+          "prefix": ""
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/messaging/outbox/messages",
+      "handler": "app/api/v1/whatsapp/router.py::list_outbox_messages",
+      "declared_at": "app/api/v1/whatsapp/router.py:369",
+      "params": [
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": {
+        "model": "OutboxMessageResponse",
+        "model_file": "app/schemas/whatsapp/whatsapp.py",
+        "array": true
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:69",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/whatsapp/router.py:27",
+          "prefix": ""
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/messaging/outbox/{message_id}/retry",
+      "handler": "app/api/v1/whatsapp/router.py::retry_outbox_message",
+      "declared_at": "app/api/v1/whatsapp/router.py:380",
+      "params": [
+        {
+          "name": "message_id",
+          "in": "path",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "Authorization",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": {
+        "type": "object",
+        "array": false
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:69",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/whatsapp/router.py:27",
+          "prefix": ""
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/webhooks/evolution",
+      "handler": "app/api/v1/whatsapp/router.py::evolution_webhook",
+      "declared_at": "app/api/v1/whatsapp/router.py:394",
+      "params": [],
+      "request_body": {
+        "models": [],
+        "model_files": [],
+        "required": false,
+        "media_type": "application/json",
+        "embedded": false,
+        "type": "object"
+      },
+      "response": {
+        "model": "WebhookProcessResponse",
+        "model_file": "app/schemas/whatsapp/whatsapp.py",
+        "array": false
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:69",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/whatsapp/router.py:27",
+          "prefix": ""
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/webhooks/whatsapp",
+      "handler": "app/api/v1/whatsapp/router.py::whatsapp_webhook",
+      "declared_at": "app/api/v1/whatsapp/router.py:450",
+      "params": [],
+      "request_body": {
+        "models": [],
+        "model_files": [],
+        "required": false,
+        "media_type": "application/json",
+        "embedded": false,
+        "type": "object"
+      },
+      "response": {
+        "model": "WhatsAppWebhookResponse",
+        "model_file": "app/schemas/whatsapp/whatsapp.py",
+        "array": false
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:69",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/whatsapp/router.py:27",
+          "prefix": ""
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/test/trigger-reminder/{appointment_id}",
+      "handler": "app/api/v1/test.py::trigger_manual_reminder",
+      "declared_at": "app/api/v1/test.py:24",
+      "params": [
+        {
+          "name": "appointment_id",
+          "in": "path",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "test_key",
+          "in": "query",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:70",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/test.py:21",
+          "prefix": "/test"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/test/appointment-info/{appointment_id}",
+      "handler": "app/api/v1/test.py::get_appointment_test_info",
+      "declared_at": "app/api/v1/test.py:235",
+      "params": [
+        {
+          "name": "appointment_id",
+          "in": "path",
+          "type": "uuid",
+          "required": true
+        },
+        {
+          "name": "test_key",
+          "in": "query",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "app/main.py:70",
+          "prefix": "/api/v1",
+          "prefix_source": "app/core/config.py:36",
+          "rule": "settings.default_prefix"
+        },
+        {
+          "where": "app/api/v1/test.py:21",
+          "prefix": "/test"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/health",
+      "handler": "app/main.py::health_check",
+      "declared_at": "app/main.py:73",
+      "params": [],
+      "request_body": null,
+      "response": {
+        "type": "object",
+        "array": false,
+        "rule": "fastapi.return_annotation_response_model"
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": []
+    }
+  ],
+  "models": [
+    {
+      "name": "AppointmentAgendaItem",
+      "file": "app/schemas/appointments/appointment.py",
+      "line": 61,
+      "fields": [
+        {
+          "name": "id",
+          "alias": null,
+          "type": "uuid",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "time_start",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "time_end",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "client_name",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "client_phone",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": true
+        },
+        {
+          "name": "status",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false,
+          "alt_types": [
+            "AppointmentStatus",
+            "app/models/appointments/appointment.py::AppointmentStatus"
+          ]
+        },
+        {
+          "name": "staff_name",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "service_name",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "AppointmentAgendaResponse",
+      "file": "app/schemas/appointments/appointment.py",
+      "line": 72,
+      "fields": [
+        {
+          "name": "start_date",
+          "alias": null,
+          "type": "date",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "end_date",
+          "alias": null,
+          "type": "date",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "summary",
+          "alias": null,
+          "type": "AppointmentAgendaSummary",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "appointments",
+          "alias": null,
+          "type": "array[AppointmentAgendaItem]",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "AppointmentAgendaSummary",
+      "file": "app/schemas/appointments/appointment.py",
+      "line": 52,
+      "fields": [
+        {
+          "name": "total",
+          "alias": null,
+          "type": "integer",
+          "required": false,
+          "nullable": false
+        },
+        {
+          "name": "confirmed",
+          "alias": null,
+          "type": "integer",
+          "required": false,
+          "nullable": false
+        },
+        {
+          "name": "pending",
+          "alias": null,
+          "type": "integer",
+          "required": false,
+          "nullable": false
+        },
+        {
+          "name": "cancelled",
+          "alias": null,
+          "type": "integer",
+          "required": false,
+          "nullable": false
+        },
+        {
+          "name": "attended",
+          "alias": null,
+          "type": "integer",
+          "required": false,
+          "nullable": false
+        },
+        {
+          "name": "waitlist_count",
+          "alias": null,
+          "type": "integer",
+          "required": false,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "AppointmentCreate",
+      "file": "app/schemas/appointments/appointment.py",
+      "line": 9,
+      "fields": [
+        {
+          "name": "client_id",
+          "alias": null,
+          "type": "uuid",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "client_name",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "client_phone",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "user_id",
+          "alias": null,
+          "type": "uuid",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "service_id",
+          "alias": null,
+          "type": "uuid",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "appointment_date",
+          "alias": null,
+          "type": "date",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "time_start",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false,
+          "alt_types": [
+            "time"
+          ]
+        },
+        {
+          "name": "notes",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        }
+      ]
+    },
+    {
+      "name": "AppointmentDailySummary",
+      "file": "app/schemas/appointments/appointment.py",
+      "line": 87,
+      "fields": [
+        {
+          "name": "total",
+          "alias": null,
+          "type": "integer",
+          "required": false,
+          "nullable": false
+        },
+        {
+          "name": "waitlist_count",
+          "alias": null,
+          "type": "integer",
+          "required": false,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "AppointmentReschedule",
+      "file": "app/schemas/appointments/appointment.py",
+      "line": 110,
+      "fields": [
+        {
+          "name": "appointment_date",
+          "alias": null,
+          "type": "date",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "time_start",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false,
+          "alt_types": [
+            "time"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "AppointmentStatusUpdate",
+      "file": "app/schemas/appointments/appointment.py",
+      "line": 106,
+      "fields": [
+        {
+          "name": "status",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false,
+          "alt_types": [
+            "AppointmentStatus",
+            "app/models/appointments/appointment.py::AppointmentStatus"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "AppointmentUpdate",
+      "file": "app/schemas/appointments/appointment.py",
+      "line": 26,
+      "fields": [
+        {
+          "name": "client_id",
+          "alias": null,
+          "type": "uuid",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "user_id",
+          "alias": null,
+          "type": "uuid",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "service_id",
+          "alias": null,
+          "type": "uuid",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "appointment_date",
+          "alias": null,
+          "type": "date",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "time_start",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true,
+          "alt_types": [
+            "time"
+          ]
+        },
+        {
+          "name": "status",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true,
+          "alt_types": [
+            "AppointmentStatus",
+            "app/models/appointments/appointment.py::AppointmentStatus"
+          ]
+        },
+        {
+          "name": "notes",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        }
+      ]
+    },
+    {
+      "name": "AppointmentWeeklyDay",
+      "file": "app/schemas/appointments/appointment.py",
+      "line": 92,
+      "fields": [
+        {
+          "name": "date",
+          "alias": null,
+          "type": "date",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "day_name",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "daily_summary",
+          "alias": null,
+          "type": "AppointmentDailySummary",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "appointments",
+          "alias": null,
+          "type": "array[AppointmentAgendaItem]",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "AppointmentWeeklyResponse",
+      "file": "app/schemas/appointments/appointment.py",
+      "line": 99,
+      "fields": [
+        {
+          "name": "start_date",
+          "alias": null,
+          "type": "date",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "end_date",
+          "alias": null,
+          "type": "date",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "weekly_summary",
+          "alias": null,
+          "type": "AppointmentWeeklySummary",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "days",
+          "alias": null,
+          "type": "array[AppointmentWeeklyDay]",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "AppointmentWeeklySummary",
+      "file": "app/schemas/appointments/appointment.py",
+      "line": 79,
+      "fields": [
+        {
+          "name": "total",
+          "alias": null,
+          "type": "integer",
+          "required": false,
+          "nullable": false
+        },
+        {
+          "name": "confirmed",
+          "alias": null,
+          "type": "integer",
+          "required": false,
+          "nullable": false
+        },
+        {
+          "name": "pending",
+          "alias": null,
+          "type": "integer",
+          "required": false,
+          "nullable": false
+        },
+        {
+          "name": "cancelled",
+          "alias": null,
+          "type": "integer",
+          "required": false,
+          "nullable": false
+        },
+        {
+          "name": "waitlist_count",
+          "alias": null,
+          "type": "integer",
+          "required": false,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "AssignPlanRequest",
+      "file": "app/schemas/tenant/tenant.py",
+      "line": 195,
+      "fields": [
+        {
+          "name": "plan_tier",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false,
+          "alt_types": [
+            "PlanTier",
+            "app/models/tenant/tenant.py::PlanTier"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "BusinessHourDay",
+      "file": "app/schemas/tenant/tenant.py",
+      "line": 20,
+      "fields": [
+        {
+          "name": "is_open",
+          "alias": null,
+          "type": "boolean",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "open",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "close",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "ChangePasswordRequest",
+      "file": "app/schemas/auth/auth.py",
+      "line": 48,
+      "fields": [
+        {
+          "name": "current_password",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "new_password",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "ClientCreate",
+      "file": "app/schemas/clients/client.py",
+      "line": 7,
+      "fields": [
+        {
+          "name": "name",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "phone",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "notes",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        }
+      ]
+    },
+    {
+      "name": "ClientUpdate",
+      "file": "app/schemas/clients/client.py",
+      "line": 13,
+      "fields": [
+        {
+          "name": "name",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "phone",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "notes",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "whatsapp_lid",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        }
+      ]
+    },
+    {
+      "name": "CurrentSessionResponse",
+      "file": "app/schemas/auth/auth.py",
+      "line": 63,
+      "fields": [
+        {
+          "name": "id",
+          "alias": null,
+          "type": "uuid",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "role",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false,
+          "alt_types": [
+            "UserRole",
+            "app/models/auth/user.py::UserRole"
+          ]
+        },
+        {
+          "name": "tenant_id",
+          "alias": null,
+          "type": "uuid",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "plan_tier",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false,
+          "alt_types": [
+            "PlanTier",
+            "app/models/tenant/tenant.py::PlanTier"
+          ]
+        },
+        {
+          "name": "tenant",
+          "alias": null,
+          "type": "CurrentSessionTenant",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "CurrentSessionTenant",
+      "file": "app/schemas/auth/auth.py",
+      "line": 57,
+      "fields": [
+        {
+          "name": "name",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "slot_duration",
+          "alias": null,
+          "type": "integer",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "plan_tier",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false,
+          "alt_types": [
+            "PlanTier",
+            "app/models/tenant/tenant.py::PlanTier"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "ForgotPasswordRequest",
+      "file": "app/schemas/auth/auth.py",
+      "line": 39,
+      "fields": [
+        {
+          "name": "email",
+          "alias": null,
+          "type": "email",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "MessageTemplateConfig",
+      "file": "app/schemas/tenant/tenant.py",
+      "line": 68,
+      "fields": [
+        {
+          "name": "enabled",
+          "alias": null,
+          "type": "boolean",
+          "required": false,
+          "nullable": false
+        },
+        {
+          "name": "variants",
+          "alias": null,
+          "type": "array[string]",
+          "required": false,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "MessageTemplates",
+      "file": "app/schemas/tenant/tenant.py",
+      "line": 92,
+      "fields": [
+        {
+          "name": "reminder_24h",
+          "alias": null,
+          "type": "MessageTemplateConfig",
+          "required": false,
+          "nullable": false
+        },
+        {
+          "name": "reminder_2h",
+          "alias": null,
+          "type": "MessageTemplateConfig",
+          "required": false,
+          "nullable": false
+        },
+        {
+          "name": "welcome_message",
+          "alias": null,
+          "type": "MessageTemplateConfig",
+          "required": false,
+          "nullable": false
+        },
+        {
+          "name": "waitlist_notification",
+          "alias": null,
+          "type": "MessageTemplateConfig",
+          "required": false,
+          "nullable": false
+        },
+        {
+          "name": "waitlist_manual_approval",
+          "alias": null,
+          "type": "boolean",
+          "required": false,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "OutboxEnqueueRequest",
+      "file": "app/schemas/whatsapp/whatsapp.py",
+      "line": 7,
+      "fields": [
+        {
+          "name": "phone",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "message_type",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "variables",
+          "alias": null,
+          "type": "object",
+          "required": false,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "OutboxMessageResponse",
+      "file": "app/schemas/whatsapp/whatsapp.py",
+      "line": 42,
+      "fields": [
+        {
+          "name": "id",
+          "alias": null,
+          "type": "uuid",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "phone",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "message_type",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "rendered_text",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "status",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "attempts",
+          "alias": null,
+          "type": "integer",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "error_message",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "alias": null,
+          "type": "datetime",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "sent_at",
+          "alias": null,
+          "type": "datetime",
+          "required": false,
+          "nullable": true
+        }
+      ]
+    },
+    {
+      "name": "OutboxStatsResponse",
+      "file": "app/schemas/whatsapp/whatsapp.py",
+      "line": 13,
+      "fields": [
+        {
+          "name": "pending",
+          "alias": null,
+          "type": "integer",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "processing",
+          "alias": null,
+          "type": "integer",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "sent",
+          "alias": null,
+          "type": "integer",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "failed",
+          "alias": null,
+          "type": "integer",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "blocked_opt_out",
+          "alias": null,
+          "type": "integer",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "PaymentCreate",
+      "file": "app/schemas/tenant/tenant_payment.py",
+      "line": 8,
+      "fields": [
+        {
+          "name": "amount",
+          "alias": null,
+          "type": "number",
+          "required": true,
+          "nullable": false,
+          "alt_types": [
+            "string"
+          ]
+        },
+        {
+          "name": "payment_method",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "reference_code",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        }
+      ]
+    },
+    {
+      "name": "RegisterRequest",
+      "file": "app/schemas/auth/auth.py",
+      "line": 72,
+      "fields": [
+        {
+          "name": "email",
+          "alias": null,
+          "type": "email",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "password",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "full_name",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "business_name",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "RegisterResponse",
+      "file": "app/schemas/auth/auth.py",
+      "line": 79,
+      "fields": [
+        {
+          "name": "tenant_id",
+          "alias": null,
+          "type": "uuid",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "user_id",
+          "alias": null,
+          "type": "uuid",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "email",
+          "alias": null,
+          "type": "email",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "full_name",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "business_name",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "plan_tier",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false,
+          "alt_types": [
+            "PlanTier",
+            "app/models/tenant/tenant.py::PlanTier"
+          ]
+        },
+        {
+          "name": "trial_ends_at",
+          "alias": null,
+          "type": "datetime",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "ResetPasswordRequest",
+      "file": "app/schemas/auth/auth.py",
+      "line": 43,
+      "fields": [
+        {
+          "name": "token",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "new_password",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "ServiceCreate",
+      "file": "app/schemas/services/service.py",
+      "line": 8,
+      "fields": [
+        {
+          "name": "name",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "duration",
+          "alias": null,
+          "type": "integer",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "price",
+          "alias": null,
+          "type": "number",
+          "required": true,
+          "nullable": false,
+          "alt_types": [
+            "string"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "ServiceUpdate",
+      "file": "app/schemas/services/service.py",
+      "line": 14,
+      "fields": [
+        {
+          "name": "name",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "duration",
+          "alias": null,
+          "type": "integer",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "price",
+          "alias": null,
+          "type": "number",
+          "required": false,
+          "nullable": true,
+          "alt_types": [
+            "string"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "SuperAdminCreate",
+      "file": "app/schemas/super_admin/super_admin.py",
+      "line": 7,
+      "fields": [
+        {
+          "name": "name",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "email",
+          "alias": null,
+          "type": "email",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "password",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "SuperAdminLoginRequest",
+      "file": "app/schemas/auth/auth.py",
+      "line": 34,
+      "fields": [
+        {
+          "name": "email",
+          "alias": null,
+          "type": "email",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "password",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "TenantCreate",
+      "file": "app/schemas/tenant/tenant.py",
+      "line": 10,
+      "fields": [
+        {
+          "name": "name",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "phone",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "whatsapp_apikey",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "plan_tier",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": false,
+          "alt_types": [
+            "PlanTier",
+            "app/models/tenant/tenant.py::PlanTier"
+          ]
+        },
+        {
+          "name": "slot_duration",
+          "alias": null,
+          "type": "integer",
+          "required": false,
+          "nullable": false
+        },
+        {
+          "name": "max_users",
+          "alias": null,
+          "type": "integer",
+          "required": false,
+          "nullable": false
+        },
+        {
+          "name": "timezone_identifier",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "TenantResponse",
+      "file": "app/schemas/tenant/tenant.py",
+      "line": 177,
+      "fields": [
+        {
+          "name": "id",
+          "alias": null,
+          "type": "uuid",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "phone",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": true
+        },
+        {
+          "name": "plan_tier",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false,
+          "alt_types": [
+            "PlanTier",
+            "app/models/tenant/tenant.py::PlanTier"
+          ]
+        },
+        {
+          "name": "timezone_identifier",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "subscription_status",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false,
+          "alt_types": [
+            "SubscriptionStatus",
+            "app/models/tenant/tenant.py::SubscriptionStatus"
+          ]
+        },
+        {
+          "name": "subscription_valid_until",
+          "alias": null,
+          "type": "datetime",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "trial_ends_at",
+          "alias": null,
+          "type": "datetime",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "slot_duration",
+          "alias": null,
+          "type": "integer",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "max_users",
+          "alias": null,
+          "type": "integer",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "business_hours",
+          "alias": null,
+          "type": "object",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "message_templates",
+          "alias": null,
+          "type": "MessageTemplates",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "created_at",
+          "alias": null,
+          "type": "datetime",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "TenantSettingsUpdate",
+      "file": "app/schemas/tenant/tenant.py",
+      "line": 149,
+      "fields": [
+        {
+          "name": "name",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "phone",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "whatsapp_apikey",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "slot_duration",
+          "alias": null,
+          "type": "integer",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "timezone_identifier",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "business_hours",
+          "alias": null,
+          "type": "object",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "message_templates",
+          "alias": null,
+          "type": "MessageTemplates",
+          "required": false,
+          "nullable": true
+        }
+      ]
+    },
+    {
+      "name": "TenantUpdate",
+      "file": "app/schemas/tenant/tenant.py",
+      "line": 137,
+      "fields": [
+        {
+          "name": "name",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "phone",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "whatsapp_apikey",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "plan_tier",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true,
+          "alt_types": [
+            "PlanTier",
+            "app/models/tenant/tenant.py::PlanTier"
+          ]
+        },
+        {
+          "name": "slot_duration",
+          "alias": null,
+          "type": "integer",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "max_users",
+          "alias": null,
+          "type": "integer",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "timezone_identifier",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "business_hours",
+          "alias": null,
+          "type": "object",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "message_templates",
+          "alias": null,
+          "type": "MessageTemplates",
+          "required": false,
+          "nullable": true
+        }
+      ]
+    },
+    {
+      "name": "UserActivationResponse",
+      "file": "app/schemas/users/user.py",
+      "line": 41,
+      "fields": [
+        {
+          "name": "id",
+          "alias": null,
+          "type": "uuid",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "email",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "role",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false,
+          "alt_types": [
+            "UserRole",
+            "app/models/auth/user.py::UserRole"
+          ]
+        },
+        {
+          "name": "is_active",
+          "alias": null,
+          "type": "boolean",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "UserCreate",
+      "file": "app/schemas/users/user.py",
+      "line": 9,
+      "fields": [
+        {
+          "name": "email",
+          "alias": null,
+          "type": "email",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "password",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "role",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": false,
+          "alt_types": [
+            "UserRole",
+            "app/models/auth/user.py::UserRole"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "UserLoginRequest",
+      "file": "app/schemas/auth/auth.py",
+      "line": 10,
+      "fields": [
+        {
+          "name": "email",
+          "alias": null,
+          "type": "email",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "password",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "UserStaffCreate",
+      "file": "app/schemas/users/user.py",
+      "line": 16,
+      "fields": [
+        {
+          "name": "email",
+          "alias": null,
+          "type": "email",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "password",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "UserUpdate",
+      "file": "app/schemas/users/user.py",
+      "line": 22,
+      "fields": [
+        {
+          "name": "name",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "role",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true,
+          "alt_types": [
+            "UserRole",
+            "app/models/auth/user.py::UserRole"
+          ]
+        },
+        {
+          "name": "is_active",
+          "alias": null,
+          "type": "boolean",
+          "required": false,
+          "nullable": true
+        }
+      ]
+    },
+    {
+      "name": "WaitlistCreate",
+      "file": "app/schemas/waitlists/waitlist.py",
+      "line": 7,
+      "fields": [
+        {
+          "name": "service_id",
+          "alias": null,
+          "type": "uuid",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "client_name",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "client_phone",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "target_date",
+          "alias": null,
+          "type": "date",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "notes",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        }
+      ]
+    },
+    {
+      "name": "WaitlistResponse",
+      "file": "app/schemas/waitlists/waitlist.py",
+      "line": 15,
+      "fields": [
+        {
+          "name": "id",
+          "alias": null,
+          "type": "uuid",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "tenant_id",
+          "alias": null,
+          "type": "uuid",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "service_id",
+          "alias": null,
+          "type": "uuid",
+          "required": true,
+          "nullable": true
+        },
+        {
+          "name": "client_name",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "client_phone",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": true
+        },
+        {
+          "name": "target_date",
+          "alias": null,
+          "type": "date",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "notes",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": true
+        },
+        {
+          "name": "is_resolved",
+          "alias": null,
+          "type": "boolean",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "created_at",
+          "alias": null,
+          "type": "datetime",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "WebhookProcessResponse",
+      "file": "app/schemas/whatsapp/whatsapp.py",
+      "line": 21,
+      "fields": [
+        {
+          "name": "accepted",
+          "alias": null,
+          "type": "boolean",
+          "required": false,
+          "nullable": false
+        },
+        {
+          "name": "matched_keyword",
+          "alias": null,
+          "type": "boolean",
+          "required": false,
+          "nullable": false
+        },
+        {
+          "name": "opt_out_applied",
+          "alias": null,
+          "type": "boolean",
+          "required": false,
+          "nullable": false
+        },
+        {
+          "name": "reason",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        }
+      ]
+    },
+    {
+      "name": "WhatsAppInstanceResponse",
+      "file": "app/schemas/whatsapp/whatsapp.py",
+      "line": 56,
+      "fields": [
+        {
+          "name": "instance_name",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "status",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "WhatsAppLogoutResponse",
+      "file": "app/schemas/whatsapp/whatsapp.py",
+      "line": 73,
+      "fields": [
+        {
+          "name": "ok",
+          "alias": null,
+          "type": "boolean",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "instance_name",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": true
+        },
+        {
+          "name": "status",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "WhatsAppQrResponse",
+      "file": "app/schemas/whatsapp/whatsapp.py",
+      "line": 61,
+      "fields": [
+        {
+          "name": "instance_name",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "qr_base64",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "WhatsAppStatusResponse",
+      "file": "app/schemas/whatsapp/whatsapp.py",
+      "line": 66,
+      "fields": [
+        {
+          "name": "instance_name",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": true
+        },
+        {
+          "name": "status",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "connected",
+          "alias": null,
+          "type": "boolean",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "phone",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        }
+      ]
+    },
+    {
+      "name": "WhatsAppWebhookResponse",
+      "file": "app/schemas/whatsapp/whatsapp.py",
+      "line": 28,
+      "fields": [
+        {
+          "name": "accepted",
+          "alias": null,
+          "type": "boolean",
+          "required": false,
+          "nullable": false
+        },
+        {
+          "name": "event",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "processed",
+          "alias": null,
+          "type": "boolean",
+          "required": false,
+          "nullable": false
+        },
+        {
+          "name": "flow",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "action",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "status",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "matched_by",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "reason",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "appointment_id",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "waitlist_triggered",
+          "alias": null,
+          "type": "boolean",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "horas_disponibles_hoy",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        }
+      ]
+    },
+    {
+      "name": "WhatsAppWebhookSyncResponse",
+      "file": "app/schemas/whatsapp/whatsapp.py",
+      "line": 79,
+      "fields": [
+        {
+          "name": "ok",
+          "alias": null,
+          "type": "boolean",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "instance_name",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "webhook_url",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    }
+  ],
+  "excluded_routes": [],
+  "limitations": [],
+  "http_calls": [
+    {
+      "where": "app/services/whatsapp/evolution_client.py:88",
+      "library": "httpx",
+      "method": "POST",
+      "target": {
+        "kind": "config",
+        "value": "EVOLUTION_API_BASE_URL"
+      },
+      "client_at": "app/services/whatsapp/evolution_client.py:35",
+      "path": "/instance/create"
+    },
+    {
+      "where": "app/services/whatsapp/evolution_client.py:104",
+      "library": "httpx",
+      "method": "GET",
+      "target": {
+        "kind": "config",
+        "value": "EVOLUTION_API_BASE_URL"
+      },
+      "client_at": "app/services/whatsapp/evolution_client.py:35",
+      "path": "/webhook/find/{instance_name}"
+    },
+    {
+      "where": "app/services/whatsapp/evolution_client.py:124",
+      "library": "httpx",
+      "method": "POST",
+      "target": {
+        "kind": "config",
+        "value": "EVOLUTION_API_BASE_URL"
+      },
+      "client_at": "app/services/whatsapp/evolution_client.py:35",
+      "path": "/webhook/set/{instance_name}"
+    },
+    {
+      "where": "app/services/whatsapp/evolution_client.py:162",
+      "library": "httpx",
+      "method": "GET",
+      "target": {
+        "kind": "config",
+        "value": "EVOLUTION_API_BASE_URL"
+      },
+      "client_at": "app/services/whatsapp/evolution_client.py:35",
+      "alt_methods": [
+        "unknown"
+      ],
+      "method_note": "method lấy từ danh sách attempts cùng hàm, mọi phần tử là GET"
+    },
+    {
+      "where": "app/services/whatsapp/evolution_client.py:182",
+      "library": "httpx",
+      "method": "GET",
+      "target": {
+        "kind": "config",
+        "value": "EVOLUTION_API_BASE_URL"
+      },
+      "client_at": "app/services/whatsapp/evolution_client.py:35",
+      "alt_methods": [
+        "unknown"
+      ],
+      "method_note": "method lấy từ danh sách attempts cùng hàm, mọi phần tử là GET"
+    },
+    {
+      "where": "app/services/whatsapp/evolution_client.py:204",
+      "library": "httpx",
+      "method": "unknown",
+      "target": {
+        "kind": "config",
+        "value": "EVOLUTION_API_BASE_URL"
+      },
+      "client_at": "app/services/whatsapp/evolution_client.py:35",
+      "method_reason": "method là biến vòng lặp trên danh sách attempts gồm DELETE và POST (dòng 193-198)",
+      "possible_methods": [
+        "DELETE",
+        "POST"
+      ]
+    },
+    {
+      "where": "app/services/whatsapp/evolution_client.py:239",
+      "library": "httpx",
+      "method": "POST",
+      "target": {
+        "kind": "config",
+        "value": "EVOLUTION_API_BASE_URL"
+      },
+      "client_at": "app/services/whatsapp/evolution_client.py:35",
+      "path": "/message/sendText/{instance_name}"
+    },
+    {
+      "where": "app/services/whatsapp/evolution_client.py:275",
+      "library": "httpx",
+      "method": "POST",
+      "target": {
+        "kind": "config",
+        "value": "EVOLUTION_API_BASE_URL"
+      },
+      "client_at": "app/services/whatsapp/evolution_client.py:35",
+      "path": "/message/sendText/{tenant_instance_id}"
+    }
+  ],
+  "file_roles": [
+    {
+      "file": "app/api/v1/appointments/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/api/v1/appointments/router.py",
+      "role": "Route",
+      "line": 25,
+      "alt_lines": [
+        47,
+        64,
+        81,
+        96,
+        112,
+        129,
+        147,
+        158,
+        181
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/api/v1/auth/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/api/v1/auth/router.py",
+      "role": "Route",
+      "line": 26,
+      "alt_lines": [
+        36,
+        53,
+        68,
+        81,
+        91,
+        101
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/api/v1/clients/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/api/v1/clients/router.py",
+      "role": "Route",
+      "line": 16,
+      "alt_lines": [
+        32,
+        43,
+        53,
+        72
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/api/v1/services/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/api/v1/services/router.py",
+      "role": "Route",
+      "line": 16,
+      "alt_lines": [
+        32,
+        43,
+        53,
+        71
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/api/v1/super_admin/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/api/v1/super_admin/router.py",
+      "role": "Route",
+      "line": 13,
+      "alt_lines": [
+        23
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/api/v1/tenant/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/api/v1/tenant/payments_router.py",
+      "role": "Route",
+      "line": 15,
+      "alt_lines": [
+        34
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/api/v1/tenant/router.py",
+      "role": "Route",
+      "line": 24,
+      "alt_lines": [
+        44,
+        71,
+        83,
+        93,
+        107,
+        125,
+        137,
+        148
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/api/v1/test.py",
+      "role": "Route",
+      "line": 24,
+      "alt_lines": [
+        235
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/api/v1/users/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/api/v1/users/router.py",
+      "role": "Route",
+      "line": 22,
+      "alt_lines": [
+        40,
+        56,
+        67,
+        81,
+        94,
+        115
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/api/v1/waitlists/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/api/v1/waitlists/router.py",
+      "role": "Route",
+      "line": 18,
+      "alt_lines": [
+        36,
+        47
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/api/v1/whatsapp/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/api/v1/whatsapp/router.py",
+      "role": "Route",
+      "line": 291,
+      "alt_lines": [
+        302,
+        312,
+        322,
+        332,
+        342,
+        352,
+        369,
+        380,
+        394,
+        450
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/core/config.py",
+      "role": "Cấu hình",
+      "line": 35,
+      "alt_lines": [
+        36,
+        37,
+        38,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47,
+        48,
+        49,
+        53,
+        54,
+        55,
+        56,
+        57,
+        58,
+        59,
+        60,
+        61,
+        62,
+        63,
+        64,
+        65,
+        67
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/core/dependencies.py",
+      "role": "Truy cập dữ liệu",
+      "line": 151,
+      "label": "exact"
+    },
+    {
+      "file": "app/core/email.py",
+      "role": "Hạ tầng",
+      "line": 29,
+      "label": "exact"
+    },
+    {
+      "file": "app/core/security.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/core/timezone.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/db/base.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/db/schemas.py",
+      "role": "Cấu hình",
+      "line": 5,
+      "label": "exact"
+    },
+    {
+      "file": "app/db/session.py",
+      "role": "Hạ tầng",
+      "line": 10,
+      "label": "exact"
+    },
+    {
+      "file": "app/main.py",
+      "role": "Điểm vào",
+      "line": 50,
+      "label": "exact"
+    },
+    {
+      "file": "app/models/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/models/appointments/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/models/appointments/appointment.py",
+      "role": "Model bảng",
+      "line": 23,
+      "alt_lines": [
+        22
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/models/auth/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/models/auth/user.py",
+      "role": "Model bảng",
+      "line": 20,
+      "alt_lines": [
+        19
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/models/clients/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/models/clients/client.py",
+      "role": "Model bảng",
+      "line": 12,
+      "alt_lines": [
+        11
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/models/conversation_contexts/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/models/conversation_contexts/conversation_context.py",
+      "role": "Model bảng",
+      "line": 13,
+      "alt_lines": [
+        12
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/models/services/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/models/services/service.py",
+      "role": "Model bảng",
+      "line": 13,
+      "alt_lines": [
+        12
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/models/super_admin/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/models/super_admin/super_admin.py",
+      "role": "Model bảng",
+      "line": 12,
+      "alt_lines": [
+        11
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/models/tenant/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/models/tenant/tenant.py",
+      "role": "Model bảng",
+      "line": 87,
+      "alt_lines": [
+        86
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/models/tenant/tenant_config.py",
+      "role": "Model bảng",
+      "line": 11,
+      "alt_lines": [
+        10
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/models/tenant/tenant_payment.py",
+      "role": "Model bảng",
+      "line": 13,
+      "alt_lines": [
+        12
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/models/waitlists/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/models/waitlists/waitlist.py",
+      "role": "Model bảng",
+      "line": 12,
+      "alt_lines": [
+        11
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/models/whatsapp_events/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/models/whatsapp_events/processed_webhook.py",
+      "role": "Model bảng",
+      "line": 13,
+      "alt_lines": [
+        12
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/models/whatsapp_outbox/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/models/whatsapp_outbox/whatsapp_outbox.py",
+      "role": "Model bảng",
+      "line": 13,
+      "alt_lines": [
+        12
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/models/whatsapp_sessions/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/models/whatsapp_sessions/whatsapp_session.py",
+      "role": "Model bảng",
+      "line": 13,
+      "alt_lines": [
+        12
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/repositories/appointments/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/repositories/appointments/appointment_repository.py",
+      "role": "Truy cập dữ liệu",
+      "line": 59,
+      "alt_lines": [
+        60,
+        61,
+        65,
+        66,
+        69,
+        73,
+        82,
+        86,
+        96,
+        105,
+        117,
+        127,
+        170,
+        171,
+        185,
+        186,
+        194,
+        206,
+        264,
+        282,
+        331,
+        348,
+        393,
+        405,
+        406,
+        422,
+        435,
+        437,
+        466,
+        480,
+        493,
+        518,
+        536,
+        551,
+        576,
+        577,
+        615,
+        625,
+        638,
+        655,
+        671,
+        686,
+        703,
+        704,
+        738,
+        772
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/repositories/auth/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/repositories/auth/auth_repository.py",
+      "role": "Truy cập dữ liệu",
+      "line": 15,
+      "alt_lines": [
+        16,
+        19,
+        20,
+        24,
+        25
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/repositories/clients/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/repositories/clients/client_repository.py",
+      "role": "Truy cập dữ liệu",
+      "line": 23,
+      "alt_lines": [
+        24,
+        25,
+        29,
+        30,
+        33,
+        34,
+        61,
+        62,
+        67,
+        74,
+        77,
+        78,
+        103,
+        104,
+        108,
+        114,
+        120,
+        121
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/repositories/services/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/repositories/services/service_repository.py",
+      "role": "Truy cập dữ liệu",
+      "line": 15,
+      "alt_lines": [
+        16,
+        17,
+        21,
+        22,
+        25,
+        29,
+        51,
+        52,
+        60
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/repositories/super_admin/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/repositories/super_admin/super_admin_repository.py",
+      "role": "Truy cập dữ liệu",
+      "line": 15,
+      "alt_lines": [
+        16,
+        20,
+        21,
+        22,
+        26,
+        27,
+        30,
+        31,
+        35,
+        36
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/repositories/tenant/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/repositories/tenant/tenant_config_repository.py",
+      "role": "Truy cập dữ liệu",
+      "line": 13,
+      "alt_lines": [
+        18,
+        19,
+        20
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/repositories/tenant/tenant_payment_repository.py",
+      "role": "Truy cập dữ liệu",
+      "line": 31,
+      "alt_lines": [
+        32,
+        33,
+        38,
+        39,
+        44,
+        48,
+        52,
+        53,
+        56,
+        57
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/repositories/tenant/tenant_repository.py",
+      "role": "Truy cập dữ liệu",
+      "line": 72,
+      "alt_lines": [
+        73,
+        74,
+        79,
+        80,
+        83,
+        84,
+        95,
+        96,
+        101,
+        102,
+        143,
+        144,
+        154,
+        155
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/repositories/users/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/repositories/users/user_repository.py",
+      "role": "Truy cập dữ liệu",
+      "line": 32,
+      "alt_lines": [
+        33,
+        34,
+        39,
+        40,
+        45,
+        51,
+        55,
+        56,
+        59,
+        62,
+        65,
+        71,
+        94,
+        95,
+        105
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/repositories/waitlists/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/repositories/waitlists/waitlist_repository.py",
+      "role": "Truy cập dữ liệu",
+      "line": 33,
+      "alt_lines": [
+        34,
+        35,
+        40,
+        48,
+        51,
+        57,
+        65,
+        66,
+        76,
+        82,
+        92,
+        101,
+        111,
+        122,
+        139,
+        148,
+        155,
+        156,
+        161,
+        170
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/repositories/whatsapp_events/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/repositories/whatsapp_events/processed_webhook_repository.py",
+      "role": "Truy cập dữ liệu",
+      "line": 15,
+      "alt_lines": [
+        16,
+        30,
+        31,
+        65,
+        67,
+        69
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/repositories/whatsapp_outbox/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/repositories/whatsapp_outbox/whatsapp_outbox_repository.py",
+      "role": "Truy cập dữ liệu",
+      "line": 39,
+      "alt_lines": [
+        40,
+        41,
+        46,
+        55,
+        62,
+        64,
+        75,
+        84,
+        87,
+        93,
+        104,
+        119,
+        122,
+        124,
+        134,
+        139,
+        154,
+        155,
+        177,
+        184,
+        185
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/repositories/whatsapp_sessions/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/repositories/whatsapp_sessions/whatsapp_session_repository.py",
+      "role": "Truy cập dữ liệu",
+      "line": 16,
+      "alt_lines": [
+        20,
+        24,
+        31,
+        42,
+        49,
+        58,
+        66,
+        68,
+        69
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/schemas/appointments/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/schemas/appointments/appointment.py",
+      "role": "Schema API",
+      "line": 9,
+      "alt_lines": [
+        26,
+        52,
+        61,
+        72,
+        79,
+        87,
+        92,
+        99,
+        106,
+        110
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/schemas/auth/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/schemas/auth/auth.py",
+      "role": "Schema API",
+      "line": 10,
+      "alt_lines": [
+        34,
+        39,
+        43,
+        48,
+        57,
+        63,
+        72,
+        79
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/schemas/clients/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/schemas/clients/client.py",
+      "role": "Schema API",
+      "line": 7,
+      "alt_lines": [
+        13
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/schemas/services/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/schemas/services/service.py",
+      "role": "Schema API",
+      "line": 8,
+      "alt_lines": [
+        14
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/schemas/super_admin/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/schemas/super_admin/super_admin.py",
+      "role": "Schema API",
+      "line": 7,
+      "label": "exact"
+    },
+    {
+      "file": "app/schemas/tenant/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/schemas/tenant/tenant.py",
+      "role": "Schema API",
+      "line": 10,
+      "alt_lines": [
+        20,
+        68,
+        92,
+        137,
+        149,
+        177,
+        195
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/schemas/tenant/tenant_payment.py",
+      "role": "Schema API",
+      "line": 8,
+      "label": "exact"
+    },
+    {
+      "file": "app/schemas/users/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/schemas/users/user.py",
+      "role": "Schema API",
+      "line": 9,
+      "alt_lines": [
+        16,
+        22,
+        41
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/schemas/waitlists/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/schemas/waitlists/waitlist.py",
+      "role": "Schema API",
+      "line": 7,
+      "alt_lines": [
+        15
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/schemas/whatsapp/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/schemas/whatsapp/whatsapp.py",
+      "role": "Schema API",
+      "line": 7,
+      "alt_lines": [
+        13,
+        21,
+        28,
+        42,
+        56,
+        61,
+        66,
+        73,
+        79
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/scripts/send_tomorrow_reminders.py",
+      "role": "Điểm vào",
+      "line": 45,
+      "label": "exact"
+    },
+    {
+      "file": "app/seeds/create_frontend_test_users.py",
+      "role": "Điểm vào",
+      "line": 153,
+      "label": "exact"
+    },
+    {
+      "file": "app/services/appointments/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/services/appointments/appointment_service.py",
+      "role": "Service",
+      "line": 34,
+      "alt_lines": [
+        40,
+        58,
+        64,
+        67,
+        75,
+        78,
+        107,
+        177,
+        183,
+        223,
+        301,
+        313,
+        325,
+        344,
+        347,
+        352,
+        363,
+        376,
+        382,
+        387,
+        424,
+        433,
+        438,
+        444,
+        449,
+        454,
+        511,
+        546,
+        559,
+        573,
+        583,
+        593,
+        609,
+        624,
+        654,
+        667
+      ],
+      "label": "inferred",
+      "reason": "nằm trên đường gọi",
+      "call_path": [
+        "app/api/v1/appointments/router.py:32",
+        "app/services/appointments/appointment_service.py:275",
+        "app/services/appointments/appointment_service.py:34",
+        "app/repositories/users/user_repository.py:40"
+      ]
+    },
+    {
+      "file": "app/services/auth/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/services/auth/auth_service.py",
+      "role": "Truy cập dữ liệu",
+      "line": 70,
+      "alt_lines": [
+        71,
+        81,
+        82,
+        83,
+        85,
+        88,
+        94,
+        101
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/services/clients/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/services/clients/client_service.py",
+      "role": "Service",
+      "line": 16,
+      "alt_lines": [
+        24,
+        30,
+        43,
+        62
+      ],
+      "label": "inferred",
+      "reason": "nằm trên đường gọi",
+      "call_path": [
+        "app/api/v1/clients/router.py:23",
+        "app/services/clients/client_service.py:16",
+        "app/repositories/clients/client_repository.py:23"
+      ]
+    },
+    {
+      "file": "app/services/scheduler/reminder_scheduler.py",
+      "role": "Truy cập dữ liệu",
+      "line": 53,
+      "alt_lines": [
+        70,
+        113,
+        120,
+        136,
+        151,
+        186,
+        191
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/services/scheduler/worker.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/services/services/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/services/services/service_service.py",
+      "role": "Service",
+      "line": 14,
+      "alt_lines": [
+        22,
+        28,
+        39,
+        51
+      ],
+      "label": "inferred",
+      "reason": "nằm trên đường gọi",
+      "call_path": [
+        "app/api/v1/services/router.py:23",
+        "app/services/services/service_service.py:14",
+        "app/repositories/services/service_repository.py:15"
+      ]
+    },
+    {
+      "file": "app/services/super_admin/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/services/super_admin/super_admin_service.py",
+      "role": "Service",
+      "line": 15,
+      "alt_lines": [
+        21,
+        28
+      ],
+      "label": "inferred",
+      "reason": "nằm trên đường gọi",
+      "call_path": [
+        "app/api/v1/super_admin/router.py:19",
+        "app/services/super_admin/super_admin_service.py:15",
+        "app/repositories/super_admin/super_admin_repository.py:16"
+      ]
+    },
+    {
+      "file": "app/services/tenant/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/services/tenant/tenant_payment_service.py",
+      "role": "Service",
+      "line": 24,
+      "alt_lines": [
+        33,
+        41,
+        49,
+        55,
+        61
+      ],
+      "label": "inferred",
+      "reason": "nằm trên đường gọi",
+      "call_path": [
+        "app/api/v1/tenant/payments_router.py:25",
+        "app/services/tenant/tenant_payment_service.py:24",
+        "app/repositories/tenant/tenant_repository.py:80"
+      ]
+    },
+    {
+      "file": "app/services/tenant/tenant_service.py",
+      "role": "Service",
+      "line": 50,
+      "alt_lines": [
+        64,
+        74,
+        91,
+        122,
+        140,
+        151
+      ],
+      "label": "inferred",
+      "reason": "nằm trên đường gọi",
+      "call_path": [
+        "app/api/v1/tenant/router.py:32",
+        "app/services/tenant/tenant_service.py:50",
+        "app/repositories/tenant/tenant_repository.py:72"
+      ]
+    },
+    {
+      "file": "app/services/users/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/services/users/user_service.py",
+      "role": "Service",
+      "line": 48,
+      "alt_lines": [
+        22,
+        30,
+        57,
+        66,
+        76,
+        86,
+        92,
+        104,
+        120,
+        142,
+        150,
+        159,
+        180
+      ],
+      "label": "inferred",
+      "reason": "nằm trên đường gọi",
+      "call_path": [
+        "app/api/v1/users/router.py:30",
+        "app/services/users/user_service.py:48",
+        "app/repositories/tenant/tenant_repository.py:80"
+      ]
+    },
+    {
+      "file": "app/services/waitlists/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/services/waitlists/waitlist_service.py",
+      "role": "Service",
+      "line": 24,
+      "alt_lines": [
+        34,
+        37
+      ],
+      "label": "inferred",
+      "reason": "nằm trên đường gọi",
+      "call_path": [
+        "app/api/v1/waitlists/router.py:25",
+        "app/services/waitlists/waitlist_service.py:24",
+        "app/repositories/waitlists/waitlist_repository.py:33"
+      ]
+    },
+    {
+      "file": "app/services/whatsapp/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/services/whatsapp/connection_service.py",
+      "role": "Service",
+      "line": 148,
+      "alt_lines": [
+        89,
+        119,
+        156,
+        167,
+        168,
+        179,
+        194,
+        201,
+        219,
+        232,
+        248,
+        262,
+        272,
+        287,
+        298,
+        309,
+        310,
+        324,
+        338
+      ],
+      "label": "inferred",
+      "reason": "nằm trên đường gọi",
+      "call_path": [
+        "app/api/v1/whatsapp/router.py:308",
+        "app/services/whatsapp/connection_service.py:148",
+        "app/repositories/tenant/tenant_repository.py:80"
+      ]
+    },
+    {
+      "file": "app/services/whatsapp/evolution_client.py",
+      "role": "Hạ tầng",
+      "line": 35,
+      "alt_lines": [
+        88,
+        104,
+        124,
+        162,
+        182,
+        204,
+        239,
+        275
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "app/services/whatsapp/outbox_service.py",
+      "role": "Truy cập dữ liệu",
+      "line": 121,
+      "label": "exact"
+    },
+    {
+      "file": "app/services/whatsapp/template_engine.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "app/services/whatsapp/variable_resolver.py",
+      "role": "Service",
+      "line": 46,
+      "alt_lines": [
+        36,
+        83,
+        88
+      ],
+      "label": "inferred",
+      "reason": "nằm trên đường gọi",
+      "call_path": [
+        "app/api/v1/whatsapp/router.py:516",
+        "app/services/whatsapp/webhook_service.py:290",
+        "app/services/whatsapp/webhook_service.py:618",
+        "app/services/whatsapp/variable_resolver.py:46",
+        "app/repositories/tenant/tenant_repository.py:80"
+      ]
+    },
+    {
+      "file": "app/services/whatsapp/webhook_service.py",
+      "role": "Service",
+      "line": 101,
+      "alt_lines": [
+        105,
+        113,
+        153,
+        162,
+        189,
+        215,
+        235,
+        259,
+        280,
+        301,
+        313,
+        323,
+        357,
+        363,
+        371,
+        385,
+        434,
+        487,
+        492,
+        498,
+        504,
+        519,
+        567,
+        572,
+        578,
+        584,
+        599,
+        604,
+        618,
+        648,
+        652,
+        653,
+        666,
+        689,
+        693,
+        728,
+        751,
+        755,
+        764,
+        768,
+        783,
+        790,
+        796,
+        806,
+        835,
+        840,
+        850,
+        858,
+        867,
+        874,
+        883,
+        910,
+        932,
+        968,
+        976,
+        996,
+        1001,
+        1014
+      ],
+      "label": "inferred",
+      "reason": "nằm trên đường gọi",
+      "call_path": [
+        "app/api/v1/whatsapp/router.py:516",
+        "app/services/whatsapp/webhook_service.py:101",
+        "app/repositories/tenant/tenant_repository.py:84"
+      ]
+    },
+    {
+      "file": "app/services/whatsapp/worker.py",
+      "role": "Truy cập dữ liệu",
+      "line": 31,
+      "label": "exact"
+    }
+  ],
+  "out_of_scope": {
+    "test": 13,
+    "migration": 20,
+    "environment": 0,
+    "conditional_out": 0
+  },
+  "notes": [
+    "root = \".\": app FastAPI nằm ở app/main.py ngay dưới gốc repository. Mọi đường dẫn trong gold và membership tương đối so với gốc này.",
+    "Oracle: chạy slice/tools/fr029_oracle.py, target app.main:app, Python 3.12.6 trong venv sandbox, cài đúng requirements.txt đã ghim (fastapi 0.135.1, starlette 0.52.1, pydantic 2.12.5, pydantic_core 2.41.5, SQLAlchemy 2.0.48). Biến môi trường giả: DATABASE_URL trỏ 127.0.0.1:1, JWT_SECRET_KEY=dummy, WHATSAPP_WORKER_ENABLED=false. Không có kết nối thật: create_engine không mở kết nối khi import; lifespan không chạy vì oracle không khởi động server. Không có file .env nào trên đường dẫn nên load_dotenv() không nạp gì.",
+    "Oracle trả 68 route; bỏ 4 route tài liệu tự sinh (/openapi.json, /docs, /docs/oauth2-redirect, /redoc) theo quy tắc 7.17, còn 64 route. Gold khớp với app.routes và app.openapi() về method, path, status, request/response model.",
+    "Prefix /api/v1 đến từ settings.API_V1_PREFIX (app/core/config.py:36, getenv(\"API_V1_PREFIX\", \"/api/v1\")). Settings là lớp thường, không kế thừa BaseSettings, nhưng giá trị mặc định khai trong code nên theo FR-029 lấy giá trị mặc định, quy tắc settings.default_prefix. Biến môi trường có thể ghi đè. Ghi ở registration[0].prefix_source.",
+    "Router whatsapp (app/api/v1/whatsapp/router.py:27) không có prefix riêng: APIRouter(tags=[...]); registration ghi prefix \"\" cho dòng đó.",
+    "app/api/v1/test.py là file production: tên test.py không khớp test_*.py hay *_test.py, không nằm trong tests/. Router của nó được gắn vào app ở app/main.py:70 nên 2 route /api/v1/test/... nằm trong tài liệu. Đây là quyết định theo luật đặt tên của FR-028, dù nội dung là endpoint thử nghiệm.",
+    "/health khai trực tiếp trên app ở app/main.py:73; không có registration. Response lấy từ kiểu trả về dict[str, str] (quy tắc fastapi.return_annotation_response_model), ghi {type: object}.",
+    "Tham số header Authorization: đến từ dependency get_tenant_id_from_token, get_super_admin_id_from_token, get_current_tenant_user (app/core/dependencies.py:55, 82, 109, khai Header(alias=\"Authorization\")), qua require_owner, check_tenant_active và check_plan_permission lồng nhiều tầng. OpenAPI gộp thành một tham số mỗi route, tên đúng alias \"Authorization\", required=false vì mặc định None. POST /api/v1/auth/change-password khai Header thẳng trong handler (app/api/v1/auth/router.py:105), vẫn chỉ một tham số.",
+    "Route nào không có dependency đọc header thì không có tham số Authorization: các route /auth trừ /me và /change-password, /super-admins, /webhooks/*, /test/*, /health.",
+    "GET /api/v1/appointments/availability: tham số query tên HTTP là \"date\" (alias của biến query_date, app/api/v1/appointments/router.py:98).",
+    "GET /api/v1/test/*: test_key là tham số query kiểu str có mặc định \"test123\" nên required=false; appointment_id khai bằng Path(...) kiểu uuid.",
+    "Kiểu tham số theo ký pháp 7.3: uuid.UUID -> uuid, date -> date. Tham số Optional (date | None, uuid.UUID | None) ghi theo kiểu không-None; định dạng tham số của gold không có cột nullable.",
+    "POST /api/v1/webhooks/evolution và /webhooks/whatsapp: body là dict[str, Any] = Body(default_factory=dict). Một tham số body duy nhất nên không bọc (embedded=false); có default nên required=false; không có model (models rỗng). Trường thêm type=object.",
+    "Response: route không khai response_model và không có kiểu trả về ghi response=null, kể cả khi thân hàm trả XResponse.model_validate(...) (ví dụ các route clients, services, users). Đây là luật 7.24; OpenAPI của các route này là schema rỗng {}.",
+    "POST /messaging/outbox/enqueue và /messaging/outbox/{message_id}/retry khai response_model=dict: ghi {type: object}, không có model.",
+    "GET /api/v1/waitlists và GET /api/v1/messaging/outbox/messages khai response_model=list[...]: array=true.",
+    "Status: mọi status khai trong code đều dùng hằng status.HTTP_201_CREATED / HTTP_204_NO_CONTENT (quy tắc fastapi.status_constant, nhãn exact), status_source=declared. Route không khai status_code ghi 200 default. HTTPException trong thân hàm (401, 402, 403, 404, 500) không phải status khai báo, gold không ghi.",
+    "DELETE trả 204 (clients, services, users, appointments): response=null.",
+    "Models: 50 lớp Pydantic là đúng tập lớp Pydantic trong components.schemas của OpenAPI (bỏ HTTPValidationError, ValidationError và 4 enum). Gồm cả model lồng: CurrentSessionTenant, AppointmentAgendaSummary, AppointmentAgendaItem, AppointmentWeeklySummary, AppointmentDailySummary, AppointmentWeeklyDay, MessageTemplateConfig, BusinessHourDay (lồng qua dict[str, BusinessHourDay]).",
+    "Các lớp Pydantic chỉ dùng trong thân hàm (ClientResponse, ServiceResponse, UserResponse, PaymentResponse, SuperAdminResponse, AppointmentResponse, TokenPairResponse, MessageResponse) không phải request/response model của route, gold không đưa vào models. Nếu công cụ ghi chúng là response thì sai theo 7.24.",
+    "required/nullable của trường lấy từ model_fields của Pydantic 2.12.5 (oracle). Pydantic v2: X | None không có default vẫn bắt buộc (ví dụ WaitlistResponse.service_id, TenantResponse.phone, WhatsAppLogoutResponse.instance_name: required=true, nullable=true).",
+    "Kiểu trường: Enum (PlanTier, UserRole, AppointmentStatus, SubscriptionStatus; đều là str, Enum) ghi string, chấp nhận thay thế tên enum hoặc file.py::Enum (alt_types). datetime.time ghi string, chấp nhận time (ký pháp 7.3 không có time; OpenAPI format time). Decimal ghi number, chấp nhận string (OpenAPI v2 cho đầu vào là number|string). dict[...] ghi object. EmailStr ghi email.",
+    "alt_types, alt_lines, alt_methods, call_path, client_at, path, registration, rule, possible_methods là trường thêm của gold, không bắt buộc công cụ ghi.",
+    "HTTP: chỉ app/services/whatsapp/evolution_client.py dùng httpx trong phạm vi. 8 lời gọi qua client = httpx.AsyncClient(base_url=..., ...) tạo ở dòng 35 trong cùng file. Đích ghi kind=config, value=EVOLUTION_API_BASE_URL (trường Settings, app/core/config.py:47, đọc getenv EVOLUTION_API_BASE_URL hoặc WHATSAPP_API_URL); đường dẫn tương đối ghi ở trường path.",
+    "HTTP dòng 162 và 182: client.request(method, path) với method lấy từ danh sách attempts cùng hàm, mọi phần tử là \"GET\" -> gold ghi GET, chấp nhận unknown. Dòng 204: attempts gồm DELETE và POST -> method unknown.",
+    "Dòng 35 httpx.AsyncClient(...) là dòng tạo client, không phải lời gọi HTTP; không có dòng riêng trong http_calls. Các lời gọi self.evolution_client.xxx(...) ở file service là lời gọi hàm nội bộ, không phải lời gọi httpx.",
+    "app/scripts/test_whatsapp_connection.py có import httpx nhưng tên file khớp test_*.py nên thuộc kiểm thử, ngoài phạm vi; lời gọi HTTP trong file đó không vào gold.",
+    "smtplib (app/core/email.py:29) là SMTP, không phải thư viện HTTP: không ghi vào http_calls, không ghi limitation unsupported_http_library. Không có urllib/urlopen/http.client trong phạm vi.",
+    "Không có add_api_route, add_route, add_websocket_route, mount trong repository: limitations rỗng. Không có route trong file test: excluded_routes rỗng.",
+    "Phạm vi: app/scripts/send_tomorrow_reminders.py và app/seeds/create_frontend_test_users.py nằm trong scripts/ và seeds/ nhưng import code repository (from app...), nên được xét; conditional_out=0.",
+    "out_of_scope.test = 13: 12 file .py trong tests/ (5 file __init__.py rỗng, 7 file có nội dung) và app/scripts/test_whatsapp_connection.py. out_of_scope.migration = 20: alembic/env.py và 19 file trong alembic/versions/. Không có thư mục môi trường ảo trong repository.",
+    "file_roles liệt kê mọi file .py có code trong phạm vi. 10 file __init__.py rỗng và app/services/scheduler/__init__.py (chỉ có một dòng comment, không có code) thuộc component Khác (kind other), không có vai trò.",
+    "file_roles: các __init__.py chỉ re-export (from ... import ...; __all__) không có dấu hiệu nào và không có lời gọi trên đường gọi -> Khác. Không gán Schema API hay Service theo tên thư mục.",
+    "file_roles: router files -> Route (dòng decorator đầu, alt là các decorator khác). app/main.py có cả FastAPI( (dòng 50) và decorator /health (73): Điểm vào đứng trước nên thắng. Hai file script/seed có khối __main__ -> Điểm vào; seed còn có db.query nhưng Điểm vào đứng trước.",
+    "file_roles: app/db/session.py có create_engine (dòng 10) và db.close() (25): Hạ tầng thắng. app/core/email.py: smtplib.SMTP(settings.SMTP_HOST, ...) dòng 29 -> Hạ tầng (SMTP). evolution_client.py: httpx.AsyncClient(base_url=...) dòng 35 -> Hạ tầng; các dòng lời gọi HTTP là alt.",
+    "file_roles: app/core/dependencies.py có db.query(User)... dòng 151 -> Truy cập dữ liệu. auth_service.py có self.db.add/flush/commit -> Truy cập dữ liệu (đứng trước Service). outbox_service.py có self.db.commit() dòng 121 -> Truy cập dữ liệu. reminder_scheduler.py có db.query dòng 53 -> Truy cập dữ liệu.",
+    "Phán đoán: app/services/whatsapp/worker.py chỉ có SessionLocal() (dòng 18, mở session) và db.close() (dòng 31). Gold coi db.close() là gọi method trên session CSDL -> Truy cập dữ liệu, dòng 31 (cùng cách đọc với fixture file_roles, nơi db.close() được tính là dấu hiệu). Nếu không tính db.close() thì file là Khác vì không nằm trên đường gọi từ route.",
+    "file_roles: app/core/config.py và app/db/schemas.py dùng getenv (from os import getenv, tức os.getenv) -> Cấu hình. Settings không kế thừa BaseSettings.",
+    "file_roles Service (nhãn inferred, lý do nằm trên đường gọi): 11 file service chỉ gọi repository/EvolutionClient, không tự gọi session. call_path ghi một đường đi từ dòng gọi trong route tới dòng truy cập dữ liệu trong repository. variable_resolver.py nằm trên đường whatsapp/router.py:516 -> webhook_service.py:290 -> :618 -> variable_resolver.py:46 -> tenant_repository.py:80.",
+    "file_roles Khác: app/core/security.py (jose/pwdlib, không gọi DA hay hạ tầng), app/core/timezone.py, app/db/base.py (DeclarativeBase, không có __tablename__), app/services/whatsapp/template_engine.py (hàm thuần), app/services/scheduler/worker.py (khởi APScheduler từ lifespan; không route nào gọi tới; không gọi method session).",
+    "Membership: chia theo package cấp đầu dưới app/ (một component mỗi package, theo cho phép của nhiệm vụ), app/main.py là Khởi động; tests/ và test_whatsapp_connection.py là test; alembic/ là migration; file .py rỗng, file chỉ có comment, pyproject.toml và requirements.txt là other. Manifest khác (Dockerfile, docker-compose.yml, alembic.ini, railway.json) không phải manifest theo FR-028 nên không có trong membership.",
+    "Gold dựng độc lập: không đọc slice/l3slice/, slice/tests/*.py, ket-qua-chay/ hay output của công cụ."
+  ]
+}

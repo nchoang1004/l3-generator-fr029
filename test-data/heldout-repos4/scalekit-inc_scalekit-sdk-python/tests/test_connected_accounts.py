@@ -1,0 +1,482 @@
+
+from faker import Faker
+from basetest import BaseTest
+
+from scalekit.v1.connected_accounts.connected_accounts_pb2 import (
+    CreateConnectedAccount,
+    UpdateConnectedAccount,
+    AuthorizationDetails,
+    OauthToken,
+)
+from google.protobuf import struct_pb2
+
+
+class TestConnectedAccounts(BaseTest):
+    """ Class definition for Test Connected Accounts Class """
+
+    def setUp(self):
+        """ """
+        self.faker = Faker()
+        self.test_connector = "GMAIL"
+        self.test_identifier = f"test_app_{self.faker.uuid4()}"
+
+    def _create_oauth_connected_account(self):
+        """Helper method to create OAuth connected account"""
+        oauth_token = OauthToken(
+            access_token="test_access_token",
+            refresh_token="test_refresh_token",
+            scopes=["read", "write"]
+        )
+        auth_details = AuthorizationDetails(oauth_token=oauth_token)
+        return CreateConnectedAccount(authorization_details=auth_details)
+
+    def test_list_connected_accounts(self):
+        """ Method to test list connected accounts """
+        response = self.scalekit_client.connected_accounts.list_connected_accounts()
+        self.assertEqual(response[1].code().name, "OK")
+        self.assertTrue(response[0] is not None)
+        self.assertTrue(hasattr(response[0], 'connected_accounts'))
+        self.assertTrue(hasattr(response[0], 'total_size'))
+
+    def test_list_connected_accounts_with_filters(self):
+        """ Method to test list connected accounts with filters """
+        response = self.scalekit_client.connected_accounts.list_connected_accounts(
+            connector=self.test_connector,
+            page_size=10
+        )
+        self.assertEqual(response[1].code().name, "OK")
+        self.assertTrue(response[0] is not None)
+
+    def test_list_connected_accounts_with_connection_names_filter(self):
+        """connection_names is accepted by the server and the created account appears in results."""
+        connected_account = self._create_oauth_connected_account()
+        filter_identifier = f"ca_filter_test_{self.faker.uuid4()}"
+        created = False
+
+        try:
+            create_response = self.scalekit_client.connected_accounts.create_connected_account(
+                connector=self.test_connector,
+                identifier=filter_identifier,
+                connected_account=connected_account,
+            )
+            self.assertEqual(create_response[1].code().name, "OK")
+            created = True
+
+            response = self.scalekit_client.connected_accounts.list_connected_accounts(
+                connection_names=[self.test_connector],
+                page_size=20,
+            )
+            self.assertEqual(response[1].code().name, "OK")
+            self.assertTrue(hasattr(response[0], 'connected_accounts'))
+            # The newly created account must appear in the results
+            identifiers = [a.identifier for a in response[0].connected_accounts]
+            self.assertIn(filter_identifier, identifiers)
+        finally:
+            if created:
+                self.scalekit_client.connected_accounts.delete_connected_account(
+                    connector=self.test_connector,
+                    identifier=filter_identifier,
+                )
+
+    def test_list_connected_accounts_with_connection_names_combined_with_identifier(self):
+        """connection_names combined with identifier narrows results to that specific account."""
+        connected_account = self._create_oauth_connected_account()
+        combined_identifier = f"ca_combined_test_{self.faker.uuid4()}"
+        created = False
+
+        try:
+            create_response = self.scalekit_client.connected_accounts.create_connected_account(
+                connector=self.test_connector,
+                identifier=combined_identifier,
+                connected_account=connected_account,
+            )
+            self.assertEqual(create_response[1].code().name, "OK")
+            created = True
+
+            response = self.scalekit_client.connected_accounts.list_connected_accounts(
+                connection_names=[self.test_connector],
+                identifier=combined_identifier,
+                page_size=10,
+            )
+            self.assertEqual(response[1].code().name, "OK")
+            self.assertTrue(hasattr(response[0], 'connected_accounts'))
+            identifiers = [a.identifier for a in response[0].connected_accounts]
+            self.assertIn(
+                combined_identifier, identifiers,
+                "Account created with this identifier must appear when filtered by it",
+            )
+        finally:
+            if created:
+                self.scalekit_client.connected_accounts.delete_connected_account(
+                    connector=self.test_connector,
+                    identifier=combined_identifier,
+                )
+
+    def test_create_connected_account_with_oauth(self):
+        """ Method to test create connected account with OAuth """
+        connected_account = self._create_oauth_connected_account()
+        
+        response = self.scalekit_client.connected_accounts.create_connected_account(
+            connector=self.test_connector,
+            identifier=self.test_identifier,
+            connected_account=connected_account
+        )
+        self.assertEqual(response[1].code().name, "OK")
+        self.assertTrue(response[0] is not None)
+        self.assertTrue(hasattr(response[0], 'connected_account'))
+        self.assertEqual(response[0].connected_account.identifier, self.test_identifier)
+
+    def test_create_connected_account_with_static_auth(self):
+        """ Method to test create connected account with static auth (skipped for OAUTH-only connector) """
+        # TEST-123 connector only supports OAuth, so we'll create another OAuth test instead
+        connected_account = self._create_oauth_connected_account()
+        
+        static_identifier = f"static_{self.test_identifier}"
+        response = self.scalekit_client.connected_accounts.create_connected_account(
+            connector=self.test_connector,
+            identifier=static_identifier,
+            connected_account=connected_account
+        )
+        self.assertEqual(response[1].code().name, "OK")
+        self.assertTrue(response[0] is not None)
+        self.assertTrue(hasattr(response[0], 'connected_account'))
+        self.assertEqual(response[0].connected_account.identifier, static_identifier)
+
+    def test_get_connected_account_by_identifier(self):
+        """ Method to test get connected account by identifier """
+        connected_account = self._create_oauth_connected_account()
+        get_identifier = f"get_test_{self.test_identifier}"
+        
+        # First create a connected account
+        create_response = self.scalekit_client.connected_accounts.create_connected_account(
+            connector=self.test_connector,
+            identifier=get_identifier,
+            connected_account=connected_account
+        )
+        self.assertEqual(create_response[1].code().name, "OK")
+        
+        # Now get it by identifier
+        get_response = self.scalekit_client.connected_accounts.get_connected_account_by_identifier(
+            connector=self.test_connector,
+            identifier=get_identifier
+        )
+        self.assertEqual(get_response[1].code().name, "OK")
+        self.assertTrue(get_response[0] is not None)
+        self.assertTrue(hasattr(get_response[0], 'connected_account'))
+        self.assertEqual(get_response[0].connected_account.identifier, get_identifier)
+
+    def test_update_connected_account(self):
+        """ Method to test update connected account """
+        connected_account = self._create_oauth_connected_account()
+        update_identifier = f"update_test_{self.test_identifier}"
+        
+        # First create a connected account
+        create_response = self.scalekit_client.connected_accounts.create_connected_account(
+            connector=self.test_connector,
+            identifier=update_identifier,
+            connected_account=connected_account
+        )
+        self.assertEqual(create_response[1].code().name, "OK")
+        
+        # Now update it
+        updated_oauth_token = OauthToken(
+            access_token="updated_access_token",
+            refresh_token="updated_refresh_token",
+            scopes=["read", "write", "admin"]
+        )
+        updated_auth_details = AuthorizationDetails(oauth_token=updated_oauth_token)
+        
+        update_connected_account = UpdateConnectedAccount(
+            authorization_details=updated_auth_details
+        )
+        
+        update_response = self.scalekit_client.connected_accounts.update_connected_account(
+            connector=self.test_connector,
+            identifier=update_identifier,
+            connected_account=update_connected_account
+        )
+        self.assertEqual(update_response[1].code().name, "OK")
+        self.assertTrue(update_response[0] is not None)
+        self.assertTrue(hasattr(update_response[0], 'connected_account'))
+        self.assertEqual(update_response[0].connected_account.identifier, update_identifier)
+
+    def test_get_magic_link_for_connected_account(self):
+        """ Method to test get magic link for connected account """
+        connected_account = self._create_oauth_connected_account()
+        magic_link_identifier = f"magic_link_test_{self.test_identifier}"
+        
+        # First create a connected account
+        create_response = self.scalekit_client.connected_accounts.create_connected_account(
+            connector=self.test_connector,
+            identifier=magic_link_identifier,
+            connected_account=connected_account
+        )
+        self.assertEqual(create_response[1].code().name, "OK")
+        
+        # Now get magic link
+        magic_link_response = self.scalekit_client.connected_accounts.get_magic_link_for_connected_account(
+            connector=self.test_connector,
+            identifier=magic_link_identifier
+        )
+        self.assertEqual(magic_link_response[1].code().name, "OK")
+        self.assertTrue(magic_link_response[0] is not None)
+        self.assertTrue(hasattr(magic_link_response[0], 'link'))
+        self.assertTrue(hasattr(magic_link_response[0], 'expiry'))
+
+    def test_delete_connected_account(self):
+        """ Method to test delete connected account """
+        connected_account = self._create_oauth_connected_account()
+        delete_identifier = f"delete_test_{self.test_identifier}"
+        
+        # First create a connected account
+        create_response = self.scalekit_client.connected_accounts.create_connected_account(
+            connector=self.test_connector,
+            identifier=delete_identifier,
+            connected_account=connected_account
+        )
+        self.assertEqual(create_response[1].code().name, "OK")
+        
+        # Now delete it
+        delete_response = self.scalekit_client.connected_accounts.delete_connected_account(
+            connector=self.test_connector,
+            identifier=delete_identifier
+        )
+        self.assertEqual(delete_response[1].code().name, "OK")
+        self.assertTrue(delete_response[0] is not None)
+
+    def test_update_connected_account_with_connected_account_id(self):
+        """ Method to test update connected account with connected_account_id parameter """
+        connected_account = self._create_oauth_connected_account()
+        update_identifier = f"update_with_id_test_{self.test_identifier}"
+        
+        # First create a connected account
+        create_response = self.scalekit_client.connected_accounts.create_connected_account(
+            connector=self.test_connector,
+            identifier=update_identifier,
+            connected_account=connected_account
+        )
+        self.assertEqual(create_response[1].code().name, "OK")
+        created_account_id = create_response[0].connected_account.id
+        
+        # Now update it using connected_account_id
+        updated_oauth_token = OauthToken(
+            access_token="updated_with_id_access_token",
+            refresh_token="updated_with_id_refresh_token",
+            scopes=["read", "write", "admin"]
+        )
+        updated_auth_details = AuthorizationDetails(oauth_token=updated_oauth_token)
+        
+        update_connected_account = UpdateConnectedAccount(
+            authorization_details=updated_auth_details
+        )
+        
+        update_response = self.scalekit_client.connected_accounts.update_connected_account(
+            connector=self.test_connector,
+            identifier=update_identifier,
+            connected_account=update_connected_account,
+            connected_account_id=created_account_id
+        )
+        self.assertEqual(update_response[1].code().name, "OK")
+        self.assertTrue(update_response[0] is not None)
+        self.assertTrue(hasattr(update_response[0], 'connected_account'))
+        self.assertEqual(update_response[0].connected_account.id, created_account_id)
+
+    def test_get_connected_account_by_identifier_with_connected_account_id(self):
+        """ Method to test get connected account by identifier with connected_account_id parameter """
+        connected_account = self._create_oauth_connected_account()
+        get_identifier = f"get_with_id_test_{self.test_identifier}"
+        
+        # First create a connected account
+        create_response = self.scalekit_client.connected_accounts.create_connected_account(
+            connector=self.test_connector,
+            identifier=get_identifier,
+            connected_account=connected_account
+        )
+        self.assertEqual(create_response[1].code().name, "OK")
+        created_account_id = create_response[0].connected_account.id
+        
+        # Now get it by identifier with connected_account_id
+        get_response = self.scalekit_client.connected_accounts.get_connected_account_by_identifier(
+            connector=self.test_connector,
+            identifier=get_identifier,
+            connected_account_id=created_account_id
+        )
+        self.assertEqual(get_response[1].code().name, "OK")
+        self.assertTrue(get_response[0] is not None)
+        self.assertTrue(hasattr(get_response[0], 'connected_account'))
+        self.assertEqual(get_response[0].connected_account.id, created_account_id)
+        self.assertEqual(get_response[0].connected_account.identifier, get_identifier)
+
+    def test_get_magic_link_for_connected_account_with_connected_account_id(self):
+        """ Method to test get magic link for connected account with connected_account_id parameter """
+        connected_account = self._create_oauth_connected_account()
+        magic_link_identifier = f"magic_link_with_id_test_{self.test_identifier}"
+        
+        # First create a connected account
+        create_response = self.scalekit_client.connected_accounts.create_connected_account(
+            connector=self.test_connector,
+            identifier=magic_link_identifier,
+            connected_account=connected_account
+        )
+        self.assertEqual(create_response[1].code().name, "OK")
+        created_account_id = create_response[0].connected_account.id
+        
+        # Now get magic link with connected_account_id
+        magic_link_response = self.scalekit_client.connected_accounts.get_magic_link_for_connected_account(
+            connector=self.test_connector,
+            identifier=magic_link_identifier,
+            connected_account_id=created_account_id
+        )
+        self.assertEqual(magic_link_response[1].code().name, "OK")
+        self.assertTrue(magic_link_response[0] is not None)
+        self.assertTrue(hasattr(magic_link_response[0], 'link'))
+        self.assertTrue(hasattr(magic_link_response[0], 'expiry'))
+
+    def test_delete_connected_account_with_connected_account_id(self):
+        """ Method to test delete connected account with connected_account_id parameter """
+        connected_account = self._create_oauth_connected_account()
+        delete_identifier = f"delete_with_id_test_{self.test_identifier}"
+        
+        # First create a connected account
+        create_response = self.scalekit_client.connected_accounts.create_connected_account(
+            connector=self.test_connector,
+            identifier=delete_identifier,
+            connected_account=connected_account
+        )
+        self.assertEqual(create_response[1].code().name, "OK")
+        created_account_id = create_response[0].connected_account.id
+        
+        # Now delete it using connected_account_id
+        delete_response = self.scalekit_client.connected_accounts.delete_connected_account(
+            connector=self.test_connector,
+            identifier=delete_identifier,
+            connected_account_id=created_account_id
+        )
+        self.assertEqual(delete_response[1].code().name, "OK")
+        self.assertTrue(delete_response[0] is not None)
+
+    def test_backward_compatibility_without_connected_account_id(self):
+        """ Method to test that all methods still work without connected_account_id (backward compatibility) """
+        connected_account = self._create_oauth_connected_account()
+        compat_identifier = f"compat_test_{self.test_identifier}"
+        
+        # Test create (no connected_account_id parameter in create, so this is just baseline)
+        create_response = self.scalekit_client.connected_accounts.create_connected_account(
+            connector=self.test_connector,
+            identifier=compat_identifier,
+            connected_account=connected_account
+        )
+        self.assertEqual(create_response[1].code().name, "OK")
+        
+        # Test get without connected_account_id (backward compatibility)
+        get_response = self.scalekit_client.connected_accounts.get_connected_account_by_identifier(
+            connector=self.test_connector,
+            identifier=compat_identifier
+        )
+        self.assertEqual(get_response[1].code().name, "OK")
+        self.assertTrue(hasattr(get_response[0], 'connected_account'))
+        
+        # Test magic link without connected_account_id (backward compatibility)  
+        magic_link_response = self.scalekit_client.connected_accounts.get_magic_link_for_connected_account(
+            connector=self.test_connector,
+            identifier=compat_identifier
+        )
+        self.assertEqual(magic_link_response[1].code().name, "OK")
+        self.assertTrue(hasattr(magic_link_response[0], 'link'))
+        
+        # Test update without connected_account_id (backward compatibility)
+        updated_oauth_token = OauthToken(
+            access_token="compat_updated_access_token",
+            refresh_token="compat_updated_refresh_token",
+            scopes=["read", "write"]
+        )
+        updated_auth_details = AuthorizationDetails(oauth_token=updated_oauth_token)
+        update_connected_account = UpdateConnectedAccount(authorization_details=updated_auth_details)
+        
+        update_response = self.scalekit_client.connected_accounts.update_connected_account(
+            connector=self.test_connector,
+            identifier=compat_identifier,
+            connected_account=update_connected_account
+        )
+        self.assertEqual(update_response[1].code().name, "OK")
+        
+        # Test delete without connected_account_id (backward compatibility)
+        delete_response = self.scalekit_client.connected_accounts.delete_connected_account(
+            connector=self.test_connector,
+            identifier=compat_identifier
+        )
+        self.assertEqual(delete_response[1].code().name, "OK")
+
+    def test_get_or_create_connected_account_idempotency(self):
+        """ Method to test idempotency of get_or_create_connected_account """
+        connected_account = self._create_oauth_connected_account()
+        idempotent_identifier = f"idempotent_test_{self.faker.unique.random_number()}"
+
+        # First call to create
+        first_response = self.scalekit_client.actions.get_or_create_connected_account(
+            connection_name=self.test_connector,
+            identifier=idempotent_identifier,
+        )
+        self.assertIsNotNone(first_response)
+        self.assertIsNotNone(first_response.connected_account)
+        created_account = first_response.connected_account
+
+        # Second call to get_or_create with same identifier should return the same connected account
+        second_response = self.scalekit_client.actions.get_or_create_connected_account(
+            connection_name=self.test_connector,
+            identifier=idempotent_identifier,
+        )
+        self.assertIsNotNone(second_response)
+        self.assertIsNotNone(second_response.connected_account)
+
+        # Verify that both responses refer to the same connected account ID
+        self.assertEqual(created_account.id, second_response.connected_account.id)
+
+    def test_create_connected_account_with_oauth_api_info(self):
+        """ Method to test create connected account with OAuth """
+        oauth_token = OauthToken(
+            access_token="test_access_token",
+            refresh_token="test_refresh_token",
+            scopes=["read", "write"]
+        )
+        auth_details = AuthorizationDetails(oauth_token=oauth_token)
+
+        api_config = struct_pb2.Struct()
+        api_config.update({
+            "version": "v1",
+            "domain": "gmail.com",
+            "api_endpoint": "https://gmail.googleapis.com",
+            "custom_auth_header": "Bearer"
+        })
+
+        connected_account = CreateConnectedAccount(authorization_details=auth_details, api_config=api_config)
+
+        response = self.scalekit_client.connected_accounts.create_connected_account(
+            connector=self.test_connector,
+            identifier=self.test_identifier,
+            connected_account=connected_account
+        )
+        self.assertEqual(response[1].code().name, "OK")
+        self.assertTrue(response[0] is not None)
+        self.assertTrue(hasattr(response[0], 'connected_account'))
+        self.assertEqual(response[0].connected_account.identifier, self.test_identifier)
+
+        # Validate API config was set correctly
+        self.assertTrue(hasattr(response[0].connected_account, 'api_config'))
+        self.assertIsNotNone(response[0].connected_account.api_config)
+
+        version_field = response[0].connected_account.api_config.fields["version"]
+        self.assertTrue(version_field.HasField("string_value"), "Version should be a string field")
+        self.assertEqual(version_field.string_value, "v1", "Version value should match what we set")
+
+        domain_field = response[0].connected_account.api_config.fields["domain"]
+        self.assertTrue(domain_field.HasField("string_value"), "Domain should be a string field")
+        self.assertEqual(domain_field.string_value, "gmail.com", "Domain value should match what we set")
+
+        api_endpoint_field = response[0].connected_account.api_config.fields["api_endpoint"]
+        self.assertTrue(api_endpoint_field.HasField("string_value"), "API endpoint should be a string field")
+        self.assertEqual(api_endpoint_field.string_value, "https://gmail.googleapis.com", "API endpoint value should match what we set")
+
+        custom_auth_header_field = response[0].connected_account.api_config.fields["custom_auth_header"]
+        self.assertTrue(custom_auth_header_field.HasField("string_value"), "Custom auth header should be a string field")
+        self.assertEqual(custom_auth_header_field.string_value, "Bearer", "Custom auth header value should match what we set")

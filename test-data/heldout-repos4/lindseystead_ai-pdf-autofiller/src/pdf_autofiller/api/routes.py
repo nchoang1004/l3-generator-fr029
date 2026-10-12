@@ -1,0 +1,531 @@
+"""HTTP route handlers."""
+
+from __future__ import annotations
+
+import asyncio
+import base64
+import json
+import logging
+import tempfile
+from collections.abc import Iterator
+from contextlib import contextmanager
+from pathlib import Path
+from typing import Any
+
+from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
+from starlette.background import BackgroundTask
+
+from pdf_autofiller import __version__
+from pdf_autofiller.field_utils import is_opaque_field_name
+from pdf_autofiller.mapping import alias_pack_status
+from pdf_autofiller.models import FillReport
+from pdf_autofiller.pdf_reader import InvalidPdfError, PdfPageLimitError
+from pdf_autofiller.pdf_writer import UnresolvedRequiredFieldsError
+from pdf_autofiller.pipeline import (
+    inspect as inspect_local,
+)
+from pdf_autofiller.pipeline import (
+    run_fill_pipeline,
+    run_preview_pipeline,
+    semantic_provider_status,
+)
+from pdf_autofiller.playground import PLAYGROUND_HTML
+from pdf_autofiller.user_data import UserDataTooDeepError, validate_user_data_depth
+
+from . import config
+from .errors import (
+    ERROR_CATALOG,
+    MUTATING_ERROR_CODES,
+    api_error,
+    openapi_error_responses,
+)
+from .jobs import execute_pdf_job
+from .schemas import (
+    FillReportResponse,
+    HealthResponse,
+    InspectField,
+    InspectResponse,
+    PreviewDecision,
+    PreviewResponse,
+    VersionResponse,
+)
+from .security import rate_limit_health_status
+from .uploads import read_bounded_upload, require_pdf_signature, require_pdf_upload
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter()
+
+
+def _sample_form_path() -> Path | None:
+    for candidate in config.SAMPLE_CANDIDATES:
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def _safe_header_value(field_names: list[str]) -> str:
+    """Render field names as an ASCII-safe, comma-separated HTTP header value.
+
+    Field names come from untrusted PDFs: non-ASCII and control characters
+    (CR/LF would be rejected by the HTTP layer as header injection) are dropped.
+    """
+    joined = ",".join(field_names)
+    printable = joined.encode("ascii", "ignore").decode("ascii")
+    return "".join(ch for ch in printable if 0x20 <= ord(ch) < 0x7F)
+
+
+def _fill_report_headers(report: FillReport) -> dict[str, str]:
+    """Expose fill outcome via response headers (PDF responses)."""
+    return {
+        "X-PDF-Fields-Written": str(len(report.written_fields)),
+        "X-PDF-Fields-Skipped-Review": _safe_header_value(report.skipped_review_fields),
+        "X-PDF-Fields-Skipped-Empty": _safe_header_value(report.skipped_empty_fields),
+        "X-PDF-Fields-Skipped-Unwritable": _safe_header_value(report.skipped_unwritable_fields),
+        "X-PDF-Fields-Display-Warnings": _safe_header_value(report.display_warnings),
+        "X-PDF-Fields-AI-Assisted": _safe_header_value(report.ai_assisted_fields),
+        "X-PDF-Fields-Missing-Required": _safe_header_value(report.missing_required_fields),
+        # Count only: the full list can be hundreds of names (see JSON report).
+        "X-PDF-Fields-Unfilled": str(len(report.unfilled_fields)),
+    }
+
+
+def _wants_json_fill_report(request: Request) -> bool:
+    """True when the client prefers a JSON fill report over a raw PDF body."""
+    accept = request.headers.get("accept", "")
+    if not accept:
+        return False
+    # Explicit JSON without PDF wins; otherwise keep binary PDF as default.
+    parts = [part.strip().split(";")[0].lower() for part in accept.split(",")]
+    if "application/json" in parts and "application/pdf" not in parts:
+        return True
+    return bool(parts and parts[0] == "application/json")
+
+
+def _audit_log_fill(
+    request: Request,
+    *,
+    fields_total: int,
+    report: FillReport,
+    missing_required: int,
+    use_semantic_inference: bool,
+    allow_fallback_mapping: bool,
+    response_mode: str,
+) -> None:
+    """Emit a structured, PII-free audit record for a completed fill."""
+    request_id = getattr(request.state, "request_id", "unknown")
+    logger.info(
+        "audit action=fill request_id=%s auth=%s fields_total=%d fields_written=%d "
+        "fields_review_skipped=%d fields_empty_skipped=%d fields_unwritable=%d "
+        "missing_required=%d semantic_inference=%s fallback_mapping=%s response_mode=%s",
+        request_id,
+        "enabled" if config.API_AUTH_ENABLED else "disabled",
+        fields_total,
+        len(report.written_fields),
+        len(report.skipped_review_fields),
+        len(report.skipped_empty_fields),
+        len(report.skipped_unwritable_fields),
+        missing_required,
+        use_semantic_inference,
+        allow_fallback_mapping,
+        response_mode,
+    )
+
+
+@contextmanager
+def _unexpected_errors(code: str) -> Iterator[None]:
+    """Pass API errors through; log anything else and answer with a generic 500 ``code``."""
+    try:
+        yield
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Unhandled error (%s)", code)
+        raise api_error(status_code=500, code=code, message=ERROR_CATALOG[code][1]) from exc
+
+
+async def _save_pdf_upload(pdf_file: UploadFile, temp_dir: tempfile.TemporaryDirectory) -> Path:
+    """Validate the upload (type, size, %PDF- header) and write it into ``temp_dir``."""
+    require_pdf_upload(pdf_file)
+    content = await read_bounded_upload(pdf_file)
+    require_pdf_signature(content)
+    input_path = Path(temp_dir.name) / "input.pdf"
+    input_path.write_bytes(content)
+    return input_path
+
+
+@contextmanager
+def _pdf_job_errors() -> Iterator[None]:
+    """Translate pipeline job failures into client-facing API errors."""
+    try:
+        yield
+    except UnresolvedRequiredFieldsError as exc:
+        raise api_error(
+            status_code=422,
+            code="required_fields_unresolved",
+            message="Required fields unresolved",
+            details={"missing_fields": exc.missing_fields, "skipped_fields": exc.skipped_fields},
+        ) from exc
+    except TimeoutError as exc:
+        raise api_error(
+            status_code=503,
+            code="pdf_processing_timeout",
+            message="PDF processing exceeded the time limit",
+            details={"timeout_seconds": config.PDF_READ_TIMEOUT_SECONDS},
+        ) from exc
+    except PdfPageLimitError as exc:
+        raise api_error(
+            status_code=413,
+            code="pdf_too_many_pages",
+            message="PDF exceeds the maximum allowed page count",
+            details={"max_pages": exc.max_pages, "num_pages": exc.num_pages},
+        ) from exc
+    except InvalidPdfError as exc:
+        raise api_error(
+            status_code=422,
+            code="invalid_pdf",
+            message="PDF could not be parsed",
+            details={"reason": str(exc)},
+        ) from exc
+
+
+def _require_consistent_options(*, strict: bool, allow_fallback_mapping: bool) -> None:
+    if strict and allow_fallback_mapping:
+        raise api_error(
+            status_code=422,
+            code="conflicting_options",
+            message=ERROR_CATALOG["conflicting_options"][1],
+        )
+
+
+def _parse_user_data(user_data: str) -> dict[str, Any]:
+    try:
+        parsed = json.loads(user_data)
+    except RecursionError as exc:
+        # The stdlib parser recurses per nesting level; pathological input
+        # exhausts the stack before any depth check can run.
+        raise api_error(
+            status_code=422,
+            code="user_data_too_deep",
+            message="user_data is nested too deeply",
+        ) from exc
+    except json.JSONDecodeError as exc:
+        raise api_error(
+            status_code=422,
+            code="invalid_user_data_json",
+            message="Invalid user_data JSON",
+            details={"reason": str(exc)},
+        ) from exc
+    if not isinstance(parsed, dict):
+        raise api_error(
+            status_code=422,
+            code="invalid_user_data_type",
+            message="user_data must be a JSON object",
+        )
+    try:
+        validate_user_data_depth(parsed)
+    except UserDataTooDeepError as exc:
+        raise api_error(
+            status_code=422,
+            code="user_data_too_deep",
+            message="user_data is nested too deeply",
+            details={"max_depth": exc.max_depth},
+        ) from exc
+    return parsed
+
+
+@router.get("/")
+def root() -> RedirectResponse:
+    """Redirect browsers to the interactive playground."""
+    return RedirectResponse(url="/playground")
+
+
+@router.get("/playground", response_class=HTMLResponse)
+def playground_page() -> HTMLResponse:
+    """Serve the browser playground for trying fills without curl."""
+    return HTMLResponse(content=PLAYGROUND_HTML)
+
+
+@router.get("/health", response_model=HealthResponse)
+def health() -> HealthResponse:
+    checks = {
+        "auth": (
+            "enabled"
+            if config.API_AUTH_ENABLED and config.API_AUTH_TOKEN
+            else "disabled"
+            if not config.API_AUTH_ENABLED
+            else "misconfigured"
+        ),
+        "semantic_provider": semantic_provider_status(),
+        "rate_limit": rate_limit_health_status(),
+        **alias_pack_status(),
+    }
+    status = "ok" if checks["auth"] != "misconfigured" else "degraded"
+    return HealthResponse(
+        status=status,
+        service="pdf-autofiller",
+        version=__version__,
+        checks=checks,
+    )
+
+
+@router.get("/version", response_model=VersionResponse)
+def version() -> VersionResponse:
+    return VersionResponse(service="pdf-autofiller", version=__version__)
+
+
+@router.get("/samples/sample_form.pdf")
+def sample_form_pdf() -> FileResponse:
+    """Serve the bundled sample AcroForm for playground one-click demos."""
+    sample = _sample_form_path()
+    if sample is None:
+        raise api_error(
+            status_code=404,
+            code="sample_not_found",
+            message="Sample PDF is not bundled in this deployment",
+        )
+    return FileResponse(
+        path=sample,
+        media_type="application/pdf",
+        filename="sample_form.pdf",
+    )
+
+
+@router.post(
+    "/inspect",
+    response_model=InspectResponse,
+    responses=openapi_error_responses(
+        *MUTATING_ERROR_CODES,
+        "pdf_inspect_failed",
+    ),
+)
+async def inspect_pdf(
+    request: Request,
+    pdf_file: UploadFile = File(...),
+) -> InspectResponse:
+    """List AcroForm fields so clients can draft matching JSON without guessing."""
+    temp_dir = tempfile.TemporaryDirectory(prefix="pdf-autofiller-inspect-")
+    try:
+        with _unexpected_errors("pdf_inspect_failed"):
+            input_path = await _save_pdf_upload(pdf_file, temp_dir)
+            with _pdf_job_errors():
+                inventory = await asyncio.to_thread(
+                    execute_pdf_job,
+                    inspect_local,
+                    input_path,
+                    timeout_seconds=config.PDF_READ_TIMEOUT_SECONDS,
+                    max_pages=config.MAX_PDF_PAGES,
+                )
+            fields = [
+                InspectField(
+                    name=field.name,
+                    field_type=field.field_type,
+                    required=field.required,
+                    page_number=field.page_number,
+                    current_value=field.value,
+                    name_quality=("opaque" if is_opaque_field_name(field.name) else "readable"),
+                )
+                for field in inventory.fields
+            ]
+            return InspectResponse(
+                pages=inventory.pages,
+                field_count=inventory.field_count,
+                fields=fields,
+                opaque_field_count=inventory.opaque_field_count,
+                opaque_fields=list(inventory.opaque_fields),
+                mapping_hints=list(inventory.mapping_hints),
+            )
+    finally:
+        temp_dir.cleanup()
+        await pdf_file.close()
+
+
+@router.post(
+    "/preview",
+    response_model=PreviewResponse,
+    responses=openapi_error_responses(
+        *MUTATING_ERROR_CODES,
+        "invalid_user_data_json",
+        "invalid_user_data_type",
+        "user_data_too_deep",
+        "conflicting_options",
+        "pdf_preview_failed",
+    ),
+)
+async def preview_pdf(
+    request: Request,
+    pdf_file: UploadFile = File(...),
+    user_data: str = Form(...),
+    strict: bool = Form(
+        True,
+        description=(
+            "When true, disables the AI key fallback only. Required fields are still enforced on /fill."
+        ),
+    ),
+    allow_fallback_mapping: bool = Form(False),
+    use_semantic_inference: bool = Form(False),
+) -> PreviewResponse:
+    """Return mapping decisions without writing a PDF (inspect → map debug loop)."""
+    temp_dir = tempfile.TemporaryDirectory(prefix="pdf-autofiller-preview-")
+    try:
+        with _unexpected_errors("pdf_preview_failed"):
+            _require_consistent_options(strict=strict, allow_fallback_mapping=allow_fallback_mapping)
+            parsed_user_data = _parse_user_data(user_data)
+            input_path = await _save_pdf_upload(pdf_file, temp_dir)
+            with _pdf_job_errors():
+                mapping_result, field_count, page_count = await asyncio.to_thread(
+                    execute_pdf_job,
+                    run_preview_pipeline,
+                    input_path,
+                    parsed_user_data,
+                    timeout_seconds=config.PDF_READ_TIMEOUT_SECONDS,
+                    strict=strict,
+                    allow_fallback_mapping=allow_fallback_mapping,
+                    use_semantic_inference=use_semantic_inference,
+                    max_pages=config.MAX_PDF_PAGES,
+                )
+            return PreviewResponse(
+                pages=page_count,
+                field_count=field_count,
+                decisions=[PreviewDecision(**d.model_dump()) for d in mapping_result.decisions],
+                missing_required=list(mapping_result.missing_required),
+                unmapped_user_keys=list(mapping_result.unmapped_user_keys),
+                mapping_hints=list(mapping_result.mapping_hints),
+            )
+    finally:
+        temp_dir.cleanup()
+        await pdf_file.close()
+
+
+@router.post(
+    "/fill",
+    responses={
+        200: {
+            "content": {
+                "application/pdf": {"description": "Filled PDF binary"},
+                "application/json": {
+                    "description": (
+                        "Fill report JSON including base64 PDF when Accept prefers application/json"
+                    ),
+                    "schema": FillReportResponse.model_json_schema(),
+                },
+            },
+        },
+        **openapi_error_responses(
+            *MUTATING_ERROR_CODES,
+            "invalid_user_data_json",
+            "invalid_user_data_type",
+            "user_data_too_deep",
+            "conflicting_options",
+            "required_fields_unresolved",
+            "pdf_fill_failed",
+        ),
+    },
+)
+async def fill(
+    request: Request,
+    pdf_file: UploadFile = File(...),
+    user_data: str = Form(...),
+    strict: bool = Form(
+        True,
+        description=(
+            "When true, disables the AI key fallback only. "
+            "Required fields are still enforced before a PDF is returned."
+        ),
+    ),
+    allow_fallback_mapping: bool = Form(False),
+    use_semantic_inference: bool = Form(False),
+    flatten: bool = Form(False),
+    need_appearances: bool = Form(
+        True,
+        description=(
+            "When true (default), set AcroForm /NeedAppearances so viewers "
+            "regenerate visible field appearances from written values."
+        ),
+    ),
+    allow_partial: bool = Form(
+        False,
+        description=(
+            "When true, return the PDF even if required fields are unresolved; "
+            "they are listed in missing_required_fields / X-PDF-Fields-Missing-Required."
+        ),
+    ),
+) -> Response:
+    """Fill a PDF form from uploaded file and user data."""
+    temp_dir = tempfile.TemporaryDirectory(prefix="pdf-autofiller-")
+    response_started = False  # once a response owns temp_dir, it cleans it up afterwards
+    try:
+        with _unexpected_errors("pdf_fill_failed"):
+            _require_consistent_options(strict=strict, allow_fallback_mapping=allow_fallback_mapping)
+            parsed_user_data = _parse_user_data(user_data)
+            input_path = await _save_pdf_upload(pdf_file, temp_dir)
+            output_path = input_path.with_name("output_filled.pdf")
+
+            with _pdf_job_errors():
+                fill_report, mapping_result, fields_total, page_count = await asyncio.to_thread(
+                    execute_pdf_job,
+                    run_fill_pipeline,
+                    input_path,
+                    output_path,
+                    parsed_user_data,
+                    timeout_seconds=config.PDF_READ_TIMEOUT_SECONDS,
+                    strict=strict,
+                    allow_fallback_mapping=allow_fallback_mapping,
+                    use_semantic_inference=use_semantic_inference,
+                    max_pages=config.MAX_PDF_PAGES,
+                    flatten=flatten,
+                    need_appearances=need_appearances,
+                    allow_partial=allow_partial,
+                )
+
+            wants_json = _wants_json_fill_report(request)
+            _audit_log_fill(
+                request,
+                fields_total=fields_total,
+                report=fill_report,
+                missing_required=len(mapping_result.missing_required),
+                use_semantic_inference=use_semantic_inference,
+                allow_fallback_mapping=allow_fallback_mapping,
+                response_mode="json" if wants_json else "pdf",
+            )
+
+            if wants_json:
+                pdf_bytes = output_path.read_bytes()
+                decisions = [PreviewDecision(**d.model_dump()) for d in mapping_result.decisions]
+                payload = FillReportResponse(
+                    pages=page_count,
+                    field_count=fields_total,
+                    written_fields=list(fill_report.written_fields),
+                    skipped_review_fields=list(fill_report.skipped_review_fields),
+                    skipped_empty_fields=list(fill_report.skipped_empty_fields),
+                    skipped_unwritable_fields=list(fill_report.skipped_unwritable_fields),
+                    display_warnings=list(fill_report.display_warnings),
+                    ai_assisted_fields=list(fill_report.ai_assisted_fields),
+                    missing_required=list(mapping_result.missing_required),
+                    missing_required_fields=list(fill_report.missing_required_fields),
+                    unfilled_fields=list(fill_report.unfilled_fields),
+                    unmapped_user_keys=list(mapping_result.unmapped_user_keys),
+                    decisions=decisions,
+                    mapping_hints=list(mapping_result.mapping_hints),
+                    pdf_base64=base64.b64encode(pdf_bytes).decode("ascii"),
+                )
+                response_started = True
+                return JSONResponse(
+                    content=payload.model_dump(),
+                    headers=_fill_report_headers(fill_report),
+                    background=BackgroundTask(temp_dir.cleanup),
+                )
+
+            response_started = True
+            return FileResponse(
+                path=output_path,
+                media_type="application/pdf",
+                filename=f"{Path(pdf_file.filename or 'filled').stem}_filled.pdf",
+                headers=_fill_report_headers(fill_report),
+                background=BackgroundTask(temp_dir.cleanup),
+            )
+    finally:
+        if not response_started:
+            temp_dir.cleanup()
+        await pdf_file.close()

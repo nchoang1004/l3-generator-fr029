@@ -1,0 +1,91 @@
+"""The node inspector renders kind-aware content using the SHARED frame
+renderer (_SLS_Frame) and the existing per-node turn-log endpoint, with
+the session live stream as the no-selection empty state."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+UI = ROOT / "ui"
+DETAIL = (UI / "components" / "session-detail.jsx").read_text(encoding="utf-8")
+
+
+def test_inspector_reuses_shared_frame_renderer() -> None:
+    # Reuse, not duplicate: the inspector renders node output through the
+    # extracted _SLS_Frame rather than a second renderer.
+    assert "_SLS_Frame" in DETAIL
+    assert "_SLS_coalesceMessages" in DETAIL
+
+
+def test_inspector_uses_per_node_turn_log_endpoint() -> None:
+    assert "/turn_log" in DETAIL
+    assert "/nodes/" in DETAIL
+
+
+def test_inspector_empty_state_is_session_stream() -> None:
+    # No node selected -> session-level live stream (the run's result).
+    assert "SessionLiveStream" in DETAIL
+
+
+def test_inspector_handles_node_kinds() -> None:
+    # Header surfaces the node kind; the kind drives content selection.
+    src = DETAIL
+    assert "node.kind" in src
+    for kind in ("agent", "begin", "end", "tool_call", "fan_out", "fan_in"):
+        assert kind in src
+
+
+def test_inspector_no_activity_neutral_state() -> None:
+    # A node that never ran shows a neutral state, not an error (spec §9).
+    assert "no activity yet" in DETAIL
+
+
+def test_inspector_filters_graph_transition_from_display() -> None:
+    # graph_transition frames render as a wall of bare "graph_transition"
+    # lines with no operator value, so they are dropped from the DISPLAYED
+    # stream. The filter runs BEFORE coalescing so every other kind
+    # (assistant_token, tool_call, tool_result, user_input, done, error)
+    # still renders.
+    assert 'cls !== "graph_transition"' in DETAIL
+    assert "_SLS_coalesceMessages(visibleFrames)" in DETAIL
+    # The unfiltered frame list must NOT be what gets coalesced/rendered.
+    assert "_SLS_coalesceMessages(frames)" not in DETAIL
+
+
+def test_inspector_keeps_graph_transition_refetch_listener() -> None:
+    # The live-refresh trigger must survive: the workspace tap listener still
+    # refetches on graph_transition / done / error. Only the DISPLAY is
+    # filtered, never the refetch trigger.
+    assert "useWorkspaceTapListener" in DETAIL
+    assert 'cls === "graph_transition" || cls === "done" || cls === "error"' in DETAIL
+    assert "states.refetch()" in DETAIL
+
+
+def test_bundle_transpiles_with_inspector() -> None:
+    from primer.api._jsx_bundle import build_jsx_bundle
+
+    etag, body = build_jsx_bundle(UI)
+    assert etag and body
+    assert "SD_NodeInspector" in body.decode("utf-8")
+
+
+def test_inspector_matches_fanout_instance_ids_not_just_the_base_id() -> None:
+    """01a0518f: a fan-out node's live/history records carry the
+    synthesized instance id ("worker[0]") the node's own node_id never
+    equals ("worker") - an exact-equality match showed nothing for a
+    fan-out node (worse than the old merged-collided view). The inspector
+    must accept both the exact base id and any "<base>[" instance."""
+    src = DETAIL
+    assert "matchesNode" in src
+    assert 'id === nodeId' in src
+    assert 'startsWith(`${nodeId}[`)' in src
+    # Every place that used to compare directly against nodeId now routes
+    # through the matcher instead of a bare equality/inequality check.
+    assert "if (!matchesNode(fnode)) return;" in src
+    assert "matchesNode(it.node_id || p.node_id || it.end_node_id || p.end_node_id)" in src
+    # Regression guard: the old exact-only checks are gone, not just
+    # supplemented (a stray leftover would silently win via short-circuit
+    # if both existed).
+    assert "if (fnode !== nodeId) return;" not in src
+    assert "=== nodeId;" not in src

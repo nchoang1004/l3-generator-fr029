@@ -1,0 +1,2863 @@
+# Configuration Reference
+
+> 🌐 **English** · [Français](fr/CONFIGURATION.md) · [Deutsch](de/CONFIGURATION.md) · [Italiano](it/CONFIGURATION.md) · [Español](es/CONFIGURATION.md) · [Português](pt/CONFIGURATION.md) · [简体中文](zh/CONFIGURATION.md)
+
+Every setting is shipped in `config/scoring_config.default.json` and overridden, key by key, from your own `scoring_config.json` — see [Defaults and your override](#defaults-and-your-override). After modifying, run `python facet.py --recompute-average` to update scores (no GPU needed).
+
+## Table of Contents
+
+- [Defaults and your override](#defaults-and-your-override)
+- [Users](#users)
+- [Scanning](#scanning)
+- [Categories](#categories)
+- [Scoring Contexts](#scoring-contexts)
+- [Scoring](#scoring)
+- [Thresholds](#thresholds)
+- [Composition](#composition)
+- [EXIF Adjustments](#exif-adjustments)
+- [Exposure](#exposure)
+- [Penalties](#penalties)
+- [Normalization](#normalization)
+- [Models](#models)
+- [Quality Assessment Models](#quality-assessment-models)
+- [Processing](#processing)
+- [RAW Decode](#raw-decode)
+- [HDR PQ Tone Mapping](#hdr-pq-tone-mapping)
+- [Burst Detection](#burst-detection)
+- [Burst Scoring](#burst-scoring)
+- [Duplicate Detection](#duplicate-detection)
+- [Face Detection](#face-detection)
+- [Face Clustering](#face-clustering)
+- [Face Processing](#face-processing)
+- [Monochrome Detection](#monochrome-detection)
+- [Tagging](#tagging)
+- [Standalone Tags](#standalone-tags)
+- [Analysis](#analysis)
+- [Viewer](#viewer)
+- [Performance](#performance)
+- [Storage](#storage)
+- [Plugins](#plugins)
+- [Capsules](#capsules)
+- [Similarity Groups](#similarity-groups)
+- [Scenes](#scenes)
+- [OCR](#ocr)
+- [Timeline](#timeline)
+- [Map](#map)
+- [Translation](#translation)
+
+---
+
+## Defaults and your override
+
+`scoring_config.json` holds **only what you changed**. Everything Facet ships lives in
+`config/scoring_config.default.json`, and your file is resolved on top of it: anything
+you leave out keeps the shipped value. A brand-new install has no `scoring_config.json`
+at all, and runs entirely on the defaults.
+
+So to raise the aesthetic weight for portraits and set an edition password, the whole
+file is:
+
+```json
+{
+  "viewer": { "edition_password": "your-password" },
+  "categories": [ ... ]
+}
+```
+
+Two rules govern how the two are combined:
+
+- **Objects merge key by key.** `{"performance": {"mmap_size_mb": 4096}}` changes that
+  one setting and leaves `cache_size_mb` and every other `performance` key at its
+  shipped value.
+- **Arrays replace wholesale.** If your file has a `categories` array, it replaces the
+  shipped one entirely — it is not merged category by category. That is deliberate:
+  `categories` is evaluated first-match-wins in priority order and
+  `scoring_contexts.*.promote` is read in the order you write it, so merging arrays
+  element by element would silently reorder scoring. It is also the only way to
+  **delete** something: a category you leave out of your array is gone, whereas a
+  merged array would keep handing it back.
+
+  The practical consequence: changing one weight in one category means your file
+  carries all of them. Copy the `categories` array out of
+  `config/scoring_config.default.json`, edit it, and keep it — the other ~1500 lines of
+  the shipped config still stay out of your file.
+
+### Upgrading an existing install
+
+Nothing to do: a full `scoring_config.json` from an earlier release resolves to itself
+and keeps working. But your own edits are invisible in 3700 lines of shipped values, and
+settings you never chose are frozen at the values they had when you copied the file.
+
+You don't have to do anything to make that happen, either — every writer of
+`scoring_config.json` rewrites the whole file as the override it is, dropping any key
+that still matches the shipped default, not just the one it meant to change. Saving
+weights or a category priority from the viewer UI does it. So does a panorama-threshold
+change, the first successful login against a plaintext password (which upgrades it to a
+hash in the same write), and even an ordinary scan, if `validate_weights` corrects a
+category's weights along the way.
+
+```bash
+python database.py --compact-config
+```
+
+does the same compaction on demand, rather than waiting for the next write to trigger it.
+It is lossless — the file resolves to exactly the same configuration afterwards — and its
+real remaining advantage is the backup: it takes a `0600` copy of the file before writing.
+Not every writer does; the scan path (`ScoringConfig.save_config`) takes none, by design
+(see its docstring at `config/scoring_config.py:481`), so reach for `--compact-config`
+when you want a backup on record rather than trusting whichever writer runs next.
+
+> **The trade-off, stated plainly.** Once a value is dropped because it matched the
+> default, a later Facet release that changes that default changes your behaviour too —
+> and any write, not just `--compact-config`, is what drops it. That is the point — it is
+> how new tuning reaches you without editing your file. The only thing that actually pins
+> a value against a future default change is setting it to something *different* from the
+> shipped default: a value that merely equals the default cannot survive in the file —
+> the next write drops it, whether that write was compacting on purpose or not.
+
+
+## Users
+
+Optional multi-user mode. When the `users` key is present (with at least one user), single-password auth is replaced with per-user login.
+
+```json
+{
+  "users": {
+    "alice": {
+      "password_hash": "salt_hex:dk_hex",
+      "display_name": "Alice",
+      "role": "superadmin",
+      "directories": ["/volume1/Photos/Alice"]
+    },
+    "bob": {
+      "password_hash": "salt_hex:dk_hex",
+      "display_name": "Bob",
+      "role": "user",
+      "directories": ["/volume1/Photos/Bob"]
+    },
+    "shared_directories": [
+      "/volume1/Photos/Family",
+      "/volume1/Photos/Vacations"
+    ]
+  }
+}
+```
+
+### User fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `password_hash` | string | PBKDF2-HMAC-SHA256 hash (`salt_hex:dk_hex`). Generated by `--add-user` CLI. |
+| `display_name` | string | Shown in the UI header |
+| `role` | string | `user`, `admin`, or `superadmin` |
+| `directories` | array | Private photo directories for this user |
+
+### Shared directories
+
+The `shared_directories` key (sibling of user objects) lists directories visible to all users.
+
+### Roles
+
+| Role | View own + shared | Rate/favorite | Manage persons/faces | Trigger scans |
+|------|:-:|:-:|:-:|:-:|
+| `user` | yes | yes | no | no |
+| `admin` | yes | yes | yes | no |
+| `superadmin` | yes | yes | yes | yes |
+
+### Adding users
+
+Users are created via CLI only — there is no registration UI or API:
+
+```bash
+python database.py --add-user alice --role superadmin --display-name "Alice"
+# Prompts for password, writes hash to scoring_config.json
+```
+
+After adding a user, edit `scoring_config.json` to configure their `directories`.
+
+### Backward compatibility
+
+- No `users` key = legacy single-user mode (unchanged behavior)
+- `viewer.password` and `viewer.edition_password` are ignored in multi-user mode
+- Existing ratings in the `photos` table remain for single-user mode; use `--migrate-user-preferences` to copy them
+
+---
+
+## Scanning
+
+Controls directory scanning behavior.
+
+```json
+{
+  "scanning": {
+    "skip_hidden_directories": true
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `skip_hidden_directories` | `true` | Skip directories starting with `.` during photo scanning |
+
+---
+
+## Categories
+
+Array of category definitions. See [Scoring](SCORING.md) for detailed category documentation.
+
+Each category has:
+- `name` - Category identifier
+- `priority` - Lower = higher priority (evaluated first)
+- `filters` - Conditions for matching
+- `weights` - Scoring metric weights (must sum to 100)
+- `modifiers` - Behavior adjustments
+- `tags` - CLIP vocabulary for tag-based matching
+
+> **Form & color-harmony weights.** Every category's `weights` block carries five explainable metric keys — `symmetry_percent`, `balance_percent`, `edge_entropy_percent`, `fractal_percent`, and `color_harmony_percent` — populated by `--recompute-form`. They ship at `0` in every category, so aggregates stay byte-identical until you give one a weight (then re-run `--recompute-average`). Weights within a category must still sum to 100.
+
+---
+
+## Scoring Contexts
+
+A scoring context is a named **delta** over the global `categories` priority order above — it promotes a short list of categories to the front and excludes others outright, leaving everything else in its existing priority order. It exists because priority is global and shared, but which category *should* win varies by shoot: a backlit dance frame tagged `sports` gets captured by `silhouette` (priority 42) long before `sports` (priority 71) is ever reached, and the weight sliders can't fix that — they govern how the *selected* category scores, not which one gets selected.
+
+```json
+{
+  "scoring_contexts": {
+    "default": {
+      "label_key": "comparison.context.default",
+      "promote": [],
+      "excluded": [],
+      "suggest_from_moments": []
+    },
+    "action_stage": {
+      "label_key": "comparison.context.action_stage",
+      "promote": ["sports", "concert", "candid"],
+      "excluded": ["silhouette"],
+      "suggest_from_moments": ["sports", "concert", "nightlife"]
+    }
+  }
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `label_key` | i18n key for the context's display name |
+| `promote` | Category names moved to the front of the evaluation order, in the order given |
+| `excluded` | Category names removed from evaluation entirely (never matched under this context) |
+| `suggest_from_moments` | `narrative_moment` values that suggest this context for an album — read by `GET /api/albums/{id}/suggested_context` (see [VIEWER.md](VIEWER.md)) |
+
+**Effective order** = `promote` (in order) → the global priority order minus the promoted and excluded names → `default` (the catch-all category, priority 999) last. A name listed in **both** `promote` and `excluded` is dropped from the order entirely — `excluded` wins, the `promote` entry is not honored. `default` itself can never be promoted or excluded. Passing no context, or an unknown context name, falls back to the plain global priority order (and logs a warning for an unknown name); the resolved `[(category_name, CategoryFilter)]` list is memoized per context name for the lifetime of the loaded config (`ScoringConfig.resolve_context_order`). `python facet.py --validate-categories` reports (without failing the load) any `promote`/`excluded` name that isn't a real category, any name listed in both, and any `suggest_from_moments` entry that isn't a key of `narrative_moments.event_types.<default_event_type>` — a typo in any of these otherwise fails silently.
+
+Shipped presets — `default` is an empty delta, so existing behavior is unchanged unless a context is explicitly assigned:
+
+| Context | Promotes | Excludes | Suggested from moments |
+|---------|----------|----------|------------------------|
+| `default` | — | — | — |
+| `action_stage` | `sports`, `concert`, `candid` | `silhouette` | `sports`, `concert`, `nightlife` |
+| `party_event` | `group_portrait`, `candid`, `food` | — | `celebration`, `group_gathering`, `dining` |
+| `portrait_session` | `portrait`, `portrait_bw`, `fashion` | — | `portrait`, `children` |
+| `wildlife` | `wildlife` | — | `nature_wildlife`, `pets` |
+| `landscape` | `landscape`, `golden_hour`, `blue_hour` | — | `scenic_landscape`, `mountains`, `snow_winter` |
+| `motorsport` | `sports`, `vehicle` | `silhouette` | `sports`, `road_vehicle` |
+
+### Adding your own context
+
+The shipped presets are not a closed set — add a key under `scoring_contexts` and it is a context like any other: it resolves, it is assignable to an album, and its delta is editable from the **Scoring Context** tab. Nothing needs to be registered in code.
+
+```json
+{
+  "scoring_contexts": {
+    "dance_comp": {
+      "label_key": "comparison.context.dance_comp",
+      "promote": ["sports", "concert"],
+      "excluded": ["silhouette", "fashion"],
+      "suggest_from_moments": ["sports"]
+    }
+  }
+}
+```
+
+One nuance: `label_key` is looked up in the i18n bundles, and a missing key now falls back to the context's own **`name`** (e.g. `dance_comp`) instead of rendering a raw dot-path — a custom context stays readable in the picker, in every language, even before it has a translation. Add the key to all six `i18n/translations/*.json` bundles to give it a properly localized label instead of the bare name.
+
+### Editing a context
+
+`PUT /api/config/scoring_contexts/{name}` (edition-gated) rewrites one context's delta from the viewer's **Scoring Context** tab — drag the promoted head into the order you want (or use the move-up/move-down buttons), click a category to toggle its exclusion, save. Body is `{"promote": [name, ...], "excluded": [name, ...]}`. Only those two fields are editable: `label_key` and `suggest_from_moments` are left exactly as they were, and every other context is untouched. **Editing the delta is deliberately all the UI offers** — a context never carries a standalone full ordering, so the non-promoted categories always keep the global priority order and a category added later can never be silently missing from six separate lists.
+
+The write is rejected with a 400 naming the offender when the context doesn't exist, when a `promote`/`excluded` entry isn't an existing category, when `default` appears in either list (it is the pinned catch-all and can be neither promoted nor excluded), or when `promote` repeats a name (its order is meaningful, so a repeat is ambiguous). Listing the same category in **both** lists is still accepted — `excluded` wins and the `promote` entry is dropped, exactly as documented above — and a repeat inside `excluded` is collapsed rather than rejected, since it is a set. Each write takes the same timestamped, pruned `.backup.<timestamp>` copy and holds the same lock as the priority and weight writers, so concurrent config saves can't drop each other. `resolve_context_order` memoizes per `ScoringConfig` instance and every reader constructs a fresh one per request, so there is no order cache to invalidate after a write.
+
+Like a priority reorder, editing a context does not touch any photo's stored `category` by itself — run a recompute afterward (see [Changing priorities requires a recompute](#reordering-the-global-priority)); the tab offers a **Recompute now** button for exactly this.
+
+### Assigning a context
+
+A scoring context is assigned **per album** via `PUT /api/albums/{id}/scoring_context` (edition-gated), which writes the album's `scoring_context` column and materializes the same value into `photo_scoring_overrides.scoring_context` for every photo that is a member **at that moment**, skipping any member whose override was set manually (`source = 'manual'`) — an album assignment never silently converts a photo's own manual choice into an album-sourced one. The response's `conflicts` count is how many non-manual members already carried a different context (last-write-wins), `manual_skipped` is how many manual members were left untouched, and `updated` is how many were actually written. A manual album resolves membership from its `album_photos` rows; a smart album (`is_smart`) has none, so membership is instead resolved by evaluating its saved `smart_filter_json` against the live database (`_resolve_album_member_paths`, mirroring the smart branch of `_fetch_album_photos`). This is the album's **filter definition**, not the gallery view: `smart_filter_json` carries only the filter the user chose (sort, person, etc.) and deliberately excludes the gallery's `hide_blinks`/`hide_bursts`/`hide_duplicates`/`hide_rejected` view preferences (global, runtime-toggleable `viewer.defaults`, not part of the album's own definition), so `updated` can legitimately exceed the photo count the album's own gallery view displays with those toggles on — a burst follower of an otherwise-matching shot is still a real member. A smart album whose filter currently matches nothing comes back with `updated: 0` and a `warning`. Either way the stamp is a snapshot, not a subscription: for a manual album, a photo added *afterward* via `append_album_photos` does inherit the context automatically (also skipping manual members), but a smart album's filter matching a *new* photo later does **not** retroactively apply the context to it — only calling `PUT` again re-stamps whatever currently matches. `DELETE /api/albums/{id}/scoring_context` clears the album's `scoring_context` and undoes the stamp on exactly the members this album set (`source = 'album:<id>'`), leaving any photo's own manual override untouched. Removing specific photos from an album (`DELETE /api/albums/{id}/photos`) undoes this album's stamp on exactly those photos the same way, except when a removed photo is *still* a member of another album that itself declares a context — a single `source` column cannot represent multi-album membership, so that photo is re-stamped with the other album's context instead of being left unscored (this re-derivation is bounded to the photos in the removal request; a full-album delete or an explicit context clear does not attempt it, since checking every cleared photo against every other context-declaring album is unbounded for a smart album's full membership). Removing photos from a smart album is a no-op (`album_photos` carries no rows for it, and the removed photos are typically still members). `GET /api/albums/{id}/suggested_context` proposes a context from the album's dominant `narrative_moment` (resolved the same way, `_resolve_album_member_paths`), mapped through `suggest_from_moments`, along with the dominant moment's `share` of the album — it writes nothing; the assignment above still has to be called explicitly.
+
+For a single stubborn photo, a **category override** is the escape hatch — not a context, a direct category assignment: `POST /api/comparison/override_category` (edition-gated) validates the category name against the config and records it in `photo_scoring_overrides.category_override`; `POST /api/comparison/clear_category_override` removes it, letting filter evaluation decide again on the next recompute.
+
+Both levers persist in one side table, `photo_scoring_overrides(photo_path PK, scoring_context, category_override, source, created_at, created_by)`, rather than as columns on `photos` — `save_photo`/`save_photos_batch` write photo rows with `INSERT OR REPLACE` (`processing/scorer.py`), which would silently drop any new column on that row at the next rescan. `processing/scorer.py`'s `Facet._determine_photo_category` is the single choke point that resolves both, on the scan path and on `--recompute-average` alike: a valid `category_override` wins outright; otherwise `ScoringConfig.determine_category(photo_data, context=scoring_context)` evaluates the context's effective order. A numeric filter still fails when the underlying EXIF value is missing or unparseable regardless of context — see [Scoring — the missing-EXIF trap](SCORING.md#the-missing-exif-trap) for the `sports`/`shutter_speed_max` case that promoting alone cannot fix.
+
+### Reordering the global priority
+
+`GET|POST /api/config/category_priorities` (edition-gated) reads and rewrites the base order that every context deltas against. `POST` takes `{"order": [name, ...]}` — a set-equal permutation of every non-`default` category name — and **permutes the existing priority multiset onto the new order** rather than renumbering (e.g. 10/20/30): this keeps the documented priority numbers meaningful for categories whose stored priority is already unique. A category with a missing or duplicated priority — which `--validate-categories` only flags as a logged issue, not a hard error — is healed as part of the same write instead of rejecting it with a 400: it is assigned a fresh value past the current maximum, so a hand-edited config with broken priorities is repaired by submitting any valid order rather than being permanently stuck (this endpoint is the only writer of `priority`, so it has to agree with `--validate-categories` about what's merely a logged issue versus a hard failure). `default` (priority 999) is pinned last and excluded from reordering. Every write takes a timestamped `.backup.<timestamp>` copy of `scoring_config.json` first — only the 20 most recent backups are kept, older ones are pruned on each write — and this writer shares a lock with the weight editor (`update_category_weights`) — the previous unguarded read-modify-write let a concurrent save from each silently drop the other's changes.
+
+**Changing priorities requires a recompute.** The reorder itself does not touch any photo's stored `category` — run `python facet.py --recompute-average`, or trigger `POST /api/scan/recompute` from the viewer (edition-gated) and poll `GET /api/scan/recompute_status`. `update_all_aggregates` emits `@FACET_PROGRESS` lines (previously `tqdm`-only) so this can drive a progress bar. A recompute holds one long write transaction across the whole `photos` table, so `--recompute-average`/`--recompute-category` acquire a cross-process `facet.LibraryLock` (a PID-stamped `<db_dir>/.facet_cache/library.lock`) for their entire run, not just the viewer's in-memory job lock: a CLI recompute refuses outright if a scan is already running, a CLI scan refuses outright if a recompute is running, and the viewer's `POST /api/scan/start`/`POST /api/scan/recompute` peek the same lock file and return 409 naming the holder (kind, pid, origin) before spawning — so a terminal job and a viewer-triggered job can no longer collide and crash with `SQLITE_BUSY`. A holder that crashes is detected immediately via an OS PID-liveness check, so a stale lock self-heals rather than wedging future jobs. The one remaining gap is CLI scan-vs-scan: two concurrent scans started from a terminal are still only soft-warned, not refused (deliberate; `--resume` still hard-refuses). If `normalization.per_category` is enabled, see [Normalization](#normalization) for why even a single, uncontested recompute may need to run twice.
+
+---
+
+## Scoring
+
+```json
+{
+  "scoring": {
+    "score_min": 0.0,
+    "score_max": 10.0,
+    "score_precision": 2
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `score_min` | `0.0` | Minimum possible score |
+| `score_max` | `10.0` | Maximum possible score |
+| `score_precision` | `2` | Decimal places for scores |
+
+---
+
+## Thresholds
+
+Detection thresholds for automatic categorization.
+
+```json
+{
+  "thresholds": {
+    "portrait_face_ratio_percent": 5,
+    "blink_penalty_percent": 50,
+    "night_luminance_threshold": 0.15,
+    "night_iso_threshold": 3200,
+    "long_exposure_shutter_threshold": 1.0,
+    "astro_shutter_threshold": 10.0
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `portrait_face_ratio_percent` | `5` | Face > 5% of frame = portrait |
+| `blink_penalty_percent` | `50` | Score multiplier when blink detected (0.5x) |
+| `night_luminance_threshold` | `0.15` | Mean luminance below this = night |
+| `night_iso_threshold` | `3200` | ISO above this = low-light |
+| `long_exposure_shutter_threshold` | `1.0` | Shutter > 1s = long exposure |
+| `astro_shutter_threshold` | `10.0` | Shutter > 10s = astrophotography |
+
+---
+
+## Composition
+
+Rule-based composition scoring (used when SAMP-Net is not active).
+
+```json
+{
+  "composition": {
+    "power_point_weight": 2.0,
+    "line_weight": 1.0
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `power_point_weight` | `2.0` | Weight for rule-of-thirds placement |
+| `line_weight` | `1.0` | Weight for leading lines |
+
+---
+
+## EXIF Adjustments
+
+Automatic scoring adjustments based on camera settings.
+
+```json
+{
+  "exif_adjustments": {
+    "iso_sharpness_compensation": true,
+    "aperture_isolation_boost": true
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `iso_sharpness_compensation` | `true` | Reduce sharpness penalty for high-ISO |
+| `aperture_isolation_boost` | `true` | Boost isolation for wide apertures (f/1.4-f/2.8) |
+
+---
+
+## Exposure
+
+Controls exposure analysis and clipping detection.
+
+```json
+{
+  "exposure": {
+    "shadow_clip_threshold_percent": 15,
+    "highlight_clip_threshold_percent": 10,
+    "silhouette_detection": true
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `shadow_clip_threshold_percent` | `15` | Flag if > 15% pixels pure black |
+| `highlight_clip_threshold_percent` | `10` | Flag if > 10% pixels pure white |
+| `silhouette_detection` | `true` | Detect intentional silhouettes |
+
+---
+
+## Penalties
+
+Score penalties for technical issues.
+
+```json
+{
+  "penalties": {
+    "noise_sigma_threshold": 4.0,
+    "noise_max_penalty_points": 1.5,
+    "noise_penalty_per_sigma": 0.3,
+    "bimodality_threshold": 2.5,
+    "bimodality_penalty_points": 0.5,
+    "leading_lines_blend_percent": 30,
+    "oversaturation_threshold": 0.9,
+    "oversaturation_pixel_percent": 5,
+    "oversaturation_penalty_points": 0.5
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `noise_sigma_threshold` | `4.0` | Noise above this triggers penalty |
+| `noise_max_penalty_points` | `1.5` | Maximum noise penalty |
+| `noise_penalty_per_sigma` | `0.3` | Points per sigma above threshold |
+| `bimodality_threshold` | `2.5` | Histogram bimodality coefficient |
+| `bimodality_penalty_points` | `0.5` | Penalty for bimodal histograms |
+| `leading_lines_blend_percent` | `30` | Blend into comp_score |
+| `oversaturation_threshold` | `0.9` | Mean saturation threshold |
+| `oversaturation_pixel_percent` | `5` | Reserved for pixel-level detection |
+| `oversaturation_penalty_points` | `0.5` | Oversaturation penalty |
+
+**Noise penalty formula:**
+```
+penalty = min(noise_max_penalty_points, (noise_sigma - threshold) * noise_penalty_per_sigma)
+```
+
+---
+
+## Normalization
+
+Controls how raw metrics are scaled to 0-10 scores.
+
+```json
+{
+  "normalization": {
+    "method": "percentile",
+    "percentile_target": 90,
+    "per_category": true,
+    "category_min_samples": 50
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `method` | `"percentile"` | Normalization method |
+| `percentile_target` | `90` | 90th percentile = score of 10.0 |
+| `per_category` | `true` | Category-specific normalization |
+| `category_min_samples` | `50` | Minimum photos for per-category |
+
+**A single recompute does not converge when `per_category` is enabled.** `compute_percentiles_per_category` (`config/percentile_normalizer.py`) groups photos by the *currently stored* `photos.category` column, and it runs once, up front, before `update_all_aggregates` re-determines and rewrites each photo's category for the new config. So after any change that can move photos between categories — reordering priorities, assigning/clearing a scoring context, adding or clearing a category override — the first `--recompute-average` normalizes every photo against percentiles grouped by its **old** category, not the one it is about to be assigned. Run `--recompute-average` a second time so the per-category percentiles are computed from the now-correct `category` column; only then do the normalized scores settle.
+
+---
+
+## Models
+
+Selects which models are used per VRAM profile.
+
+```json
+{
+  "models": {
+    "vram_profile": "auto",
+    "keep_in_ram": "auto",
+    "profiles": {
+      "legacy": {
+        "aesthetic_model": "clip-mlp",
+        "clip_config": "clip_legacy",
+        "composition_model": "samp-net",
+        "tagging_model": "clip",
+        "supplementary_pyiqa": ["topiq_iaa", "topiq_nr_face", "liqe"],
+        "saliency_enabled": true,
+        "description": "CPU: CLIP-MLP aesthetic + SAMP-Net composition + CLIP tagging + TOPIQ IAA/NR-Face/LIQE + BiRefNet saliency (8GB+ RAM; saliency/IQA are slower on CPU)"
+      },
+      "8gb": {
+        "aesthetic_model": "clip-mlp",
+        "clip_config": "clip_legacy",
+        "composition_model": "samp-net",
+        "tagging_model": "clip",
+        "supplementary_pyiqa": ["topiq_iaa", "topiq_nr_face", "liqe"],
+        "saliency_enabled": true,
+        "description": "CLIP-MLP aesthetic + SAMP-Net composition + CLIP tagging + TOPIQ IAA/NR-Face/LIQE + BiRefNet saliency (6-14GB VRAM)"
+      },
+      "16gb": {
+        "aesthetic_model": "topiq",
+        "clip_config": "clip",
+        "composition_model": "samp-net",
+        "tagging_model": "qwen3.5-2b",
+        "supplementary_pyiqa": ["topiq_iaa", "topiq_nr_face", "liqe"],
+        "saliency_enabled": true,
+        "description": "TOPIQ aesthetic + SigLIP 2 embeddings + Qwen3.5-2B tagging (~14GB VRAM)"
+      },
+      "24gb": {
+        "aesthetic_model": "topiq",
+        "clip_config": "clip",
+        "composition_model": "samp-net",
+        "tagging_model": "qwen3.5-4b",
+        "supplementary_pyiqa": ["topiq_iaa", "topiq_nr_face", "liqe"],
+        "saliency_enabled": true,
+        "description": "TOPIQ aesthetic + SigLIP 2 embeddings + Qwen3.5-4B tagging (~18GB VRAM)"
+      }
+    },
+    "clip": {
+      "model_name": "google/siglip2-so400m-patch16-naflex",
+      "backend": "transformers",
+      "embedding_dim": 1152,
+      "similarity_threshold_percent": 8,
+      "search_threshold_percent": 5
+    },
+    "clip_legacy": {
+      "model_name": "ViT-L-14",
+      "pretrained": "laion2b_s32b_b82k",
+      "embedding_dim": 768,
+      "similarity_threshold_percent": 22,
+      "search_threshold_percent": 15
+    },
+    "qwen2_vl": {
+      "model_path": "Qwen/Qwen2-VL-2B-Instruct",
+      "torch_dtype": "bfloat16",
+      "max_new_tokens": 256
+    },
+    "qwen3_5_2b": {
+      "model_path": "Qwen/Qwen3.5-2B",
+      "torch_dtype": "bfloat16",
+      "max_new_tokens": 100,
+      "vlm_batch_size": 4
+    },
+    "qwen3_5_4b": {
+      "model_path": "Qwen/Qwen3.5-4B",
+      "torch_dtype": "bfloat16",
+      "max_new_tokens": 100,
+      "vlm_batch_size": 2
+    },
+    "saliency": {
+      "model": "ZhengPeng7/BiRefNet_dynamic",
+      "resolution": 1024,
+      "mask_threshold": 0.3,
+      "min_subject_pixels": 50
+    },
+    "samp_net": {
+      "model_path": "pretrained_models/samp_net.pth"
+    }
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `vram_profile` | `"auto"` | Active profile (`auto`, `legacy`, `8gb`, `16gb`, `24gb`). Overridable at runtime by the `FACET_VRAM_PROFILE` env var (see below). |
+| `keep_in_ram` | `"auto"` | Keep models in RAM between multi-pass chunks (`"auto"`, `"always"`, `"never"`). `auto` checks available RAM before caching. |
+| `profiles.*.supplementary_pyiqa` | `["topiq_iaa", "topiq_nr_face", "liqe"]` | PyIQA models to run for this profile (all four profiles run the full set) |
+| `profiles.*.saliency_enabled` | `true` (all profiles) | Run BiRefNet subject saliency for this profile |
+| `clip.model_name` | `"google/siglip2-so400m-patch16-naflex"` | SigLIP 2 NaFlex embedding model (16gb/24gb) |
+| `clip.backend` | `"transformers"` | `"transformers"` (SigLIP 2 NaFlex) or `"open_clip"` (legacy) |
+| `clip.embedding_dim` | `1152` | Embedding dimensions (1152 for SigLIP 2) |
+| `clip.similarity_threshold_percent` | `8` | Minimum CLIP cosine similarity for a **tag** match (`--tag-existing`, scan auto-tagging) — **not** the semantic-search gate below |
+| `clip.search_threshold_percent` | `5` | Semantic-search cosine gate for `GET /api/search` (`/api/config`'s `search_threshold_default`), **not** the tag-match threshold above. Must be a whole number in `0-50` — the gallery's sidebar slider tops out at 50, and the client's percent round-trip (`Math.round(search_threshold_default * 100)`) is only lossless for an integer. Calibrated against a 34-row validation sample of real SigLIP-2 embeddings (issue #145): the default admits all 21 known true positives **and** 3 of the 13 known negatives — a deliberate lean toward recall over precision. A stricter `5.5%` would have admitted zero of the negatives but was rejected because the issue reporter had measured a genuine match at `0.051` cosine similarity on their own library; excluding a confirmed real match was judged worse than letting a few negatives through, especially since the gallery's 0-50% slider lets a user tighten (or loosen) a specific search after the fact. |
+| `clip_legacy.model_name` | `"ViT-L-14"` | Legacy CLIP model (legacy/8gb profiles) |
+| `clip_legacy.pretrained` | `"laion2b_s32b_b82k"` | Legacy pre-trained weights |
+| `clip_legacy.embedding_dim` | `768` | Legacy embedding dimensions |
+| `clip_legacy.similarity_threshold_percent` | `22` | Tag-match threshold for legacy CLIP — **not** the semantic-search gate below |
+| `clip_legacy.search_threshold_percent` | `15` | Semantic-search cosine gate for `GET /api/search` on the legacy/8gb (open_clip) profile — preserves the threshold Facet used before this key existed. Same whole-number-in-`0-50` constraint as `clip.search_threshold_percent` above. |
+| `qwen2_vl.model_path` | `"Qwen/Qwen2-VL-2B-Instruct"` | HuggingFace path for the manual `composition_model: "qwen2-vl-2b"` opt-in — no profile selects it by default |
+| `qwen3_5_2b.model_path` | `"Qwen/Qwen3.5-2B"` | Tagging model for 16gb profile |
+| `qwen3_5_2b.vlm_batch_size` | `4` | Images per VLM inference batch |
+| `qwen3_5_4b.model_path` | `"Qwen/Qwen3.5-4B"` | Tagging model for 24gb profile |
+| `qwen3_5_4b.vlm_batch_size` | `2` | Images per VLM inference batch |
+| `saliency.model` | `"ZhengPeng7/BiRefNet_dynamic"` | BiRefNet saliency model |
+| `saliency.resolution` | `1024` | Inference resolution |
+| `saliency.mask_threshold` | `0.3` | Sigmoid threshold for the binary subject mask |
+| `saliency.min_subject_pixels` | `50` | Minimum subject pixels to count a subject as detected |
+
+**Semantic search and a library embedded under a different profile:** `GET /api/search`
+resolves the text encoder — and its `search_threshold_percent` — from whichever of
+`clip` / `clip_legacy` matches the *stored* embedding dimension, not necessarily the
+box's active `vram_profile`. This matters when a library was embedded under one profile
+(e.g. 768-dim CLIP) but is now browsed on a box that resolves a different one (e.g. the
+16gb/SigLIP profile, which defaults to `clip`, 1152-dim): the stored dimension wins, so
+search transparently uses `clip_legacy`'s model **and** its `search_threshold_percent`
+instead. If the stored dimension matches *neither* configured block, the active
+profile's own block — and its threshold — is kept as-is rather than guessed at.
+
+### VRAM Auto-Detection
+
+When `vram_profile` is `"auto"` (default), the system detects available GPU VRAM at startup and selects the largest profile that fits:
+
+| Detected VRAM | Selected Profile |
+|---------------|------------------|
+| ≥ 20GB | `24gb` |
+| ≥ 14GB | `16gb` |
+| ≥ 6GB | `8gb` |
+| No GPU | `legacy` (uses system RAM) |
+
+### `FACET_VRAM_PROFILE` environment override
+
+The `FACET_VRAM_PROFILE` environment variable overrides `models.vram_profile` at load time (honored by `config/scoring_config.py`), so a single mounted config can serve every Docker profile without editing the JSON. Accepted values are `auto`, `legacy`, `8gb`, `16gb`, and `24gb`; any other value is ignored with a warning (so a typo can't silently mis-scan). The per-profile Docker Compose overlays (`docker-compose.{legacy,8gb,16gb,24gb}.yml`) set this variable for you.
+
+The override is **runtime-only and is never written back into `scoring_config.json`**, even when some other edit triggers a save — an automatic weight correction, for instance. That guarantee is what makes one mounted config usable by several containers at once: without it, the first container to save would pin `models.vram_profile` to its own value and every other container reading the same file would inherit it, whatever their own variable said. A `vram_profile` you set in the file yourself is untouched and still wins when the variable is unset.
+
+```bash
+FACET_VRAM_PROFILE=8gb python facet.py /path/to/photos
+```
+
+---
+
+## Quality Assessment Models
+
+Selects the model that scores image quality/aesthetics, via the [pyiqa](https://github.com/chaofengc/IQA-PyTorch) library.
+
+```json
+{
+  "quality": {
+    "model": "auto",
+    "prefer_llm": false
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `model` | `"auto"` | Quality model: `auto`, `topiq`, `hyperiqa`, `dbcnn`, `musiq`, `clip-mlp`. `auto` uses `topiq`. |
+| `prefer_llm` | `false` | Prefer an LLM-based scorer when one is available |
+
+### Available Quality Models
+
+SRCC = Spearman Rank Correlation Coefficient on the KonIQ-10k benchmark (1.0 = perfect).
+
+| Model | SRCC | VRAM | Notes |
+|-------|------|------|-------|
+| `topiq` | 0.93 | ~2GB | Default (`auto`); ResNet50 backbone with top-down attention |
+| `hyperiqa` | 0.90 | ~2GB | Hyper-network, content-adaptive |
+| `dbcnn` | 0.90 | ~2GB | Dual-branch CNN (synthetic + authentic distortions) |
+| `musiq` | 0.87 | ~2GB | Multi-scale transformer; handles any resolution |
+| `clipiqa+` | 0.86 | ~4GB | CLIP with learned quality prompts |
+| `clip-mlp` | 0.76 | ~4GB | Legacy CLIP ViT-L-14 + MLP head |
+
+### Switching Quality Models
+
+1. Edit `scoring_config.json`:
+   ```json
+   "quality": {
+     "model": "topiq"
+   }
+   ```
+
+2. Re-score existing photos (optional):
+   ```bash
+   python facet.py /path --pass quality
+   python facet.py --recompute-average
+   ```
+
+---
+
+## Processing
+
+Unified processing settings for GPU batch processing and multi-pass mode.
+
+```json
+{
+  "processing": {
+    "mode": "auto",
+    "gpu_batch_size": 16,
+    "ram_chunk_size": 32,
+    "num_workers": 4,
+    "auto_tuning": {
+      "enabled": true,
+      "monitor_interval_seconds": 5,
+      "tuning_interval_images": 32,
+      "min_processing_workers": 1,
+      "max_processing_workers": 32,
+      "min_gpu_batch_size": 2,
+      "max_gpu_batch_size": 32,
+      "min_ram_chunk_size": 10,
+      "max_ram_chunk_size": 128,
+      "memory_limit_percent": 85,
+      "cpu_target_percent": 85,
+      "metrics_print_interval_seconds": 30
+    },
+    "thumbnails": {
+      "photo_size": 640,
+      "photo_quality": 80,
+      "face_padding_ratio": 0.3
+    }
+  }
+}
+```
+
+### Key Concepts
+
+**`gpu_batch_size`** - How many images are processed together on the GPU in a single forward pass. Limited by VRAM. Auto-tuned: reduced when GPU memory exceeds limit.
+
+**`ram_chunk_size`** - How many images are cached in RAM between model passes (multi-pass mode only). Reduces disk I/O by loading images once per chunk. Limited by the effective memory limit (see `memory_limit_percent` below). Auto-tuned in both directions: reduced immediately when usage exceeds the limit, and increased only at a chunk boundary, and only if that whole chunk's *peak* usage stayed below the limit. The peak is what matters because a chunk is not one reading — every model unload between passes drops usage almost to the floor, and growing on that trough is what drove `ram_chunk_size` from 10 to 500 inside an 8GB container and OOM-killed the next chunk.
+
+### Settings Reference
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `mode` | `"auto"` | Processing mode: `auto`, `multi-pass`, `single-pass` |
+| `gpu_batch_size` | `16` | Images per GPU batch (VRAM-limited) |
+| `ram_chunk_size` | `32` | Images per RAM chunk (multi-pass) |
+| `num_workers` | `4` | Image loader threads |
+| `load_workers` | `num_workers` | Multi-pass chunk loader threads (capped at 8, `1` = sequential) |
+| `raw_decode_concurrency` | `0` (auto) | Max simultaneous RAW decodes; auto-sized from CPU/RAM (1-4), `1` = fully serialized |
+| `raw_decode_timeout_seconds` | `120` | Abandon a hung RAW decode after this delay (`0` = disabled); scan fails fast after repeated hangs |
+| `exif_prefetch` | `true` | Single-pass mode: prefetch EXIF in background instead of blocking the GPU thread |
+| **auto_tuning** | | |
+| `enabled` | `true` | Enable auto-tuning |
+| `monitor_interval_seconds` | `5` | Resource check interval |
+| `tuning_interval_images` | `32` | Re-tune every N images |
+| `min_processing_workers` | `1` | Minimum loader threads |
+| `max_processing_workers` | `32` | Maximum loader threads |
+| `min_gpu_batch_size` | `2` | Minimum GPU batch size |
+| `max_gpu_batch_size` | `32` | Maximum GPU batch size |
+| `min_ram_chunk_size` | `10` | Minimum RAM chunk size |
+| `max_ram_chunk_size` | `128` | Maximum RAM chunk size |
+| `memory_limit_percent` | `85` | Percentage of the effective memory limit (cgroup limit under a container cap, else host RAM) |
+| `cpu_target_percent` | `85` | CPU usage target |
+| `metrics_print_interval_seconds` | `30` | Stats print interval |
+| **thumbnails** | | |
+| `photo_size` | `640` | Stored thumbnail size (pixels) |
+| `photo_quality` | `80` | Thumbnail JPEG quality |
+| `face_padding_ratio` | `0.3` | Padding around face crops |
+
+### Processing Modes
+
+| Mode | Description |
+|------|-------------|
+| `auto` | Automatically selects multi-pass or single-pass based on VRAM |
+| `multi-pass` | Sequential model loading (works with limited VRAM) |
+| `single-pass` | All models loaded at once (requires high VRAM) |
+
+### How Multi-Pass Works
+
+Instead of loading all models at once, multi-pass:
+
+1. Loads images in RAM chunks (default `ram_chunk_size`: 32)
+2. For each chunk, runs models sequentially: load model → process chunk → unload model
+3. Combines results in a final aggregation pass
+
+Each image is loaded once per chunk, and passes are grouped to fit available VRAM, so the larger tagger/composition VLMs run even on limited VRAM.
+
+### Auto-Tuning Behavior
+
+The system monitors resource usage and adjusts:
+
+`memory_limit_percent` is measured against the *effective* memory limit: the cgroup limit when running under a container or orchestrator cap (Docker `mem_limit`, Podman `--memory`, Kubernetes `resources.limits.memory`), otherwise host RAM. Under a cgroup limit, usage now comes from the cgroup's own accounting rather than host free memory, so `mem_limit` genuinely bounds auto-tuning — previously it read host memory even inside a capped container, which could under-report usage and let `ram_chunk_size` grow toward an OOM kill. `memory_limit_percent` is a percentage of that limit: `85` against an 8GB cap is ~6.8GB, not 85% of host RAM.
+
+| Metric | Action |
+|--------|--------|
+| GPU memory > limit | Reduce `gpu_batch_size` by 25% |
+| Memory usage > limit | Reduce `ram_chunk_size` by 25% (immediately) |
+| A finished chunk whose peak usage stayed < (limit - 20%) | Increase `ram_chunk_size` by 25% |
+| CPU > target | Suggest fewer workers |
+| Queue timeouts > 5% | Suggest more workers |
+
+### Dynamic Pass Grouping
+
+When VRAM allows, multiple small models run together:
+
+| VRAM | Pass 1 | Pass 2 |
+|------|--------|--------|
+| 8GB | CLIP + SAMP-Net + InsightFace | TOPIQ |
+| 12GB | CLIP + SAMP-Net + InsightFace + TOPIQ | - |
+| 16GB | CLIP + SAMP-Net + InsightFace + TOPIQ | tagger VLM |
+| 24GB+ | All models together (single-pass) | - |
+
+### CLI Options
+
+```bash
+# Default: auto multi-pass with optimal grouping
+python facet.py /path/to/photos
+
+# Force single-pass (all models loaded at once)
+python facet.py /path --single-pass
+
+# Run specific pass only
+python facet.py /path --pass quality       # TOPIQ only
+python facet.py /path --pass quality-iaa   # TOPIQ IAA (aesthetic merit)
+python facet.py /path --pass quality-face  # TOPIQ NR-Face
+python facet.py /path --pass quality-liqe  # LIQE (quality + distortion)
+python facet.py /path --pass tags          # Configured tagger only
+python facet.py /path --pass composition   # SAMP-Net only
+python facet.py /path --pass faces         # InsightFace only
+python facet.py /path --pass embeddings    # CLIP/SigLIP embeddings only
+python facet.py /path --pass saliency      # BiRefNet subject saliency
+
+# List available models
+python facet.py --list-models
+```
+
+---
+
+## RAW Decode
+
+How RAW files are turned into pixels. Two profiles exist, and they are not
+interchangeable.
+
+**Metrics profile** — the demosaic every score is computed from, and the pixel
+space stored face boxes and `image_width`/`image_height` live in. It is
+deliberately faithful: no per-frame adaptation, one fixed exposure gain for the
+whole library.
+
+**Display profile** — what the stored thumbnail, the gallery and `/image` show.
+It prefers the camera-embedded preview, which already carries the model's own
+tone curve, DR modes and exposure, and falls back to the metrics demosaic when
+no usable preview exists.
+
+```json
+"raw_decode": {
+  "bright": 1.62,
+  "prefer_embedded_preview": true,
+  "preview_min_sensor_ratio": 0.5,
+  "viewer_concurrency": 3,
+  "faithful_bracket_render": true
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `bright` | `1.62` | Fixed exposure gain applied to every demosaic (`1.0` = LibRaw's own level). The one arbitrary constant here: it matches darktable's +0.7 EV default, and nothing in the file dictates it — validate it on your own library with `--check-raw-rendering` before a large scan |
+| `prefer_embedded_preview` | `true` | Render display images from the camera preview when there is one. `false` demosaics everything, which is slower and drops the camera's tone curve |
+| `preview_min_sensor_ratio` | `0.5` | How much of the sensor a preview must cover for `/image` to serve it instead of demosaicing. Nikon, Pentax, Samsung and Canon CR3 embed a near-full-size preview (0.98-0.99); Panasonic sits at 0.52, while Olympus, Fuji, Sony and DNG embed a small one (0.29-0.49) and therefore demosaic |
+| `viewer_concurrency` | `3` | Max simultaneous RAW demosaics for the `/image` viewer path, on its own budget separate from `processing.raw_decode_concurrency` above, so a viewer request never queues behind scan or CLI decode work |
+| `faithful_bracket_render` | `true` | Render a bracketed frame with no correction at all — no camera preview, no `bright` gain. See [below](#bracketed-frames-render-uncorrected). `false` renders brackets like any other photo |
+
+### Memory tradeoff
+
+`viewer_concurrency` and `processing.raw_decode_concurrency` are independent
+budgets, each with its own semaphore, and neither borrows headroom from the
+other. Worst case, the process can therefore hold `library + viewer`
+demosaics in flight at once, each peaking at roughly 200-400MB of
+intermediates — lower `viewer_concurrency` on a memory-constrained host. In
+practice this budget is mostly idle: it is only spent when `/image` has to
+fall back to a full demosaic, which `preview_min_sensor_ratio` above already
+skips for any RAW whose embedded preview is large enough (Nikon, Pentax,
+Samsung, Canon CR3). Sony, Fuji, Olympus and DNG are the bodies that actually
+consume it.
+
+### Why there is no auto-brightness
+
+LibRaw brightens each frame until roughly 1% of *its own* pixels clip, and
+substitutes that same frame's brightest pixel for the camera white level. Both
+terms are per-frame, so a bracket comes out equalised: a measured 5-frame Canon
+set spanning -3.4 to +3.3 EV rendered at mean luminances of 54-56 for its three
+dark frames, indistinguishable from each other. With the fixed gain the same
+set spans 8.7 to 160 — an 18x ladder instead of 2.6x.
+
+Raising `bright` scales every rendering linearly; it never restores the
+per-frame behaviour. Exposure metrics move with it, so re-run
+`--recompute-average` after changing it, and re-scan to rewrite the metrics
+themselves.
+
+### Bracketed frames render uncorrected
+
+A photo whose `sequence_kind` is `bracket` or `hdr_panorama` is displayed with
+neither of the two corrections above: no camera-embedded preview, and no
+`bright` gain. Everything else keeps the display profile. A plain `panorama` is
+*not* bracketed and is excluded — only an HDR panorama, which is bracketed at
+every position, joins brackets here.
+
+The reason is that both corrections compress highlights, and highlight headroom
+is the entire point of a bracket's +EV frames. The uniform gain preserves the
+*relative* exposure between frames but clips the bright end: at `bright` 2.0 a
+measured 4.85x ladder came out as 3.67x, the difference being clipping alone.
+The camera's embedded JPEG has its own tone curve, which compresses the same
+range for the same reason. For an ordinary photo that is a better-looking
+picture; for a bracket it hides exactly what the photographer is judging.
+
+This applies to every surface that renders a bracket, so they cannot disagree:
+`/image` (the detail view, the comparison loupe and the culling loupe) renders
+it this way on the fly, `--refresh-thumbnails` bakes it into `photos.thumbnail`
+for the gallery tile and the comparison grid, and `GET /api/download` with
+`type=original` converts it the same way — a downloaded bracket frame is
+usually on its way to an HDR merge, where the clipped highlights the other
+renderings introduce are unrecoverable.
+
+Two download types are deliberately left alone: `type=raw` copies the untouched
+RAW file, and `type=darktable` is the "edited look" export, whose whole purpose
+is a tone curve. `GET /api/photo/cull_preview` is likewise unaffected — it
+renders through darktable-cli, not rawpy.
+
+It is *not* applied at scan time, because sequence detection runs after a scan
+and bracket membership is not yet known — run `--detect-sequences` first, then
+`--refresh-thumbnails`, for the tiles to follow.
+
+Scoring is unaffected. Metrics are computed from `load_image_from_path`, which
+is a separate decode at sensor dimensions and is where every stored face box
+and `image_width`/`image_height` lives; nothing here reaches it.
+
+Set `faithful_bracket_render` to `false` to render brackets like any other
+photo.
+
+### Migrating a library scanned before this profile
+
+Thumbnails and histograms are baked at scan time, so changing the profile does
+not retroactively change what a scanned row holds. `photos.render_version`
+records which of the two RAW display renderings produced each row's stored
+thumbnail:
+
+- `NULL` — predates the stamp
+- `1` — camera-embedded preview first, the configured `bright` gain on the
+  demosaic fallback: what every scan bakes
+- `2` — no preview and no gain: what a frame of a bracketed set should show,
+  and what only `--refresh-thumbnails` can bake, because it is the first pass
+  that knows the frame is bracketed (sequence detection runs after a scan, so
+  a scan can only ever stamp `1`)
+
+Read the stamp against the row's `sequence_kind`, never alone: a `1` is
+current for an ordinary photo and stale for one a later pass groups into a
+bracket.
+
+There is nothing to configure — the stamp is bookkeeping, not a setting — but it
+is worth knowing which paths advance it:
+
+- **A rescan** rewrites the thumbnail and the histogram, and always stamps
+  `1` — sequence membership isn't known yet at scan time.
+- **`--refresh-thumbnails`** rewrites RAW thumbnails and stamps each row `1`
+  or `2` to match its current `sequence_kind`. Rows are not skipped on the
+  stamp, so re-running after a `bright` change or a `--detect-sequences` pass
+  rebuilds everything.
+
+Those are the only two. Browsing the library repairs nothing: `/image` renders
+on the fly so the detail view is always current, but the gallery grid reads
+`photos.thumbnail` and only a scan or `--refresh-thumbnails` rewrites that.
+
+The gallery's dismissible banner counts the rows still on the old rendering. It
+reads a `stats_cache` entry with a one-hour TTL rather than scanning `photos` on
+every page load, so it can trail reality after a rescan; `python database.py
+--refresh-stats` recomputes it immediately.
+
+A render that comes back entirely black is refused rather than stored, and the
+row is left unstamped so a later run retries it. LibRaw zero-fills a severely
+truncated Panasonic RW2 into a valid full-size black frame instead of failing,
+and an unattended migration is the worst place for that to go unnoticed. The
+rejection is logged with the file name.
+
+---
+
+## HDR PQ Tone Mapping
+
+Canon HDR PQ stills (`.HIF`) are HDR: the HEIF carries the PQ transfer function
+(SMPTE ST 2084) over BT.2020 primaries, with absolute luminance up to 10,000
+nits. The quality models and the stored thumbnail work in 8-bit SDR sRGB, so a
+PQ image is decoded at the camera's native bit depth, converted BT.2020 to
+sRGB, tone-mapped in linear light, and encoded with the sRGB OETF — narrowing
+to 8 bits only at that last step. This block controls that tone map. It applies
+**only** to images whose NCLX colour profile declares the PQ transfer
+(characteristic 16); SDR HEIF, HLG and JPEG pass through untouched regardless
+of `enabled`.
+
+```json
+"hdr_pq_tonemap": {
+  "enabled": true,
+  "method": "hable",
+  "white_point": {
+    "mode": "percentile",
+    "percentile": 99.99,
+    "min_nits": 100.0,
+    "max_nits": 1200.0,
+    "fixed_nits": 1000.0
+  },
+  "chroma_preserve": "per_channel"
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `enabled` | `true` | Tone-map PQ images to SDR. `false` returns the decoder's raw PQ values with no conversion, leaving the gallery and scores with a dark, washed-out image; keep this on unless debugging the pipeline |
+| `method` | `hable` | Tone curve. `hable` is the filmic shoulder used by ffmpeg's HDR-to-SDR `tonemap` filter; `clip` is a plain linear normalise with a hard clip, useful only as a reference |
+| `white_point.mode` | `percentile` | How the per-image white point (the luminance mapped to SDR white) is chosen. `percentile` takes a high percentile of the brightest channel; `max` uses the single brightest pixel (matches ffmpeg's signal peak, but a night-scene hot pixel darkens the whole frame); `fixed` uses `fixed_nits` |
+| `white_point.percentile` | `99.99` | Percentile used by `percentile` mode. High enough to follow a large bright sky, low enough to ignore isolated specular pixels |
+| `white_point.min_nits` | `100.0` | Floor for the white point; a dark frame is never normalised below the SDR reference white |
+| `white_point.max_nits` | `1200.0` | Ceiling for `percentile` mode; caps how far an unusually bright frame pulls the curve down |
+| `white_point.fixed_nits` | `1000.0` | White point used by `fixed` mode |
+| `chroma_preserve` | `per_channel` | `per_channel` rolls each R/G/B channel off independently (brighter, with a slight hue shift in the brightest highlights); `max_channel` derives one scale from the brightest channel like ffmpeg's default, preserving hue at a slightly darker result |
+
+### Why the white point is per-image
+
+Normalising the Hable curve at a fixed 100-nit reference white, `hable(x)/hable(1)`,
+clips every pixel above 100 nits to pure white. Real HDR stills peak at several
+hundred to a few thousand nits, so bright skies and windows lost all texture
+(25-60% of pixels clipped to white on a sample of Canon HDR PQ stills). The
+curve is instead normalised at a per-image white point `w`, `hable(x)/hable(w)`,
+the same way ffmpeg divides by `hable(peak)` with a frame-measured peak in
+`vf_tonemap.c`. The default p99.99 percentile, clamped to 100-1200 nits, keeps
+highlight texture while ignoring isolated hot pixels.
+
+### Why the decode is at the camera's native bit depth
+
+PQ is absolute-luminance encoded: its code range is spent across the whole
+0-10,000 nit ST 2084 scale whatever the content actually reaches. At 8 bits only
+about 130 of the 256 codes land below diffuse white, and a quarter of the range
+covers 1000-10,000 nits that a camera mastering at 1000 nits never uses. Decoding
+to 8 bits before the EOTF expands them therefore posterises smooth gradients.
+
+The decode now asks the HEIF decoder for the file's own depth (10-bit on current
+cameras) and the EOTF table is sized to match, so the narrowing to 8 bits happens
+after the tone curve instead of before it. Measured on a 1024-step PQ ramp: the
+8-bit path reaches 170 distinct output levels with 86 empty interior levels, the
+native path reaches all 256 with none.
+
+This changes nothing measurable on a photograph — sensor noise already dithers
+across the 8-bit steps, so a real Canon PQ frame fills 248 of 256 luma bins either
+way and its clipping percentages, `shadow_clipped` / `highlight_clipped` flags and
+`exposure_score` are unchanged. The gain is on smooth synthetic content: clear
+skies, studio backdrops, heavy bokeh. Peak memory does not go up for it: the
+uint16 decoder buffer is wider, but taking this path means Pillow never decodes
+the frame at all, so a 12 MP PQ frame peaks at 166.4 MiB against the 8-bit
+path's 212.3 MiB. SDR HEIF is never decoded this way. A decoder that cannot
+supply the native depth falls back to the 8-bit path silently, and
+`enabled: false` skips the whole thing.
+
+**References.** PQ EOTF: SMPTE ST 2084:2014. Hable curve and per-frame peak:
+ffmpeg `vf_tonemap.c` (John Hable, "Filmic Tonemapping Operators", 2010).
+BT.2020 to sRGB matrix: BT.2020-2 / IEC 61966-2-1 with D65. sRGB OETF:
+IEC 61966-2-1. NCLX transfer characteristic 16: ISO/IEC 23001-8 / ITU-T H.273.
+
+## Burst Detection
+
+Groups similar photos taken in quick succession.
+
+```json
+{
+  "burst_detection": {
+    "similarity_threshold_percent": 70,
+    "time_window_minutes": 0.8,
+    "rapid_burst_seconds": 0.4
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `similarity_threshold_percent` | `70` | Image hash similarity threshold |
+| `time_window_minutes` | `0.8` | Maximum time between photos |
+| `rapid_burst_seconds` | `0.4` | Photos within this auto-grouped |
+
+---
+
+## Update Notifications
+
+Tells whoever administers the install when a newer Facet has been released. Not the same
+thing as the browser's "a new version is available — Reload", which swaps the page onto a
+bundle it has already downloaded; this one is about a release nobody has installed yet.
+
+Deliberately narrow. The check runs on the server and its result is cached, so an install
+asks GitHub at most once per `interval_days` however many people are looking at the viewer.
+The request carries nothing but itself — no token, no identifiers, nothing about the
+library. A failure is silent: an unreachable GitHub shows as "no update known", never as an
+error. Only edition users are told, because upgrading is an operator's job and nobody else
+could act on it, and each browser shows the notice at most once a week.
+
+Set `enabled` to `false` to stop the outbound request entirely.
+
+```json
+{
+  "updates": {
+    "enabled": true,
+    "check_url": "https://api.github.com/repos/ncoevoet/facet/releases/latest",
+    "interval_days": 7
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `enabled` | `true` | `false` disables the check; nothing is ever requested |
+| `check_url` | GitHub latest-release API | Where to look for the newest published release |
+| `interval_days` | `7` | How long a result is cached before asking again |
+
+---
+
+## Sequence Detection
+
+Names deliberate multi-frame sets — today, exposure brackets — so they are not read as
+competing takes. The exposure ladder is derived from the `f_stop` / `shutter_speed` / `ISO`
+already stored per photo (`EV = log2(N^2 / t) - log2(ISO / 100)`), so an existing library is
+labelled by arithmetic alone: no rescan, no image decode, no model.
+
+A run qualifies when its frames share a camera, follow each other inside `max_gap_seconds`,
+keep the same framing (`max_hamming` on the pHash), and their EVs, sorted rather than in
+capture order, form an evenly spaced ladder of distinct exposures spanning `min_span_stops`
+across at least `min_frames` frames. Sorting first means capture order doesn't matter — a
+base-first set (`0, -, +`, the order Sony, Canon and Nikon all offer) qualifies exactly like
+one shot dark-to-bright. Even spacing is what separates a bracket from a hand-held run
+drifting through changing light.
+
+Each frame is stamped with `sequence_ev_offset`, its exposure compensation relative to the
+set's base frame — signed the way a camera labels an AEB set, so `-2` is the dark frame and
+`+2` the bright one. When a burst group turns out to be exactly one bracket, its
+`is_burst_lead` moves onto that base frame, so the default gallery shows the correctly
+exposed photo instead of whichever exposure happened to score highest.
+
+The base is the middle rung of the ladder. An even number of frames has two rungs equally
+far from the middle, and there the base is the one that blew fewer ends of its histogram
+(`shadow_clipped` / `highlight_clipped`) — the metered frame holds the scene, the rungs
+either side of it are pushed far enough to clip. Where neither frame was measured, or both
+clipped as many ends, the earlier frame wins. An odd ladder always centres on its middle
+frame regardless of clipping, so a symmetric `(-2, 0, +2)` set is unaffected.
+
+Run via `--detect-sequences`; it also runs at the end of every scan, after burst grouping.
+
+**Manual corrections cover brackets too.** A ladder detection misses can be named by hand
+from the gallery or the culling darkroom (*Mark as bracket*) — the same sticky
+`photo_sequence_overrides` mechanism panorama corrections use, gated on the same ladder rule
+(≥2 frames, every one with usable exposure metadata, no two at the same exposure). See
+[docs/VIEWER.md — Panoramas and exposure brackets](VIEWER.md#panoramas-and-exposure-brackets).
+
+```json
+{
+  "sequence_detection": {
+    "enabled": true,
+    "max_gap_seconds": 3.0,
+    "max_hamming": 10,
+    "min_frames": 3,
+    "min_step_stops": 0.5,
+    "min_span_stops": 1.0,
+    "step_tolerance_stops": 0.34
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `enabled` | `true` | Turn bracket detection off entirely |
+| `max_gap_seconds` | `3.0` | Longest gap between consecutive frames of one set |
+| `max_hamming` | `10` | pHash distance allowed between frames (same framing) |
+| `min_frames` | `3` | Shortest run treated as a bracket. `2` is opt-in — see the caveat below |
+| `min_step_stops` | `0.5` | Smallest EV step that counts as a deliberate change |
+| `min_span_stops` | `1.0` | Smallest total spread from darkest to brightest frame |
+| `step_tolerance_stops` | `0.34` | How uneven the steps may be (a third of a stop) |
+
+**Why `min_frames` ships at `3`.** Two of the four ladder tests are vacuous on a pair: sorted,
+a single step is trivially one-directional and trivially even, leaving only "two frames,
+moments apart, framed alike, a stop or more apart" — which describes a photographer dialling
+in a correction and shooting again exactly as well as it describes a two-frame AEB set.
+Measured on a 124,886-photo library, `2` admits 381 further sets against the 657 the default
+finds, and their evidence still says most are not brackets: 62% span under two stops where
+91% of the confirmed sets span two or more, and where a further pair clips at all, both frames
+dark is the commonest pattern.
+
+Worse, a pair that genuinely *is* what remains of a 3-shot set is two adjacent flanking
+rungs, and nothing stored says which side the missing rung was on — so `sequence_ev_offset`
+`0` lands on a frame the camera never metered, and `hide_brackets` (on by default) hides the
+other. Set `2` only if you shoot two-frame AEB and would rather carry those false positives
+than miss the sets.
+
+---
+
+## Panorama Detection
+
+Panorama source frames were shot to be stitched, not to compete, so burst detection reads them as competing takes and hides all but one. This pass names them on geometric evidence — SIFT features and a RANSAC homography between consecutive frames, measured on the stored 640px thumbnails. No original decode, no model, no extra dependency.
+
+What separates a sweep from a burst is *cumulative* drift, not per-frame shift: real panoramas are shot at roughly 90% overlap, so one step moves only 5-18% of the frame, while over a run a burst wobbles around zero and a sweep marches. Plain and HDR sweeps are separate kinds, split on exposure spread.
+
+Thresholds were calibrated against 26 panoramas and 8 non-panoramas confirmed by eye on a 126k-photo library. Precision measured ~96%; recall is deliberately incomplete — vertical low-drift sweeps and few-position panoramas fall below the drift floor and are missed. Missing a panorama costs nothing; mislabelling reportage costs trust, and the sticky per-set override corrects both directions.
+
+```json
+{
+  "panorama_detection": {
+    "enabled": true,
+    "max_gap_seconds": 30.0,
+    "min_frames": 8,
+    "min_drift": 0.43,
+    "min_inliers": 25,
+    "hdr_min_span_stops": 1.5,
+    "sift_features": 400
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `enabled` | `true` | Turn panorama detection off entirely |
+| `max_gap_seconds` | `30.0` | Longest gap between consecutive frames of one sweep |
+| `min_frames` | `8` | Shortest run treated as a panorama. The single strongest discriminator: every confirmed non-panorama was 6 frames or fewer |
+| `min_drift` | `0.43` | Total sweep, in frame widths, before a run counts. Confirmed negatives cluster at 0.36-0.40 and the lowest confirmed positive is 0.46 |
+| `min_inliers` | `25` | RANSAC inliers needed for a pair to count as matched |
+| `max_step` | `0.9` | Largest single step, in frame widths — beyond this it is a scene cut |
+| `back_tolerance` | `0.02` | How far a step may move against the sweep before it ends the run |
+| `max_ortho` | `0.15` | Sideways wander allowed across the whole sweep |
+| `ortho_ratio` | `0.25` | Extra sideways budget as a fraction of drift, so long sweeps are not penalised |
+| `step_ortho_abs` | `0.02` | Sideways movement allowed in a single step before it reads as a recomposition |
+| `step_ortho_ratio` | `0.5` | The same limit as a fraction of the step's own size |
+| `hdr_min_span_stops` | `1.5` | Exposure spread above which a sweep is an HDR panorama. Confirmed plain sweeps span 0.0-0.7 stops, HDR ones 2.0-4.4 |
+| `sift_features` | `400` | Features per thumbnail. The corpus still detects at 250; 400 keeps margin |
+| `match_ratio` | `0.75` | Lowe ratio a feature match must beat to be kept |
+| `workers` | `0` | Parallel worker processes; `0` picks from the core count. Scales short of the core count -- the cost is dominated by random thumbnail reads the workers contend on |
+| `probe_stride` | `8` | Frames between the cheap static-run probes that skip ordinary bursts |
+| `probe_min_drift` | `0.05` | Movement at a probe below which the run is abandoned as static |
+| `max_run_frames` | `500` | Longest candidate run measured. A sweep never needs this many frames, and the cap bounds the per-run feature cache (~220 KB per frame per worker) |
+
+Editing these changes nothing on its own — detection is a batch pass, so re-run `--detect-panoramas` (or use the viewer's re-run action) for the change to reach the gallery and the culling feed. Editing any of them also invalidates the incremental watermark, so that next run re-measures the whole library rather than reusing labels calibrated under the old thresholds.
+
+---
+
+## Burst Scoring
+
+Weights used by burst culling to compute a composite score for selecting the best shot within each burst group. Weights should sum to 1.0.
+
+```json
+{
+  "burst_scoring": {
+    "weight_aggregate": 0.4,
+    "weight_aesthetic": 0.25,
+    "weight_sharpness": 0.2,
+    "weight_blink": 0.15
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `weight_aggregate` | `0.4` | Weight of the overall aggregate score |
+| `weight_aesthetic` | `0.25` | Weight of the aesthetic quality score |
+| `weight_sharpness` | `0.2` | Weight of the technical sharpness score |
+| `weight_blink` | `0.15` | Penalty weight for detected blinks (higher = stronger penalty) |
+
+---
+
+## Duplicate Detection
+
+Detect duplicate photos globally using perceptual hash (pHash) comparison.
+
+```json
+{
+  "duplicate_detection": {
+    "similarity_threshold_percent": 90,
+    "prefilter_hamming": 12,
+    "embedding_cosine_threshold": 0.90
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `similarity_threshold_percent` | `90` | Strict pHash gate (90% = Hamming distance <= 6 of 64 bits); used as the sole criterion when an embedding is missing for either photo |
+| `prefilter_hamming` | `12` | Optional override (absent from the shipped file). Stage-1 loose Hamming gate for the candidate set when both photos have embeddings (coerced to be >= the strict gate) |
+| `embedding_cosine_threshold` | `0.90` | Optional override (absent from the shipped file). Stage-2 SigLIP/CLIP cosine gate: a loose-pHash candidate only merges when cosine >= this |
+
+Detection is two-stage: loose pHash candidates (recall) confirmed by a tight embedding cosine gate (precision). Photos without an embedding fall back to the strict pHash-only criterion, so behavior is unchanged when embeddings are absent.
+
+Run `python facet.py --detect-duplicates` to detect and group duplicates. Run `python facet.py --sweep-dedup-thresholds [labels.json]` to evaluate the cosine gate — with a labels JSON it prints a precision/recall table, otherwise the candidate-cosine distribution and how many strict-pHash collisions the gate rejects.
+
+---
+
+## Extended IQA tier (optional)
+
+Heavy/experimental quality scorers that add supplementary columns; **never a replacement for TOPIQ**. `qrealign` defaults to `"auto"` — **on** for the `8gb`/`16gb`/`24gb` profiles, **off** for `legacy`/CPU — the first extended-tier scorer usable from the `8gb` profile up (Q-Align, which it replaces, never fit under 16GB). `aesthetic_v25` and `deqa` stay **OFF by default**. When enabled, the extended scorers run **during a normal scan** and write their own columns; a load/VRAM failure is logged and the column is left `NULL` (the scan never aborts).
+
+```json
+{
+  "iqa_extended": {
+    "qrealign": "auto",
+    "aesthetic_v25": true,
+    "deqa": false
+  }
+}
+```
+
+| Setting | Default | Accepted values | Column | Description |
+|---------|---------|-----------------|--------|-------------|
+| `qrealign` | `"auto"` | `"auto"` · `true` · `false` | `qrealign_score` | Q-ReAlign-Mini 0.8B LLM-based IQA (pyiqa-backed, Apache-2.0 weights, ~2-3GB VRAM/RAM). `"auto"` turns it on for the `8gb`/`16gb`/`24gb` profiles and off for `legacy`/CPU; `true`/`false` override the profile default explicitly. |
+| `aesthetic_v25` | `false` | `true` / `false` | `aesthetic_v25` | Aesthetic Predictor V2.5 (SigLIP head, ~2GB). Requires the `aesthetic-predictor-v2-5` package. **Deprecated:** AGPL-3.0-licensed and unmaintained upstream since 2024-12-18 — prefer `qrealign`. |
+| `deqa` | `false` | `true` / `false` | `deqa_score` | DeQA-Score VLM IQA (16GB+ GPU; skipped & left NULL otherwise). |
+
+**Install the optional dependencies** for whatever you enable: `pip install -e .[iqa-extended]` (adds `aesthetic-predictor-v2-5`), or uncomment the matching line in `requirements.txt`. Q-ReAlign ships with `pyiqa`; DeQA-Score downloads via `transformers`.
+
+When enabled, each metric is exposed to the weighted aggregate but defaults to weight 0, so `--recompute-average` is byte-identical until you give it a weight. Run `python facet.py --eval-iqa-srcc` to measure how well each metric ranks your library against your own star ratings.
+
+**Viewer surfacing.** When any of these columns is populated, the viewer shows the value in the photo-detail **Quality** panel (`Q-ReAlign`, `Aesthetic V2.5`, `DeQA`) and exposes a matching range slider in the gallery filter sidebar under **Extended Quality** (`min_qrealign`/`max_qrealign`, `min_aesthetic_v25`/`max_aesthetic_v25`, `min_deqa`/`max_deqa`). Photos scanned before the tier was enabled have `NULL` in these columns, and setting a min or max on one of these sliders **excludes** them — a `NULL` never satisfies a `>=`/`<=` comparison. Rescan before filtering on a newly enabled metric, or those photos will silently drop out of the gallery.
+
+**Robustness.** DeQA-Score loads remote `trust_remote_code` code whose forward signature varies across checkpoint revisions; its scorer is defensive — any prediction failure (wrong signature, unexpected output shape, OOM) is caught and the image's `deqa_score` is left `NULL` rather than crashing the scan.
+
+---
+
+## Face Detection
+
+InsightFace face detection settings.
+
+```json
+{
+  "face_detection": {
+    "min_confidence_percent": 65,
+    "min_face_size": 20,
+    "blink_ear_threshold": 0.28,
+    "min_faces_for_group": 4,
+    "enable_3d_landmarks": false,
+    "eyes_closed_max": 4.0,
+    "poor_expression_min": 4.0,
+    "blendshapes": {
+      "enabled": true,
+      "min_crop_size": 192
+    }
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `min_confidence_percent` | `65` | Minimum detection confidence |
+| `min_face_size` | `20` | Minimum face size in pixels |
+| `blink_ear_threshold` | `0.28` | Eye Aspect Ratio for blink detection |
+| `min_faces_for_group` | `4` | Minimum faces to classify as group portrait (recomputed on `--recompute-average`) |
+| `enable_3d_landmarks` | `false` | Optional override (absent from the shipped file; code default `false`). Load InsightFace `landmark_3d_68` module for head-pose extraction (yaw/pitch/roll). Costs ~5MB extra ONNX weights. Currently informational; future profile/silhouette refinements will read this. |
+| `eyes_closed_max` | `4.0` | Per-face eyes-open score (0–10) at or below which the culling darkroom flags a face as blinking. Drives the red/orange/green face rings and the eyes threshold slider (moved from a hardcoded constant) |
+| `poor_expression_min` | `4.0` | Per-face smile/expression score (0–10) below which the darkroom flags a weak expression. Drives the expression face ring and slider (moved from a hardcoded constant) |
+| `blendshapes.enabled` | `true` | Use appearance-based MediaPipe blendshape scores for per-face `eyes_open_score` / `smile_score` when MediaPipe and the `face_landmarker.task` bundle are available; when true they replace the landmark-geometry scores, otherwise the geometry fallback runs automatically. Optional dependency — install with `pip install mediapipe==0.10.35 --no-deps` (never a plain `pip install mediapipe`). See [FACE_RECOGNITION.md](FACE_RECOGNITION.md#per-face-expression-signals-eyes-open--smile). |
+| `blendshapes.min_crop_size` | `192` | Faces whose padded crop is smaller than this (px, shorter side) fall back to the geometric score rather than upscale a tiny face |
+
+---
+
+## Face Clustering
+
+HDBSCAN clustering for face recognition.
+
+```json
+{
+  "face_clustering": {
+    "enabled": true,
+    "min_faces_per_person": 2,
+    "min_samples": 2,
+    "auto_merge_distance_percent": 15,
+    "clustering_algorithm": "best",
+    "leaf_size": 40,
+    "use_gpu": "auto",
+    "merge_threshold": 0.6
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `enabled` | `true` | Enable face clustering |
+| `min_faces_per_person` | `2` | Minimum photos per person |
+| `min_samples` | `2` | HDBSCAN min_samples parameter |
+| `auto_merge_distance_percent` | `15` | Auto-merge within this distance |
+| `clustering_algorithm` | `"best"` | HDBSCAN algorithm |
+| `leaf_size` | `40` | Tree leaf size (CPU only) |
+| `use_gpu` | `"auto"` | GPU mode: `auto`, `always`, `never` (see notes below) |
+| `merge_threshold` | `0.6` | Centroid similarity for matching |
+
+**GPU clustering notes (`use_gpu`):**
+
+- Requires the optional `cuml` + `cupy` packages. The Docker GPU image bundles cuML, so the GPU profiles cluster on GPU out of the box.
+- The `legacy` profile is **forced to CPU** clustering regardless of `use_gpu` (it deliberately avoids GPU models), so it always clusters on CPU even on a GPU host.
+- Even on GPU profiles, the clusterer only uses the GPU when a CUDA device is actually present — a `cupy` device-count guard falls back to CPU HDBSCAN when cuML/cupy import but no usable GPU is found (e.g. running the GPU image in `legacy` mode).
+- `always` warns and falls back to CPU if cuML is unavailable; any GPU/cuML error during clustering also degrades gracefully to CPU HDBSCAN rather than aborting the run.
+
+**Clustering algorithms:**
+
+| Algorithm | Complexity | Best For |
+|-----------|------------|----------|
+| `boruvka_balltree` | O(n log n) | High-dimensional data (recommended) |
+| `boruvka_kdtree` | O(n log n) | Low-dimensional data |
+| `prims_balltree` | O(n²) | Memory-constrained, high-dim |
+| `prims_kdtree` | O(n²) | Memory-constrained, low-dim |
+| `best` | Auto | Let HDBSCAN decide |
+
+---
+
+## Face Processing
+
+Controls face extraction and thumbnail generation.
+
+```json
+{
+  "face_processing": {
+    "crop_padding": 0.3,
+    "use_db_thumbnails": true,
+    "face_thumbnail_size": 640,
+    "face_thumbnail_quality": 90,
+    "extract_workers": 2,
+    "extract_batch_size": 16,
+    "refill_workers": 4,
+    "refill_batch_size": 100,
+    "auto_tuning": {
+      "enabled": true,
+      "memory_limit_percent": 80,
+      "min_batch_size": 8,
+      "monitor_interval_seconds": 5
+    }
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `crop_padding` | `0.3` | Padding ratio for face crops |
+| `use_db_thumbnails` | `true` | Use stored thumbnails |
+| `face_thumbnail_size` | `640` | Thumbnail size in pixels |
+| `face_thumbnail_quality` | `90` | JPEG quality |
+| `extract_workers` | `2` | Parallel extraction workers |
+| `extract_batch_size` | `16` | Extraction batch size |
+| `refill_workers` | `4` | Thumbnail refill workers |
+| `refill_batch_size` | `100` | Refill batch size |
+| **auto_tuning** | | |
+| `enabled` | `true` | Enable memory-based tuning |
+| `memory_limit_percent` | `80` | Percentage of the effective memory limit (cgroup limit under a container cap, else host RAM) |
+| `min_batch_size` | `8` | Minimum batch size |
+| `monitor_interval_seconds` | `5` | Check interval |
+
+---
+
+## Monochrome Detection
+
+Black & white photo detection.
+
+```json
+{
+  "monochrome_detection": {
+    "saturation_threshold_percent": 5
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `saturation_threshold_percent` | `5` | Mean saturation < 5% = monochrome |
+
+---
+
+## Tagging
+
+General tagging settings. The tagging model is configured per-profile in `models.profiles.*.tagging_model`.
+
+```json
+{
+  "tagging": {
+    "enabled": true,
+    "max_tags": 5
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `enabled` | `true` | Enable tagging |
+| `max_tags` | `5` | Maximum tags per photo |
+
+**Note:** CLIP-specific settings like `similarity_threshold_percent` are in the `models.clip` section.
+
+### Available Tagging Models
+
+Configured via `models.profiles.*.tagging_model`:
+
+| Model | VRAM | Tag Style | Notes |
+|-------|------|-----------|-------|
+| `clip` | 0 (reuses embeddings) | Mood/atmosphere (dramatic, golden_hour, vintage) | No extra model load; less literal object detection |
+| `qwen3.5-2b` | ~4GB | Structured scenes (landscape, architecture, reflection) | Requires transformers + extra VRAM |
+| `qwen3.5-4b` | ~8GB | Detailed scenes with nuance | Higher VRAM; slower inference |
+
+### Default Tagging Models per Profile
+
+| Profile | Tagging Model | Embedding Model |
+|---------|---------------|-----------------|
+| `legacy` | `clip` | CLIP ViT-L-14 (768-dim) |
+| `8gb` | `clip` | CLIP ViT-L-14 (768-dim) |
+| `16gb` | `qwen3.5-2b` | SigLIP 2 NaFlex SO400M (1152-dim) |
+| `24gb` | `qwen3.5-4b` | SigLIP 2 NaFlex SO400M (1152-dim) |
+
+### Re-tagging Photos
+
+```bash
+python facet.py --recompute-tags       # Re-tag using configured model per profile
+python facet.py --recompute-tags-vlm   # Re-tag using VLM tagger
+```
+
+---
+
+## Standalone Tags
+
+Tags with synonym lists that are not tied to any specific category. These are available for all photos regardless of category assignment. Each key is the tag name; the value is a list of synonyms for CLIP/VLM matching.
+
+```json
+{
+  "standalone_tags": {
+    "bokeh": ["bokeh", "shallow depth of field", "background blur", "out of focus"],
+    "surreal": ["surreal", "dreamlike", "fantasy", "composite", "double exposure"],
+    "flat_lay": ["flat lay", "overhead shot", "top down", "bird's eye product"],
+    "golden_hour": ["golden hour", "magic hour", "warm light", "sunset light"],
+    "portrait_tag": ["portrait", "headshot", "face portrait", "close-up portrait"]
+  }
+}
+```
+
+Add new standalone tags by providing a key and a list of synonyms. Tags defined here are merged with category-specific tags to form the full tag vocabulary.
+
+---
+
+## Analysis
+
+Thresholds for `--compute-recommendations`.
+
+```json
+{
+  "analysis": {
+    "aesthetic_max_threshold": 9.0,
+    "aesthetic_target": 9.5,
+    "quality_avg_threshold": 7.5,
+    "quality_weight_threshold_percent": 10,
+    "correlation_dominant_threshold": 0.5,
+    "category_min_samples": 50,
+    "category_imbalance_threshold": 0.5,
+    "score_clustering_std_threshold": 1.0,
+    "top_score_threshold": 8.5,
+    "exposure_avg_threshold": 8.0
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `aesthetic_max_threshold` | `9.0` | Warn if max aesthetic below this |
+| `aesthetic_target` | `9.5` | Target for aesthetic_scale |
+| `quality_avg_threshold` | `7.5` | "High value" quality threshold |
+| `quality_weight_threshold_percent` | `10` | Warn if quality weight ≤ this |
+| `correlation_dominant_threshold` | `0.5` | "Dominant signal" warning |
+| `category_min_samples` | `50` | Minimum photos per category |
+| `category_imbalance_threshold` | `0.5` | Score gap warning |
+| `score_clustering_std_threshold` | `1.0` | Warn if std dev < this |
+| `top_score_threshold` | `8.5` | Warn if max aggregate < this |
+| `exposure_avg_threshold` | `8.0` | Warn if avg exposure > this |
+
+---
+
+## Viewer
+
+Web gallery display and behavior.
+
+```json
+{
+  "viewer": {
+    "default_category": "",
+    "edition_password": "",
+    "comparison_mode": {
+      "min_comparisons_for_optimization": 50,
+      "pair_selection_strategy": "learning",
+      "candidate_pool_size": 200,
+      "show_current_scores": true
+    },
+    "sort_options": { ... },
+    "pagination": {
+      "default_per_page": 64
+    },
+    "dropdowns": {
+      "max_cameras": 50,
+      "max_lenses": 50,
+      "max_persons": 50,
+      "max_tags": 20,
+      "min_photos_for_person": 10
+    },
+    "persons": {
+      "needs_naming_min_faces": 5
+    },
+    "raw_processor": {
+      "backend": "rawpy",
+      "darktable": {
+        "executable": "darktable-cli",
+        "hq": true,
+        "width": null,
+        "height": null,
+        "extra_args": [],
+        "cull_styles": [],
+        "preview_max_edge": 1440,
+        "preview_timeout_seconds": 60
+      }
+    },
+    "display": {
+      "tags_per_photo": 4,
+      "card_width_px": 168,
+      "image_width_px": 160,
+      "image_jpeg_quality": 96,
+      "thumbnail_slider": {
+        "min_px": 120,
+        "max_px": 400,
+        "default_px": 168,
+        "step_px": 8
+      }
+    },
+    "face_thumbnails": {
+      "output_size_px": 64,
+      "jpeg_quality": 80,
+      "crop_padding_ratio": 0.2,
+      "min_crop_size_px": 20
+    },
+    "quality_thresholds": {
+      "good": 6,
+      "great": 7,
+      "excellent": 8,
+      "best": 9
+    },
+    "photo_types": {
+      "top_picks_min_score": 7,
+      "top_picks_min_face_ratio": 0.2,
+      "top_picks_weights": {
+        "aggregate_percent": 30,
+        "aesthetic_percent": 28,
+        "composition_percent": 18,
+        "face_quality_percent": 24
+      },
+      "low_light_max_luminance": 0.2
+    },
+    "defaults": {
+      "hide_blinks": true,
+      "hide_bursts": true,
+      "hide_duplicates": true,
+      "hide_brackets": true,
+      "hide_panoramas": true,
+      "hide_details": true,
+      "tooltip_mode": "hover",
+      "hide_rejected": true,
+      "sort": "aggregate",
+      "sort_direction": "DESC",
+      "type": "",
+      "gallery_mode": "mosaic"
+    },
+    "cache_ttl_seconds": 3600,
+    "notification_duration_ms": 2000,
+    "moment_confidence_min": 0,
+    "path_mapping": {}
+  }
+}
+```
+
+> **Note:** `sort_options` (elided as `{ ... }` above) maps DB columns to dropdown labels and is rarely edited. The **Content** group includes a `{ "column": "narrative_moment_confidence", "label": "Moment Confidence" }` sort (NULLs sink last).
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `default_category` | `""` | Default category filter |
+| `edition_password` | `""` | Password to unlock edition mode (empty = every edit is refused; the install is read-only) |
+| **comparison_mode** | | |
+| `min_comparisons_for_optimization` | `50` | Minimum for optimization |
+| `pair_selection_strategy` | `"learning"` | Pair strategy: `learning` (embedding-diversity cold-start + rank-disagreement once trained), `uncertainty`, `boundary`, `active`, `random` |
+| `candidate_pool_size` | `200` | Random candidate pool the `learning` strategy samples pairs within |
+| `show_current_scores` | `true` | Show scores during comparison |
+| **pagination** | | |
+| `default_per_page` | `64` | Photos per page |
+| **dropdowns** | | |
+| `max_cameras` | `50` | Max cameras in dropdown |
+| `max_lenses` | `50` | Max lenses |
+| `max_persons` | `50` | Max persons |
+| `max_tags` | `20` | Max tags |
+| `min_photos_for_person` | `10` | Hide persons with fewer photos from dropdown |
+| **persons** | | |
+| `needs_naming_min_faces` | `5` | Minimum face_count for an auto-clustered cluster to appear in the "Needs naming" section of `/persons` |
+| **raw_processor** | | |
+| `darktable.executable` | `"darktable-cli"` | darktable-cli binary name or absolute path |
+| `darktable.profiles` | `[]` | Array of named darktable export profiles (see below) |
+| `darktable.profiles[].name` | *(required)* | Profile display name (used in download menu and API `profile` param) |
+| `darktable.profiles[].hq` | `true` | Pass `--hq true` for high-quality export |
+| `darktable.profiles[].width` | *(omit)* | Max output width (omit for full resolution) |
+| `darktable.profiles[].height` | *(omit)* | Max output height (omit for full resolution) |
+| `darktable.profiles[].style` | *(omit)* | darktable style name applied during export (`--style`) |
+| `darktable.profiles[].apply_custom_presets` | `true` | When `false`, passes `--apply-custom-presets false` so only the explicit `style` renders (not auto-applied presets) |
+| `darktable.profiles[].extra_args` | `[]` | Additional CLI arguments (e.g., `["--style-overwrite"]`) |
+| `darktable.cull_styles` | `[]` | Named darktable styles offered as edited-look previews in the culling darkroom (`GET /api/photo/cull_preview`). Empty = the style selector is hidden. Each style **must already exist** in the darktable configuration of the user running the viewer; the name is passed verbatim to `--style`. |
+| `darktable.cull_styles[].name` | *(required)* | darktable style name (passed to `--style`, and validated by the endpoint) |
+| `darktable.cull_styles[].label_key` | *(name)* | Optional i18n key for the menu label; defaults to the style name |
+| `darktable.preview_max_edge` | `1440` | Max edge (px) the cull preview is rendered to |
+| `darktable.preview_timeout_seconds` | `60` | Per-render darktable-cli timeout for a cull preview |
+| **display** | | |
+| `tags_per_photo` | `4` | Tags shown on cards |
+| `card_width_px` | `168` | Card width |
+| `image_width_px` | `160` | Image width |
+| `image_jpeg_quality` | `96` | JPEG quality for RAW/HEIF conversion in `/api/download` and `/api/image` (1–100) |
+| `thumbnail_slider.min_px` | `120` | Minimum thumbnail size (px) |
+| `thumbnail_slider.max_px` | `400` | Maximum thumbnail size (px) |
+| `thumbnail_slider.default_px` | `168` | Default thumbnail size (px) |
+| `thumbnail_slider.step_px` | `8` | Slider step increment (px) |
+| **face_thumbnails** | | |
+| `output_size_px` | `64` | Thumbnail size |
+| `jpeg_quality` | `80` | JPEG quality |
+| `crop_padding_ratio` | `0.2` | Face padding |
+| `min_crop_size_px` | `20` | Minimum crop size |
+| **quality_thresholds** | | |
+| `good` | `6` | Good threshold |
+| `great` | `7` | Great threshold |
+| `excellent` | `8` | Excellent threshold |
+| `best` | `9` | Best threshold |
+| **photo_types** | | |
+| `top_picks_min_score` | `7` | Top Picks minimum |
+| `top_picks_min_face_ratio` | `0.2` | Face ratio for weights |
+| `low_light_max_luminance` | `0.2` | Low light threshold |
+| **defaults** | | |
+| `type` | `""` | Default photo type filter (e.g., `"portraits"`, `"landscapes"`, or `""` for All) |
+| `sort` | `"aggregate"` | Default sort column |
+| `sort_direction` | `"DESC"` | Default sort direction (`"ASC"` or `"DESC"`) |
+| `hide_blinks` | `true` | Hide blink photos by default |
+| `hide_bursts` | `true` | Show only best of burst by default |
+| `hide_duplicates` | `true` | Hide non-lead duplicate photos by default |
+| `hide_brackets` | `true` | Show only a bracket's base exposure by default |
+| `hide_panoramas` | `true` | Show only one representative frame per panorama by default |
+| `hide_details` | `true` | Hide photo details on cards by default |
+| `tooltip_mode` | `"hover"` | Tooltip trigger: `"hover"`, `"click"`, `"off"`, or `"panel"` (docked rail instead of a floating tooltip — see `panel_activation` below). Replaces the prior `hide_tooltip` boolean. |
+| `panel_activation` | `"both"` | Which gesture retargets the docked rail's selected photo when `tooltip_mode` is `"panel"`: `"hover"`, `"click"`, or `"both"`. No effect on the other tooltip modes. Default `"both"` preserves the original panel behaviour |
+| `hide_rejected` | `true` | Hide rejected photos by default |
+| `gallery_mode` | `"mosaic"` | Default gallery layout (`"grid"` or `"mosaic"`) |
+| **allowed_origins** | | |
+| `allowed_origins` | `["http://localhost:4200", "http://localhost:5000"]` | CORS allowed origins for the FastAPI server. Add your domain or reverse proxy URL when hosting remotely. |
+| **security_headers** | | |
+| `security_headers.content_security_policy` | _(SPA-safe default)_ | Content-Security-Policy header value. Defaults to a policy permitting the SPA's own resources (inline theme script/style, Google Fonts, OpenStreetMap tiles, same-origin API). Set to `""` to disable, or supply a stricter policy. |
+| `security_headers.hsts` | `false` | Send `Strict-Transport-Security`. Enable only when the viewer is served over HTTPS. |
+| **Other** | | |
+| `cache_ttl_seconds` | `3600` | TTL of the in-memory stats/query caches. A full-library stats computation can take minutes, so a TTL shorter than the computation means the cache never serves a hit |
+| `notification_duration_ms` | `2000` | Toast duration |
+| `moment_confidence_min` | `0` | Below this stored `narrative_moment_confidence` posterior (0–1), moment labels render dimmed with an "(uncertain)" suffix in the Scenes header, the Culling scene-group header, and the gallery photo tooltip. `0` = never dim |
+
+### Card badges and clipping
+
+`viewer.badges` turns individual gallery-card badges on and off. Every badge
+that predates this block defaults to `true`, so leaving the block out changes
+nothing.
+
+```json
+{
+  "viewer": {
+    "badges": {
+      "favorite": true,
+      "star_rating": true,
+      "rejected": true,
+      "sequence_kind": true,
+      "sequence_override_pending": true,
+      "keeper_hint": true,
+      "best_of_burst": true,
+      "clipping_highlight": true,
+      "clipping_shadow": false
+    },
+    "clipping": {
+      "badge_percent": 5,
+      "indicator_percent": 1,
+      "histogram_mode": "rgb",
+      "tooltip_histogram_mode": "luma"
+    }
+  }
+}
+```
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `badges.favorite` | `true` | Heart badge on a favourited photo (edition mode) |
+| `badges.star_rating` | `true` | Star + count badge on a rated photo (edition mode) |
+| `badges.rejected` | `true` | Thumb-down badge on a rejected photo (edition mode) |
+| `badges.sequence_kind` | `true` | Set badge (burst/bracket/panorama/duplicate), drawn left of the rejected badge, shown only while the matching hide toggle collapses the set |
+| `badges.sequence_override_pending` | `true` | Clock badge for a panorama correction awaiting the next detection run |
+| `badges.keeper_hint` | `true` | "A better shot exists in this group" arrow from the learned keeper head |
+| `badges.best_of_burst` | `true` | "Best" badge on a burst lead. Shown only when `hide_bursts` is off — with it on, every burst photo on screen is already its group's lead |
+| `badges.clipping_highlight` | `true` | Badge a photo whose highlights clip past `clipping.badge_percent` |
+| `badges.clipping_shadow` | `false` | Same for crushed shadows. Off by default: shadow clipping is frequently intentional (silhouettes, night, low-key) |
+
+`viewer.clipping` is the single definition of "clipped" shared by the card
+badge, the histogram markers and the gallery filter, so the three cannot
+disagree.
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `badge_percent` | `5` | Percent of pixels, in the worst of R/G/B, above which the gallery card is badged. Measured over a 28-photo sample: worst-channel highlight clipping had a median of 0.31% and a p90 of 2.35%, so 5% fires on roughly 1 photo in 25 |
+| `indicator_percent` | `1` | Threshold for the histogram's own R/G/B end markers. Finer than the badge because you are already looking at a single photo |
+| `histogram_mode` | `"rgb"` | House default for the **detail panel's** histogram: `"luma"`, `"rgb"`, or a single channel (`"r"` / `"g"` / `"b"`). A user's own choice for this surface is stored in `localStorage` under `facet_histogram_mode` and wins over this |
+| `tooltip_histogram_mode` | `"luma"` | House default for the **hover/pinned tooltip's** histogram, same five values. Deliberately independent of `histogram_mode` and persisted under its own `localStorage` key (`facet_histogram_mode_tooltip`): the panel is for studying one photo, where per-channel detail earns its space; the tooltip is for scanning many quickly, where a plain luminance curve usually reads faster. Setting one never retunes the other, and the toggle to change it only renders while the tooltip is pinned (docked rail, or `tooltip_mode: "click"`) — in plain hover mode it shows its resolved mode read-only |
+
+**Clipping is measured per channel, at exactly bin 0 and bin 255.** It is stored
+in `photos.channel_clip_shadow_pct` / `channel_clip_highlight_pct` as the worst
+channel's percentage of pixels — a *different* measurement from the
+`shadow_clipped` / `highlight_clipped` flags, which are binary and cover the
+luminance bands 0–30 and 225–255 and feed `exposure_score`.
+
+**`NULL` means unknown, never clean.** A photo whose stored histogram predates
+the per-channel format has no channel data, so it carries no badge and matches
+neither side of the gallery filter. Run `python facet.py --backfill-clipping` to
+derive the columns for rows that already hold a full histogram — it reads only
+the database, decodes no images, and is resumable.
+
+### Features
+
+Toggle optional features to reduce memory usage or simplify the UI:
+
+```json
+{
+  "viewer": {
+    "features": {
+      "show_similar_button": true,
+      "show_merge_suggestions": true,
+      "show_rating_controls": true,
+      "show_memories": true,
+      "show_captions": true,
+      "show_timeline": true,
+      "show_map": true,
+      "show_scenes": true,
+      "show_my_taste": true
+    }
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `show_similar_button` | `true` | Show "Find Similar" button on photo cards (uses numpy for CLIP similarity) |
+| `show_merge_suggestions` | `true` | Enable merge suggestions feature on manage persons page |
+| `show_rating_controls` | `true` | Show star rating and favorite controls |
+| `show_scan_button` | `false` | Show the scan trigger button (superadmin in multi-user mode; a locked edition session in single-user mode) — no GPU required: the scan runs CPU-only on the `legacy` profile |
+| `metrics_enabled` | `false` | Enable the public `GET /metrics` Prometheus endpoint. Off by default — it exposes photo/person/face counts, DB size, and process memory; enable only when the endpoint is reachable from the scraper network, not from the public internet. |
+| `show_semantic_search` | `true` | Show semantic search bar (text-to-image search using CLIP/SigLIP embeddings) |
+| `show_albums` | `true` | Show albums feature (create, manage, and browse photo albums) |
+| `show_critique` | `true` | Show AI critique button on photo cards (rule-based score breakdown) |
+| `show_vlm_critique` | `true` | Enable VLM-powered critique mode (requires 16gb/24gb VRAM profile). Code falls back to `false` when the key is absent. |
+| `show_embed_metadata` | `true` | Show the per-thumbnail "Write metadata to file" action in edition mode (embeds ratings/keywords into the original image via exiftool) |
+| `show_memories` | `true` | Show "On This Day" memories dialog (photos taken on the same date in previous years) |
+| `show_captions` | `true` | Show AI-generated captions on photo cards |
+| `show_timeline` | `true` | Show timeline view for chronological browsing with date navigation |
+| `show_map` | `true` | Show map view with GPS-based photo locations (requires Leaflet). Code falls back to `false` when the key is absent. |
+| `show_capsules` | `true` | Show the Capsules view (curated photo diaporamas grouped by theme) |
+| `show_folders` | `true` | Show folder-based browsing of the photo directory structure |
+| `show_scenes` | `true` | Show the Scenes view (`/scenes`) that groups burst-lead photos into chronological scenes for story-order culling |
+| `show_my_taste` | `true` | Show the "My Taste" sort backed by the personal ranker's learned score, with a learned-coverage / accuracy confidence badge |
+| `show_social_export` | `true` | Show the edition-only **Social crop** download menu (saliency-aware crops for social aspect presets). See [Social Export](#social-export) |
+| `show_portfolio_export` | `true` | Show the edition-only **Export portfolio** album action (self-contained static HTML gallery). See [Portfolio Export](#portfolio-export) |
+| `show_proofing` | `false` | Enable client proofing on shared albums: a share link (plus optional PIN) lets a no-account client heart photos and leave comments, which the album owner reviews from an edition-gated dialog. Off by default. See [Client Proofing](#client-proofing) |
+
+**Memory optimization:** Setting `show_similar_button: false` prevents numpy from being loaded, reducing viewer memory footprint. The similar photos feature computes CLIP embedding cosine similarity which requires numpy.
+
+### Client Proofing
+
+`viewer.features.show_proofing` (default `false`) turns any shared album into a client-proofing surface. A share link — optionally gated by `viewer.proofing.pin` — lets a client with no account exchange the share token for a short-lived session, then heart photos and leave comments. Picks live in a dedicated `album_client_picks` table, bounded to that album's photos and fully isolated from the owner's ratings (they never touch `photos.is_favorite` / `user_preferences` and never train the personal ranker). The owner reads the picks from an edition-gated dialog on the album card.
+
+```json
+{
+  "viewer": {
+    "features": { "show_proofing": false },
+    "proofing": {
+      "pin": "",
+      "session_minutes": 1440
+    }
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `features.show_proofing` | `false` | Master switch for client proofing on shared albums |
+| `proofing.pin` | `""` | Optional PIN a client must enter (with the share token) to open a proofing session. Empty = no PIN. Checks are rate-limited and byte-safe |
+| `proofing.session_minutes` | `1440` | Lifetime in minutes of a client proofing session token (default 24h). Sessions also stop the moment the album is unshared or proofing is disabled |
+
+### Path Mapping
+
+Map database paths to local filesystem paths. Useful when photos were scored on one machine (e.g., Windows with UNC paths) but the viewer runs on another (e.g., Linux NAS with mount points).
+
+```json
+{
+  "viewer": {
+    "path_mapping": {
+      "\\\\NAS\\Photos": "/mnt/photos",
+      "D:\\Pictures": "/volume1/pictures"
+    }
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `path_mapping` | `{}` | Dict of source prefix to destination prefix. When serving full-size images or VLM critique, database paths starting with a source prefix are rewritten to use the destination prefix. |
+
+**How it works:**
+- Only applies when **reading files from disk** (full-size image serving, file downloads, VLM critique). Database paths are never modified.
+- Backslash/forward slash normalization is handled automatically: `\\NAS\Photos\img.jpg` and `//NAS/Photos/img.jpg` both match.
+- Mappings are evaluated in order; the first matching prefix wins.
+- Path mapping targets are automatically included in the scan directory allowlist for multi-user security checks.
+
+**Example:** A database populated on Windows stores paths like `\\NAS\Photos\2024\IMG_001.jpg`. On Linux, the same share is mounted at `/mnt/nas/Photos`. Configure:
+
+```json
+"path_mapping": {"\\\\NAS\\Photos": "/mnt/nas/Photos"}
+```
+
+### Password Protection
+
+Optional password protection for the viewer:
+
+```json
+{
+  "viewer": {
+    "password": "your-password-here"
+  }
+}
+```
+
+When set, users must authenticate before accessing the viewer.
+
+### Viewer Performance
+
+Override global `performance` settings when running the viewer. Useful for low-memory NAS deployment where scoring needs high resources but the viewer doesn't.
+
+```json
+{
+  "viewer": {
+    "performance": {
+      "mmap_size_mb": 0,
+      "cache_size_mb": 4,
+      "pool_size": 2,
+      "thumbnail_cache_size": 200,
+      "face_cache_size": 50
+    }
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `mmap_size_mb` | *(global)* | SQLite mmap size override for viewer connections. `0` disables mmap. |
+| `cache_size_mb` | *(global)* | SQLite cache size override for viewer connections |
+| `pool_size` | `5` | Connection pool size (reduce for low-memory systems) |
+| `thumbnail_cache_size` | `2000` | Max entries in the in-memory thumbnail resize cache |
+| `face_cache_size` | `500` | Max entries in the in-memory face thumbnail cache |
+
+When not set, the viewer uses the global `performance` values. See [Deployment](DEPLOYMENT.md) for recommended NAS settings.
+
+---
+
+## Performance
+
+Database performance settings.
+
+```json
+{
+  "performance": {
+    "mmap_size_mb": 2048,
+    "cache_size_mb": 128,
+    "slow_request_ms": 1000
+  }
+}
+```
+
+> **Note:** `wal_checkpoint_minutes` is an optional override and is **not** present in the shipped `performance` block (which contains only `mmap_size_mb`, `cache_size_mb`, and `slow_request_ms`). Add it explicitly to change the default of `30`.
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `mmap_size_mb` | `2048` | SQLite memory-mapped I/O size |
+| `cache_size_mb` | `128` | SQLite cache size |
+| `wal_checkpoint_minutes` | `30` | Optional override (absent from the shipped file). Interval in minutes for the viewer's background `PRAGMA wal_checkpoint(TRUNCATE)`. Prevents WAL bloat on long-running deployments. Set to `0` to disable. |
+| `slow_request_ms` | `1000` | Viewer API requests slower than this many milliseconds are logged at WARNING with a `SLOW` marker. Set to `0` to disable. |
+
+---
+
+## Storage
+
+Controls where thumbnails and embeddings are stored. Default is BLOB columns in the SQLite database; filesystem mode stores them as files on disk instead, which reduces database size.
+
+```json
+{
+  "storage": {
+    "mode": "database",
+    "filesystem_path": "./storage"
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `mode` | `"database"` | Storage backend: `"database"` (SQLite BLOBs) or `"filesystem"` (files on disk) |
+| `filesystem_path` | `"./storage"` | Base directory for filesystem mode. Thumbnails are stored in `<path>/thumbnails/` and embeddings in `<path>/embeddings/`, organized into subdirectories by content hash. |
+
+**Filesystem mode details:**
+- Files are organized by SHA-256 hash of the photo path, with two-character subdirectories to avoid too many files in one directory (e.g., `thumbnails/a3/a3f8..._640.jpg`).
+- Deleting a photo removes all associated thumbnail sizes and embedding files.
+- The directory is created automatically on first use.
+
+---
+
+## Plugins
+
+Event-driven plugin system for reacting to scoring events. Plugins can be Python modules, webhooks, or built-in actions.
+
+### Configuration
+
+```json
+{
+  "plugins": {
+    "enabled": true,
+    "high_score_threshold": 8.0,
+    "webhooks": [
+      {
+        "url": "https://example.com/hook",
+        "events": ["on_score_complete", "on_high_score"],
+        "min_score": 8.0
+      }
+    ],
+    "actions": {
+      "copy_high_scores": {
+        "event": "on_high_score",
+        "action": "copy_to_folder",
+        "folder": "/path/to/best-photos",
+        "min_score": 9.0
+      }
+    }
+  }
+}
+```
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `enabled` | `false` | Master switch — when false, no events are emitted |
+| `high_score_threshold` | `8.0` | Minimum aggregate score to trigger `on_high_score` events |
+| `webhooks` | `[]` | List of webhook endpoints to receive JSON POST payloads |
+| `actions` | `{}` | Named built-in actions triggered by events |
+
+### Supported Events
+
+| Event | Trigger | Payload |
+|-------|---------|---------|
+| `on_score_complete` | After each photo is scored | `path`, `filename`, `aggregate`, `aesthetic`, `comp_score`, `category`, `tags` |
+| `on_new_photo` | When a photo enters the database | Same as `on_score_complete` |
+| `on_high_score` | When aggregate ≥ `high_score_threshold` | Same as `on_score_complete` |
+| `on_burst_detected` | When a burst group is identified | `burst_group_id`, `photo_count`, `best_path`, `paths` |
+
+### Writing a Plugin
+
+Place a `.py` file in the `plugins/` directory. Define functions named after the events you want to handle:
+
+```python
+def on_score_complete(data: dict) -> None:
+    print(f"Scored: {data['path']} — {data['aggregate']:.1f}")
+
+def on_high_score(data: dict) -> None:
+    print(f"High score! {data['path']} — {data['aggregate']:.1f}")
+```
+
+See `plugins/example_plugin.py.example` for the full interface.
+
+### Webhooks
+
+Each webhook receives a JSON POST with SSRF protection (private/loopback addresses are blocked):
+
+```json
+{
+  "event": "on_high_score",
+  "data": {
+    "path": "/photos/IMG_001.jpg",
+    "aggregate": 9.2,
+    "aesthetic": 9.5,
+    "comp_score": 8.8,
+    "category": "portrait",
+    "tags": "person, outdoor"
+  }
+}
+```
+
+Webhook options: `url` (required), `events` (list of event names), `min_score` (minimum aggregate to trigger).
+
+### Built-in Actions
+
+| Action | Description | Options |
+|--------|-------------|---------|
+| `copy_to_folder` | Copy photo to a folder | `folder`, `min_score` |
+| `send_notification` | Log a notification | `min_score` |
+
+### API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/plugins` | List loaded plugins, webhooks, and actions |
+| `POST` | `/api/plugins/test-webhook` | Send a test payload to a webhook URL |
+
+---
+
+## Capsules
+
+Curated photo diaporamas (slideshows) grouped by theme. Capsules are auto-generated from your photo library and cached with a configurable TTL.
+
+```json
+{
+  "capsules": {
+    "min_aggregate": 6.0,
+    "max_photos_per_capsule": 40,
+    "max_photo_overlap": 0.2,
+    "mmr_lambda": 0.5,
+    "mmr_moment_weight": 0.0,
+    "freshness_hours": 24,
+    "reverse_geocoding": true,
+    "journey": {
+      "min_distance_km": 50,
+      "min_photos": 8,
+      "time_gap_hours": 24
+    },
+    "faces_of": { "min_photos": 10 },
+    "seasonal": { "min_photos": 10 },
+    "golden": { "percentile": 99, "max_photos": 50 },
+    "color_story": { "embedding_threshold": 0.75, "min_group_size": 8, "max_groups": 5 },
+    "this_week_years_ago": { "min_photos_per_year": 3 },
+    "monthly": { "min_photos": 8 },
+    "yearly": { "min_photos": 20, "max_photos": 60 },
+    "camera": { "min_photos": 15 },
+    "tag_collection": { "min_photos": 15 },
+    "seeded": {
+      "num_seeds": 10,
+      "min_photos": 8,
+      "seed_lifetime_minutes": 1440,
+      "time_window_days": 7,
+      "embedding_threshold": 0.7,
+      "location_radius_km": 30
+    },
+    "progress": { "min_improvement_pct": 5, "min_photos": 10, "period_months": 3 },
+    "color_palette": { "min_photos": 8 },
+    "rare_pair": { "max_shared_photos": 5, "min_score": 7.0, "min_photos": 3 }
+  }
+}
+```
+
+### Global Settings
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `min_aggregate` | `6.0` | Minimum aggregate score for photos to be included in capsules |
+| `max_photos_per_capsule` | `40` | Maximum photos per capsule (MMR diversity applied above 5) |
+| `max_photo_overlap` | `0.2` | Maximum fraction of shared photos between two capsules before dedup removes one |
+| `mmr_lambda` | `0.5` | MMR diversity weight: 0=maximize diversity, 1=maximize quality |
+| `mmr_moment_weight` | `0.0` | Optional weight blending each photo's `narrative_moment_confidence` into capsule MMR selection. `0.0` = unchanged behaviour |
+| `freshness_hours` | `24` | Cache TTL and rotation period for cover photos and seeded capsules |
+| `reverse_geocoding` | `true` | Enable offline reverse geocoding for location/journey capsule titles (requires `reverse_geocoder` package) |
+
+### Capsule Types
+
+| Type | Description |
+|------|-------------|
+| `journey` | Trips detected via GPS clustering + temporal gaps. Titles include destination name when geocoding is enabled. |
+| `faces_of` | Best photos of each recognized person |
+| `seasonal` | Photos grouped by season + year |
+| `golden` | Top 1% by aggregate score |
+| `color_story` | Visually similar groups via CLIP embedding clustering |
+| `this_week` | "This Week, Years Ago" — extended On This Day across ±3 days |
+| `location` | Geotagged photo clusters with reverse-geocoded place names |
+| `person_pair` | Pairs of named persons appearing together |
+| `seeded` | Seed-based discovery via time, similarity, person, tag, location, mood |
+| `progress` | "Your Photography is Improving" from quarterly score trends |
+| `color_palette` | "Color of the Month" from saturation/monochrome profiles |
+| `rare_pair` | Infrequent person pairs in high-scoring photos |
+| `favorites` | Favorited photos grouped by year and season |
+
+### Dimension-Based Capsules
+
+Automatically generated from database columns:
+
+| Dimension | Groups By |
+|-----------|-----------|
+| `year` | Year extracted from date_taken |
+| `month` | Year-month extracted from date_taken |
+| `week` | Year-week extracted from date_taken |
+| `camera` | Camera model |
+| `lens` | Lens model |
+| `tag` | Photo tags (requires `photo_tags` table) |
+| `day_of_week` | Day of week (Sunday–Saturday) |
+| `composition` | SAMP-Net composition pattern (rule_of_thirds, horizontal, etc.) |
+| `focal_range` | Focal length bins: ultra wide (<24mm), wide (24–35mm), standard (36–70mm), portrait (71–135mm), telephoto (136–300mm), super telephoto (300mm+) |
+| `category` | Photo content category (portrait, landscape, street, etc.) |
+| `time_of_day` | Time bins: golden morning, morning, midday, afternoon, golden evening, night |
+| `star_rating` | User star ratings (1–5 stars) |
+
+Cross-dimensional combos are also generated (e.g., camera × year, focal_range × category, category × year).
+
+### Slideshow Transitions
+
+Each capsule type maps to a themed slide transition:
+
+| Transition | Used By | Effect |
+|-----------|---------|--------|
+| `crossfade` | Default | 300ms opacity swap |
+| `slide` | journey, location, this_week | Slide in from right (500ms) |
+| `zoom` | faces_of, color_story | Scale 1.05→1.0 with fade (400ms) |
+| `kenburns` | golden, seasonal, star_rating, favorites | Slow zoom 1.0→1.08 over slide duration |
+
+### Reverse Geocoding
+
+Location and journey capsules use offline reverse geocoding via the `reverse_geocoder` package (local GeoNames dataset, ~30MB, no API calls). Results are cached in the `location_names` database table at 0.1° grid resolution (~11km).
+
+Install: `pip install reverse_geocoder`
+
+Set `"reverse_geocoding": false` to disable and fall back to coordinate display.
+
+## Similarity Groups
+
+Settings for the AI similar-photo culling feature, which groups visually similar photos using CLIP/SigLIP embeddings:
+
+```json
+{
+  "similarity_groups": {
+    "default_threshold": 0.85,
+    "min_group_size": 2,
+    "max_photos": 10000,
+    "max_group_size": 50
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `default_threshold` | `0.85` | Minimum cosine similarity (0.0–1.0) to consider two photos as visually similar. Lower values produce larger groups but with less visual similarity. |
+| `min_group_size` | `2` | Minimum number of photos required to form a similarity group |
+| `max_photos` | `10000` | Maximum photos to load for similarity computation (O(n²) cost). Increase for larger libraries at the expense of computation time. |
+| `max_group_size` | `50` | Maximum photos per similarity group. Larger groups are split to keep the UI usable. |
+
+## Auto-Cull
+
+One-button auto-cull for the culling darkroom (`POST /api/culling/auto`, edition-gated). It culls a whole scope — all groups, or only bursts / similars / scenes, optionally narrowed to an album or date window — in a single pass. Each group keeps its best photo plus everything within a strictness-derived margin (the same keeper budget as the manual darkroom slider), floored at a per-group minimum, and rejects the rest.
+
+```json
+{
+  "auto_cull": {
+    "default_strictness": 50,
+    "highlights_min": 8.0
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `default_strictness` | `50` | Keeper budget (0–100) used when the request omits `strictness`. Higher = keep fewer photos per group (tighter margin around the group's best) |
+| `highlights_min` | `8.0` | Minimum aggregate score for a group's best photo to be collected into the optional **Highlights** album when an auto-cull is applied (idempotent) |
+
+`dry_run` defaults on and returns a per-group keep/reject preview; an apply additionally records `source='culling'` comparison rows and nudges one auto-retrain. See [Web Viewer — Auto-cull](VIEWER.md#auto-cull). The same setting feeds the terminal command `python facet.py --auto-cull` (see [Culling](COMMANDS.md#culling)); its cull rules are read from the server config, not `--config`.
+
+## Auto-Retrain
+
+Controls when the personal ranker ("My Taste") retrains itself. Every culling confirm and every rating change adds to a per-user "new comparisons since last train" counter; crossing `threshold` arms an idle timer, and the retrain starts only once you have been inactive for `idle_seconds`.
+
+The idle window matters: the retrain rewrites one row per photo, and SQLite allows a single writer per database file. Dispatching mid-burst would make it contend with your own rating writes, which is exactly how a long retrain used to make rating actions fail. Waiting for a pause keeps the two apart.
+
+```json
+{
+  "auto_retrain": {
+    "threshold": 25,
+    "idle_seconds": 60
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `threshold` | `25` | New comparisons a user must accumulate before a retrain is armed. Raise it if you rate very large batches and want the (CPU, seconds-to-minutes) training amortized over more signal |
+| `idle_seconds` | `60` | Seconds of no rating/culling activity required before the armed retrain actually starts. Every new action pushes the timer back. `0` dispatches immediately (the pre-1.7.3 behaviour) |
+
+Both are overridable at runtime by environment variables, which take precedence over the JSON values — useful for Docker, where the config is often baked into the image:
+
+```bash
+FACET_RETRAIN_THRESHOLD=100 FACET_RETRAIN_IDLE_S=300 python viewer.py
+```
+
+| Variable | Overrides |
+|----------|-----------|
+| `FACET_RETRAIN_THRESHOLD` | `auto_retrain.threshold` |
+| `FACET_RETRAIN_IDLE_S` | `auto_retrain.idle_seconds` |
+
+An unparseable value falls back to the JSON setting, and a missing or malformed block falls back to the built-in defaults, so a typo degrades to the shipped behaviour instead of disabling auto-retrain. Both values are read once at startup — changing them needs a restart.
+
+The retrain keeps its held-out cross-validation gate: a run that fails to beat the current baseline writes nothing.
+
+## Genre-Aware Culling Profiles
+
+Genre presets that bundle every culling knob into one click: sports keeps only the single sharpest of a long burst, weddings keep more variants with eyes-open critical, concerts relax the eye/expression gates, wildlife drops the human-face gate entirely. The culling darkroom shows a preset selector.
+
+```json
+{
+  "cull_profiles": {
+    "default": "balanced",
+    "profiles": {
+      "balanced": { "label_key": "culling.profiles.balanced", "strictness": 50, "eyes_closed_max": 4.0, "poor_expression_min": 4.0, "keep_min_per_group": 1, "similarity_threshold": 85 },
+      "wedding":  { "label_key": "culling.profiles.wedding",  "strictness": 35, "eyes_closed_max": 5.0, "poor_expression_min": 5.0, "keep_min_per_group": 2, "similarity_threshold": 90 },
+      "sports":   { "label_key": "culling.profiles.sports",   "strictness": 85, "eyes_closed_max": 2.0, "poor_expression_min": 0.0, "keep_min_per_group": 1, "similarity_threshold": 80 },
+      "concert":  { "label_key": "culling.profiles.concert",  "strictness": 55, "eyes_closed_max": 2.0, "poor_expression_min": 0.0, "keep_min_per_group": 1, "similarity_threshold": 85 },
+      "wildlife": { "label_key": "culling.profiles.wildlife", "strictness": 70, "eyes_closed_max": 0.0, "poor_expression_min": 0.0, "keep_min_per_group": 1, "similarity_threshold": 82 }
+    }
+  }
+}
+```
+
+| Setting | Description |
+|---------|-------------|
+| `default` | Profile id applied when none is stored client-side |
+| `profiles.<id>.label_key` | i18n dot-path for the preset's display name (`culling.profiles.*`) |
+| `profiles.<id>.strictness` | Keeper budget (0–100) fed into the auto-cull margin when this preset is active |
+| `profiles.<id>.eyes_closed_max` | Eyes-open score (0–10) at/below which a face counts as closed — overrides the global `face_detection.eyes_closed_max` in the darkroom face badges |
+| `profiles.<id>.poor_expression_min` | Expression/smile score (0–10) below which a face counts as poor — overrides `face_detection.poor_expression_min` |
+| `profiles.<id>.keep_min_per_group` | Per-group floor on the auto-cull keep set for this preset |
+| `profiles.<id>.similarity_threshold` | Similarity-grouping threshold (percent) the darkroom applies when the preset is selected |
+
+Endpoint (read-only): `GET /api/culling/profiles` returns the ordered preset list plus the default. The auto-cull request (`POST /api/culling/auto`) and the per-face batch (`POST /api/culling-group/faces`) accept an optional `profile` id; an explicit `strictness`/`min_keep_per_group` in the request always wins over the preset.
+
+## Scenes
+
+Settings for the Scenes view, which groups burst-lead photos into chronological scenes (split by capture-time gaps) for story-order culling:
+
+```json
+{
+  "scenes": {
+    "gap_minutes": 20.0,
+    "min_size": 2,
+    "max_photos": 5000,
+    "max_scene_size": 60,
+    "adaptive": true,
+    "adaptive_k": 6.0
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `gap_minutes` | `20.0` | A new scene starts when more than this many minutes pass between consecutive burst-lead photos (the floor when `adaptive` is on) |
+| `min_size` | `2` | Minimum photos for a scene to be shown |
+| `max_photos` | `5000` | Maximum burst-lead photos loaded for scene grouping |
+| `max_scene_size` | `60` | A scene larger than this is recursively sub-split at its largest internal gaps, so a continuously-shot event never collapses into one giant scene |
+| `adaptive` | `true` | When on, the effective gap widens to `adaptive_k × median` of the shoot's consecutive gaps (tightens for rapid shooting, loosens for sparse holidays) |
+| `adaptive_k` | `6.0` | Multiplier applied to the median gap when `adaptive` is on |
+| `split_on_moment_change` | `false` | When on (and narrative moments are computed), sub-split a time-run where the dominant moment changes and holds for `moment_split_min_run` frames |
+| `moment_split_min_run` | `4` | Hysteresis for `split_on_moment_change` — how many consecutive frames a new moment must persist to force a boundary |
+
+## Narrative Moments
+
+Zero-shot labelling of each photo's scene/activity "moment". The default **general** vocabulary covers `celebration`, `dining`, `beach`, `water_activity`, `mountains`, `nature_wildlife`, `cityscape`, `travel_landmark`, `concert`, `sports`, `group_gathering`, `portrait`, `children`, `pets`, `nightlife`, `ceremony`, `scenic_landscape`, `snow_winter`, `home_indoor`, `road_vehicle`, or `other` — so it works on any library, not just weddings (`wedding` ships as an opt-in genre). Populated by `--detect-moments` (auto-runs at the end of every scan) and surfaced as scene names and a gallery filter. Something neither Narrative Select nor AfterShoot do.
+
+The signal is **caption-semantic**: each photo's AI caption is encoded once with the text tower and stored (the `caption_embedding` column); the moment is the best **max-pooled** cosine of that caption embedding against the per-moment text prompts. The stored image embedding is the fallback when a photo has no caption. Caption text matches moment prompts ~2.4× more cleanly than the raw image embedding does, so the `caption` signal carries higher thresholds than the `image` fallback; each is tuned per backend (open_clip cosines run much lower than SigLIP's). The `transformers` (SigLIP) values ship as conservative defaults — re-tune them if you run a SigLIP profile.
+
+```json
+{
+  "narrative_moments": {
+    "enabled": true,
+    "prompt_template": "a photo of {desc}",
+    "default_event_type": "general",
+    "pooling": "max",
+    "caption_min_confidence": 0,
+    "thresholds": {
+      "caption": {
+        "open_clip": { "min_confidence": 0.30, "min_margin": 0.02 },
+        "transformers": { "min_confidence": 0.12, "min_margin": 0.01 }
+      },
+      "image": {
+        "open_clip": { "min_confidence": 0.20, "min_margin": 0.01 },
+        "transformers": { "min_confidence": 0.10, "min_margin": 0.01 }
+      }
+    },
+    "priors": {
+      "enabled": true, "weight": 0.04, "caption_tag_scale": 0.25,
+      "rules": [
+        { "kind": "structural", "when": { "is_group_portrait": true, "face_count_min": 4 }, "boost": { "group_gathering": 1.0 } },
+        { "kind": "tag", "when": { "tags_any": ["beach", "ocean", "sand"] }, "boost": { "beach": 0.8 } }
+      ],
+      "event_types": { "wedding": { "rules": [ { "kind": "tag", "when": { "tags_any": ["cake"] }, "boost": { "cake_cutting": 1.0 } } ] } }
+    },
+    "vlm_tiebreak": { "enabled": false, "min_confidence": 0.0, "min_margin": 0.04 },
+    "transitions": { "stay_prob": 0.7, "forward_bias": 0.0, "weight": 0.3 },
+    "event_types": { "general": { "beach": ["people at a sandy beach by the sea", "..."], "...": [] }, "wedding": { "vows": ["the couple exchanging vows at the altar", "..."] } }
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `enabled` | `true` | Master switch; when off, `--detect-moments` and the scan hook no-op |
+| `prompt_template` | `"a photo of {desc}"` | Wrapper applied to every prompt before encoding |
+| `default_event_type` | `"general"` | Which `event_types` vocabulary is active. `general` = 20 agnostic scene/activity moments; `wedding` ships as an opt-in genre |
+| `pooling` | `"max"` | Per-moment score = the single best prompt cosine (max-pool), more discriminative than averaging |
+| `caption_min_confidence` | `0` | Caption quality gate: when > 0, `--generate-captions` and the on-demand caption endpoint skip photos that are unlabelled, `other`, or below this stored moment confidence. `0` = no gate |
+| `thresholds.<signal>.<backend>.min_confidence` | caption `0.30`/`0.12`, image `0.20`/`0.10` | Below this top-1 cosine a photo is `other`. Keyed by **signal** (`caption` vs `image`) then backend — caption cosines run ~2.4× higher |
+| `thresholds.<signal>.<backend>.min_margin` | caption `0.02`/`0.01`, image `0.01`/`0.01` | Minimum top-1/top-2 cosine gap; below it the frame is `other` |
+| `priors.enabled` / `priors.weight` | `true` / `0.04` | L1 face/tag nudges that only break near-ties; `weight` caps each boost at cosine scale |
+| `priors.caption_tag_scale` | `0.25` | Scales **tag** rules down on the caption signal (L0 already encodes the caption); structural rules keep full weight on both signals |
+| `priors.rules` | (general set) | Declarative `{kind, when, boost}` list, vocabulary-agnostic. `kind`: `structural` (face geometry) or `tag`. `when` predicates (all ANDed): `is_group_portrait`, `face_count_min`/`face_count_max`, `face_ratio_min`/`face_ratio_max`, `tags_any`, `tags_all`. `boost`: `{moment: amount}` — a moment absent from the active vocabulary is silently skipped, so one rule set degrades gracefully across vocabs |
+| `priors.event_types.<et>.rules` | `wedding` override | Per-event-type rules that **replace** the global `rules` when that vocabulary is active, keeping the shared list vocabulary-clean |
+| `transitions.stay_prob` / `forward_bias` / `weight` | `0.7` / `0.0` / `0.3` | L2 timeline smoothing (Viterbi): stay-heavy with no forward progression (the agnostic vocab has no canonical order), applied lightly (`weight=0` = no smoothing) |
+| `vlm_tiebreak.enabled` / `min_confidence` / `min_margin` | `false` / `0.0` / `0.04` | L3 tie-break (now active): when enabled on 16gb/24gb profiles, only low-posterior (below `min_confidence`) or low-margin (below `min_margin`) frames are re-classified by the profile VLM during `--detect-moments` / `--recompute-moments` |
+| `event_types` | `general` + `wedding` | Per-event-type `{moment: [prompt synonyms]}`; set `default_event_type` to switch genre or add your own |
+
+> **Caption backfill cost.** Caption embeddings are computed once and stored, so the per-photo cosine is free afterwards. A scan encodes only its handful of new captions (cheap, incremental), but the first full pass over an existing library encodes every caption — one text-tower forward pass per caption, fast on GPU and ~hours on CPU. Run `python facet.py --detect-moments` once (GPU recommended) for that backfill; add `--limit N` to verify on a sample first.
+
+**Discovering a library-specific vocabulary.** The `general` set is a sensible default, but you can propose a vocabulary fitted to *your* library with `python facet.py --discover-moments`: it clusters the stored `caption_embedding` vectors (HDBSCAN), names each cluster from its captions (a keyword plus the captions nearest the centroid as ready-made prompts), and writes the result as an `event_types.discovered` block to `scoring_config.discovered.json`. Review it, copy `discovered` into `event_types` above, set `default_event_type` to `discovered`, and run `--recompute-moments` to adopt — discovery proposes, it never rewrites the active config. `--discover-min-cluster-size N` controls granularity (smaller = more, finer moments).
+
+## OCR
+
+In-photo text search: reads the words *inside* your photos — street signs, shop fronts, race bibs, book spines, slides, whiteboards, scanned documents — into `photos.ocr_text`, which is a covering column of the `photos_fts` full-text index. Once populated, that text is searchable from the gallery search box like any caption or tag, and `GET /api/search?scope=text` restricts a query to text-bearing columns only.
+
+**Off by default**, and it needs an engine installed:
+
+```bash
+pip install easyocr           # or: pip install -e .[ocr]
+```
+
+Then enable it and run the pass:
+
+```json
+{
+  "ocr": {
+    "enabled": false,
+    "languages": ["en", "fr"],
+    "min_confidence": 0.4,
+    "full_resolution": false
+  }
+}
+```
+
+```bash
+python facet.py --detect-text      # only photos never evaluated
+python facet.py --recompute-text   # re-read the whole library
+```
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `enabled` | `false` | Master switch. `--detect-text` refuses to run while this is `false`, so the pass is never triggered by accident |
+| `languages` | `["en", "fr"]` | Language codes passed to the engine. Latin-script languages combine freely; mixing scripts (e.g. `en` + `ja`) is rejected by easyocr, so use one script family per run |
+| `min_confidence` | `0.4` | Drop detections the engine scores below this (0–1). Raise it if OCR noise pollutes search results, lower it to catch faint or distant text |
+| `full_resolution` | `false` | OCR the original file instead of the stored 640px thumbnail. Far slower and only worth it for small or distant text — 640px already resolves signs, posters and document headings. Falls back to the thumbnail when the original is offline |
+
+**Sentinel semantics.** `ocr_text` is `NULL` while a photo has never been evaluated and `''` once it has been read and found to contain no text. That distinction is what lets `--detect-text` scope to genuinely new photos instead of re-reading every textless frame on each run; `--recompute-text` ignores it and re-reads everything. FTS5 indexes `''` as zero tokens, so a textless photo can never match a query.
+
+**No `--rebuild-fts` needed.** `ocr_text` is in the FTS sync triggers' `UPDATE OF` list, so the pass's own writes re-index each row as it goes. `python database.py --rebuild-fts` is only required for a database created before `ocr_text` joined the covering index — `init_database` detects that older index and recreates it for you.
+
+**Engines.** `easyocr` (Apache-2.0, PyTorch) is the default and reuses the stack Facet already installs — it adds no second OpenCV and pins no numpy/torch version. Its weights (~113MB) download from the project's own GitHub releases on first run. The `tesseract` binary plus `pytesseract` works as an alternative optional external tool (like `exiftool`) and is used when easyocr is absent, but it is tuned for scanned pages and reads scene text markedly less well. With neither installed the pass exits with an error rather than silently writing nothing.
+
+**Cost.** A 640px thumbnail takes roughly 0.4s on CPU, so a 50k-photo library is an overnight CPU job — it is a one-time backfill, and later scans only ever add new photos. A GPU is used automatically when torch reports one.
+
+## Export and Cull Destinations
+
+Any endpoint that copies, symlinks, or moves photo files out of the library — album "basket" export (`POST /api/albums/{id}/export`, modes `copy`/`symlink`) and cull-to-folder (`POST /api/cull/apply`, actions `copy_keeps` / `move_rejects`) — writes to a `target_dir` that must resolve under an allowed root, or the request is refused before touching any file.
+
+```json
+{
+  "viewer": {
+    "export": {
+      "allowed_target_dirs": ["/data/exports"]
+    },
+    "cull": {
+      "allow_trash": false
+    }
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `allowed_target_dirs` | *(key absent)* | Extra root directories a copy/symlink export or a cull-to-folder copy/move may write into, on top of the scan directories (always allowed). **Absent by default** — out of the box, the only writable export destinations are your configured scan directories |
+| `cull.allow_trash` | `false` | Whether cull-to-folder's `trash_rejects` action may send files to the OS trash (recoverable, via `send2trash`, a base dependency shipped in the Docker image, so the action works once enabled) instead of only supporting `copy_keeps`/`move_rejects`. Off by default; the viewer hides the "Trash rejects" option rather than offering one that would 403 |
+
+**Multi-frame sets and bulk actions.** `hide_brackets` / `hide_panoramas` (see [Web Viewer — Default Filters](VIEWER.md#default-filters), both `true` by default) bound what any *selection-based* bulk action can reach, including cull-to-folder and album export from a selection: with a set collapsed to its representative frame, acting on the selection acts on that one frame, not the rest of the set by default. Cull-to-folder's own `include_sequence_siblings` opt-in widens a matched photo to its whole set regardless of the selection; see [Web Viewer — Cull to folder § Multi-frame sets](VIEWER.md#cull-to-folder) for that and the other escape hatches.
+
+**Resolution order.** The allow-list is `allowed_target_dirs` first, then every scan directory (per-user, shared, and `path_mapping` targets) — so exporting *within* the photo tree needs no configuration, but a destination outside it needs an entry here. Both the requested `target_dir` and every allowed root are canonicalized with `os.path.realpath()` (symlinks resolved, `..` collapsed) before comparison, so a symlink that resolves outside an allowed root is rejected even when the link itself sits inside one.
+
+**Fail-closed by design.** With no roots at all — no `allowed_target_dirs` and no scan directories configured — copy/symlink/move export is refused outright rather than falling back to writing anywhere. In practice this case is rare once you have scanned a library, since the scan directories are always in the allow-list.
+
+**Troubleshooting "access denied."** This check runs before any filesystem access, so a refused destination never touches disk and produces no traceback in the server logs — a `403` here is a normal HTTP response from a deliberate check, not a server error. The web UI currently shows a generic "Access denied" toast for *any* `403` on these endpoints without naming the reason; open your browser's Network tab, find the failed `/api/cull/apply` or `/api/albums/{id}/export` request, and read its response body's `detail` field for the actual cause (either this allow-list, or an expired edition session). A genuine filesystem/permission failure looks different: the request itself succeeds (`200`), the response's `errors` count is nonzero, and the server logs a full traceback for each failed file — see [Deployment — Container Path Semantics](DEPLOYMENT.md#container-path-semantics) for the container case, where this is often mistaken for a UID mismatch.
+
+See [Web Viewer — Cull to folder](VIEWER.md#cull-to-folder) and [Web Viewer — Editor Export](VIEWER.md#editor-export).
+
+## Social Export
+
+Saliency-aware crop presets for social aspect ratios (`GET /api/photo/social_crop`, edition-gated). Each preset crops the full-resolution original to a target aspect and frames it on the detected subject — the largest rectangle of that aspect fitting inside the image, centered on the subject and clamped at the edges. The subject box follows a fallback chain: the persisted BiRefNet subject box (`photos.subject_bbox`) → the union of detected face boxes → a plain center crop. See [Web Viewer — Download](VIEWER.md#download).
+
+```json
+{
+  "social_export": {
+    "presets": {
+      "square":       { "label_key": "social_export.presets.square",       "aspect": "1:1" },
+      "portrait_4x5": { "label_key": "social_export.presets.portrait_4x5", "aspect": "4:5" },
+      "story_9x16":   { "label_key": "social_export.presets.story_9x16",   "aspect": "9:16" }
+    },
+    "jpeg_quality": 92
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `presets.<id>.label_key` | — | i18n dot-path for the preset's display name (`social_export.presets.*`) |
+| `presets.<id>.aspect` | — | Target aspect as `"w:h"` (e.g. `1:1`, `4:5`, `9:16`) |
+| `jpeg_quality` | `92` | JPEG quality of the exported crop |
+
+Gated by `viewer.features.show_social_export` (default `true`). The `photos.subject_bbox` column is written by the saliency pass at scan time and by `--recompute-saliency`; rows scanned before it existed fall back to the face-union or center crop automatically.
+
+## Portfolio Export
+
+Export an album as a self-contained static HTML gallery a photographer can drop on any web host — no external tool (thumbsup/sigal) required (`POST /api/albums/{album_id}/export-portfolio`, edition-gated). The generated directory holds `index.html` (a responsive CSS-only thumbnail grid plus an inline vanilla-JS lightbox with **zero** external/CDN references — fully offline), an `assets/` folder of sequentially-named JPEGs (no library paths leaked), and a `manifest.json`. Each photo uses the on-disk **original** (downscaled to `max_edge`) when readable and falls back to the stored 640px thumbnail BLOB when the original is unreachable (offline network shares); the source used is recorded per photo in the manifest. Generation is deterministic and idempotent — a re-export rewrites only its own files.
+
+```json
+{
+  "portfolio": {
+    "max_photos": 500,
+    "max_edge": 2048,
+    "jpeg_quality": 88
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `max_photos` | `500` | Albums larger than this are refused with a 400 (the export is synchronous) |
+| `max_edge` | `2048` | Long-edge cap (px) for exported originals; the request may override it (clamped 256–8000) |
+| `jpeg_quality` | `88` | JPEG quality of the exported images |
+
+The `target_dir` goes through the exact same allow-list as the copy/move export endpoints (`viewer.export.allowed_target_dirs` plus the scan directories — see [Export and Cull Destinations](#export-and-cull-destinations)). Gated by `viewer.features.show_portfolio_export` (default `true`). See [Web Viewer — Portfolio export](VIEWER.md#portfolio-export).
+
+## Photo Frame / Kiosk
+
+Serve curated "best shots" to login-less kiosk devices — smart photo frames, Home Assistant dashboards, ImmichFrame / Immich-Kiosk style displays — over three anonymous, static-token endpoints (`GET /api/frame/photos`, `GET /api/frame/image/{id}`, `GET /api/frame/next`). Access is a long-lived opaque **frame token**; an empty `tokens` list disables the whole feature (every endpoint returns 404). Responses never contain filesystem paths — photos are addressed by an opaque signed id derived from the row's `rowid`.
+
+```json
+{
+  "frame": {
+    "tokens": [],
+    "count": 20,
+    "max_count": 100,
+    "min_aggregate": 7.0,
+    "max_edge": 1920,
+    "favorites_only": false,
+    "categories": []
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `tokens` | `[]` | Opaque frame tokens (list). **Empty = feature disabled (404).** Use long random strings, one per device; remove one to revoke it. Generate with `python -c "import secrets; print(secrets.token_urlsafe(32))"` |
+| `count` | `20` | Default number of photos returned by `/api/frame/photos` |
+| `max_count` | `100` | Hard cap on the `count` query parameter |
+| `min_aggregate` | `7.0` | Minimum aggregate score for a photo to be curated |
+| `max_edge` | `1920` | Long-edge cap (px) for served JPEGs; the `max_edge` query parameter may lower it but never raise it above this |
+| `favorites_only` | `false` | When `true`, only favorited photos are curated |
+| `categories` | `[]` | Allow-list of category names (empty = all categories) |
+
+Tokens are compared constant-time as UTF-8 bytes, so a missing token is a 401 and a wrong or non-ASCII token is a 403 (never a 500). Curation excludes rejected, junk (`junk_kind`) and blink photos, then applies the score floor / favorites / categories filters; the returned set is a score-weighted random sample. See [Web Viewer — Photo Frame / Kiosk Endpoint](VIEWER.md#photo-frame--kiosk-endpoint) for the Home Assistant recipe.
+
+A frame token is not a user login: it carries no `user_id` and is checked against the whole library, so in [multi-user mode](#users) it ignores every user's private `directories` and grants read access across all users' photos, not just `shared_directories`. Only issue frame tokens on installs where every configured user is comfortable with that.
+
+## Phone Auto-Upload
+
+A minimal **WebDAV** endpoint under `/dav` so phone auto-upload apps (PhotoSync et al.) can push photos into an **inbox directory** that `facet.py --watch` then scores automatically — the PhotoPrism mobile-sync pattern. Upload-only plumbing: it never touches user sessions or JWTs. Access is HTTP Basic with **shared-device credentials** (`username` / `password`), not a user account. The whole `/dav` tree returns **404 while disabled** — the feature is enabled only when `username`, `password`, and `inbox_dir` are all set. Every operation is confined to `inbox_dir` (traversal / absolute-path / symlink escape refused), and uploads stream to disk atomically with the `max_file_mb` cap.
+
+```json
+{
+  "upload": {
+    "username": "",
+    "password": "",
+    "inbox_dir": "",
+    "max_file_mb": 500
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `username` | `""` | HTTP Basic username (shared device credential). **Empty = feature disabled (404).** |
+| `password` | `""` | HTTP Basic password (shared device credential). **Empty = feature disabled (404).** Use a long random string. |
+| `inbox_dir` | `""` | Absolute path of the upload inbox. **Empty = feature disabled (404).** Point it at one of the scanned directories (or a subdirectory) so `facet.py --watch` scores uploads as they land. Created on demand. |
+| `max_file_mb` | `500` | Per-file size cap (MB); an upload exceeding it aborts with `413` and leaves no partial file. |
+
+Credentials are compared constant-time as UTF-8 bytes; a missing or wrong `Authorization` header is a `401` with `WWW-Authenticate: Basic realm="Facet upload"`. Implemented methods: `OPTIONS`, `PROPFIND` (depth 0/1), `MKCOL`, `PUT`, `MOVE`, `DELETE`, `GET`, `HEAD` (`LOCK`/`UNLOCK` are not implemented). See [Web Viewer — Phone Auto-Upload](VIEWER.md#phone-auto-upload) for the PhotoSync recipe and a `curl` smoke test.
+
+## Junk Sweep
+
+Zero-shot detector for non-photo "junk" — screenshots, scanned documents, receipts, memes, presentation slides — over the **stored image embedding** (no image decode, no per-image model pass; the same shape as narrative moments without the temporal smoothing). Each kind carries a list of text prompts; the photo's embedding is cosine-scored against every prompt and **max-pooled** per kind. A `not_junk` contrast prompt set gates the decision: a photo is only flagged when the best junk kind clears `min_confidence` AND beats the best `not_junk` prompt by `min_margin` — otherwise it is stored as the `not_junk` sentinel (evaluated clean). `NULL` means "not evaluated": `--detect-junk` labels only `NULL` rows (and auto-runs at scan end), while `--recompute-junk` re-evaluates the whole library. Populates `photos.junk_kind`; the viewer's **Junk Sweep** review queue ([VIEWER.md](VIEWER.md#junk-sweep)) reads it.
+
+```json
+{
+  "junk_sweep": {
+    "enabled": true,
+    "prompt_template": "{desc}",
+    "pooling": "max",
+    "thresholds": {
+      "open_clip": { "min_confidence": 0.2, "min_margin": 0.06 },
+      "transformers": { "min_confidence": 0.1, "min_margin": 0.02 }
+    },
+    "kinds": {
+      "screenshot": ["a screenshot of a phone user interface", "..."],
+      "document": ["a scanned document", "..."],
+      "receipt": ["a close-up photo of a paper receipt", "..."],
+      "meme": ["a meme with overlaid text", "..."],
+      "slide": ["a presentation slide", "..."]
+    },
+    "not_junk_prompts": ["a natural photograph", "a candid photo of people", "..."]
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `enabled` | `true` | Run junk detection during `--detect-junk` / `--recompute-junk` and at scan end |
+| `prompt_template` | `"{desc}"` | Format string applied to every prompt (`{desc}` = the prompt); identity by default since the prompts are full sentences |
+| `pooling` | `"max"` | Pool the per-prompt cosines back to a kind by `max` (best single prompt, more discriminative) or `mean` |
+| `thresholds.<backend>.min_confidence` | open_clip `0.2`, transformers `0.1` | Minimum max-pooled cosine for the best junk kind to be considered (CLIP/`open_clip` cosines run lower than SigLIP/`transformers`, so each backend has its own gate) |
+| `thresholds.<backend>.min_margin` | open_clip `0.06`, transformers `0.02` | How far the best junk kind must beat the best `not_junk` contrast prompt before the photo is flagged |
+| `kinds` | screenshot/document/receipt/meme/slide | `{kind: [prompt synonyms]}`; add, remove, or rename kinds freely — the column and viewer queue follow the config |
+| `not_junk_prompts` | 8 photograph prompts | Contrast set describing real photographs; the gate that keeps genuine photos out of the queue |
+
+## AI Critique
+
+Prompt configuration for the VLM-powered critique (16gb/24gb profiles). The critique injects the full rule breakdown, penalties and EXIF into a configurable ladder prompt, renders the reply as Observation / Assessment / Suggestions, and caches it per photo in `photos.vlm_critique` (translated on demand into `vlm_critique_translated`). It runs against the stored thumbnail, so RAW files critique correctly instead of failing silently; `refresh` regenerates. The default ladder follows the AesBench four-ability structure (perceive → feel → judge → advise): its Assessment gives a short verdict on composition, color & light, focus/DOF & technical execution, and subject & moment, each reconciled against the injected metrics rather than restating the numbers.
+
+```json
+{
+  "critique": {
+    "vlm": {
+      "max_new_tokens": 320
+    }
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `critique.vlm.max_new_tokens` | `320` | Token budget for the structured VLM critique generation |
+
+See [Web Viewer — AI Critique](VIEWER.md#ai-critique).
+
+## VLM Backend
+
+Selects where the caption/tag vision-language model runs. `local` (default) uses the in-process transformers Qwen path bundled with the 16gb/24gb VRAM profiles — no change for existing installs. The two remote backends point Facet at an external server so captioning and VLM tagging work on the **legacy/8gb profiles that ship no local VLM**: when a remote backend is selected the VLM features are no longer gated on the VRAM profile.
+
+```json
+{
+  "vlm_backend": {
+    "type": "local",
+    "ollama": {
+      "base_url": "http://localhost:11434",
+      "model": "qwen2.5vl:7b",
+      "timeout_seconds": 120
+    },
+    "openai_compatible": {
+      "base_url": "http://localhost:1234/v1",
+      "api_key": "",
+      "model": "qwen2.5-vl-7b",
+      "timeout_seconds": 120
+    }
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `type` | `"local"` | Backend: `local` (in-process transformers Qwen), `ollama` (Ollama native REST API), or `openai_compatible` (any OpenAI chat-completions endpoint — LM Studio, vLLM, OpenRouter) |
+| `ollama.base_url` | `"http://localhost:11434"` | Ollama server base URL; the image is sent as base64 to `POST /api/generate` |
+| `ollama.model` | `"qwen2.5vl:7b"` | Ollama model tag (must be a vision model already pulled on the server) |
+| `ollama.timeout_seconds` | `120` | Per-request timeout for Ollama calls |
+| `openai_compatible.base_url` | `"http://localhost:1234/v1"` | OpenAI-compatible base URL **including the `/v1` suffix**; requests go to `{base_url}/chat/completions` with the image as an `image_url` data URI |
+| `openai_compatible.api_key` | `""` | Bearer token sent as `Authorization: Bearer <key>`; leave empty for keyless local servers |
+| `openai_compatible.model` | `"qwen2.5-vl-7b"` | Model name passed to the endpoint |
+| `openai_compatible.timeout_seconds` | `120` | Per-request timeout for OpenAI-compatible calls |
+
+The shared backend drives captioning (`--generate-captions` and the on-demand `/api/caption`), the VLM critique (`/api/critique?mode=vlm`), VLM re-tagging (`--recompute-tags-vlm`), and the narrative-moment VLM tie-breaker. A remote request failure is surfaced as a per-photo failure (logged, empty tags / no caption) and never crashes the run. In-scan tagging still uses the profile's own tagger; run `--recompute-tags-vlm` to apply a remote backend to an existing library.
+
+## Distortion Attributes
+
+Zero-shot, advisory-only distortion labelling. `--recompute-distortions` scores each photo against ExIQA-style contrastive prompts over its stored CLIP/SigLIP embedding and stores the likely defects (motion blur, color cast, oversharpening, …) as an advisory JSON column. It never feeds the aggregate; the labels render as warning chips in the critique dialog.
+
+```json
+{
+  "distortion_attributes": {
+    "enabled": true,
+    "top_n": 5,
+    "thresholds": {
+      "open_clip":    { "temperature": 0.02, "min_confidence": 0.6 },
+      "transformers": { "temperature": 0.05, "min_confidence": 0.6 }
+    },
+    "vocabulary": {}
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `enabled` | `true` | Compute distortion attributes during `--recompute-distortions` |
+| `top_n` | `5` | Maximum number of distortion labels kept per photo |
+| `thresholds.<backend>.temperature` | open_clip `0.02`, transformers `0.05` | Softmax temperature over the contrastive prompt scores, per embedding backend (like `narrative_moments`, open_clip and transformers cosines run at different scales) |
+| `thresholds.<backend>.min_confidence` | `0.6` | Minimum probability for a distortion label to be kept |
+| `vocabulary` | `{}` | Optional override of the built-in distortion prompt set (`{attribute: [prompt synonyms]}`); empty = module defaults |
+
+## Skin Tone
+
+Portrait skin-tone naturalness (advisory-only). `--recompute-skin-tone` samples cheek CIELAB chroma from stored face thumbnails + landmarks and measures its CIEDE2000 distance from a correlated-color-temperature skin locus, flagging portraits whose skin drifts green / magenta / blue / yellow. It never feeds the aggregate; the result renders as a skin-tone note in the critique dialog.
+
+```json
+{
+  "skin_tone": {
+    "cast_delta_threshold": 12.0
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `cast_delta_threshold` | `12.0` | Minimum CIEDE2000 delta between the measured skin chroma and the skin locus before a color cast is flagged |
+
+## Immich Sync
+
+One-way sync of Facet star ratings and favorites to an [Immich](https://immich.app/) server over its REST API. Assets are resolved by `originalPath` through the configured path-prefix mappings, in a single bulk search pass. Run it with `--immich-sync` (check first with `--immich-test`); see [Commands — Immich Sync](COMMANDS.md#immich-sync).
+
+```json
+{
+  "immich": {
+    "url": "",
+    "api_key": "",
+    "path_map": [
+      { "facet_prefix": "", "immich_prefix": "" }
+    ],
+    "push": {
+      "ratings": true,
+      "favorites": true,
+      "rejected": false,
+      "top_picks_album": "",
+      "top_picks_min_rating": 4
+    },
+    "webhook": {
+      "token_env": "",
+      "header": "x-facet-token",
+      "max_pending": 500
+    },
+    "timeout_seconds": 30
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `url` | `""` | Base URL of the Immich server (e.g. `http://nas:2283`) |
+| `api_key` | `""` | Immich API key, sent as the `x-api-key` header |
+| `path_map` | `[{facet_prefix, immich_prefix}]` | Prefix rewrites from Facet paths to Immich `originalPath` values; the first matching `facet_prefix` is swapped for its `immich_prefix` when resolving an asset |
+| `push.ratings` | `true` | Push star ratings. Immich's version-safe policy is honored — only 1–5 is written, never 0/−1 |
+| `push.favorites` | `true` | Push the favorite flag |
+| `push.rejected` | `false` | Push `rating: -1` for photos rejected in Facet's culling darkroom. Requires `push.ratings` |
+| `push.top_picks_album` | `""` | Optional Immich album name that collects pushed photos above the rating threshold. Empty = no album |
+| `push.top_picks_min_rating` | `4` | Minimum star rating for a photo to be added to `top_picks_album` |
+| `webhook.token_env` | `""` | Name of the environment variable holding the inbound webhook's shared secret. Empty (or unset/empty variable) disables the endpoint — it 404s |
+| `webhook.header` | `"x-facet-token"` | Header Immich's workflow sends the token in |
+| `webhook.max_pending` | `500` | Cap on the remembered-but-unscored path list reported by the next sync |
+| `timeout_seconds` | `30` | Per-request REST timeout |
+
+`--immich-sync` honors `--dry-run` (resolves every asset but writes nothing) and `--user` (pushes that user's `user_preferences` ratings in multi-user mode). REST-only — Facet never touches the Immich database.
+
+## Timeline
+
+Settings for the chronological timeline view:
+
+```json
+{
+  "timeline": {
+    "photos_per_group": 30
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `photos_per_group` | `30` | Number of photos loaded per date group in the timeline view. Higher values show more photos per date but increase page weight. |
+
+## Map
+
+Settings for the interactive map view:
+
+```json
+{
+  "map": {
+    "cluster_zoom_threshold": 10
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `cluster_zoom_threshold` | `10` | Zoom level at which individual markers replace clusters. Lower values show individual markers earlier (more detail at wider zoom). Range: 1 (world) to 18 (street). |
+
+## Translation
+
+Settings for AI caption translation via MarianMT:
+
+```json
+{
+  "translation": {
+    "target_language": "fr"
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `target_language` | `"fr"` | Target language code for `--translate-captions`. Supported: `fr` (French), `de` (German), `es` (Spanish), `it` (Italian), `pt` (Brazilian Portuguese). Uses Helsinki-NLP MarianMT models (CPU, no GPU required). |
+
+## Aesthetic CLIP (R2)
+
+Supplementary aesthetic score derived from cached CLIP/SigLIP embeddings via text projection. Prompts are user-tunable for AVA benchmarking — see `scripts/benchmark_aesthetic.py` for measuring the SRCC impact of any change.
+
+```json
+{
+  "aesthetic_clip": {
+    "positive_prompts": [
+      "a professional, high-quality photograph",
+      "an aesthetically beautiful image",
+      "a masterful, award-winning photograph",
+      "a sharp, well-composed photograph",
+      "a stunning, visually striking image"
+    ],
+    "negative_prompts": [
+      "a low-quality, amateur photograph",
+      "a blurry, poorly composed photograph",
+      "an unattractive, mundane snapshot",
+      "a noisy, badly lit photograph",
+      "a boring, forgettable image"
+    ]
+  }
+}
+```
+
+Empty arrays fall back to the module defaults baked into `analyzers/aesthetic_clip.py`. Don't tune these without re-running the AVA benchmark — the defaults score SRCC ~0.52 on `ava_test/` and changes can easily regress to ~0.30.
+
+## Adding alternative VLM tagger / critique models (R3)
+
+Each VRAM profile's `tagging_model` key (e.g. `qwen3.5-2b`) maps to a model entry in the same `models` section. To experiment with a different VLM (Pixtral-12B, InternVL-2.5, etc.):
+
+1. Add a model entry under `models`:
+   ```json
+   "pixtral_12b": {
+     "model_path": "mistralai/Pixtral-12B-2409",
+     "torch_dtype": "bfloat16",
+     "max_new_tokens": 100,
+     "vlm_batch_size": 1
+   }
+   ```
+2. Point a profile at it:
+   ```json
+   "profiles": {
+     "24gb": { "tagging_model": "pixtral_12b", ... }
+   }
+   ```
+3. Run `python facet.py --recompute-tags-vlm` to re-tag.
+
+No code changes needed. Validate quality via a side-by-side spot check on ~30 photos before promoting to default.
+
+## Server Secret
+
+The secret that signs session tokens and photo-frame links is **not** a key in this file. It lives in `.facet_secret` beside `scoring_config.json` (mode `0600`, gitignored) and is generated on first run.
+
+- Override: the `FACET_JWT_SECRET` environment variable.
+- Rotate: `python database.py --rotate-secret`.
+
+A `share_secret` left over from an older install is moved into that file on the next start and removed from `scoring_config.json`. See [Secret storage and rotation](DEPLOYMENT.md#secret-storage-and-rotation).

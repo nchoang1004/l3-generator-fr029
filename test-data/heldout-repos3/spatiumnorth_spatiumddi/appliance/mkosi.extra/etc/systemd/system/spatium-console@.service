@@ -1,0 +1,72 @@
+[Unit]
+Description=SpatiumDDI appliance console dashboard (%I)
+Documentation=https://github.com/spatiumnorth/spatiumddi/issues/134
+# Same gates as spatium-console.service. The serial console matters
+# most for headless installs (Proxmox `serial0`, IPMI SoL, RPi UART,
+# cloud VM consoles) — operators on those paths benefit from the
+# dashboard more than VGA users do.
+ConditionKernelCommandLine=!spatium-mode=install
+ConditionKernelCommandLine=!spatium-mode=live
+ConditionKernelCommandLine=!spatium-console=off
+ConditionPathExists=/dev/%I
+# Same early-start motivation as spatium-console.service — operators
+# on serial consoles (Proxmox serial0, IPMI SoL) most want the
+# dashboard during boot, when they can't yet ssh in.
+After=systemd-user-sessions.service getty-pre.target
+Before=getty.target
+# #393 — NO Conflicts=serial-getty@%i.service. Same fix + reasoning as
+# spatium-console.service: a load-time Conflicts= leaks (ConflictedBy)
+# and drops serial-getty from the boot transaction even when this unit
+# stays inactive in text_console mode, leaving a serial-only box with no
+# login. The dashboard and serial-getty are now mutually exclusive purely
+# by their opposite spatium-console=off conditions (serial-getty's gate is
+# in serial-getty@ttyS0.service.d/spatium-console-gate.conf). The
+# ExecStartPre `systemctl stop serial-getty@%i` below stays as
+# belt-and-braces.
+
+[Service]
+Type=idle
+ExecStartPre=-/usr/bin/systemctl stop serial-getty@%i.service
+# Serial consoles already drive arbitrary character grids (the
+# software terminal on the host picks the size), so setfont is a
+# no-op here — left in for symmetry with the tty1 unit.
+ExecStartPre=-/usr/bin/setfont -C /dev/%I Lat15-Terminus12x6
+ExecStart=/usr/local/bin/spatium-console --tty /dev/%I
+StandardInput=tty
+StandardOutput=tty
+StandardError=journal
+TTYPath=/dev/%I
+TTYReset=yes
+TTYVHangup=yes
+Restart=always
+RestartSec=2
+# Bail out of the restart loop when the script exits with 75
+# (EX_TEMPFAIL). spatium-console probes the target TTY at startup and
+# returns 75 on EIO so we don't crash-loop the dashboard on a
+# /dev/ttyS0 with no actual serial device attached (kernel-cmdline
+# ``console=ttyS0`` creates the device node unconditionally; the VM
+# may have no serial port). Without this every respawn fires a
+# cluster_pods() call that gets terminated mid-flight and spams the
+# docker daemon journal with "broken pipe" entries.
+RestartPreventExitStatus=75
+# #994 — and record that verdict as a SUCCESS, not a failure.
+#
+# The kernel cmdline carries ``console=ttyS0,115200n8`` on every install and
+# mkosi.postinst enables this instance unconditionally, so on the common VM
+# with no serial device (Proxmox, VMware, Hyper-V) the probe above fires on
+# every boot. Without this line the unit is left ``failed``, which means
+# ``systemctl --failed`` is never empty on a perfectly healthy appliance —
+# and an operator who learns to ignore that list will ignore it on the boot
+# where it matters. "There is no serial port here, nothing to render" is the
+# probe working, so it exits clean and the unit reads ``inactive (dead)``.
+#
+# RestartPreventExitStatus stays: SuccessExitStatus alone would leave 75
+# subject to ``Restart=always``, which restarts on success too.
+SuccessExitStatus=75
+UtmpIdentifier=%I
+UtmpMode=user
+OOMScoreAdjust=-100
+# Common serial-console env. systemd-getty-generator passes baud via
+# the template arg; we drive agetty with --keep-baud on the F1
+# handoff so whatever the kernel set up stays.
+Environment=TERM=vt220

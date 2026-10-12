@@ -1,0 +1,818 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  # ``paths-ignore`` is deliberately absent. Skipped workflow runs
+  # don't post the required check-runs the ``protect-main`` ruleset
+  # waits for, so docs-only PRs (CHANGELOG bumps, README polish,
+  # release-prep PRs) sit BLOCKED forever even though every code
+  # check would be a no-op.
+  #
+  # #813 gets the runtime back without that trade: the workflow still
+  # ALWAYS runs and always posts every check, and the expensive part
+  # (12 backend test shards, each with its own Postgres + Redis) is
+  # gated per-JOB on change detection instead. A docs-only PR now
+  # posts a green "Backend — Tests" in seconds rather than minutes,
+  # and no ruleset knows the difference.
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ── Change detection (issue #813) ──────────────────────────────────────────
+  # Cheap (~15 s) job whose only output decides whether the 12 backend test
+  # shards run. Everything else in this workflow is unconditional.
+  #
+  # Deliberately NOT ``dorny/paths-filter``: a plain git diff needs no
+  # third-party action in the supply chain for something this small, and it
+  # sidesteps that action's base-ref handling on non-PR events.
+  #
+  # The matching itself lives in ``.github/scripts/ci-backend-relevant.sh`` so
+  # it can be tested without pushing a branch — see
+  # ``backend/tests/test_ci_backend_relevant.py``. Read that script's header
+  # before changing the path list; the deny-list shape is load-bearing.
+  changes:
+    name: Detect changed paths
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # #1020 — to download the test-impact map from the last main run.
+      actions: read
+    outputs:
+      backend: ${{ steps.detect.outputs.backend }}
+      # #1020 — "all", or the space-separated test files this PR can affect.
+      tests: ${{ steps.select.outputs.tests }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The diff is taken against the PR's merge base, so both sides of
+          # the history have to be present.
+          fetch-depth: 0
+
+      - id: detect
+        name: Does this change set need the backend suite?
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          # Push to main runs the full suite unconditionally: it is the
+          # post-merge safety net, and a squash-merge's diff is not the
+          # thing we filtered on when the PR was open.
+          if [ "$EVENT" != "pull_request" ]; then
+            echo "event=$EVENT — running the full backend suite"
+            echo "backend=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Three dots: changes on the head branch since the merge base, not
+          # everything main has moved on by.
+          #
+          # ``--no-renames`` is load-bearing. With rename detection on (the
+          # default) ``git mv backend/thing.py docs/thing.md`` reports ONLY
+          # the destination — so a PR that deletes a backend file by moving
+          # it out of the tree would look docs-only and skip the whole suite.
+          # We want both sides of every rename in the list.
+          changed="$RUNNER_TEMP/changed-files.txt"
+          if ! git diff --no-renames --name-only "$BASE_SHA...$HEAD_SHA" > "$changed"; then
+            echo "::warning::could not diff $BASE_SHA...$HEAD_SHA — running the full backend suite"
+            echo "backend=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Changed files:"
+          sed 's/^/  /' "$changed"
+
+          relevant="$(.github/scripts/ci-backend-relevant.sh < "$changed")"
+          echo "backend=$relevant" >> "$GITHUB_OUTPUT"
+          if [ "$relevant" = "true" ]; then
+            echo "→ backend suite WILL run"
+          else
+            echo "→ nothing the backend suite covers changed; shards will be skipped"
+          fi
+
+      # #1020 — WHICH backend tests can this change set affect? Reads the
+      # test-impact map the most recent successful push-to-main run built from
+      # its shards' coverage contexts ({app file → test files that executed
+      # it}) and applies the fail-open rules in
+      # .github/scripts/select_impacted_tests.py. The answer is "all" whenever
+      # the map is missing or any changed path is outside what the map can
+      # speak for (migrations, config, data files, conftest, import-only
+      # modules such as models, anything in the must-run manifest). Push to
+      # main always runs everything — that is the safety net that makes a
+      # wrong selection recoverable rather than lost, the same contract #813
+      # relies on. Nothing in this step may fail the job: every error path
+      # lands on "all".
+      - id: select
+        name: Which backend tests can this change set affect?
+        if: steps.detect.outputs.backend == 'true'
+        env:
+          EVENT: ${{ github.event_name }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          tests=all
+          if [ "$EVENT" = "pull_request" ]; then
+            map_dir="$RUNNER_TEMP/impact-map"
+            mkdir -p "$map_dir"
+            # Newest successful main run that published a map. A green run can
+            # lack one (the aggregator builds it only when every shard ran), so
+            # look back a few. ``gh`` is preinstalled on ubuntu-latest.
+            for run_id in $(gh run list --workflow CI --branch main --event push \
+                              --status success --limit 5 --json databaseId \
+                              --jq '.[].databaseId' 2>/dev/null || true); do
+              if gh run download "$run_id" -n test-impact-map -D "$map_dir" 2>/dev/null; then
+                echo "test-impact map from main run $run_id"
+                break
+              fi
+            done
+            tests="$(python3 .github/scripts/select_impacted_tests.py \
+                       --changed "$RUNNER_TEMP/changed-files.txt" \
+                       --map "$map_dir/test-impact-map.json")" || tests=all
+            [ -n "$tests" ] || tests=all
+          fi
+          echo "tests=$tests" >> "$GITHUB_OUTPUT"
+          if [ "$tests" = all ]; then
+            echo "→ full backend suite"
+          else
+            echo "→ narrowed to: $tests"
+          fi
+
+  # ── Backend ────────────────────────────────────────────────────────────────
+  backend-lint:
+    name: Backend — Lint & Type Check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: ruff check
+        run: python -m ruff check app tests
+
+      - name: black check
+        run: python -m black --check app tests
+
+      - name: mypy
+        run: python -m mypy app
+
+      # Stops the untyped-response-schema class from growing (issue #917).
+      # A route with no response_model publishes an unconstrained object, so a
+      # generated client gets a dictionary instead of a model — the same
+      # silent drift #907 fixed for nullable properties. 91 routes were in
+      # that state when the guard landed; the checked-in baseline may shrink,
+      # never grow. Extraction imports the app, which this job already has
+      # installed, so no container is needed here.
+      - name: Untyped-route guard
+        working-directory: ${{ github.workspace }}
+        # ``&&`` rather than two statements (#1030). The default shell is
+        # already ``-e``, so this is belt-and-braces — but the pairing is
+        # the thing that must not drift: a failed ``--list`` writes an
+        # EMPTY file, and ``--check`` over an empty listing used to report
+        # a clean pass. The script now refuses that too; both halves are
+        # kept so neither is the only line of defence.
+        run: |
+          python3 scripts/lint_untyped_routes.py --list > /tmp/untyped-routes.txt \
+            && python3 scripts/lint_untyped_routes.py --check /tmp/untyped-routes.txt
+
+      # Enforces the expand/contract migration contract (issue #296).
+      # Every Alembic migration must be safe against BOTH N-1 and N
+      # application code during the rolling-upgrade mixed-version
+      # window. The linter is stdlib-only and runs from repo root, so
+      # the ``working-directory: backend`` default is overridden here.
+      - name: Migration-shape linter
+        working-directory: ${{ github.workspace }}
+        run: python3 scripts/lint_migrations.py
+
+      # #975 — every version pin Dependabot cannot see (Helm's five copies,
+      # chart values.yaml, Dockerfile ARGs, the appliance bake arrays, CI
+      # script defaults, action `with:` inputs) is declared in the root
+      # versions.json, and this asserts the files still agree with it. Without
+      # it those pins drift silently: Dependabot moved the frontend image to
+      # nginx 1.31 on 2026-07-20 (#688) and the appliance chart's copy sat on
+      # 1.30.3 until #975, because only one of the two was Dependabot-visible
+      # and nothing connected them. stdlib-only; runs from repo root, so the
+      # ``working-directory: backend`` default is overridden here.
+      - name: Version-pin manifest linter
+        working-directory: ${{ github.workspace }}
+        run: python3 scripts/lint_versions.py
+
+      # #1036 — a `run:` step that captures $? after a bare command is dead
+      # code: Actions supplies `bash -e`, and the `set -uo pipefail` several
+      # steps open with does NOT clear it, so the capture is never reached on
+      # the failure it exists to handle. That silently disarmed the weekly
+      # CVE scan for as long as it had findings to report. Neither actionlint
+      # nor shellcheck -S style flags the shape (both checked), hence a
+      # linter of our own. stdlib-only; runs from repo root.
+      - name: Workflow shell-status linter
+        working-directory: ${{ github.workspace }}
+        run: python3 scripts/lint_workflow_shell.py
+
+      # #1088 — a published image whose Dockerfile never upgrades the base
+      # image's own packages can only be fixed by upstream rebuilding that
+      # base, and one that declares no snapshot ARG has its package layer
+      # served from the nightly's cache forever, so even an upgrade line that
+      # IS there never executes. Both failed silently on the api image: green
+      # build, published image, and a Trivy report weeks later blaming
+      # packages nobody touched. stdlib-only; runs from repo root.
+      - name: Shipped-image package-upgrade linter
+        working-directory: ${{ github.workspace }}
+        run: python3 scripts/lint_image_upgrades.py
+
+      # Guards the appliance host-side runner scripts (issues #550/#553):
+      # every systemd ExecStart runner must be executable in the built
+      # image (git +x OR chmod'd in mkosi.postinst) and bash -n clean.
+      # Catches the class of bug where a shipped feature is dead because
+      # its runner hit 203/EXEC. stdlib-only; runs from repo root.
+      - name: Appliance runner linter
+        working-directory: ${{ github.workspace }}
+        run: python3 scripts/lint_appliance_runners.py
+
+      # #1009 — no surface may promise SSH/22 as an unconditional recovery
+      # path, which ``ssh_lockdown`` made false. Lives here rather than in
+      # the backend suite because it reads ``frontend/src`` (where four of
+      # the seven stale claims were) and the backend shards are path-filtered
+      # off frontend changes. stdlib-only, no database; runs from repo root.
+      - name: SSH recovery-claim linter
+        working-directory: ${{ github.workspace }}
+        run: python3 scripts/lint_ssh_recovery_claims.py
+
+      # #1070 — the published docs site carries docs/ and nothing else, so a
+      # relative link out of it 404s for every reader while still working on
+      # GitHub, where docs/ sits beside the code. There were 92 such links
+      # when this landed. stdlib-only, no database; runs from repo root.
+      - name: Docs link linter
+        working-directory: ${{ github.workspace }}
+        run: python3 scripts/lint_docs_links.py
+
+  # The ~4,200-test suite is DB-bound (conftest TRUNCATEs every table per
+  # test), so we fan it out across 12 parallel jobs via pytest-split; each
+  # job still runs ``-n auto`` (4 xdist workers on a 4-vCPU runner).
+  #
+  # #1019 — the split is balanced by DURATION, from the committed
+  # ``backend/.test_durations``. Without that file pytest-split splits by
+  # test COUNT, and one shard of 8 took 25-28 min while the other seven took
+  # ~11 for the same 595 tests (PR #1018) — the whole PR waited on it. Each
+  # shard records what it measured (``--store-durations --clean-durations``
+  # → only the tests it ran) and uploads it; the aggregator merges the
+  # pieces into a ``test-durations`` artifact — normalizing each shard by
+  # its runner's speed first, because hosted runners vary ~2x run to run
+  # and a raw measurement would bake one slow runner into every test it
+  # held — and warns when the committed file has stopped describing the
+  # suite's relative costs; ``make test-durations`` downloads that artifact
+  # for a human to commit. A stale file degrades gracefully — an unknown
+  # test is assumed average — so the refresh is a release-prep chore,
+  # never a gate. Expect the slowest shard to be ~2x the median on a bad
+  # runner day; that bounds the wall clock and no balancing removes it.
+  #
+  # Coverage is NOT collected here. #435 dropped it from this command, but
+  # ``addopts`` in backend/pyproject.toml silently re-added it on every run
+  # (every shard log ended with the full coverage table, ~15-30 % overhead);
+  # it now lives only behind ``make test-cov``.
+  backend-test-shard:
+    name: Backend — Tests (shard ${{ matrix.shard }}/12)
+    runs-on: ubuntu-latest
+    # #813 — skipped when the PR touches nothing the suite covers. The
+    # aggregator below stays green in that case, so no required check
+    # notices. ``changes`` failing leaves this skipped too, and the
+    # aggregator treats THAT as a failure (it only accepts a skip that
+    # detection explicitly asked for).
+    needs: [changes]
+    if: needs.changes.outputs.backend == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+    defaults:
+      run:
+        working-directory: backend
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: spatiumddi
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: spatiumddi_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:8.10.2-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Run migrations
+        env:
+          DATABASE_URL: postgresql+asyncpg://spatiumddi:test@localhost:5432/spatiumddi_test
+          # #1364 — b3c71e9a4d25 encrypts with the install's credential key,
+          # so importing app.core.crypto builds Settings, which refuses the
+          # placeholder SECRET_KEY. Same value as the test step below.
+          SECRET_KEY: ci-test-secret-key-not-for-production
+        run: alembic upgrade head
+
+      - name: Run tests (shard ${{ matrix.shard }} of 12)
+        env:
+          DATABASE_URL: postgresql+asyncpg://spatiumddi:test@localhost:5432/spatiumddi_test
+          # conftest reads its own TEST_DATABASE_URL (defaults to "changeme")
+          TEST_DATABASE_URL: postgresql+asyncpg://spatiumddi:test@localhost:5432/spatiumddi_test
+          REDIS_URL: redis://localhost:6379/0
+          CELERY_BROKER_URL: redis://localhost:6379/1
+          CELERY_RESULT_BACKEND: redis://localhost:6379/2
+          SECRET_KEY: ci-test-secret-key-not-for-production
+          TESTS: ${{ needs.changes.outputs.tests }}
+          EVENT: ${{ github.event_name }}
+        # ``--splits 12 --group N`` (pytest-split) selects this shard's slice
+        # of the suite, balanced by the committed ``.test_durations`` (an even
+        # split by count if that file were ever absent); ``-n auto`` then runs
+        # the slice across the runner's 4 vCPUs, each xdist worker on its own
+        # ``spatiumddi_test_gw<N>`` DB. ``--store-durations --clean-durations``
+        # rewrites .test_durations in the workspace with ONLY this shard's
+        # measured tests, which is what the upload below carries.
+        run: |
+          set -euo pipefail
+          # #1020 — on a PR the changes job may have narrowed the run to the
+          # test files the diff can affect; "all" (and every push to main)
+          # is the whole suite via pyproject's testpaths.
+          if [ "$TESTS" = all ] || [ -z "$TESTS" ]; then set --; else set -- $TESTS; fi
+          # #1020 — the push-to-main run also records WHICH test executed
+          # each line; the aggregator turns that into the test-impact map
+          # PRs select from. Coverage is otherwise off (#1019).
+          extra=()
+          if [ "$EVENT" = push ]; then extra=(--cov=app --cov-context=test --cov-report=); fi
+          rc=0
+          python -m pytest "$@" -n auto --splits 12 --group ${{ matrix.shard }} \
+            --store-durations --clean-durations "${extra[@]}" || rc=$?
+          # A narrowed run can leave this shard's slice empty; pytest reports
+          # that as exit 5, which is not a failure of anything.
+          if [ "$rc" -eq 5 ]; then echo "no tests in this shard's slice"; exit 0; fi
+          exit "$rc"
+
+      # #1019 — this shard's slice of the measurement. It is a dotfile, so
+      # ``include-hidden-files`` is load-bearing: upload-artifact v4+ skips
+      # hidden files silently otherwise and the aggregator would merge nothing.
+      # Full runs only: a narrowed PR run (#1020) measured a subset, and a
+      # subset must never become the file the shards are balanced with.
+      - name: Upload measured durations
+        if: needs.changes.outputs.tests == 'all'
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-durations-shard-${{ matrix.shard }}
+          path: backend/.test_durations
+          include-hidden-files: true
+          retention-days: 7
+
+      # #1020 — this shard's coverage contexts, for the test-impact map.
+      # pytest-cov has already combined the xdist workers' data into one file.
+      - name: Upload coverage contexts
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-shard-${{ matrix.shard }}
+          path: backend/.coverage
+          include-hidden-files: true
+          retention-days: 3
+
+  # Aggregator that collapses the 12 shards into one stable check name,
+  # "Backend — Tests" — the name ``protect-main`` requires (#1022; until then
+  # only the two Frontend jobs and Backend Lint were required, so the one
+  # check that took 28 minutes was the one nobody was forced to wait for).
+  # The skip logic lives HERE and never on the shards' own check names, which
+  # is what lets a required check stay green on a docs-only PR.
+  #
+  # #813: a skip is a pass, but only the skip detection asked for.
+  backend-test:
+    name: Backend — Tests
+    runs-on: ubuntu-latest
+    needs: [changes, backend-test-shard]
+    if: always()
+    steps:
+      - name: All shards passed
+        env:
+          SHARDS: ${{ needs.backend-test-shard.result }}
+          BACKEND_RELEVANT: ${{ needs.changes.outputs.backend }}
+          TESTS: ${{ needs.changes.outputs.tests }}
+        run: |
+          set -euo pipefail
+
+          if [ "$SHARDS" = "skipped" ]; then
+            # Only an explicit "false" justifies a skip. An empty value means
+            # the ``changes`` job itself failed or was cancelled, which took
+            # the shards down with it — that is a broken run, not a clean one,
+            # and must not report green.
+            if [ "$BACKEND_RELEVANT" != "false" ]; then
+              echo "::error::shards were skipped but change detection did not ask for it (backend='$BACKEND_RELEVANT')"
+              exit 1
+            fi
+            echo "no backend-relevant files changed — 12 shards skipped (#813)"
+            exit 0
+          fi
+
+          if [ "$SHARDS" != "success" ]; then
+            echo "::error::backend test shards did not all pass (result=$SHARDS)"
+            exit 1
+          fi
+          if [ "$TESTS" != all ]; then
+            echo "::notice title=Backend tests narrowed (#1020)::this PR ran only the test files its diff can affect: $TESTS — the full suite runs on merge to main"
+          fi
+          echo "all 12 backend test shards passed"
+
+      # #1019 — assemble the full durations picture from the shards' uploads.
+      # Only when EVERY shard succeeded AND the run was not narrowed (#1020):
+      # a partial union would drop the missing tests from the file and they
+      # would be split as "unknown → average" from then on. The job is
+      # ``if: always()``, hence the explicit gate on each step.
+      - uses: actions/checkout@v7
+        if: needs.backend-test-shard.result == 'success'
+
+      - uses: actions/download-artifact@v8
+        if: needs.backend-test-shard.result == 'success' && needs.changes.outputs.tests == 'all'
+        with:
+          pattern: test-durations-shard-*
+          path: ${{ runner.temp }}/durations
+
+      - name: Merge shard durations and report balance
+        if: needs.backend-test-shard.result == 'success' && needs.changes.outputs.tests == 'all'
+        env:
+          DURATIONS: ${{ runner.temp }}/durations
+          MERGED: ${{ runner.temp }}/merged/.test_durations
+        run: |
+          set -euo pipefail
+          python3 scripts/merge_test_durations.py \
+            --committed backend/.test_durations \
+            --out "$MERGED" \
+            "$DURATIONS"/test-durations-shard-*/.test_durations
+
+      # What ``make test-durations`` downloads. 30 days outlives a release
+      # cadence; the per-shard pieces above only need to outlive this job.
+      - name: Upload merged durations
+        if: needs.backend-test-shard.result == 'success' && needs.changes.outputs.tests == 'all'
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-durations
+          path: ${{ runner.temp }}/merged/.test_durations
+          include-hidden-files: true
+          retention-days: 30
+
+      # #1020 — fold the shards' coverage contexts into the test-impact map
+      # PRs select from. Push to main only: that run is always the whole
+      # suite, and a map built from a narrowed run would attribute too little
+      # and shrink the next selection further.
+      - uses: actions/download-artifact@v8
+        if: github.event_name == 'push' && needs.backend-test-shard.result == 'success'
+        with:
+          pattern: coverage-shard-*
+          path: ${{ runner.temp }}/coverage
+
+      - name: Build test-impact map
+        if: github.event_name == 'push' && needs.backend-test-shard.result == 'success'
+        env:
+          COVERAGE: ${{ runner.temp }}/coverage
+          MAP: ${{ runner.temp }}/impact/test-impact-map.json
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet "coverage>=7"
+          python3 .github/scripts/build_test_impact_map.py \
+            --sha "$GITHUB_SHA" --out "$MAP" \
+            "$COVERAGE"/coverage-shard-*/.coverage
+
+      # What the next PR's ``changes`` job downloads. 30 days: a map older
+      # than the last merge to main only exists if main has been idle that
+      # long, and the selector falls back to the full suite without one.
+      - name: Upload test-impact map
+        if: github.event_name == 'push' && needs.backend-test-shard.result == 'success'
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-impact-map
+          path: ${{ runner.temp }}/impact/test-impact-map.json
+          retention-days: 30
+
+  # ── Frontend ───────────────────────────────────────────────────────────────
+  # ── Docs ───────────────────────────────────────────────────────────────────
+  # The published docs embed hand-authored SVG diagrams. Their text is placed
+  # by absolute coordinate, so a relabelled box silently spills out of its
+  # container or off the canvas — invisible in a diff, obvious on the site.
+  # This renders each one in headless Chrome and measures real text metrics.
+  docs-diagrams:
+    name: Docs — Diagram Geometry
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      # ubuntu-latest ships Google Chrome preinstalled, which the script
+      # finds on its own. Install chromium only if that ever stops being
+      # true — apt on a runner without it would otherwise fail the job for
+      # a reason unrelated to the diagrams.
+      - name: Ensure a headless browser is present
+        run: |
+          if ! command -v google-chrome >/dev/null 2>&1 \
+             && ! command -v chromium >/dev/null 2>&1 \
+             && ! command -v chromium-browser >/dev/null 2>&1; then
+            sudo apt-get update && sudo apt-get install -y chromium
+          fi
+
+      - name: Verify diagram geometry
+        run: python3 scripts/verify_svg_diagrams.py
+
+  frontend-lint:
+    name: Frontend — Lint & Type Check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          # #1022 — both frontend jobs install from the same lockfile; without
+          # this each one fetched the whole tree from the registry every run.
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: ESLint
+        run: npm run lint
+
+      - name: Prettier check
+        run: npm run format:check
+
+      - name: TypeScript check
+        run: npm run typecheck
+
+      # #906 — the frontend had no test runner at all. Added with the
+      # enrolment QR because that code is verified by DECODING what it
+      # renders: a transposed row/column or an inverted polarity produces a
+      # QR that looks perfectly normal and scans as nothing, which no amount
+      # of review or type-checking catches. Lives in this job rather than a
+      # new one so it reuses the install above — the suite is <1 s.
+      - name: Vitest
+        run: npm test
+
+  frontend-build:
+    name: Frontend — Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          # #1022 — both frontend jobs install from the same lockfile; without
+          # this each one fetched the whole tree from the registry every run.
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        run: npm run build
+
+  # ── Agents ───────────────────────────────────────────────────────────────────
+  # The standalone agents (DNS / DHCP / supervisor) each ship their own test
+  # suite under ``agent/<name>/tests`` but were never run in CI — ``ci.yml``
+  # only ever touched ``backend`` + ``frontend`` (issue #640). That let
+  # ``agent/supervisor`` sit RED on main undetected, which in turn hid a real
+  # production bug (the ``PeerResolveWatcher`` ``AttributeError`` on the
+  # bootstrap-from-cache path — see #640). These suites are DB-less and fast
+  # (~1-2 s each), so running them on every PR is nearly free.
+  #
+  # NOTE: agent code is NOT yet lint-checked (Backend Lint scopes to
+  # ``backend/app`` + ``backend/tests``) and carries pre-existing ruff/black
+  # drift, so this job runs *tests only*. Bringing agent code under lint is a
+  # separate, larger cleanup (~30 files of black reformatting) deliberately
+  # left out of #640 to keep this change focused.
+  agent-test-shard:
+    name: Agent — Tests (${{ matrix.agent }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # looking-glass joined with #1220, its first tests: the agent had
+        # none, so its TLS handling had never run under CI.
+        agent: [dhcp, dns, supervisor, looking-glass]
+    defaults:
+      run:
+        working-directory: agent/${{ matrix.agent }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          # #1037 — the agent IMAGES ship Python 3.14 (alpine 3.24). Testing
+          # on 3.12 while shipping 3.14 is the skew that lets a 3.14-only
+          # regression reach a pod with every check green. All three suites
+          # were run on 3.14 before this moved.
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: agent/${{ matrix.agent }}/pyproject.toml
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Run tests
+        # The ``@pytest.mark.e2e`` acceptance tests self-``skip()`` when their
+        # docker/live-daemon prerequisites are absent, so a plain ``pytest``
+        # run stays hermetic (no database, no network) — see each agent's
+        # ``tests/test_acceptance.py``.
+        run: python -m pytest tests -q
+
+  # ── Appliance ────────────────────────────────────────────────────────────────
+  # ``appliance/tests`` has ~194 host-portable cases covering the installer's
+  # GRUB rendering, host migration, slot upgrades, cluster-join guards, the
+  # ``--check-preseed`` linter (#581) and the preseed security guards (#581) —
+  # and none of them ran in CI. Same gap #640 found for the agent suites: a
+  # suite nobody runs is a suite that goes red unnoticed, and #549 is a
+  # disk-*wiping* feature, so its guards are exactly the ones that must not
+  # regress silently.
+  #
+  # Deliberately hermetic: no root, no block devices, no Docker, no database.
+  # The only runtime dependency beyond pytest is PyYAML, which
+  # ``spatium-preseed-parse`` imports (the appliance image ships
+  # python3-yaml). Whole suite is ~10 s.
+  #
+  # Like the agent job above, this runs *tests only* — appliance scripts are
+  # not under ruff/black (Backend Lint scopes to ``backend/``), and the two
+  # pre-existing shellcheck findings in ``spatium-install`` (SC2010 / SC2034)
+  # are out of scope here.
+  appliance-test:
+    name: Appliance — Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install pytest pyyaml
+
+      - name: Run tests
+        run: python -m pytest appliance/tests -q
+
+  # ── Helm charts (#966) ──────────────────────────────────────────────────────
+  # Nothing on a PR used to parse either chart: the one PR-time helm job
+  # (agent-e2e) is path-filtered to ``charts/spatiumddi/**`` and installs only
+  # the umbrella chart, so ``charts/spatiumddi-appliance/`` was first read by
+  # helm during ``release.yml``'s ``helm package`` — a template that failed to
+  # render broke the RELEASE, not the PR that introduced it — and no job ran
+  # ``helm lint`` at all. #953 (three chart files) went green on 17 checks,
+  # none of which opened a file it changed.
+  #
+  # The gate lives in ``.github/scripts/charts-render-check.sh`` so ``make
+  # charts-lint`` runs the identical thing locally: helm lint, helm template
+  # with every role / feature toggle ON, kubeconform -strict against the K8s
+  # + CRD schemas, and a no-BestEffort check on the appliance renders (#965).
+  # Unconditional like every other job here — see the header on why ``paths``
+  # filters are absent — and ~1 min.
+  charts-lint:
+    name: Charts — Lint & Template
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Helm
+        uses: azure/setup-helm@v5
+        with:
+          version: v4.3.0
+
+      - name: Install kubeconform
+        run: .github/scripts/install-kubeconform.sh
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install pyyaml
+
+      - name: Cache kubeconform schemas
+        # kubeconform caches fetched schemas only in memory, per invocation;
+        # persisting its disk cache means a steady-state PR fetches nothing
+        # from raw.githubusercontent.com — the job's only flake source.
+        uses: actions/cache@v6
+        with:
+          path: ${{ runner.temp }}/kubeconform-schemas
+          key: kubeconform-schemas-v0.8.0-k8s-1.36.0-${{ hashFiles('.github/scripts/charts-render-check.sh') }}
+
+      - name: Lint, render and validate both charts
+        env:
+          OUT: ${{ runner.temp }}/charts
+          KUBECONFORM_CACHE: ${{ runner.temp }}/kubeconform-schemas
+        run: |
+          mkdir -p "$OUT"
+          .github/scripts/charts-render-check.sh
+
+      - name: Upload rendered manifests
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: rendered-charts
+          path: ${{ runner.temp }}/charts
+          retention-days: 7
+
+  # ── Perf tooling (#968) ─────────────────────────────────────────────────────
+  # ``perf/`` — the off-box load generators + campaign harness the appliance
+  # sizing work runs on — was referenced by no workflow, so its tests never
+  # ran (#955 merged on 25 green checks that opened none of its files) while
+  # the backend path filter, which did not know ``perf/`` either, spent all 8
+  # backend shards on it. Hermetic: the tests use a fake socket, no network,
+  # no appliance, well under a second.
+  #
+  # PyYAML, dnspython and hdrhistogram are the orchestrator's and report's
+  # own imports (perf/requirements.txt): the tests that drive the
+  # orchestrator FSM and the report against them (#1057) import-skip without
+  # the first two, and with pytest alone that skip let a reverted fix pass
+  # this job green (review of #1063). hdrhistogram ships a wheel for x86_64
+  # only, which this runner is.
+  #
+  # Tests only, like the agent + appliance jobs: ``perf/`` is outside the
+  # Backend Lint scope and carries pre-existing ruff/black drift (25 findings,
+  # 39 of 42 files black would reformat, measured 2026-09-04) — bringing it
+  # under lint is a formatting-only change of its own.
+  perf-test:
+    name: Perf — Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install pytest pyyaml dnspython hdrhistogram
+
+      - name: Run tests
+        run: python -m pytest perf -q
+
+  # Required-status-check aggregator: branch protection can gate on the stable
+  # name "Agent — Tests"; this job passes only if all three agent suites did.
+  # Keep this name (and the matrix above) in sync with the required check.
+  agent-test:
+    name: Agent — Tests
+    runs-on: ubuntu-latest
+    needs: [agent-test-shard]
+    if: always()
+    steps:
+      - name: All agent suites passed
+        run: |
+          result="${{ needs.agent-test-shard.result }}"
+          if [ "$result" != "success" ]; then
+            echo "::error::one or more agent test suites failed (result=$result)"
+            exit 1
+          fi
+          echo "all agent test suites passed"

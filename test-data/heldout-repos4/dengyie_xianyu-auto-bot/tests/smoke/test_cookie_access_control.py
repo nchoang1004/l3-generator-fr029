@@ -1,0 +1,899 @@
+"""Cross-user cookie access control regressions."""
+
+
+def test_item_info_routes_are_scoped_to_cookie_owner(client, auth, user_auth):
+    client.post(
+        "/cookies",
+        headers=auth,
+        json={"id": "admin_item_cookie", "value": "unb=admin"},
+    )
+    from db_manager import db_manager
+
+    assert db_manager.save_item_info(
+        "admin_item_cookie",
+        "admin_item_001",
+        {
+            "title": "Owner item",
+            "description": "Owner only",
+            "category": "digital",
+            "price": "9.90",
+        },
+    )
+
+    foreign_list = client.get("/items/cookie/admin_item_cookie", headers=user_auth)
+    foreign_read = client.get("/items/admin_item_cookie/admin_item_001", headers=user_auth)
+    foreign_update = client.put(
+        "/items/admin_item_cookie/admin_item_001",
+        headers=user_auth,
+        json={"item_detail": "{\"title\":\"stolen\"}"},
+    )
+    foreign_delete = client.delete(
+        "/items/admin_item_cookie/admin_item_001",
+        headers=user_auth,
+    )
+    owner_list = client.get("/items/cookie/admin_item_cookie", headers=auth)
+    owner_read = client.get("/items/admin_item_cookie/admin_item_001", headers=auth)
+    owner_update = client.put(
+        "/items/admin_item_cookie/admin_item_001",
+        headers=auth,
+        json={"item_detail": "{\"title\":\"updated\"}"},
+    )
+    owner_delete = client.delete("/items/admin_item_cookie/admin_item_001", headers=auth)
+
+    assert foreign_list.status_code == 403
+    assert foreign_read.status_code == 403
+    assert foreign_update.status_code == 403
+    assert foreign_delete.status_code == 403
+    assert owner_list.status_code == 200
+    assert [item["item_id"] for item in owner_list.json()["items"]] == ["admin_item_001"]
+    assert owner_read.status_code == 200
+    assert owner_read.json()["item"]["item_title"] == "Owner item"
+    assert owner_update.status_code == 200
+    assert owner_delete.status_code == 200
+
+
+def test_item_reply_routes_are_scoped_to_cookie_owner(client, auth, user_auth):
+    client.post(
+        "/cookies",
+        headers=auth,
+        json={"id": "admin_reply_cookie", "value": "unb=admin"},
+    )
+    client.post(
+        "/cookies",
+        headers=user_auth,
+        json={"id": "user_reply_cookie", "value": "unb=user"},
+    )
+    from db_manager import db_manager
+
+    shared_item_id = "shared_reply_item"
+    assert db_manager.save_item_info(
+        "admin_reply_cookie",
+        shared_item_id,
+        {
+            "title": "Owner reply item",
+            "description": "Owner metadata",
+            "category": "digital",
+            "price": "19.90",
+        },
+    )
+    assert db_manager.save_item_info(
+        "user_reply_cookie",
+        shared_item_id,
+        {
+            "title": "Foreign reply item",
+            "description": "Foreign metadata",
+            "category": "digital",
+            "price": "29.90",
+        },
+    )
+    assert db_manager.update_item_reply(
+        "admin_reply_cookie",
+        shared_item_id,
+        "owner reply",
+    )
+
+    foreign_list = client.get("/itemReplays/cookie/admin_reply_cookie", headers=user_auth)
+    foreign_read = client.get(
+        f"/item-reply/admin_reply_cookie/{shared_item_id}",
+        headers=user_auth,
+    )
+    foreign_update = client.put(
+        f"/item-reply/admin_reply_cookie/{shared_item_id}",
+        headers=user_auth,
+        json={"reply_content": "stolen reply"},
+    )
+    foreign_delete = client.delete(
+        f"/item-reply/admin_reply_cookie/{shared_item_id}",
+        headers=user_auth,
+    )
+    foreign_batch_delete = client.request(
+        "DELETE",
+        "/item-reply/batch",
+        headers=user_auth,
+        json={"items": [{"cookie_id": "admin_reply_cookie", "item_id": shared_item_id}]},
+    )
+    owner_list = client.get("/itemReplays/cookie/admin_reply_cookie", headers=auth)
+    owner_read = client.get(
+        f"/item-reply/admin_reply_cookie/{shared_item_id}",
+        headers=auth,
+    )
+    owner_update = client.put(
+        f"/item-reply/admin_reply_cookie/{shared_item_id}",
+        headers=auth,
+        json={"reply_content": "updated owner reply"},
+    )
+    owner_delete = client.delete(
+        f"/item-reply/admin_reply_cookie/{shared_item_id}",
+        headers=auth,
+    )
+
+    assert foreign_list.status_code == 403
+    assert foreign_read.status_code == 403
+    assert foreign_update.status_code == 403
+    assert foreign_delete.status_code == 403
+    assert foreign_batch_delete.status_code == 403
+    assert owner_list.status_code == 200
+    assert owner_list.json()["items"] == [
+        {
+            **owner_list.json()["items"][0],
+            "item_id": shared_item_id,
+            "cookie_id": "admin_reply_cookie",
+            "reply_content": "owner reply",
+            "item_title": "Owner reply item",
+        }
+    ]
+    assert owner_read.status_code == 200
+    assert owner_read.json()["reply_content"] == "owner reply"
+    assert owner_update.status_code == 200
+    assert owner_delete.status_code == 200
+
+
+def test_item_flag_routes_are_scoped_to_cookie_owner(client, auth, user_auth):
+    client.post(
+        "/cookies",
+        headers=auth,
+        json={"id": "admin_item_flag_cookie", "value": "unb=admin"},
+    )
+    from db_manager import db_manager
+
+    assert db_manager.save_item_info(
+        "admin_item_flag_cookie",
+        "flag_item_001",
+        {
+            "title": "Flag item",
+            "description": "Owner only",
+            "category": "digital",
+            "price": "39.90",
+        },
+    )
+
+    foreign_multi_spec = client.put(
+        "/items/admin_item_flag_cookie/flag_item_001/multi-spec",
+        headers=user_auth,
+        json={"is_multi_spec": True},
+    )
+    foreign_multi_quantity = client.put(
+        "/items/admin_item_flag_cookie/flag_item_001/multi-quantity-delivery",
+        headers=user_auth,
+        json={"multi_quantity_delivery": True},
+    )
+    owner_multi_spec = client.put(
+        "/items/admin_item_flag_cookie/flag_item_001/multi-spec",
+        headers=auth,
+        json={"is_multi_spec": True},
+    )
+    owner_multi_quantity = client.put(
+        "/items/admin_item_flag_cookie/flag_item_001/multi-quantity-delivery",
+        headers=auth,
+        json={"multi_quantity_delivery": True},
+    )
+
+    assert foreign_multi_spec.status_code == 403
+    assert foreign_multi_quantity.status_code == 403
+    assert owner_multi_spec.status_code == 200
+    assert owner_multi_quantity.status_code == 200
+    assert db_manager.get_item_multi_spec_status("admin_item_flag_cookie", "flag_item_001") is True
+    assert (
+        db_manager.get_item_multi_quantity_delivery_status(
+            "admin_item_flag_cookie",
+            "flag_item_001",
+        )
+        is True
+    )
+
+
+def test_ai_reply_settings_and_test_are_scoped_to_cookie_owner(
+    client,
+    auth,
+    user_auth,
+    monkeypatch,
+):
+    client.post(
+        "/cookies",
+        headers=auth,
+        json={"id": "admin_ai_reply_cookie", "value": "unb=admin"},
+    )
+    client.post(
+        "/cookies",
+        headers=user_auth,
+        json={"id": "user_ai_reply_cookie", "value": "unb=user"},
+    )
+    from db_manager import db_manager
+    import reply_server
+
+    assert db_manager.save_ai_reply_settings(
+        "admin_ai_reply_cookie",
+        {
+            "ai_enabled": True,
+            "model_name": "owner-model",
+            "api_key": "owner-secret",
+            "base_url": "https://owner.example/v1",
+            "api_type": "openai",
+            "max_discount_percent": 12,
+            "max_discount_amount": 34,
+            "max_bargain_rounds": 2,
+            "custom_prompts": "owner prompt",
+        },
+    )
+    assert db_manager.save_ai_reply_settings(
+        "user_ai_reply_cookie",
+        {
+            "ai_enabled": True,
+            "model_name": "user-model",
+            "api_key": "user-secret",
+            "base_url": "https://user.example/v1",
+            "api_type": "openai",
+            "max_discount_percent": 8,
+            "max_discount_amount": 21,
+            "max_bargain_rounds": 1,
+            "custom_prompts": "user prompt",
+        },
+    )
+    monkeypatch.setattr(
+        reply_server.ai_reply_engine,
+        "is_ai_enabled",
+        lambda cid: cid in {"admin_ai_reply_cookie", "user_ai_reply_cookie"},
+    )
+    monkeypatch.setattr(
+        reply_server.ai_reply_engine,
+        "generate_reply",
+        lambda **kwargs: f"reply for {kwargs['cookie_id']}",
+    )
+
+    foreign_read = client.get("/ai-reply-settings/admin_ai_reply_cookie", headers=user_auth)
+    foreign_update = client.put(
+        "/ai-reply-settings/admin_ai_reply_cookie",
+        headers=user_auth,
+        json={"ai_enabled": False, "model_name": "stolen"},
+    )
+    foreign_test = client.post(
+        "/ai-reply-test/admin_ai_reply_cookie",
+        headers=user_auth,
+        json={"message": "test"},
+    )
+    user_list = client.get("/ai-reply-settings", headers=user_auth)
+    owner_read = client.get("/ai-reply-settings/admin_ai_reply_cookie", headers=auth)
+    owner_update = client.put(
+        "/ai-reply-settings/admin_ai_reply_cookie",
+        headers=auth,
+        json={
+            "ai_enabled": True,
+            "model_name": "updated-owner-model",
+            "api_key": "updated-owner-secret",
+            "base_url": "https://updated.example/v1",
+            "api_type": "openai",
+            "max_discount_percent": 15,
+            "max_discount_amount": 45,
+            "max_bargain_rounds": 4,
+            "custom_prompts": "updated owner prompt",
+        },
+    )
+    owner_test = client.post(
+        "/ai-reply-test/admin_ai_reply_cookie",
+        headers=auth,
+        json={"message": "test", "item_title": "Item"},
+    )
+
+    assert foreign_read.status_code == 403
+    assert foreign_update.status_code == 403
+    assert foreign_test.status_code == 403
+    assert user_list.status_code == 200
+    assert set(user_list.json()) == {"user_ai_reply_cookie"}
+    assert user_list.json()["user_ai_reply_cookie"]["model_name"] == "user-model"
+    assert owner_read.status_code == 200
+    assert owner_read.json()["model_name"] == "owner-model"
+    assert owner_update.status_code == 200
+    assert db_manager.get_ai_reply_settings("admin_ai_reply_cookie")["model_name"] == "updated-owner-model"
+    assert owner_test.status_code == 200
+    assert owner_test.json()["reply"] == "reply for admin_ai_reply_cookie"
+
+
+def test_regular_user_cannot_list_another_users_cookie(client, auth, user_auth):
+    client.post(
+        "/cookies",
+        headers=auth,
+        json={"id": "admin_owned_cookie", "value": "unb=admin; cookie2=secret"},
+    )
+
+    resp = client.get("/cookies", headers=user_auth)
+
+    assert resp.status_code == 200
+    assert "admin_owned_cookie" not in resp.json()
+
+
+def test_regular_user_cannot_update_another_users_cookie(client, auth, user_auth):
+    client.post(
+        "/cookies",
+        headers=auth,
+        json={"id": "admin_cookie_to_update", "value": "unb=admin; cookie2=secret"},
+    )
+
+    resp = client.put(
+        "/cookies/admin_cookie_to_update",
+        headers=user_auth,
+        json={"id": "admin_cookie_to_update", "value": "unb=stolen; cookie2=changed"},
+    )
+
+    assert resp.status_code == 403
+
+
+def test_regular_user_cannot_toggle_another_users_cookie_status(client, auth, user_auth):
+    client.post(
+        "/cookies",
+        headers=auth,
+        json={"id": "admin_cookie_status", "value": "unb=admin"},
+    )
+
+    resp = client.put(
+        "/cookies/admin_cookie_status/status",
+        headers=user_auth,
+        json={"enabled": False, "pause_duration": 10},
+    )
+
+    assert resp.status_code == 403
+
+
+def test_regular_user_cannot_read_another_users_proxy_secret(client, auth, user_auth):
+    client.post(
+        "/cookies",
+        headers=auth,
+        json={"id": "admin_proxy_cookie", "value": "unb=admin"},
+    )
+
+    resp = client.get(
+        "/cookie/admin_proxy_cookie/proxy?include_secret=true",
+        headers=user_auth,
+    )
+
+    assert resp.status_code == 403
+
+
+def test_account_runtime_routes_are_scoped_to_cookie_owner(
+    client,
+    auth,
+    user_auth,
+    monkeypatch,
+):
+    client.post(
+        "/cookies",
+        headers=auth,
+        json={"id": "admin_runtime_cookie", "value": "unb=admin; cookie2=secret"},
+    )
+    client.post(
+        "/cookies",
+        headers=user_auth,
+        json={"id": "user_runtime_cookie", "value": "unb=user; cookie2=user-secret"},
+    )
+    import reply_server
+    from XianyuAutoAsync import XianyuLive
+
+    class _FakeLive:
+        async def list_all_conversations(self, conversation_id, page_size=20):
+            return [{"conversation_id": conversation_id, "content": "hello", "page_size": page_size}]
+
+        async def keep_session_alive(self):
+            return True
+
+    fake_live = _FakeLive()
+
+    async def _run_inline(_cid, factory, timeout=60):
+        result = factory()
+        if hasattr(result, "__await__"):
+            return await result
+        return result
+
+    monkeypatch.setattr(XianyuLive, "get_instance", staticmethod(lambda cid: fake_live))
+    monkeypatch.setattr(reply_server, "_run_live_instance_on_manager_loop", _run_inline)
+    monkeypatch.setattr(
+        reply_server,
+        "_build_live_runtime_status",
+        lambda cid: {"exists": True, "cookie_id": cid},
+    )
+
+    foreign_account_update = client.post(
+        "/cookie/admin_runtime_cookie/account-info",
+        headers=user_auth,
+        json={"username": "stolen", "password": "stolen"},
+    )
+    foreign_details = client.get(
+        "/cookie/admin_runtime_cookie/details?include_secrets=true",
+        headers=user_auth,
+    )
+    foreign_runtime = client.get("/cookies/admin_runtime_cookie/runtime-status", headers=user_auth)
+    foreign_history = client.get(
+        "/cookies/admin_runtime_cookie/conversations/conversation-1@goofish/history",
+        headers=user_auth,
+    )
+    foreign_keepalive = client.post("/cookies/admin_runtime_cookie/session-keepalive", headers=user_auth)
+    foreign_proxy_read = client.get(
+        "/cookie/admin_runtime_cookie/proxy?include_secret=true",
+        headers=user_auth,
+    )
+    foreign_proxy_update = client.post(
+        "/cookie/admin_runtime_cookie/proxy",
+        headers=user_auth,
+        json={
+            "proxy_type": "http",
+            "proxy_host": "127.0.0.1",
+            "proxy_port": 8080,
+            "proxy_user": "foreign",
+            "proxy_pass": "foreign-pass",
+        },
+    )
+    owner_account_update = client.post(
+        "/cookie/admin_runtime_cookie/account-info",
+        headers=auth,
+        json={"username": "owner", "password": "owner-pass", "show_browser": True},
+    )
+    owner_proxy_update = client.post(
+        "/cookie/admin_runtime_cookie/proxy",
+        headers=auth,
+        json={
+            "proxy_type": "http",
+            "proxy_host": "127.0.0.1",
+            "proxy_port": 8080,
+            "proxy_user": "owner",
+            "proxy_pass": "owner-pass",
+        },
+    )
+    owner_details = client.get(
+        "/cookie/admin_runtime_cookie/details?include_secrets=true",
+        headers=auth,
+    )
+    owner_runtime = client.get("/cookies/admin_runtime_cookie/runtime-status", headers=auth)
+    owner_history = client.get(
+        "/cookies/admin_runtime_cookie/conversations/conversation-1@goofish/history?page_size=2",
+        headers=auth,
+    )
+    owner_keepalive = client.post("/cookies/admin_runtime_cookie/session-keepalive", headers=auth)
+    owner_proxy_read = client.get(
+        "/cookie/admin_runtime_cookie/proxy?include_secret=true",
+        headers=auth,
+    )
+
+    assert foreign_account_update.status_code == 403
+    assert foreign_details.status_code == 403
+    assert foreign_runtime.status_code == 403
+    assert foreign_history.status_code == 403
+    assert foreign_keepalive.status_code == 403
+    assert foreign_proxy_read.status_code == 403
+    assert foreign_proxy_update.status_code == 403
+    assert owner_account_update.status_code == 200
+    assert owner_proxy_update.status_code == 200
+    assert owner_details.status_code == 200
+    assert owner_details.json()["username"] == "owner"
+    assert owner_details.json()["password"] == "owner-pass"
+    assert owner_details.json()["runtime_status"]["cookie_id"] == "admin_runtime_cookie"
+    assert owner_runtime.status_code == 200
+    assert owner_runtime.json()["runtime_status"]["cookie_id"] == "admin_runtime_cookie"
+    assert owner_history.status_code == 200
+    assert owner_history.json()["conversation_id"] == "conversation-1"
+    assert owner_history.json()["count"] == 1
+    assert owner_keepalive.status_code == 200
+    assert owner_keepalive.json()["success"] is True
+    assert owner_proxy_read.status_code == 200
+    assert owner_proxy_read.json()["data"]["proxy_user"] == "owner"
+    assert owner_proxy_read.json()["data"]["proxy_pass"] == "owner-pass"
+
+
+def test_account_item_operation_routes_are_scoped_to_cookie_owner(
+    client,
+    auth,
+    user_auth,
+    monkeypatch,
+):
+    client.post(
+        "/cookies",
+        headers=auth,
+        json={"id": "admin_item_ops_cookie", "value": "unb=admin; cookie2=secret"},
+    )
+
+    from XianyuAutoAsync import XianyuLive
+
+    calls = []
+
+    class _FakeLive:
+        def __init__(self, cookies_str, cookie_id, register_instance=False):
+            self.cookie_id = cookie_id
+            calls.append(("init", cookie_id, cookies_str, register_instance))
+
+        async def get_all_items(self, sync_item_details=False):
+            calls.append(("get_all_items", self.cookie_id, sync_item_details))
+            return {"total_count": 2, "total_pages": 1}
+
+        async def get_item_list_info(self, page_number=1, page_size=20, sync_item_details=False):
+            calls.append(("get_item_list_info", self.cookie_id, page_number, page_size, sync_item_details))
+            return {
+                "success": True,
+                "items": [{"item_id": "item-1"}],
+                "current_count": 1,
+                "page_number": page_number,
+                "page_size": page_size,
+            }
+
+        async def polish_all_items(self):
+            calls.append(("polish_all_items", self.cookie_id))
+            return {"success": True, "polished_count": 2}
+
+        async def close_session(self):
+            calls.append(("close_session", self.cookie_id))
+
+    monkeypatch.setattr(XianyuLive, "__init__", _FakeLive.__init__)
+    monkeypatch.setattr(XianyuLive, "get_all_items", _FakeLive.get_all_items)
+    monkeypatch.setattr(XianyuLive, "get_item_list_info", _FakeLive.get_item_list_info)
+    monkeypatch.setattr(XianyuLive, "polish_all_items", _FakeLive.polish_all_items)
+    monkeypatch.setattr(XianyuLive, "close_session", _FakeLive.close_session)
+
+    foreign_all = client.post(
+        "/items/get-all-from-account",
+        headers=user_auth,
+        json={"cookie_id": "admin_item_ops_cookie"},
+    )
+    foreign_page = client.post(
+        "/items/get-by-page",
+        headers=user_auth,
+        json={"cookie_id": "admin_item_ops_cookie", "page_number": 1, "page_size": 10},
+    )
+    foreign_polish = client.post("/accounts/admin_item_ops_cookie/polish-items", headers=user_auth)
+
+    owner_all = client.post(
+        "/items/get-all-from-account",
+        headers=auth,
+        json={"cookie_id": "admin_item_ops_cookie"},
+    )
+    owner_page = client.post(
+        "/items/get-by-page",
+        headers=auth,
+        json={"cookie_id": "admin_item_ops_cookie", "page_number": 2, "page_size": 5},
+    )
+    owner_polish = client.post("/accounts/admin_item_ops_cookie/polish-items", headers=auth)
+
+    assert foreign_all.status_code == 403
+    assert foreign_page.status_code == 403
+    assert foreign_polish.status_code == 403
+    assert owner_all.status_code == 200
+    assert owner_all.json()["success"] is True
+    assert owner_all.json()["total_count"] == 2
+    assert owner_page.status_code == 200
+    assert owner_page.json()["success"] is True
+    assert owner_page.json()["current_count"] == 1
+    assert owner_polish.status_code == 200
+    assert owner_polish.json()["success"] is True
+    assert ("get_all_items", "admin_item_ops_cookie", True) in calls
+    assert ("get_item_list_info", "admin_item_ops_cookie", 2, 5, True) in calls
+    assert ("polish_all_items", "admin_item_ops_cookie") in calls
+
+
+def test_chat_runtime_routes_are_scoped_to_cookie_owner(
+    client,
+    auth,
+    user_auth,
+    monkeypatch,
+):
+    client.post(
+        "/cookies",
+        headers=auth,
+        json={"id": "admin_chat_runtime_cookie", "value": "unb=admin"},
+    )
+    from db_manager import db_manager
+
+    chat_id = "chat-runtime-1"
+    db_manager.save_chat_message(
+        cookie_id="admin_chat_runtime_cookie",
+        chat_id=chat_id,
+        sender_id="buyer-1",
+        sender_name="Owner buyer",
+        content="owner-only message",
+        direction=2,
+    )
+
+    sent = []
+
+    class _FakeLive:
+        connection_state = None
+        ws = object()
+        myid = "owner-seller"
+
+        async def send_msg(self, ws, target_chat_id, to_user_id, message):
+            sent.append((ws, target_chat_id, to_user_id, message))
+
+    from XianyuAutoAsync import ConnectionState, XianyuLive
+    import reply_server
+
+    live = _FakeLive()
+    live.connection_state = ConnectionState.CONNECTED
+
+    monkeypatch.setattr(
+        XianyuLive,
+        "get_instance",
+        staticmethod(lambda cookie_id: live if cookie_id == "admin_chat_runtime_cookie" else None),
+    )
+
+    async def _run_inline(cookie_id, coroutine_factory, timeout=None):
+        return await coroutine_factory()
+
+    monkeypatch.setattr(reply_server, "_run_live_instance_on_manager_loop", _run_inline)
+
+    foreign_sessions = client.get(
+        "/api/chat/sessions?cookie_id=admin_chat_runtime_cookie",
+        headers=user_auth,
+    )
+    foreign_messages = client.get(
+        f"/api/chat/messages?cookie_id=admin_chat_runtime_cookie&chat_id={chat_id}",
+        headers=user_auth,
+    )
+    foreign_send = client.post(
+        "/api/chat/send",
+        headers=user_auth,
+        json={
+            "cookie_id": "admin_chat_runtime_cookie",
+            "chat_id": chat_id,
+            "to_user_id": "buyer-1",
+            "message": "foreign send",
+        },
+    )
+
+    owner_sessions = client.get(
+        "/api/chat/sessions?cookie_id=admin_chat_runtime_cookie&include_order_fallback=false",
+        headers=auth,
+    )
+    owner_messages = client.get(
+        f"/api/chat/messages?cookie_id=admin_chat_runtime_cookie&chat_id={chat_id}",
+        headers=auth,
+    )
+    owner_send = client.post(
+        "/api/chat/send",
+        headers=auth,
+        json={
+            "cookie_id": "admin_chat_runtime_cookie",
+            "chat_id": chat_id,
+            "to_user_id": "buyer-1",
+            "message": "owner send",
+        },
+    )
+
+    assert foreign_sessions.status_code == 403
+    assert foreign_messages.status_code == 403
+    assert foreign_send.status_code == 403
+    assert owner_sessions.status_code == 200
+    assert owner_sessions.json()["success"] is True
+    assert owner_sessions.json()["sessions"][0]["chat_id"] == chat_id
+    assert owner_messages.status_code == 200
+    assert owner_messages.json()["messages"][0]["content"] == "owner-only message"
+    assert owner_send.status_code == 200
+    assert owner_send.json()["success"] is True
+    assert sent == [(live.ws, chat_id, "buyer-1", "owner send")]
+
+
+def test_duplicate_cookie_id_owned_by_other_user_is_rejected(client, auth, user_auth):
+    client.post(
+        "/cookies",
+        headers=auth,
+        json={"id": "shared_cookie_id", "value": "unb=admin"},
+    )
+
+    resp = client.post(
+        "/cookies",
+        headers=user_auth,
+        json={"id": "shared_cookie_id", "value": "unb=user"},
+    )
+
+    assert resp.status_code == 400
+
+
+def test_cookie_remark_is_scoped_to_owner(client, auth, user_auth):
+    client.post(
+        "/cookies",
+        headers=auth,
+        json={"id": "admin_remark_cookie", "value": "unb=admin"},
+    )
+
+    foreign_read = client.get("/cookies/admin_remark_cookie/remark", headers=user_auth)
+    foreign_write = client.put(
+        "/cookies/admin_remark_cookie/remark",
+        headers=user_auth,
+        json={"remark": "stolen remark"},
+    )
+    owner_write = client.put(
+        "/cookies/admin_remark_cookie/remark",
+        headers=auth,
+        json={"remark": "admin remark"},
+    )
+    owner_read = client.get("/cookies/admin_remark_cookie/remark", headers=auth)
+
+    assert foreign_read.status_code == 403
+    assert foreign_write.status_code == 403
+    assert owner_write.status_code == 200
+    assert owner_write.json()["remark"] == "admin remark"
+    assert owner_read.status_code == 200
+    assert owner_read.json()["remark"] == "admin remark"
+
+
+def test_cookie_pause_duration_is_scoped_to_owner(client, auth, user_auth):
+    client.post(
+        "/cookies",
+        headers=auth,
+        json={"id": "admin_pause_cookie", "value": "unb=admin"},
+    )
+
+    foreign_read = client.get("/cookies/admin_pause_cookie/pause-duration", headers=user_auth)
+    foreign_write = client.put(
+        "/cookies/admin_pause_cookie/pause-duration",
+        headers=user_auth,
+        json={"pause_duration": 15},
+    )
+    owner_write = client.put(
+        "/cookies/admin_pause_cookie/pause-duration",
+        headers=auth,
+        json={"pause_duration": 15},
+    )
+    owner_read = client.get("/cookies/admin_pause_cookie/pause-duration", headers=auth)
+
+    assert foreign_read.status_code == 403
+    assert foreign_write.status_code == 403
+    assert owner_write.status_code == 200
+    assert owner_write.json()["pause_duration"] == 15
+    assert owner_read.status_code == 200
+    assert owner_read.json()["pause_duration"] == 15
+
+
+def test_cookie_auto_confirm_is_scoped_to_owner(client, auth, user_auth):
+    client.post(
+        "/cookies",
+        headers=auth,
+        json={"id": "admin_auto_confirm_cookie", "value": "unb=admin"},
+    )
+
+    foreign_read = client.get("/cookies/admin_auto_confirm_cookie/auto-confirm", headers=user_auth)
+    foreign_write = client.put(
+        "/cookies/admin_auto_confirm_cookie/auto-confirm",
+        headers=user_auth,
+        json={"auto_confirm": True},
+    )
+    owner_write = client.put(
+        "/cookies/admin_auto_confirm_cookie/auto-confirm",
+        headers=auth,
+        json={"auto_confirm": True},
+    )
+    owner_read = client.get("/cookies/admin_auto_confirm_cookie/auto-confirm", headers=auth)
+
+    assert foreign_read.status_code == 403
+    assert foreign_write.status_code == 403
+    assert owner_write.status_code == 200
+    assert owner_write.json()["auto_confirm"] is True
+    assert owner_read.status_code == 200
+    assert owner_read.json()["auto_confirm"] is True
+
+
+def test_cookie_auto_comment_is_scoped_to_owner(client, auth, user_auth):
+    client.post(
+        "/cookies",
+        headers=auth,
+        json={"id": "admin_auto_comment_cookie", "value": "unb=admin"},
+    )
+
+    foreign_read = client.get("/cookies/admin_auto_comment_cookie/auto-comment", headers=user_auth)
+    foreign_write = client.put(
+        "/cookies/admin_auto_comment_cookie/auto-comment",
+        headers=user_auth,
+        json={"auto_comment": True},
+    )
+    owner_write = client.put(
+        "/cookies/admin_auto_comment_cookie/auto-comment",
+        headers=auth,
+        json={"auto_comment": True},
+    )
+    owner_read = client.get("/cookies/admin_auto_comment_cookie/auto-comment", headers=auth)
+
+    assert foreign_read.status_code == 403
+    assert foreign_write.status_code == 403
+    assert owner_write.status_code == 200
+    assert owner_write.json()["auto_comment"] is True
+    assert owner_read.status_code == 200
+    assert owner_read.json()["auto_comment"] is True
+
+
+def test_comment_template_id_must_belong_to_cookie(client, auth, user_auth):
+    client.post(
+        "/cookies",
+        headers=auth,
+        json={"id": "admin_template_cookie", "value": "unb=admin"},
+    )
+    client.post(
+        "/cookies",
+        headers=user_auth,
+        json={"id": "user_template_cookie", "value": "unb=user"},
+    )
+    create_resp = client.post(
+        "/cookies/admin_template_cookie/comment-templates",
+        headers=auth,
+        json={"name": "admin template", "content": "admin comment", "is_active": True},
+    )
+    template_id = create_resp.json()["template_id"]
+
+    update_resp = client.put(
+        f"/cookies/user_template_cookie/comment-templates/{template_id}",
+        headers=user_auth,
+        json={"name": "stolen template", "content": "stolen comment", "is_active": True},
+    )
+    activate_resp = client.put(
+        f"/cookies/user_template_cookie/comment-templates/{template_id}/activate",
+        headers=user_auth,
+    )
+    delete_resp = client.delete(
+        f"/cookies/user_template_cookie/comment-templates/{template_id}",
+        headers=user_auth,
+    )
+    owner_read = client.get("/cookies/admin_template_cookie/comment-templates", headers=auth)
+
+    assert update_resp.status_code == 404
+    assert activate_resp.status_code == 404
+    assert delete_resp.status_code == 404
+    assert owner_read.status_code == 200
+    assert owner_read.json()["templates"] == [
+        {
+            **owner_read.json()["templates"][0],
+            "id": template_id,
+            "name": "admin template",
+            "content": "admin comment",
+            "is_active": True,
+        }
+    ]
+
+
+def test_comment_template_list_and_create_are_scoped_to_owner(client, auth, user_auth):
+    client.post(
+        "/cookies",
+        headers=auth,
+        json={"id": "admin_template_list_cookie", "value": "unb=admin"},
+    )
+
+    foreign_read = client.get(
+        "/cookies/admin_template_list_cookie/comment-templates",
+        headers=user_auth,
+    )
+    foreign_create = client.post(
+        "/cookies/admin_template_list_cookie/comment-templates",
+        headers=user_auth,
+        json={"name": "foreign template", "content": "foreign comment", "is_active": True},
+    )
+    owner_create = client.post(
+        "/cookies/admin_template_list_cookie/comment-templates",
+        headers=auth,
+        json={"name": "owner template", "content": "owner comment", "is_active": True},
+    )
+    owner_read = client.get(
+        "/cookies/admin_template_list_cookie/comment-templates",
+        headers=auth,
+    )
+
+    assert foreign_read.status_code == 403
+    assert foreign_create.status_code == 403
+    assert owner_create.status_code == 200
+    assert owner_read.status_code == 200
+    templates = owner_read.json()["templates"]
+    assert len(templates) == 1
+    assert templates[0]["id"] == owner_create.json()["template_id"]
+    assert templates[0]["name"] == "owner template"
+    assert templates[0]["content"] == "owner comment"
+    assert templates[0]["is_active"] is True

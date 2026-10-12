@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<CommunityApplications>
+  <Profile>
+PrintStash is an open-source, self-hosted 3D print library and G-code vault for Unraid. Organize STL, 3MF, OBJ, STEP/STP, G-code, and BGCODE files with searchable collections and tags, content-hash duplicate detection, in-browser mesh and toolpath previews, automatic slicer metadata extraction, and G-code revision history with known-good, failed, and needs-test outcomes.
+
+Keep an existing local or NAS folder as the source of truth through shared-volume indexing, give multiple users collection-level access, back up locally or to S3-compatible storage, and connect supported printers for file sync, send-to-print, controls, job history, measured filament use, and cost tracking. Moonraker/Klipper is stable; OctoPrint, PrusaLink, Bambu LAN, and supported Elegoo integrations are available with provider-specific beta capabilities.
+
+The current PrintStash template installs one container with the web UI and API together. Legacy API and frontend templates are deprecated for existing installations. Keep its persistent appdata mount, open the WebUI on a trusted local network, and create the first administrator account. Existing two-container users should follow the migration guide before switching templates.
+
+**Website:** https://www.printstash.org
+**Documentation:** https://www.printstash.org/docs/
+**Source and support:** https://github.com/xiao-villamor/PrintStash
+  </Profile>
+  <Icon>https://raw.githubusercontent.com/xiao-villamor/PrintStash/main/icon.svg</Icon>
+  <WebPage>https://www.printstash.org</WebPage>
+  <Forum>https://github.com/xiao-villamor/PrintStash/issues</Forum>
+</CommunityApplications>

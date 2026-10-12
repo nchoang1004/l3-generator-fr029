@@ -1,0 +1,376 @@
+{{- $kubeletCA := .Values.api.kubeletCA -}}
+{{- $cmp := "api" -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "spatiumddi.fullname" . }}-api
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "spatiumddi.componentLabels" (merge (dict "component" $cmp) .) | nindent 4 }}
+spec:
+  replicas: {{ .Values.api.replicas }}
+  selector:
+    matchLabels:
+      {{- include "spatiumddi.componentSelectorLabels" (merge (dict "component" $cmp) .) | nindent 6 }}
+  {{- include "spatiumddi.deploymentStrategy" (dict "mode" .Values.api.podAntiAffinity "replicas" .Values.api.replicas) | nindent 2 }}
+  template:
+    metadata:
+      labels:
+        {{- include "spatiumddi.componentSelectorLabels" (merge (dict "component" $cmp) .) | nindent 8 }}
+      {{- with .Values.api.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      {{- include "spatiumddi.hostUsers" (dict "value" .Values.api.hostUsers "conflict" (.Values.api.applianceHostMounts.enabled) "workload" "api" "why" "the appliance host mounts are on, and the api WRITES the slot-upgrade triggers and maintenance flag into /var/lib/spatiumddi/release-state") | nindent 6 }}
+      {{- with (include "spatiumddi.priorityClassName" (dict "component" .Values.api.priorityClassName "fallback" (.Values.global).priorityClassName)) }}
+      priorityClassName: {{ . | quote }}
+      {{- end }}
+      {{- $seccompType := include "spatiumddi.seccompProfileType" $ }}
+      {{- if or $seccompType .Values.api.applianceHostMounts.enabled }}
+      securityContext:
+        {{- with $seccompType }}
+        seccompProfile:
+          type: {{ . }}
+        {{- end }}
+        {{- if .Values.api.applianceHostMounts.enabled }}
+        # GHSA-h2j9-qrg7-grfw — the host's release-state trigger directory
+        # is 1770 root:<hostGroupGid>, no longer world-writable, so the api
+        # (uid 1000) needs this gid to keep writing the slot-upgrade,
+        # rollback, reboot and maintenance triggers.
+        supplementalGroups:
+          - {{ .Values.api.applianceHostMounts.hostGroupGid }}
+        {{- end }}
+      {{- end }}
+      terminationGracePeriodSeconds: 30
+      {{- if .Values.api.serviceAccount.enabled }}
+      # Phase 11 wave 4 (#183) — the api uses kubeapi for two things
+      # on the appliance: (1) Updating the spatium-appliance-tls
+      # Secret when an operator uploads a cert through the Cert
+      # Manager UI; (2) Listing pods + tailing pod logs for the
+      # /appliance/containers (now /pods) management surface.
+      # Auto-mount the ServiceAccount token at
+      # /var/run/secrets/kubernetes.io/serviceaccount/.
+      serviceAccountName: {{ include "spatiumddi.fullname" . }}-api
+      {{- end }}
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      initContainers:
+        {{- include "spatiumddi.waitForMigrateInit" . | nindent 8 }}
+      containers:
+        - name: api
+          image: {{ include "spatiumddi.image" (merge (dict "imageName" "spatiumddi-api") .) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # Pin the runtime uid/gid to the image's ``app`` user (1000) so the
+          # slot-images hostPath — chowned 1000:1000 by spatiumddi-firstboot
+          # (#415) — is writable regardless of any cluster-level PodSecurity
+          # default. Matches the image USER directive: a no-op on a normal
+          # deploy, deterministic belt-and-braces on the appliance.
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+          ports:
+            - name: http
+              containerPort: 8000
+          env:
+            {{- include "spatiumddi.commonEnv" . | nindent 12 }}
+            {{- if $kubeletCA.enabled }}
+            - name: SPATIUM_KUBELET_CA_PATH
+              value: {{ $kubeletCA.mountPath | quote }}
+            {{- end }}
+            # The node this replica runs on. The api Deployment scales to
+            # the control-plane node count under hard anti-affinity, so on a
+            # cluster there is one api pod per node — and several appliance
+            # endpoints read node-local hostPath mounts. Without this the
+            # pod cannot say which host its answer describes, and the caller
+            # cannot either. Same downward-API shape the supervisor uses.
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            {{- if .Values.frontend.controlPlaneVIP }}
+            # #272 Phase 6 — the self-signed cert bootstrap adds the
+            # control-plane VIP to the cert SANs (and regenerates an
+            # existing self-signed cert that doesn't cover it), so a cert
+            # served on the VIP validates. Threaded from the same value
+            # the frontend Service uses for the LoadBalancer VIP.
+            - name: APPLIANCE_EXTRA_CERT_SANS
+              value: {{ .Values.frontend.controlPlaneVIP | quote }}
+            {{- end }}
+            {{- if .Values.slotImageMirror.enabled }}
+            # #296 Phase B — when the mirror Deployment is on, the api's
+            # slot-image upload + download + delete handlers proxy byte
+            # ops to the mirror Service instead of touching local FS.
+            # See backend/app/api/v1/appliance/slot_images.py for the
+            # branching logic. The URL is the mirror's ClusterIP Service,
+            # in-cluster reachable from every api replica; the X-Mirror-
+            # Auth shared secret defends against in-cluster cross-pod
+            # forgery on top of the network isolation.
+            - name: SLOT_IMAGE_MIRROR_URL
+              value: "http://{{ include "spatiumddi.fullname" . }}-slot-image-mirror.{{ .Release.Namespace }}.svc:8000"
+            - name: SLOT_IMAGE_MIRROR_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "spatiumddi.fullname" . }}-slot-image-mirror-auth
+                  key: secret
+            {{- end }}
+            {{- if .Values.api.serviceControl.enabled }}
+            # #890 — opt-in lifecycle control (Settings → Services). Pair
+            # with ``api.serviceControlRBAC.enabled`` or the api can see
+            # the capability but kubeapi refuses every list and patch.
+            - name: SERVICE_CONTROL_ENABLED
+              value: "true"
+            {{- end }}
+            {{- with .Values.api.env }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          # Liveness — "process responds to HTTP". Deliberately shallow:
+          # a transient Postgres blip should not trigger a pod restart.
+          #
+          # timeoutSeconds is EXPLICIT because the k8s default is 1s and the
+          # api is a single-worker uvicorn: any synchronous work on the event
+          # loop (bcrypt, an inline render, a slow estate query) pushes the
+          # probe's p95 past 1s under load, and three straight tail probes had
+          # the kubelet restarting a HEALTHY pod every few minutes — operators
+          # saw it as recurring ~1 min windows of bare nginx 502s. Every other
+          # workload in this chart already sets timeoutSeconds; the api was
+          # the one omission.
+          #
+          # #1051 — the budgets come from ``api.probes`` and are sized for a
+          # busy loop: 5 s was still short of what one worker under a
+          # sustained request load leaves unanswered (measured live: 57
+          # liveness and 107 readiness misses in ~50 min on a node with idle
+          # CPU, then a liveness kill of a busy, healthy process). See the
+          # values file for the numbers and why each one is what it is.
+          {{- with .Values.api.probes.liveness }}
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            initialDelaySeconds: {{ .initialDelaySeconds }}
+            periodSeconds: {{ .periodSeconds }}
+            timeoutSeconds: {{ .timeoutSeconds }}
+            failureThreshold: {{ .failureThreshold }}
+          {{- end }}
+          # Readiness — "can actually serve traffic". /health/ready
+          # checks DB + Redis connectivity, so an api pod that can't
+          # reach its dependencies is taken out of the LB rotation
+          # instead of returning 5xx to clients. Its timeoutSeconds must
+          # exceed the handler's own bounded worst case (4 s db + 4 s
+          # schema + 2 s redis) or the kubelet never sees the 503 that
+          # names the failing check (#1051).
+          {{- with .Values.api.probes.readiness }}
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            initialDelaySeconds: {{ .initialDelaySeconds }}
+            periodSeconds: {{ .periodSeconds }}
+            timeoutSeconds: {{ .timeoutSeconds }}
+            failureThreshold: {{ .failureThreshold }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.api.resources | nindent 12 }}
+          {{- if or .Values.api.applianceHostMounts.enabled $kubeletCA.enabled }}
+          volumeMounts:
+            {{- if $kubeletCA.enabled }}
+            - name: kubelet-ca
+              mountPath: {{ $kubeletCA.mountPath }}
+              subPath: {{ base $kubeletCA.mountPath }}
+              readOnly: true
+            {{- end }}
+            {{- if .Values.api.applianceHostMounts.enabled }}
+            # Setup-complete flag, slot-upgrade triggers,
+            # maintenance flag — api WRITES here.
+            - name: spatiumddi-host-release-state
+              mountPath: /var/lib/spatiumddi-host/release-state
+            # Slot-upgrade log — api READS for the live tail in the
+            # OS Versions card.
+            - name: spatiumddi-host-log
+              mountPath: /var/log/spatiumddi-host
+              readOnly: true
+            # Host env (deployment_kind, role-config) — api READS for
+            # the Fleet UI's slot/version detection.
+            - name: spatiumddi-host-etc
+              mountPath: /etc/spatiumddi-host
+              readOnly: true
+            # #386 — uploaded / GitHub-imported upgrade-image bytes. Without
+            # a persistent mount these live in the api's ephemeral container
+            # layer and vanish on every api restart: the DB row survives but
+            # the bytes 404 ("Upgrade image bytes missing on disk — re-upload
+            # required"), so a scheduled upgrade fails on download. The
+            # multi-node slot-image mirror (#296) holds these on its own PVC
+            # and the api proxies byte ops there. api WRITES here.
+            #
+            # #787 — mounted even when the mirror is ON, which reads as
+            # redundant and is not. The appliance flips the mirror on at
+            # PROMOTE (the supervisor derives it from the control-plane size),
+            # so an image uploaded while the box was single-node is already on
+            # this hostPath when the mirror's PVC comes up empty. The download
+            # handler falls back to local FS on a mirror miss and finds it
+            # here. A DirectoryOrCreate hostPath costs nothing when unused.
+            - name: slot-images
+              mountPath: /var/lib/spatiumddi/slot-images
+            # #59 — packet-capture .pcap store. api READS here on download;
+            # the worker writes. Single-node shared hostPath (firstboot
+            # chowns it 1000:1000). Always mounted (not mirror-gated).
+            - name: pcaps
+              mountPath: /var/lib/spatiumddi/pcaps
+            # #1160 — local-volume backup archives at the driver's default
+            # path. api writes manual runs and lists / downloads / restores
+            # here; the worker writes every scheduled run to the same
+            # hostPath (firstboot chowns it 1000:1000). Per node on a
+            # multi-node cluster — see applianceHostMounts.backupsDir.
+            - name: backups
+              mountPath: /var/lib/spatiumddi/backups
+            # #989 item 3 — removable (USB) backup disks. HostToContainer
+            # propagation is the whole reason this works: with the DEFAULT
+            # private propagation a disk the host mounts AFTER this pod
+            # started is invisible here, so a backup would write to the
+            # empty underlying directory on the appliance's own /var and
+            # report success. Measured, not assumed. Read-write — the
+            # {api,worker} write archives into <disk>/spatiumddi, which the
+            # host runner chowns to this pod's uid.
+            - name: removable
+              mountPath: /var/lib/spatiumddi/removable
+              mountPropagation: HostToContainer
+            # Slot detection. The slot-status/rollback handlers resolve the
+            # ACTIVE slot from host state: _current_slot_from_cmdline()
+            # matches /proc/cmdline's root UUID against /run/udev/data
+            # records, and the durable default comes from grubenv. Without
+            # these two mounts current_slot/durable_default/is_trial_boot are
+            # null/false on every appliance and POST /slot-upgrade/rollback
+            # refuses with 409 ("active slot couldn't be detected"), so the
+            # documented recovery path cannot be driven through the API. The
+            # supervisor already mounts both (supervisor.yaml); api only
+            # READS.
+            - name: run-udev
+              mountPath: /run/udev
+              readOnly: true
+            - name: boot-efi
+              mountPath: /boot/efi-host
+              readOnly: true
+            {{- end }}
+          {{- end }}
+      {{- if or .Values.api.applianceHostMounts.enabled $kubeletCA.enabled }}
+      volumes:
+      {{- if $kubeletCA.enabled }}
+        # #983 Phase 2 item 6 — the CA that signs kubelet SERVING certs,
+        # which on k3s is its own ``server-ca`` and NOT the CA in the
+        # ServiceAccount token mount. Without this the direct kubelet
+        # transport cannot verify the connection, every node silently falls
+        # back to the broad ``nodes/proxy`` grant, and the remedy the logs
+        # name is unreachable because nothing mounts the file.
+        - name: kubelet-ca
+          hostPath:
+            path: {{ $kubeletCA.hostPath }}
+            type: File
+      {{- end }}
+      {{- if .Values.api.applianceHostMounts.enabled }}
+        - name: spatiumddi-host-release-state
+          hostPath:
+            path: {{ .Values.api.applianceHostMounts.releaseStateDir }}
+            type: DirectoryOrCreate
+        - name: spatiumddi-host-log
+          hostPath:
+            path: {{ .Values.api.applianceHostMounts.hostLogDir }}
+            type: DirectoryOrCreate
+        - name: spatiumddi-host-etc
+          hostPath:
+            path: {{ .Values.api.applianceHostMounts.hostEtcDir }}
+            type: DirectoryOrCreate
+        # #386 — persist upgrade-image bytes across api restarts. The
+        # mirror's PVC is where they live once the mirror is on (#296);
+        # this stays mounted regardless so a pre-promote upload survives
+        # the switch-over (#787 — see the volumeMount comment).
+        - name: slot-images
+          hostPath:
+            path: {{ .Values.api.applianceHostMounts.slotImagesDir }}
+            type: DirectoryOrCreate
+        # #59 — packet-capture .pcap store (shared with the worker).
+        - name: pcaps
+          hostPath:
+            path: {{ .Values.api.applianceHostMounts.pcapsDir }}
+            type: DirectoryOrCreate
+        # #1160 — local-volume backup archives (shared with the worker).
+        - name: backups
+          hostPath:
+            path: {{ .Values.api.applianceHostMounts.backupsDir }}
+            type: DirectoryOrCreate
+        # #989 item 3 — removable (USB) backup disks. DirectoryOrCreate:
+        # spatiumddi-firstboot makes it, but a node that has never had a
+        # disk plugged in must not fail to schedule over an empty dir.
+        - name: removable
+          hostPath:
+            path: {{ .Values.api.applianceHostMounts.removableDir }}
+            type: DirectoryOrCreate
+        # Slot detection (see the volumeMount comment). `Directory`, not
+        # DirectoryOrCreate, matching supervisor.yaml: both paths always
+        # exist on an appliance, and creating an empty /boot/efi or
+        # /run/udev on a mispointed deploy would only mask the
+        # misconfiguration behind null slot fields.
+        - name: run-udev
+          hostPath:
+            path: {{ .Values.api.applianceHostMounts.runUdevDir }}
+            type: Directory
+        - name: boot-efi
+          hostPath:
+            path: {{ .Values.api.applianceHostMounts.bootEfiDir }}
+            type: Directory
+      {{- end }}
+      {{- end }}
+      {{- include "spatiumddi.controlPlaneNodeSelector" (merge (dict "componentNodeSelector" .Values.api.nodeSelector) .) | nindent 6 }}
+      {{- with .Values.api.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- include "spatiumddi.podAntiAffinity" (merge (dict "component" $cmp "mode" .Values.api.podAntiAffinity "replicas" .Values.api.replicas "override" .Values.api.affinity) .) | nindent 6 }}
+      {{- include "spatiumddi.topologySpreadConstraints" (merge (dict "component" $cmp "mode" .Values.api.podAntiAffinity "replicas" .Values.api.replicas "override" .Values.api.topologySpreadConstraints) .) | nindent 6 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "spatiumddi.fullname" . }}-api
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "spatiumddi.componentLabels" (merge (dict "component" $cmp) .) | nindent 4 }}
+spec:
+  type: {{ .Values.api.service.type }}
+  selector:
+    {{- include "spatiumddi.componentSelectorLabels" (merge (dict "component" $cmp) .) | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.api.service.port }}
+      targetPort: http
+{{- if .Values.api.autoscaling.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "spatiumddi.fullname" . }}-api
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "spatiumddi.componentLabels" (merge (dict "component" $cmp) .) | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "spatiumddi.fullname" . }}-api
+  minReplicas: {{ .Values.api.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.api.autoscaling.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.api.autoscaling.targetCPUUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.api.autoscaling.targetMemoryUtilizationPercentage }}
+{{- end }}

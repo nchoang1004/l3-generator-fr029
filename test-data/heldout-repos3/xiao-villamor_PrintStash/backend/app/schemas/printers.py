@@ -1,0 +1,413 @@
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Any, Literal, Optional
+
+from printstash_core.printers import PrintArtifactFormat
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from app.db.models import (
+    CompatibilityPolicy,
+    JobPriority,
+    OperatorGateState,
+    PrinterProvider,
+    PrinterRole,
+    PrinterStatus,
+    PrintJobState,
+    RoutingStrategy,
+)
+from app.schemas.editing import EditingBase
+
+
+def validate_remote_filename_value(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return value
+    cleaned = value.strip()
+    if not cleaned:
+        return cleaned
+    parts = cleaned.replace("\\", "/").split("/")
+    if cleaned.startswith("/") or any(part in {"", ".", ".."} for part in parts):
+        raise ValueError("remote_filename_invalid")
+    if any(ord(char) < 32 for char in cleaned):
+        raise ValueError("remote_filename_invalid")
+    return cleaned
+
+
+class PrinterCapabilities(BaseModel):
+    can_start: bool
+    can_pause: bool
+    can_resume: bool
+    can_cancel: bool
+    can_live_status: bool
+    can_upload: bool
+    can_list_files: bool = False
+    can_send_gcode: bool = False
+    can_measure_consumption: bool = False
+    can_report_material_state: bool = False
+    support_level: str = "stable"
+    support_notes: list[str] = Field(default_factory=list)
+    unsupported_actions: list[str] = Field(default_factory=list)
+    accepted_print_formats: list[PrintArtifactFormat] = Field(default_factory=list)
+
+
+class PrintJobIdentityRead(BaseModel):
+    """Identity reported by a printer; absent values stay absent."""
+
+    display_name: Optional[str] = None
+    task_id: Optional[str] = None
+    subtask_id: Optional[str] = None
+    project_id: Optional[str] = None
+    profile_id: Optional[str] = None
+    gcode_file: Optional[str] = None
+    plate_index: Optional[int] = None
+
+
+class PrintJobReportedMetadataRead(BaseModel):
+    """Only Bambu MQTT metadata actually supplied by the printer."""
+
+    current_layer: Optional[int] = None
+    total_layers: Optional[int] = None
+    nozzle_diameter: Optional[float] = None
+
+
+class PrintJobReproducibilityErrorRead(BaseModel):
+    code: str
+    message: str
+
+
+class PrintJobReproducibilityRead(BaseModel):
+    """Evidence level and download seam for reproducible print history."""
+
+    level: Literal["exact", "metadata", "basic"] = "basic"
+    identity: PrintJobIdentityRead = Field(default_factory=PrintJobIdentityRead)
+    metadata: PrintJobReportedMetadataRead = Field(
+        default_factory=PrintJobReportedMetadataRead
+    )
+    error: Optional[PrintJobReproducibilityErrorRead] = None
+    download_url: Optional[str] = None
+    toolpath_preview_url: Optional[str] = None
+
+
+class PrinterAccess(BaseModel):
+    role: PrinterRole
+    can_view: bool = True
+    can_print: bool = False
+    can_control: bool = False
+    can_admin: bool = False
+
+
+class PrinterPermissionUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    role: PrinterRole
+
+
+class PrinterPermissionRead(BaseModel):
+    id: int
+    user_id: int
+    username: str
+    printer_id: int
+    role: PrinterRole
+    created_at: datetime
+    updated_at: datetime
+
+
+class PrinterCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=255)
+    provider: PrinterProvider = PrinterProvider.MOONRAKER
+    moonraker_url: Optional[str] = Field(default=None, max_length=512)
+    api_key: Optional[str] = Field(default=None, max_length=512)
+    provider_variant: Optional[
+        Literal[
+            "generic",
+            "elegoo_neptune4",
+            "elegoo_centauri_carbon",
+            "elegoo_centauri_carbon_2",
+        ]
+    ] = None
+    bambu_host: Optional[str] = Field(default=None, max_length=255)
+    bambu_serial: Optional[str] = Field(default=None, max_length=255)
+    bambu_access_code: Optional[str] = Field(default=None, max_length=255)
+    prusalink_url: Optional[str] = Field(default=None, max_length=512)
+    prusalink_auth_mode: Optional[Literal["digest", "api_key"]] = None
+    prusalink_username: Optional[str] = Field(default=None, max_length=128)
+    prusalink_password: Optional[str] = Field(default=None, max_length=255)
+    prusalink_api_key: Optional[str] = Field(default=None, max_length=255)
+    elegoo_centauri_host: Optional[str] = Field(default=None, max_length=255)
+    elegoo_centauri_access_code: Optional[str] = Field(default=None, max_length=255)
+    elegoo_centauri_mainboard_id: Optional[str] = Field(default=None, max_length=128)
+    octoprint_url: Optional[str] = Field(default=None, max_length=512)
+    octoprint_api_key: Optional[str] = Field(default=None, max_length=255)
+    model_name: Optional[str] = Field(default=None, max_length=128)
+    notes: Optional[str] = Field(default=None, max_length=4096)
+    group: Optional[str] = Field(default=None, max_length=128)
+    provider_material_sync_enabled: bool = True
+    operator_release_required: bool = False
+
+    @model_validator(mode="after")
+    def validate_provider_fields(self) -> "PrinterCreate":
+        if self.provider == PrinterProvider.MOONRAKER and not self.moonraker_url:
+            raise ValueError("moonraker_url_required")
+        if self.provider == PrinterProvider.BAMBU_LAN:
+            if not self.bambu_host:
+                raise ValueError("bambu_host_required")
+            if not self.bambu_serial:
+                raise ValueError("bambu_serial_required")
+            if not self.bambu_access_code:
+                raise ValueError("bambu_access_code_required")
+        if self.provider == PrinterProvider.PRUSALINK:
+            if not self.prusalink_url:
+                raise ValueError("prusalink_url_required")
+            if self.prusalink_auth_mode == "digest":
+                if not self.prusalink_username or not self.prusalink_password:
+                    raise ValueError("prusalink_digest_credentials_required")
+            elif self.prusalink_auth_mode == "api_key":
+                if not self.prusalink_api_key:
+                    raise ValueError("prusalink_api_key_required")
+            else:
+                raise ValueError("prusalink_auth_mode_required")
+        if self.provider == PrinterProvider.ELEGOO_CENTAURI:
+            if self.provider_variant not in {
+                "elegoo_centauri_carbon",
+                "elegoo_centauri_carbon_2",
+            }:
+                raise ValueError("elegoo_centauri_model_required")
+            if not self.elegoo_centauri_host:
+                raise ValueError("elegoo_centauri_host_required")
+            if (
+                self.provider_variant == "elegoo_centauri_carbon_2"
+                and not self.elegoo_centauri_access_code
+            ):
+                raise ValueError("elegoo_centauri_access_code_required")
+        if self.provider == PrinterProvider.OCTOPRINT:
+            if not self.octoprint_url:
+                raise ValueError("octoprint_url_required")
+            if not self.octoprint_api_key:
+                raise ValueError("octoprint_api_key_required")
+        return self
+
+
+class PrinterUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    provider: Optional[PrinterProvider] = None
+    name: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    moonraker_url: Optional[str] = Field(default=None, max_length=512)
+    api_key: Optional[str] = Field(default=None, max_length=512)
+    provider_variant: Optional[
+        Literal[
+            "generic",
+            "elegoo_neptune4",
+            "elegoo_centauri_carbon",
+            "elegoo_centauri_carbon_2",
+        ]
+    ] = None
+    bambu_host: Optional[str] = Field(default=None, max_length=255)
+    bambu_serial: Optional[str] = Field(default=None, max_length=255)
+    bambu_access_code: Optional[str] = Field(default=None, max_length=255)
+    prusalink_url: Optional[str] = Field(default=None, max_length=512)
+    prusalink_auth_mode: Optional[Literal["digest", "api_key"]] = None
+    prusalink_username: Optional[str] = Field(default=None, max_length=128)
+    prusalink_password: Optional[str] = Field(default=None, max_length=255)
+    prusalink_api_key: Optional[str] = Field(default=None, max_length=255)
+    elegoo_centauri_host: Optional[str] = Field(default=None, max_length=255)
+    elegoo_centauri_access_code: Optional[str] = Field(default=None, max_length=255)
+    elegoo_centauri_mainboard_id: Optional[str] = Field(default=None, max_length=128)
+    octoprint_url: Optional[str] = Field(default=None, max_length=512)
+    octoprint_api_key: Optional[str] = Field(default=None, max_length=255)
+    model_name: Optional[str] = Field(default=None, max_length=128)
+    notes: Optional[str] = Field(default=None, max_length=4096)
+    group: Optional[str] = Field(default=None, max_length=128)
+    provider_material_sync_enabled: Optional[bool] = None
+    operator_release_required: Optional[bool] = None
+
+
+class PrinterRead(EditingBase):
+    id: int
+    name: str
+    provider: PrinterProvider
+    moonraker_url: str
+    has_api_key: bool
+    provider_variant: Optional[str] = None
+    bambu_host: Optional[str] = None
+    bambu_serial: Optional[str] = None
+    has_bambu_access_code: bool = False
+    prusalink_url: Optional[str] = None
+    prusalink_auth_mode: Optional[str] = None
+    prusalink_username: Optional[str] = None
+    has_prusalink_password: bool = False
+    has_prusalink_api_key: bool = False
+    elegoo_centauri_host: Optional[str] = None
+    elegoo_centauri_mainboard_id: Optional[str] = None
+    has_elegoo_centauri_access_code: bool = False
+    octoprint_url: Optional[str] = None
+    has_octoprint_api_key: bool = False
+    model_name: Optional[str] = None
+    detected_model: Optional[str] = None
+    capabilities: PrinterCapabilities
+    access: PrinterAccess
+    notes: Optional[str] = None
+    group: Optional[str] = None
+    is_default: bool = False
+    drain_mode: bool = False
+    drain_reason: Optional[str] = None
+    drain_updated_at: Optional[datetime] = None
+    provider_material_sync_enabled: bool = True
+    operator_release_required: bool = False
+    status: PrinterStatus
+    last_seen_at: Optional[datetime] = None
+    last_error: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class MoonrakerConfigRead(BaseModel):
+    printer_id: int
+    server_info: dict[str, Any] = Field(default_factory=dict)
+    printer_info: dict[str, Any] = Field(default_factory=dict)
+    moonraker_config: dict[str, Any] = Field(default_factory=dict)
+    klipper_config: dict[str, Any] = Field(default_factory=dict)
+
+
+class SendToPrinter(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    file_id: int = Field(gt=0)
+    start_print: bool = False
+    remote_filename: Optional[str] = Field(default=None, max_length=512)
+    # Optional Spoolman spool this print consumes. ``spool_name`` is the
+    # caller-supplied label (the UI already has the spool list) cached for
+    # readable history without a backend Spoolman round-trip.
+    spool_id: Optional[int] = None
+    spool_name: Optional[str] = Field(default=None, max_length=256)
+    spool_filament_id: Optional[int] = None
+    compatibility_policy: CompatibilityPolicy = CompatibilityPolicy.SAFE
+
+    @field_validator("remote_filename")
+    @classmethod
+    def validate_remote_filename(cls, value: Optional[str]) -> Optional[str]:
+        return validate_remote_filename_value(value)
+
+
+class StartPrinterFile(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    remote_filename: str = Field(min_length=1, max_length=512)
+    file_id: Optional[int] = Field(default=None, gt=0)
+
+    @field_validator("remote_filename")
+    @classmethod
+    def validate_remote_filename(cls, value: str) -> str:
+        cleaned = validate_remote_filename_value(value)
+        if not cleaned:
+            raise ValueError("remote_filename_invalid")
+        return cleaned
+
+
+class SetTemperature(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    heater: Literal["extruder", "bed"]
+    # Sanity caps only — Klipper enforces each heater's real ``max_temp`` and
+    # rejects out-of-range targets. This just stops obvious typos.
+    target: float = Field(ge=0, le=500)
+
+
+class HomeAxes(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    # Empty/None homes all axes (G28). Otherwise a subset like "xy".
+    axes: Optional[str] = Field(default=None, max_length=3)
+
+    @field_validator("axes")
+    @classmethod
+    def validate_axes(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return value
+        cleaned = value.strip().lower()
+        if not cleaned:
+            return None
+        if any(c not in "xyz" for c in cleaned) or len(set(cleaned)) != len(cleaned):
+            raise ValueError("axes_invalid")
+        return cleaned
+
+
+class PrintJobRead(BaseModel):
+    id: int
+    printer_id: Optional[int] = None
+    file_id: int
+    model_id: int
+    remote_filename: str
+    state: PrintJobState
+    progress: float
+    source: str = "vault"
+    external_display_name: Optional[str] = None
+    external_task_id: Optional[str] = None
+    external_subtask_id: Optional[str] = None
+    external_project_id: Optional[str] = None
+    external_profile_id: Optional[str] = None
+    external_gcode_file: Optional[str] = None
+    external_plate_index: Optional[int] = None
+    external_current_layer: Optional[int] = None
+    external_total_layers: Optional[int] = None
+    external_nozzle_diameter: Optional[float] = None
+    artifact_evidence: str = "vault"
+    artifact_capture_error: Optional[str] = None
+    artifact_capture_error_code: Optional[str] = None
+    artifact_capture_error_message: Optional[str] = None
+    reproducibility_level: Literal["exact", "metadata", "basic"] = "basic"
+    identity: PrintJobIdentityRead = Field(default_factory=PrintJobIdentityRead)
+    metadata: PrintJobReportedMetadataRead = Field(
+        default_factory=PrintJobReportedMetadataRead
+    )
+    reproducibility: PrintJobReproducibilityRead = Field(
+        default_factory=PrintJobReproducibilityRead
+    )
+    download_url: Optional[str] = None
+    toolpath_preview_url: Optional[str] = None
+    error: Optional[str] = None
+    routing_strategy: RoutingStrategy = RoutingStrategy.MANUAL
+    queue_position: int = 0
+    provider_job_id: Optional[str] = None
+    blocked_reason: Optional[str] = None
+    dispatch_claimed_at: Optional[datetime] = None
+    dispatch_attempts: int = 0
+    retryable: bool = False
+    requested_by: Optional[int] = None
+    batch_id: Optional[int] = None
+    copy_index: Optional[int] = None
+    priority: JobPriority = JobPriority.NORMAL
+    target_group: Optional[str] = None
+    compatibility_policy: CompatibilityPolicy = CompatibilityPolicy.SAFE
+    material_override_by: Optional[int] = None
+    material_override_at: Optional[datetime] = None
+    operator_gate_state: OperatorGateState = OperatorGateState.NOT_REQUIRED
+    operator_decided_by: Optional[int] = None
+    operator_decided_at: Optional[datetime] = None
+    spool_id: Optional[int] = None
+    spool_name: Optional[str] = None
+    started_at: Optional[datetime] = None
+    finished_at: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class PrinterFileRead(BaseModel):
+    id: int
+    printer_id: int
+    printer_name: Optional[str] = None
+    file_id: Optional[int] = None
+    model_id: Optional[int] = None
+    model_name: Optional[str] = None
+    original_filename: Optional[str] = None
+    remote_filename: str
+    size_bytes: Optional[int] = None
+    sha256: Optional[str] = None
+    matched_by: str
+    modified_at: Optional[datetime] = None
+    last_seen_at: datetime
+    missing_since: Optional[datetime] = None
+    created_at: datetime
+    updated_at: datetime

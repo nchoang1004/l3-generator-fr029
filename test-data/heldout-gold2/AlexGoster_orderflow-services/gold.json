@@ -1,0 +1,998 @@
+{
+  "schema": "fr029-gold-v1",
+  "fixture": "AlexGoster_orderflow-services",
+  "repository": "AlexGoster/orderflow-services",
+  "commit": "69ac303a86130120ff4c04a7de45e6ed181f7614",
+  "root": ".",
+  "pydantic_major": 2,
+  "fastapi_version": "unknown",
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/api/v1/products",
+      "handler": "services/gateway/gateway_app/api/routes/proxy.py::list_products",
+      "declared_at": "services/gateway/gateway_app/api/routes/proxy.py:20",
+      "params": [],
+      "request_body": null,
+      "response": {
+        "model": "ProductRead",
+        "model_file": "shared/contracts.py",
+        "array": true
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/products",
+      "handler": "services/gateway/gateway_app/api/routes/proxy.py::create_product",
+      "declared_at": "services/gateway/gateway_app/api/routes/proxy.py:27",
+      "params": [],
+      "request_body": null,
+      "response": {
+        "model": "ProductRead",
+        "model_file": "shared/contracts.py",
+        "array": false
+      },
+      "status": [
+        201
+      ],
+      "status_source": "declared"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/products/{product_id}",
+      "handler": "services/gateway/gateway_app/api/routes/proxy.py::get_product",
+      "declared_at": "services/gateway/gateway_app/api/routes/proxy.py:34",
+      "params": [
+        {
+          "name": "product_id",
+          "in": "path",
+          "type": "integer",
+          "required": true
+        }
+      ],
+      "request_body": null,
+      "response": {
+        "model": "ProductRead",
+        "model_file": "shared/contracts.py",
+        "array": false
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/products/{product_id}",
+      "handler": "services/gateway/gateway_app/api/routes/proxy.py::update_product",
+      "declared_at": "services/gateway/gateway_app/api/routes/proxy.py:41",
+      "params": [
+        {
+          "name": "product_id",
+          "in": "path",
+          "type": "integer",
+          "required": true
+        }
+      ],
+      "request_body": null,
+      "response": {
+        "model": "ProductRead",
+        "model_file": "shared/contracts.py",
+        "array": false
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/products/{product_id}",
+      "handler": "services/gateway/gateway_app/api/routes/proxy.py::delete_product",
+      "declared_at": "services/gateway/gateway_app/api/routes/proxy.py:48",
+      "params": [
+        {
+          "name": "product_id",
+          "in": "path",
+          "type": "integer",
+          "required": true
+        }
+      ],
+      "request_body": null,
+      "response": null,
+      "status": [
+        204
+      ],
+      "status_source": "declared"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "handler": "services/gateway/gateway_app/api/routes/proxy.py::create_order",
+      "declared_at": "services/gateway/gateway_app/api/routes/proxy.py:58",
+      "params": [],
+      "request_body": null,
+      "response": {
+        "model": "OrderRead",
+        "model_file": "shared/contracts.py",
+        "array": false
+      },
+      "status": [
+        201
+      ],
+      "status_source": "declared"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/orders",
+      "handler": "services/gateway/gateway_app/api/routes/proxy.py::list_orders",
+      "declared_at": "services/gateway/gateway_app/api/routes/proxy.py:65",
+      "params": [],
+      "request_body": null,
+      "response": {
+        "model": "OrderRead",
+        "model_file": "shared/contracts.py",
+        "array": true
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/orders/{order_id}",
+      "handler": "services/gateway/gateway_app/api/routes/proxy.py::get_order",
+      "declared_at": "services/gateway/gateway_app/api/routes/proxy.py:70",
+      "params": [
+        {
+          "name": "order_id",
+          "in": "path",
+          "type": "integer",
+          "required": true
+        }
+      ],
+      "request_body": null,
+      "response": {
+        "model": "OrderRead",
+        "model_file": "shared/contracts.py",
+        "array": false
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/notifications",
+      "handler": "services/gateway/gateway_app/api/routes/proxy.py::list_notifications",
+      "declared_at": "services/gateway/gateway_app/api/routes/proxy.py:80",
+      "params": [],
+      "request_body": null,
+      "response": {
+        "model": "NotificationRead",
+        "model_file": "shared/contracts.py",
+        "array": true
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "GET",
+      "path": "/health",
+      "handler": "services/gateway/gateway_app/main.py::health",
+      "declared_at": "services/gateway/gateway_app/main.py:39",
+      "params": [],
+      "request_body": null,
+      "response": {
+        "model": "HealthResponse",
+        "model_file": "shared/contracts.py",
+        "array": false
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/products",
+      "handler": "services/catalog-service/catalog_app/api/routes/products.py::list_products",
+      "declared_at": "services/catalog-service/catalog_app/api/routes/products.py:14",
+      "params": [
+        {
+          "name": "offset",
+          "in": "query",
+          "type": "integer",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "in": "query",
+          "type": "integer",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": {
+        "model": "ProductRead",
+        "model_file": "shared/contracts.py",
+        "array": true
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/products/{product_id}",
+      "handler": "services/catalog-service/catalog_app/api/routes/products.py::get_product",
+      "declared_at": "services/catalog-service/catalog_app/api/routes/products.py:23",
+      "params": [
+        {
+          "name": "product_id",
+          "in": "path",
+          "type": "integer",
+          "required": true
+        }
+      ],
+      "request_body": null,
+      "response": {
+        "model": "ProductRead",
+        "model_file": "shared/contracts.py",
+        "array": false
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/products",
+      "handler": "services/catalog-service/catalog_app/api/routes/products.py::create_product",
+      "declared_at": "services/catalog-service/catalog_app/api/routes/products.py:28",
+      "params": [],
+      "request_body": {
+        "models": [
+          "ProductCreate"
+        ],
+        "model_files": [
+          "shared/contracts.py"
+        ],
+        "media_type": "application/json",
+        "required": true,
+        "embedded": false,
+        "fields": []
+      },
+      "response": {
+        "model": "ProductRead",
+        "model_file": "shared/contracts.py",
+        "array": false
+      },
+      "status": [
+        201
+      ],
+      "status_source": "declared"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/products/{product_id}",
+      "handler": "services/catalog-service/catalog_app/api/routes/products.py::update_product",
+      "declared_at": "services/catalog-service/catalog_app/api/routes/products.py:35",
+      "params": [
+        {
+          "name": "product_id",
+          "in": "path",
+          "type": "integer",
+          "required": true
+        }
+      ],
+      "request_body": {
+        "models": [
+          "ProductUpdate"
+        ],
+        "model_files": [
+          "shared/contracts.py"
+        ],
+        "media_type": "application/json",
+        "required": true,
+        "embedded": false,
+        "fields": []
+      },
+      "response": {
+        "model": "ProductRead",
+        "model_file": "shared/contracts.py",
+        "array": false
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/products/{product_id}",
+      "handler": "services/catalog-service/catalog_app/api/routes/products.py::delete_product",
+      "declared_at": "services/catalog-service/catalog_app/api/routes/products.py:44",
+      "params": [
+        {
+          "name": "product_id",
+          "in": "path",
+          "type": "integer",
+          "required": true
+        }
+      ],
+      "request_body": null,
+      "response": null,
+      "status": [
+        204
+      ],
+      "status_source": "declared"
+    },
+    {
+      "method": "GET",
+      "path": "/health",
+      "handler": "services/catalog-service/catalog_app/main.py::health",
+      "declared_at": "services/catalog-service/catalog_app/main.py:37",
+      "params": [],
+      "request_body": null,
+      "response": {
+        "model": "HealthResponse",
+        "model_file": "shared/contracts.py",
+        "array": false
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "handler": "services/order-service/order_app/api/routes/orders.py::create_order",
+      "declared_at": "services/order-service/order_app/api/routes/orders.py:31",
+      "params": [],
+      "request_body": {
+        "models": [
+          "OrderCreate"
+        ],
+        "model_files": [
+          "shared/contracts.py"
+        ],
+        "media_type": "application/json",
+        "required": true,
+        "embedded": false,
+        "fields": []
+      },
+      "response": {
+        "model": "OrderRead",
+        "model_file": "shared/contracts.py",
+        "array": false
+      },
+      "status": [
+        201
+      ],
+      "status_source": "declared"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/orders",
+      "handler": "services/order-service/order_app/api/routes/orders.py::list_orders",
+      "declared_at": "services/order-service/order_app/api/routes/orders.py:51",
+      "params": [
+        {
+          "name": "offset",
+          "in": "query",
+          "type": "integer",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "in": "query",
+          "type": "integer",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": {
+        "model": "OrderRead",
+        "model_file": "shared/contracts.py",
+        "array": true
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/orders/{order_id}",
+      "handler": "services/order-service/order_app/api/routes/orders.py::get_order",
+      "declared_at": "services/order-service/order_app/api/routes/orders.py:60",
+      "params": [
+        {
+          "name": "order_id",
+          "in": "path",
+          "type": "integer",
+          "required": true
+        }
+      ],
+      "request_body": null,
+      "response": {
+        "model": "OrderRead",
+        "model_file": "shared/contracts.py",
+        "array": false
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "GET",
+      "path": "/health",
+      "handler": "services/order-service/order_app/main.py::health",
+      "declared_at": "services/order-service/order_app/main.py:70",
+      "params": [],
+      "request_body": null,
+      "response": {
+        "model": "HealthResponse",
+        "model_file": "shared/contracts.py",
+        "array": false
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/notifications",
+      "handler": "services/notification-service/notification_app/api/routes/notifications.py::list_notifications",
+      "declared_at": "services/notification-service/notification_app/api/routes/notifications.py:14",
+      "params": [
+        {
+          "name": "order_id",
+          "in": "query",
+          "type": "integer",
+          "required": true
+        },
+        {
+          "name": "offset",
+          "in": "query",
+          "type": "integer",
+          "required": false
+        },
+        {
+          "name": "limit",
+          "in": "query",
+          "type": "integer",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": {
+        "model": "NotificationRead",
+        "model_file": "shared/contracts.py",
+        "array": true
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/notifications/{notification_id}",
+      "handler": "services/notification-service/notification_app/api/routes/notifications.py::get_notification",
+      "declared_at": "services/notification-service/notification_app/api/routes/notifications.py:26",
+      "params": [
+        {
+          "name": "notification_id",
+          "in": "path",
+          "type": "integer",
+          "required": true
+        }
+      ],
+      "request_body": null,
+      "response": {
+        "model": "NotificationRead",
+        "model_file": "shared/contracts.py",
+        "array": false
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "GET",
+      "path": "/health",
+      "handler": "services/notification-service/notification_app/main.py::health",
+      "declared_at": "services/notification-service/notification_app/main.py:74",
+      "params": [],
+      "request_body": null,
+      "response": {
+        "model": "HealthResponse",
+        "model_file": "shared/contracts.py",
+        "array": false
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    }
+  ],
+  "models": [
+    {
+      "name": "HealthResponse",
+      "file": "shared/contracts.py",
+      "line": 33,
+      "fields": [
+        {
+          "name": "status",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": false
+        },
+        {
+          "name": "service",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "ProductCreate",
+      "file": "shared/contracts.py",
+      "line": 38,
+      "fields": [
+        {
+          "name": "sku",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "price",
+          "alias": null,
+          "type": "number",
+          "required": true,
+          "nullable": false,
+          "alt_types": [
+            "string"
+          ]
+        },
+        {
+          "name": "stock",
+          "alias": null,
+          "type": "integer",
+          "required": false,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "ProductUpdate",
+      "file": "shared/contracts.py",
+      "line": 47,
+      "fields": [
+        {
+          "name": "name",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "price",
+          "alias": null,
+          "type": "number",
+          "required": false,
+          "nullable": true,
+          "alt_types": [
+            "string"
+          ]
+        },
+        {
+          "name": "stock",
+          "alias": null,
+          "type": "integer",
+          "required": false,
+          "nullable": true
+        }
+      ]
+    },
+    {
+      "name": "ProductRead",
+      "file": "shared/contracts.py",
+      "line": 55,
+      "fields": [
+        {
+          "name": "sku",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "price",
+          "alias": null,
+          "type": "number",
+          "required": true,
+          "nullable": false,
+          "alt_types": [
+            "string"
+          ]
+        },
+        {
+          "name": "stock",
+          "alias": null,
+          "type": "integer",
+          "required": false,
+          "nullable": false
+        },
+        {
+          "name": "id",
+          "alias": null,
+          "type": "integer",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "OrderItemIn",
+      "file": "shared/contracts.py",
+      "line": 61,
+      "fields": [
+        {
+          "name": "product_id",
+          "alias": null,
+          "type": "integer",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "quantity",
+          "alias": null,
+          "type": "integer",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "OrderCreate",
+      "file": "shared/contracts.py",
+      "line": 66,
+      "fields": [
+        {
+          "name": "customer",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "items",
+          "alias": null,
+          "type": "array[OrderItemIn]",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "OrderItemRead",
+      "file": "shared/contracts.py",
+      "line": 71,
+      "fields": [
+        {
+          "name": "product_id",
+          "alias": null,
+          "type": "integer",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "quantity",
+          "alias": null,
+          "type": "integer",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "unit_price",
+          "alias": null,
+          "type": "number",
+          "required": true,
+          "nullable": false,
+          "alt_types": [
+            "string"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "OrderRead",
+      "file": "shared/contracts.py",
+      "line": 86,
+      "fields": [
+        {
+          "name": "id",
+          "alias": null,
+          "type": "integer",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "customer",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "status",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false,
+          "alt_types": [
+            "OrderStatus"
+          ]
+        },
+        {
+          "name": "degraded",
+          "alias": null,
+          "type": "boolean",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "warnings",
+          "alias": null,
+          "type": "array[string]",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "total",
+          "alias": null,
+          "type": "number",
+          "required": true,
+          "nullable": false,
+          "alt_types": [
+            "string"
+          ]
+        },
+        {
+          "name": "items",
+          "alias": null,
+          "type": "array[OrderItemRead]",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "request_id",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "created_at",
+          "alias": null,
+          "type": "datetime",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "NotificationRead",
+      "file": "shared/contracts.py",
+      "line": 100,
+      "fields": [
+        {
+          "name": "id",
+          "alias": null,
+          "type": "integer",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "order_id",
+          "alias": null,
+          "type": "integer",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "channel",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "subject",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "body",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "request_id",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "created_at",
+          "alias": null,
+          "type": "datetime",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    }
+  ],
+  "excluded_routes": [],
+  "limitations": [],
+  "http_calls": [
+    {
+      "where": "services/gateway/gateway_app/core/proxy.py:25",
+      "library": "httpx",
+      "method": "unknown",
+      "method_reason": "request.method của request đến gateway, chuyển tiếp nguyên; chỉ biết lúc chạy",
+      "target": {
+        "kind": "unknown",
+        "value": null,
+        "reason": "client là tham số proxy_request; base_url là một trong ba khóa cấu hình catalog_service_url/order_service_url/notification_service_url (clients.py:26/31/36) tùy route gọi; path và query lấy từ request đến (proxy.py:14-16)"
+      }
+    },
+    {
+      "where": "services/order-service/order_app/core/catalog_client.py:98",
+      "library": "httpx",
+      "method": "GET",
+      "target": {
+        "kind": "config",
+        "value": "catalog_service_url"
+      },
+      "accept_alt_target": {
+        "kind": "unknown",
+        "value": null,
+        "reason": "URL tương đối f\"/api/v1/products/{product_id}\" ghép với base_url của client"
+      },
+      "judgement": true
+    }
+  ],
+  "non_http_calls": [
+    {
+      "where": "services/gateway/gateway_app/api/routes/proxy.py:24",
+      "detail": "clients.get(CATALOG) là ServiceClients.get (clients.py:42) trả về httpx.AsyncClient từ dict, không gửi request; cùng mẫu ở proxy.py:31, 38, 45, 52, 62, 67, 74, 84"
+    },
+    {
+      "where": "services/gateway/gateway_app/core/clients.py:27",
+      "detail": "routes.get(CATALOG) là dict.get lấy transport; cùng mẫu ở dòng 32, 37"
+    },
+    {
+      "where": "services/gateway/gateway_app/core/proxy.py:34",
+      "detail": "upstream.headers.get(...) đọc header của httpx.Response đã nhận, không phải request mới"
+    },
+    {
+      "where": "services/gateway/gateway_app/core/proxy.py:20",
+      "detail": "request.headers.get(\"content-type\") đọc header request đến"
+    },
+    {
+      "where": "shared/context.py:37",
+      "detail": "request.headers.get(\"X-Request-ID\") đọc header request đến"
+    },
+    {
+      "where": "services/catalog-service/catalog_app/services/products.py:19",
+      "detail": "session.get(Product, product_id) là AsyncSession.get của SQLAlchemy"
+    },
+    {
+      "where": "services/order-service/order_app/services/orders.py:104",
+      "detail": "session.get(Order, order_id) là AsyncSession.get của SQLAlchemy"
+    },
+    {
+      "where": "services/notification-service/notification_app/services/notifications.py:68",
+      "detail": "session.get(Notification, ...) là AsyncSession.get của SQLAlchemy"
+    },
+    {
+      "where": "services/order-service/order_app/services/orders.py:40",
+      "detail": "catalog.get_product(...) là method của CatalogClient; lời gọi HTTP thật nằm ở catalog_client.py:98"
+    },
+    {
+      "where": "shared/events.py:65",
+      "detail": "self._client.publish(...) là Redis pub/sub (redis.asyncio), không phải HTTP"
+    }
+  ],
+  "notes": [
+    "[Phán đoán 1] root = \".\". Repository có bốn app FastAPI độc lập (services/gateway, services/catalog-service, services/order-service, services/notification-service) và package shared/ dùng chung; pyproject.toml pythonpath và Dockerfile PYTHONPATH gồm gốc repo và từng thư mục services/<svc>. Mọi đường dẫn trong gold tính từ gốc repo. Công cụ chọn root theo từng service thì phải thêm tiền tố services/<svc>/ trước khi so.",
+    "[Phán đoán 2] Không main.py nào khai biến app ở mức module; app chỉ được dựng trong create_app() (gateway main.py:27, catalog main.py:26, order main.py:33, notification main.py:51). Dockerfile CMD và docker-compose chạy uvicorn <svc>_app.main:app, sẽ không tìm thấy thuộc tính app. Gold vẫn lấy route từ create_app() (giống fixture prefix_chain); tests/conftest.py:76-110 gọi create_app() của cả bốn service.",
+    "[Phán đoán 3] Bốn app riêng khai trùng (method, path): GET /health 4 lần; GET/POST /api/v1/products, GET/PUT/DELETE /api/v1/products/{product_id}, POST/GET /api/v1/orders, GET /api/v1/orders/{order_id}, GET /api/v1/notifications mỗi cái 2 lần (gateway và service gốc). Gold ghi mỗi decorator một route, phân biệt bằng declared_at.",
+    "[Phán đoán 4] Prefix: mỗi service có api_router = APIRouter(prefix=\"/api/v1\") ở api/router.py:5, gắn router con ở api/router.py:6 và gắn vào app ở main.py (gateway :37, catalog :35, order :68, notification :72). Router con: gateway proxy.py:9 không prefix; catalog products.py:11 prefix /products; order orders.py:18 prefix /orders; notification notifications.py:11 prefix /notifications. Decorator path \"\" cho path không có / cuối (/api/v1/products).",
+    "[Phán đoán 5] /health khai bằng @app.get trong hàm create_app (hàm lồng); handler ghi main.py::health, không ghi qualname create_app.<locals>.health.",
+    "[Phán đoán 6] Route gateway (proxy.py) có response_model nhưng kiểu trả về là Response và thân hàm trả Response thô từ proxy_request. Theo FastAPI response_model= thắng, nên response ghi model khai (ProductRead, OrderRead, NotificationRead); dữ liệu thật không được validate vì Response trả thẳng.",
+    "[Phán đoán 7] Route gateway không khai body hay query: POST/PUT chỉ nhận request: Request và chuyển tiếp thân thô (proxy.py:13), nên request_body = null, kể cả khi service gốc có body (ProductCreate, ProductUpdate, OrderCreate). GET /api/v1/notifications của gateway (proxy.py:80) không có tham số order_id dù notification-service bắt buộc nó (notifications.py:16).",
+    "[Phán đoán 8] DELETE /api/v1/products/{product_id} ở gateway (proxy.py:48) và catalog (products.py:44): không có response_model, kiểu trả về là Response nên response = null; status 204 khai ở decorator (status_code=204 và status.HTTP_204_NO_CONTENT).",
+    "[Phán đoán 9] Tham số từ Depends: get_clients (proxy.py:12), get_session (catalog/order/notification core/database.py:39), get_catalog_client (orders.py:21), get_event_bus (orders.py:26) chỉ nhận request: Request, nên không thêm tham số HTTP. request: Request không phải tham số HTTP.",
+    "[Phán đoán 10] offset/limit khai Query(0, ge=0) và Query(50, ge=1, le=200): query, integer, không bắt buộc; ràng buộc ge/le chưa ghi. order_id: int của list_notifications (notifications.py:16) không default, không có trong path nên là query bắt buộc.",
+    "[Phán đoán 11] Decimal (price, unit_price, total) ghi number; alt_types string vì OpenAPI của Pydantic v2 ghi Decimal ở chế độ output là string và ở input là anyOf number|string.",
+    "[Phán đoán 12] OrderRead.status có kiểu OrderStatus (StrEnum, shared/contracts.py:80), không phải Pydantic model; gold ghi string, alt_types OrderStatus (OpenAPI dùng $ref tới schema enum). OrderStatus không có trong models.",
+    "[Phán đoán 13] HealthResponse.status: Literal[\"ok\"] = \"ok\" (shared/contracts.py:34) ghi string, không bắt buộc. Trường có default không bắt buộc cả ở schema output vì json_schema_serialization_defaults_required mặc định False.",
+    "[Phán đoán 14] ProductRead (shared/contracts.py:55) kế thừa ProductCreate: trường kế thừa sku, name, price, stock đứng trước id. stock có default=0 nên không bắt buộc. ProductUpdate: ba trường X | None = Field(default=None) nên không bắt buộc, nullable.",
+    "[Phán đoán 15] models chỉ gồm model route dùng (request, response, lồng): HealthResponse, ProductCreate, ProductUpdate, ProductRead, OrderItemIn (lồng trong OrderCreate), OrderCreate, OrderItemRead (lồng trong OrderRead), OrderRead, NotificationRead. ErrorBody/ErrorEnvelope chỉ dùng trong exception handler (shared/errors.py:34-43), OrderCreated là sự kiện bus (orders.py:85), Settings là BaseSettings: không có trong models.",
+    "[Phán đoán 16] Status 404/409/503 do AppError qua exception handler (shared/errors.py:33-43) không phải status khai trên route; gold chỉ ghi status khai hoặc mặc định.",
+    "[Phán đoán 17] HTTP order_app/core/catalog_client.py:98: self._client là httpx.AsyncClient (dòng 46) với base_url là tham số __init__; ở production create_app truyền resolved_settings.catalog_service_url (order_app/main.py:57, khai ở order_app/core/config.py:15). URL đầy đủ = base_url + f\"/api/v1/products/{product_id}\". Gold ghi đích config catalog_service_url (tên trường Settings, không ghi CATALOG_SERVICE_URL); unknown kèm lý do cũng chấp nhận (accept_alt_target).",
+    "[Phán đoán 18] HTTP gateway_app/core/proxy.py:25: client.request(request.method, url, ...) với client: httpx.AsyncClient; method và đích unknown vì method, path, query lấy từ request đến và base_url là một trong ba khóa cấu hình tùy route gọi. Các dòng httpx.AsyncClient(...) ở gateway clients.py:25/30/35 và catalog_client.py:46 là tạo client, không phải lời gọi HTTP.",
+    "[Phán đoán 19] Lời gọi httpx trong tests/ (conftest.py, test_*.py) là client test, không thuộc production, không ghi vào http_calls.",
+    "[Phán đoán 20] fastapi_version = unknown: requirements.txt và pyproject.toml chỉ ghi fastapi>=0.115, không ghim. pydantic>=2.7 nên pydantic_major = 2.",
+    "Không có add_api_route/add_route/add_websocket_route, không có mount, không dùng urllib/urllib3/http.client/requests/aiohttp trong code production; Redis (shared/events.py:102 aioredis.from_url) không phải HTTP. limitations rỗng.",
+    "tests/ chỉ gọi client test, không khai route; không có thư mục ngoài phạm vi chứa route. excluded_routes rỗng.",
+    "Route tài liệu FastAPI tự sinh (/openapi.json, /docs, /docs/oauth2-redirect, /redoc) của bốn app bị bỏ theo quy ước.",
+    "Gold viết tay từ source, không chạy oracle (không import app). Mọi file:dòng đã đối chiếu với source ngày 08/10/2026."
+  ],
+  "provenance": {
+    "writers": {
+      "A": "Claude Opus, độc lập",
+      "B": "Claude Sonnet, độc lập"
+    },
+    "A_sha256": "0dacfa46633506c2c267a19c365792f3d70f58d8e94fe9d681655b662d9a888c",
+    "B_sha256": "6d43b2c1a078a391820297c121b8e4b4d137abcd9465e1e146706a59e436f30b",
+    "disagreements": [
+      "http services/order-service/order_app/core/catalog_client.py:98 · target: A=config:catalog_service_url | B=unknown:None"
+    ],
+    "decisions": [
+      "http_calls catalog_client.py:98 target: A ghi config catalog_service_url, B ghi unknown; mỗi bản đã khai cách hiểu kia ở accept_alt_target, nên hai đáp án đều được chấp nhận."
+    ],
+    "reviewed_by_human": false,
+    "seen_tool_output": false
+  }
+}

@@ -1,0 +1,720 @@
+import { SearchSettingsSnapshot } from "@/components/search-settings-snapshot";
+import { parseApiError } from "@/lib/errors";
+import { captureEditingBase } from "@/lib/api/editing";
+import type { EditingBase } from "@/types/editing";
+import { useEffect, useRef, useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { Check, HardDrive, Server, ArrowRight } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { InferenceEndpointForm } from "@/components/inference-endpoint-form";
+import { estimateSearchGeneration } from "@/lib/api/search";
+import { searchStatusOptions, useSearchCommands, type AiSearchCatalog } from "@/lib/queries/search";
+import { getSessionVersion, requireSessionVersion } from "@/lib/session-transport";
+import { useAuth } from "@/lib/auth-context";
+import { formatBytes, formatDuration } from "@/lib/format";
+import { useI18n } from "@/lib/i18n";
+import { isMessageKey } from "@/lib/locale";
+import type { GenerationProposal, SearchGeneration, SearchSettingsRead } from "@/types/search";
+
+/** The first-run path prepares text search; specialist search types stay in advanced controls. */
+export function AiSearchSetup({
+  settings: currentSettings,
+  catalog,
+}: {
+  settings: SearchSettingsRead;
+  catalog: AiSearchCatalog;
+}) {
+  const { t } = useI18n();
+  const { user } = useAuth();
+  const commands = useSearchCommands();
+  const [adoptedSettings, setAdoptedSettings] = useState<SearchSettingsRead | null>(null);
+  const settings = adoptedSettings
+    ? {
+        ...currentSettings,
+        settings: adoptedSettings.settings,
+        edit_epoch: adoptedSettings.edit_epoch,
+        edit_version: adoptedSettings.edit_version,
+      }
+    : currentSettings;
+  const { models, generations, downloads } = catalog;
+  const live = useRef(true);
+  const controller = useRef<AbortController | null>(null);
+  useEffect(() => {
+    live.current = true;
+    return () => {
+      live.current = false;
+      controller.current?.abort();
+    };
+  }, []);
+  const requireActive = (session: number) => {
+    requireSessionVersion(session);
+    if (!live.current) throw new Error("AI setup is no longer active");
+  };
+  const [path, setPath] = useState<"local" | "server" | null>(
+    settings.settings.enabled
+      ? settings.settings.local_models_enabled
+        ? "local"
+        : "server"
+      : null,
+  );
+  const [selected, setSelected] = useState<string | null>(null);
+  const [endpointId, setEndpointId] = useState<number | null>(null);
+  const [changing, setChanging] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  const [settingsReview, setSettingsReview] = useState<
+    null | { phase: "required" | "loading" } | { phase: "ready"; snapshot: SearchSettingsRead }
+  >(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const choices = (models.data ?? [])
+    .filter(
+      (model) =>
+        model.modality === "text" && model.runtime_available && (model.curated || model.installed),
+    )
+    .sort((a, b) => Number(b.installed) - Number(a.installed) || a.size_bytes - b.size_bytes);
+  const local = selected === null ? choices[0] : choices.find((model) => model.id === selected);
+  const servers = settings.endpoints.filter((endpoint) => endpoint.kind === "embedding");
+  const remote =
+    endpointId === null ? servers[0] : servers.find((endpoint) => endpoint.id === endpointId);
+  const building = generations.data?.find(
+    (g) => g.profile === "semantic_text" && g.state === "building",
+  );
+  const active = generations.data?.find(
+    (g) => g.profile === "semantic_text" && g.state === "active",
+  );
+  const requiresAvailability = settings.settings.enabled && !!active;
+  const availability = useQuery(searchStatusOptions(user?.id, requiresAvailability));
+  const failedPreparation = generations.data?.find(
+    (generation) => generation.profile === "semantic_text" && generation.state === "failed",
+  );
+  const downloading = downloads.data?.find(
+    (job) => job.state === "running" || job.state === "queued",
+  );
+  const failedDownload = downloads.data?.find((job) => job.state === "failed");
+  const enabled =
+    settings.settings.enabled && (path !== "local" || settings.settings.local_models_enabled);
+  type GuidedCommand =
+    | {
+        kind: "enable";
+        base: EditingBase;
+        payload: SearchSettingsRead["settings"];
+        session: number;
+      }
+    | {
+        kind: "download";
+        base: EditingBase;
+        consent: SearchSettingsRead["settings"] | null;
+        key: string;
+        session: number;
+      }
+    | { kind: "prepare"; proposal: GenerationProposal; session: number }
+    | {
+        kind: "generation";
+        generation: SearchGeneration;
+        action: "cancel" | "activate" | "retry";
+        session: number;
+      }
+    | { kind: "cancel-download"; id: string; session: number };
+  const change = useMutation({
+    retry: false,
+    mutationFn: async (command: GuidedCommand) => {
+      requireActive(command.session);
+      if (command.kind === "enable") {
+        await commands.settings.mutateAsync({
+          payload: command.payload,
+          base: command.base,
+          session: command.session,
+        });
+        requireActive(command.session);
+        setAdoptedSettings(null);
+      } else if (command.kind === "download") {
+        if (command.consent) {
+          await commands.settings.mutateAsync({
+            payload: command.consent,
+            base: command.base,
+            session: command.session,
+          });
+          requireActive(command.session);
+          setAdoptedSettings(null);
+        }
+        requireActive(command.session);
+        await commands.download.mutateAsync({ key: command.key, session: command.session });
+      } else if (command.kind === "prepare") {
+        controller.current?.abort();
+        const request = new AbortController();
+        controller.current = request;
+        const estimate = await estimateSearchGeneration(command.proposal, {
+          signal: request.signal,
+        });
+        requireActive(command.session);
+        if (!estimate.fits_budget) return { kind: "over-budget" } as const;
+        await commands.generation.mutateAsync({
+          proposal: command.proposal,
+          session: command.session,
+        });
+        requireActive(command.session);
+        return { kind: "prepared" } as const;
+      } else if (command.kind === "generation")
+        await commands.generationAction.mutateAsync({
+          generation: command.generation,
+          action: command.action,
+          session: command.session,
+        });
+      else await commands.cancelDownload.mutateAsync({ id: command.id, session: command.session });
+      requireActive(command.session);
+      return { kind: "completed" } as const;
+    },
+    onSuccess: (result, command) => {
+      if (!live.current || command.session !== getSessionVersion()) return;
+      if (result.kind === "over-budget")
+        setMessage(
+          t(
+            "There is not enough space in the AI search budget. Increase it in Advanced AI controls, then try again.",
+          ),
+        );
+      if (result.kind === "prepared") setChanging(false);
+    },
+    onError: (error, command) => {
+      if (!live.current || command.session !== getSessionVersion()) return;
+      const parsed = parseApiError(error);
+      if (
+        (command.kind === "enable" || (command.kind === "download" && command.consent)) &&
+        ([0, 401, 403, 404, 412, 428].includes(parsed.status) || parsed.status >= 500)
+      )
+        setSettingsReview({ phase: "required" });
+      setMessage(t("This step could not be completed. Your library is safe. Try again."));
+    },
+  });
+  function dispatch(action: "enable" | "download" | "prepare" | "cancel" | "activate" | "retry") {
+    if (settingsReview) return;
+    const session = getSessionVersion();
+    setMessage(null);
+    if (action === "enable")
+      change.mutate({
+        kind: "enable",
+        base: captureEditingBase(settings),
+        payload: {
+          ...settings.settings,
+          enabled: true,
+          local_models_enabled: path === "local" ? true : settings.settings.local_models_enabled,
+        },
+        session,
+      });
+    else if (action === "download" && local)
+      change.mutate({
+        kind: "download",
+        base: captureEditingBase(settings),
+        key: local.key,
+        consent: settings.settings.download_enabled
+          ? null
+          : { ...settings.settings, download_enabled: true },
+        session,
+      });
+    else if (action === "prepare" && (path === "local" ? local : remote))
+      change.mutate({
+        kind: "prepare",
+        proposal: {
+          ...(path === "local" ? { local_model_id: local?.id } : { endpoint_id: remote?.id }),
+          profile: "semantic_text",
+          index_backend: "auto",
+          quantization: "float32",
+          auto_activate: true,
+        },
+        session,
+      });
+    else if (building && (action === "cancel" || action === "activate" || action === "retry"))
+      change.mutate({ kind: "generation", generation: { ...building }, action, session });
+    else if (downloading && action === "cancel")
+      change.mutate({ kind: "cancel-download", id: downloading.job_id, session });
+  }
+  const busy = change.isPending;
+  if (models.isPending || generations.isPending || downloads.isPending || availability.isLoading)
+    return (
+      <p role="status" className="p-5">
+        {t("Checking AI Search…")}
+      </p>
+    );
+  if (
+    models.isError ||
+    generations.isError ||
+    downloads.isError ||
+    (requiresAvailability && availability.isError)
+  )
+    return (
+      <div className="space-y-3 p-5">
+        <p role="alert">{t("AI setup could not be loaded.")}</p>
+        <Button
+          variant="outline"
+          onClick={() => {
+            void models.refetch();
+            void generations.refetch();
+            void downloads.refetch();
+            if (active && settings.settings.enabled) void availability.refetch();
+          }}
+        >
+          {t("Retry")}
+        </Button>
+      </div>
+    );
+  const ready =
+    settings.settings.enabled && active && availability.data?.semantic_ready && !changing;
+  const step = ready ? 3 : enabled && path ? 2 : 1;
+  const phaseLabel = (() => {
+    if (!building) return null;
+    const key = `aiSearch.phase.${building.phase}`;
+    if (!isMessageKey(key)) throw new Error("search_generation_phase_invalid");
+    return t(key);
+  })();
+  return (
+    <div>
+      {settingsReview && (
+        <section
+          aria-label={t("library.latestVersion")}
+          className="space-y-3 border-b border-border p-4"
+        >
+          <p role="alert">{t("library.saveUnconfirmed")}</p>
+          <Button
+            type="button"
+            variant="outline"
+            loading={settingsReview.phase === "loading"}
+            onClick={async () => {
+              const session = getSessionVersion();
+              setSettingsReview({ phase: "loading" });
+              try {
+                const snapshot = await commands.reviewSettings(session);
+                requireActive(session);
+                setSettingsReview({ phase: "ready", snapshot });
+              } catch {
+                if (live.current && session === getSessionVersion())
+                  setSettingsReview({ phase: "required" });
+              }
+            }}
+          >
+            {t("library.reviewLatest")}
+          </Button>
+          {settingsReview.phase === "ready" && (
+            <>
+              <SearchSettingsSnapshot snapshot={settingsReview.snapshot} catalog={catalog} />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setAdoptedSettings(settingsReview.snapshot);
+                  setSettingsReview(null);
+                  setMessage(null);
+                }}
+              >
+                {t("library.useLatest")}
+              </Button>
+            </>
+          )}
+        </section>
+      )}
+      <fieldset disabled={settingsReview !== null} className="min-w-0">
+        <ol
+          aria-label={t("AI setup progress")}
+          className="grid grid-cols-3 gap-2 border-b bg-muted/30 px-4 py-4 text-xs sm:px-5"
+        >
+          {[t("Choose location"), t("Prepare search"), t("Start searching")].map((label, index) => (
+            <li
+              key={label}
+              aria-current={step === index + 1 ? "step" : undefined}
+              className={`flex items-center gap-2 ${step === index + 1 ? "font-semibold text-foreground" : "text-muted-foreground"}`}
+            >
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border">
+                {step > index + 1 ? <Check className="h-3 w-3" aria-hidden /> : index + 1}
+              </span>
+              {label}
+            </li>
+          ))}
+        </ol>
+        <div className="space-y-5 p-4 sm:p-6">
+          {message && (
+            <p role="alert" className="text-sm text-destructive">
+              {message}
+            </p>
+          )}
+          {settings.settings.enabled &&
+            active &&
+            availability.data &&
+            !availability.data.semantic_ready && (
+              <p role="status" className="text-sm text-warning">
+                {t(
+                  "Your saved search is not available right now. Review the setup below or open Advanced AI controls.",
+                )}
+              </p>
+            )}
+          {!ready && !building && failedPreparation && (
+            <p role="status" className="text-sm text-warning">
+              {t(
+                "Preparation stopped before search was ready. Try again, or open Advanced AI controls for details.",
+              )}
+            </p>
+          )}
+          {ready && active.quarantined > 0 && (
+            <p role="status" className="text-sm text-warning">
+              {t(
+                "Some files could not be prepared. You can search the available files and review the rest in Advanced AI controls.",
+              )}
+            </p>
+          )}
+          {ready ? (
+            <>
+              <div>
+                <h3 className="text-xl font-semibold">{t("AI Search is ready")}</h3>
+                <p className="mt-2 max-w-prose text-sm text-muted-foreground">
+                  {t("Describe what you want to print. Try “a holder for my tools”.")}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <Button asChild>
+                  <Link to="/search?q=a%20holder%20for%20my%20tools">
+                    {t("Try AI Search")}
+                    <ArrowRight className="ml-2 h-4 w-4" aria-hidden />
+                  </Link>
+                </Button>
+                <Button variant="ghost" onClick={() => setChanging(true)}>
+                  {t("Change setup")}
+                </Button>
+              </div>
+            </>
+          ) : building ? (
+            <>
+              <h3 className="text-xl font-semibold">
+                {t(
+                  building.phase === "ready"
+                    ? "Your search is prepared"
+                    : building.phase === "verify_failed"
+                      ? "Preparation needs attention"
+                      : "Preparing your library",
+                )}
+              </h3>
+              <p className="max-w-prose text-sm text-muted-foreground">
+                {t(
+                  building.phase === "verify_failed"
+                    ? "The index stopped after an error. Check the model or server, then retry preparation."
+                    : building.phase === "ready"
+                      ? "The index is ready to activate."
+                      : "You can leave this page. Keyword search keeps working while preparation finishes.",
+                )}
+              </p>
+              <p role="status" className="text-sm font-medium">
+                {phaseLabel}
+              </p>
+              {building.phase === "backfill" && (
+                <>
+                  <progress
+                    className="h-2 w-full accent-primary"
+                    aria-label={t("Library preparation progress")}
+                    max={Math.max(1, building.eligible)}
+                    value={building.indexed}
+                  />
+                  <p className="text-sm tabular-nums">
+                    {t("{done} of {total} searchable entries prepared", {
+                      done: building.indexed,
+                      total: building.eligible,
+                    })}
+                  </p>
+                  {building.eta_seconds !== null && (
+                    <p className="text-sm text-muted-foreground">
+                      {t("aiSearch.eta", { time: formatDuration(building.eta_seconds) })}
+                    </p>
+                  )}
+                </>
+              )}
+              {building.error_code && (
+                <p role="alert" className="text-sm text-warning">
+                  {building.phase === "verify_failed"
+                    ? `${t("aiSearch.generationError")} ${building.error_code}`
+                    : t("An embedding request failed. PrintStash will retry it automatically.")}
+                </p>
+              )}
+              {building.version_token && (
+                <div className="flex flex-wrap gap-2">
+                  {building.phase === "verify_failed" && (
+                    <Button loading={busy} onClick={() => dispatch("retry")}>
+                      {t("Retry preparation")}
+                    </Button>
+                  )}
+                  {building.phase === "ready" && (
+                    <Button loading={busy} onClick={() => dispatch("activate")}>
+                      {t("Use prepared search")}
+                    </Button>
+                  )}
+                  <Button variant="outline" disabled={busy} onClick={() => dispatch("cancel")}>
+                    {t("Cancel preparation")}
+                  </Button>
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <div>
+                <h3 className="text-xl font-semibold">
+                  {t(path ? "Prepare search by meaning" : "Where should AI Search run?")}
+                </h3>
+                <p className="mt-2 max-w-prose text-sm text-muted-foreground">
+                  {t(
+                    path
+                      ? "PrintStash will prepare your library so you can find models by describing them."
+                      : "Keep searches on your PrintStash machine, or use an AI server you already have.",
+                  )}
+                </p>
+              </div>
+              {!path ? (
+                <div className="divide-y divide-border rounded-md border border-border">
+                  {[
+                    {
+                      id: "local",
+                      title: t("On this machine"),
+                      help: t(
+                        "Your library text stays here. Local AI uses this machine’s CPU, memory and storage; GPU acceleration is not available.",
+                      ),
+                      icon: HardDrive,
+                    },
+                    {
+                      id: "server",
+                      title: t("Another server"),
+                      help: t("Connect an AI service. Library text will be sent to that server."),
+                      icon: Server,
+                    },
+                  ].map((option) => (
+                    <div
+                      key={option.id}
+                      className="flex flex-col items-start gap-3 p-4 sm:flex-row sm:items-center sm:gap-4"
+                    >
+                      <option.icon
+                        className="hidden h-5 w-5 shrink-0 text-muted-foreground sm:block"
+                        aria-hidden
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium">{option.title}</p>
+                        <p className="mt-1 text-sm text-muted-foreground">{option.help}</p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        className="min-h-11"
+                        onClick={() => {
+                          setPath(option.id === "local" ? "local" : "server");
+                          setMessage(null);
+                        }}
+                      >
+                        {t(option.id === "local" ? "Use this machine" : "Connect another server")}
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <>
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-3">
+                    <p className="text-sm font-medium">
+                      {t(path === "local" ? "On this machine" : "Another server")}
+                    </p>
+                    <Button
+                      variant="ghost"
+                      disabled={busy || !!downloading}
+                      onClick={() => {
+                        setPath(null);
+                        setMessage(null);
+                      }}
+                    >
+                      {t("Change location")}
+                    </Button>
+                  </div>
+                  {path === "local" && !local ? (
+                    <div className="space-y-2">
+                      <h4 className="font-medium">
+                        {t("Local AI is not available on this installation")}
+                      </h4>
+                      <p className="max-w-prose text-sm text-muted-foreground">
+                        {t(
+                          "This installation needs a compatible local AI runtime and model. You can connect another server instead, or ask your administrator to install local AI support.",
+                        )}
+                      </p>
+                      <Button variant="outline" onClick={() => setPath("server")}>
+                        {t("Use another server")}
+                      </Button>
+                    </div>
+                  ) : path === "server" && (!remote || connecting) ? (
+                    <>
+                      <p className="max-w-prose text-sm text-muted-foreground">
+                        {t(
+                          "Enter the connection details supplied by your AI server. It must support text embeddings; a chat-only service cannot prepare search.",
+                        )}
+                      </p>
+                      <InferenceEndpointForm
+                        compact
+                        onSaved={() => {
+                          setConnecting(false);
+                        }}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <div className="space-y-2">
+                        <p className="font-medium break-words">
+                          {path === "local" ? local?.key : remote?.model}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {path === "local"
+                            ? local?.installed
+                              ? t("Already downloaded. No download needed.")
+                              : t("Download size: {size}", {
+                                  size: formatBytes(local?.size_bytes ?? 0),
+                                })
+                            : t("Library text and search queries will be sent to {host}.", {
+                                host: remote?.host ?? "",
+                              })}
+                        </p>
+                      </div>
+                      {((path === "local" && choices.length > 1) || path === "server") && (
+                        <fieldset className="space-y-3">
+                          <legend className="text-sm font-semibold">
+                            {t("Choose a different AI model")}
+                          </legend>
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            {path === "local"
+                              ? choices.map((model) => (
+                                  <label
+                                    key={model.id}
+                                    className={`flex cursor-pointer items-start gap-2 rounded-md p-3 text-sm focus-within:ring-2 focus-within:ring-ring ${local?.id === model.id ? "bg-accent text-accent-foreground" : "outline outline-1 outline-border"}`}
+                                  >
+                                    <input
+                                      type="radio"
+                                      name="guided-ai-model"
+                                      className="mt-0.5 accent-primary"
+                                      checked={local?.id === model.id}
+                                      disabled={busy || !!downloading}
+                                      onChange={() => {
+                                        setSelected(model.id);
+                                        setMessage(null);
+                                      }}
+                                    />
+                                    <span className="min-w-0 break-words">
+                                      {model.key}
+                                      <span className="mt-1 block text-xs opacity-80">
+                                        {formatBytes(model.size_bytes)}
+                                      </span>
+                                    </span>
+                                  </label>
+                                ))
+                              : servers.map((server) => (
+                                  <label
+                                    key={server.id}
+                                    className={`flex cursor-pointer items-start gap-2 rounded-md p-3 text-sm focus-within:ring-2 focus-within:ring-ring ${remote?.id === server.id ? "bg-accent text-accent-foreground" : "outline outline-1 outline-border"}`}
+                                  >
+                                    <input
+                                      type="radio"
+                                      name="guided-ai-model"
+                                      className="mt-0.5 accent-primary"
+                                      checked={remote?.id === server.id}
+                                      disabled={busy || !!downloading}
+                                      onChange={() => {
+                                        setEndpointId(server.id);
+                                        setMessage(null);
+                                      }}
+                                    />
+                                    <span className="min-w-0 break-words">
+                                      {server.model}
+                                      <span className="mt-1 block break-all text-xs opacity-80">
+                                        {server.host}
+                                      </span>
+                                    </span>
+                                  </label>
+                                ))}
+                          </div>
+                          {path === "server" && (
+                            <Button variant="ghost" onClick={() => setConnecting(true)}>
+                              {t("Connect a new server")}
+                            </Button>
+                          )}
+                        </fieldset>
+                      )}
+                      {!enabled ? (
+                        <>
+                          <p className="max-w-prose text-sm text-muted-foreground">
+                            {t(
+                              path === "local"
+                                ? "Continuing enables AI Search and local processing. Nothing is downloaded yet."
+                                : "Continuing enables AI Search. Local processing and downloads keep their current settings.",
+                            )}
+                          </p>
+                          <Button
+                            loading={busy}
+                            className="min-h-11"
+                            onClick={() => dispatch("enable")}
+                          >
+                            {t(
+                              path === "local"
+                                ? "Enable local AI Search"
+                                : "Enable server AI Search",
+                            )}
+                          </Button>
+                        </>
+                      ) : downloading ? (
+                        <>
+                          <h4 className="font-medium">{t("Downloading an AI model")}</h4>
+                          <progress
+                            className="h-2 w-full accent-primary"
+                            aria-label={t("AI model download progress")}
+                            max={100}
+                            value={downloading.progress ?? 0}
+                          />
+                          <p role="status" className="text-sm">
+                            {formatBytes(downloading.processed)} / {formatBytes(downloading.total)}
+                          </p>
+                          <Button
+                            variant="outline"
+                            disabled={busy}
+                            onClick={() => dispatch("cancel")}
+                          >
+                            {t("Cancel download")}
+                          </Button>
+                        </>
+                      ) : path === "local" && !local?.installed ? (
+                        <>
+                          {failedDownload && (
+                            <p role="alert" className="text-sm text-warning">
+                              {t("A model download failed. You can retry the download below.")}
+                            </p>
+                          )}
+                          <p className="max-w-prose text-sm text-muted-foreground">
+                            {t(
+                              "This allows administrator-requested model downloads and downloads this model from its provider. Your library files are not uploaded.",
+                            )}
+                          </p>
+                          <Button
+                            loading={busy}
+                            className="min-h-11"
+                            onClick={() => dispatch("download")}
+                          >
+                            {t("Allow download and continue")}
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <p className="max-w-prose text-sm text-muted-foreground">
+                            {t(
+                              "We’ll check the space needed, then prepare your library. Search switches on automatically when it is ready.",
+                            )}
+                          </p>
+                          <Button
+                            loading={busy}
+                            className="min-h-11"
+                            onClick={() => dispatch("prepare")}
+                          >
+                            {t("Prepare my library")}
+                          </Button>
+                        </>
+                      )}
+                    </>
+                  )}
+                </>
+              )}
+            </>
+          )}
+        </div>
+      </fieldset>
+    </div>
+  );
+}

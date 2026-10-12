@@ -1,0 +1,2158 @@
+{
+  "schema": "fr029-gold-v1",
+  "fixture": "agentgpt",
+  "root": "platform",
+  "repository": "reworkd/AgentGPT",
+  "commit": "18b073ab05b2902e1d052c3d2799786d8623b5e5",
+  "pydantic_major": 1,
+  "fastapi_version": "0.98.0",
+  "oracle_versions": {
+    "fastapi": "0.98.0",
+    "starlette": "0.27.0",
+    "pydantic": "1.10.13",
+    "pydantic-core": null,
+    "pydantic-settings": null
+  },
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/api/monitoring/health",
+      "handler": "reworkd_platform/web/api/monitoring/views.py::health_check",
+      "declared_at": "reworkd_platform/web/api/monitoring/views.py:6",
+      "params": [],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "reworkd_platform/web/application.py:51",
+          "prefix": "/api"
+        },
+        {
+          "where": "reworkd_platform/web/api/router.py:6",
+          "prefix": "/monitoring"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/monitoring/error",
+      "handler": "reworkd_platform/web/api/monitoring/views.py::error_check",
+      "declared_at": "reworkd_platform/web/api/monitoring/views.py:15",
+      "params": [],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "reworkd_platform/web/application.py:51",
+          "prefix": "/api"
+        },
+        {
+          "where": "reworkd_platform/web/api/router.py:6",
+          "prefix": "/monitoring"
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/start",
+      "handler": "reworkd_platform/web/api/agent/views.py::start_tasks",
+      "declared_at": "reworkd_platform/web/api/agent/views.py:34",
+      "params": [
+        {
+          "name": "x-organization-id",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": {
+        "models": [
+          "AgentRunCreate"
+        ],
+        "model_files": [
+          "reworkd_platform/schemas/agent.py"
+        ],
+        "required": true,
+        "media_type": "application/json",
+        "embedded": false
+      },
+      "response": {
+        "model": "NewTasksResponse",
+        "model_file": "reworkd_platform/schemas/agent.py",
+        "array": false
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "reworkd_platform/web/application.py:51",
+          "prefix": "/api"
+        },
+        {
+          "where": "reworkd_platform/web/api/router.py:7",
+          "prefix": "/agent"
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/analyze",
+      "handler": "reworkd_platform/web/api/agent/views.py::analyze_tasks",
+      "declared_at": "reworkd_platform/web/api/agent/views.py:45",
+      "params": [
+        {
+          "name": "x-organization-id",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": {
+        "models": [
+          "AgentTaskAnalyze"
+        ],
+        "model_files": [
+          "reworkd_platform/schemas/agent.py"
+        ],
+        "required": true,
+        "media_type": "application/json",
+        "embedded": false
+      },
+      "response": {
+        "model": "Analysis",
+        "model_file": "reworkd_platform/web/api/agent/analysis.py",
+        "array": false
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "reworkd_platform/web/application.py:51",
+          "prefix": "/api"
+        },
+        {
+          "where": "reworkd_platform/web/api/router.py:7",
+          "prefix": "/agent"
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/execute",
+      "handler": "reworkd_platform/web/api/agent/views.py::execute_tasks",
+      "declared_at": "reworkd_platform/web/api/agent/views.py:57",
+      "params": [
+        {
+          "name": "x-organization-id",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": {
+        "models": [
+          "AgentTaskExecute"
+        ],
+        "model_files": [
+          "reworkd_platform/schemas/agent.py"
+        ],
+        "required": true,
+        "media_type": "application/json",
+        "embedded": false
+      },
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "reworkd_platform/web/application.py:51",
+          "prefix": "/api"
+        },
+        {
+          "where": "reworkd_platform/web/api/router.py:7",
+          "prefix": "/agent"
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/create",
+      "handler": "reworkd_platform/web/api/agent/views.py::create_tasks",
+      "declared_at": "reworkd_platform/web/api/agent/views.py:71",
+      "params": [
+        {
+          "name": "x-organization-id",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": {
+        "models": [
+          "AgentTaskCreate"
+        ],
+        "model_files": [
+          "reworkd_platform/schemas/agent.py"
+        ],
+        "required": true,
+        "media_type": "application/json",
+        "embedded": false
+      },
+      "response": {
+        "model": "NewTasksResponse",
+        "model_file": "reworkd_platform/schemas/agent.py",
+        "array": false
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "reworkd_platform/web/application.py:51",
+          "prefix": "/api"
+        },
+        {
+          "where": "reworkd_platform/web/api/router.py:7",
+          "prefix": "/agent"
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/summarize",
+      "handler": "reworkd_platform/web/api/agent/views.py::summarize",
+      "declared_at": "reworkd_platform/web/api/agent/views.py:86",
+      "params": [
+        {
+          "name": "x-organization-id",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": {
+        "models": [
+          "AgentSummarize"
+        ],
+        "model_files": [
+          "reworkd_platform/schemas/agent.py"
+        ],
+        "required": true,
+        "media_type": "application/json",
+        "embedded": false
+      },
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "reworkd_platform/web/application.py:51",
+          "prefix": "/api"
+        },
+        {
+          "where": "reworkd_platform/web/api/router.py:7",
+          "prefix": "/agent"
+        }
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent/chat",
+      "handler": "reworkd_platform/web/api/agent/views.py::chat",
+      "declared_at": "reworkd_platform/web/api/agent/views.py:103",
+      "params": [
+        {
+          "name": "x-organization-id",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": {
+        "models": [
+          "AgentChat"
+        ],
+        "model_files": [
+          "reworkd_platform/schemas/agent.py"
+        ],
+        "required": true,
+        "media_type": "application/json",
+        "embedded": false
+      },
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "reworkd_platform/web/application.py:51",
+          "prefix": "/api"
+        },
+        {
+          "where": "reworkd_platform/web/api/router.py:7",
+          "prefix": "/agent"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/agent/tools",
+      "handler": "reworkd_platform/web/api/agent/views.py::get_user_tools",
+      "declared_at": "reworkd_platform/web/api/agent/views.py:131",
+      "params": [],
+      "request_body": null,
+      "response": {
+        "model": "ToolsResponse",
+        "model_file": "reworkd_platform/web/api/agent/views.py",
+        "array": false
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "reworkd_platform/web/application.py:51",
+          "prefix": "/api"
+        },
+        {
+          "where": "reworkd_platform/web/api/router.py:7",
+          "prefix": "/agent"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/models",
+      "handler": "reworkd_platform/web/api/models/views.py::get_models",
+      "declared_at": "reworkd_platform/web/api/models/views.py:26",
+      "params": [
+        {
+          "name": "x-organization-id",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": {
+        "model": "ModelWithAccess",
+        "model_file": "reworkd_platform/web/api/models/views.py",
+        "array": true
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "reworkd_platform/web/application.py:51",
+          "prefix": "/api"
+        },
+        {
+          "where": "reworkd_platform/web/api/router.py:8",
+          "prefix": "/models"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/organization/{name}",
+      "handler": "reworkd_platform/web/api/auth/views.py::organizations",
+      "declared_at": "reworkd_platform/web/api/auth/views.py:16",
+      "params": [
+        {
+          "name": "name",
+          "in": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "x-organization-id",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": {
+        "model": "OrganizationUsers",
+        "model_file": "reworkd_platform/db/crud/organization.py",
+        "array": false
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "reworkd_platform/web/application.py:51",
+          "prefix": "/api"
+        },
+        {
+          "where": "reworkd_platform/web/api/router.py:9",
+          "prefix": "/auth"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/{provider}",
+      "handler": "reworkd_platform/web/api/auth/views.py::oauth_install",
+      "declared_at": "reworkd_platform/web/api/auth/views.py:25",
+      "params": [
+        {
+          "name": "provider",
+          "in": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "redirect",
+          "in": "query",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "x-organization-id",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": {
+        "type": "string"
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "reworkd_platform/web/application.py:51",
+          "prefix": "/api"
+        },
+        {
+          "where": "reworkd_platform/web/api/router.py:9",
+          "prefix": "/auth"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/{provider}/uninstall",
+      "handler": "reworkd_platform/web/api/auth/views.py::oauth_uninstall",
+      "declared_at": "reworkd_platform/web/api/auth/views.py:35",
+      "params": [
+        {
+          "name": "provider",
+          "in": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "x-organization-id",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": {
+        "type": "object"
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "reworkd_platform/web/application.py:51",
+          "prefix": "/api"
+        },
+        {
+          "where": "reworkd_platform/web/api/router.py:9",
+          "prefix": "/auth"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/{provider}/callback",
+      "handler": "reworkd_platform/web/api/auth/views.py::oauth_callback",
+      "declared_at": "reworkd_platform/web/api/auth/views.py:46",
+      "params": [
+        {
+          "name": "provider",
+          "in": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "code",
+          "in": "query",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "state",
+          "in": "query",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "reworkd_platform/web/application.py:51",
+          "prefix": "/api"
+        },
+        {
+          "where": "reworkd_platform/web/api/router.py:9",
+          "prefix": "/auth"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/sid/info",
+      "handler": "reworkd_platform/web/api/auth/views.py::sid_info",
+      "declared_at": "reworkd_platform/web/api/auth/views.py:62",
+      "params": [
+        {
+          "name": "x-organization-id",
+          "in": "header",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": {
+        "type": "object"
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "reworkd_platform/web/application.py:51",
+          "prefix": "/api"
+        },
+        {
+          "where": "reworkd_platform/web/api/router.py:9",
+          "prefix": "/auth"
+        }
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/metadata",
+      "handler": "reworkd_platform/web/api/metadata.py::extract_metadata",
+      "declared_at": "reworkd_platform/web/api/metadata.py:20",
+      "params": [
+        {
+          "name": "url",
+          "in": "query",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "request_body": null,
+      "response": {
+        "model": "Metadata",
+        "model_file": "reworkd_platform/web/api/metadata.py",
+        "array": false
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default",
+      "registration": [
+        {
+          "where": "reworkd_platform/web/application.py:51",
+          "prefix": "/api"
+        },
+        {
+          "where": "reworkd_platform/web/api/router.py:10",
+          "prefix": "/metadata"
+        }
+      ]
+    }
+  ],
+  "models": [
+    {
+      "name": "AgentRunCreate",
+      "file": "reworkd_platform/schemas/agent.py",
+      "line": 43,
+      "fields": [
+        {
+          "name": "goal",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "model_settings",
+          "alias": null,
+          "type": "ModelSettings",
+          "required": false,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "ModelSettings",
+      "file": "reworkd_platform/schemas/agent.py",
+      "line": 28,
+      "fields": [
+        {
+          "name": "model",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": false
+        },
+        {
+          "name": "custom_api_key",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "temperature",
+          "alias": null,
+          "type": "number",
+          "required": false,
+          "nullable": false
+        },
+        {
+          "name": "max_tokens",
+          "alias": null,
+          "type": "integer",
+          "required": false,
+          "nullable": false
+        },
+        {
+          "name": "language",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "AgentTaskAnalyze",
+      "file": "reworkd_platform/schemas/agent.py",
+      "line": 52,
+      "fields": [
+        {
+          "name": "goal",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "model_settings",
+          "alias": null,
+          "type": "ModelSettings",
+          "required": false,
+          "nullable": false
+        },
+        {
+          "name": "run_id",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "task",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "tool_names",
+          "alias": null,
+          "type": "array[string]",
+          "required": false,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "AgentTaskExecute",
+      "file": "reworkd_platform/schemas/agent.py",
+      "line": 58,
+      "fields": [
+        {
+          "name": "goal",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "model_settings",
+          "alias": null,
+          "type": "ModelSettings",
+          "required": false,
+          "nullable": false
+        },
+        {
+          "name": "run_id",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "task",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "analysis",
+          "alias": null,
+          "type": "Analysis",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "Analysis",
+      "file": "reworkd_platform/web/api/agent/analysis.py",
+      "line": 15,
+      "fields": [
+        {
+          "name": "reasoning",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "arg",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "action",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "AgentTaskCreate",
+      "file": "reworkd_platform/schemas/agent.py",
+      "line": 63,
+      "fields": [
+        {
+          "name": "goal",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "model_settings",
+          "alias": null,
+          "type": "ModelSettings",
+          "required": false,
+          "nullable": false
+        },
+        {
+          "name": "run_id",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "tasks",
+          "alias": null,
+          "type": "array[string]",
+          "required": false,
+          "nullable": false
+        },
+        {
+          "name": "last_task",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "result",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "completed_tasks",
+          "alias": null,
+          "type": "array[string]",
+          "required": false,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "AgentSummarize",
+      "file": "reworkd_platform/schemas/agent.py",
+      "line": 70,
+      "fields": [
+        {
+          "name": "goal",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "model_settings",
+          "alias": null,
+          "type": "ModelSettings",
+          "required": false,
+          "nullable": false
+        },
+        {
+          "name": "run_id",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "results",
+          "alias": null,
+          "type": "array[string]",
+          "required": false,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "AgentChat",
+      "file": "reworkd_platform/schemas/agent.py",
+      "line": 74,
+      "fields": [
+        {
+          "name": "goal",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "model_settings",
+          "alias": null,
+          "type": "ModelSettings",
+          "required": false,
+          "nullable": false
+        },
+        {
+          "name": "run_id",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "message",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "results",
+          "alias": null,
+          "type": "array[string]",
+          "required": false,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "NewTasksResponse",
+      "file": "reworkd_platform/schemas/agent.py",
+      "line": 79,
+      "fields": [
+        {
+          "name": "run_id",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "new_tasks",
+          "alias": "newTasks",
+          "type": "array[string]",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "ToolsResponse",
+      "file": "reworkd_platform/web/api/agent/views.py",
+      "line": 127,
+      "fields": [
+        {
+          "name": "tools",
+          "alias": null,
+          "type": "array[ToolModel]",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "ToolModel",
+      "file": "reworkd_platform/web/api/agent/views.py",
+      "line": 120,
+      "fields": [
+        {
+          "name": "name",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "description",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "color",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "image_url",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        }
+      ]
+    },
+    {
+      "name": "ModelWithAccess",
+      "file": "reworkd_platform/web/api/models/views.py",
+      "line": 13,
+      "fields": [
+        {
+          "name": "name",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "max_tokens",
+          "alias": null,
+          "type": "integer",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "has_access",
+          "alias": null,
+          "type": "boolean",
+          "required": false,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "OrganizationUsers",
+      "file": "reworkd_platform/db/crud/organization.py",
+      "line": 24,
+      "fields": [
+        {
+          "name": "id",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "users",
+          "alias": null,
+          "type": "array[OrgUser]",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "OrgUser",
+      "file": "reworkd_platform/db/crud/organization.py",
+      "line": 18,
+      "fields": [
+        {
+          "name": "id",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "role",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "user",
+          "alias": null,
+          "type": "UserBase",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "UserBase",
+      "file": "reworkd_platform/schemas/user.py",
+      "line": 12,
+      "fields": [
+        {
+          "name": "id",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "email",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "image",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "organization",
+          "alias": null,
+          "type": "OrganizationRole",
+          "required": false,
+          "nullable": true
+        }
+      ]
+    },
+    {
+      "name": "OrganizationRole",
+      "file": "reworkd_platform/schemas/user.py",
+      "line": 6,
+      "fields": [
+        {
+          "name": "id",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "role",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "organization_id",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "Metadata",
+      "file": "reworkd_platform/web/api/metadata.py",
+      "line": 14,
+      "fields": [
+        {
+          "name": "title",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "hostname",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "favicon",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        }
+      ]
+    }
+  ],
+  "excluded_routes": [],
+  "limitations": [],
+  "http_calls": [
+    {
+      "where": "reworkd_platform/web/api/metadata.py:30",
+      "library": "httpx",
+      "method": "GET",
+      "target": {
+        "kind": "unknown",
+        "value": null,
+        "reason": "url là tham số query url của route GET /api/metadata, chỉ biết lúc chạy"
+      }
+    },
+    {
+      "where": "reworkd_platform/services/oauth_installers.py:84",
+      "alt_where": [
+        "reworkd_platform/services/oauth_installers.py:85"
+      ],
+      "library": "aiohttp",
+      "method": "POST",
+      "target": {
+        "kind": "literal",
+        "value": "https://auth.sid.ai/oauth/token"
+      }
+    },
+    {
+      "where": "reworkd_platform/services/oauth_installers.py:114",
+      "alt_where": [
+        "reworkd_platform/services/oauth_installers.py:115"
+      ],
+      "library": "aiohttp",
+      "method": "POST",
+      "target": {
+        "kind": "literal",
+        "value": "https://auth.sid.ai/oauth/revoke"
+      }
+    },
+    {
+      "where": "reworkd_platform/web/api/agent/tools/search.py:34",
+      "alt_where": [
+        "reworkd_platform/web/api/agent/tools/search.py:35"
+      ],
+      "library": "aiohttp",
+      "method": "POST",
+      "target": {
+        "kind": "unknown",
+        "value": null,
+        "reason": "URL ghép lúc chạy f\"https://google.serper.dev/{search_type}\", search_type là tham số hàm _google_serper_search_results"
+      }
+    },
+    {
+      "where": "reworkd_platform/web/api/agent/tools/sidsearch.py:28",
+      "alt_where": [
+        "reworkd_platform/web/api/agent/tools/sidsearch.py:29"
+      ],
+      "library": "aiohttp",
+      "method": "POST",
+      "target": {
+        "kind": "literal",
+        "value": "https://api.sid.ai/v1/users/me/query"
+      }
+    },
+    {
+      "where": "reworkd_platform/web/api/agent/tools/sidsearch.py:47",
+      "alt_where": [
+        "reworkd_platform/web/api/agent/tools/sidsearch.py:48"
+      ],
+      "library": "aiohttp",
+      "method": "POST",
+      "target": {
+        "kind": "literal",
+        "value": "https://auth.sid.ai/oauth/token"
+      }
+    }
+  ],
+  "non_http_calls": [
+    {
+      "where": "reworkd_platform/web/api/metadata.py:44",
+      "detail": "link.get(\"href\") là method của thẻ BeautifulSoup, không phải HTTP"
+    },
+    {
+      "where": "reworkd_platform/services/oauth_installers.py:110",
+      "detail": "self.crud.session.delete(creds) là AsyncSession.delete của SQLAlchemy, không phải HTTP"
+    },
+    {
+      "where": "reworkd_platform/web/api/agent/tools/search.py:76",
+      "detail": "dict.get trên kết quả JSON, không phải HTTP"
+    },
+    {
+      "where": "reworkd_platform/web/api/agent/tools/search.py:78",
+      "detail": "dict.get trên kết quả JSON, không phải HTTP"
+    },
+    {
+      "where": "reworkd_platform/web/api/agent/tools/search.py:79",
+      "detail": "dict.get trên kết quả JSON, không phải HTTP"
+    },
+    {
+      "where": "reworkd_platform/web/api/agent/tools/search.py:80",
+      "detail": "dict.get trên kết quả JSON, không phải HTTP"
+    },
+    {
+      "where": "reworkd_platform/web/api/agent/tools/search.py:81",
+      "detail": "dict.get trên kết quả JSON, không phải HTTP"
+    },
+    {
+      "where": "reworkd_platform/web/api/agent/tools/search.py:82",
+      "detail": "dict.get trên kết quả JSON, không phải HTTP"
+    },
+    {
+      "where": "reworkd_platform/web/api/agent/tools/search.py:83",
+      "detail": "dict.get trên kết quả JSON, không phải HTTP"
+    },
+    {
+      "where": "reworkd_platform/web/api/agent/tools/search.py:84",
+      "detail": "dict.get trên kết quả JSON, không phải HTTP"
+    },
+    {
+      "where": "reworkd_platform/web/api/agent/tools/search.py:102",
+      "detail": "dict.get trên kết quả JSON, không phải HTTP"
+    },
+    {
+      "where": "reworkd_platform/web/api/agent/tools/sidsearch.py:118",
+      "detail": "res.get(\"results\", []) là dict.get, không phải HTTP"
+    }
+  ],
+  "other_io": [
+    {
+      "where": "reworkd_platform/web/api/agent/tools/image.py:19",
+      "library": "replicate",
+      "detail": "replicate.Client(...) rồi client.run(...) dòng 21"
+    },
+    {
+      "where": "reworkd_platform/web/api/agent/tools/image.py:37",
+      "library": "openai",
+      "detail": "openai.Image.create(...)"
+    },
+    {
+      "where": "reworkd_platform/web/api/agent/model_factory.py:69",
+      "library": "langchain/openai",
+      "detail": "model(**kwargs) tạo ChatOpenAI/AzureChatOpenAI với openai_api_base"
+    },
+    {
+      "where": "reworkd_platform/services/aws/s3.py:26",
+      "library": "boto3",
+      "detail": "boto3_client(\"s3\", region_name=REGION)"
+    },
+    {
+      "where": "reworkd_platform/services/aws/__init__.py:5",
+      "library": "boto3",
+      "detail": "boto3.setup_default_session(profile_name=\"dev\")"
+    },
+    {
+      "where": "reworkd_platform/services/pinecone/lifetime.py:8",
+      "library": "pinecone",
+      "detail": "pinecone.init(...)"
+    },
+    {
+      "where": "reworkd_platform/services/pinecone/pinecone.py:36",
+      "library": "pinecone",
+      "detail": "Index(settings.pinecone_index_name)"
+    },
+    {
+      "where": "reworkd_platform/services/anthropic.py:24",
+      "library": "anthropic",
+      "detail": "AsyncAnthropic(api_key=api_key); thư viện không có trong pyproject.toml"
+    },
+    {
+      "where": "reworkd_platform/web/api/agent/tools/wikipedia_search.py:23",
+      "library": "langchain/wikipedia",
+      "detail": "WikipediaAPIWrapper(...)"
+    },
+    {
+      "where": "reworkd_platform/services/tokenizer/lifetime.py:16",
+      "library": "tiktoken",
+      "detail": "tiktoken.get_encoding tải bảng mã qua mạng lúc khởi động (theo comment dòng 11)"
+    }
+  ],
+  "file_roles": [
+    {
+      "file": "reworkd_platform/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact",
+      "optional": true
+    },
+    {
+      "file": "reworkd_platform/__main__.py",
+      "role": "Điểm vào",
+      "line": 8,
+      "alt_lines": [
+        19
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/constants.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/logging.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/settings.py",
+      "role": "Cấu hình",
+      "line": 34,
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/timer.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/db/base.py",
+      "role": "Truy cập dữ liệu",
+      "line": 29,
+      "alt_lines": [
+        39,
+        40,
+        44
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/db/dependencies.py",
+      "role": "Truy cập dữ liệu",
+      "line": 18,
+      "alt_lines": [
+        20
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/db/meta.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/db/utils.py",
+      "role": "Hạ tầng",
+      "line": 17,
+      "alt_lines": [
+        26,
+        35,
+        55
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/db/crud/agent.py",
+      "role": "Truy cập dữ liệu",
+      "line": 42,
+      "alt_lines": [
+        35
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/db/crud/base.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/db/crud/oauth.py",
+      "role": "Truy cập dữ liệu",
+      "line": 36,
+      "alt_lines": [
+        34,
+        41,
+        47,
+        52,
+        59,
+        62,
+        76
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/db/crud/organization.py",
+      "role": "Truy cập dữ liệu",
+      "line": 78,
+      "alt_lines": [
+        53
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/db/crud/user.py",
+      "role": "Truy cập dữ liệu",
+      "line": 18,
+      "alt_lines": [
+        14,
+        23,
+        31
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/db/models/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/db/models/agent.py",
+      "role": "Model bảng",
+      "line": 8,
+      "alt_lines": [
+        7,
+        17,
+        18
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/db/models/auth.py",
+      "role": "Model bảng",
+      "line": 8,
+      "alt_lines": [
+        7,
+        14,
+        15,
+        22,
+        23
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/db/models/user.py",
+      "role": "Model bảng",
+      "line": 10,
+      "alt_lines": [
+        9,
+        23,
+        24
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/schemas/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/schemas/agent.py",
+      "role": "Schema API",
+      "line": 43,
+      "alt_lines": [
+        28,
+        52,
+        58,
+        63,
+        70,
+        74,
+        79
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/schemas/user.py",
+      "role": "Schema API",
+      "line": 12,
+      "alt_lines": [
+        6
+      ],
+      "label": "exact",
+      "alt_roles": [
+        "Khác"
+      ]
+    },
+    {
+      "file": "reworkd_platform/services/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact",
+      "optional": true
+    },
+    {
+      "file": "reworkd_platform/services/anthropic.py",
+      "role": "Khác",
+      "line": 24,
+      "label": "exact",
+      "alt_roles": [
+        "Hạ tầng"
+      ]
+    },
+    {
+      "file": "reworkd_platform/services/aws/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/services/aws/s3.py",
+      "role": "Khác",
+      "line": 26,
+      "label": "exact",
+      "alt_roles": [
+        "Hạ tầng"
+      ]
+    },
+    {
+      "file": "reworkd_platform/services/oauth_installers.py",
+      "role": "Hạ tầng",
+      "line": 84,
+      "alt_lines": [
+        114
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/services/pinecone/lifetime.py",
+      "role": "Khác",
+      "line": 8,
+      "label": "exact",
+      "alt_roles": [
+        "Hạ tầng"
+      ]
+    },
+    {
+      "file": "reworkd_platform/services/pinecone/pinecone.py",
+      "role": "Khác",
+      "line": 36,
+      "label": "exact",
+      "alt_roles": [
+        "Hạ tầng"
+      ]
+    },
+    {
+      "file": "reworkd_platform/services/security.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/services/ssl.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/services/tokenizer/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact",
+      "optional": true
+    },
+    {
+      "file": "reworkd_platform/services/tokenizer/dependencies.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/services/tokenizer/lifetime.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/services/tokenizer/token_service.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/web/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact",
+      "optional": true
+    },
+    {
+      "file": "reworkd_platform/web/application.py",
+      "role": "Điểm vào",
+      "line": 28,
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/web/lifetime.py",
+      "role": "Hạ tầng",
+      "line": 22,
+      "alt_lines": [
+        23,
+        35
+      ],
+      "label": "exact",
+      "alt_roles": [
+        "Khác"
+      ]
+    },
+    {
+      "file": "reworkd_platform/web/api/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact",
+      "optional": true
+    },
+    {
+      "file": "reworkd_platform/web/api/router.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/web/api/dependencies.py",
+      "role": "Service",
+      "line": 29,
+      "label": "inferred",
+      "reason": "nằm trên đường gọi",
+      "call_path": [
+        "reworkd_platform/web/api/models/views.py:28",
+        "reworkd_platform/web/api/dependencies.py:29",
+        "reworkd_platform/db/crud/user.py:18"
+      ]
+    },
+    {
+      "file": "reworkd_platform/web/api/error_handling.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/web/api/errors.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/web/api/http_responses.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/web/api/metadata.py",
+      "role": "Route",
+      "line": 20,
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/web/api/agent/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/web/api/agent/views.py",
+      "role": "Route",
+      "line": 34,
+      "alt_lines": [
+        45,
+        57,
+        71,
+        86,
+        103,
+        131
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/web/api/agent/dependancies.py",
+      "role": "Service",
+      "line": 49,
+      "alt_lines": [
+        44,
+        30
+      ],
+      "label": "inferred",
+      "reason": "nằm trên đường gọi",
+      "call_path": [
+        "reworkd_platform/web/api/agent/views.py:47",
+        "reworkd_platform/web/api/agent/dependancies.py:57",
+        "reworkd_platform/web/api/agent/dependancies.py:49",
+        "reworkd_platform/db/crud/agent.py:42"
+      ]
+    },
+    {
+      "file": "reworkd_platform/web/api/agent/analysis.py",
+      "role": "Schema API",
+      "line": 15,
+      "alt_lines": [
+        6
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/web/api/agent/helpers.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/web/api/agent/model_factory.py",
+      "role": "Khác",
+      "line": 11,
+      "label": "exact",
+      "alt_roles": [
+        "Hạ tầng"
+      ],
+      "alt_lines": [
+        69
+      ]
+    },
+    {
+      "file": "reworkd_platform/web/api/agent/prompts.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/web/api/agent/stream_mock.py",
+      "role": "Điểm vào",
+      "line": 8,
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/web/api/agent/task_output_parser.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/web/api/agent/agent_service/agent_service.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/web/api/agent/agent_service/agent_service_provider.py",
+      "role": "Service",
+      "line": 28,
+      "alt_lines": [
+        31
+      ],
+      "label": "inferred",
+      "reason": "nằm trên đường gọi",
+      "call_path": [
+        "reworkd_platform/web/api/agent/views.py:39",
+        "reworkd_platform/web/api/agent/agent_service/agent_service_provider.py:28",
+        "reworkd_platform/web/api/agent/dependancies.py:44",
+        "reworkd_platform/db/crud/agent.py:19"
+      ]
+    },
+    {
+      "file": "reworkd_platform/web/api/agent/agent_service/mock_agent_service.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/web/api/agent/agent_service/open_ai_agent_service.py",
+      "role": "Service",
+      "line": 138,
+      "alt_lines": [
+        91
+      ],
+      "label": "inferred",
+      "reason": "nằm trên đường gọi",
+      "call_path": [
+        "reworkd_platform/web/api/agent/views.py:64",
+        "reworkd_platform/web/api/agent/agent_service/open_ai_agent_service.py:138",
+        "reworkd_platform/web/api/agent/tools/sidsearch.py:116",
+        "reworkd_platform/web/api/agent/tools/sidsearch.py:28"
+      ]
+    },
+    {
+      "file": "reworkd_platform/web/api/agent/tools/code.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/web/api/agent/tools/conclude.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/web/api/agent/tools/image.py",
+      "role": "Khác",
+      "line": 19,
+      "label": "exact",
+      "alt_roles": [
+        "Hạ tầng"
+      ]
+    },
+    {
+      "file": "reworkd_platform/web/api/agent/tools/open_ai_function.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/web/api/agent/tools/reason.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/web/api/agent/tools/search.py",
+      "role": "Hạ tầng",
+      "line": 34,
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/web/api/agent/tools/sidsearch.py",
+      "role": "Hạ tầng",
+      "line": 28,
+      "alt_lines": [
+        47
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/web/api/agent/tools/tool.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/web/api/agent/tools/tools.py",
+      "role": "Service",
+      "line": 16,
+      "label": "inferred",
+      "reason": "nằm trên đường gọi",
+      "call_path": [
+        "reworkd_platform/web/api/agent/views.py:50",
+        "reworkd_platform/web/api/agent/agent_service/open_ai_agent_service.py:91",
+        "reworkd_platform/web/api/agent/tools/tools.py:16",
+        "reworkd_platform/web/api/agent/tools/sidsearch.py:89"
+      ]
+    },
+    {
+      "file": "reworkd_platform/web/api/agent/tools/utils.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/web/api/agent/tools/wikipedia_search.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/web/api/auth/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/web/api/auth/views.py",
+      "role": "Route",
+      "line": 16,
+      "alt_lines": [
+        25,
+        35,
+        46,
+        62
+      ],
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/web/api/memory/memory.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/web/api/memory/memory_with_fallback.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/web/api/memory/null.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/web/api/models/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/web/api/models/views.py",
+      "role": "Route",
+      "line": 26,
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/web/api/monitoring/__init__.py",
+      "role": "Khác",
+      "line": null,
+      "label": "exact"
+    },
+    {
+      "file": "reworkd_platform/web/api/monitoring/views.py",
+      "role": "Route",
+      "line": 6,
+      "alt_lines": [
+        15
+      ],
+      "label": "exact"
+    }
+  ],
+  "out_of_scope": {
+    "test": 17,
+    "migration": 0,
+    "environment": 0,
+    "conditional_out": 0
+  },
+  "notes": [
+    "root: platform. Backend Python duy nhất nằm trong platform/ (gói reworkd_platform, manifest platform/pyproject.toml). Các thư mục khác ở gốc repo (next, cli, docs, db, scripts) không có file .py. Mọi đường dẫn trong gold tương đối so với platform/.",
+    "Oracle: venv Python 3.11.9, cài theo phiên bản ghim trong poetry.lock cho các gói app cần lúc import (fastapi 0.98.0, starlette 0.27.0, pydantic 1.10.13, langchain 0.0.295, lanarky 0.7.16, openai 0.28.1, tiktoken 0.5.1, sqlalchemy 2.0.22, aiohttp 3.8.6, httpx 0.25.0, replicate 0.8.4, beautifulsoup4 4.12.2, loguru 0.7.2, yarl 1.9.2, ujson 5.8.0, cryptography 41.0.5, python-multipart 0.0.6, uvicorn 0.22.0, aiomysql 0.1.1). Gói bắc cầu do pip chọn, có thể khác poetry.lock (ví dụ anyio). Không cài mysqlclient, boto3, pinecone-client, sentry-sdk, aiokafka, stripe vì app không import chúng khi tạo. Target reworkd_platform.web.application:get_app(). Không kết nối CSDL hay dịch vụ ngoài: get_app() không chạy sự kiện startup.",
+    "Oracle cần metadata.version(\"reworkd_platform\") (web/application.py:30): tạo dist-info giả phiên bản 0.1.0 trong venv, không cài gói từ repo. Đặt USERPROFILE/HOME trỏ vào venv vì langchain gọi Path.home() lúc import. Biến môi trường giả: REWORKD_PLATFORM_ENVIRONMENT=development, REWORKD_PLATFORM_OPENAI_API_KEY=dummy.",
+    "pyproject ghim pydantic <2.0 (poetry.lock 1.10.13): mọi model theo luật Pydantic v1. Optional không có default thì không bắt buộc và nullable (pydantic.v1_optional_not_required), ví dụ ToolModel.image_url, UserBase.name, UserBase.email.",
+    "16 route, đều qua decorator của APIRouter, gắn vào api_router (web/api/router.py:6-10, prefix /monitoring, /agent, /models, /auth, /metadata) rồi app.include_router(prefix=\"/api\") ở web/application.py:51. registration (trường thêm) ghi hai lần gắn này. Oracle liệt kê thêm /api/openapi.json, /api/docs, /docs/oauth2-redirect, /api/redoc: route tài liệu FastAPI tự sinh, gold bỏ.",
+    "GET /api/models và GET /api/metadata: decorator khai path rỗng (\"\"), path đầy đủ không có / ở cuối.",
+    "Status: không route nào khai status_code. App có default_response_class=UJSONResponse (web/application.py:34); status mặc định của lớp này là 200. Gold ghi 200, status_source default (quy tắc fastapi.response_class_default_status; fastapi.default_status_200 cũng ra 200). HTTPException(404) trong thân auth/views.py:22 và RedirectResponse trả lúc chạy ở callback không phải status khai báo.",
+    "Header x-organization-id (string, không bắt buộc) đến từ dependency get_current_user (web/api/dependencies.py:22, Annotated[str | None, Header()] = None), qua nhiều tầng Depends: agent_crud, get_agent_service, OrganizationCrud.inject, hoặc trực tiếp ở models/auth. Tên HTTP đổi _ thành - (fastapi.header_underscore_to_hyphen).",
+    "HTTPBearer() ở web/api/dependencies.py:23 là security scheme. OpenAPI không ghi Authorization thành parameter nên gold không liệt kê. Dependency/auth không chấm trong gold này.",
+    "POST /api/agent/*: request body đến từ tham số body = Body(...) trong các hàm validator ở web/api/agent/dependancies.py (lồng trong Depends). Handler và get_agent_service cùng Depends(validator) nên FastAPI chỉ tính một lần. Mỗi route có đúng một tham số body nên không bọc (embedded=false). Model body: start → AgentRunCreate; analyze → AgentTaskAnalyze; execute → AgentTaskExecute; create → AgentTaskCreate; summarize → AgentSummarize; chat → AgentChat. AgentRun (kiểu trả về của validator, kiểu khai ở tham số handler) không phải request/response model nên không có trong models.",
+    "Response: không route nào khai response_model; response lấy từ kiểu trả về (fastapi.return_annotation_response_model). execute/summarize/chat trả FastAPIStreamingResponse và callback trả RedirectResponse: đều là lớp con Response nên FastAPI không sinh response model, OpenAPI ghi schema rỗng, gold ghi response=null. GET /api/auth/{provider} trả str → {type: string}. uninstall và sid/info trả Dict[str, Any] → {type: object}. GET /api/models trả List[ModelWithAccess] → array=true.",
+    "Tham số provider (path, bắt buộc) của các route /api/auth/{provider}* khai trong dependency installer_factory (services/oauth_installers.py:136, Path(...)). Route oauth_install có query redirect: str = settings.frontend_url; có default nên không bắt buộc.",
+    "Kiểu trường: Literal chuỗi (ModelSettings.model) ghi string; confloat/conint (temperature, max_tokens) ghi number/integer; trường là model lồng ghi tên lớp như fixture (ModelSettings, Analysis, OrgUser, UserBase, OrganizationRole, ToolModel). NewTasksResponse.new_tasks có alias newTasks.",
+    "Model response nằm ngoài schemas/: OrganizationUsers, OrgUser ở db/crud/organization.py; ToolsResponse, ToolModel ở web/api/agent/views.py; ModelWithAccess ở web/api/models/views.py; Metadata ở web/api/metadata.py; Analysis ở web/api/agent/analysis.py. 17 model gồm cả model lồng.",
+    "Model lớp con (AgentTaskAnalyze... kế thừa AgentRun → AgentRunCreate): trường liệt kê đủ cả trường kế thừa, theo thứ tự Pydantic. AgentTaskAnalyze khai lại model_settings (dòng 55) nhưng giữ vị trí cũ.",
+    "web/api/agent/stream_mock.py:8 có app = FastAPI() không gắn route nào. Gold ghi vai trò Điểm vào (dấu hiệu FastAPI( ); không có route nào thuộc app này.",
+    "Không có add_api_route/add_route/add_websocket_route, không có urlopen/urllib3/http.client: limitations rỗng. Không có route trong file test hay thư mục ngoài phạm vi: excluded_routes rỗng.",
+    "http_calls: 6 lời gọi (1 httpx, 5 aiohttp). where là dòng có lời gọi .get(/.post(; alt_where (trường thêm) là dòng kế tiếp chứa URL, chấm đúng nếu công cụ dẫn một trong hai. Dòng tạo client (AsyncClient() metadata.py:29; aiohttp.ClientSession() oauth_installers.py:83,113, search.py:33, sidsearch.py:27,46) không phải lời gọi HTTP.",
+    "Phán đoán: search.py:34 URL là f-string f\"https://google.serper.dev/{search_type}\", search_type là tham số hàm (default \"search\"). Gold ghi unknown; accept_alt_target (trường thêm) chấp nhận literal nguyên văn f-string.",
+    "other_io (trường thêm, không chấm): SDK gọi dịch vụ ngoài không qua httpx/requests/aiohttp (openai, replicate, boto3, pinecone, anthropic, wikipedia, tiktoken). Phán đoán: không phải 'thư viện HTTP khác' theo AC-029-08 và không thuộc danh sách hệ thống ngoài của FR-028 (engine CSDL, Redis, SMTP, broker, HTTP). Gold không đưa vào limitations và không tính là dấu hiệu Hạ tầng; công cụ ghi chúng ở phần giới hạn thì không tính sai.",
+    "file_roles: 78 file có nội dung trong phạm vi. alt_lines (trường thêm) là dòng khác cùng dấu hiệu. alt_roles (trường thêm) là vai trò thay thế chấp nhận được ở chỗ phán đoán. optional=true là file chỉ có docstring (__init__.py), FR-028 có thể coi là file không có code: công cụ ghi Khác hoặc bỏ đều không tính sai.",
+    "Phán đoán vai trò: SDK client không có URL/host (boto3 s3.py:26, AsyncAnthropic anthropic.py:24, pinecone, replicate image.py:19, ChatOpenAI model_factory.py:69) không tính dấu hiệu Hạ tầng → Khác, alt_roles Hạ tầng.",
+    "Phán đoán vai trò: web/lifetime.py:22 engine = create_engine() gọi hàm bọc của repo (URL ở db/utils.py:18); dòng 23 async_sessionmaker. Gold ghi Hạ tầng, alt_roles Khác.",
+    "Phán đoán vai trò: db/dependencies.py mở session ở dòng 14, gọi session.commit() dòng 18 và session.close() dòng 20 → Truy cập dữ liệu.",
+    "Phán đoán vai trò: db/crud/organization.py có lớp schema OrgUser/OrganizationUsers (response model) và truy vấn select/session.execute; Truy cập dữ liệu đứng trước Schema API trên thang nên thắng. schemas/user.py chỉ là model lồng trong response (UserBase trong OrgUser) → Schema API, alt_roles Khác.",
+    "Phán đoán vai trò Service (đường gọi qua Depends hoặc gọi động): web/api/dependencies.py (route → get_current_user → UserCrud.get_user_session); web/api/agent/dependancies.py (route → validator → AgentCRUD.create_task); agent_service_provider.py (route → get_agent_service.func → Depends(validator) → crud); open_ai_agent_service.py (route gọi agent_service.execute_task_agent, kiểu Protocol AgentService, cài đặt thật OpenAIAgentService → tool.call → sidsearch.py gọi HTTP); tools/tools.py (get_user_tools → SID.dynamic_available ở sidsearch.py). Ba file sau có alt_roles Khác vì đường gọi chỉ thấy qua DI hoặc gọi động.",
+    "Không phải Service: services/security.py, services/ssl.py, db/crud/base.py, helpers.py, model_factory.py, token_service.py, web/api/router.py. Các file này được file Hạ tầng/Truy cập dữ liệu gọi, hoặc không dẫn tới file đó → Khác.",
+    "out_of_scope: 17 file test (thư mục reworkd_platform/tests/ có 16 file, cộng reworkd_platform/conftest.py). Không có migration, môi trường hay thư mục điều kiện.",
+    "Membership: 6 file .py rỗng hoặc chỉ có khoảng trắng và pyproject.toml vào component kind other. poetry.lock không phải manifest theo FR-028 (chỉ pyproject.toml, requirements*.txt) nên không có trong membership. Cách chia component trong membership do gold đặt, chỉ để cấp kind cho từng file; không phải đáp án FR-028."
+  ],
+  "accept_extra_limitations": [
+    {
+      "kind": "unsupported_http_library",
+      "why": "SDK (openai, langchain, replicate, wikipedia) không phải thư viện HTTP; notes của gold nói công cụ ghi chúng ở phần giới hạn thì không tính sai"
+    }
+  ],
+  "revision": 2,
+  "revision_of": {
+    "file": "gold.json",
+    "sha256": "d3916c80766c756fdadb6539ec19566ecb8636367824dfb9883d4057c6e3dd4b"
+  },
+  "corrections": [
+    {
+      "id": "G01",
+      "path": [
+        "http_calls",
+        3,
+        "accept_alt_target"
+      ],
+      "before": {
+        "kind": "literal",
+        "value": "https://google.serper.dev/{search_type}"
+      },
+      "op": "delete",
+      "why": "tools/search.py:23,35: search_type là tham số, URL là f-string; mẫu chuỗi không phải URL literal.",
+      "confirmed_by": [
+        "Codex acceptance",
+        "Codex phiên chính",
+        "Claude accept-tdd-agentgpt"
+      ]
+    },
+    {
+      "id": "G02",
+      "path": [
+        "file_roles",
+        57,
+        "alt_roles"
+      ],
+      "before": [
+        "Khác"
+      ],
+      "op": "delete",
+      "file": "reworkd_platform/web/api/agent/agent_service/open_ai_agent_service.py",
+      "why": "Đường gọi views.py:50 → open_ai_agent_service.py:91 → tools/tools.py:16 → tools/sidsearch.py:89 → db/crud/oauth.py:41,47 chứng minh Service; Khác là vai trò sai.",
+      "confirmed_by": [
+        "Codex acceptance",
+        "Codex phiên chính"
+      ]
+    },
+    {
+      "id": "G03",
+      "path": [
+        "file_roles",
+        66,
+        "alt_roles"
+      ],
+      "before": [
+        "Khác"
+      ],
+      "op": "delete",
+      "file": "reworkd_platform/web/api/agent/tools/tools.py",
+      "why": "Cùng đường gọi với G02.",
+      "confirmed_by": [
+        "Codex acceptance",
+        "Codex phiên chính"
+      ]
+    },
+    {
+      "id": "G04",
+      "path": [
+        "file_roles",
+        55,
+        "alt_roles"
+      ],
+      "before": [
+        "Khác"
+      ],
+      "op": "delete",
+      "file": "reworkd_platform/web/api/agent/agent_service/agent_service_provider.py",
+      "why": "call_path của chính gold: views.py:39 → agent_service_provider.py:28 → dependancies.py:44 → db/crud/agent.py:19; cùng cơ chế với G02/G03.",
+      "confirmed_by": [
+        "Claude accept-tdd-agentgpt",
+        "Claude phiên chính (đọc call_path)"
+      ]
+    },
+    {
+      "id": "G05",
+      "path": [
+        "file_roles",
+        50,
+        "alt_lines"
+      ],
+      "before": "<absent>",
+      "op": "set",
+      "after": [
+        69
+      ],
+      "file": "reworkd_platform/web/api/agent/model_factory.py",
+      "why": "Gold chấp nhận vai trò thay thế Hạ tầng; dấu hiệu của vai trò đó là dòng 69 (ChatOpenAI), nên dòng 69 phải được chấp nhận.",
+      "confirmed_by": [
+        "Claude accept-tdd-agentgpt",
+        "Claude phiên chính"
+      ]
+    },
+    {
+      "id": "G06",
+      "path": [
+        "accept_extra_limitations"
+      ],
+      "before": "<absent>",
+      "op": "set",
+      "after": [
+        {
+          "kind": "unsupported_http_library",
+          "why": "SDK (openai, langchain, replicate, wikipedia) không phải thư viện HTTP; notes của gold nói công cụ ghi chúng ở phần giới hạn thì không tính sai"
+        }
+      ],
+      "why": "Ghi quy ước trong notes thành dữ liệu cho bộ chấm; repo không có urllib/http.client/urllib3 nên không che mất lỗi thật.",
+      "confirmed_by": [
+        "Claude accept-tdd-agentgpt",
+        "Claude phiên chính (đọc 10 dòng)"
+      ]
+    },
+    {
+      "id": "G07",
+      "bulk": "khac_line_null",
+      "why": "Vai trò Khác không có dấu hiệu, dòng nào cũng được (như gold kibo: line null); gold cũ bắt đúng một dòng tùy chọn.",
+      "confirmed_by": [
+        "Claude accept-tdd-agentgpt",
+        "Claude phiên chính (đối chiếu quy ước kibo)"
+      ],
+      "count": 41
+    }
+  ]
+}

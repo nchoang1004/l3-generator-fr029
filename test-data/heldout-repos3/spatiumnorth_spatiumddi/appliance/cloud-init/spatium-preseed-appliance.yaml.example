@@ -1,0 +1,127 @@
+# SpatiumDDI headless install preseed — APPLIANCE (additional node).
+# Issue #549. An appliance node runs the supervisor only; it pairs with
+# an EXISTING control plane over an 8-digit pairing code, waits in
+# pending_approval until an admin approves it in the Fleet UI, then gets
+# DNS / DHCP roles assigned. Can later be promoted into the control-plane
+# cluster for HA.
+#
+# See spatium-preseed-control-plane.yaml.example for the field-by-field
+# notes shared with this file (disk safety, password handling, network,
+# k3s CIDRs). Only the appliance-specific fields are annotated here.
+spatium_preseed:
+  # control-plane vs appliance. Aliases for appliance: add-node,
+  # additional, agent, application.
+  role: appliance
+
+  confirm_wipe: true
+  target_disk: /dev/disk/by-id/ata-QEMU_HARDDISK_QM00002
+
+  # ── Storage redundancy (#999 Part C2) ───────────────────────────────
+  # Optional. Install onto a two-disk software RAID1 mirror, so the
+  # appliance keeps running AND keeps booting when one disk dies.
+  #
+  # The OS slots, STATE and /var become md members. The EFI system
+  # partition cannot (firmware reads it before the RAID driver exists),
+  # so each disk keeps its own and SpatiumDDI syncs them on every
+  # upgrade. ALL DATA on the mirror member is destroyed too.
+  #
+  # Refused rather than silently downgraded to a single-disk install:
+  #   * a member that does not exist or is not a whole disk,
+  #   * a member that resolves to the same device as target_disk,
+  #   * a member SMALLER than target_disk — a RAID1 is the size of its
+  #     smallest member, so it would quietly shrink /var.
+  # mirror_disk: /dev/disk/by-id/ata-QEMU_HARDDISK_QM00002
+
+  hostname: dns-east-1
+  admin_user: admin
+  admin_password: "change-me-please"
+  # admin_password_hash: "$6$rounds=4096$abcd...$..."
+  # root is locked by default since #995; true restores the old
+  # same-password-as-admin behaviour.
+  set_root_password: false
+  timezone: UTC
+
+  # Console keyboard layout (#995 item 17) — an XKB layout code, applied
+  # before the password prompt and persisted. Default us.
+  keymap: us
+
+  # Time source (#995 item 16). String or list. Written to
+  # /etc/chrony/sources.d/spatium-install.sources.
+  #
+  # NOTE: the #1003 item 2 seeding of the platform's initial
+  # ntp_pool_servers happens on a FIRST NODE only — an Additional node runs
+  # no api pod, so this answer is superseded the moment the control plane
+  # pushes NTP (#154). Set the fleet-wide value there instead.
+  ntp_servers: pool.ntp.org
+
+  # SSH bootstrap keys for the admin account (#995 item 18). Replaced by
+  # the control plane's list once it manages SSH (#157).
+  # ssh_authorized_keys:
+  #   - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA... ops@corp"
+  # Refused unless ssh_authorized_keys is also set.
+  # ssh_disable_password: false
+
+  network:
+    mode: dhcp
+    # Optional in dhcp mode: PIN the lease to one port (#995 item 19).
+    # Without it NetworkManager DHCPs every NIC and the node answers on
+    # whichever replied first — which on a DNS/DHCP appliance decides
+    # which network it serves.
+    # interface: enp1s0
+    #
+    # Static instead — all four required (see the control-plane example
+    # for the full notes), plus optional IPv6 (#995 item 21):
+    # mode: static
+    # interface: enp1s0
+    # ip: 192.168.1.20
+    # prefix: 24
+    # gateway: 192.168.1.1
+    # dns: "1.1.1.1 1.0.0.1"
+    # ip6: 2001:db8:1::20
+    # prefix6: 64
+    # gateway6: fe80::1
+    #
+    # Optional interface MTU (#1017). Blank / absent means
+    # NetworkManager's default, which is what every install has had so
+    # far and is almost always right.
+    #
+    # Set it to MATCH a link that needs a SMALLER MTU: a WireGuard /
+    # IPsec / GRE tunnel, PPPoE, or a provider underlay. That failure is
+    # nasty and common — ping and small requests work, large TCP hangs,
+    # and it reads as an application fault. This is NOT a performance
+    # knob: SpatiumDDI's own traffic is small UDP and small JSON, and
+    # raising the MTU on a DHCP-served segment is actively hazardous
+    # because PXE ROMs are 1500.
+    #
+    # Range 576-9000. Below 1280 is REFUSED alongside a static ip6 —
+    # IPv6 cannot run on such a link at all (RFC 8200). In dhcp mode it
+    # REQUIRES `interface`: with no port pinned the appliance uses
+    # NetworkManager's own profile, which carries no MTU from
+    # SpatiumDDI, so the value would be stored and never applied.
+    # Applied at boot, not live.
+    # mtu: 1400
+
+  # NOTE (#995 item 14): an Additional node writes NO k3s CIDR drop-in.
+  # A k3s server refuses to join a cluster whose cluster-cidr /
+  # service-cidr differ from the datastore's, so pinning them here would
+  # make this node impossible to PROMOTE into the control plane later.
+  # The join inherits the seed's values. Left here, commented, because the
+  # parser TOLERATES the block rather than failing on it: for role=appliance
+  # it warns and DISCARDS the values, so one answer file can be shared
+  # between both roles. Uncommenting it has no effect beyond that warning.
+  # k3s:
+  #   pod_cidr: 10.42.0.0/16
+  #   service_cidr: 10.43.0.0/16
+
+  # ── Control-plane join (REQUIRED for role: appliance) ───────────────
+  # Where this appliance registers. Point at the control plane's URL —
+  # for a multi-node HA control plane use the MetalLB virtual IP (VIP),
+  # NOT a single node, so the appliance survives that node going down.
+  control_plane_url: https://ddi-control-1.example.net/
+
+  # 8-digit pairing code minted at the control plane
+  # (Appliance -> Pairing -> New pairing code). Dashes / spaces from the
+  # displayed 1234-5678 form are accepted; stored single-use unless the
+  # admin minted a persistent code. Treat as a short-TTL secret — kept
+  # out of the console dashboard + logs.
+  pairing_code: "12345678"

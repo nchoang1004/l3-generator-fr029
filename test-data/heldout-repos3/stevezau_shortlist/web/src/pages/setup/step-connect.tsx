@@ -1,0 +1,405 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Check, Loader2, X } from "lucide-react";
+import { useEffect, useId, useRef, useState } from "react";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { api, ApiError, apiErrorMessage } from "@/lib/api";
+import { PlexPinButton } from "@/components/plex-pin-button";
+import { queryKeys, useSession } from "@/lib/queries";
+import type { PlexServer, ProbeCheck, ProbeResult } from "@/lib/types";
+
+import type { StepProps } from "./step-props";
+
+function CheckLine({ label, check }: { label: string; check: ProbeCheck }) {
+  return (
+    <li className="flex items-start gap-2 text-sm">
+      {check.ok ? (
+        <Check
+          className="mt-0.5 h-4 w-4 shrink-0 text-success"
+          aria-hidden="true"
+        />
+      ) : (
+        <X
+          className="mt-0.5 h-4 w-4 shrink-0 text-destructive-text"
+          aria-hidden="true"
+        />
+      )}
+      <span>
+        <span className="font-medium">{label}:</span>{" "}
+        <span className="text-muted-foreground">{check.message}</span>
+      </span>
+    </li>
+  );
+}
+
+function connectionLabel(connection: PlexServer["connections"][number]) {
+  if (connection.relay) return "via Plex relay";
+  return connection.local ? "on your network" : "over the internet";
+}
+
+/**
+ * Step 1 — connect your Plex account, pick the server, check it, link it.
+ *
+ * Signing in with Plex is not a gate in front of the wizard; it IS this step. There is nothing to
+ * sign in TO until a server is linked, so a fresh install starts here and this is where you
+ * connect the account. Your token never reaches the browser — the backend holds it — and once
+ * you're connected this opens straight onto the servers your account can see, with every address
+ * Plex advertises for them already tried. Only your network knows which one works from where
+ * Shortlist runs, so we test rather than guess. The URL stays editable regardless.
+ */
+export function StepConnect({ data, update }: StepProps) {
+  const [plexUrl, setPlexUrl] = useState(data.plex_url ?? "");
+  const urlId = useId();
+  const session = useSession();
+  const queryClient = useQueryClient();
+  const connected = session.data?.authenticated ?? false;
+
+  const servers = useQuery({
+    queryKey: ["setup", "servers"],
+    queryFn: api.getServers,
+    enabled: connected && !data.linked,
+    staleTime: 30_000,
+  });
+
+  // Preselect the first address that actually answered — the common case is one click.
+  // Suppressed deliberately: this seeds a user-editable field once from data that arrives async,
+  // and then must stop (note the `plexUrl ||` guard). Deriving it would fight the user's own
+  // choice on every refetch.
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (plexUrl || !servers.data) return;
+    for (const server of servers.data) {
+      const working = server.connections.find((connection) => connection.ok);
+      if (working) {
+        setPlexUrl(working.uri);
+        return;
+      }
+    }
+  }, [servers.data, plexUrl]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  const probe = useMutation({
+    mutationFn: () => api.setupProbe({ plex_url: plexUrl }),
+  });
+
+  // Auto-run the deep checks the moment a discovered address is chosen — whether or not discovery
+  // could reach it. Discovery probes plex.direct hostnames, which often fail from where Shortlist
+  // runs even when the server's plain LAN address works, so "unreachable" is a hint, not a verdict:
+  // clicking one runs the real check so the owner sees for themselves. A manually typed address
+  // (not in the discovered list) still uses the Run checks button.
+  const autoChecked = useRef<string | null>(null);
+  useEffect(() => {
+    if (!plexUrl || autoChecked.current === plexUrl) return;
+    const discovered = servers.data?.some((server) =>
+      server.connections.some((c) => c.uri === plexUrl),
+    );
+    if (discovered) {
+      autoChecked.current = plexUrl;
+      probe.mutate();
+    }
+  }, [plexUrl, servers.data, probe]);
+
+  const link = useMutation({
+    mutationFn: (result: ProbeResult) =>
+      api.setupLink({
+        plex_url: plexUrl,
+        machine_id: result.machine_id,
+        server_name: result.server_name,
+        version: result.checks.pms_version.value ?? "",
+        owner_account_id: result.owner_account_id,
+        plex_pass: result.checks.plex_pass.ok,
+      }),
+    onSuccess: (_ignored, result) => {
+      update({
+        linked: true,
+        plex_url: plexUrl,
+        server_name: result.server_name,
+      });
+    },
+  });
+
+  if (data.linked) {
+    return (
+      <div className="space-y-3">
+        <p className="inline-flex items-center gap-2 text-success">
+          <Check className="h-5 w-5" aria-hidden="true" />
+          Linked to {data.server_name ?? "your Plex server"}
+        </p>
+        <p className="text-sm text-muted-foreground">
+          You can change the server URL later under Settings → Connections,
+          where every service you link lives. Next up: a free key from The Movie
+          Database, which is how Shortlist finds titles to suggest.
+        </p>
+      </div>
+    );
+  }
+
+  const requiredChecksPass =
+    probe.data !== undefined &&
+    probe.data.checks.pms_version.ok &&
+    probe.data.checks.plex_pass.ok &&
+    probe.data.checks.libraries.ok;
+
+  // Nothing here is possible until Shortlist can ask Plex what servers you have — so connecting the
+  // account IS the first thing this step does. No password ever reaches Shortlist, and the token it
+  // gets back stays on the server.
+  if (!connected) {
+    return (
+      <div className="space-y-4">
+        <p className="text-sm text-muted-foreground">
+          Connect the Plex account that owns your server. Shortlist asks Plex
+          which servers you have — it never sees your password, and your Plex
+          token stays on the server, never in this browser.
+        </p>
+        <PlexPinButton
+          onLinked={() => {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.session });
+          }}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <section className="space-y-3">
+        <h2 className="text-sm font-medium">Your servers</h2>
+
+        {servers.isPending ? (
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            Asking Plex which servers you have, and trying every address they
+            advertise…
+          </p>
+        ) : null}
+
+        {servers.isError ? (
+          <div className="space-y-3">
+            <p className="text-sm text-destructive-text" role="alert">
+              {apiErrorMessage(servers.error, "Could not reach plex.tv.")} Sign
+              in with Plex again to list your servers, or type the address
+              yourself below.
+            </p>
+            {/* A setup session can expire (or never existed for a stale login cookie); re-signing
+                in re-establishes the Plex token so the server list can load. */}
+            <PlexPinButton
+              onLinked={() => {
+                void queryClient.invalidateQueries({
+                  queryKey: queryKeys.session,
+                });
+                void queryClient.invalidateQueries({
+                  queryKey: ["setup", "servers"],
+                });
+              }}
+            />
+          </div>
+        ) : null}
+
+        {servers.data?.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Plex says this account owns no servers. If that&rsquo;s wrong, type
+            the address below.
+          </p>
+        ) : null}
+
+        <div className="space-y-3">
+          {servers.data?.map((server) => (
+            <Card
+              key={server.machine_id}
+              data-testid={`server-${server.machine_id}`}
+            >
+              <CardContent className="space-y-2 pt-6">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium">{server.name}</span>
+                  {server.owned ? (
+                    <Badge>owned</Badge>
+                  ) : (
+                    <Badge variant="secondary">shared with you</Badge>
+                  )}
+                  {server.version ? (
+                    <span className="text-xs text-muted-foreground">
+                      {server.version}
+                    </span>
+                  ) : null}
+                </div>
+                {/* Shown but not selectable. Shortlist creates collections and rewrites share
+                    filters, which only the server's owner may do — and the backend rejects a link
+                    to someone else's server, so offering it here would only lead to a dead end. */}
+                {!server.owned ? (
+                  <p className="text-sm text-muted-foreground">
+                    You can&rsquo;t set Shortlist up on this one &mdash; it
+                    belongs to someone else, and Shortlist has to create
+                    collections and manage sharing. Ask its owner to run their
+                    own Shortlist.
+                  </p>
+                ) : null}
+                <fieldset className="space-y-1.5" disabled={!server.owned}>
+                  <legend className="sr-only">
+                    Addresses for {server.name}
+                  </legend>
+                  {server.connections.map((connection) => (
+                    <Button
+                      key={connection.uri}
+                      type="button"
+                      variant={
+                        plexUrl === connection.uri ? "default" : "outline"
+                      }
+                      size="sm"
+                      aria-pressed={plexUrl === connection.uri}
+                      // Unreachable addresses stay clickable: discovery only probed the plex.direct
+                      // hostname, so selecting one fills the URL and re-runs the real check — and the
+                      // owner can then edit it to their LAN address if that hostname won't route.
+                      onClick={() => setPlexUrl(connection.uri)}
+                      className="h-auto w-full items-start justify-start gap-2 whitespace-normal break-all py-1.5 text-left font-mono text-xs disabled:opacity-50"
+                    >
+                      {connection.ok ? (
+                        <Check
+                          className="mt-0.5 h-3 w-3 shrink-0"
+                          aria-hidden="true"
+                        />
+                      ) : (
+                        <X
+                          className="mt-0.5 h-3 w-3 shrink-0"
+                          aria-hidden="true"
+                        />
+                      )}
+                      <span className="min-w-0">
+                        {connection.uri}
+                        <span className="ml-1 opacity-70">
+                          ({connectionLabel(connection)}
+                          {connection.ok ? "" : ", couldn’t reach"})
+                        </span>
+                      </span>
+                    </Button>
+                  ))}
+                </fieldset>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </section>
+
+      <div className="space-y-2">
+        <Label htmlFor={urlId}>Plex server URL</Label>
+        <Input
+          id={urlId}
+          value={plexUrl}
+          onChange={(event) => setPlexUrl(event.target.value)}
+          placeholder="http://192.168.1.10:32400"
+          autoComplete="off"
+          className="font-mono"
+        />
+        {/* "Always editable — auto-discovery never traps you" was a design principle spoken
+            aloud: it describes a decision we made, not anything the reader does. The field being
+            editable is visible; what they need is the one case where they should edit it. */}
+        <p className="text-sm text-muted-foreground">
+          Filled in from Plex, and you can change it. If the secure address
+          won’t connect, use the plain{" "}
+          <span className="font-mono">http://</span> address on your home
+          network instead.
+        </p>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        {probe.isPending ? (
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+            Checking this server…
+          </p>
+        ) : (
+          <Button
+            variant="outline"
+            onClick={() => probe.mutate()}
+            disabled={!plexUrl}
+          >
+            {probe.data || probe.isError ? "Re-run checks" : "Run checks"}
+          </Button>
+        )}
+        {requiredChecksPass && probe.data ? (
+          <Button
+            variant="default"
+            onClick={() => link.mutate(probe.data)}
+            disabled={link.isPending}
+          >
+            {link.isPending ? (
+              <Loader2 className="animate-spin" aria-hidden="true" />
+            ) : null}
+            Link this server
+          </Button>
+        ) : null}
+      </div>
+
+      {probe.isError ? (
+        <div className="space-y-3">
+          <p className="text-sm text-destructive-text" role="alert">
+            {probe.error instanceof ApiError
+              ? probe.error.message
+              : "That server did not answer."}
+          </p>
+          {/* A 409 here means the setup session lapsed — re-signing in re-mints the token so the
+              check (and Link) can run. Any other error is a server-reachability problem the owner
+              fixes via the URL above. */}
+          {probe.error instanceof ApiError && probe.error.status === 409 ? (
+            <PlexPinButton
+              onLinked={() => {
+                void queryClient.invalidateQueries({
+                  queryKey: queryKeys.session,
+                });
+                void queryClient.invalidateQueries({
+                  queryKey: ["setup", "servers"],
+                });
+                probe.reset();
+              }}
+            />
+          ) : null}
+        </div>
+      ) : null}
+
+      {probe.data ? (
+        <Card>
+          <CardContent className="space-y-3 pt-6">
+            <ul className="space-y-2">
+              <CheckLine
+                label="Plex version"
+                check={probe.data.checks.pms_version}
+              />
+              <CheckLine
+                label="Plex Pass"
+                check={probe.data.checks.plex_pass}
+              />
+              <CheckLine
+                label="Libraries"
+                check={probe.data.checks.libraries}
+              />
+            </ul>
+            <p className="text-sm text-muted-foreground">
+              {probe.data.libraries.length} libraries:{" "}
+              {probe.data.libraries
+                .map(
+                  (library) =>
+                    `${library.title} (${library.count} ${library.type}s)`,
+                )
+                .join(", ")}
+            </p>
+            {!requiredChecksPass ? (
+              <p className="text-sm text-destructive-text">
+                Shortlist can&rsquo;t keep rows private on this server yet — fix
+                the failing check above, then run the checks again.
+              </p>
+            ) : null}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {link.isError ? (
+        <p className="text-sm text-destructive-text" role="alert">
+          {apiErrorMessage(link.error, "Could not link that server.")}
+        </p>
+      ) : null}
+    </div>
+  );
+}

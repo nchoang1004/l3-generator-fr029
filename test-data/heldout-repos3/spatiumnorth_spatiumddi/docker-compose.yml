@@ -1,0 +1,543 @@
+name: spatiumddi
+
+services:
+
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    networks:
+      - spatiumddi
+    environment:
+      POSTGRES_USER: spatiumddi
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_DB: spatiumddi
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U spatiumddi"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis ───────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:8.10.2-alpine
+    restart: unless-stopped
+    networks:
+      - spatiumddi
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ── API Backend ─────────────────────────────────────────────────────────────
+  api:
+    image: ghcr.io/spatiumnorth/spatiumddi-api:${SPATIUMDDI_VERSION:-latest}
+    restart: unless-stopped
+    networks:
+      - spatiumddi
+    ports:
+      # Localhost only by default (#1221): the api believes X-Real-IP from
+      # private-range peers, so a LAN client reaching it directly could set
+      # its own IP. Browsers and remote agents go through the frontend;
+      # host-network services here (looking-glass) use 127.0.0.1. See
+      # API_BIND in .env.example before widening it.
+      - "${API_BIND:-127.0.0.1}:${API_PORT:-8000}:8000"
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://spatiumddi:${POSTGRES_PASSWORD:-changeme}@postgres:5432/spatiumddi
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      VERSION: ${SPATIUMDDI_VERSION:-dev}
+      # Service control (#890) — Admin → Platform Insights → Services
+      # gets Start / Stop / Restart buttons for THIS compose project's
+      # containers. Off by default: it needs the docker.sock mount below,
+      # and a restart-capable socket is equivalent to root on the host.
+      # Scope is the api container's own ``com.docker.compose.project``
+      # label, so it can never reach a container outside this stack.
+      SERVICE_CONTROL_ENABLED: ${SERVICE_CONTROL_ENABLED:-false}
+    # Docker integration — uncomment both entries below to poll the
+    # host's Docker daemon over its local Unix socket. Required when
+    # adding a Docker host with connection_type=unix, and by service
+    # control (#890) — see SERVICE_CONTROL_ENABLED below. The ``:ro``
+    # mount is fine for both: it makes the socket *file* read-only, not
+    # the protocol, so lifecycle POSTs still work.
+    # Unnecessary for TCP+TLS remote daemons.
+    #
+    # ``DOCKER_GID`` must match the gid of ``/var/run/docker.sock``
+    # on the host — find it with:
+    #   stat -c '%g' /var/run/docker.sock
+    # then set ``DOCKER_GID=<that number>`` in your .env. Common
+    # values: 999 (Debian/Ubuntu), 998 or 989 (RHEL/Fedora), varies.
+    # Without this the api user (uid 1000) gets EACCES on the socket.
+    # volumes:
+    #   - /var/run/docker.sock:/var/run/docker.sock:ro
+    # group_add:
+    #   - "${DOCKER_GID:-999}"
+    volumes:
+      # Backup local-volume target (issue #117, #1160) — the default
+      # path of a ``local_volume`` Backup Target. The api writes a
+      # manual "Run now" here and lists, downloads and restores
+      # archives from here, while every SCHEDULED run is written by
+      # the worker — so both mount this one volume (MUST stay in sync
+      # with the worker mount below). Restore's pre-restore safety
+      # dump lands here too. Without it each container keeps its own
+      # copy in its writable layer: scheduled archives are never
+      # listed, and all of them are lost on the next recreate.
+      - spatium_backups:/var/lib/spatiumddi/backups
+      # Slot-image upload storage for air-gapped appliance upgrades
+      # (#170 follow-up). Holds the .raw.xz bytes the operator
+      # uploads through the Fleet UI. The api streams them back
+      # authenticated under /api/v1/appliance/slot-images/{id}/raw.xz
+      # for the supervisor to download.
+      - spatium_slot_images:/var/lib/spatiumddi/slot-images
+      # Packet-capture .pcap artifacts (issue #59). The worker writes
+      # captures here; the api streams them back on download. Shared so
+      # the server-vantage capture works end-to-end on compose.
+      - spatium_pcaps:/var/lib/spatiumddi/pcaps
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      # Wait for the SCHEMA, not just the database. Without this the API
+      # can start while ``alembic upgrade head`` is still running: it
+      # serves against a half-migrated schema, and ``_seed_default_admin``
+      # runs at lifespan start, so it either creates the admin against a
+      # partly-built database or — if ``user`` does not exist yet — skips
+      # silently and never retries, leaving an install nobody can log
+      # into. The Kubernetes path has had a wait-for-migrate init
+      # container all along; this is compose catching up (#1069).
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/health/live')\""]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+  # ── Celery Worker ───────────────────────────────────────────────────────────
+  worker:
+    image: ghcr.io/spatiumnorth/spatiumddi-api:${SPATIUMDDI_VERSION:-latest}
+    restart: unless-stopped
+    networks:
+      - spatiumddi
+    command: celery -A app.celery_app worker --loglevel=info --concurrency=4 -Q ipam,dns,dhcp,default,bundles
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://spatiumddi:${POSTGRES_PASSWORD:-changeme}@postgres:5432/spatiumddi
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      VERSION: ${SPATIUMDDI_VERSION:-dev}
+    # Docker integration — the worker runs the reconcile tasks, so it
+    # also needs the host socket when polling a local daemon.
+    # Uncomment alongside the matching entries on the api service
+    # above — same ``DOCKER_GID`` comment applies.
+    volumes:
+      # Backup local-volume target (issue #117, #1160) — the worker runs
+      # every scheduled backup, so it writes to the same volume the api
+      # lists archives from. MUST stay in sync with the api mount above.
+      - spatium_backups:/var/lib/spatiumddi/backups
+      # Packet-capture .pcap artifacts (issue #59) — the worker runs the
+      # capture, so it writes here; the api reads the same volume on
+      # download. MUST stay in sync with the api mount above.
+      - spatium_pcaps:/var/lib/spatiumddi/pcaps
+    #   - /var/run/docker.sock:/var/run/docker.sock:ro
+    # group_add:
+    #   - "${DOCKER_GID:-999}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      # Wait for the SCHEMA, not just the database. Without this the API
+      # can start while ``alembic upgrade head`` is still running: it
+      # serves against a half-migrated schema, and ``_seed_default_admin``
+      # runs at lifespan start, so it either creates the admin against a
+      # partly-built database or — if ``user`` does not exist yet — skips
+      # silently and never retries, leaving an install nobody can log
+      # into. The Kubernetes path has had a wait-for-migrate init
+      # container all along; this is compose catching up (#1069).
+      migrate:
+        condition: service_completed_successfully
+    # The backend Dockerfile's HEALTHCHECK probes the api's
+    # ``/health/live`` endpoint — correct for the api service but wrong
+    # for worker/beat (they don't expose HTTP). Override with a Celery-
+    # native ping so ``inspect ping`` round-trips to this worker via
+    # the broker.
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.celery_app inspect ping -d celery@$$HOSTNAME --timeout 5 >/dev/null 2>&1"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+
+  # ── Celery Beat (Scheduler) ─────────────────────────────────────────────────
+  beat:
+    image: ghcr.io/spatiumnorth/spatiumddi-api:${SPATIUMDDI_VERSION:-latest}
+    restart: unless-stopped
+    networks:
+      - spatiumddi
+    command: celery -A app.celery_app beat --loglevel=info
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://spatiumddi:${POSTGRES_PASSWORD:-changeme}@postgres:5432/spatiumddi
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/1
+      CELERY_RESULT_BACKEND: redis://redis:6379/2
+      VERSION: ${SPATIUMDDI_VERSION:-dev}
+    depends_on:
+      - redis
+    # Beat has no network listener and no broker-reachable identity, so
+    # the cheapest liveness signal is "the beat process is running".
+    # Checks pid 1 via ``/proc`` — matches the Celery process the
+    # container was started with.
+    healthcheck:
+      test: ["CMD-SHELL", "grep -q 'celery' /proc/1/cmdline"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+  # ── Frontend (nginx + Vite build) ───────────────────────────────────────────
+  frontend:
+    image: ghcr.io/spatiumnorth/spatiumddi-frontend:${SPATIUMDDI_VERSION:-latest}
+    restart: unless-stopped
+    networks:
+      - spatiumddi
+    ports:
+      - "${HTTP_PORT:-8077}:80"
+    depends_on:
+      - api
+
+  # ── Migrations (runs once at startup) ──────────────────────────────────────
+  migrate:
+    image: ghcr.io/spatiumnorth/spatiumddi-api:${SPATIUMDDI_VERSION:-latest}
+    networks:
+      - spatiumddi
+    command: alembic upgrade head
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://spatiumddi:${POSTGRES_PASSWORD:-changeme}@postgres:5432/spatiumddi
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  # ── DNS agent (BIND9) ────────────────────────────────────────────────
+  # Enable with: docker compose --profile dns-bind9 up -d
+  # The legacy ``dns`` profile remains as a back-compat alias for the
+  # bind9 service so existing deployments don't break. PowerDNS users
+  # opt into the new ``dns-powerdns`` profile below.
+  dns-bind9:
+    profiles: ["dns", "dns-bind9"]
+    image: ghcr.io/spatiumnorth/dns-bind9:${SPATIUMDDI_VERSION:-latest}
+    restart: unless-stopped
+    networks:
+      - spatiumddi
+    environment:
+      CONTROL_PLANE_URL: http://api:8000
+      DNS_AGENT_KEY: ${DNS_AGENT_KEY:-changeme-dns-agent-key}
+      SERVER_NAME: dns-bind9
+      AGENT_GROUP: default
+      AGENT_ROLES: authoritative
+    volumes:
+      - dns_bind9_state:/var/lib/spatium-dns-agent
+      - dns_bind9_cache:/var/cache/bind
+    ports:
+      # Encrypted transports (#50) are NOT published here. Compose has no
+      # conditional publishing, so binding 853/443 unconditionally would
+      # break `up -d` on any host already using those ports — for a feature
+      # that is off by default. Add the overlay instead:
+      #   docker compose -f docker-compose.yml -f docker-compose.dns-encrypted.yml up -d
+      - "1053:53/udp"
+      - "1053:53/tcp"
+    depends_on:
+      api:
+        condition: service_started
+
+  # ── DNS agent (PowerDNS) ─────────────────────────────────────────────
+  # Enable with: docker compose --profile dns-powerdns up -d
+  # Distinct profile from bind9 — pick whichever driver matches the
+  # server group on the control plane (issue #127). Running both in
+  # the same compose stack works (different host port + different
+  # AGENT_GROUP) but is unusual outside of dev / migration scenarios.
+  dns-powerdns:
+    profiles: ["dns-powerdns"]
+    image: ghcr.io/spatiumnorth/dns-powerdns:${SPATIUMDDI_VERSION:-latest}
+    restart: unless-stopped
+    networks:
+      - spatiumddi
+    environment:
+      CONTROL_PLANE_URL: http://api:8000
+      DNS_AGENT_KEY: ${DNS_AGENT_KEY:-changeme-dns-agent-key}
+      SERVER_NAME: dns-powerdns
+      AGENT_GROUP: default-powerdns
+      AGENT_ROLES: authoritative
+    volumes:
+      - dns_powerdns_state:/var/lib/spatium-dns-agent
+      - dns_powerdns_lmdb:/var/lib/powerdns
+    ports:
+      # 5453 (not 1053) so a side-by-side bind9 + powerdns dev setup
+      # doesn't collide on the host port.
+      - "5453:53/udp"
+      - "5453:53/tcp"
+    depends_on:
+      api:
+        condition: service_started
+
+  # ── DNS agent (Technitium) ───────────────────────────────────────────
+  # Enable with: docker compose --profile dns-technitium up -d
+  # Third DNS driver, alongside bind9/powerdns. Distinct profile + host
+  # port (6053, avoiding 1053/5453) so all three can run side-by-side in
+  # a dev/migration setup. Technitium's web console + API listen on
+  # loopback :5380 inside the container only — the agent is the only
+  # caller (same trust boundary as PowerDNS's local API key).
+  dns-technitium:
+    profiles: ["dns-technitium"]
+    image: ghcr.io/spatiumnorth/dns-technitium:${SPATIUMDDI_VERSION:-latest}
+    restart: unless-stopped
+    networks:
+      - spatiumddi
+    environment:
+      CONTROL_PLANE_URL: http://api:8000
+      DNS_AGENT_KEY: ${DNS_AGENT_KEY:-changeme-dns-agent-key}
+      SERVER_NAME: dns-technitium
+      AGENT_GROUP: default-technitium
+      AGENT_ROLES: authoritative
+    volumes:
+      - dns_technitium_state:/var/lib/spatium-dns-agent
+      - dns_technitium_config:/etc/dns
+      - dns_technitium_logs:/var/log/technitium
+    ports:
+      - "6053:53/udp"
+      - "6053:53/tcp"
+    depends_on:
+      api:
+        condition: service_started
+
+  # ── dnsdist front for PowerDNS (issue #146 Phase 2) ───────────────────
+  # Opt-in rate-limit / DDoS front for the authoritative PowerDNS agent
+  # (pdns auth has no RRL of its own). A SEPARATE container (its own netns)
+  # that forwards to pdns over the network at dns-powerdns:53 — pdns never
+  # moves port. The PowerDNS agent renders the rate-limit RULES into the
+  # shared state volume (dnsdist-rules.conf); this front's entrypoint
+  # composes them onto its base (listen :53 → dns-powerdns:53) and reloads
+  # on change. Enable BOTH profiles together:
+  #   docker compose --profile dns-powerdns --profile dns-powerdns-with-dnsdist up -d
+  # then point clients at the dnsdist front (host :5455 here) and turn
+  # dnsdist on for the group in DNS → Server Options. With dnsdist off the
+  # front is a plain pass-through (safe no-op); pdns keeps answering on :53.
+  dns-dnsdist:
+    profiles: ["dns-powerdns-with-dnsdist"]
+    image: ghcr.io/spatiumnorth/dns-dnsdist:${SPATIUMDDI_VERSION:-latest}
+    restart: unless-stopped
+    networks:
+      - spatiumddi
+    environment:
+      DNSDIST_BACKEND: dns-powerdns:53
+    cap_add:
+      - NET_BIND_SERVICE
+    volumes:
+      - dns_powerdns_state:/agent-state:ro
+    ports:
+      # Encrypted transports (#50) live on THIS container for the PowerDNS
+      # driver (pdns auth speaks neither protocol), but are published by
+      # the docker-compose.dns-encrypted.yml overlay rather than here —
+      # see the note on dns-bind9 above.
+      - "5455:53/udp"
+      - "5455:53/tcp"
+    depends_on:
+      dns-powerdns:
+        condition: service_started
+
+  # ── DHCP agent (primary) ──────────────────────────────────────────────
+  # Enable with:
+  #   docker compose --profile dhcp up -d                         # single node
+  #   docker compose --profile dhcp --profile dhcp-ha up -d       # HA pair
+  dhcp-kea:
+    profiles: ["dhcp"]
+    image: ghcr.io/spatiumnorth/dhcp-kea:${SPATIUMDDI_VERSION:-latest}
+    restart: unless-stopped
+    networks:
+      - spatiumddi
+    environment:
+      # ── Required ──────────────────────────────────────────────────
+      # Control-plane URL the agent bootstraps + long-polls against.
+      SPATIUM_API_URL: http://api:8000
+      # Pre-shared key exchanged for a rotating JWT on first join.
+      SPATIUM_AGENT_KEY: ${DHCP_AGENT_KEY:-changeme-dhcp-agent-key}
+
+      # ── Registration ──────────────────────────────────────────────
+      # Server name used for auto-registration + Kea HA this-server-name.
+      # Must be unique across the deployment; defaults to the hostname.
+      SPATIUM_SERVER_NAME: dhcp-kea
+      # Server group the agent joins on first bootstrap.
+      AGENT_GROUP: default
+      # Comma-separated role hints (primary, secondary, ...). Informational
+      # only — actual HA role is driven by failover-channel membership.
+      AGENT_ROLES: primary
+
+      # ── TLS ───────────────────────────────────────────────────────
+      # Path to a CA bundle (in-container) for private CA verification.
+      # TLS_CA_PATH: /etc/ssl/spatium-ca.crt
+
+      # ── Tuning (optional, defaults shown) ─────────────────────────
+      # LOG_LEVEL: INFO             # DEBUG | INFO | WARNING | ERROR
+      # HEARTBEAT_INTERVAL: "30"    # seconds between agent heartbeats
+      # LONGPOLL_TIMEOUT: "30"      # seconds the /config long-poll blocks
+      # CACHE_DIR: /var/lib/spatium-dhcp-agent   # bundle + JWT cache
+      # KEA_CONFIG_PATH: /etc/kea/kea-dhcp4.conf
+      # KEA_CONTROL_SOCKET: /run/kea/kea4-ctrl-socket
+      # KEA_LEASE_FILE: /var/lib/kea/kea-leases4.csv
+    volumes:
+      - dhcp_kea_state:/var/lib/spatium-dhcp-agent
+      - dhcp_kea_leases:/var/lib/kea
+    ports:
+      # Host 6767/udp → container 67/udp. DHCPv4 is awkward to expose
+      # without host networking — use `network_mode: host` for real lab use.
+      - "6767:67/udp"
+      # HA hook peer-to-peer HTTP. Other Kea peers speak to this port
+      # directly for heartbeats + lease updates. Must stay 8000 (the peer
+      # URL advertised to the partner). Host-side mapped off 8000 so the
+      # control plane API keeps :8000.
+      - "8001:8000/tcp"
+    depends_on:
+      api:
+        condition: service_started
+    # Kea binds UDP/67 (NET_BIND_SERVICE) and, by default, uses raw
+    # AF_PACKET sockets (NET_RAW, #365) so it hears broadcast DISCOVERs
+    # from directly-attached clients on the host LAN. A relay-only group
+    # (socket mode "relay" → udp sockets) doesn't use raw sockets, but
+    # granting NET_RAW is harmless. Pair with `network_mode: host` (or a
+    # macvlan) so the broadcasts actually reach the container.
+    cap_add:
+      - NET_BIND_SERVICE
+      - NET_RAW
+      # Add NET_ADMIN when running radvd (RADVD_MANAGED=1, issue #524) so
+      # the agent can emit IPv6 Router Advertisements. Also needs host
+      # net.ipv6.conf.all.forwarding=1. Harmless when radvd is off.
+      # - NET_ADMIN
+
+  # ── DHCP agent (secondary, HA peer) ───────────────────────────────────
+  # Only starts with `--profile dhcp-ha`. Pair it with dhcp-kea in a
+  # failover channel (Admin → Failover Channels) using the on-network
+  # peer URLs:
+  #   primary_peer_url:   http://dhcp-kea:8000/
+  #   secondary_peer_url: http://dhcp-kea-2:8000/
+  dhcp-kea-2:
+    profiles: ["dhcp-ha"]
+    image: ghcr.io/spatiumnorth/dhcp-kea:${SPATIUMDDI_VERSION:-latest}
+    restart: unless-stopped
+    networks:
+      - spatiumddi
+    environment:
+      SPATIUM_API_URL: http://api:8000
+      SPATIUM_AGENT_KEY: ${DHCP_AGENT_KEY:-changeme-dhcp-agent-key}
+
+      # Unique — drives a distinct DHCPServer row + Kea HA this-server-name.
+      SPATIUM_SERVER_NAME: dhcp-kea-2
+      AGENT_GROUP: default
+      AGENT_ROLES: secondary
+
+      # Tuning (see dhcp-kea above for the full list).
+      # LOG_LEVEL: INFO
+      # HEARTBEAT_INTERVAL: "30"
+      # LONGPOLL_TIMEOUT: "30"
+    volumes:
+      - dhcp_kea_state_2:/var/lib/spatium-dhcp-agent
+      - dhcp_kea_leases_2:/var/lib/kea
+    ports:
+      # Distinct host ports so both peers can listen without colliding.
+      - "6768:67/udp"
+      - "8002:8000/tcp"
+    depends_on:
+      api:
+        condition: service_started
+    cap_add:
+      - NET_BIND_SERVICE
+      - NET_RAW  # #365 — raw sockets for direct-attached DHCP (see dhcp-kea)
+
+  # ── BGP Looking Glass collector (receive-only, issue #566) ────────────
+  # Only starts with `--profile looking-glass`. Peers with your edge/core
+  # routers and ingests their Adj-RIB-In — it NEVER advertises a route back
+  # (default-export reject-route + per-peer max-prefix cap). Configure peers
+  # under Network → Looking Glass. For a collector on a *separate* VM use
+  # docker-compose.agent-looking-glass.yml instead.
+  looking-glass:
+    profiles: ["looking-glass"]
+    image: ghcr.io/spatiumnorth/looking-glass:${SPATIUMDDI_VERSION:-latest}
+    restart: unless-stopped
+    hostname: ${LG_HOSTNAME:-looking-glass}
+    # BGP needs the host's real routable interface — a router has no route
+    # to a bridged/NATed container IP, and TCP/179 must originate from the
+    # host IP the peer expects. Because of host networking the collector
+    # reaches the API on the published host port, not the `api` bridge alias.
+    network_mode: host
+    environment:
+      # ── Required ──────────────────────────────────────────────────
+      # API on the same host, via its published port (see api `ports:`).
+      CONTROL_PLANE_URL: http://127.0.0.1:${API_PORT:-8000}
+      # Pre-shared key exchanged for a rotating JWT on first join.
+      LG_AGENT_KEY: ${LG_AGENT_KEY:-changeme-lg-agent-key}
+
+      # ── Registration ──────────────────────────────────────────────
+      # Collector name (LookingGlassCollector row); unique per collector.
+      SERVER_NAME: ${LG_HOSTNAME:-looking-glass}
+
+      # ── Tuning (optional, defaults shown) ─────────────────────────
+      # LOG_LEVEL: INFO
+      # HEARTBEAT_INTERVAL: "30"
+      # LONGPOLL_TIMEOUT: "30"
+      # RIB_POLL_INTERVAL: "30"
+    volumes:
+      - lg_agent_state:/var/lib/spatium-lg-agent
+    depends_on:
+      api:
+        condition: service_started
+
+networks:
+  spatiumddi:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  dns_bind9_state:
+  dns_bind9_cache:
+  dns_powerdns_state:
+  dns_powerdns_lmdb:
+  dns_technitium_state:
+  dns_technitium_config:
+  dns_technitium_logs:
+  dhcp_kea_state:
+  dhcp_kea_leases:
+  dhcp_kea_state_2:
+  dhcp_kea_leases_2:
+  # Looking Glass collector last-known-good config cache (issue #566) —
+  # keeps BGP sessions up when the control plane is briefly unreachable
+  # (non-negotiable #5). Only used by the `looking-glass` profile.
+  lg_agent_state:
+  # Backup local-volume target (issue #117, #1160) — the default path of
+  # a ``local_volume`` Backup Target, shared by api + worker (see their
+  # mounts). Stays empty on installs that use only remote destinations.
+  spatium_backups:
+  # Slot-image upload storage for air-gap appliance upgrades
+  # (#170 follow-up). Holds the .raw.xz bytes the operator uploads
+  # through the Fleet UI; served back authenticated under
+  # /api/v1/appliance/slot-images/{id}/raw.xz for the supervisor
+  # to download. Capacity: each image is ~800 MiB-1.2 GiB; the
+  # backend caps a single upload at 4 GiB.
+  spatium_slot_images:
+  # Packet-capture .pcap artifacts (issue #59). Shared by api + worker
+  # so the server-vantage capture works end-to-end. Auto-pruned after
+  # PlatformSettings.pcap_retention_days (default 7).
+  spatium_pcaps:

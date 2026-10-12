@@ -1,0 +1,252 @@
+"""Shared compaction primitives consumed by both runners.
+
+Free async functions used by :class:`_BaseAgentExecutor` (workspace
++ thread executor).
+Both runners gain identical auto-compact behaviour by delegating to
+this module.
+
+The mixin is stateless. Callers own the persistence side -- this
+module only computes whether compaction should fire, runs the
+:class:`CompactionStrategy`, and returns a structured result.
+"""
+
+from __future__ import annotations
+
+import logging
+from collections.abc import Sequence
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from typing import TYPE_CHECKING
+
+from primer.model.chat import Message, Tool
+
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
+
+    from primer.agent.compaction import CompactionStrategy, CompactionToolExecutor
+    from primer.int.llm import LLM
+    from primer.model.chat import StreamEvent
+
+
+logger = logging.getLogger(__name__)
+
+
+DEFAULT_TRIGGER_RATIO: float = 0.90
+DEFAULT_RESERVED_OUTPUT_TOKENS: int = 2000
+
+
+@dataclass
+class CompactionResult:
+    """Outcome of an ``apply_compaction`` / ``force_compact`` call.
+
+    The ``replaced_from_seq`` / ``replaced_to_seq`` fields are populated
+    by the caller (which has access to the chat-side seqs). The mixin
+    itself sets them to ``None`` on the workspace/thread path.
+    """
+
+    new_history: list[Message]
+    summary_text: str
+    tokens_before: int
+    tokens_after: int
+    model: str
+    created_at: datetime
+    replaced_from_seq: int | None = None
+    replaced_to_seq: int | None = None
+    pruned_tool_outputs: int = 0
+    head_messages_replaced: int = 0
+    kept_tail: list[Message] = field(default_factory=list)
+    """The messages kept verbatim (``new_history`` without the summary)."""
+    summary_after: int = 0
+    """The summary goes after this many ``kept_tail`` messages (0: in front, the usual)."""
+    unreducible: str | None = None
+    """``CompactedTurn.unreducible``: why nothing (more) could be summarised, else ``None``."""
+    outcome: str = "summarised"
+    """``CompactedTurn.outcome``: ``summarised``, ``unreducible`` or ``insufficient``."""
+    trigger_tokens: int | None = None
+    """The trigger the compaction was measured against, in estimated tokens."""
+    fixed_overhead_tokens: int = 0
+    """The part of the prompt no history can give back that ``tokens_before`` / ``tokens_after`` include
+    (the caller says what it counted: ``0`` when it counted none)."""
+    summary_input_reduced: dict[str, int] | None = None
+    """``CompactedTurn.summary_input_reduced``: what the summariser's overflow led to (``pruned`` /
+    ``folded_chunks`` / ``truncated_parts`` for a retry on a reduced input, ``tool_loop_cut_round`` for a tool loop
+    ended with the summary it had written), else ``None``."""
+
+
+async def should_compact(
+    *,
+    llm: "LLM",
+    model_name: str,
+    context_length: int,
+    history: Sequence[Message],
+    tools: Sequence[Tool] | None = None,
+    trigger_ratio: float = DEFAULT_TRIGGER_RATIO,
+    reserved_output_tokens: int = DEFAULT_RESERVED_OUTPUT_TOKENS,
+) -> tuple[bool, int]:
+    """Decide whether the next turn should be preceded by compaction.
+
+    Threshold: ``count >= (context_length - reserved_output_tokens) * trigger_ratio``.
+    """
+    count = await llm.count_tokens(
+        model=model_name,
+        messages=list(history),
+        tools=list(tools) if tools else None,
+    )
+    budget = max(0, context_length - reserved_output_tokens)
+    trigger = int(trigger_ratio * budget)
+    return count >= trigger, count
+
+
+def _clone_strategy_for_apply(
+    strategy: "CompactionStrategy",
+    history: Sequence[Message],
+) -> "CompactionStrategy":
+    """Return a strategy tuned so ``_full_compact`` actually summarises.
+
+    When the caller's strategy keeps a generous tail (e.g.
+    ``tail_turns=4`` default) and the history is short, ``tail_split``
+    would put every message in the tail and the LLM summarisation pass
+    would be skipped. ``apply_compaction`` is an explicit request to
+    compact, so we clamp ``tail_turns`` to leave at least one head
+    message whenever any assistant messages exist.
+    """
+    from primer.agent.compaction import CompactionStrategy
+
+    assistant_count = sum(1 for m in history if m.role == "assistant")
+    max_tail = max(0, assistant_count - 1)
+    effective_tail = min(strategy.tail_turns, max_tail)
+    if effective_tail == strategy.tail_turns:
+        return strategy
+    return CompactionStrategy(
+        trigger_ratio=strategy.trigger_ratio,
+        reserved_output_tokens=strategy.reserved_output_tokens,
+        tail_turns=effective_tail,
+        tail_budget_fraction=strategy.tail_budget_fraction,
+        prune_per_output_tokens=strategy.prune_per_output_tokens,
+        prune_total_threshold=strategy.prune_total_threshold,
+        summary_max_tokens=strategy.summary_max_tokens,
+    )
+
+
+async def apply_compaction(
+    *,
+    llm: "LLM",
+    strategy: "CompactionStrategy",
+    history: list[Message],
+    compaction_prompt: str,
+    model_name: str,
+    context_length: int,
+    tool_manager: "CompactionToolExecutor | None" = None,
+    event_sink: "Callable[[StreamEvent], Awaitable[None]] | None" = None,
+    max_tool_turns: int | None = None,
+    principal: str | None = None,
+    fixed_overhead: int = 0,
+) -> CompactionResult:
+    """Run the :class:`CompactionStrategy` and assemble a :class:`CompactionResult`.
+
+    ``fixed_overhead`` is the estimated size of the part of every prompt that no history can give
+    back, as far as the caller can count it (see :meth:`CompactionStrategy.estimate_fixed_overhead`):
+    it is part of the budget rules and of the figures the result reports.
+
+    The strategy expects an Agent-like shim with a ``compaction_prompt``
+    field (``list[str]``), and a model shim with ``model_name`` +
+    ``context_length``. Both shapes match the duck-typed access pattern
+    used by :meth:`CompactionStrategy._full_compact` and
+    :meth:`CompactionStrategy._tier2`.
+    """
+
+    class _AgentShim:
+        def __init__(self) -> None:
+            self.compaction_prompt: list[str] = (
+                [compaction_prompt] if compaction_prompt else []
+            )
+
+    class _ModelShim:
+        def __init__(self) -> None:
+            # Mirrors ResolvedModel's field name: CompactionStrategy reads
+            # ``model.model_name`` since model identity moved onto profiles.
+            self.model_name = model_name
+            self.context_length = context_length
+
+    effective_strategy = _clone_strategy_for_apply(strategy, history)
+    compacted = await effective_strategy._tier2(  # noqa: SLF001
+        pruned_history=list(history),
+        pruned_count=0,
+        before=effective_strategy._estimate_tokens(history) + fixed_overhead,  # noqa: SLF001
+        agent=_AgentShim(),
+        llm=llm,
+        model=_ModelShim(),
+        tool_manager=tool_manager,
+        event_sink=event_sink,
+        max_tool_turns=max_tool_turns,
+        principal=principal,
+        fixed_overhead=fixed_overhead,
+    )
+    summary_msg = compacted.summary_message
+    summary_text = (
+        summary_msg.parts[0].text
+        if summary_msg and summary_msg.parts
+        else ""
+    )
+    return CompactionResult(
+        new_history=list(compacted.new_messages),
+        summary_text=summary_text,
+        tokens_before=compacted.estimated_tokens_before,
+        tokens_after=compacted.estimated_tokens_after,
+        model=model_name,
+        created_at=datetime.now(timezone.utc),
+        replaced_from_seq=None,
+        replaced_to_seq=None,
+        pruned_tool_outputs=compacted.pruned_tool_outputs,
+        head_messages_replaced=compacted.head_messages_replaced,
+        kept_tail=(
+            [m for m in compacted.new_messages if m is not summary_msg] if summary_msg is not None else []
+        ),
+        summary_after=compacted.summary_after if summary_msg is not None else 0,
+        unreducible=compacted.unreducible,
+        outcome=compacted.outcome,
+        trigger_tokens=compacted.trigger_tokens,
+        fixed_overhead_tokens=compacted.fixed_overhead_tokens,
+        summary_input_reduced=compacted.summary_input_reduced,
+    )
+
+
+async def force_compact(
+    *,
+    llm: "LLM",
+    strategy: "CompactionStrategy",
+    history: list[Message],
+    compaction_prompt: str,
+    model_name: str,
+    context_length: int,
+    tool_manager: "CompactionToolExecutor | None" = None,
+    event_sink: "Callable[[StreamEvent], Awaitable[None]] | None" = None,
+    max_tool_turns: int | None = None,
+    principal: str | None = None,
+    fixed_overhead: int = 0,
+) -> CompactionResult:
+    """On-demand compaction -- bypasses the trigger check."""
+    return await apply_compaction(
+        llm=llm,
+        strategy=strategy,
+        history=history,
+        compaction_prompt=compaction_prompt,
+        model_name=model_name,
+        context_length=context_length,
+        tool_manager=tool_manager,
+        event_sink=event_sink,
+        max_tool_turns=max_tool_turns,
+        principal=principal,
+        fixed_overhead=fixed_overhead,
+    )
+
+
+__all__ = [
+    "CompactionResult",
+    "DEFAULT_RESERVED_OUTPUT_TOKENS",
+    "DEFAULT_TRIGGER_RATIO",
+    "apply_compaction",
+    "force_compact",
+    "should_compact",
+]

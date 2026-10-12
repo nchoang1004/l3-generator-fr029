@@ -1,0 +1,1785 @@
+"""Model browse + detail + edit + soft-delete endpoints.
+
+Read-model assembly lives in ``modules/library/model_views``; trash lifecycle in
+``modules/library/trash``. This router keeps HTTP concerns only.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import os
+import shutil
+import tempfile
+import uuid
+import zipfile
+from datetime import datetime
+from pathlib import Path
+from typing import Annotated, List, Literal, Optional
+
+from fastapi import (
+    APIRouter,
+    Depends,
+    Form,
+    Header,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+    status,
+)
+from fastapi import (
+    File as UploadFileParam,
+)
+from fastapi.responses import FileResponse, Response
+from printstash_core.files import slugify
+from printstash_core.library import RevisionError
+from printstash_core.search.passages import SubjectType
+from pydantic import ValidationError
+from sqlalchemy import func
+from sqlmodel import Session, select
+from starlette.background import BackgroundTask
+
+import app.modules.library.model_views.detail as models_detail
+import app.modules.library.model_views.exports as models_exports
+import app.modules.library.model_views.facets as models_facets
+import app.modules.library.model_views.listing as models_listing
+import app.modules.library.model_views.pagination as models_pagination
+import app.modules.library.model_views.statistics as models_statistics
+import app.modules.library.model_views.trash as models_trash
+import app.modules.printing.costing as models_costing
+from app.api.command_actor import (
+    CommandActor,
+    command_session,
+    require_command_user,
+    require_command_writer,
+)
+from app.api.command_execution import bounded_command
+from app.api.edit_preconditions import edit_precondition
+from app.core.config import settings
+from app.core.security import require_auth, require_superuser, require_user
+from app.db.models import (
+    CollectionRole,
+    FilamentProfile,
+    File,
+    FileRevisionStatus,
+    FileType,
+    JobKind,
+    Metadata,
+    Model,
+    ModelProvenanceSource,
+    Printer,
+    PrinterFile,
+    PrintJob,
+    PrintJobState,
+    StagingLease,
+    User,
+)
+from app.db.scopes import live
+from app.db.session import get_session
+from app.modules.identity import rbac
+from app.modules.ingestion import library_transfer, staging_leases
+from app.modules.ingestion.ingestion import add_gcode_revision_to_model
+from app.modules.library import commands as model_commands
+from app.modules.library import (
+    provenance,
+    revisions,
+    source_covers,
+)
+from app.modules.library.edit_preconditions import (
+    EditKind,
+    etag,
+    expected_base,
+)
+from app.modules.library.edit_preconditions import claim as claim_edit
+from app.modules.library.model_views import browse as models_browse
+from app.modules.library.trash import (
+    PurgeConflictError,
+    SourceFileLifecycleError,
+    StorageRiskConfirmationRequired,
+    hard_delete_expired_models,
+    hard_delete_model,
+    restore_source_file,
+    soft_delete_model,
+    soft_delete_source_file,
+)
+from app.modules.library.trash import (
+    restore_model as trash_restore_model,
+)
+from app.modules.printing import job_import, print_results
+from app.modules.printing.moonraker import MoonrakerError
+from app.modules.printing.printer_jobs import reproducibility_payload
+from app.modules.storage import storage
+from app.modules.storage.storage_backend.runtime import get_backend
+from app.modules.storage.storage_deletion import (
+    cleanup_status,
+    process_storage_delete_intents,
+)
+from app.modules.storage.storage_ownership import (
+    UnsafeStorageDeleteError,
+    abandon_publication,
+)
+from app.modules.work import nudge
+from app.modules.work import service as work_service
+from app.schemas.editing import EditPrecondition
+from app.schemas.jobs import JobAccepted
+from app.schemas.library_browse import (
+    BrowsePage,
+    BrowseQuery,
+    BrowseRevisionRead,
+    BrowseThumbnailQuery,
+    BrowseThumbnailsRead,
+)
+from app.schemas.models import (
+    ArtifactOutcomeRead,
+    FileRevisionUpdate,
+    ImportedPrintJobRead,
+    ManualPrintJobCreate,
+    ModelBatchDelete,
+    ModelBatchMove,
+    ModelBatchResult,
+    ModelBatchTags,
+    ModelEditBatchResult,
+    ModelFacetsRead,
+    ModelFilters,
+    ModelListItem,
+    ModelPageRead,
+    ModelPrinterFileRead,
+    ModelPrintJobRead,
+    ModelRead,
+    ModelSort,
+    ModelUpdate,
+    OutlinerModelRead,
+    PrintStatisticsRead,
+    RevisionBatchLabels,
+    RevisionBatchResult,
+    TagSetUpdate,
+    TrashedModelRead,
+    TrashPurgeRead,
+    VaultStatsRead,
+)
+from app.schemas.provenance import (
+    ModelProvenancePatch,
+    ModelProvenanceRead,
+    ModelSourceCoverRead,
+)
+from app.schemas.saved_views import ModelStarRead
+from app.schemas.search import SearchResponse
+
+
+def _reject_retired_group_queries(request: Request) -> None:
+    """A legacy group filter must not silently turn into an unfiltered browse."""
+    if any(
+        key in request.query_params
+        for key in ("family_id", "family_role", "in_family", "browse")
+    ):
+        raise HTTPException(status_code=422, detail="model_filters_invalid")
+
+
+router = APIRouter(
+    prefix="/models",
+    tags=["models"],
+    dependencies=[Depends(_reject_retired_group_queries)],
+)
+
+
+def _model_filters(**values) -> ModelFilters:
+    try:
+        return ModelFilters.model_validate(values)
+    except ValidationError:
+        raise HTTPException(status_code=422, detail="model_filters_invalid") from None
+
+
+@router.get("/{model_id}/similar-text", response_model=SearchResponse)
+def search_using_model(
+    model_id: int,
+    response: Response,
+    limit: int = Query(30, ge=1, le=100),
+    cursor: str | None = Query(None, max_length=512),
+    user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+):
+    from app.bootstrap.optional_features import inference_available
+
+    if not inference_available():
+        raise HTTPException(status_code=503, detail="inference_unavailable")
+    from app.modules.search.retrieval import search
+
+    response.headers["Cache-Control"] = "no-store"
+    return search(
+        session,
+        user,
+        "",
+        source_model_id=model_id,
+        limit=limit,
+        cursor=cursor,
+        types=(SubjectType.MODEL,),
+    )
+
+
+_GCODE_SUFFIXES = {".gcode", ".g", ".gco", ".bgcode"}
+
+
+def _stage_gcode_upload(upload: UploadFile, suffix: str) -> Path:
+    staged = settings.incoming_dir / f"{uuid.uuid4().hex}{suffix}"
+    try:
+        storage.stream_to_path(upload.file, staged, max_bytes=settings.max_upload_bytes)
+    except storage.UploadTooLarge as exc:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="upload_too_large",
+        ) from exc
+    return staged
+
+
+def _live_model(session: Session, model_id: int) -> Model:
+    """Like ``get_or_404`` but also rejects soft-deleted rows."""
+    m = session.exec(select(Model).where(Model.id == model_id, live(Model))).first()
+    if m is None:
+        raise HTTPException(status_code=404, detail="model_not_found")
+    return m
+
+
+def _require_model_role(
+    session: Session,
+    user: User,
+    model_id: int,
+    minimum: CollectionRole,
+) -> Model:
+    model = _live_model(session, model_id)
+    rbac.require_model_collection_role(session, user, model.collection_id, minimum)
+    return model
+
+
+def _detail_or_404(session: Session, model_id: int, user: User) -> ModelRead:
+    view = models_detail.detail(session, model_id, user)
+    if view is None:
+        raise HTTPException(status_code=404, detail="model_not_found")
+    return view
+
+
+def _collection_path_for(raw_path: str) -> str:
+    segments = [slugify(s.strip()) for s in raw_path.split("/") if s.strip()]
+    return "/".join(segments)
+
+
+@router.get(
+    "",
+    response_model=List[ModelListItem],
+    summary="List models",
+    description=(
+        "List logical models with optional filtering. Soft-deleted models are excluded. "
+        "Filter by collection (path prefix match, includes descendants), one or more tag "
+        "slugs (AND semantics), and/or a name substring."
+    ),
+)
+def list_models(
+    collection: Optional[str] = Query(
+        None, description="Collection path e.g. 'functional/brackets'"
+    ),
+    direct: bool = Query(
+        False,
+        description="Only return models directly in the collection (or at root if no collection)",
+    ),
+    tag: Optional[List[str]] = Query(
+        None, description="Tag slug; repeat for AND-filter"
+    ),
+    q: Optional[str] = Query(None, description="Substring match on name"),
+    printer_id: Optional[int] = Query(
+        None, description="Only models with a live G-code match on this printer"
+    ),
+    printer_presence: Optional[Literal["any", "none"]] = Query(
+        None, description="Filter models by whether they exist on any printer"
+    ),
+    favorites: bool = Query(False, description="Only models starred by current user"),
+    file_type: Optional[List[FileType]] = Query(None),
+    material_type: Optional[List[str]] = Query(None),
+    slicer_name: Optional[List[str]] = Query(None),
+    printer_model: Optional[List[str]] = Query(None),
+    revision_status: Optional[List[FileRevisionStatus]] = Query(None),
+    printed: Optional[bool] = Query(None),
+    print_outcome: Optional[List[PrintJobState]] = Query(None),
+    storage_filter: Optional[List[Literal["vault", "external"]]] = Query(
+        None, alias="storage"
+    ),
+    uploaded_after: Optional[datetime] = Query(None),
+    uploaded_before: Optional[datetime] = Query(None),
+    printed_after: datetime | None = Query(None),
+    printed_before: datetime | None = Query(None),
+    print_duration_min_s: int | None = Query(None, ge=0, le=2**31 - 1),
+    print_duration_max_s: int | None = Query(None, ge=1, le=2**31 - 1),
+    has_similar_candidates: Optional[bool] = Query(None),
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> List[ModelListItem]:
+    if (
+        printer_id is not None or printer_presence is not None
+    ) and not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="admin_required")
+    filters = _model_filters(
+        collection=collection,
+        direct=direct,
+        tag=tag or [],
+        q=q,
+        printer_id=printer_id,
+        printer_presence=printer_presence,
+        favorites=favorites,
+        file_type=file_type or [],
+        material_type=material_type or [],
+        slicer_name=slicer_name or [],
+        printer_model=printer_model or [],
+        revision_status=revision_status or [],
+        printed=printed,
+        print_outcome=print_outcome or [],
+        storage=storage_filter or [],
+        uploaded_after=uploaded_after,
+        uploaded_before=uploaded_before,
+        printed_after=printed_after,
+        printed_before=printed_before,
+        print_duration_min_s=print_duration_min_s,
+        print_duration_max_s=print_duration_max_s,
+        has_similar_candidates=has_similar_candidates,
+    )
+    return models_listing.list_items(
+        session,
+        current_user,
+        filters=filters,
+        limit=limit,
+        offset=offset,
+    )
+
+
+@router.get(
+    "/browse/revision",
+    response_model=BrowseRevisionRead,
+    summary="Check library catalog and authorization revisions",
+)
+def browse_revision(
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> BrowseRevisionRead:
+    return models_browse.revision(session)
+
+
+@router.get(
+    "/browse/thumbnails",
+    response_model=BrowseThumbnailsRead,
+    summary="Read bounded authorized thumbnail arrivals without rebuilding cards",
+)
+def browse_thumbnails(
+    query: Annotated[BrowseThumbnailQuery, Query()],
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> BrowseThumbnailsRead:
+    return models_browse.thumbnail_items(session, current_user, query.model_id)
+
+
+@router.get(
+    "/browse", response_model=BrowsePage, summary="Revision-checked mixed library cards"
+)
+def browse_models(
+    query: Annotated[BrowseQuery, Query()],
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> BrowsePage:
+    return models_browse.page_items(session, current_user, query)
+
+
+@router.get(
+    "/page",
+    response_model=ModelPageRead,
+    summary="List a globally sorted cursor page of Models",
+)
+def page_models(
+    collection: Optional[str] = Query(None),
+    direct: bool = Query(False),
+    tag: Optional[List[str]] = Query(None),
+    q: Optional[str] = Query(None),
+    printer_id: Optional[int] = Query(None),
+    printer_presence: Optional[Literal["any", "none"]] = Query(None),
+    favorites: bool = Query(False),
+    file_type: Optional[List[FileType]] = Query(None),
+    material_type: Optional[List[str]] = Query(None),
+    slicer_name: Optional[List[str]] = Query(None),
+    printer_model: Optional[List[str]] = Query(None),
+    revision_status: Optional[List[FileRevisionStatus]] = Query(None),
+    printed: Optional[bool] = Query(None),
+    print_outcome: Optional[List[PrintJobState]] = Query(None),
+    storage_filter: Optional[List[Literal["vault", "external"]]] = Query(
+        None, alias="storage"
+    ),
+    uploaded_after: Optional[datetime] = Query(None),
+    uploaded_before: Optional[datetime] = Query(None),
+    printed_after: datetime | None = Query(None),
+    printed_before: datetime | None = Query(None),
+    print_duration_min_s: int | None = Query(None, ge=0, le=2**31 - 1),
+    print_duration_max_s: int | None = Query(None, ge=1, le=2**31 - 1),
+    has_similar_candidates: Optional[bool] = Query(None),
+    sort: ModelSort = Query(ModelSort.DATE_DESC),
+    cursor: Optional[str] = Query(None, max_length=1024),
+    limit: int = Query(60, ge=1, le=200),
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> ModelPageRead:
+    if (
+        printer_id is not None or printer_presence is not None
+    ) and not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="admin_required")
+    filters = _model_filters(
+        collection=collection,
+        direct=direct,
+        tag=tag or [],
+        q=q,
+        printer_id=printer_id,
+        printer_presence=printer_presence,
+        favorites=favorites,
+        file_type=file_type or [],
+        material_type=material_type or [],
+        slicer_name=slicer_name or [],
+        printer_model=printer_model or [],
+        revision_status=revision_status or [],
+        printed=printed,
+        print_outcome=print_outcome or [],
+        storage=storage_filter or [],
+        uploaded_after=uploaded_after,
+        uploaded_before=uploaded_before,
+        printed_after=printed_after,
+        printed_before=printed_before,
+        print_duration_min_s=print_duration_min_s,
+        print_duration_max_s=print_duration_max_s,
+        has_similar_candidates=has_similar_candidates,
+    )
+    try:
+        return models_pagination.page_items(
+            session,
+            current_user,
+            filters=filters,
+            sort=sort,
+            cursor=cursor,
+            limit=limit,
+        )
+    except ValueError as exc:
+        if str(exc) == "invalid_model_cursor":
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise
+
+
+@router.get(
+    "/outliner",
+    response_model=list[OutlinerModelRead],
+    summary="List lightweight Model leaves for the desktop outliner",
+)
+def outliner_models(
+    tag: Optional[List[str]] = Query(None),
+    printer_id: Optional[int] = Query(None),
+    printer_presence: Optional[Literal["any", "none"]] = Query(None),
+    favorites: bool = Query(False),
+    file_type: Optional[List[FileType]] = Query(None),
+    material_type: Optional[List[str]] = Query(None),
+    slicer_name: Optional[List[str]] = Query(None),
+    printer_model: Optional[List[str]] = Query(None),
+    revision_status: Optional[List[FileRevisionStatus]] = Query(None),
+    printed: Optional[bool] = Query(None),
+    print_outcome: Optional[List[PrintJobState]] = Query(None),
+    storage_filter: Optional[List[Literal["vault", "external"]]] = Query(
+        None, alias="storage"
+    ),
+    uploaded_after: Optional[datetime] = Query(None),
+    uploaded_before: Optional[datetime] = Query(None),
+    printed_after: datetime | None = Query(None),
+    printed_before: datetime | None = Query(None),
+    print_duration_min_s: int | None = Query(None, ge=0, le=2**31 - 1),
+    print_duration_max_s: int | None = Query(None, ge=1, le=2**31 - 1),
+    has_similar_candidates: Optional[bool] = Query(None),
+    limit: int = Query(500, ge=1, le=500),
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> list[OutlinerModelRead]:
+    if (
+        printer_id is not None or printer_presence is not None
+    ) and not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="admin_required")
+    return models_listing.outliner_items(
+        session,
+        current_user,
+        filters=_model_filters(
+            tag=tag or [],
+            printer_id=printer_id,
+            printer_presence=printer_presence,
+            favorites=favorites,
+            file_type=file_type or [],
+            material_type=material_type or [],
+            slicer_name=slicer_name or [],
+            printer_model=printer_model or [],
+            revision_status=revision_status or [],
+            printed=printed,
+            print_outcome=print_outcome or [],
+            storage=storage_filter or [],
+            uploaded_after=uploaded_after,
+            uploaded_before=uploaded_before,
+            printed_after=printed_after,
+            printed_before=printed_before,
+            print_duration_min_s=print_duration_min_s,
+            print_duration_max_s=print_duration_max_s,
+            has_similar_candidates=has_similar_candidates,
+        ),
+        limit=limit,
+    )
+
+
+@router.get("/facets", response_model=ModelFacetsRead)
+def model_facets(
+    collection: Optional[str] = Query(None),
+    direct: bool = Query(False),
+    tag: Optional[List[str]] = Query(None),
+    q: Optional[str] = Query(None),
+    printer_id: Optional[int] = Query(None),
+    printer_presence: Optional[Literal["any", "none"]] = Query(None),
+    favorites: bool = Query(False),
+    file_type: Optional[List[FileType]] = Query(None),
+    material_type: Optional[List[str]] = Query(None),
+    slicer_name: Optional[List[str]] = Query(None),
+    printer_model: Optional[List[str]] = Query(None),
+    revision_status: Optional[List[FileRevisionStatus]] = Query(None),
+    printed: Optional[bool] = Query(None),
+    print_outcome: Optional[List[PrintJobState]] = Query(None),
+    storage_filter: Optional[List[Literal["vault", "external"]]] = Query(
+        None, alias="storage"
+    ),
+    uploaded_after: Optional[datetime] = Query(None),
+    uploaded_before: Optional[datetime] = Query(None),
+    printed_after: datetime | None = Query(None),
+    printed_before: datetime | None = Query(None),
+    print_duration_min_s: int | None = Query(None, ge=0, le=2**31 - 1),
+    print_duration_max_s: int | None = Query(None, ge=1, le=2**31 - 1),
+    has_similar_candidates: Optional[bool] = Query(None),
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> ModelFacetsRead:
+    if (
+        printer_id is not None or printer_presence is not None
+    ) and not current_user.is_superuser:
+        raise HTTPException(status_code=403, detail="admin_required")
+    return models_facets.facets(
+        session,
+        current_user,
+        _model_filters(
+            collection=collection,
+            direct=direct,
+            tag=tag or [],
+            q=q,
+            printer_id=printer_id,
+            printer_presence=printer_presence,
+            favorites=favorites,
+            file_type=file_type or [],
+            material_type=material_type or [],
+            slicer_name=slicer_name or [],
+            printer_model=printer_model or [],
+            revision_status=revision_status or [],
+            printed=printed,
+            print_outcome=print_outcome or [],
+            storage=storage_filter or [],
+            uploaded_after=uploaded_after,
+            uploaded_before=uploaded_before,
+            printed_after=printed_after,
+            printed_before=printed_before,
+            print_duration_min_s=print_duration_min_s,
+            print_duration_max_s=print_duration_max_s,
+            has_similar_candidates=has_similar_candidates,
+        ),
+    )
+
+
+@router.put(
+    "/{model_id}/star",
+    response_model=ModelStarRead,
+    dependencies=[Depends(require_auth)],
+)
+def star_model(
+    model_id: int,
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> ModelStarRead:
+    return model_commands.star_model(
+        model_id=model_id, current_user=current_user, session=session
+    )
+
+
+@router.delete(
+    "/{model_id}/star",
+    response_model=ModelStarRead,
+    dependencies=[Depends(require_auth)],
+)
+def unstar_model(
+    model_id: int,
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> ModelStarRead:
+    return model_commands.unstar_model(
+        model_id=model_id, current_user=current_user, session=session
+    )
+
+
+@router.get(
+    "/export",
+    dependencies=[Depends(require_auth)],
+    summary="Export library metadata",
+    description=(
+        "Exports the searchable PrintStash library metadata without raw model "
+        "or G-code file blobs. Use JSON for portability/AI context and CSV for "
+        "spreadsheet analysis."
+    ),
+)
+def export_models(
+    format: Literal["json", "csv"] = Query("json", description="Export format"),
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> Response:
+    payload = models_exports.export_payload(session, current_user)
+    if format == "csv":
+        return Response(
+            content=models_exports.export_csv(payload),
+            media_type="text/csv; charset=utf-8",
+            headers={
+                "Content-Disposition": 'attachment; filename="printstash-model-export.csv"'
+            },
+        )
+    # orjson handles datetimes natively and serialises this potentially large
+    # payload several times faster than jsonable_encoder + stdlib json.
+    import orjson
+
+    return Response(
+        content=orjson.dumps(payload),
+        media_type="application/json",
+        headers={
+            "Content-Disposition": 'attachment; filename="printstash-model-export.json"'
+        },
+    )
+
+
+@router.get(
+    "/library-archive",
+    dependencies=[Depends(require_auth)],
+    summary="Export a portable full-library archive",
+)
+def export_library_archive(
+    version: int = Query(2, ge=1, le=2),
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> FileResponse:
+    try:
+        path = library_transfer.create_archive(
+            session, current_user, version=1 if version == 1 else 2
+        )
+    except ValueError as exc:
+        detail = str(exc)
+        if detail == "archive_too_large":
+            raise HTTPException(
+                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+                detail=detail,
+            ) from exc
+        if detail == "archive_blob_hash_mismatch":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=detail,
+            ) from exc
+        raise
+    return FileResponse(
+        path,
+        media_type="application/zip",
+        filename=f"printstash-library-v{version}.zip",
+        background=BackgroundTask(path.unlink, missing_ok=True),
+    )
+
+
+@router.post(
+    "/library-import",
+    response_model=JobAccepted,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Import a portable full-library archive",
+)
+@bounded_command
+def import_library_archive(
+    file: UploadFile = UploadFileParam(...),
+    actor: CommandActor = Depends(require_command_user),
+) -> JobAccepted:
+    with command_session(actor) as (session, current_user):
+        if not current_user.is_superuser:
+            raise HTTPException(status_code=403, detail="admin_required")
+        suffix = Path(file.filename or "").suffix.lower()
+        if suffix != ".zip":
+            raise HTTPException(status_code=400, detail="archive_zip_required")
+        settings.incoming_dir.mkdir(parents=True, exist_ok=True)
+        lease_count, staged_bytes = session.exec(
+            select(
+                func.count(StagingLease.id),
+                func.coalesce(func.sum(StagingLease.size_bytes), 0),
+            )
+        ).one()
+        if int(lease_count) >= settings.staging_max_pending:
+            raise HTTPException(status_code=503, detail="staging_capacity_exceeded")
+        assert current_user.id is not None
+        user_leases = session.exec(
+            select(func.count(StagingLease.id)).where(
+                StagingLease.owner_user_id == current_user.id
+            )
+        ).one()
+        if int(user_leases) >= settings.staging_max_active_per_user:
+            raise HTTPException(status_code=429, detail="staging_capacity_exceeded")
+        quota_remaining = max(
+            0,
+            settings.staging_max_gb * 1024**3 - int(staged_bytes),
+        )
+        disk_free = shutil.disk_usage(settings.incoming_dir).free
+        writable_bytes = min(
+            quota_remaining,
+            max(0, disk_free - settings.staging_min_free_gb * 1024**3),
+        )
+        if writable_bytes <= 0:
+            raise HTTPException(status_code=507, detail="staging_capacity_exceeded")
+        fd, name = tempfile.mkstemp(suffix=".zip", dir=settings.incoming_dir)
+        try:
+            digest = hashlib.sha256()
+            written = 0
+            with open(fd, "wb", closefd=True) as target:
+                while chunk := file.file.read(1024 * 1024):
+                    written += len(chunk)
+                    if written > writable_bytes:
+                        raise ValueError("staging_capacity_exceeded")
+                    target.write(chunk)
+                    digest.update(chunk)
+                target.flush()
+                os.fsync(target.fileno())
+            job_id = uuid.uuid4().hex
+            work_service.request(
+                session,
+                definition=JobKind.INGESTION_LIBRARY_IMPORT,
+                subject_key=f"job/{job_id}",
+                owner_user_id=current_user.id,
+                job_id=job_id,
+            )
+            staging_leases.create_job_lease(
+                session,
+                job_id=job_id,
+                owner_user_id=current_user.id,
+                path=Path(name),
+                size_bytes=written,
+                sha256=digest.hexdigest(),
+                check_capacity=False,
+            )
+            session.commit()
+        except (ValueError, zipfile.BadZipFile) as exc:
+            session.rollback()
+            Path(name).unlink(missing_ok=True)
+            code = str(exc)
+            status_code = 507 if code == "staging_capacity_exceeded" else 400
+            raise HTTPException(status_code=status_code, detail=code) from exc
+        except Exception:
+            session.rollback()
+            Path(name).unlink(missing_ok=True)
+            raise
+        nudge(JobKind.INGESTION_LIBRARY_IMPORT)
+        return JobAccepted(job_id=job_id)
+
+
+@router.get(
+    "/stats",
+    response_model=VaultStatsRead,
+    summary="Vault library and storage summary",
+    description=(
+        "Returns live library counts plus real storage usage from the configured "
+        "local or S3-compatible backend."
+    ),
+)
+def vault_stats(
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> VaultStatsRead:
+    return models_statistics.vault_stats(session, current_user)
+
+
+@router.get(
+    "/stats/prints",
+    response_model=PrintStatisticsRead,
+    dependencies=[Depends(require_superuser)],
+    summary="Print analytics over a time window",
+    description=(
+        "Aggregates completed print jobs over a preset window (7d/30d/90d/1y/all): "
+        "total cost and filament, average filament per print, total print time, "
+        "and the collections and filaments with the most prints."
+    ),
+)
+def print_stats(
+    period: str = Query("30d", description="Preset window: 7d, 30d, 90d, 1y, or all"),
+    session: Session = Depends(get_session),
+) -> PrintStatisticsRead:
+    return models_statistics.print_statistics(session, period)
+
+
+@router.get(
+    "/trash",
+    response_model=List[TrashedModelRead],
+    dependencies=[Depends(require_auth)],
+    summary="List models in the trash",
+    description=(
+        "Returns soft-deleted models. They are hidden from normal library browse "
+        "but can be restored until they are permanently purged."
+    ),
+)
+def list_trash(
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> List[TrashedModelRead]:
+    return models_trash.list_trashed(
+        session,
+        current_user,
+        limit=limit,
+        offset=offset,
+        retention_days=int(settings.trash_retention_days),
+    )
+
+
+@router.delete(
+    "/trash/expired",
+    response_model=TrashPurgeRead,
+    dependencies=[Depends(require_superuser)],
+    summary="Permanently delete expired trash items",
+)
+def purge_expired_trash(
+    confirm_storage_risk: bool = Query(False),
+    session: Session = Depends(get_session),
+) -> TrashPurgeRead:
+    try:
+        purged_model_ids = hard_delete_expired_models(
+            session,
+            retention_days=int(settings.trash_retention_days),
+            confirm_storage_risk=confirm_storage_risk,
+        )
+    except StorageRiskConfirmationRequired as exc:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=exc.detail
+        ) from exc
+    except UnsafeStorageDeleteError as exc:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="storage_ownership_unverified",
+        ) from exc
+    session.commit()
+    storage_result = process_storage_delete_intents()
+    return TrashPurgeRead(
+        purged_model_ids=purged_model_ids,
+        purged_count=len(purged_model_ids),
+        storage_completed=storage_result.completed,
+        storage_pending=storage_result.pending,
+        storage_blocked=storage_result.blocked,
+        storage_cleanup_status=cleanup_status(storage_result),
+    )
+
+
+@router.get(
+    "/{model_id}",
+    response_model=ModelRead,
+    summary="Get model detail with files and metadata",
+)
+def get_model(
+    model_id: int,
+    response: Response,
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> ModelRead:
+    result = _detail_or_404(session, model_id, current_user)
+    response.headers["ETag"] = etag(
+        EditKind.MODEL, result.id, result.edit_version, result.edit_epoch
+    )
+    return result
+
+
+@router.get(
+    "/{model_id}/provenance",
+    response_model=ModelProvenanceRead,
+    summary="Get model capture provenance",
+)
+def get_model_provenance(
+    model_id: int,
+    response: Response,
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> ModelProvenanceRead:
+    _require_model_role(session, current_user, model_id, CollectionRole.VIEW)
+    result = models_detail.provenance_detail(session, model_id)
+    response.headers["ETag"] = etag(
+        EditKind.MODEL, model_id, result.edit_version, result.edit_epoch
+    )
+    return result
+
+
+@router.patch(
+    "/{model_id}/provenance/{source_id}",
+    response_model=ModelProvenanceRead,
+    dependencies=[Depends(require_auth)],
+    summary="Set or clear explicit provenance field overrides",
+)
+def patch_model_provenance(
+    model_id: int,
+    source_id: int,
+    response: Response,
+    payload: ModelProvenancePatch,
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+    precondition: EditPrecondition = Depends(edit_precondition),
+) -> ModelProvenanceRead:
+    model = _require_model_role(session, current_user, model_id, CollectionRole.EDIT)
+    source = session.exec(
+        select(ModelProvenanceSource).where(
+            ModelProvenanceSource.id == source_id,
+            ModelProvenanceSource.model_id == model_id,
+        )
+    ).first()
+    if source is None:
+        raise HTTPException(status_code=404, detail="provenance_source_not_found")
+    if set(payload.overrides) & set(payload.clear_overrides):
+        raise HTTPException(status_code=422, detail="provenance_override_conflict")
+    claim_edit(session, current_user, model, precondition)
+    for field_name, value in payload.overrides.items():
+        provenance.set_user_override(
+            session,
+            provenance_source_id=source_id,
+            field_name=field_name,
+            value=value,
+            actor_id=current_user.id,
+        )
+    for field_name in payload.clear_overrides:
+        provenance.clear_user_override(
+            session,
+            provenance_source_id=source_id,
+            field_name=field_name,
+            actor_id=current_user.id,
+        )
+    session.commit()
+    result = models_detail.provenance_detail(session, model_id)
+    response.headers["ETag"] = etag(
+        EditKind.MODEL, model_id, result.edit_version, result.edit_epoch
+    )
+    return result
+
+
+def _provenance_source_or_404(
+    session: Session, model_id: int, source_id: int
+) -> ModelProvenanceSource:
+    source = session.exec(
+        select(ModelProvenanceSource).where(
+            ModelProvenanceSource.id == source_id,
+            ModelProvenanceSource.model_id == model_id,
+        )
+    ).first()
+    if source is None:
+        raise HTTPException(status_code=404, detail="provenance_source_not_found")
+    return source
+
+
+@router.get(
+    "/{model_id}/provenance/{source_id}/cover", response_model=ModelSourceCoverRead
+)
+def get_model_source_cover(
+    model_id: int,
+    source_id: int,
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> ModelSourceCoverRead:
+    _require_model_role(session, current_user, model_id, CollectionRole.VIEW)
+    _provenance_source_or_404(session, model_id, source_id)
+    cover = source_covers.get(session, source_id)
+    if cover is None:
+        raise HTTPException(status_code=404, detail="source_cover_not_found")
+    return ModelSourceCoverRead.model_validate(cover)
+
+
+@router.get("/{model_id}/provenance/{source_id}/cover/content")
+def stream_model_source_cover(
+    model_id: int,
+    source_id: int,
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> Response:
+    _require_model_role(session, current_user, model_id, CollectionRole.VIEW)
+    _provenance_source_or_404(session, model_id, source_id)
+    cover = source_covers.get(session, source_id)
+    if cover is None:
+        raise HTTPException(status_code=404, detail="source_cover_not_found")
+    return Response(
+        content=get_backend().read_bytes(cover.storage_key),
+        media_type="image/webp",
+        headers={
+            "Cache-Control": "private, max-age=3600",
+            "ETag": f'"source-cover-{cover.id}-{int(cover.updated_at.timestamp())}"',
+        },
+    )
+
+
+@router.put(
+    "/{model_id}/provenance/{source_id}/cover",
+    response_model=ModelSourceCoverRead,
+)
+@bounded_command
+def put_model_source_cover(
+    model_id: int,
+    source_id: int,
+    response: Response,
+    file: UploadFile = UploadFileParam(...),
+    actor: CommandActor = Depends(require_command_writer),
+    precondition: EditPrecondition = Depends(edit_precondition),
+) -> ModelSourceCoverRead:
+    with command_session(actor) as (session, current_user):
+        model = _require_model_role(
+            session, current_user, model_id, CollectionRole.EDIT
+        )
+        expected_base(EditKind.MODEL, model_id, precondition)
+        _provenance_source_or_404(session, model_id, source_id)
+        data = file.file.read(15 * 1024 * 1024 + 1)
+        try:
+            candidate = source_covers.prepare_candidate(
+                session,
+                get_backend(),
+                provenance_source_id=source_id,
+                actor_id=current_user.id,
+                data=data,
+                content_type=file.content_type,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail="source_cover_invalid") from exc
+        try:
+            claim_edit(session, current_user, model, precondition)
+            cover = source_covers.attach_candidate(session, candidate)
+            source_covers.adopt_candidate(session, candidate)
+            session.commit()
+        except source_covers.SourceCoverChangedError as exc:
+            session.rollback()
+            abandon_publication(session, candidate.publication)
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except Exception:
+            session.rollback()
+            abandon_publication(session, candidate.publication)
+            raise
+        session.refresh(cover)
+        session.refresh(model)
+        response.headers["ETag"] = etag(
+            EditKind.MODEL, model_id, model.edit_version, model.edit_epoch
+        )
+        return ModelSourceCoverRead.model_validate(cover)
+
+
+@router.delete(
+    "/{model_id}/provenance/{source_id}/cover",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[Depends(require_auth)],
+)
+def delete_model_source_cover(
+    model_id: int,
+    source_id: int,
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+    precondition: EditPrecondition = Depends(edit_precondition),
+) -> Response:
+    model = _require_model_role(session, current_user, model_id, CollectionRole.EDIT)
+    _provenance_source_or_404(session, model_id, source_id)
+    claim_edit(session, current_user, model, precondition)
+    try:
+        removed = source_covers.delete(session, get_backend(), source_id)
+    except source_covers.SourceCoverChangedError as exc:
+        session.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if not removed:
+        raise HTTPException(status_code=404, detail="source_cover_not_found")
+    session.commit()
+    session.refresh(model)
+    return Response(
+        status_code=status.HTTP_204_NO_CONTENT,
+        headers={
+            "ETag": etag(EditKind.MODEL, model_id, model.edit_version, model.edit_epoch)
+        },
+    )
+
+
+@router.post(
+    "/{model_id}/gcode-revisions",
+    response_model=ModelRead,
+    summary="Add a G-code revision to an existing model",
+    description=(
+        "Uploads a new sliced G-code artifact directly onto the target model. "
+        "Manual revisions default to needs_test unless another status is provided."
+    ),
+)
+@bounded_command
+def add_gcode_revision(
+    model_id: int,
+    file: UploadFile = UploadFileParam(..., description="The .gcode revision file"),
+    revision_label: Optional[str] = Form(None, max_length=128),
+    revision_status: Optional[FileRevisionStatus] = Form(FileRevisionStatus.NEEDS_TEST),
+    revision_notes: Optional[str] = Form(None, max_length=4096),
+    is_recommended: bool = Form(False),
+    actor: CommandActor = Depends(require_command_writer),
+) -> ModelRead:
+    with command_session(actor) as (session, current_user):
+        model = _require_model_role(
+            session, current_user, model_id, CollectionRole.EDIT
+        )
+        if not file.filename:
+            raise HTTPException(status_code=400, detail="filename_required")
+
+        original_filename = Path(file.filename).name
+        suffix = Path(original_filename).suffix.lower() or ".gcode"
+        if suffix not in _GCODE_SUFFIXES:
+            raise HTTPException(status_code=400, detail="unsupported_file_type")
+
+        staged = _stage_gcode_upload(file, suffix)
+        try:
+            # Hashing and publishing the bytes are blocking file I/O; parsing and
+            # the thumbnail are derivatives and happen in their own Jobs.
+            add_gcode_revision_to_model(
+                session=session,
+                model=model,
+                staged_path=staged,
+                original_filename=original_filename,
+                revision_label=revision_label,
+                revision_status=revision_status,
+                revision_notes=revision_notes,
+                is_recommended=is_recommended,
+            )
+        except Exception:
+            staged.unlink(missing_ok=True)
+            raise
+        return _detail_or_404(session, model_id, current_user)
+
+
+@router.get(
+    "/{model_id}/printer-files",
+    response_model=List[ModelPrinterFileRead],
+    summary="List printers where this model's G-code files are present",
+)
+def get_model_printer_files(
+    model_id: int,
+    current_user: User = Depends(require_superuser),
+    session: Session = Depends(get_session),
+) -> List[ModelPrinterFileRead]:
+    _require_model_role(session, current_user, model_id, CollectionRole.VIEW)
+    rows = session.exec(
+        select(PrinterFile, Printer)
+        .join(File, File.id == PrinterFile.file_id)
+        .join(Printer, Printer.id == PrinterFile.printer_id)
+        .where(
+            File.model_id == model_id,
+            File.file_type == FileType.GCODE,
+            live(Printer),
+        )
+        .order_by(Printer.name.asc(), PrinterFile.remote_filename.asc())  # type: ignore[attr-defined]
+    ).all()
+    return [
+        ModelPrinterFileRead(
+            file_id=row.file_id,  # type: ignore[arg-type]
+            printer_id=printer.id,  # type: ignore[arg-type]
+            printer_name=printer.name,
+            remote_filename=row.remote_filename,
+            matched_by=row.matched_by,
+            last_seen_at=row.last_seen_at,
+            missing_since=row.missing_since,
+        )
+        for row, printer in rows
+    ]
+
+
+def _gcode_revision_numbers(session: Session, model_id: int) -> dict[int, int]:
+    """Derived 1-based revision numbers for live G-code files, by version."""
+    gcode_files = session.exec(
+        select(File)
+        .where(File.model_id == model_id)
+        .where(live(File))
+        .where(File.file_type == FileType.GCODE)
+        .order_by(File.version.asc())  # type: ignore[attr-defined]
+    ).all()
+    return {f.id: i for i, f in enumerate(gcode_files, start=1)}
+
+
+@router.get(
+    "/{model_id}/print-jobs",
+    response_model=List[ModelPrintJobRead],
+    summary="List recent print jobs for this model (print history)",
+)
+def get_model_print_jobs(
+    model_id: int,
+    current_user: User = Depends(require_superuser),
+    session: Session = Depends(get_session),
+) -> List[ModelPrintJobRead]:
+    _require_model_role(session, current_user, model_id, CollectionRole.VIEW)
+    revision_numbers = _gcode_revision_numbers(session, model_id)
+    profiles = list(session.exec(select(FilamentProfile)).all())
+
+    rows = session.exec(
+        select(PrintJob, Printer, File, Metadata)
+        .outerjoin(Printer, Printer.id == PrintJob.printer_id)
+        .join(File, File.id == PrintJob.file_id)
+        .outerjoin(Metadata, Metadata.file_id == File.id)
+        .where(
+            PrintJob.model_id == model_id,
+            live(PrintJob),
+        )
+        .order_by(PrintJob.created_at.desc())  # type: ignore[attr-defined]
+        .limit(50)
+    ).all()
+    return [
+        ModelPrintJobRead(
+            id=job.id,  # type: ignore[arg-type]
+            printer_id=job.printer_id,
+            printer_name=(
+                printer.name
+                if printer is not None
+                else (job.printer_name or "Unknown printer")
+            ),
+            file_id=job.file_id,
+            remote_filename=job.remote_filename,
+            source=job.source,
+            external_display_name=job.external_display_name,
+            artifact_evidence=job.artifact_evidence,
+            gcode_revision_number=revision_numbers.get(job.file_id),
+            revision_label=file.revision_label,
+            state=job.state,
+            material_type=md.material_type if md else None,
+            error=job.error,
+            filament_used_g=job.filament_used_g,
+            actual_duration_s=job.actual_duration_s,
+            filament_cost=models_costing.filament_cost_for_job(
+                profiles, md, job.filament_used_g, job.spool_filament_id
+            ),
+            spool_id=job.spool_id,
+            spool_name=job.spool_name,
+            started_at=job.started_at,
+            finished_at=job.finished_at,
+            created_at=job.created_at,
+            **reproducibility_payload(
+                job,
+                file_type=file.file_type,
+                download_url=(
+                    f"/api/v1/files/{job.file_id}/download"
+                    if job.source != "external"
+                    or job.artifact_evidence.endswith("_archived")
+                    else None
+                ),
+            ),
+        )
+        for job, printer, file, md in rows
+    ]
+
+
+@router.get(
+    "/{model_id}/artifact-outcomes",
+    response_model=List[ArtifactOutcomeRead],
+    summary="Compare actual print outcomes for Model Artifacts",
+)
+def get_artifact_outcomes(
+    model_id: int,
+    file_id: List[int] = Query(..., min_length=1, max_length=2),
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> List[ArtifactOutcomeRead]:
+    _require_model_role(session, current_user, model_id, CollectionRole.VIEW)
+    rows = models_detail.artifact_outcomes(session, model_id, file_id)
+    if len(rows) != len(set(file_id)):
+        raise HTTPException(status_code=404, detail="file_not_found")
+    return [ArtifactOutcomeRead.model_validate(row) for row in rows]
+
+
+@router.post(
+    "/{model_id}/print-jobs",
+    response_model=ModelPrintJobRead,
+    dependencies=[Depends(require_superuser)],
+    summary="Manually log a print job for this model",
+)
+def create_manual_print_job(
+    model_id: int,
+    payload: ManualPrintJobCreate,
+    current_user: User = Depends(require_superuser),
+    session: Session = Depends(get_session),
+) -> ModelPrintJobRead:
+    _require_model_role(session, current_user, model_id, CollectionRole.EDIT)
+
+    file_row = session.exec(
+        select(File).where(
+            File.id == payload.file_id,
+            File.model_id == model_id,
+            live(File),
+        )
+    ).first()
+    if file_row is None:
+        raise HTTPException(status_code=404, detail={"code": "file_not_found"})
+
+    # Either a registered printer (by id) or an ad-hoc free-text printer name.
+    printer: Optional[Printer] = None
+    printer_name = payload.printer_name
+    if payload.printer_id is not None:
+        printer = session.get(Printer, payload.printer_id)
+        if printer is None or printer.deleted_at is not None:
+            raise HTTPException(status_code=404, detail={"code": "printer_not_found"})
+        printer_name = None  # name is derived from the registered printer
+    elif not printer_name:
+        raise HTTPException(status_code=422, detail={"code": "printer_required"})
+
+    state = payload.state
+
+    job = PrintJob(
+        printer_id=payload.printer_id,
+        printer_name=printer_name,
+        file_id=payload.file_id,
+        model_id=model_id,
+        remote_filename=file_row.original_filename,
+        state=state,
+        source="manual",
+        spool_id=payload.spool_id,
+        spool_name=payload.spool_name,
+        spool_filament_id=payload.spool_filament_id,
+        started_at=payload.started_at,
+        finished_at=payload.finished_at,
+        error=payload.error,
+    )
+    if state == PrintJobState.COMPLETED:
+        job.filament_g_effective, job.cost = print_results.resolve_completion_cost(
+            session, job
+        )
+    session.add(job)
+    session.commit()
+    session.refresh(job)
+
+    revision_numbers = _gcode_revision_numbers(session, model_id)
+
+    return ModelPrintJobRead(
+        id=job.id,
+        printer_id=job.printer_id,
+        printer_name=(
+            printer.name if printer is not None else (printer_name or "Unknown printer")
+        ),
+        file_id=job.file_id,
+        remote_filename=job.remote_filename,
+        source=job.source,
+        external_display_name=job.external_display_name,
+        artifact_evidence=job.artifact_evidence,
+        gcode_revision_number=revision_numbers.get(job.file_id),
+        revision_label=file_row.revision_label,
+        state=job.state,
+        material_type=None,
+        error=job.error,
+        spool_id=job.spool_id,
+        spool_name=job.spool_name,
+        started_at=job.started_at,
+        finished_at=job.finished_at,
+        created_at=job.created_at,
+        **reproducibility_payload(
+            job,
+            file_type=file_row.file_type,
+            download_url=(
+                f"/api/v1/files/{job.file_id}/download"
+                if job.source != "external"
+                or job.artifact_evidence.endswith("_archived")
+                else None
+            ),
+        ),
+    )
+
+
+@router.post(
+    "/{model_id}/print-jobs/import-printer/{printer_id}",
+    response_model=List[ImportedPrintJobRead],
+    dependencies=[Depends(require_superuser)],
+    summary="Fetch and import matching print history from a Moonraker printer",
+)
+async def import_print_jobs_from_printer(
+    model_id: int,
+    printer_id: int,
+    current_user: User = Depends(require_superuser),
+    session: Session = Depends(get_session),
+) -> List[ImportedPrintJobRead]:
+    _require_model_role(session, current_user, model_id, CollectionRole.EDIT)
+
+    printer = session.get(Printer, printer_id)
+    if printer is None or printer.deleted_at is not None:
+        raise HTTPException(status_code=404, detail={"code": "printer_not_found"})
+    if not printer.moonraker_url:
+        raise HTTPException(status_code=400, detail={"code": "printer_no_url"})
+
+    try:
+        return await job_import.import_print_jobs_from_printer(
+            model_id=model_id,
+            printer_id=printer_id,
+            moonraker_url=printer.moonraker_url,
+            moonraker_api_key=printer.api_key,
+        )
+    except MoonrakerError as exc:
+        raise HTTPException(
+            status_code=502, detail={"code": "printer_unreachable", "detail": str(exc)}
+        ) from exc
+
+
+@router.post(
+    "/batch/move",
+    response_model=ModelEditBatchResult,
+    dependencies=[Depends(require_auth)],
+    summary="Move several models to a collection",
+    description=(
+        "Moves the given models into one destination collection. The destination "
+        "is resolved once: an empty path means root (superuser only) and a missing "
+        "path is created (superuser only). Every model is preflighted for existence "
+        "and edit access; preflight failure rejects the whole request without writes. "
+        "Conditional version conflicts skip only stale Models; succeeded_versions "
+        "records the exact versions acknowledged by this transaction."
+    ),
+)
+def batch_move_models(
+    payload: ModelBatchMove,
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+    edit_contract: str | None = Header(
+        default=None, alias="X-PrintStash-Edit-Contract"
+    ),
+) -> ModelEditBatchResult:
+    # Validate the shared destination up front — these are whole-request errors,
+    # not per-item, because the destination is the same for everyone. Creating a
+    # *missing* collection is deferred until we know at least one model will move
+    # (below), so a fully-failed batch never leaves an orphan empty collection.
+    return model_commands.batch_move_models(
+        payload=payload,
+        current_user=current_user,
+        session=session,
+        edit_contract=edit_contract,
+    )
+
+
+@router.post(
+    "/batch/tags",
+    response_model=ModelEditBatchResult,
+    dependencies=[Depends(require_auth)],
+    summary="Add and/or remove tags on several models",
+    description=(
+        "Additive tag editing across a selection: tags in `add` are created if "
+        "missing and appended (idempotent); tags in `remove` are detached if "
+        "present. Each model keeps its other tags. Every model is preflighted; any "
+        "missing or non-editable model rejects the whole request without writes. "
+        "Conditional version conflicts skip only stale Models; succeeded_versions "
+        "records the exact versions acknowledged by this transaction."
+    ),
+)
+def batch_tag_models(
+    payload: ModelBatchTags,
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+    edit_contract: str | None = Header(
+        default=None, alias="X-PrintStash-Edit-Contract"
+    ),
+) -> ModelEditBatchResult:
+    return model_commands.batch_tag_models(
+        payload=payload,
+        current_user=current_user,
+        session=session,
+        edit_contract=edit_contract,
+    )
+
+
+@router.patch(
+    "/batch/revision-labels",
+    response_model=RevisionBatchResult,
+    dependencies=[Depends(require_auth)],
+    summary="Set the label on several G-code revisions",
+)
+def batch_set_revision_labels(
+    payload: RevisionBatchLabels,
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> RevisionBatchResult:
+    return model_commands.batch_set_revision_labels(
+        payload=payload, current_user=current_user, session=session
+    )
+
+
+@router.post(
+    "/batch/delete",
+    response_model=ModelBatchResult,
+    dependencies=[Depends(require_auth)],
+    summary="Soft-delete several models",
+    description=(
+        "Moves the given models to the trash. Every model is preflighted; any missing "
+        "or non-editable model rejects the whole request without writes."
+    ),
+)
+def batch_delete_models(
+    payload: ModelBatchDelete,
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> ModelBatchResult:
+    return model_commands.batch_delete_models(
+        payload=payload, current_user=current_user, session=session
+    )
+
+
+@router.patch(
+    "/{model_id}",
+    response_model=ModelRead,
+    dependencies=[Depends(require_auth)],
+    summary="Update a model's name, description, source URL, collection, or tags",
+)
+def update_model(
+    model_id: int,
+    response: Response,
+    payload: ModelUpdate,
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+    precondition: EditPrecondition = Depends(edit_precondition),
+) -> ModelRead:
+    model_commands.update_model(
+        model_id=model_id,
+        payload=payload,
+        current_user=current_user,
+        session=session,
+        precondition=precondition,
+    )
+    result = _detail_or_404(session, model_id, current_user)
+    response.headers["ETag"] = etag(
+        EditKind.MODEL, result.id, result.edit_version, result.edit_epoch
+    )
+    return result
+
+
+@router.patch(
+    "/{model_id}/files/{file_id}/revision",
+    response_model=ModelRead,
+    dependencies=[Depends(require_auth)],
+    summary="Update G-code revision status, notes, or recommended marker",
+    description=(
+        "Updates G-code revision fields for a file under a model. Only G-code "
+        "files are supported. Marking a file recommended clears the marker from "
+        "other G-code files on the same model."
+    ),
+)
+def update_file_revision(
+    model_id: int,
+    file_id: int,
+    payload: FileRevisionUpdate,
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> ModelRead:
+    model_commands.update_file_revision(
+        model_id=model_id,
+        file_id=file_id,
+        payload=payload,
+        current_user=current_user,
+        session=session,
+    )
+    return _detail_or_404(session, model_id, current_user)
+
+
+@router.put(
+    "/{model_id}/files/{file_id}/tags",
+    response_model=ModelRead,
+    dependencies=[Depends(require_auth)],
+    summary="Replace an artifact's direct tags",
+)
+def replace_file_tags(
+    model_id: int,
+    file_id: int,
+    payload: TagSetUpdate,
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> ModelRead:
+    model_commands.replace_file_tags(
+        model_id=model_id,
+        file_id=file_id,
+        payload=payload,
+        current_user=current_user,
+        session=session,
+    )
+    return _detail_or_404(session, model_id, current_user)
+
+
+def _editable_source_file(
+    session: Session, actor: User, model_id: int, file_id: int
+) -> tuple[Model, File]:
+    model = session.get(Model, model_id)
+    if model is None or model.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="model_not_found")
+    rbac.require_model_collection_role(
+        session, actor, model.collection_id, CollectionRole.EDIT
+    )
+    file_row = session.get(File, file_id)
+    if file_row is None or file_row.model_id != model_id:
+        raise HTTPException(status_code=404, detail="file_not_found")
+    return model, file_row
+
+
+@router.delete(
+    "/{model_id}/files/{file_id}",
+    response_model=ModelRead,
+    dependencies=[Depends(require_auth)],
+    summary="Move one managed source Artifact to trash",
+)
+def trash_source_file(
+    model_id: int,
+    file_id: int,
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> ModelRead:
+    model, file_row = _editable_source_file(session, current_user, model_id, file_id)
+    if file_row.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="file_not_found")
+    try:
+        soft_delete_source_file(session, model, file_row, current_user)
+    except SourceFileLifecycleError as exc:
+        raise HTTPException(
+            status_code=409 if str(exc) == "linked_source_protected" else 400,
+            detail=str(exc),
+        ) from exc
+    return _detail_or_404(session, model_id, current_user)
+
+
+@router.post(
+    "/{model_id}/files/{file_id}/restore",
+    response_model=ModelRead,
+    dependencies=[Depends(require_auth)],
+    summary="Restore one managed source Artifact from trash",
+)
+def restore_source_file_route(
+    model_id: int,
+    file_id: int,
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> ModelRead:
+    model, file_row = _editable_source_file(session, current_user, model_id, file_id)
+    if file_row.deleted_at is None:
+        raise HTTPException(status_code=400, detail="file_not_in_trash")
+    try:
+        restore_source_file(session, model, file_row)
+    except SourceFileLifecycleError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except PurgeConflictError as exc:
+        session.rollback()
+        raise HTTPException(status_code=409, detail="storage_cleanup_blocked") from exc
+    return _detail_or_404(session, model_id, current_user)
+
+
+@router.delete(
+    "/{model_id}/files/{file_id}/revision",
+    response_model=ModelRead,
+    dependencies=[Depends(require_auth)],
+    summary="Delete a G-code revision",
+    description=(
+        "Soft-deletes a G-code revision file. The blob is reclaimed by the "
+        "trash GC. Only G-code files are supported."
+    ),
+)
+def delete_file_revision(
+    model_id: int,
+    file_id: int,
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> ModelRead:
+    try:
+        revisions.remove_revision(session, current_user, model_id, file_id)
+    except RevisionError as exc:
+        code = (
+            403
+            if exc.code == "collection_permission_denied"
+            else 400
+            if exc.code == "revision_not_supported"
+            else 404
+        )
+        raise HTTPException(status_code=code, detail=exc.code) from exc
+    return _detail_or_404(session, model_id, current_user)
+
+
+@router.post(
+    "/{model_id}/restore",
+    response_model=ModelRead,
+    dependencies=[Depends(require_auth)],
+    summary="Restore a model from the trash",
+)
+def restore_model(
+    model_id: int,
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> ModelRead:
+    m = session.get(Model, model_id)
+    if m is None:
+        raise HTTPException(status_code=404, detail="model_not_found")
+    rbac.require_model_collection_role(
+        session,
+        current_user,
+        m.collection_id,
+        CollectionRole.EDIT,
+    )
+    trash_restore_model(session, m)
+    return _detail_or_404(session, model_id, current_user)
+
+
+@router.delete(
+    "/{model_id}/purge",
+    response_model=TrashPurgeRead,
+    dependencies=[Depends(require_auth)],
+    summary="Permanently delete a model from the trash",
+)
+def purge_model(
+    model_id: int,
+    confirm_storage_risk: bool = Query(False),
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> TrashPurgeRead:
+    m = session.get(Model, model_id)
+    if m is None:
+        raise HTTPException(status_code=404, detail="model_not_found")
+    if m.deleted_at is None:
+        raise HTTPException(status_code=400, detail="model_not_in_trash")
+    rbac.require_model_collection_role(
+        session,
+        current_user,
+        m.collection_id,
+        CollectionRole.EDIT,
+    )
+    try:
+        hard_delete_model(session, m, confirm_storage_risk=confirm_storage_risk)
+    except StorageRiskConfirmationRequired as exc:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=exc.detail
+        ) from exc
+    except UnsafeStorageDeleteError as exc:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="storage_ownership_unverified",
+        ) from exc
+    session.commit()
+    storage_result = process_storage_delete_intents()
+    return TrashPurgeRead(
+        purged_model_ids=[model_id],
+        purged_count=1,
+        storage_completed=storage_result.completed,
+        storage_pending=storage_result.pending,
+        storage_blocked=storage_result.blocked,
+        storage_cleanup_status=cleanup_status(storage_result),
+    )
+
+
+@router.delete(
+    "/{model_id}",
+    status_code=204,
+    response_class=Response,
+    dependencies=[Depends(require_auth)],
+    summary="Soft-delete a model",
+    description="Marks the model deleted; it moves to the trash until purged.",
+)
+def delete_model(
+    model_id: int,
+    current_user: User = Depends(require_user),
+    session: Session = Depends(get_session),
+) -> Response:
+    m = _require_model_role(session, current_user, model_id, CollectionRole.EDIT)
+    soft_delete_model(session, m)
+    return Response(status_code=204)

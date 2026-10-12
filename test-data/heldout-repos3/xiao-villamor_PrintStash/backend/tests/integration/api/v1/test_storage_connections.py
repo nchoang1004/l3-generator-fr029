@@ -1,0 +1,1276 @@
+"""Remote library connection profiles keep secrets encrypted and reusable."""
+
+from __future__ import annotations
+
+import sys
+from types import ModuleType, SimpleNamespace
+
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import text
+from sqlmodel import Session
+
+from app.api.v1 import storage_connections as storage_connections_api
+from app.db.models import LibraryRevision, StorageConnection
+from app.modules.backups.backup_destination import BackupDestinationError
+from app.modules.identity.auth import create_access_token
+from app.modules.sources.library_source import LibrarySourceError
+from app.modules.storage.storage_providers import PRESETS
+from tests.factories import build_storage_connection, build_user
+from tests.integration.modules.sources.external_library._helpers import enable_feature
+
+
+def _headers(user) -> dict[str, str]:
+    token = create_access_token(user.id, user.username, scope="admin")
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture
+def shared_sftp_connection_id(client: TestClient, auth_headers: dict) -> int:
+    """The same shared SFTP profile drives listing, backup, and success probes."""
+    response = client.post(
+        "/api/v1/storage-connections",
+        headers=auth_headers,
+        json={
+            "name": "Shared SFTP",
+            "kind": "sftp",
+            "purpose": "both",
+            "configuration": {
+                "host": "nas.example.test",
+                "username": "reader",
+                "host_key": "nas.example.test ssh-ed25519 AAAATEST",
+                "root": "models",
+            },
+            "secrets": {"password": "fixture-password"},
+        },
+    )
+    assert response.status_code == 201, response.text
+    return response.json()["id"]
+
+
+class TestStorageConnections:
+    def test_remote_s3_library_reuses_a_secret_safe_profile(
+        self, client: TestClient, db_session: Session
+    ) -> None:
+        admin = build_user(db_session, "storage-profile-admin", superuser=True)
+        enable_feature(db_session)
+
+        connected = client.post(
+            "/api/v1/storage-connections",
+            headers=_headers(admin),
+            json={
+                "name": "TrueNAS MinIO",
+                "kind": "s3",
+                "configuration": {
+                    "provider": "s3_self_hosted",
+                    "bucket": "print-library",
+                    "endpoint_url": "https://minio.example.test",
+                    "region": "us-east-1",
+                    "addressing_style": "path",
+                    "root": "models",
+                },
+                "secrets": {
+                    "access_key": "ACCESS-SECRET",
+                    "secret_key": "TOP-SECRET",
+                },
+            },
+        )
+
+        assert connected.status_code == 201, connected.text
+        profile = connected.json()
+        assert profile["secret_fields_set"] == ["access_key", "secret_key"]
+        assert "TOP-SECRET" not in connected.text
+        persisted = db_session.get(StorageConnection, profile["id"])
+        assert persisted is not None
+        raw_secret = db_session.exec(
+            text("SELECT secret_json FROM storage_connections WHERE id = :id"),
+            params={"id": profile["id"]},
+        ).one()
+        assert "TOP-SECRET" not in str(raw_secret)
+
+        library = client.post(
+            "/api/v1/libraries",
+            headers=_headers(admin),
+            json={
+                "name": "Remote models",
+                "source_kind": "s3",
+                "connection_id": profile["id"],
+                "source_prefix": "models",
+                "scan_schedule": "0 * * * *",
+            },
+        )
+
+        assert library.status_code == 201, library.text
+        assert library.json()["source_kind"] == "s3"
+        assert library.json()["writeback_enabled"] is False
+
+        enrollment = client.post(
+            f"/api/v1/libraries/{library.json()['id']}/root/enroll",
+            headers=_headers(admin),
+            json={"confirm_root_path": library.json()["root_path"]},
+        )
+        assert enrollment.status_code == 409
+        assert enrollment.json()["detail"] == "remote_library_has_no_mounted_root"
+
+    @pytest.mark.parametrize(
+        ("kind", "configuration", "secrets", "secret_fields"),
+        [
+            (
+                "webdav",
+                {
+                    "provider": "webdav",
+                    "endpoint_url": "https://nas.example.test/dav",
+                    "username": "reader",
+                    "root": "models",
+                },
+                {"password": "dav-secret"},
+                ["password"],
+            ),
+            (
+                "sftp",
+                {
+                    "host": "nas.example.test",
+                    "username": "reader",
+                    "host_key": "nas.example.test ssh-ed25519 AAAATEST",
+                    "root": "models",
+                },
+                {"password": "ssh-secret"},
+                ["password"],
+            ),
+            (
+                "gdrive",
+                {"client_id": "google-client", "root": "PrintStash/models"},
+                {
+                    "client_secret": "google-secret",
+                    "refresh_token": "google-refresh",
+                },
+                ["client_secret", "refresh_token"],
+            ),
+        ],
+    )
+    def test_creates_each_remote_profile_without_returning_secrets(
+        self,
+        client: TestClient,
+        db_session: Session,
+        kind: str,
+        configuration: dict[str, object],
+        secrets: dict[str, str],
+        secret_fields: list[str],
+    ) -> None:
+        admin = build_user(db_session, f"{kind}-profile-admin", superuser=True)
+
+        response = client.post(
+            "/api/v1/storage-connections",
+            headers=_headers(admin),
+            json={
+                "name": f"{kind.upper()} NAS",
+                "kind": kind,
+                "configuration": configuration,
+                "secrets": secrets,
+            },
+        )
+
+        assert response.status_code == 201, response.text
+        assert response.json()["secret_fields_set"] == secret_fields
+        assert response.json()["purpose"] == "library"
+        assert next(iter(secrets.values())) not in response.text
+
+    def test_list_is_sorted_without_exposing_secrets(
+        self, client: TestClient, db_session: Session
+    ) -> None:
+        admin = build_user(db_session, "list-profile-admin", superuser=True)
+        for name in ("Zulu", "Alpha"):
+            response = client.post(
+                "/api/v1/storage-connections",
+                headers=_headers(admin),
+                json={
+                    "name": name,
+                    "kind": "s3",
+                    "configuration": {"bucket": "models", "root": "library"},
+                    "secrets": {
+                        "access_key": "access-secret",
+                        "secret_key": "storage-secret",
+                    },
+                },
+            )
+            assert response.status_code == 201, response.text
+
+        listed = client.get("/api/v1/storage-connections", headers=_headers(admin))
+
+        assert listed.status_code == 200
+        assert [row["name"] for row in listed.json()] == ["Alpha", "Zulu"]
+        assert "storage-secret" not in listed.text
+
+    @pytest.mark.parametrize(
+        "payload, detail",
+        [
+            (
+                {
+                    "name": "Secret in config",
+                    "kind": "s3",
+                    "configuration": {
+                        "bucket": "models",
+                        "access_key": "must-not-be-here",
+                    },
+                    "secrets": {"secret_key": "secret"},
+                },
+                "storage_connection_secret_invalid",
+            ),
+            (
+                {
+                    "name": "Unknown secret",
+                    "kind": "webdav",
+                    "configuration": {
+                        "endpoint_url": "https://nas.example.test/dav",
+                        "username": "reader",
+                    },
+                    "secrets": {"token": "nope"},
+                },
+                "storage_connection_secret_invalid",
+            ),
+            (
+                {
+                    "name": "Mounted profile",
+                    "kind": "mounted",
+                    "configuration": {"root": "models"},
+                    "secrets": {},
+                },
+                "storage_connection_invalid",
+            ),
+            (
+                {
+                    "name": "Invalid S3",
+                    "kind": "s3",
+                    "configuration": {"bucket": ""},
+                    "secrets": {},
+                },
+                "storage_connection_invalid",
+            ),
+        ],
+    )
+    def test_rejects_unsafe_or_invalid_profiles(
+        self,
+        client: TestClient,
+        db_session: Session,
+        payload: dict[str, object],
+        detail: str,
+    ) -> None:
+        admin = build_user(db_session, "invalid-profile-admin", superuser=True)
+
+        response = client.post(
+            "/api/v1/storage-connections", headers=_headers(admin), json=payload
+        )
+
+        assert response.status_code == 400, response.text
+        assert response.json()["detail"] == detail
+
+    def test_duplicate_profile_name_is_rejected(
+        self, client: TestClient, db_session: Session
+    ) -> None:
+        admin = build_user(db_session, "duplicate-profile-admin", superuser=True)
+        payload = {
+            "name": "Shared S3",
+            "kind": "s3",
+            "configuration": {"bucket": "models"},
+            "secrets": {"access_key": "access", "secret_key": "secret"},
+        }
+        assert (
+            client.post(
+                "/api/v1/storage-connections", headers=_headers(admin), json=payload
+            ).status_code
+            == 201
+        )
+
+        duplicate = client.post(
+            "/api/v1/storage-connections", headers=_headers(admin), json=payload
+        )
+
+        assert duplicate.status_code == 409
+        assert duplicate.json()["detail"] == "storage_connection_name_in_use"
+
+    def test_probe_has_explicit_outcomes(
+        self,
+        client: TestClient,
+        db_session: Session,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        admin = build_user(db_session, "probe-profile-admin", superuser=True)
+        created = client.post(
+            "/api/v1/storage-connections",
+            headers=_headers(admin),
+            json={
+                "name": "Probe S3",
+                "kind": "s3",
+                "configuration": {"bucket": "models"},
+                "secrets": {"access_key": "access", "secret_key": "secret"},
+            },
+        ).json()
+
+        source = SimpleNamespace(probe=lambda: 2)
+        monkeypatch.setattr(
+            storage_connections_api, "source_from_connection", lambda *_a, **_k: source
+        )
+        success = client.post(
+            f"/api/v1/storage-connections/{created['id']}/probe",
+            headers=_headers(admin),
+        )
+        assert success.json() == {
+            "ok": True,
+            "sample_count": 2,
+            "endpoint_proven": {"listing": True, "read": False},
+        }
+
+        def failed_source(*_args, **_kwargs):
+            raise LibrarySourceError("library_source_list_failed")
+
+        monkeypatch.setattr(
+            storage_connections_api, "source_from_connection", failed_source
+        )
+        failed = client.post(
+            f"/api/v1/storage-connections/{created['id']}/probe",
+            headers=_headers(admin),
+        )
+        missing = client.post(
+            "/api/v1/storage-connections/999999/probe", headers=_headers(admin)
+        )
+
+        assert failed.status_code == 409
+        assert failed.json()["detail"] == "library_source_list_failed"
+        assert missing.status_code == 404
+
+    def test_shared_sftp_probe_reports_library_listing_failure(
+        self,
+        client: TestClient,
+        auth_headers: dict,
+        shared_sftp_connection_id: int,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        def failed_source(*_args, **_kwargs):
+            raise LibrarySourceError("remote_storage_list_failed")
+
+        monkeypatch.setattr(
+            storage_connections_api, "source_from_connection", failed_source
+        )
+        response = client.post(
+            f"/api/v1/storage-connections/{shared_sftp_connection_id}/probe",
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 409
+        assert response.json()["detail"] == "remote_storage_list_failed"
+
+    def test_shared_sftp_probe_confirms_library_listing(
+        self,
+        client: TestClient,
+        auth_headers: dict,
+        shared_sftp_connection_id: int,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(
+            storage_connections_api,
+            "source_from_connection",
+            lambda *_args, **_kwargs: SimpleNamespace(probe=lambda: 2),
+        )
+        monkeypatch.setattr(
+            storage_connections_api,
+            "destination_from_connection",
+            lambda *_args, **_kwargs: SimpleNamespace(
+                probe=lambda: {"ok": True, "provider": "sftp"}
+            ),
+        )
+
+        response = client.post(
+            f"/api/v1/storage-connections/{shared_sftp_connection_id}/probe",
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 200
+        assert response.json() == {
+            "ok": True,
+            "provider": "sftp",
+            "library_sample_count": 2,
+        }
+
+    def test_shared_sftp_probe_reports_backup_failure(
+        self,
+        client: TestClient,
+        auth_headers: dict,
+        shared_sftp_connection_id: int,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(
+            storage_connections_api,
+            "source_from_connection",
+            lambda *_args, **_kwargs: SimpleNamespace(probe=lambda: 0),
+        )
+
+        def failed_backup(*_args, **_kwargs):
+            raise BackupDestinationError("storage_connection_probe_failed")
+
+        monkeypatch.setattr(
+            storage_connections_api, "destination_from_connection", failed_backup
+        )
+
+        response = client.post(
+            f"/api/v1/storage-connections/{shared_sftp_connection_id}/probe",
+            headers=auth_headers,
+        )
+
+        assert response.status_code == 409
+        assert response.json()["detail"] == "storage_connection_backup_probe_failed"
+
+    def test_probe_reports_an_unavailable_google_drive_transport(
+        self,
+        client: TestClient,
+        db_session: Session,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        class Unsupported(Exception):
+            pass
+
+        admin = build_user(db_session, "gdrive-probe-admin", superuser=True)
+        created = client.post(
+            "/api/v1/storage-connections",
+            headers=_headers(admin),
+            json={
+                "name": "Recovery Drive",
+                "kind": "gdrive",
+                "purpose": "backup",
+                "configuration": {
+                    "client_id": "google-client",
+                    "root": "PrintStash",
+                },
+                "secrets": {
+                    "client_secret": "google-secret",
+                    "refresh_token": "google-refresh",
+                },
+            },
+        ).json()
+        fake_opendal = ModuleType("opendal")
+
+        def unregistered(_kind: str, **_options: str) -> object:
+            raise Unsupported("scheme is not registered")
+
+        fake_opendal.Operator = unregistered  # type: ignore[attr-defined]
+        fake_opendal.exceptions = ModuleType("opendal.exceptions")  # type: ignore[attr-defined]
+        fake_opendal.exceptions.Unsupported = Unsupported  # type: ignore[attr-defined]
+        monkeypatch.setitem(sys.modules, "opendal", fake_opendal)
+
+        response = client.post(
+            f"/api/v1/storage-connections/{created['id']}/probe",
+            headers=_headers(admin),
+        )
+
+        assert response.status_code == 409
+        assert response.json()["detail"] == "gdrive_transport_unavailable"
+
+    def test_backup_connection_cannot_be_attached_as_a_library(
+        self, client: TestClient, db_session: Session
+    ) -> None:
+        admin = build_user(db_session, "backup-profile-admin", superuser=True)
+        enable_feature(db_session)
+        connection = client.post(
+            "/api/v1/storage-connections",
+            headers=_headers(admin),
+            json={
+                "name": "Off-site copies",
+                "kind": "s3",
+                "purpose": "backup",
+                "configuration": {"bucket": "backups", "root": "PrintStash"},
+                "secrets": {"access_key": "access", "secret_key": "secret"},
+            },
+        )
+        assert connection.status_code == 201, connection.text
+
+        library = client.post(
+            "/api/v1/libraries",
+            headers=_headers(admin),
+            json={
+                "name": "Wrong authority",
+                "source_kind": "s3",
+                "connection_id": connection.json()["id"],
+            },
+        )
+
+        assert library.status_code == 409
+        assert library.json()["detail"] == "storage_connection_incompatible"
+
+    def test_backup_connection_can_be_paused_without_forgetting_credentials(
+        self, client: TestClient, db_session: Session
+    ) -> None:
+        admin = build_user(db_session, "pause-backup-profile-admin", superuser=True)
+        created = client.post(
+            "/api/v1/storage-connections",
+            headers=_headers(admin),
+            json={
+                "name": "Paused copies",
+                "kind": "gdrive",
+                "purpose": "backup",
+                "configuration": {
+                    "client_id": "google-client",
+                    "root": "PrintStash/backups",
+                },
+                "secrets": {
+                    "client_secret": "google-secret",
+                    "refresh_token": "google-refresh",
+                },
+            },
+        ).json()
+
+        paused = client.patch(
+            f"/api/v1/storage-connections/{created['id']}",
+            headers=_headers(admin),
+            json={"enabled": False},
+        )
+
+        assert paused.status_code == 200, paused.text
+        assert paused.json()["enabled"] is False
+        assert paused.json()["secret_fields_set"] == [
+            "client_secret",
+            "refresh_token",
+        ]
+        assert "google-secret" not in paused.text
+
+    def test_connection_can_be_expanded_to_both_uses(
+        self, client: TestClient, db_session: Session
+    ) -> None:
+        admin = build_user(db_session, "shared-profile-admin", superuser=True)
+        created = client.post(
+            "/api/v1/storage-connections",
+            headers=_headers(admin),
+            json={
+                "name": "Shared remote storage",
+                "kind": "s3",
+                "configuration": {"bucket": "printstash", "root": "PrintStash"},
+                "secrets": {"access_key": "access", "secret_key": "secret"},
+            },
+        ).json()
+
+        updated = client.patch(
+            f"/api/v1/storage-connections/{created['id']}",
+            headers=_headers(admin),
+            json={"purpose": "both"},
+        )
+
+        assert updated.status_code == 200, updated.text
+        assert updated.json()["purpose"] == "both"
+
+    def test_shared_connection_can_be_attached_as_a_library(
+        self, client: TestClient, db_session: Session
+    ) -> None:
+        admin = build_user(db_session, "shared-library-admin", superuser=True)
+        enable_feature(db_session)
+        connection = client.post(
+            "/api/v1/storage-connections",
+            headers=_headers(admin),
+            json={
+                "name": "Shared source",
+                "kind": "s3",
+                "purpose": "both",
+                "configuration": {"bucket": "printstash", "root": "PrintStash"},
+                "secrets": {"access_key": "access", "secret_key": "secret"},
+            },
+        ).json()
+
+        library = client.post(
+            "/api/v1/libraries",
+            headers=_headers(admin),
+            json={
+                "name": "Shared catalogue",
+                "source_kind": "s3",
+                "connection_id": connection["id"],
+                "source_prefix": "models",
+            },
+        )
+
+        assert library.status_code == 201, library.text
+
+    def test_library_use_cannot_be_removed_while_referenced(
+        self, client: TestClient, db_session: Session
+    ) -> None:
+        admin = build_user(db_session, "referenced-shared-admin", superuser=True)
+        enable_feature(db_session)
+        connection = client.post(
+            "/api/v1/storage-connections",
+            headers=_headers(admin),
+            json={
+                "name": "Referenced shared source",
+                "kind": "s3",
+                "purpose": "both",
+                "configuration": {"bucket": "printstash", "root": "PrintStash"},
+                "secrets": {"access_key": "access", "secret_key": "secret"},
+            },
+        ).json()
+        library = client.post(
+            "/api/v1/libraries",
+            headers=_headers(admin),
+            json={
+                "name": "Protected catalogue",
+                "source_kind": "s3",
+                "connection_id": connection["id"],
+            },
+        )
+        assert library.status_code == 201, library.text
+
+        blocked = client.patch(
+            f"/api/v1/storage-connections/{connection['id']}",
+            headers=_headers(admin),
+            json={"purpose": "backup"},
+        )
+
+        assert blocked.status_code == 409
+        assert blocked.json()["detail"] == "storage_connection_in_use"
+
+    def test_empty_connection_update_is_rejected(
+        self, client: TestClient, db_session: Session
+    ) -> None:
+        admin = build_user(db_session, "empty-profile-update-admin", superuser=True)
+        created = client.post(
+            "/api/v1/storage-connections",
+            headers=_headers(admin),
+            json={
+                "name": "No-op profile",
+                "kind": "s3",
+                "configuration": {"bucket": "models"},
+                "secrets": {"access_key": "access", "secret_key": "secret"},
+            },
+        ).json()
+
+        response = client.patch(
+            f"/api/v1/storage-connections/{created['id']}",
+            headers=_headers(admin),
+            json={},
+        )
+
+        assert response.status_code == 400
+        assert response.json()["detail"] == "storage_connection_update_empty"
+
+    def test_delete_is_blocked_in_use_then_succeeds_when_detached(
+        self, client: TestClient, db_session: Session
+    ) -> None:
+        admin = build_user(db_session, "delete-profile-admin", superuser=True)
+        enable_feature(db_session)
+        created = client.post(
+            "/api/v1/storage-connections",
+            headers=_headers(admin),
+            json={
+                "name": "Delete S3",
+                "kind": "s3",
+                "configuration": {"bucket": "models"},
+                "secrets": {"access_key": "access", "secret_key": "secret"},
+            },
+        ).json()
+        library = client.post(
+            "/api/v1/libraries",
+            headers=_headers(admin),
+            json={
+                "name": "Uses profile",
+                "source_kind": "s3",
+                "connection_id": created["id"],
+                "source_prefix": "models",
+            },
+        )
+        assert library.status_code == 201, library.text
+
+        blocked = client.delete(
+            f"/api/v1/storage-connections/{created['id']}", headers=_headers(admin)
+        )
+        missing = client.delete(
+            "/api/v1/storage-connections/999999", headers=_headers(admin)
+        )
+        assert blocked.status_code == 409
+        assert blocked.json()["detail"] == "storage_connection_in_use"
+        assert missing.status_code == 404
+
+        from app.db.models import ExternalLibrary
+
+        linked = db_session.get(ExternalLibrary, library.json()["id"])
+        assert linked is not None
+        db_session.delete(linked)
+        db_session.commit()
+        deleted = client.delete(
+            f"/api/v1/storage-connections/{created['id']}", headers=_headers(admin)
+        )
+        assert deleted.status_code == 204
+
+    def test_updates_independent_backup_selections(
+        self, client: TestClient, db_session: Session
+    ) -> None:
+        admin = build_user(db_session, "backup-selection-admin", superuser=True)
+        created = client.post(
+            "/api/v1/storage-connections",
+            headers=_headers(admin),
+            json={
+                "name": "Selective backup",
+                "kind": "s3",
+                "purpose": "backup",
+                "configuration": {"bucket": "printstash", "root": "PrintStash"},
+                "secrets": {"access_key": "access", "secret_key": "secret"},
+            },
+        ).json()
+
+        updated = client.patch(
+            f"/api/v1/storage-connections/{created['id']}",
+            headers=_headers(admin),
+            json={
+                "manual_backup_enabled": False,
+                "automatic_backup_enabled": True,
+            },
+        )
+
+        assert updated.status_code == 200, updated.text
+        assert updated.json()["manual_backup_enabled"] is False
+        assert updated.json()["automatic_backup_enabled"] is True
+
+
+class TestConnectionEditing:
+    @pytest.fixture
+    def editable(self, client, db_session):
+        from tests.factories import build_storage_connection
+
+        admin = build_user(db_session, "connection-editor", superuser=True)
+        profile = build_storage_connection(db_session)
+        return profile.id, _headers(admin)
+
+    def test_omitted_secrets_survive_a_configuration_edit(
+        self, client, db_session, editable
+    ):
+        import json
+
+        identifier, headers = editable
+        before = json.loads(db_session.get(StorageConnection, identifier).secret_json)
+        response = client.patch(
+            f"/api/v1/storage-connections/{identifier}",
+            headers=headers,
+            json={"name": "Renamed offsite", "configuration": {"root": "new-root"}},
+        )
+        assert response.status_code == 200, response.text
+        db_session.expire_all()
+        row = db_session.get(StorageConnection, identifier)
+        assert json.loads(row.secret_json) == before
+        assert json.loads(row.config_json)["root"] == "new-root"
+        assert row.name == "Renamed offsite"
+        assert all(value not in response.text for value in before.values())
+
+    def test_explicit_secret_replacement_preserves_omitted_credentials(
+        self, client, db_session, editable
+    ):
+        import json
+
+        identifier, headers = editable
+        before = json.loads(db_session.get(StorageConnection, identifier).secret_json)
+        response = client.patch(
+            f"/api/v1/storage-connections/{identifier}",
+            headers=headers,
+            json={"secrets": {"secret_key": "replacement-secret-never-returned"}},
+        )
+        assert response.status_code == 200, response.text
+        db_session.expire_all()
+        secrets = json.loads(db_session.get(StorageConnection, identifier).secret_json)
+        assert secrets["access_key"] == before["access_key"]
+        assert secrets["secret_key"] == "replacement-secret-never-returned"
+        assert secrets["secret_key"] not in response.text
+
+    def test_linked_source_blocks_target_edits(self, client, db_session, editable):
+        import json
+
+        from app.db.models import LibrarySourceKind
+        from tests.factories import build_external_library
+
+        identifier, headers = editable
+        build_external_library(
+            db_session,
+            root="source://connection",
+            source_kind=LibrarySourceKind.S3,
+            connection_id=identifier,
+        )
+        before = db_session.get(StorageConnection, identifier).config_json
+        response = client.patch(
+            f"/api/v1/storage-connections/{identifier}",
+            headers=headers,
+            json={"configuration": {"bucket": "different-bucket"}},
+        )
+        assert response.status_code == 409, response.text
+        assert response.json()["detail"] == "storage_connection_target_in_use"
+        db_session.expire_all()
+        assert json.loads(
+            db_session.get(StorageConnection, identifier).config_json
+        ) == json.loads(before)
+
+    def test_completed_backup_blocks_target_edits(self, client, db_session, editable):
+        from tests.factories import build_backup_destination_result, build_backup_run
+
+        identifier, headers = editable
+        run = build_backup_run(db_session)
+        build_backup_destination_result(
+            db_session,
+            run,
+            connection_id=identifier,
+            kind="connection",
+            outcome="completed",
+        )
+        response = client.patch(
+            f"/api/v1/storage-connections/{identifier}",
+            headers=headers,
+            json={"configuration": {"root": "different-root"}},
+        )
+        assert response.status_code == 409, response.text
+        assert response.json()["detail"] == "storage_connection_target_in_use"
+
+    def test_clear_required_secret_is_rejected_without_state_change(
+        self, client, db_session, editable
+    ):
+        identifier, headers = editable
+        before = db_session.get(StorageConnection, identifier).secret_json
+        response = client.patch(
+            f"/api/v1/storage-connections/{identifier}",
+            headers=headers,
+            json={"secrets": {"secret_key": ""}},
+        )
+        assert response.status_code == 400, response.text
+        db_session.expire_all()
+        assert db_session.get(StorageConnection, identifier).secret_json == before
+
+    def test_linked_source_allows_credential_rotation(
+        self, client, db_session, editable
+    ):
+        import json
+
+        from app.db.models import LibrarySourceKind
+        from tests.factories import build_external_library
+
+        identifier, headers = editable
+        build_external_library(
+            db_session,
+            root="source://saved",
+            source_kind=LibrarySourceKind.S3,
+            connection_id=identifier,
+        )
+        response = client.patch(
+            f"/api/v1/storage-connections/{identifier}",
+            headers=headers,
+            json={"secrets": {"secret_key": "rotated-credential"}},
+        )
+        assert response.status_code == 200, response.text
+        db_session.expire_all()
+        assert (
+            json.loads(db_session.get(StorageConnection, identifier).secret_json)[
+                "secret_key"
+            ]
+            == "rotated-credential"
+        )
+        assert "rotated-credential" not in response.text
+
+    @pytest.mark.parametrize(
+        "configuration,secrets",
+        [({"secret_key": "misplaced"}, {}), ({}, {"unknown_secret": "unknown"})],
+    )
+    def test_edit_rejects_misplaced_credentials(
+        self, client, editable, configuration, secrets
+    ):
+        identifier, headers = editable
+        response = client.patch(
+            f"/api/v1/storage-connections/{identifier}",
+            headers=headers,
+            json={"configuration": configuration, "secrets": secrets},
+        )
+        assert response.status_code == 400
+        assert response.json()["detail"] == "storage_connection_secret_invalid"
+
+    def test_historical_owned_receipt_blocks_target_edits(
+        self, client, db_session, editable
+    ):
+        from app.modules.backups.backup_destination import destination_from_connection
+        from tests.factories import build_owned_storage_object
+
+        identifier, headers = editable
+        destination = destination_from_connection(
+            db_session.get(StorageConnection, identifier)
+        )
+        build_owned_storage_object(
+            db_session,
+            backend=destination.backend.backend_name,
+            namespace=destination.namespace,
+            key=destination.key("historical.tar.gz"),
+            object_kind="backup",
+            provider_ref=destination.provider_ref,
+        )
+        response = client.patch(
+            f"/api/v1/storage-connections/{identifier}",
+            headers=headers,
+            json={"configuration": {"root": "another-prefix"}},
+        )
+        assert response.status_code == 409
+        assert response.json()["detail"] == "storage_connection_target_in_use"
+
+    def test_drive_credentials_cannot_select_another_dependent_account(
+        self, client, db_session, editable
+    ):
+        import json
+
+        from app.db.models import LibrarySourceKind
+        from tests.factories import build_external_library
+
+        identifier, headers = editable
+        row = db_session.get(StorageConnection, identifier)
+        row.kind = LibrarySourceKind.GDRIVE
+        row.config_json = json.dumps(
+            {"provider": "gdrive", "client_id": "client", "root": "PrintStash"}
+        )
+        row.secret_json = json.dumps(
+            {
+                "client_secret": "client-secret",
+                "refresh_token": "original-account-token",
+            }
+        )
+        db_session.add(row)
+        db_session.commit()
+        build_external_library(
+            db_session,
+            root="source://drive",
+            source_kind=LibrarySourceKind.GDRIVE,
+            connection_id=identifier,
+        )
+        response = client.patch(
+            f"/api/v1/storage-connections/{identifier}",
+            headers=headers,
+            json={"secrets": {"refresh_token": "another-account-token"}},
+        )
+        assert response.status_code == 409
+        assert response.json()["detail"] == "storage_connection_target_in_use"
+        db_session.expire_all()
+        assert (
+            json.loads(db_session.get(StorageConnection, identifier).secret_json)[
+                "refresh_token"
+            ]
+            == "original-account-token"
+        )
+
+    def test_non_admin_cannot_replace_credentials(self, client, db_session, editable):
+        identifier, _ = editable
+        user = build_user(db_session, "non-admin-editor")
+        before = db_session.get(StorageConnection, identifier).secret_json
+        response = client.patch(
+            f"/api/v1/storage-connections/{identifier}",
+            headers=_headers(user),
+            json={"secrets": {"secret_key": "unauthorized"}},
+        )
+        assert response.status_code == 403
+        db_session.expire_all()
+        assert db_session.get(StorageConnection, identifier).secret_json == before
+
+
+class TestDefaultS3Connection:
+    def test_unused_default_profile_can_be_removed(self, client, db_session):
+        admin = build_user(db_session, "default-s3-admin", superuser=True)
+        headers = _headers(admin)
+        response = client.post(
+            "/api/v1/storage-connections",
+            headers=headers,
+            json={
+                "name": "Default S3",
+                "kind": "s3",
+                "purpose": "both",
+                "configuration": {"provider": "s3", "bucket": "contract-default"},
+                "secrets": {
+                    "access_key": "contract-access",
+                    "secret_key": "contract-secret",
+                },
+            },
+        )
+        assert response.status_code == 201
+        identifier = response.json()["id"]
+        removed = client.delete(
+            f"/api/v1/storage-connections/{identifier}", headers=headers
+        )
+        assert removed.status_code == 204
+        db_session.expire_all()
+        assert db_session.get(StorageConnection, identifier) is None
+
+
+class TestPresetConnections:
+    @pytest.fixture(
+        params=[
+            provider
+            for provider, preset in PRESETS.items()
+            if preset["transport"] != "local"
+        ]
+    )
+    def preset_profile(self, request, client, db_session):
+        from app.modules.storage.storage_providers import (
+            parse_provider_config,
+            split_provider_config,
+        )
+        from tests.fixtures.storage_presets import preset_configuration
+
+        admin = build_user(db_session, superuser=True)
+        headers = _headers(admin)
+        configuration, secrets = split_provider_config(
+            parse_provider_config(preset_configuration(request.param))
+        )
+        response = client.post(
+            "/api/v1/storage-connections",
+            headers=headers,
+            json={
+                "name": request.param,
+                "kind": PRESETS[request.param]["transport"],
+                "configuration": configuration,
+                "secrets": secrets,
+            },
+        )
+        assert response.status_code == 201, response.text
+        return response.json(), headers, secrets
+
+    def test_preserves_omitted_preset_credentials(
+        self, client, db_session, preset_profile
+    ):
+        import json
+
+        profile, headers, secrets = preset_profile
+
+        response = client.patch(
+            f"/api/v1/storage-connections/{profile['id']}",
+            headers=headers,
+            json={"name": "Renamed preset", "configuration": {"root": "edited-root"}},
+        )
+
+        assert response.status_code == 200, response.text
+        db_session.expire_all()
+        row = db_session.get(StorageConnection, profile["id"])
+        assert json.loads(row.secret_json) == secrets
+        assert (
+            response.json()["configuration"]["provider"]
+            == profile["configuration"]["provider"]
+        )
+        assert all(value not in response.text for value in secrets.values())
+
+    def test_rejects_linked_preset_redirection(
+        self, client, db_session, preset_profile
+    ):
+        from app.db.models import LibrarySourceKind
+        from tests.factories import build_external_library
+
+        profile, headers, _ = preset_profile
+        build_external_library(
+            db_session,
+            source_kind=LibrarySourceKind(profile["kind"]),
+            connection_id=profile["id"],
+            root="source://preset",
+        )
+
+        response = client.patch(
+            f"/api/v1/storage-connections/{profile['id']}",
+            headers=headers,
+            json={"configuration": {"root": "different-target"}},
+        )
+
+        assert response.status_code == 409, response.text
+        retained = client.get("/api/v1/storage-connections", headers=headers)
+        assert retained.json()[0]["configuration"] == profile["configuration"]
+
+    def test_rejects_owned_backup_redirection(self, client, db_session, preset_profile):
+        from tests.factories import build_backup_destination_result, build_backup_run
+
+        profile, headers, _ = preset_profile
+        run = build_backup_run(db_session)
+        build_backup_destination_result(
+            db_session,
+            run,
+            connection_id=profile["id"],
+            kind="connection",
+            outcome="completed",
+        )
+
+        response = client.patch(
+            f"/api/v1/storage-connections/{profile['id']}",
+            headers=headers,
+            json={"configuration": {"root": "different-target"}},
+        )
+
+        assert response.status_code == 409, response.text
+        assert response.json()["detail"] == "storage_connection_target_in_use"
+
+
+@pytest.fixture
+def connection_edit_resource(client, auth_headers, shared_sftp_connection_id):
+    response = client.get("/api/v1/storage-connections", headers=auth_headers)
+    assert response.status_code == 200, response.text
+    return next(
+        row for row in response.json() if row["id"] == shared_sftp_connection_id
+    )
+
+
+def _connection_base(row):
+    return {
+        "X-PrintStash-Edit-Contract": "conditional-v1",
+        "If-Match": f'"storage-connection-{row["id"]}-e{row["edit_epoch"]}-v{row["edit_version"]}"',
+    }
+
+
+class TestConditionalConnectionEditing:
+    def test_publishes_a_connection_editing_base(self, connection_edit_resource):
+        assert len(connection_edit_resource["edit_epoch"]) == 32
+        assert connection_edit_resource["edit_version"] > 0
+        assert "fixture-password" not in str(connection_edit_resource)
+
+    def test_accepts_the_captured_connection_base(
+        self, client, auth_headers, connection_edit_resource
+    ):
+        row = connection_edit_resource
+
+        response = client.patch(
+            f"/api/v1/storage-connections/{row['id']}",
+            headers={**auth_headers, **_connection_base(row)},
+            json={"name": "Reviewed connection"},
+        )
+
+        assert response.status_code == 200, response.text
+        assert response.json()["name"] == "Reviewed connection"
+        assert response.json()["edit_version"] > row["edit_version"]
+        assert response.json()["edit_epoch"] == row["edit_epoch"]
+
+    def test_rejects_a_replayed_connection_base(
+        self, client, auth_headers, connection_edit_resource
+    ):
+        row = connection_edit_resource
+        headers = {**auth_headers, **_connection_base(row)}
+        accepted = client.patch(
+            f"/api/v1/storage-connections/{row['id']}",
+            headers=headers,
+            json={"name": "Accepted"},
+        )
+        assert accepted.status_code == 200, accepted.text
+
+        rejected = client.patch(
+            f"/api/v1/storage-connections/{row['id']}",
+            headers=headers,
+            json={"name": "Stale"},
+        )
+
+        assert rejected.status_code == 412, rejected.text
+        current = client.get("/api/v1/storage-connections", headers=auth_headers).json()
+        assert current[0]["name"] == "Accepted"
+
+    def test_requires_the_opted_in_connection_base(
+        self, client, auth_headers, connection_edit_resource
+    ):
+        row = connection_edit_resource
+
+        rejected = client.patch(
+            f"/api/v1/storage-connections/{row['id']}",
+            headers={**auth_headers, "X-PrintStash-Edit-Contract": "conditional-v1"},
+            json={"name": "Unreviewed"},
+        )
+
+        assert rejected.status_code == 428, rejected.text
+
+    def test_advances_legacy_connection_edits(
+        self, client, auth_headers, connection_edit_resource
+    ):
+        row = connection_edit_resource
+        accepted = client.patch(
+            f"/api/v1/storage-connections/{row['id']}",
+            headers=auth_headers,
+            json={"enabled": False},
+        )
+        assert accepted.status_code == 200, accepted.text
+
+        rejected = client.patch(
+            f"/api/v1/storage-connections/{row['id']}",
+            headers={**auth_headers, **_connection_base(row)},
+            json={"name": "Stale"},
+        )
+
+        assert rejected.status_code == 412, rejected.text
+
+    def test_preserves_the_base_after_invalid_connection_edits(
+        self, client, auth_headers, connection_edit_resource
+    ):
+        row = connection_edit_resource
+        headers = {**auth_headers, **_connection_base(row)}
+        rejected = client.patch(
+            f"/api/v1/storage-connections/{row['id']}",
+            headers=headers,
+            json={"name": "   "},
+        )
+        assert rejected.status_code == 400, rejected.text
+        current = client.get(
+            "/api/v1/storage-connections", headers=auth_headers
+        ).json()[0]
+        assert current["edit_version"] == row["edit_version"]
+
+        accepted = client.patch(
+            f"/api/v1/storage-connections/{row['id']}",
+            headers=headers,
+            json={"name": "Valid"},
+        )
+
+        assert accepted.status_code == 200, accepted.text
+        assert accepted.json()["edit_version"] > row["edit_version"]
+
+    def test_rejects_restored_connection_history(
+        self, client, auth_headers, connection_edit_resource, db_session
+    ):
+        row = connection_edit_resource
+        history = db_session.get(LibraryRevision, 1)
+        history.epoch = "a" * 32 if history.epoch != "a" * 32 else "b" * 32
+        db_session.add(history)
+        db_session.commit()
+
+        rejected = client.patch(
+            f"/api/v1/storage-connections/{row['id']}",
+            headers={**auth_headers, **_connection_base(row)},
+            json={"name": "Old history"},
+        )
+
+        assert rejected.status_code == 412, rejected.text
+        current = client.get(
+            "/api/v1/storage-connections", headers=auth_headers
+        ).json()[0]
+        assert current["name"] == row["name"]
+
+    def test_rejects_a_recreated_connection(
+        self, client, auth_headers, connection_edit_resource, db_session
+    ):
+        row = connection_edit_resource
+        db_session.delete(db_session.get(StorageConnection, row["id"]))
+        db_session.commit()
+        replacement = build_storage_connection(db_session, id=row["id"])
+
+        rejected = client.patch(
+            f"/api/v1/storage-connections/{row['id']}",
+            headers={**auth_headers, **_connection_base(row)},
+            json={"name": "Old identity"},
+        )
+
+        assert rejected.status_code == 412, rejected.text
+        current = client.get(
+            "/api/v1/storage-connections", headers=auth_headers
+        ).json()[0]
+        assert current["name"] == replacement.name
+
+    @pytest.mark.parametrize(
+        "value",
+        [
+            '"other-e' + "a" * 32 + '-v1"',
+            '"storage-connection-1-e' + "a" * 32 + '-v9223372036854775808"',
+            "*",
+        ],
+        ids=["wrong-aggregate", "overflow", "wildcard"],
+    )
+    def test_rejects_malformed_connection_preconditions(
+        self, client, auth_headers, connection_edit_resource, value
+    ):
+        row = connection_edit_resource
+
+        rejected = client.patch(
+            f"/api/v1/storage-connections/{row['id']}",
+            headers={**auth_headers, "If-Match": value},
+            json={"name": "Invalid"},
+        )
+
+        assert rejected.status_code == 412, rejected.text
+        current = client.get(
+            "/api/v1/storage-connections", headers=auth_headers
+        ).json()[0]
+        assert current["name"] == row["name"]

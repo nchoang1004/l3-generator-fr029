@@ -1,0 +1,1060 @@
+#!/usr/bin/env python
+# -*- coding:utf-8 -*-
+# @Time : 2025/8/25
+# @Author : cyq
+# @File : test_case
+# @Software: PyCharm
+# @Desc: 测试用例管理路由
+from datetime import datetime
+from io import BytesIO
+from urllib.parse import quote
+from typing import List, Optional, Dict, Any
+
+from fastapi import APIRouter, Body, Depends, Query, UploadFile, Form, File
+from fastapi.responses import  StreamingResponse
+
+from app.exception import CommonError
+from app.mapper.test_case import TestCaseMapper, TestCaseStepMapper, CaseDynamicMapper, PlanCaseMapper
+from sqlalchemy import select
+
+from app.schema.hub.testCaseSchema import (
+    AddTestCaseSchema, PageTestCaseSchema, AddDefaultCaseSchema,
+    UpdateTestCaseSchema, QueryTestCaseSchemaByField, RemoveCaseSchema, RemoveCaseStep,
+    CopyCase, CopyCaseStep, AddDefaultCaseStep, UpdateTestCaseStep, ReorderCaseStep,
+     SetCasesCommonSchema, UploadPreviewResult,
+    UploadCommitSchema, UploadCancelSchema,UpdateTestCasesSchema,DeleteTestCasesSchema, ImportCommitSchema, ImportCancelSchema,
+    ReorderTestCaseSchema, BulkReorderTestCaseSchema,
+)
+from app.mapper.test_case.testcaseMapper import (
+    reorder_test_case, reorder_test_cases_bulk,
+)
+from app.service.uploadCacheService import UploadCacheService
+from app.service.exportCaseService import ExportCaseService
+from utils.roundtripReader import RoundtripReader
+from common import rc
+from enums import ModuleEnum
+from app.controller import Authentication
+from app.model.base import User
+from app.model.base.module import Module
+from app.model.caseHub.plan_module import PlanModule
+from app.response import Response
+from utils import  log
+
+router = APIRouter(prefix="/hub/cases", tags=['用例'])
+
+_cache_service = UploadCacheService(rc)
+
+# 上传文件大小上限 (50MB). 超大 Excel 一次性读入内存有 OOM 风险,
+# 先通过 file.size 拦截; 客户端未传 Content-Length 时, 读完后二次兜底.
+_MAX_UPLOAD_BYTES = 50 * 1024 * 1024
+
+
+@router.get("/info", description="用例信息")
+async def case_info(case_id: int, _: User = Depends(Authentication())):
+    case = await TestCaseMapper.case_info(case_id=case_id)
+    return Response.success(case)
+
+
+@router.post("/insert", description="添加测试用例")
+async def insert_case(data: AddTestCaseSchema, user: User = Depends(Authentication())):
+    """
+    添加新的测试用例
+    :param data: 用例基本信息
+    :param user: 认证用户
+    :return: 创建的用例ID
+    """
+    result = await TestCaseMapper.save_case(user=user, **data.model_dump(exclude_unset=True))
+    return Response.success(result)
+
+
+@router.post("/page", description="分页查询用例列表")
+async def page_cases(data: PageTestCaseSchema, _: User = Depends(Authentication())):
+    """
+    分页查询测试用例列表
+    - module_id 不为空: 查询该模块(含子节点)下的用例
+    - module_id 为空或不传: 查询 module_id 为空的用例(未分类)
+    - module_ids 多选: 多个模块各自展开子节点后求并集过滤
+
+    :param data: 分页及筛选参数
+    :param _: 认证用户
+    :return: 用例分页数据
+    """
+    payload = data.model_dump(exclude_none=True, exclude_unset=True)
+    # 兜底: current / module_type 是 Mapper.page_by_module 的必填位置参数,
+    # 但 schema 给的是 Optional 默认值, exclude_unset 会把客户端没传的默认值剥掉,
+    # 直接 **payload 进去会报 TypeError. 这里显式回填, 让漏传也能跑.
+    payload.setdefault("current", data.current)
+    payload.setdefault("pageSize", data.pageSize)
+    payload.setdefault("module_type", data.module_type)
+    # module_id 为空 / 不传 -> 代表查询未分类用例(module_id IS NULL)
+    if data.module_id is None and data.module_ids is None:
+        payload.pop("module_id", None)
+        payload["module_id__is_null"] = True
+    # 用例库默认排序: order 升序主排（拖拽后由 /reorder 回写, 列表刷新即可看见新顺序）,
+    # id 升序次排（order 同号时的稳定兜底, 避免同秒新增的两条用例抖动）.
+    # FE 点列表头切单字段排序时, 这里不生效; 切回默认行为就清掉 sort 字段后重新请求.
+    if not payload.get("sort"):
+        payload["sort"] = {
+            "order": "ascend",
+            "id": "ascend",
+        }
+    log.debug(payload)
+    result = await TestCaseMapper.page_by_module(**payload)
+
+    return Response.success(result)
+
+
+@router.post("/addDefault", description="添加默认用例")
+async def add_default_case(data: AddDefaultCaseSchema, user: User = Depends(Authentication())):
+    """
+    根据需求ID添加默认模板用例
+    :param data: 需求ID
+    :param user: 认证用户
+    :return: 创建的用例ID
+    """
+    result = await TestCaseMapper.add_default_case(user=user, **data.model_dump(exclude_unset=True))
+    return Response.success(result)
+
+
+@router.post("/update", description="更新测试用例信息")
+async def update_case(data: UpdateTestCaseSchema, user: User = Depends(Authentication())):
+    """
+    根据用例ID更新用例基本信息
+    :param data: 用例更新数据
+    :param user: 认证用户
+    :return: 操作结果
+    """
+    log.info(data)
+    await TestCaseMapper.update_case(ur=user, **data.model_dump(exclude_unset=True, exclude_none=True))
+    return Response.success()
+
+@router.post("/batchUpdate", description="批量更新测试用例信息")
+async def update_cases_batch(data: UpdateTestCasesSchema, user: User = Depends(Authentication())):
+    """
+    根据用例ID更新用例基本信息
+    :param data: 用例更新数据
+    :param user: 认证用户
+    :return: 操作结果
+    """
+    rows = await TestCaseMapper.update_batch_cases(user=user, **data.model_dump(exclude_unset=True, exclude_none=True))
+    return Response.success(rows)
+
+@router.post("/batchDelete", description="批量删除测试用例信息")
+async def delete_cases_batch(data: DeleteTestCasesSchema, user: User = Depends(Authentication())):
+    """
+    根据用例ID删除用例基本信息
+    :param data: 用例更新数据
+    :param user: 认证用户
+    :return: 操作结果
+    """
+    rows = await TestCaseMapper.delete_batch_cases(data.delete_case_list)
+    return Response.success(rows)
+
+@router.get("/queryByField", description="根据条件查询用例列表")
+async def query_cases_by_field(data: QueryTestCaseSchemaByField = Depends(), _: User = Depends(Authentication())):
+    """
+    根据需求ID及筛选条件查询用例列表
+    :param data: 查询条件（需求ID、用例名称、级别、类型、标签、状态）
+    :param _: 认证用户
+    :return: 用例列表
+    """
+    result = await TestCaseMapper.query_case_by_field(**data.model_dump(exclude_none=True, exclude_unset=True))
+    return Response.success(result)
+
+
+@router.get("/queryTagsByReqId", description="查询需求下的用例标签列表")
+async def query_tags_by_requirement(requirement_id: int, _: User = Depends(Authentication())):
+    """
+    根据需求ID查询该需求下所有用例的标签列表
+    :param requirement_id: 需求ID
+    :param _: 认证用户
+    :return: 标签列表
+    """
+    result = await TestCaseMapper.query_tags(requirement_id)
+    log.info(result)
+    return Response.success(result)
+
+
+@router.post("/remove", description="删除测试用例")
+async def remove_case(data: RemoveCaseSchema, _: User = Depends(Authentication())):
+    """
+    根据用例ID删除指定的测试用例
+    :param data: 用例ID及需求ID
+    :param _: 认证用户
+    :return: 操作结果
+    """
+    await TestCaseMapper.remove_case(**data.model_dump())
+    return Response.success()
+
+
+@router.post("/removeStep", description="删除用例步骤")
+async def remove_case_step(data: RemoveCaseStep, _: User = Depends(Authentication())):
+    """
+    根据步骤ID删除用例的某个步骤
+    :param data: 步骤ID
+    :param _: 认证用户
+    :return: 操作结果
+    """
+    await TestCaseStepMapper.delete_by_id(data.stepId)
+    return Response.success()
+
+
+@router.post("/copy", description="复制用例")
+async def copy_case(data: CopyCase, user: User = Depends(Authentication())):
+    """
+    复制指定用例创建一个新的用例副本
+    :param data: 被复制的用例ID及目标需求ID
+    :param user: 认证用户
+    :return: 操作结果
+    """
+    await TestCaseMapper.copy_cases(case_ids=[data.caseId], user=user, requirement_id=data.requirement_id)
+    return Response.success()
+
+
+@router.post("/copyStep", description="复制用例步骤")
+async def copy_case_step(data: CopyCaseStep, user: User = Depends(Authentication())):
+    """
+    复制指定用例步骤创建一个新的步骤副本
+    :param data: 被复制的步骤ID
+    :param user: 认证用户
+    :return: 操作结果
+    """
+    await TestCaseStepMapper.copy_step(user=user, **data.model_dump())
+    return Response.success()
+
+
+@router.post("/handleAddStepLine", description="添加用例默认步骤")
+async def add_case_step(data: AddDefaultCaseStep, user: User = Depends(Authentication())):
+    """
+    为指定用例添加一条默认步骤
+    :param data: 用例ID
+    :param user: 认证用户
+    :return: 操作结果
+    """
+    await TestCaseStepMapper.add_default_step(user=user, **data.model_dump())
+    return Response.success()
+
+
+@router.post("/reorderSupStep", description="用例步骤排序")
+async def reorder_case_steps(data: ReorderCaseStep, _: User = Depends(Authentication())):
+    """
+    对指定用例的步骤进行排序调整
+    :param data: 步骤ID列表（新顺序）
+    :param _: 认证用户
+    :return: 操作结果
+    """
+    await TestCaseStepMapper.reorder_steps(**data.model_dump())
+    return Response.success()
+
+
+@router.post("/reorder", description="重排序用例（module 维度, 单 case 移动）")
+async def reorder_test_case_route(
+    data: ReorderTestCaseSchema,
+    _: User = Depends(Authentication()),
+):
+    """重排序项目下单个用例（支持跨 module）。
+
+    相比历史版本（传全量 ``case_ids`` 列表），本接口只传
+    "被移动 case + 锚点"两个 ID，传输量与列表规模无关。
+
+    典型用法
+    --------
+    - 拖拽 A 到 B 上方: ``{project_id, case_id: A, before_id: B}``
+    - 拖拽 A 到 B 下方: ``{project_id, case_id: A, after_id: B}``
+    - 移到 module 末尾: ``{project_id, case_id: A}``（before/after 都为空）
+    - 跨 module 移动: ``{project_id, case_id: A, target_module_id: M, before_id: X}``
+
+    :param data: 重排序参数
+    :param _: 认证用户
+    :return: 实际更新行数（0 表示幂等无变化）
+    """
+    log.info(
+        "reorder_test_case project=%s case=%s before=%s after=%s module=%s",
+        data.project_id, data.case_id, data.before_id, data.after_id, data.target_module_id,
+    )
+    try:
+        affected = await reorder_test_case(
+            project_id=data.project_id,
+            case_id=data.case_id,
+            before_id=data.before_id,
+            after_id=data.after_id,
+            target_module_id=data.target_module_id,
+        )
+    except CommonError as err:
+        log.warning(f"reorder_test_case rejected: {err}")
+        return Response.error(msg=str(err))
+    except Exception as err:
+        log.exception(f"reorder_test_case 异常: {err}")
+        return Response.error(msg=f"重排序失败: {err}")
+    return Response.success(affected)
+
+
+@router.post("/reorder/bulk", description="批量重排序用例")
+async def reorder_test_case_bulk_route(
+    data: BulkReorderTestCaseSchema,
+    _: User = Depends(Authentication()),
+):
+    """批量重排序用例（多选拖拽 / 跨 module 批量调整）。
+
+    所有 items 在同一事务内顺序应用，任一失败整体回滚。
+    返回值为每条 item 的 affected 行数列表。
+
+    :param data: 批量重排序参数（含 project_id 与 items）
+    :param _: 认证用户
+    :return: 各 item 的 affected 行数列表
+    """
+    log.info(
+        f"reorder_test_case_bulk project={data.project_id} item_count={len(data.items)}",
+    )
+    try:
+        # Pydantic model 转 dict 列表, 传给 mapper
+        results = await reorder_test_cases_bulk(
+            project_id=data.project_id,
+            items=[it.model_dump() for it in data.items],
+        )
+    except CommonError as err:
+        log.warning(f"reorder_test_case_bulk rejected: {err}")
+        return Response.error(msg=str(err))
+    except Exception as err:
+        log.exception(f"reorder_test_case_bulk 异常: %s", err)
+        return Response.error(msg=f"批量重排序失败: {err}")
+    return Response.success(results)
+
+
+@router.get("/querySubSteps/{caseId}", description="查询用例的所有步骤")
+async def query_sub_steps(caseId: int, _: User = Depends(Authentication())):
+    """
+    :param caseId: 用例ID
+    :param _: 认证用户
+    :return: 步骤列表
+    """
+    steps = await TestCaseStepMapper.query_sub_steps(caseId)
+    return Response.success(steps)
+
+
+@router.post("/updateSubSteps", description="更新用例步骤")
+async def update_sub_step(data: UpdateTestCaseStep, user: User = Depends(Authentication())):
+    """
+    更新指定步骤的内容、预期结果或排序
+    :param data: 步骤ID及更新内容
+    :param user: 认证用户
+    :return: 操作结果
+    """
+    await TestCaseStepMapper.update_step(
+        user=user,
+        **data.model_dump(exclude_unset=True, exclude_none=True),
+    )
+    return Response.success()
+
+
+@router.get("/queryDynamic/{caseId}", description="查询用例动态信息")
+async def query_case_dynamic(caseId: int, plan_id: Optional[int] = None, _: User = Depends(Authentication())):
+    """
+    查询指定用例的动态信息（如创建人、创建时间、修改记录等）
+
+    :param caseId: 用例ID
+    :param plan_id: 计划ID（可选，为None时只查用例自身变更，非None时同时查该计划的变更）    
+    :param _: 认证用户
+    :return: 用例动态信息
+    """
+    result = await CaseDynamicMapper.query_dynamic(caseId, plan_id)
+    return Response.success(result)
+
+
+
+
+
+
+@router.get("/downloadCaseDemo", description="下载用例导入模板 (F/G/H 列下拉; 传 project_id 时 B 列额外带下拉)")
+async def download_case_template(
+    _: User = Depends(Authentication()),
+    project_id: Optional[int] = Query(None, description="项目 ID: 传了则 B 列下拉带该项目全量目录路径; 不传则 B 列无下拉"),
+):
+    """
+    下载用例导入的 Excel 模板文件. 两种模式:
+    - 不传参: 通用模板, 只 F/G/H 列有下拉 (适用端/用例等级/用例类型, 走 case_enum_config)
+    - ?project_id=N: 用例库模板, B 列额外带项目 N 的全量目录路径下拉 (纯层级)
+
+    失败 / 空场景 (不阻塞下载, 对应列不挂下拉, 用户手填):
+    - 枚举配置拉取失败 -> F/G/H 列不挂下拉
+    - 库里没有任何 case module -> B 列不挂下拉
+    """
+    from file import TestCaseDemoFile
+    from app.service.exportCaseService import add_dropdowns_to_workbook
+
+    # F (适用端) / G (用例等级) / H (用例类型) 的下拉走 case_enum_config 配置,
+    # admin 在配置中心增删枚举后, 下载的模板自动同步. 拉取失败时回退到空列表.
+    try:
+        from utils.caseEnumResolver import load_case_enum_label_lists
+        label_lists = await load_case_enum_label_lists()
+        level_labels = label_lists.get("CASE_LEVEL", [])
+        type_labels = label_lists.get("CASE_TYPE", [])
+        platform_labels = label_lists.get("PLATFORM", [])
+    except Exception as e:
+        log.exception(f"downloadCaseDemo 拉枚举 label 失败: error={e}")
+        level_labels, type_labels, platform_labels = [], [], []
+
+    # B (所属分组) 的下拉: 只有传 project_id 时才挂. 不传时 B 列无下拉, 用户手填.
+    all_group_paths: Optional[List[str]] = None
+    if project_id is not None:
+        try:
+            async with TestCaseMapper.session_scope() as session:
+                all_module_ids = (await session.execute(
+                    select(Module.id).where(
+                        Module.project_id == project_id,
+                        Module.module_type == ModuleEnum.CASE,
+                    )
+                )).scalars().all()
+                all_path_map = await TestCaseMapper.build_module_path_map(
+                    session=session,
+                    module_ids=list(all_module_ids),
+                    project_id=project_id,
+                    module_type=ModuleEnum.CASE,
+                )
+                all_group_paths = list(all_path_map.values()) or None
+        except Exception as e:
+            log.exception(f"downloadCaseDemo 拉目录路径失败: project_id={project_id}, error={e}")
+            # 拉路径失败不阻断下载, B 列不挂下拉, 用户继续手填
+            all_group_paths = None
+
+    import openpyxl
+    wb = openpyxl.load_workbook(TestCaseDemoFile)
+    # 模板主表 sheet 名固定 "template" (file/用例模版.xlsx 里就是这个名)
+    add_dropdowns_to_workbook(
+        wb,
+        sheet_name="template",
+        all_group_paths=all_group_paths,
+        level_labels=level_labels,
+        type_labels=type_labels,
+        platform_labels=platform_labels,
+        max_row=10000,
+    )
+    # 新规: 用例等级* 是必填列, 模板里 example 行 (row 3, G 列) 不能留空.
+    # 用配置里第一个 level label 预填, 让示例行展示"完整的有效行"长什么样;
+    # 行 4+ 仍留空, 强制用户主动选, 走 import 必填校验. enum 未配置时不动, 行为不变.
+    if level_labels:
+        template_ws = wb["template"]
+        template_ws.cell(row=3, column=7, value=level_labels[0])
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+
+    suffix = f"-library{project_id}" if project_id is not None else ""
+    filename = f"用例模版{suffix}.xlsx"
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        # filename 含中文 (用例模版), Starlette 会强制 latin-1 编码挂掉 (UnicodeEncodeError).
+        # 走 RFC 6266/5987 的 filename*=UTF-8'' 形式 URL-encode 整个文件名, 现代浏览器都吃这个.
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename, safe='')}"},
+    )
+
+
+@router.post("/export", description="按 scope 导出用例为 Excel (导出-编辑-导回 导回)")
+async def export_cases(
+    scope_type: str = Query(..., description="范围类型: library / plan"),
+    scope_id: int = Query(..., description="范围ID: library=module_id / plan=plan_id"),
+    project_id: int = Query(..., description="项目ID; library 用于 module 校验, plan 可忽略"),
+    # 空 = scope 内全量
+    case_ids: Optional[List[int]] = Body(
+        None,
+        embed=True,
+        description="case_id 列表; 空=范围内全量. library 走白名单语义, plan 走全量关联.",
+    ),
+    # plan 下可选: 限制到某个 plan_module 子树 (recursive=True 默认拉子 plan_module).
+    # library 下忽略. 跟 case_ids 互斥 (mapper 内部 case_ids 优先).
+    plan_module_id: Optional[int] = Query(
+        None,
+        description="plan_module_id; 非空时限制到该 plan_module 子树 (recursive=True). "
+                    "library 忽略. 跟 case_ids 互斥.",
+    ),
+    _: User = Depends(Authentication()),
+):
+    """
+    导出-编辑-导回 导回的"导" 入口. 3-Sheet xlsx:
+      1. 用例数据 - 主表, 14 列 (PR-2 解析端按表头识别)
+      2. 编辑指引 - 可见
+      3. _meta    - 隐藏, scope 校验位
+
+    字段: TestCase 本体 + 子步骤. 计划关联字段
+    (is_review / first_status / second_status / bug_url) 不导出.
+    """
+    if scope_type not in ("library", "plan"):
+        raise CommonError(message=f"scope_type 必须是 library 或 plan, 收到: {scope_type!r}")
+
+    try:
+        if scope_type == "library":
+            async with TestCaseMapper.session_scope() as session:
+                case_dicts = await TestCaseMapper.query_cases_for_export(
+                    project_id=project_id,
+                    module_id=scope_id,
+                    case_ids=case_ids,
+                )
+                if not case_dicts:
+                    raise CommonError(message="范围内没有用例, 无需导出")
+                # 涉及用例的 module 路径 (按需, 用于行内 B 列写入)
+                group_path_map = await TestCaseMapper.build_module_path_map(
+                    session=session,
+                    module_ids=[c.get("module_id") for c in case_dicts if c.get("module_id") is not None],
+                    project_id=project_id,
+                    module_type=ModuleEnum.CASE,
+                )
+                # 全量 module 路径 (给 B 列 "所属分组" 下拉用). 复用同一 session, 内存
+                # _walk_paths 不增加 DB 查询, 只是遍历 id_to_node 的 keys.
+                all_module_ids = (await session.execute(
+                    select(Module.id).where(
+                        Module.project_id == project_id,
+                        Module.module_type == ModuleEnum.CASE,
+                    )
+                )).scalars().all()
+                all_path_map = await TestCaseMapper.build_module_path_map(
+                    session=session,
+                    module_ids=list(all_module_ids),
+                    project_id=project_id,
+                    module_type=ModuleEnum.CASE,
+                )
+                all_group_paths: List[str] = list(all_path_map.values())
+        else:  # plan
+            async with PlanCaseMapper.session_scope() as session:
+                case_dicts = await PlanCaseMapper.query_plan_cases_for_export(
+                    plan_id=scope_id,
+                    case_ids=case_ids,
+                    plan_module_id=plan_module_id,
+                )
+                if not case_dicts:
+                    raise CommonError(message="计划下没有用例, 无需导出")
+                group_path_map = await PlanCaseMapper.build_plan_module_path_map(
+                    session=session,
+                    plan_id=scope_id,
+                    plan_module_ids=[c.get("plan_module_id") for c in case_dicts if c.get("plan_module_id") is not None],
+                )
+                # 全量 plan module 路径 (给 B 列下拉用, 不含虚拟根, 与行内写入语义一致)
+                all_plan_module_ids = (await session.execute(
+                    select(PlanModule.id).where(
+                        PlanModule.plan_id == scope_id,
+                        PlanModule.parent_id.is_not(None),  # 排除虚拟根
+                    )
+                )).scalars().all()
+                all_plan_path_map = await PlanCaseMapper.build_plan_module_path_map(
+                    session=session,
+                    plan_id=scope_id,
+                    plan_module_ids=list(all_plan_module_ids),
+                )
+                all_group_paths: List[str] = list(all_plan_path_map.values())
+
+        # 枚举 value -> label, 导出时把 DB 存的 code 翻成给用户看的文字.
+        # 缺 key 时 ExportCaseService 自动回退到原 value, 这里失败不阻断导出.
+        # 同时拉取 label 列表, 给 Excel 下拉 (DataValidation) 用;
+        # 业务枚举**不**写死在 service, admin 在配置中心增删, 下拉自动同步.
+        from utils.caseEnumResolver import (
+            load_case_enum_label_map,
+            load_case_enum_label_lists,
+        )
+        label_map = await load_case_enum_label_map()
+        label_lists = await load_case_enum_label_lists()
+    except CommonError:
+        raise
+    except ValueError as ve:
+        raise CommonError(message=str(ve))
+    except Exception as e:
+        log.exception(f"export_cases 失败: scope_type={scope_type}, scope_id={scope_id}, error={e}")
+        raise CommonError(message=f"导出失败: {str(e)}")
+
+    service = ExportCaseService(
+        scope_type=scope_type,
+        scope_id=scope_id,
+        case_dicts=case_dicts,
+        group_path_map=group_path_map,
+        label_map=label_map,
+        all_group_paths=all_group_paths,
+        # 下拉项数据源: 优先用本次拉的, 拉取失败/缺 key 时回退到空列表 (该列不挂 dv)
+        level_labels=label_lists.get("CASE_LEVEL", []),
+        type_labels=label_lists.get("CASE_TYPE", []),
+        platform_labels=label_lists.get("PLATFORM", []),
+    )
+    buf: BytesIO = service.build_workbook()
+    filename = f"用例导出-{scope_type}{scope_id}-{datetime.now().strftime('%Y%m%d-%H%M%S')}.xlsx"
+    log.info(f"export_cases ok: scope={scope_type}:{scope_id}, cases={service.case_count}, filename={filename}")
+    # 关键: filename 含中文 (用例导出), 拼到 header 里 Starlette 会强制 latin-1 编码挂掉 (UnicodeEncodeError).
+    # 走 RFC 6266/5987 的 filename*=UTF-8'' 形式 URL-encode 整个文件名, 现代浏览器都吃这个.
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename, safe='')}"},
+    )
+
+
+@router.post("/import/preview", description="导出-编辑-导回 导回: 预览 (解析 + 校验 scope)")
+async def import_preview(
+    file: UploadFile = File(..., description="导出的 3-Sheet xlsx"),
+    scope_type: str = Form(..., description="范围类型: library / plan"),
+    scope_id: int = Form(..., description="范围ID: library=module_id / plan=plan_id"),
+    mode: str = Form("mixed", description="mixed (默认) | insert_only"),
+    user: User = Depends(Authentication()),
+):
+    """
+    解析 PR-1 导出的 3-Sheet xlsx, 校验 scope 与 _meta 一致, 入 Redis 预览缓存.
+
+    与老 /upload 的区别:
+      - 解析 14 列新格式 (PR-1 协议), 不是 9 列老格式
+      - 强制 scope 校验, 跨 scope 上传直接拒绝
+      - 响应里多 scope_check / warnings 字段, 给前端做提示
+      - mode=insert_only 时, 含用例ID 的行会被拒 (只允许纯新增)
+
+    失败时不写 Redis, can_commit=false, 强制用户修 Excel 重传.
+    """
+    if scope_type not in ("library", "plan"):
+        raise CommonError(message=f"scope_type 必须是 library 或 plan, 收到: {scope_type!r}")
+    if mode not in ("mixed", "insert_only"):
+        raise CommonError(message=f"mode 必须是 mixed 或 insert_only, 收到: {mode!r}")
+
+    try:
+        reader = RoundtripReader(scope_type=scope_type, scope_id=scope_id)
+        result = await reader.async_read(file)
+    except ValueError as ve:
+        # 文件超限 / 解析异常
+        return Response.success({
+            "file_md5": None,
+            "total_count": 0,
+            "valid_count": 0,
+            "invalid_count": 0,
+            "errors": [{"row": 0, "errors": [{"field": "file", "message": str(ve)}]}],
+            "warnings": [],
+            "scope_check": {},
+            "can_commit": False,
+        })
+    except Exception as e:
+        log.exception(f"import/preview 失败: scope={scope_type}:{scope_id}, error={e}")
+        raise CommonError(message=f"预览失败: {str(e)}")
+
+    # mode=insert_only: 用例ID 非空的行视为错误
+    if mode == "insert_only":
+        for r in result.valid_rows:
+            if r.get("case_id") is not None:
+                result.errors.append({
+                    "row": r.get("_row", 0),
+                    "errors": [{
+                        "field": "用例ID",
+                        "message": "mode=insert_only 时不允许带 用例ID 的行 (本导回不支持纯新增场景, 请用 mixed)",
+                    }],
+                })
+        # 重新过滤
+        result.valid_rows = [r for r in result.valid_rows if r.get("case_id") is None]
+        result.valid_count = len(result.valid_rows)
+        result.invalid_count = len(result.errors)
+
+    # 任意错误都不写缓存, can_commit=false
+    can_commit = len(result.errors) == 0
+    file_md5 = result.file_md5 if can_commit else None
+
+    if can_commit:
+        await _cache_service.save_preview(
+            file_md5=result.file_md5,
+            user_id=user.id,
+            valid_cases=[],   # 老字段, 导回不用
+            errors=result.errors,
+            total_count=result.total_count,
+            valid_rows=result.valid_rows,
+            meta=result.meta,
+            scope_check=result.scope_check,
+            warnings=result.warnings,
+        )
+
+    log.info(
+        f"import/preview: scope={scope_type}:{scope_id}, mode={mode}, "
+        f"file_md5={result.file_md5}, total={result.total_count}, "
+        f"valid={result.valid_count}, invalid={result.invalid_count}, "
+        f"can_commit={can_commit}"
+    )
+
+    return Response.success({
+        "file_md5": file_md5,
+        "total_count": result.total_count,
+        "valid_count": result.valid_count,
+        "invalid_count": result.invalid_count,
+        "errors": result.errors,
+        "warnings": result.warnings,
+        "scope_check": result.scope_check,
+        "can_commit": can_commit,
+    })
+
+
+@router.post("/updateCommon", description="批量设置公共用例")
+async def batch_set_common(data: SetCasesCommonSchema, _: User = Depends(Authentication())):
+    """
+    批量将多个用例设置为公共用例
+    :param data: 用例ID列表及目标模块、项目ID
+    :param _: 认证用户
+    :return: 操作结果
+    """
+    await TestCaseMapper.update_cases_common(**data.model_dump())
+    return Response.success()
+
+
+
+@router.post("/upload/commit", description="确认并入库用例")
+async def upload_commit(
+        data: UploadCommitSchema,
+        user: User = Depends(Authentication())
+):
+    log.debug(f"upload_commit: {data}")
+    
+    if await _cache_service.is_committed(data.file_md5, user.id):
+        return Response.error(msg="该文件已提交过，不能重复提交")
+
+    preview_data = await _cache_service.get_preview(data.file_md5, user.id)
+    if not preview_data:
+        return Response.error(msg="预览数据已过期，请重新上传文件")
+
+    valid_cases = preview_data.get("valid_cases", [])
+
+    if not valid_cases:
+        return Response.error(msg="请选择要入库的用例")
+
+    try:
+        imported_count, skipped_count = await TestCaseMapper.insert_upload_case(
+            cases=valid_cases,
+            project_id=data.project_id,
+            module_id=data.module_id,
+            requirement_id=data.requirement_id,
+            user=user,
+            is_common=data.is_common,
+            on_duplicate=data.on_duplicate,
+        )
+        await _cache_service.mark_committed(data.file_md5, user.id)
+        return Response.success({
+            "imported_count": imported_count,
+            "skipped_count": skipped_count,
+        })
+    except Exception as e:
+        log.exception(f"入库失败: {e}")
+        return Response.error(msg=f"入库失败: {str(e)}")
+
+
+@router.post("/upload/cancel", description="取消上传")
+async def upload_cancel(
+        data: UploadCancelSchema,
+        user: User = Depends(Authentication())
+):
+    await _cache_service.delete(data.file_md5, user.id)
+    return Response.success()
+
+
+@router.post("/upload", description="批量导入用例 (自适应 M1 老格式 / M2 导回格式)")
+async def upload_cases(
+        file: UploadFile = File(..., description="Excel文件 (M1 模板 或 导出-编辑-导回 导回模板)"),
+        project_id: int = Form(..., description="项目ID; 用于预览阶段校验用例库分组 (M1 路径生效)"),
+        user: User = Depends(Authentication())
+):
+    """
+    PR-3: /upload 端点自适应 M1/M2 模板.
+    - 探测 _meta sheet 存在 -> 走 M2 (RoundtripReader) 解析
+    - 无 _meta sheet -> 走 M1 (AsyncFilesReader) 老路径
+    响应里多 template_type 字段, 前端根据它决定 commit 走 /upload/commit (M1) 还是
+    /import/commit (M2, 待 PR-3 后续). 老调用方不感知, 默认 template_type=M1.
+    """
+    from utils.roundtripReader import RoundtripReader
+
+    # 1) 一次性读 bytes, 探测模板类型 + 后续解析共用 (避免传 UploadFile 让下游重读时空读)
+    if file.size is not None and file.size > _MAX_UPLOAD_BYTES:
+        return Response.error(
+            msg=f"文件大小超过限制 {_MAX_UPLOAD_BYTES / 1024 / 1024:.0f}MB"
+        )
+    content = await file.read()
+    if len(content) > _MAX_UPLOAD_BYTES:
+        return Response.error(
+            msg=f"文件大小超过限制 {_MAX_UPLOAD_BYTES / 1024 / 1024:.0f}MB"
+        )
+    template_type = RoundtripReader.detect_template_type(content)
+    log.info(f"/upload 探测模板: template_type={template_type}, project_id={project_id}")
+
+    if template_type == "M2":
+        return await _upload_m2_path(
+            content=content, project_id=project_id, user=user
+        )
+    return await _upload_m1_path(
+        content=content, project_id=project_id, user=user
+    )
+
+
+async def _filter_group_path_errors(
+    valid_cases: List[Dict[str, Any]],
+    errors: List[Dict[str, Any]],
+    project_id: int,
+) -> List[Dict[str, Any]]:
+    """
+    对 valid_cases 执行用例库分组校验，把目录不存在的行从 valid_cases 移到 errors。
+    返回过滤后的 valid_cases（已去掉 _row）。
+    """
+    if not valid_cases:
+        return []
+    from app.mapper.test_case.testcaseMapper import TestCaseMapper
+
+    log.info(f"upload preview: valid_count={len(valid_cases)}")
+    group_path_errors = await TestCaseMapper.validate_group_paths(
+        cases=valid_cases,
+        project_id=project_id,
+    )
+    if not group_path_errors:
+        for case in valid_cases:
+            case.pop("_row", None)
+        return valid_cases
+
+    row_to_err: Dict[int, Dict[str, str]] = {}
+    for err in group_path_errors:
+        for row in err["rows"]:
+            row_to_err[row] = {
+                "field": "所属分组",
+                "message": f"用例库目录不存在: {err['path']} (请先在用例库中创建)",
+            }
+    new_valid: List[Dict[str, Any]] = []
+    for case in valid_cases:
+        row = case.pop("_row", None)
+        if row in row_to_err:
+            errors.append({
+                "row": row,
+                "errors": [row_to_err[row]],
+            })
+        else:
+            new_valid.append(case)
+    log.info(
+        f"upload preview: project_id={project_id}, "
+        f"group_path_invalid_count={len(row_to_err)}, "
+        f"invalid_paths={[e['path'] for e in group_path_errors]}"
+    )
+    return new_valid
+
+
+def _preview_error_response(
+    template_type: str,
+    errors: List[Dict[str, Any]],
+    total_count: int = 0,
+) -> Response:
+    """构造解析/校验失败时的 preview 响应。"""
+    return Response.success(UploadPreviewResult(
+        file_md5=None,
+        total_count=total_count,
+        valid_count=0,
+        invalid_count=len(errors),
+        errors=errors,
+        can_commit=False,
+        template_type=template_type,
+    ).model_dump())
+
+
+def _preview_success_response(
+    template_type: str,
+    result: Any,
+    file_md5: str,
+    can_commit: bool = True,
+    preview_data: Optional[List[Dict[str, Any]]] = None,
+) -> Response:
+    """构造 preview 响应. can_commit 透传 caller (不再硬编码 True).
+
+    - M1 caller: 已经 if not result.errors 拦过, 传 True
+    - M2 caller: 传 can_commit (校验后算出, errors 非空时为 False)
+    """
+    return Response.success(UploadPreviewResult(
+        file_md5=file_md5,
+        total_count=result.total_count,
+        valid_count=result.valid_count,
+        invalid_count=result.invalid_count,
+        errors=result.errors,
+        preview_data=preview_data,
+        can_commit=can_commit,
+        template_type=template_type,
+    ).model_dump())
+
+
+async def _upload_m1_path(content: bytes, project_id: int, user) -> Response:
+    """M1 老路径: 9 列 aioFileReader + 用例库分组校验 + on_duplicate 老 commit."""
+    from utils.aioFileReader import AsyncFilesReader
+    from utils.caseEnumResolver import load_case_enum_config
+
+    enum_config = await load_case_enum_config()
+    try:
+        result = await AsyncFilesReader(enum_config=enum_config).async_read_from_bytes(content)
+    except Exception as e:
+        log.exception(f"M1 文件解析失败: {e}")
+        return Response.error(msg=f"文件解析失败: {str(e)}")
+
+    # 用例库分组校验 (预览阶段的硬门禁). project_id 已在签名层强制必填,
+    # 命中校验失败的行从 valid_cases 移到 errors, 前端 preview 就能立刻看到
+    # "目录不存在"提示, 不需要走到 commit 才发现.
+    result.valid_cases = await _filter_group_path_errors(
+        valid_cases=result.valid_cases,
+        errors=result.errors,
+        project_id=project_id,
+    )
+
+    # 严格策略: 任意行存在错误 (aioFileReader 字段校验 / 用例库目录校验) 都不写 Redis,
+    # 前端只能看到 errors, 不允许走 commit. 用户必须修正 Excel 后整批重传,
+    # 避免"部分有效 + 静默丢行"的体验陷阱.
+    if result.errors:
+        log.info(
+            f"upload preview (M1) rejected: project_id={project_id}, "
+            f"file_md5={result.file_md5}, "
+            f"total_count={result.total_count}, "
+            f"error_count={len(result.errors)}"
+        )
+        return _preview_error_response(
+            template_type="M1",
+            errors=result.errors,
+            total_count=result.total_count,
+        )
+
+    log.debug(f"case =  {result.valid_cases}")
+    await _cache_service.save_preview(
+        file_md5=result.file_md5,
+        user_id=user.id,
+        valid_cases=result.valid_cases,
+        errors=result.errors,
+        total_count=result.total_count,
+        # PR-3: 缓存层存 template_type="M1", M2 commit 阶段会校验,
+        # 防止 M1 缓存误走 /import/commit.
+        template_type="M1",
+    )
+    preview_data = [{**c} for c in result.valid_cases[:10]]
+
+    return _preview_success_response(
+        template_type="M1",
+        result=result,
+        file_md5=result.file_md5,
+        preview_data=preview_data,
+    )
+
+
+async def _upload_m2_path(content: bytes, project_id: int, user) -> Response:
+    """
+    M2 导回路径: 从 _meta 读 scope, RoundtripReader 解析 + scope 校验.
+    错误时 (缺主表 / _meta 缺 scope / scope 不匹配 / 字段错误) 都不写 Redis,
+    can_commit=false, 强制用户修 Excel 重传. 响应里 template_type="M2".
+    """
+    from utils.roundtripReader import RoundtripReader
+
+    # 从 _meta 拿 scope, 拿不到就用占位让下游 _validate_meta 把错误写入 errors
+    scope_info = RoundtripReader.extract_scope_from_meta(content)
+    if scope_info is None:
+        scope_type, scope_id = "library", 0
+        log.info(f"/upload M2: _meta 缺 scope, 用占位 (library, 0) 让 scope 校验自然失败")
+    else:
+        scope_type, scope_id = scope_info
+        log.info(f"/upload M2: 从 _meta 拿 scope = {scope_type}:{scope_id}")
+
+    try:
+        reader = RoundtripReader(scope_type=scope_type, scope_id=scope_id)
+        m2_result = await reader.async_read_from_bytes(content)
+    except ValueError as ve:
+        # 文件超限 / 解析异常, 跟 /import/preview 一致: 返 errors 不写 Redis
+        return _preview_error_response(
+            template_type="M2",
+            errors=[{"row": 0, "errors": [{"field": "file", "message": str(ve)}]}],
+        )
+    except Exception as e:
+        log.exception(f"/upload M2 解析失败: scope={scope_type}:{scope_id}, error={e}")
+        return Response.error(msg=f"文件解析失败: {str(e)}")
+
+    # 用例库分组校验 (跟 M1 路径一致). 业务约定: M2 协议不动 module_id
+    # (group_path 不在 M2 允许修改的字段里, 跟 _extract_case_update_payload
+    # 剔除 group_path 保持一致). 用户在 Excel 改了 group_path 视为无效,
+    # 跟 M1 一样 errors -> can_commit=false, 强制用户改回原目录或先在用例库创建.
+    # 只在 reader 没报 scope 错时校验, 避免叠加错误导致 Excel 行号错位.
+    if m2_result.valid_cases and not m2_result.errors:
+        m2_result.valid_cases = await _filter_group_path_errors(
+            valid_cases=m2_result.valid_cases,
+            errors=m2_result.errors,
+            project_id=project_id,
+        )
+        # dataclass 字段不跟 valid_cases / errors 自动同步, 手动更新
+        # (M1 ParseResult 是 @property 自动同步, 这里必须显式写)
+        m2_result.valid_count = len(m2_result.valid_cases)
+        m2_result.invalid_count = len(m2_result.errors)
+
+    # 任意错误都不写缓存, can_commit=false
+    can_commit = len(m2_result.errors) == 0
+    file_md5 = m2_result.file_md5 if can_commit else None
+
+    if can_commit:
+        # PR-3 重写后: M2 跟 M1 valid_cases 结构一致, 多 case_id 字段. save_preview 复用.
+        # 提交入库前 controller 剥 _row; 步骤 (action / expected_result) 保持 cell 拼多步原样,
+        # 入库时由 commit 阶段做 cell split.
+        await _cache_service.save_preview(
+            file_md5=m2_result.file_md5,
+            user_id=user.id,
+            valid_cases=m2_result.valid_cases,
+            errors=m2_result.errors,
+            total_count=m2_result.total_count,
+            meta=m2_result.meta,
+            scope_check=m2_result.scope_check,
+            # PR-3: 缓存层存 template_type="M2", M2 commit 阶段校验一致才放行.
+            template_type="M2",
+        )
+
+    log.info(
+        f"upload preview (M2): scope={scope_type}:{scope_id}, project_id={project_id}, "
+        f"file_md5={file_md5}, total={m2_result.total_count}, "
+        f"valid={m2_result.valid_count}, invalid={m2_result.invalid_count}, "
+        f"can_commit={can_commit}"
+    )
+
+    # 响应 valid_cases 预览取前 10 条 (跟 M1 一致), 不暴露 _row / case_id 给 FE preview
+    preview_data = [{**c} for c in m2_result.valid_cases[:10]]
+
+    return _preview_success_response(
+        template_type="M2",
+        result=m2_result,
+        file_md5=file_md5,
+        can_commit=can_commit,  # 透传, errors 非空时为 False
+        preview_data=preview_data,
+    )
+
+
+
+@router.post("/import/commit", description="M2 导回 commit: 按 用例ID 同步 UPDATE/INSERT + 写 case_dynamic 审计")
+async def import_commit(
+    data: ImportCommitSchema,
+    user: User = Depends(Authentication()),
+):
+    """
+    M2 导回 commit 端点 (跟老 /upload/commit 走不同链路):
+
+    - 输入: file_md5 (preview 阶段返的) + project_id (+ 可选 module_id)
+    - 流程: M2ImportService.commit()
+        1) 加载 Redis 预览缓存, 校验 template_type=M2 (防 M1 误走)
+        2) 拆 known (有 case_id) / new (无 case_id)
+        3) known: UPDATE 字段 + 步骤全量覆盖 + 写 1 条 case_dynamic
+        4) new: 跟 M1 同一条 group_path -> module_id 校验, INSERT case + steps
+        5) 单事务, 失败整批回滚
+    - 不删行 (DB 中对应 case 不动, 业务约定)
+    - 响应: {inserted, updated, dynamic_count}
+    """
+    try:
+        from app.service.m2ImportService import M2ImportService
+        service = M2ImportService(_cache_service)
+        result = await service.commit(
+            file_md5=data.file_md5,
+            project_id=data.project_id,
+            user=user,
+            module_id=data.module_id,
+        )
+        return Response.success(result)
+    except CommonError as ce:
+        # 业务异常 (缓存缺失/已提交/M1 走错端点/必填失败/目录不存在)
+        # 走跟老 /upload/commit 一致的错误响应: 400 + msg
+        return Response.error(msg=ce.message)
+    except Exception as e:
+        log.exception(f"import/commit 失败: file_md5={data.file_md5}, error={e}")
+        return Response.error(msg=f"M2 入库失败: {str(e)}")
+
+
+@router.post("/import/cancel", description="M2 导回 cancel: 清理 Redis 预览缓存")
+async def import_cancel(
+    data: ImportCancelSchema,
+    user: User = Depends(Authentication()),
+):
+    """
+    跟老 /upload/cancel 行为一致, 仅端点不同 (FE cancelImportCaseM2 走这个).
+    防止 Redis 30min TTL 内的垃圾缓存.
+    """
+    await _cache_service.delete(data.file_md5, user.id)
+    return Response.success()

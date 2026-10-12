@@ -1,0 +1,1135 @@
+"""Worker-side WebSocket client for the workspace runtime.
+
+Opens a persistent WS connection to the in-container runtime server,
+multiplexes concurrent requests via *req_id* correlation, handles
+streaming ops (exec / watch / archive), and provides automatic reconnect
+with exponential back-off and a 15-second heartbeat.
+
+Usage::
+
+    client = RuntimeClient(url="ws://127.0.0.1:32100/", token="secret")
+    await client.connect()
+    data = await client.read_file("/workspace/foo.txt")
+    await client.aclose()
+"""
+
+from __future__ import annotations
+
+import asyncio
+import base64
+import logging
+import time
+from collections.abc import AsyncIterator, Callable
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from typing import Any
+
+import aiohttp
+
+from primer.int.sandbox import ExecResult, FileStat
+from primer.workspace.runtime.protocol import ErrorCode, OpName, Request
+
+logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Public result types
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ChangeEvent:
+    """A filesystem change notification pushed by a ``watch_start`` subscription."""
+
+    path: str
+    event: str  # "modify" | "delete" | "create"
+    mtime: float | None = None
+    size: int | None = None
+
+
+@dataclass(frozen=True)
+class PtyOutput:
+    """One frame from a proxied PTY stream.
+
+    ``kind`` is ``"data"`` (``data`` carries raw pty output bytes) or
+    ``"exit"`` (``code`` carries the child return code, ``data`` is empty).
+    """
+
+    kind: str  # "data" | "exit"
+    data: bytes = b""
+    code: int | None = None
+
+
+class RuntimeError(Exception):
+    """An error response from the runtime server."""
+
+    def __init__(self, code: str, message: str) -> None:
+        super().__init__(message)
+        self.code = code
+        self.message = message
+
+
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
+
+
+def _parse_file_stat(raw: dict[str, Any]) -> FileStat:
+    """Convert a protocol FileStat dict to the sandbox-level :class:`FileStat`."""
+    is_dir: bool = bool(raw.get("is_dir", False))
+    mtime_raw = raw.get("mtime", 0.0)
+    if isinstance(mtime_raw, (int, float)):
+        modified_at = datetime.fromtimestamp(float(mtime_raw), tz=timezone.utc)
+    else:
+        modified_at = datetime.now(tz=timezone.utc)
+    return FileStat(
+        path=raw["path"],
+        kind="dir" if is_dir else "file",
+        size_bytes=int(raw.get("size", 0)),
+        mode=int(raw.get("mode", 0o644)),
+        modified_at=modified_at,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Sentinel objects used in stream queues
+# ---------------------------------------------------------------------------
+
+_STREAM_CLOSED = object()  # signals that the stream has ended normally
+
+# Workspace files (e.g. read_file / read_doc_content on large PDFs) are read
+# over the runtime WebSocket in a single message; aiohttp's 4 MiB default cap
+# drops the socket for larger docs. Allow generously-large runtime messages.
+# NOTE: keep this a bounded cap (never 0/unlimited) so a runaway message
+# cannot exhaust memory.
+_MAX_WS_MSG_SIZE = 256 * 1024 * 1024  # 256 MiB
+
+
+# ---------------------------------------------------------------------------
+# RuntimeClient
+# ---------------------------------------------------------------------------
+
+
+class RuntimeClient:
+    """Worker-side WebSocket client that speaks the primer runtime protocol.
+
+    Parameters
+    ----------
+    url:
+        Full WebSocket URL of the runtime server,
+        e.g. ``"ws://127.0.0.1:32100/"``.
+    token:
+        Bearer token injected as ``PRIMER_RUNTIME_TOKEN`` inside the container.
+    protocol_version:
+        Protocol major.minor to advertise during the ``hello`` handshake.
+    """
+
+    _HEARTBEAT_INTERVAL_S: float = 15.0
+    _HEARTBEAT_MAX_MISSED: int = 3
+    _RECONNECT_DELAYS: tuple[float, ...] = (1.0, 2.0, 4.0, 8.0, 15.0, 30.0)
+
+    def __init__(
+        self,
+        *,
+        url: str,
+        token: str,
+        protocol_version: str = "1.2",
+    ) -> None:
+        self._url = url
+        self._token = token
+        self._protocol_version = protocol_version
+
+        # Pending single-shot futures: req_id → Future
+        self._pending: dict[int, asyncio.Future[Any]] = {}
+        # Active stream queues: req_id → Queue  (items are raw dicts or _STREAM_CLOSED)
+        self._streams: dict[int, asyncio.Queue[Any]] = {}
+        self._next_req_id: int = 1
+
+        self._ws: aiohttp.ClientWebSocketResponse | None = None
+        self._session: aiohttp.ClientSession | None = None
+
+        # Background tasks
+        self._receive_task: asyncio.Task[None] | None = None
+        self._heartbeat_task: asyncio.Task[None] | None = None
+        self._reconnect_task: asyncio.Task[None] | None = None
+        # Fire-and-forget sends (the ``exec_cancel`` of an exec that was left early), held so the loop does not drop a
+        # task nobody awaits; each removes itself when done and ``aclose`` cancels what is left.
+        self._background_tasks: set[asyncio.Task[None]] = set()
+
+        self._closed = False
+        # Set when the runtime server reports the workspace no longer exists
+        # (a 404 on the WS handshake). Once gone, reconnecting can never
+        # succeed, so the reconnect loop gives up and the client tears itself
+        # down. Callers (e.g. a per-workspace client cache) can read
+        # :attr:`gone` to evict the dead client.
+        self._gone = False
+        self._connected = asyncio.Event()
+        # Set by ``aclose``: wakes the requests waiting for a connection that can no longer come back (``_connected`` stays
+        # "connected", so a closed client still reads as not connected).
+        self._closed_event = asyncio.Event()
+        self._lock = asyncio.Lock()
+
+        # The protocol version the server confirmed during the hello
+        # handshake.  Starts at "0.0" (unknown) and is updated to the
+        # server-reported value once the first successful hello completes.
+        self._negotiated_version: str = "0.0"
+
+    # ------------------------------------------------------------------
+    # Public lifecycle
+    # ------------------------------------------------------------------
+
+    async def connect(self) -> None:
+        """Open the WS, run the handshake, and start background tasks.
+
+        Idempotent — safe to call when already connected.
+        """
+        if self._closed:
+            raise RuntimeError(ErrorCode.EPROTOCOL, "Client is closed")
+        if self._connected.is_set():
+            return
+        async with self._lock:
+            if self._connected.is_set():
+                return
+            await self._do_connect()
+            self._reconnect_task = asyncio.create_task(
+                self._reconnect_loop(), name="runtime-reconnect"
+            )
+
+    async def aclose(self) -> None:
+        """Shut down the client and close all in-flight operations."""
+        self._closed = True
+        self._closed_event.set()
+        self._connected.clear()
+
+        for task in (self._receive_task, self._heartbeat_task, self._reconnect_task, *self._background_tasks):
+            if task and not task.done():
+                task.cancel()
+
+        if self._ws and not self._ws.closed:
+            await self._ws.close()
+
+        if self._session and not self._session.closed:
+            await self._session.close()
+
+        self._fail_all_pending(ErrorCode.EPROTOCOL, "Client closed")
+
+    # ------------------------------------------------------------------
+    # Version info
+    # ------------------------------------------------------------------
+
+    @property
+    def negotiated_version(self) -> str:
+        """Protocol version confirmed by the server during the hello handshake.
+
+        Returns ``"0.0"`` until the first successful connection completes.
+        The value reflects the last successful handshake; use this (not the
+        advertised ``protocol_version`` constructor argument) when making
+        capability checks against the connected runtime.
+        """
+        return self._negotiated_version
+
+    @property
+    def gone(self) -> bool:
+        """``True`` once the runtime confirmed the workspace is destroyed.
+
+        The reconnect loop sets this when a connect attempt is rejected with
+        a 404 handshake (the backend says the workspace/pod no longer
+        exists). A gone client has stopped its reconnect loop and closed
+        itself; a per-workspace client cache should evict it.
+        """
+        return self._gone
+
+    # ------------------------------------------------------------------
+    # Per-op public methods
+    # ------------------------------------------------------------------
+
+    async def ping(self) -> None:
+        """Cheap liveness probe over the live WS connection.
+
+        Sends a ``health`` request and discards the result.  Raises if
+        the connection is down or the runtime responds with ``ok=false``.
+        Used by :meth:`primer.workspace.runtime.ws_sandbox.WSSandbox.ping`
+        and the Phase-7 workspace probe task; callers wrap the
+        :class:`Exception` into a ``False`` return value.
+        """
+        await self._send_request(OpName.HEALTH, {})
+
+    async def read_file(self, path: str) -> bytes:
+        result = await self._send_request(OpName.READ_FILE, {"path": path})
+        return base64.b64decode(result["content_b64"])
+
+    async def write_file(
+        self, path: str, content: bytes, *, mode: int | None = None
+    ) -> None:
+        args: dict[str, Any] = {
+            "path": path,
+            "content_b64": base64.b64encode(content).decode(),
+        }
+        if mode is not None:
+            args["mode"] = mode
+        await self._send_request(OpName.WRITE_FILE, args)
+
+    async def append_line(self, path: str, line: bytes) -> int:
+        """Atomically append *line* to *path*. Returns the byte offset."""
+        result = await self._send_request(
+            OpName.APPEND_LINE,
+            {"path": path, "line_b64": base64.b64encode(line).decode()},
+        )
+        return int(result["byte_offset"])
+
+    async def list_dir(self, path: str) -> list[FileStat]:
+        result = await self._send_request(OpName.LIST_DIR, {"path": path})
+        return [_parse_file_stat(e) for e in result["entries"]]
+
+    async def stat(self, path: str) -> FileStat | None:
+        result = await self._send_request(OpName.STAT, {"path": path})
+        raw = result.get("stat")
+        return _parse_file_stat(raw) if raw is not None else None
+
+    async def delete(self, path: str) -> None:
+        await self._send_request(OpName.DELETE, {"path": path})
+
+    async def state_commit(
+        self,
+        *,
+        files: dict[str, bytes],
+        deletes: list[str],
+        message: str,
+        allow_empty: bool = False,
+    ) -> str:
+        """Commit a set of file changes to the workspace state repo.
+
+        Returns the 40-hex SHA of the new commit.
+        """
+        args: dict[str, Any] = {
+            "files": {p: base64.b64encode(b).decode() for p, b in files.items()},
+            "deletes": list(deletes),
+            "message": message,
+            "allow_empty": allow_empty,
+        }
+        result = await self._send_request(OpName.STATE_COMMIT, args)
+        return result["sha"]
+
+    async def state_read(self, paths: list[str]) -> dict[str, bytes | None]:
+        """Read one or more files from the workspace state repo HEAD.
+
+        Returns a mapping of path -> bytes (or None if the path does not exist).
+        """
+        result = await self._send_request(OpName.STATE_READ, {"paths": list(paths)})
+        out: dict[str, bytes | None] = {}
+        for p, v in result["files"].items():
+            out[p] = base64.b64decode(v) if v is not None else None
+        return out
+
+    async def state_history(
+        self,
+        *,
+        session_id: str | None = None,
+        agent_id: str | None = None,
+        limit: int = 50,
+    ) -> list[dict]:
+        """Return recent commits from the workspace state repo.
+
+        Results can be filtered by session_id or agent_id (matched via git log
+        --grep on the commit trailer).
+        """
+        args: dict[str, Any] = {
+            "limit": limit,
+            "session_id": session_id,
+            "agent_id": agent_id,
+        }
+        result = await self._send_request(OpName.STATE_HISTORY, args)
+        return result["commits"]
+
+    async def archive(self, paths: list[str]) -> AsyncIterator[bytes]:  # type: ignore[override]
+        """Stream a tar archive.  Yields raw binary chunks."""
+        req_id = self._alloc_req_id()
+        q: asyncio.Queue[Any] = asyncio.Queue()
+        self._streams[req_id] = q
+        try:
+            await self._send_raw(
+                Request(req_id=req_id, op=OpName.ARCHIVE, args={"paths": paths})
+            )
+            async for item in self._iter_stream(req_id, q):
+                if isinstance(item, dict):
+                    event = item.get("event")
+                    if event == "archive_done":
+                        return
+                    # binary chunk arrived via _receive_loop as bytes
+                    data_b64 = item.get("data_b64")
+                    if data_b64:
+                        yield base64.b64decode(data_b64)
+                elif isinstance(item, (bytes, bytearray)):
+                    yield bytes(item)
+        finally:
+            self._streams.pop(req_id, None)
+
+    async def exec(  # noqa: A003
+        self,
+        cmd: str | list[str],
+        *,
+        workdir: str | None = None,
+        env: dict[str, str] | None = None,
+        timeout_s: float | None = None,
+        stdin: bytes | None = None,
+        abort: asyncio.Event | None = None,
+        access: str = "write",
+        writes: list[str] | None = None,
+    ) -> ExecResult:
+        """Run *cmd* inside the container and return the aggregated result."""
+        # The runtime spawns the command via ``create_subprocess_exec(*cmd)``,
+        # i.e. it expects an argv LIST. A bare string would be iterated into
+        # one-character argv entries (``"pwd"`` -> ``['p','w','d']``), so wrap
+        # a string command in a shell. Callers passing a list (e.g. the state
+        # repo's ``["git","init"]``) are sent through unchanged.
+        argv: list[str] = ["/bin/sh", "-c", cmd] if isinstance(cmd, str) else list(cmd)
+        args: dict[str, Any] = {"cmd": argv}
+        if workdir is not None:
+            args["workdir"] = workdir
+        if env is not None:
+            args["env"] = env
+        if timeout_s is not None:
+            args["timeout_s"] = timeout_s
+        if stdin is not None:
+            args["stdin_b64"] = base64.b64encode(stdin).decode()
+        # Only send access/writes when non-default so a 1.1 runtime (which
+        # ignores unknown keys) sees an identical request to before.
+        if access != "write":
+            args["access"] = access
+        if writes:
+            args["writes"] = list(writes)
+
+        req_id = self._alloc_req_id()
+        q: asyncio.Queue[Any] = asyncio.Queue()
+        self._streams[req_id] = q
+
+        stdout_chunks: list[bytes] = []
+        stderr_chunks: list[bytes] = []
+        exit_code = -1
+        t_start = time.monotonic()
+        # The connection the request went out on, and whether the runtime has had its say (the exit event, or a refusal of
+        # the request itself): leaving the wait before that (a cancel of this task, an ``abort``, the stream closing)
+        # leaves the command running in the container, holding the workspace write lock, so it is told to stop.
+        sent_on: aiohttp.ClientWebSocketResponse | None = None
+        finished = False
+
+        def record_the_connection(ws: aiohttp.ClientWebSocketResponse) -> None:
+            """Called by ``_send_raw`` with the socket the request is about to be written to, in the same synchronous
+            segment as the write. Recorded BEFORE the send is awaited: ``send_str`` waits for the socket to drain, a cancel
+            can land while it does, and by then the request is on the wire and the command may be running."""
+            nonlocal sent_on
+            # A disconnect while this exec waited for the connection closed every stream, this one included. Sent after
+            # the reconnect, the command would run in the runtime with nobody listening (its frames are dropped) and the
+            # caller would get exit code -1 with no output: fail with the connection loss, send nothing, record nothing.
+            if self._streams.get(req_id) is not q:
+                raise RuntimeError(ErrorCode.EPROTOCOL, "Connection lost")
+            sent_on = ws
+
+        try:
+            await self._send_raw(Request(req_id=req_id, op=OpName.EXEC, args=args), before_send=record_the_connection)
+            async for item in self._iter_stream(req_id, q, abort=abort):
+                if not isinstance(item, dict):
+                    continue
+                # A single-shot {"ok": false} error frame routed into the
+                # stream (runtime rejected the exec request, e.g. bad argv):
+                # surface it instead of waiting forever for an exit event.
+                if "ok" in item and not item["ok"]:
+                    finished = True
+                    err = item.get("error") or {}
+                    raise RuntimeError(
+                        err.get("code", ErrorCode.EPROTOCOL),
+                        err.get("message", "exec failed"),
+                    )
+                event = item.get("event")
+                # The runtime serialises streaming events as the protocol
+                # Event envelope: {"event": ..., "data": {...}}. The exec
+                # payload (data_b64 / code) lives under the nested ``data``
+                # key, NOT at the top level. Fall back to the top level so a
+                # flatter future shape still works.
+                payload = item.get("data") if isinstance(item.get("data"), dict) else item
+                if event == "stdout":
+                    stdout_chunks.append(base64.b64decode(payload.get("data_b64", "")))
+                elif event == "stderr":
+                    stderr_chunks.append(base64.b64decode(payload.get("data_b64", "")))
+                elif event == "exit":
+                    finished = True
+                    exit_code = int(payload.get("code", -1))
+                    break
+        finally:
+            self._streams.pop(req_id, None)
+            if sent_on is not None and not finished:
+                self._cancel_exec_in_background(req_id, sent_on)
+
+        duration = time.monotonic() - t_start
+        return ExecResult(
+            exit_code=exit_code,
+            stdout=b"".join(stdout_chunks).decode(errors="replace"),
+            stderr=b"".join(stderr_chunks).decode(errors="replace"),
+            duration_seconds=duration,
+        )
+
+    async def watch(
+        self,
+        paths: list[str],
+        events: list[str],
+    ) -> AsyncIterator[ChangeEvent]:  # type: ignore[override]
+        """Subscribe to filesystem change events.
+
+        Yields :class:`ChangeEvent` objects until the caller closes the
+        iterator or the connection drops.
+        """
+        req_id = self._alloc_req_id()
+        q: asyncio.Queue[Any] = asyncio.Queue()
+        self._streams[req_id] = q
+        try:
+            await self._send_raw(
+                Request(
+                    req_id=req_id,
+                    op=OpName.WATCH_START,
+                    args={"paths": paths, "events": events},
+                )
+            )
+            async for item in self._iter_stream(req_id, q):
+                if not isinstance(item, dict):
+                    continue
+                event = item.get("event")
+                if event == "watch_open":
+                    continue
+                if event == "watch_closed":
+                    return
+                if event == "change":
+                    # Change details live under the Event envelope's nested
+                    # ``data`` key (same shape as exec events); fall back to
+                    # the top level for a flatter future shape.
+                    payload = item.get("data") if isinstance(item.get("data"), dict) else item
+                    yield ChangeEvent(
+                        path=payload.get("path", ""),
+                        event=payload.get("change_event", "modify"),
+                        mtime=payload.get("mtime"),
+                        size=payload.get("size"),
+                    )
+        finally:
+            self._streams.pop(req_id, None)
+
+    async def events_subscribe(
+        self,
+        *,
+        kinds: list[str] | None = None,
+        path_prefixes: list[str] | None = None,
+    ) -> AsyncIterator[dict[str, Any]]:
+        """Subscribe to workspace lifecycle events (EVENTS_SUBSCRIBE).
+
+        Yields normalized dicts until the caller closes the iterator or
+        the connection drops:
+
+        * ``{"kind": "file_changed", "path": ..., "mtime": ..., "size": ...}``
+          (the runtime serves these through its watch machinery, so the
+          wire frames are ``watch_open`` / ``change`` / ``watch_closed``);
+        * ``{"kind": "exec_started" | "exec_exited", ...}`` from
+          ``ws_event`` frames.
+        """
+        req_id = self._alloc_req_id()
+        q: asyncio.Queue[Any] = asyncio.Queue()
+        self._streams[req_id] = q
+        try:
+            args: dict[str, Any] = {}
+            if kinds is not None:
+                args["kinds"] = kinds
+            if path_prefixes is not None:
+                args["path_prefixes"] = path_prefixes
+            await self._send_raw(
+                Request(
+                    req_id=req_id,
+                    op=OpName.EVENTS_SUBSCRIBE,
+                    args=args,
+                )
+            )
+            async for item in self._iter_stream(req_id, q):
+                if not isinstance(item, dict):
+                    continue
+                event = item.get("event")
+                data = item.get("data") if isinstance(item.get("data"), dict) else {}
+                if event == "ws_event" and data.get("kind"):
+                    yield dict(data)
+                    continue
+                if event == "change":
+                    yield {
+                        "kind": "file_changed",
+                        "path": data.get("path", ""),
+                        "mtime": data.get("mtime"),
+                        "size": data.get("size"),
+                    }
+                    continue
+                if event == "watch_closed":
+                    return
+                # watch_open / ok acks: skip
+        finally:
+            self._streams.pop(req_id, None)
+
+    async def open_pty(
+        self,
+        *,
+        cmd: list[str] | None = None,
+        cols: int = 80,
+        rows: int = 24,
+        workdir: str | None = None,
+        env: dict[str, str] | None = None,
+    ) -> "RuntimePtyHandle":
+        """Open an interactive PTY on the runtime and return a live handle.
+
+        Sends ``pty_open`` (a long-lived streaming op consumed via the
+        existing ``_streams`` queue) and returns a :class:`RuntimePtyHandle`
+        whose :meth:`~RuntimePtyHandle.events` iterator yields output/exit
+        frames; ``stdin`` / ``resize`` / ``close`` are sent as ordinary
+        single-shot requests referencing the open op's ``req_id``.
+        """
+        req_id = self._alloc_req_id()
+        q: asyncio.Queue[Any] = asyncio.Queue()
+        self._streams[req_id] = q
+
+        args: dict[str, Any] = {"cols": cols, "rows": rows}
+        if cmd is not None:
+            args["cmd"] = cmd
+        if workdir is not None:
+            args["workdir"] = workdir
+        if env is not None:
+            args["env"] = env
+
+        await self._send_raw(Request(req_id=req_id, op=OpName.PTY_OPEN, args=args))
+        return RuntimePtyHandle(self, req_id, q)
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    def _alloc_req_id(self) -> int:
+        rid = self._next_req_id
+        self._next_req_id += 1
+        return rid
+
+    async def _send_request(self, op: OpName, args: dict[str, Any]) -> dict[str, Any]:
+        """Send a single-shot request and wait for the response.
+
+        Raises :class:`RuntimeError` if the server responds with ok=false.
+        Raises :class:`RuntimeError` with code EPROTOCOL if the connection
+        drops while the request is in-flight.
+        """
+        req_id = self._alloc_req_id()
+        loop = asyncio.get_running_loop()
+        fut: asyncio.Future[Any] = loop.create_future()
+        self._pending[req_id] = fut
+        try:
+            await self._send_raw(Request(req_id=req_id, op=op, args=args))
+            return await fut
+        finally:
+            self._pending.pop(req_id, None)
+            if fut.done() and not fut.cancelled():
+                # When the send itself failed, the future may already hold the error a lost connection or an ``aclose``
+                # gave every pending request; nobody awaits it any more, so mark it retrieved (no "never retrieved" log).
+                fut.exception()
+
+    async def _wait_until_connected(self) -> None:
+        """Wait for the connection, or fail if the client is closed (``aclose``, or ``gone``: the reconnect loop gave up
+        and closed it), which will never get one back. A client that is merely disconnected waits for its reconnect."""
+        if self._closed:
+            raise RuntimeError(ErrorCode.EPROTOCOL, "Client closed")
+        if self._connected.is_set():
+            return
+        connected = asyncio.ensure_future(self._connected.wait())
+        closed = asyncio.ensure_future(self._closed_event.wait())
+        try:
+            await asyncio.wait({connected, closed}, return_when=asyncio.FIRST_COMPLETED)
+        finally:
+            connected.cancel()
+            closed.cancel()
+        if self._closed:
+            raise RuntimeError(ErrorCode.EPROTOCOL, "Client closed")
+
+    async def _send_raw(
+        self,
+        msg: Request,
+        *,
+        before_send: Callable[[aiohttp.ClientWebSocketResponse], None] | None = None,
+    ) -> None:
+        """Serialize *msg* and send it over the active WebSocket.
+
+        *before_send*, when given, is called with the connection the message is about to be written to, in the same
+        synchronous segment as the write (after the connection wait and the liveness check, nothing suspends in
+        between), so what it records is the connection the message really goes out on. It may raise to refuse the send.
+        """
+        await self._wait_until_connected()
+        ws = self._ws
+        if ws is None or ws.closed:
+            raise RuntimeError(ErrorCode.EPROTOCOL, "Not connected")
+        from primer.workspace.runtime.protocol import serialize
+
+        if before_send is not None:
+            before_send(ws)
+        await ws.send_str(serialize(msg))
+
+    def _runtime_has(self, minimum: tuple[int, int]) -> bool:
+        """Whether the runtime reported a protocol of at least *minimum* (major, minor) in its hello.
+
+        Compared as numbers ("1.10" is above "1.4") and read from what the SERVER reported, never from the version this
+        client advertised: an older runtime answers an op it does not know with EUNSUPPORTED. ``"0.0"`` (never connected)
+        and anything that is not ``major.minor`` count as "no".
+        """
+        try:
+            major, minor = (int(part) for part in self._negotiated_version.split(".")[:2])
+        except ValueError:
+            return False
+        return (major, minor) >= minimum
+
+    def _cancel_exec_in_background(self, req_id: int, sent_on: aiohttp.ClientWebSocketResponse) -> None:
+        """Tell the runtime to stop the exec requested as *req_id*, without making the caller wait for the send.
+
+        Called from the ``finally`` of an ``exec`` that is being left early, usually by a cancel: that task must not await
+        a send (a second cancel would interrupt it, and a socket that has stalled would hold the cancel up), so a separate
+        task sends it, held in ``_background_tasks``. Not sent to a runtime that did not report protocol 1.4 (the command
+        then runs on until its own timeout or until the connection closes, as before), and not on any connection but the
+        one the exec went out on: after a reconnect that exec is gone with its connection, and req_ids mean nothing to the
+        new one.
+        """
+        ws = self._ws
+        if self._closed or ws is None or ws is not sent_on or ws.closed or not self._runtime_has((1, 4)):
+            return
+        task = asyncio.get_running_loop().create_task(self._send_exec_cancel(req_id, ws), name=f"exec-cancel:{req_id}")
+        self._background_tasks.add(task)
+        task.add_done_callback(self._background_tasks.discard)
+
+    async def _send_exec_cancel(self, target_req_id: int, ws: aiohttp.ClientWebSocketResponse) -> None:
+        """Send one ``exec_cancel``; best effort. The runtime's answer is not awaited (a frame for a req_id nobody waits on
+        is dropped by the receive loop), and a failed send is not an error: the runtime stops the command when the
+        connection closes anyway."""
+        from primer.workspace.runtime.protocol import serialize
+
+        request = Request(req_id=self._alloc_req_id(), op=OpName.EXEC_CANCEL, args={"target_req_id": target_req_id})
+        try:
+            await ws.send_str(serialize(request))
+        except Exception as exc:  # noqa: BLE001 - best effort
+            logger.debug("exec_cancel for req_id=%s was not sent: %s", target_req_id, exc)
+
+    # ------------------------------------------------------------------
+    # Receive loop
+    # ------------------------------------------------------------------
+
+    async def _receive_loop(self) -> None:
+        """Dispatch incoming WS frames to waiting futures / stream queues."""
+        ws = self._ws
+        assert ws is not None
+        try:
+            async for msg in ws:
+                if msg.type == aiohttp.WSMsgType.TEXT:
+                    self._dispatch_text(msg.data)
+                elif msg.type == aiohttp.WSMsgType.BINARY:
+                    self._dispatch_binary(msg.data)
+                elif msg.type == aiohttp.WSMsgType.PONG:
+                    self._on_pong()
+                elif msg.type in (
+                    aiohttp.WSMsgType.CLOSE,
+                    aiohttp.WSMsgType.ERROR,
+                    aiohttp.WSMsgType.CLOSED,
+                ):
+                    break
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("receive_loop error: %s", exc)
+        finally:
+            self._on_disconnect()
+
+    def _dispatch_text(self, text: str) -> None:
+        import json
+
+        try:
+            raw = json.loads(text)
+        except Exception:  # noqa: BLE001
+            logger.warning("Received non-JSON frame: %.120s", text)
+            return
+
+        req_id: int = raw.get("req_id", -1)
+
+        # Single-shot response
+        if "ok" in raw:
+            fut = self._pending.get(req_id)
+            if fut is None and req_id in self._streams:
+                # An error frame for a STREAMING op (exec/watch/archive): the
+                # runtime answers a failed streaming request with a single-shot
+                # {"ok": false} instead of an event stream. Route it into the
+                # stream queue so the consumer surfaces the error instead of
+                # blocking forever waiting for an exit/close event.
+                self._streams[req_id].put_nowait(raw)
+                return
+            if fut and not fut.done():
+                if raw["ok"]:
+                    fut.set_result(raw.get("result") or {})
+                else:
+                    err = raw.get("error") or {}
+                    fut.set_exception(
+                        RuntimeError(
+                            err.get("code", ErrorCode.EPROTOCOL),
+                            err.get("message", "unknown error"),
+                        )
+                    )
+            return
+
+        # Streaming event (exec stdout/stderr, watch change, etc.)
+        if "event" in raw:
+            q = self._streams.get(req_id)
+            if q is not None:
+                q.put_nowait(raw)
+            return
+
+        logger.debug("Unrecognised frame for req_id=%s: %s", req_id, text[:120])
+
+    def _dispatch_binary(self, data: bytes) -> None:
+        """Route a binary frame.
+
+        Binary frames carry bulk payload (e.g. archive chunks).  The first
+        8 bytes encode ``(req_id: uint32_be, seq: uint16_be, total: uint16_be)``
+        per the protocol spec.  For simplicity we pass the raw bytes to the
+        matching stream queue so :meth:`archive` can yield them.
+        """
+        import struct
+
+        if len(data) < 8:
+            return
+        req_id = struct.unpack_from(">I", data, 0)[0]
+        q = self._streams.get(req_id)
+        if q is not None:
+            q.put_nowait(data[8:])
+
+    # ------------------------------------------------------------------
+    # Heartbeat
+    # ------------------------------------------------------------------
+
+    def _on_pong(self) -> None:
+        """Called when a PONG frame is received from the server.
+
+        Note: aiohttp's client-side ``async for`` loop does not surface PONG
+        frames directly.  Liveness detection is instead implemented via the
+        manual ping loop in :meth:`_heartbeat_loop`, which closes the WS after
+        ``_HEARTBEAT_MAX_MISSED`` cycles without a successful response.
+        aiohttp's own ``heartbeat`` kwarg on ``ws_connect`` is *not* used here
+        so that our explicit ping/pong counting remains the single authority.
+        """
+        self._pong_received = True
+
+    async def _heartbeat_loop(self) -> None:
+        """Ping the server every ``_HEARTBEAT_INTERVAL_S`` seconds.
+
+        Sends a WS PING and waits one full interval for a PONG.  Because
+        aiohttp's client async-for does not surface PONG frames, we instead
+        send an ``health`` RPC (which does travel through the normal response
+        path) as a lightweight liveness probe.  After
+        ``_HEARTBEAT_MAX_MISSED`` consecutive failures the connection is
+        force-closed and the reconnect loop takes over.
+        """
+        missed = 0
+        try:
+            while not self._closed:
+                await asyncio.sleep(self._HEARTBEAT_INTERVAL_S)
+                ws = self._ws
+                if ws is None or ws.closed:
+                    break
+                # Use a raw WS ping; aiohttp handles the pong internally and
+                # keeps the connection alive.  We additionally send a health
+                # RPC once every _HEARTBEAT_MAX_MISSED intervals so we can
+                # detect silent server death.
+                try:
+                    await asyncio.wait_for(ws.ping(), timeout=self._HEARTBEAT_INTERVAL_S)
+                    missed = 0
+                except (TimeoutError, ConnectionError, aiohttp.ClientError):
+                    missed += 1
+                    logger.warning(
+                        "Heartbeat ping failed (%d/%d)",
+                        missed,
+                        self._HEARTBEAT_MAX_MISSED,
+                    )
+                    if missed >= self._HEARTBEAT_MAX_MISSED:
+                        logger.error("3 missed heartbeats — forcing reconnect")
+                        if ws and not ws.closed:
+                            await ws.close()
+                        break
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # noqa: BLE001
+            pass
+
+    # ------------------------------------------------------------------
+    # Reconnect
+    # ------------------------------------------------------------------
+
+    def _on_disconnect(self) -> None:
+        """Called when the WS closes unexpectedly."""
+        self._connected.clear()
+        if not self._closed:
+            logger.info("WS disconnected; reconnect loop will retry")
+        self._fail_all_pending(ErrorCode.EPROTOCOL, "Connection lost")
+        self._close_all_streams()
+
+    def _fail_all_pending(self, code: str, message: str) -> None:
+        exc = RuntimeError(code, message)
+        for fut in list(self._pending.values()):
+            if not fut.done():
+                fut.set_exception(exc)
+        self._pending.clear()
+
+    def _close_all_streams(self) -> None:
+        for q in list(self._streams.values()):
+            q.put_nowait(_STREAM_CLOSED)
+        self._streams.clear()
+
+    @staticmethod
+    def _is_workspace_gone(exc: BaseException) -> bool:
+        """True if *exc* means the workspace/runtime no longer exists.
+
+        A WS handshake rejected with HTTP 404 is unambiguous: the backend
+        (or the gateway routing to its pod) reports the workspace endpoint
+        is gone. Reconnecting can never succeed in that case, so the
+        reconnect loop must give up rather than retry forever.
+        """
+        return (
+            isinstance(exc, aiohttp.WSServerHandshakeError)
+            and exc.status == 404
+        )
+
+    async def _reconnect_loop(self) -> None:
+        """Reconnect with exponential back-off whenever the WS closes.
+
+        Retries transient failures forever, but gives up permanently if the
+        runtime reports the workspace is gone (a 404 handshake): the loop
+        marks the client closed/gone and tears down so it can be evicted
+        from any per-workspace cache instead of spinning forever.
+        """
+        delays = list(self._RECONNECT_DELAYS)
+        attempt = 0
+        try:
+            while not self._closed:
+                # Wait for a disconnect signal
+                await asyncio.sleep(0)
+                while not self._closed and self._connected.is_set():
+                    await asyncio.sleep(0.1)
+                if self._closed:
+                    return
+                delay = delays[min(attempt, len(delays) - 1)]
+                logger.info("Reconnect attempt %d in %.0fs", attempt + 1, delay)
+                await asyncio.sleep(delay)
+                attempt += 1
+                try:
+                    await self._do_connect()
+                    attempt = 0  # reset backoff on success
+                    logger.info("Reconnected successfully")
+                except Exception as exc:  # noqa: BLE001
+                    if self._is_workspace_gone(exc):
+                        logger.info(
+                            "Workspace gone (404 on reconnect to %s); "
+                            "stopping reconnect loop and evicting client",
+                            self._url,
+                        )
+                        self._gone = True
+                        # Tear ourselves down so the cache can drop us and the
+                        # session/streams release. Spawn it as a task: aclose()
+                        # cancels this very task, so awaiting it here would
+                        # cancel us mid-await.
+                        asyncio.create_task(  # noqa: RUF006
+                            self.aclose(), name="runtime-evict-gone"
+                        )
+                        return
+                    logger.warning("Reconnect failed: %s", exc)
+        except asyncio.CancelledError:
+            raise
+
+    # ------------------------------------------------------------------
+    # Core connect / handshake
+    # ------------------------------------------------------------------
+
+    async def _do_connect(self) -> None:
+        """Open a new WS connection and run the hello handshake."""
+        if self._session is None or self._session.closed:
+            self._session = aiohttp.ClientSession()
+
+        headers = {"Authorization": f"Bearer {self._token}"}
+        self._ws = await self._session.ws_connect(
+            self._url, headers=headers, max_msg_size=_MAX_WS_MSG_SIZE
+        )
+
+        # Handshake
+        hello = Request(
+            req_id=0,
+            op=OpName.HELLO,
+            args={
+                "protocol": self._protocol_version,
+                "client": "primer-worker/0.1.0",
+            },
+        )
+        from primer.workspace.runtime.protocol import serialize
+
+        await self._ws.send_str(serialize(hello))
+
+        resp_msg = await asyncio.wait_for(self._ws.receive(), timeout=10.0)
+        if resp_msg.type != aiohttp.WSMsgType.TEXT:
+            await self._ws.close()
+            raise RuntimeError(
+                ErrorCode.EPROTOCOL,
+                f"Expected TEXT for hello response, got {resp_msg.type}",
+            )
+
+        import json
+
+        resp = json.loads(resp_msg.data)
+        if not resp.get("ok"):
+            err = resp.get("error") or {}
+            await self._ws.close()
+            raise RuntimeError(
+                err.get("code", ErrorCode.EPROTOCOL),
+                err.get("message", "hello failed"),
+            )
+
+        # Capture the server's reported protocol version so callers can gate
+        # on capability (e.g. state_commit requires runtime >= 1.1).
+        server_result = resp.get("result") or {}
+        server_proto = server_result.get("protocol", "")
+        if server_proto:
+            self._negotiated_version = server_proto
+
+        # Cancel old background tasks before spawning new ones. ``asyncio.wait`` waits for the cancelled task without raising what
+        # it ended with, so a cancel aimed at THIS task (``aclose`` sends one to the reconnect task) is not mistaken for the old
+        # task's own CancelledError and swallowed, as ``except (CancelledError, Exception)`` around ``await task`` did.
+        for task in (self._receive_task, self._heartbeat_task):
+            if task and not task.done():
+                task.cancel()
+                await asyncio.wait({task})
+                if not task.cancelled():
+                    task.exception()  # retrieved: nobody else reads what the old task ended with
+
+        if self._closed:
+            # ``aclose`` ran while the old tasks unwound without cancelling this caller (``connect`` is not the reconnect task):
+            # do not start tasks or report a connection on a closed client.
+            if not self._ws.closed:
+                await self._ws.close()
+            raise RuntimeError(ErrorCode.EPROTOCOL, "Client closed")
+
+        self._receive_task = asyncio.create_task(
+            self._receive_loop(), name="runtime-receive"
+        )
+        self._heartbeat_task = asyncio.create_task(
+            self._heartbeat_loop(), name="runtime-heartbeat"
+        )
+        self._connected.set()
+
+    # ------------------------------------------------------------------
+    # Stream iteration helper
+    # ------------------------------------------------------------------
+
+    async def _iter_stream(
+        self,
+        req_id: int,
+        q: asyncio.Queue[Any],
+        *,
+        abort: asyncio.Event | None = None,
+    ) -> AsyncIterator[Any]:
+        """Yield items from *q* until _STREAM_CLOSED or *abort* fires."""
+        while True:
+            if abort is not None and abort.is_set():
+                break
+            try:
+                item = await asyncio.wait_for(q.get(), timeout=0.1)
+            except TimeoutError:
+                continue
+            if item is _STREAM_CLOSED:
+                break
+            yield item
+
+
+class RuntimePtyHandle:
+    """A live proxied PTY on the runtime (spec §6.5 container terminals).
+
+    Returned by :meth:`RuntimeClient.open_pty`.  The API terminal endpoint
+    forwards browser frames through this handle: browser stdin →
+    :meth:`stdin`, resize control → :meth:`resize`, and the runtime's pty
+    output/exit stream → :meth:`events` → the browser.  Follows the client's
+    existing idioms — the open op is consumed via the shared ``_streams``
+    queue, and the control ops are single-shot requests referencing the open
+    op's ``req_id``.
+    """
+
+    def __init__(
+        self,
+        client: "RuntimeClient",
+        req_id: int,
+        queue: "asyncio.Queue[Any]",
+    ) -> None:
+        self._client = client
+        self._req_id = req_id
+        self._queue = queue
+
+    async def events(self) -> AsyncIterator[PtyOutput]:
+        """Yield :class:`PtyOutput` frames until the child exits.
+
+        Emits ``kind="data"`` for each output chunk and a final
+        ``kind="exit"`` frame, then returns.  Raises :class:`RuntimeError`
+        if the runtime rejected the ``pty_open`` (surfaced as an ``ok=false``
+        frame routed into the stream queue).
+        """
+        try:
+            async for item in self._client._iter_stream(self._req_id, self._queue):
+                if not isinstance(item, dict):
+                    continue
+                if "ok" in item and not item["ok"]:
+                    err = item.get("error") or {}
+                    raise RuntimeError(
+                        err.get("code", ErrorCode.EPROTOCOL),
+                        err.get("message", "pty_open failed"),
+                    )
+                event = item.get("event")
+                # Streaming events wrap their payload under the Event
+                # envelope's nested ``data`` key (same shape as exec/watch);
+                # fall back to the top level for a flatter future shape.
+                payload = item.get("data") if isinstance(item.get("data"), dict) else item
+                if event == "pty_open":
+                    continue
+                if event == "data":
+                    yield PtyOutput(
+                        kind="data",
+                        data=base64.b64decode(payload.get("data_b64", "") or ""),
+                    )
+                elif event == "exit":
+                    yield PtyOutput(kind="exit", code=int(payload.get("code", -1)))
+                    return
+        finally:
+            self._client._streams.pop(self._req_id, None)
+
+    async def stdin(self, data: bytes) -> None:
+        """Send *data* to the pty (browser stdin → runtime pty master)."""
+        await self._client._send_request(
+            OpName.PTY_STDIN,
+            {"target_req_id": self._req_id, "data_b64": base64.b64encode(data).decode()},
+        )
+
+    async def resize(self, cols: int, rows: int) -> None:
+        """Change the runtime pty's window size."""
+        await self._client._send_request(
+            OpName.PTY_RESIZE,
+            {"target_req_id": self._req_id, "cols": cols, "rows": rows},
+        )
+
+    async def close(self) -> None:
+        """Terminate the runtime pty and drop the stream (best-effort)."""
+        try:
+            await self._client._send_request(
+                OpName.PTY_CLOSE, {"target_req_id": self._req_id},
+            )
+        except RuntimeError:
+            # Connection already gone / pty already reaped — nothing to do.
+            pass
+        finally:
+            self._client._streams.pop(self._req_id, None)
+
+
+__all__ = [
+    "RuntimeClient",
+    "ChangeEvent",
+    "PtyOutput",
+    "RuntimePtyHandle",
+    "RuntimeError",
+]

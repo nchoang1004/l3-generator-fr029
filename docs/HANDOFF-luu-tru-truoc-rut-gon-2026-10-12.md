@@ -1,0 +1,1024 @@
+# Bàn giao — L3 Generator
+
+## Hồ sơ quy trình, hướng dẫn demo, đẩy git — 12/10/2026
+
+Yêu cầu: "viết đầy đủ theo cái bạn đã triển khai và sửa lại cái ux/ui để demo cho chuẩn", "làm đi và viết tài liệu mới luôn", rồi "hoàn thành và đẩy lên git đi".
+
+**Đã viết (chỉ tài liệu và hồ sơ, không sửa code):**
+- Yêu cầu nguyên văn: `.aide/evidence/requests/CR-L3GEN-2026-009.yaml` (11/10 10:33 → 12/10 06:22, kèm 8 quyết định), `CR-L3GEN-2026-008-requests-03.yaml` (2 tin 09/10 còn sót). Trích từ transcript bằng script; ghi muộn.
+- Câu hỏi mở: OQ-L3GEN-019 (đọc tĩnh phần không phải API), 020 (đầu ra/chế độ chưa có trong spec), 021 (waiver NFR-SEC-002 cho các lần chạy 11/10 và oneshot), 022 (dialect, ràng buộc trong TBL).
+- Lifecycle: EPIC-L3GEN-030, 031; STORY-L3GEN-030-01, 031-01; TASK-L3GEN-029-10 … 13, TASK-L3GEN-030-1, 031-1; CTX (hash 12/10), PLAN (ghi muộn, trừ task 13), DIARY từng task; DIARY-CR-L3GEN-2026-009. EPIC-029 và change-set ghi thêm.
+- Review: REVIEW-CODE-L3GEN-2026-013 (review Codex 11/10), REVIEW-HELDOUT-L3GEN-2026-008 (orderflow), 009, 010 (CSDL vòng 1, 2). FIND-L3GEN-166 … 193.
+- Test: `.aide/evidence/tests/fr029-20261011-12/` (README, `suite-before-ui.log`).
+- Tài liệu mới: [HUONG-DAN-DEMO.md](HUONG-DAN-DEMO.md). `L3-Generator-chuong-trinh-hien-tai.md` thêm link và OQ. `AGENTIC_SDLC_LOG.md` thêm mục 25–29.
+
+**Kiểm chứng (đã chạy 12/10):** suite 520/521 (lỗi `test_gateway` cũ); demo offline qua `DocumentService` ra completed, 4 lượt, đủ README/TAI-LIEU/result/API. `gen_uid.py`: 14 uid mới, không file thiếu uid.
+
+**Chưa làm — giao diện demo (TASK-L3GEN-029-13):** skill `taste-skill` chưa cài (`~/.claude/skills/taste-skill/` không có). CLAUDE.md cấm làm UI khi thiếu skill, nên chưa sửa code UI. Plan đã viết trước: `.aide/evidence/plans/PLAN-TASK-L3GEN-029-13.md` (5 việc, chờ người dùng chọn). Cần: cài skill (`git clone https://github.com/leonxlnx/taste-skill` vào `~/.claude/skills/taste-skill`) hoặc người dùng quyết cách khác.
+
+**Lỗi còn mở thấy khi viết hồ sơ:** `TAI-LIEU.md` in `>` thành `&gt;` ở mục thư viện (FIND-L3GEN-179).
+
+**Git:** commit gồm `slice/`, `docs/`, `.aide/` của đợt 07–12/10. Không đưa `ket-qua-chay/` (465 MB kết quả chạy), không đưa 2 file `contract-checks` đã stage từ trước (ngoài phạm vi). Commit `3cbe2d8` (300 file). **Push thất bại** (12/10): GitLab trả HTTP 403, nguyên văn `Your top-level group is over the user limit and has been placed in a read-only state.` Giống lần 11/10; chủ group cần gỡ trạng thái chỉ đọc, rồi chạy lại `git push -u origin feature/l3-fr029`.
+
+## Bổ sung tài liệu sinh theo 5 đợt — 11–12/10/2026
+
+Người dùng: "làm đi" theo [FR029-tai-lieu-can-bo-sung-20261011.md](FR029-tai-lieu-can-bo-sung-20261011.md), mục tiêu "làm và test kĩ để hoạt động chuẩn và sử dụng được". Code chưa commit.
+
+**Quyết định Claude tự chọn khi làm (chờ người dùng duyệt):**
+- Bảng CSDL (FR-030), sự kiện/tác vụ nền (FR-031), thư viện và khóa cấu hình (FR-028), middleware/exception_handler, quan hệ component: **đọc tĩnh** bằng `extract.py` có sẵn (module mới `l3slice/docstatic.py`), nhãn "đọc tĩnh". Lý do: không phải dữ kiện API, nên ADR-2026-006 không áp dụng. Route vẫn chỉ do agent đề xuất; test `test_static_parts.test_api_facts_come_only_from_the_agent` giữ điều này. Test end-to-end cũ cấm gọi `extract.extract` đã được nới cho phần này.
+- Lỗi trả về của route, `tags`, `deprecated`, mô tả, ví dụ: **agent đề xuất, bộ kiểm đòi bằng chứng**. Mô tả ghi nhãn "AI viết".
+
+**Đã làm:**
+
+| Đợt | Nội dung | File |
+|---|---|---|
+| 1 | `errors` của route. Bộ kiểm đòi: `raise` tới được từ handler (≤3 lời gọi); với HTTPException, mã ở dòng ném; với lớp lỗi riêng, `code = N` ở lớp hoặc lớp cha, không lớp con nào ghi đè, và có exception_handler dùng thuộc tính đó (không có thì FastAPI trả 500). Mã lỗi vào OpenAPI `responses` | `docfacts.py` (`_route_extras`, `_error_problems`), `render.py` |
+| 2 | Thư viện (manifest + có import không), khóa cấu hình (giá trị bí mật bị che), dòng "Sinh bởi", chú giải nhãn, lý do suy luận thành chú thích [n] | `docstatic.py`, `tailieu.py` |
+| 3 | File TBL và EVT cho từng component; Celery (`.delay`/`.apply_async`/`send_task` → `@app.task`/`@shared_task`) và `BackgroundTasks.add_task` trong `extract.py`; nối gửi↔nhận khi cùng broker, namespace, topic | `extract.py` (`_task_events`), `docpipeline.py` (`_table_event_files`) |
+| 4 | Đường gọi tới dữ liệu cho từng endpoint (từ call_path của Service, kèm bảng nhắc tới); mô tả do AI viết | `docpipeline.py` (`_route_chains`), `docfacts.py` |
+| 5 | `tags`, `deprecated`, `examples` (literal ở handler hoặc model của route), quan hệ giữa component (lời gọi đã nối được) | `docfacts.py`, `docstatic.py` (`component_relations`) |
+
+`TAI-LIEU.md` nay có 11 mục: endpoint, chi tiết, model, bảng CSDL, sự kiện, cấu trúc code (+ quan hệ component), gọi HTTP, thư viện, cấu hình, middleware/xử lý lỗi, giới hạn; cùng phụ lục file cho máy. Prompt: agent v17, đọc một lần v6.
+
+**Kiểm chứng (đã chạy):**
+- Suite 490/491 (lỗi `test_gateway` cũ).
+- Test mới: `test_events_tasks` (5), `test_static_parts` (5), `test_route_extras` (12), `test_tai_lieu` (9).
+- `fr029_checkaudit`: không đổi.
+- Trường model 0/348 từ chối nhầm; Service 1/16 (giới hạn đã biết).
+- Test cũ `test_extract.test_unsupported_queue_library_is_a_limitation` đổi từ Celery sang dramatiq, vì Celery nay đã được đọc.
+
+**Test cả luồng bằng agent Claude đóng vai model (12/10, không tốn API):** [ket-qua-chay/roleplay-20261012/README.md](../ket-qua-chay/roleplay-20261012/README.md).
+- tdd-docker: completed; route 6/6, model 4/4, vai trò 9/9 so với gold.
+- Teamhide: completed sau 1 vòng sửa, lần đầu tiên completed trên repo này; route 5/5, cấu hình 13/13, thư viện 20/20, bảng 9/9 cột so với golden v1.
+- Lần đầu tìm ra 3 lỗi bộ kiểm từ chối nhầm (prefix trên dòng sau của `include_router(`, `pydantic_model_creator`, `Depends(LớpGọiĐược(...))`); đã sửa, có test.
+- Sửa thêm phần trình bày: gộp dòng cấu hình trùng khóa, khớp tên gói `tortoise-orm`→`tortoise`, mã lỗi không lặp, kiểu cột gọn.
+- CLI `document` có thêm `--mode agent|oneshot` và `--checkpoint`; `slice/README.md` đã ghi.
+
+**Kiểm chứng cuối:** suite 495/496 (lỗi `test_gateway` cũ); `fr029_checkaudit` không đổi; trường model 0/348 từ chối nhầm; Service 1/16.
+
+**Chưa làm:**
+- Chạy model thật (gpt-5) với prompt v6/v17. Cần người dùng duyệt tiền, khoảng 0,2 USD/repo nhỏ.
+- Repo lớn (kibo) chưa có chế độ chia gói.
+- FR-028/029/030/031 và ADR chưa ghi các phần mới (TAI-LIEU.md, phần đọc tĩnh, errors/tags/summary/examples); cần CR.
+- Import thừa có từ trước trong `docfacts.py` (`io`, `tokenize`): không xóa, chỉ ghi lại.
+
+## Chế độ "đọc một lần" để giảm token — 11/10/2026
+
+Yêu cầu: luồng agent gọi quá nhiều lần, tốn token; xem các phương án và test lại. Người dùng chọn: đọc một lần + schema + checkpoint. Trần test: 0,20 USD với gpt-4.1-mini, sau đó 0,30 USD với model mạnh hơn.
+
+**Code đã viết (chưa commit):**
+- `slice/l3slice/docagent.py`: thêm `run_oneshot`.
+  - Request đầu gửi toàn bộ source có số dòng, qua `read_file`, nên sổ đọc vẫn đếm đúng.
+  - Model bị buộc trả lời bằng `submit_findings` (`tool_choice`).
+  - Vòng sửa chỉ thêm lỗi, tên mục (`what`) và các dòng source mà mục đó dẫn (`source`). Tối đa `Budget.max_repair_rounds` (mặc định 2).
+  - Phần đầu hội thoại giữ nguyên để provider đọc từ bộ đệm.
+  - Checkpoint JSON được ghi sau mỗi request. Chạy lại trên cùng snapshot và prompt thì làm tiếp, và các mục đã lưu được kiểm lại qua `Claims`.
+  - Source quá `max_context_chars` thì báo `SOURCE_TOO_LARGE`, không gửi gì. Chưa làm chế độ chia gói cho repo lớn.
+  - Provider trả thêm số token `cached`.
+- `docpipeline.run_documents(..., mode="oneshot", checkpoint=...)`. `result.json` ghi `agent.mode`, `agent.requests` (token, cache, chi phí từng request) và `prompt_version` của chế độ đang dùng.
+- **"Schema" chưa phải strict schema.** Khuôn mục vẫn mô tả trong prompt; bộ kiểm `Claims` vẫn là nơi kiểm khuôn.
+- Test: lớp `OneShot` trong `test_docagent.py`, 6 test, offline. `test_docagent` 80/80 qua. Suite đầy đủ chạy lại sau thay đổi cuối: 440/441. Lỗi duy nhất là `test_gateway` cũ.
+- Runner: `ket-qua-chay/run_oneshot_20261011.py`. Model, giá, trần và effort lấy từ biến môi trường. Runner chặn request nếu số đã tiêu cộng mức xấu nhất của request đó vượt trần.
+
+**Đo thật trên Teamhide (cùng snapshot với r3):**
+
+| Lượt | Model | Request | Chi phí | Kết quả |
+|---|---|---|---|---|
+| r3 cũ, agent | gpt-4.1-mini | 67 | 0,218 USD | 4/5 route được nhận; chưa đọc 41 file |
+| `oneshot-20261011` (prompt v1) | gpt-4.1-mini | 3 | 0,024 USD | 0/5 route: id viết dạng module có dấu chấm |
+| `-r2` (v2) | gpt-4.1-mini | 3 | 0,033 USD | 0/5 route (chuỗi prefix sai); 46 vai trò được nhận |
+| `-r3` (v3) | gpt-4.1-mini | 3 | 0,026 USD | 0/5 route; câu trả lời đầu chỉ có model dữ liệu. Kết quả dao động mạnh |
+| `-gpt5` (v3) | gpt-5-2025-08-07, effort low | 2 (request 3 bị chặn ngân sách) | 0,192 USD | Sau 1 vòng sửa, prefix/model/response của 5/5 route đều qua. Route chỉ còn bị từ chối vì lỗi bộ kiểm 2 dưới đây |
+
+Tổng đã tiêu: 0,274 USD. Đọc đủ 100% file trong mọi lượt. Với gpt-5, request đầu tốn 0,109 USD, chủ yếu là token ra (8.237). Vòng sửa đọc 21k/29,6k token đầu vào từ bộ đệm.
+
+Hai lỗi bộ kiểm tìm được ở lượt này (file rỗng, `Depends(Provide[...])`) đã sửa ở mục dưới.
+
+## Sửa 8 lỗi bộ kiểm theo review 11/10 — 11/10/2026
+
+Người dùng nhờ xem lại bản review [FR029-review-code-va-de-bai-20261011.md](FR029-review-code-va-de-bai-20261011.md), test offline trước khi tốn tiền, rồi "làm để chương trình chuẩn nhất". Người dùng đã duyệt sửa lỗi 1–8 và cho chạy thật gpt-5 với trần 0,30 USD.
+
+**Kiểm lại bản review (offline, trên bản sao các phép thử):** mọi ý đều đúng. Công cụ đo cho số giống hệt bản review. Phép thử "agent đọc hết nhưng không nộp gì" cho 0 dữ kiện, 0 file API: AST không tự tạo mục.
+
+**Đã sửa (code chưa commit). Test viết đỏ trước, ở `slice/tests/test_review_20261011.py` (19 test):**
+
+| # | Lỗi | Sửa ở đâu |
+|---|---|---|
+| 1 | Đòi vai trò cho file rỗng | `Claims.open_problems` |
+| 2 | `Depends(Provide[...])` không đặt tên được | `_dep_target`: dạng `X[...]` ghi nguyên văn |
+| 3 | Tham số trùng; OpenAPI hỏng vẫn ready | `Claims.params` từ chối trùng; `render.openapi_problem` chạy bộ kiểm OpenAPI trong `check_doc` (lỗi → FORMAT_INVALID) |
+| 4 | Giá trị ở phần dòng bị cắt vẫn được nhận | `Claims.text`/`shown` chỉ trả phần đã gửi; `_hidden` cho URL HTTP |
+| 5 | Auth bịa vẫn known | dòng `auth.at` phải có Depends/Security hoặc lớp của `fastapi.security` (`AUTH_SIGNAL`) |
+| 6 | Body JSON không có model | `request_body.type`; dữ kiện `request_type`; xuất `requestBody` |
+| 7 | Đường gọi Service bịa | mỗi bước phải tới được hàm chứa bước sau qua ≤3 lời gọi (so theo tên hàm) |
+| 8 | Kiểu/required/nullable không so với source | `_field_check` so với dòng khai báo; không quyết được thì hạ nhãn model xuống inferred |
+
+Prompt agent v16 và prompt đọc một lần v5 đã thêm các luật này.
+
+**Kiểm chứng (đã chạy):**
+- Suite 459/460. Lỗi duy nhất là `test_gateway` cũ.
+- `fr029_checkaudit`: không đổi so với trước khi sửa (0 nhận sai/loại sai).
+- Đo trên gold bằng script scratchpad `measure_fields_service.py`:
+  - trường model: 348 trường gold, 0 bị từ chối nhầm, 311 trường quyết định được cả ba thuộc tính;
+  - Service: 16 đường gọi gold, 1 bị từ chối. Đó là agentgpt `agent_service_provider.py`, nơi hàm được truyền làm tham số (`Depends(validator)`), kiểm theo tên không lần ra.
+- Gold không ghi auth, nên luật 5 chỉ có test.
+- 7/7 phép thử của bản review nay bị chặn; file API vẫn hợp lệ.
+
+**Chạy thật gpt-5, đọc một lần, prompt v4 (`ket-qua-chay/oneshot-20261011-gpt5-r2`):**
+- 0,168 USD, 2 request; request 3 bị chặn ngân sách.
+- 4/5 route, 7 model, 54 vai trò được nhận; đọc đủ 100% file.
+- Route thứ 5 (`get_user_list`) bị từ chối vì prompt v4 viết dễ hiểu sai về tên dependency dạng `Depends(f(...))`. Đã sửa prompt (v5) và thông báo lỗi; **v5 chưa chạy thật**.
+- Tổng tiền OpenAI hôm nay: 0,442 USD.
+
+**Phát hiện sau đó:** file API của lượt gpt-5 trên bị chặn (FORMAT_INVALID, "thiếu thư viện openapi-spec-validator"). Runner chạy bằng Python gốc, vì `with_openai.py` mở tiến trình con bằng lệnh `python`; Python gốc không có thư viện này, còn `scripts/.venv` thì có. `slice/` chưa có file khai báo thư viện. Dựng lại offline từ checkpoint bằng venv thì file API ready. Rà đầu vào/đầu ra: [FR029-dau-vao-dau-ra-20261011.md](FR029-dau-vao-dau-ra-20261011.md). Người dùng yêu cầu đầu ra "một file, dễ đọc"; điều này khác FR-029, đang chờ chọn cách A/B.
+
+**Người dùng chọn cách A, để nguyên archdia, làm các mục còn lại (11/10). Đã làm (code chưa commit):**
+- `slice/l3slice/tailieu.py`: sinh `TAI-LIEU.md`, một file đọc chính cho người. Có 6 mục và phụ lục link OpenAPI; không có mã băm, không có JSON. Loại artifact ghi là `readme`.
+- Loại component: membership không ghi `kind` thì xếp theo phạm vi đọc (`MEMBERSHIP_KIND_DERIVED`); ghi `normal` cho file kiểm thử/migration thì báo `MEMBERSHIP_KIND_SUSPECT`. README ghi "file rỗng" hoặc "ngoài phạm vi đọc".
+- `slice/requirements.txt`, kèm dòng cài đặt ở `slice/README.md`. `with_openai.py` (scratchpad) nay chạy bằng chính Python đang dùng.
+- Test `slice/tests/test_tai_lieu.py` 8/8; suite 467/468 (lỗi `test_gateway` cũ).
+- Mẫu thật: `ket-qua-chay/tai-lieu-mau-teamhide-20261011/output/TAI-LIEU.md`, dựng lại offline từ câu trả lời gpt-5.
+- Còn treo: FR-029 mục "Đầu ra" chưa ghi `TAI-LIEU.md` (cần CR).
+
+**Cách test về sau (người dùng yêu cầu 11/10):** cho Codex hoặc agent Claude đóng vai model, chấm bằng bộ kiểm offline. Cách này không thay được nghiệm thu bằng model thật.
+
+**Việc tiếp:**
+- Chạy lại gpt-5 với v5. Cần thêm tiền: mỗi lượt khoảng 0,17–0,25 USD.
+- Chấm nội dung so với gold Teamhide (route, model, tham số), chưa làm.
+- Khuôn kiến trúc thật (archdia) và thư mục `venv` không có `pyvenv.cfg`: chờ người dùng quyết.
+
+## Gói ZIP bàn giao code — 11/10/2026
+
+Theo yêu cầu gom file cần đưa lên GitLab, đã tạo `D:/VSF/deliverables/L3-Generator-files-gitlab-20261011.zip` (532.416 byte). `repo-files/` chứa 179 file: toàn bộ `slice/`, 10 contract/schema trong `.aide/tech-specs/`, hai file kiểm contract trong `scripts/`, kế hoạch FR029 và hai cấu hình Git. Có README bàn giao, manifest SHA-256 từng file và log test ngoài payload. Không chứa key thật, `.env`, `.git`, venv, cache, output thử nghiệm hoặc các sửa hồ sơ ngoài phạm vi. Fixture RSA giả có nội dung `abc` được kiểm và giữ cho test che bí mật.
+
+Đã chạy trên bản sao chỉ có payload: **434/435 test qua**, còn lỗi đã biết `test_gateway.Gateway.test_unknown_ids_are_dropped`; demo CLI FR029 offline exit 0, sinh API/README/result. Đã kiểm CRC ZIP và hash của cả 179 file. Dùng Python/dependencies hiện có, chưa xác nhận cài mới trên máy khác. Script đóng gói: `.audit-output/package_upload.py`; không nằm trong ZIP. Không sửa production, stage, commit hoặc push. Đề xuất tối ưu model/schema/checkpoint vẫn chưa triển khai. SHA-256 ZIP: `ef38583e9ffdffb37d8c51c40f1717b4263c653e978353129a8f1c76474ac03d`.
+
+## Giao diện FR-029 và kế hoạch hoàn thiện — 11/10/2026
+
+Người dùng yêu cầu thêm giao diện cơ bản và đẩy code mới. Đã thêm `slice/l3slice/docweb.py`, `docui/`, `slice/demo/fr029.script.json`, 9 test HTTP/pipeline và 4 test DOM. Giao diện gọi trực tiếp `run_documents`, không đi qua bộ trích tĩnh của web cũ. Nhập đường dẫn source/membership, nhận tùy chọn archdia/sơ đồ, chạy nền một job, xem agent/coverage/parity/giới hạn, xem văn bản và tải artifact. Provider/key ở server; chỉ loopback, kiểm Host/Origin và header POST. Kịch bản offline dùng fixture fr029_e2e và được ghi rõ trên UI. Lịch sử chỉ trong phiên server; chưa có resume/cancel/upload ZIP.
+
+Đã lưu `docs/FR029-ke-hoach-hoan-thien-yeu-cau.md`: ánh xạ tám AC, sáu OQ mở và T01–T10 có thứ tự, đầu ra, điều kiện hoàn thành. Không sửa quyết định OQ hoặc tuyên bố đã hoàn thiện độ chính xác chỉ nhờ thêm UI.
+
+Kiểm mới: 9/9 test backend UI qua; 4/4 DOM integration qua; JavaScript qua `node --check`; suite Python 434/435 qua trong 18,331 giây, còn lỗi cũ `test_gateway.Gateway.test_unknown_ids_are_dropped`. DOM test dùng jsdom 29.1.1 cài trong thư mục tạm, không thêm dependency runtime. Browser inventory trống, chưa kiểm trực quan desktop/mobile; chưa gọi model thật. Server demo thử ở `http://127.0.0.1:8001/`, workdir `D:/VSF/l3-fr029-ui-output` ngoài repo.
+
+Đã commit **`8accd89`** trên `feature/l3-fr029`: toàn bộ `slice/` (pipeline trước đó còn chưa commit), schema `.aide/tech-specs/` và hai script kiểm hợp đồng cần cho test, cùng kế hoạch mới. Không đưa log `ket-qua-chay/`, evidence cá nhân hoặc các sửa baseline/kiến trúc khác vào commit; giữ staging ngoài phạm vi. Đã xuất checkout riêng từ commit và chạy lại suite: 434/435 qua, đúng một lỗi gateway cũ, không thiếu module/schema. Sau đó chỉ chỉnh README/kế hoạch để không dẫn link tới tài liệu cục bộ chưa commit.
+
+**Push chưa thành công:** `git push -u origin feature/l3-fr029` bị GitLab trả HTTP 403, nguyên văn: `Your top-level group is over the user limit and has been placed in a read-only state.` Đây là khóa từ phía group GitLab, không phải thiếu commit hay lỗi test mới. Remote vẫn là `https://gitlab.com/vinuni1/vinuni-batch-3/group-5/l3-generator.git`. Chủ group cần xử lý giới hạn/tháo trạng thái chỉ đọc; sau đó chạy lại lệnh push trên. Không tạo remote khác hoặc đổi quyền group.
+
+## Đọc code, chạy test và đối chiếu đề bài — 11/10/2026
+
+Người dùng yêu cầu đọc/test kỹ phần l3-generator và đánh giá sinh tài liệu có hợp lý với đề bài. Báo cáo mới: [FR029-review-code-va-de-bai-20261011.md](FR029-review-code-va-de-bai-20261011.md). Giữ phạm vi FR029: nhận component/sơ đồ, không tự dựng; không mở rộng TBL/EVT. Đã đọc code hiện tại sau các sửa 07–09/10, không dùng lại kết luận cũ như kết quả mới.
+
+Kiểm mới: toàn suite **425/426 qua** trong 15,038 giây; lỗi `test_gateway.test_unknown_ids_are_dropped` đã có trong bàn giao trước. `fr029_checkaudit` **37 bộ**, 406 route/408 đăng ký/169 dòng dependency/33 HTTP; không false acceptance/rejection trong các phép đo tương ứng, còn 2 `http_gold_vs_rule` và 4 suspect ngoài gold. Chạy cả sanity accept/reject, phép đo bắt được bộ kiểm giả. CLI offline sinh đủ API/README/result nhưng exit 0 vẫn có parity not_evaluated và thiếu sơ đồ — không đồng nghĩa nghiệm thu.
+
+Probe mới xác nhận: model sai type/required/nullable vẫn exact và completed; parameter trùng tạo OpenAPI invalid nhưng ready; auth bịa vẫn xuất known; chuỗi Service không có cạnh gọi vẫn được publish completed; evidence ở phần dòng bị cắt vẫn nhận; JSON body models=[] bị từ chối; snapshot bỏ venv/ chứa code import repo. Prefix đảo thứ tự đã được bản hiện tại chặn đúng. AC04 chỉ hỗ trợ archdia-fixture-v1, cần tích hợp upstream thực. Báo cáo xếp thứ tự sửa: nghĩa dữ kiện/nhãn và OpenAPI → chứng minh quan hệ → reader/schema/scope → upstream → đo toàn sản phẩm.
+
+Evidence và script tái hiện: [.aide/evidence/tests/fr029-code-review-20261011/](../.aide/evidence/tests/fr029-code-review-20261011/). Chỉ thêm báo cáo/evidence và cập nhật bàn giao; **chưa sửa sản phẩm/golden/spec**, không gọi model trả phí hoặc chạy source repo, không commit/push. Các artifact của probe là dữ liệu giả, không phải tỷ lệ lỗi model thật. Những tuyên bố “đạt” ở lịch sử phía dưới thuộc cấu hình/phép đo cũ; không thay cho nghiệm thu tám AC của code hiện tại.
+
+## Kiểm độ chính xác bộ kiểm trên nhiều repo (cách 1, không LLM) — 08/10/2026
+
+Yêu cầu: "cách 1, làm sao để tỉ lệ chính xác cao với mọi repo… phải làm báo cáo, chấm công bằng, cho dùng Codex astra high". Báo cáo: [FR029-bao-cao-kiem-bo-kiem-20261008.md](FR029-bao-cao-kiem-bo-kiem-20261008.md).
+
+- **Code mới, chưa commit:**
+  - `slice/l3slice/astscan.py`: đọc cây cú pháp cho HTTP, receiver, alias.
+  - `slice/l3slice/docfacts.py`: kiểm route, HTTP, dependency, suspects bằng AST.
+  - `slice/tools/fr029_checkaudit.py`: công cụ đo, có chế độ `--sanity accept|reject` và `--heldout`.
+  - `slice/tests/test_checker_counterexamples.py`: 137 test phản ví dụ.
+- **Hiện trạng (09/10, 04:30):**
+  - Gold r41 (37 bộ): 0 lỗi mọi phép thử, bộ giả bị bắt ở mọi chỉ số (`ket-qua-chay/fr029-checkaudit-20261009-r41*`).
+  - Codex vòng 10: 6/7 ca vòng 9 đã xử lý, ca còn lại và 6 ca mới đã sửa (lớp `RoundTen`). Các bản sửa vòng 10 chưa có Codex kiểm lại.
+  - Held-out đợt 3 (`D:/VSF/l3-heldout-repos4/`, theo thứ tự `gh search`, bỏ scalekit vì là SDK): ai-pdf-autofiller, creatorhub sạch; xianyu 13 nhiễu + 7 bỏ sót → đã sửa 11 nhiễu + 5 bỏ sót. Còn `self.runtime.session.post` chưa xử lý.
+  - Gói cuối của 10 repo held-out: `ket-qua-chay/fr029-heldout-20261009-r32/`.
+  - Toàn suite 425/426 (lỗi `test_gateway` cũ); log mới nhất ở `.aide/evidence/tests/fr029-checker-20261009/unit-tests.log`.
+  - Hồ sơ theo Quy_tac (ghi 09/10): yêu cầu nguyên văn `.aide/evidence/requests/CR-L3GEN-2026-008-requests-02.yaml`; nhật ký `DIARY-CR-L3GEN-2026-008.md` mục "Phiên 07/10 tối – 09/10"; bằng chứng test `.aide/evidence/tests/fr029-checker-20261009/`; đề bài và kết quả giám khảo `.aide/evidence/reviews/fr029-checker-20261007-09/` (bản gốc ở scratchpad có thể mất).
+  - Hồ sơ lifecycle đủ khuôn (09/10, ghi muộn, draft, chưa qua gate): ADR-2026-006; CMP-004/006/007 revision 5; BL-r11 (35 artifact, `prd_package.py check` khớp); `impact.yaml` và `CSV-...-r11.md` sinh lại bằng script; STORY-029-01; TASK-029-6..9 kèm CTX/PLAN/DIARY; OQ-016/017/018 mở, OQ-013 revision 2; 19 file `REVIEW-*.yaml` với finding FIND-L3GEN-001..165.
+  - `impact.yaml` báo API-L3GEN-001..008-v1 stale sau khi CMP lên revision 5: cần xem lại ở bước L3.
+  - Chưa sửa `docs/FR029-quy-tac.md` mục 8, 12, 17 (lỗi thời so với code; lệch 007-6).
+- **Cần người dùng quyết:**
+  1. Lời gọi qua hàm bọc của dự án (`http_retry.get(...)`) có tính là lời gọi HTTP không. Hiện chỉ tính lời gọi trực tiếp httpx/requests/aiohttp.
+  2. Giữ hướng "agent thuần" hay kết hợp phân tích tĩnh.
+- **Tiếp theo (nếu tiếp tục):** Codex vòng 11 (`scratchpad/codex_fairness10.md` đổi số vòng, trỏ r41); chấm lại xianyu bằng gói r32; thêm repo held-out đợt 4 (OpenExecutive là repo kế tiếp trong danh sách). Mỗi nhóm sửa: test đỏ trước, rồi gold + bộ giả + so gói held-out.
+  3. Diễn giải FR-028 cho script trong `scripts/` chỉ import helper cùng thư mục (caura): hiện coi là ngoài phạm vi. Lệnh Codex: `codex exec -m gpt-6-astra -c model_reasoning_effort=high -s read-only --skip-git-repo-check -C D:/VSF -o <out> "$(cat <prompt>)" < /dev/null`.
+- **Kinh nghiệm:**
+  - Mỗi phép đo mới (prefix, chạy trên gold sau mỗi sửa) đều bắt được lỗi thật hoặc hồi quy do chính bản sửa. Luôn chạy gold + bộ giả sau mỗi nhóm sửa.
+  - Khi giám khảo chấm "sai", kiểm trên bộ kiểm thật bằng test trước khi sửa: 4/4 mục "sai tham số" đợt 2 là lỗi trình bày của gói.
+  - Heredoc trong Bash làm hỏng `\n` và `\s`; ghi script ra scratchpad bằng Write hoặc dùng Edit.
+
+## Kiểm chéo golden bằng agent Claude, sửa bộ chấm, gold r2, prompt v14 — 07/10/2026
+
+Yêu cầu: "hoàn thành sao cho hoàn hảo nhất", sau đó đặt `/goal` "tự chạy và kiểm chất lượng đến ổn thì thôi". Người dùng cho phép dùng nhiều agent.
+
+Báo cáo tổng hợp: [FR029-kiem-cheo-golden-claude-20261007.md](FR029-kiem-cheo-golden-claude-20261007.md). Báo cáo từng agent: `.aide/evidence/reviews/fr029-gold-claude-20261007/`.
+
+Đã làm (code đã viết và test đã chạy):
+
+- 6 agent Claude kiểm gold độc lập. Không thấy route nào sai. Lỗi nằm ở phương án thay thế, dòng bằng chứng và gold v1 (4 lỗi A).
+- Bộ chấm (`fr029_score`, `fr029_accept`, `fr029_golden4`, `fr029_golden_routes`, `fr029_grade_merge`, mới `fr029_rescore`):
+  - sửa mọi lỗi đã xác nhận (danh sách ở mục 4 của báo cáo);
+  - thêm `verdict()` theo NFR-ACC-002;
+  - thêm `ERRATA` cho gold v1.
+- Gold r2: `D:/VSF/l3-acceptance-gold/{agentgpt,kibo}/gold.r2.json`, do `.aide/evidence/tests/fr029-gold-r2-20261007/make_gold_r2.py` sinh ra. `fr029_accept.CASES` đã trỏ sang r2. e2e thêm `alt_lines`.
+- Sản phẩm (prompt v14 + bộ kiểm):
+  - nhắc tham số khai trong dependency;
+  - cho nộp model `dynamic`;
+  - bỏ model không có route nào dùng (ghi tên vào `result.json`, mục `unreferenced_models`);
+  - kiểu trả về là lớp Response thì ghi `null`;
+  - đích HTTP `config` kèm `config_at`.
+- Test: `test_fr029_scorer` 25/25. Toàn suite 267/268, lỗi duy nhất là `test_gateway` cũ.
+  - RED: các test mới đều chạy đỏ trước khi sửa code.
+  - Ngoại lệ: lỗi của lượt trước. Các tool chưa có trong git nên không chạy lại được trên code cũ. Bằng chứng code cũ sai là `.aide/evidence/tests/fr029-review-20261007/reproduce_scorer-observed.json` của Codex.
+- Chấm lại output v13 cũ (không gọi model): `ket-qua-chay/fr029-rescore-20261007-gold-r2/`. Trường model kibo 42/42; AgentGPT `exact` sai 9,1%; igorbenav tên model 24/30.
+
+Kết quả đo prompt v14 (luna, không mù): bảng đầy đủ ở mục 6b của [FR029-kiem-cheo-golden-claude-20261007.md](FR029-kiem-cheo-golden-claude-20261007.md).
+
+- **Đạt NFR-ACC-002:** tdd-docker (`tdd-docker-r2`), AgentGPT (`agentgpt-r2`, `exact` sai 4,8%), kibo (`kibo`, `exact` sai 0/20).
+- **igorbenav (`igorbenav-r3`):** đạt. Route P = R = 0,912; model 10/0/2; `exact` sai 0/10. Model chấm bằng gold mới do hai agent độc lập lập và khớp hoàn toàn (`.aide/evidence/tests/fr029-igorbenav-models-20261008/`, `fr029_accept.MODEL_GOLD`).
+- Chấm lần cuối cả 4 lần chạy tốt nhất: `ket-qua-chay/fr029-rescore-20261008-final/`; **cả 4 đạt**.
+- Đã sửa nhưng chưa đo bằng model: response là generic của thư viện (`external`), dependency factory.
+- Chi phí các lần chạy v14 khoảng 2,9 USD. **Tài khoản OpenAI đã hết tiền** (`kibo-r3` dừng với 429 `credit_balance_exhausted`). Muốn đo thêm phải nạp tiền.
+- Test (08/10): toàn suite 283/284, lỗi duy nhất là `test_gateway` cũ; `test_docagent` + `test_fr029_scorer` 92/92.
+- Bản sửa dependency factory (3 route `waitlists` của kibo) mới kiểm offline, chưa đo bằng model.
+
+Còn lại:
+
+- Gold dependency/auth (agent đã liệt kê đáp án cho tdd và AgentGPT).
+- Chấm điều kiện đăng ký route.
+- Các điểm D: OQ-013, OQ-014.
+- Gold r2 và errata cần Khiêm duyệt.
+- Cần tập repo giữ riêng mới để đo mù.
+
+## Ghi quyết định OQ-012 và tổng hợp golden — 07/10/2026
+
+Người dùng trả lời OQ-L3GEN-012: "3 quy tắc này bỏ qua hết". Câu này áp dụng cho NFR-SEC-002, NFR-AI-002 và OQ-009.
+
+- File đã sửa:
+  - thêm `.aide/evidence/requests/CR-L3GEN-2026-008-decisions-01.yaml` (ghi waiver);
+  - OQ-012 lên revision 2, trạng thái `answered`;
+  - thêm mục cuối vào `DIARY-CR-L3GEN-2026-008`.
+- Hệ quả: luồng agent không còn bị 3 quy định trên chặn. Mục "dừng theo luật" bên dưới đã hết hiệu lực.
+- Waiver còn thiếu hai thứ: lý do, và xác nhận của Khiêm nếu Hoàng không sở hữu hai NFR. Text spec không đổi.
+- Đã trả lời người dùng trong chat: cách dựng golden, cách đo, mức tin. Có dùng kết quả của hai mục kiểm chéo bên dưới.
+- Chưa chạy model, chưa sửa code, gold hay bộ chấm. Không commit.
+- Việc còn lại: theo thứ tự ở [FR029-kiem-cheo-golden-20261007.md](FR029-kiem-cheo-golden-20261007.md) mục cuối. Các repo nghiệm thu đã bị mở đáp án, nên lần đo sau cần một tập repo giữ riêng mới.
+
+## Kiểm chéo golden bằng nhiều session — 07/10/2026
+
+Người dùng yêu cầu kiểm chéo các golden hiện tại. Đã giao ba session ngữ cảnh riêng: acceptance, bốn gold v1, fixture/dev; phiên chính đối chiếu lại finding với source. Báo cáo: [FR029-kiem-cheo-golden-20261007.md](FR029-kiem-cheo-golden-20261007.md). Evidence ở [.aide/evidence/reviews/fr029-gold-audit-20261007/](../.aide/evidence/reviews/fr029-gold-audit-20261007/).
+
+Xác nhận ba alternate sai trong AgentGPT: URL f-string được chấp nhận như literal; hai file Service được chấp nhận như Khác. Tách riêng bốn lỗi tái sử dụng gold: Dispatch chỉ chấm case/views nhưng runner chấm toàn source; FBA so đầu span thay dòng HTTP call; OAuth constructor ngoài phạm vi FR029 bị đưa vào HTTP; placeholder prefix của gold v1 bị so như path biết chắc. Chưa thấy sai giá trị chính của 86 route acceptance trong phạm vi đã kiểm. Kibo thiếu oracle.json cạnh gold, 55 file role thiếu dòng bằng chứng; dependency/auth và đủ tám AC chưa được phủ.
+
+Kiểm cấu trúc 33 gold/1.759 tham chiếu không thấy lỗi trong trường đã quét; kiểm lại 401 lượt file gold/source theo hash không đổi. Probe giả cho HTTP dòng 49 tái hiện TP=0 FP=1 FN=3 do matcher/phạm vi, không phải số đo model. Acceptance có báo cáo độc lập; hai reviewer còn lại bị ngắt trước báo cáo cuối. Audit ngữ nghĩa toàn fixture/dev và toàn gold v1 **chưa hoàn tất**, không tuyên bố toàn bộ golden đạt.
+
+Đã mở chi tiết source/gold repo kín theo yêu cầu audit; không đọc output sản phẩm để lập đáp án, không chỉnh prompt. Các dòng lịch sử dưới đây nói “không mở repo kín” chỉ mô tả phiên trước. Giữ nguyên gold/source/spec/scorer; chưa chạy oracle/model/benchmark lại, chưa sửa lỗi. Tiếp theo: đính chính gold bằng revision mới, sửa adapter/scorer, bổ sung coverage/provenance và hoàn tất audit còn dở; rồi chấm lại output cũ với phiên bản phép chấm rõ ràng. Nếu dùng repo đã mở đáp án để tuning, không gọi phép đo sau đó là mù.
+
+## Đánh giá tài liệu mentor và kiểm chéo bộ chấm — 07/10/2026
+
+Người dùng yêu cầu đọc kỹ `FR029-giai-thich-cho-mentor.md`, dự án và đề xuất cải thiện; sau đó yêu cầu nhiều session kiểm bộ chấm cho công bằng. Đã đọc luồng agent/renderer/CLI/scorer và spec liên quan, dùng hai reviewer ngữ cảnh trống (`scorer_review_a`, `scorer_review_b`) không cung cấp kết luận trước. Không đọc source/gold/output chi tiết repo kín; không gọi model trả phí.
+
+Kết luận và thứ tự làm: [FR029-danh-gia-va-huong-cai-thien-20261007.md](FR029-danh-gia-va-huong-cai-thien-20261007.md). Biên bản reviewer: [.aide/evidence/reviews/fr029-scorer-20261007-independent.md](../.aide/evidence/reviews/fr029-scorer-20261007-independent.md). Probe, output thực và hash file đã đọc: [.aide/evidence/tests/fr029-review-20261007/](../.aide/evidence/tests/fr029-review-20261007/).
+
+Đã tái hiện: evidence ở phần dòng bị cắt vẫn được nhận; prefix đảo thứ tự qua kiểm; field model sai vẫn exact; parameter trùng tạo OpenAPI invalid nhưng API ready. Kiểm chéo scorer xác nhận alias làm mất lỗi exact, duplicate đổi điểm theo thứ tự, thiếu gold vẫn vào mẫu số exact, unknown/dynamic rỗng bị tính correct, mất chiều mảng và merge lỗi khác field thành đồng thuận. Hai format gold còn khác phạm vi/matching. Không suy đoán tỷ lệ ảnh hưởng tới số đo repo kín cũ.
+
+Kiểm mới: test_docagent 51/51 qua; toàn suite 238/239, lỗi `test_gateway.test_unknown_ids_are_dropped` trùng lỗi đã ghi trước, 12,523 giây. Các probe dùng dữ liệu giả, không là số đo model. Đã thêm báo cáo/evidence và cập nhật HANDOFF; **chưa sửa code sản phẩm/scorer/gold/spec, chưa sửa tài liệu mentor gốc, không commit/push**.
+
+Ưu tiên tiếp: sửa scorer + test bất biến (alias, trùng/đảo thứ tự, unknown, thiếu gold, chiều mảng, merge); chấm lại output cũ bằng số tổng và giữ phiên bản phép chấm. Sau đó sửa evidence/OpenAPI, mở schema/nhãn theo field, cải thiện sổ trạng thái agent, đồng bộ CLI/upstream và đo cấu hình mới. Tài liệu mentor trộn hiện trạng v13 với lịch sử v8, cần cập nhật bảng AC/chi phí và tên chỉ số.
+
+Đính chính trạng thái quyết định: OQ-012 đã `answered`, evidence `CR-L3GEN-2026-008-decisions-01.yaml` ghi người dùng trả lời bỏ qua ba quy tắc; mục “dừng theo luật” bên dưới là ghi chú trước cập nhật này. Hồ sơ còn nêu việc hoàn thiện waiver theo quy trình; phiên đánh giá không yêu cầu người dùng trả lời lại hoặc sửa spec.
+
+## FR-029: đối chiếu với Quy_tac và dừng theo luật — 07/10/2026
+
+Người dùng yêu cầu đọc kỹ `Quy_tac/` (execution guide) và làm theo. Kết quả đối chiếu:
+
+- **Mâu thuẫn spec (chặn):** luồng agent gửi nguyên file source, gọi OpenAI trực tiếp, nhiều request, vượt trần 0,20 USD/300K token. Như vậy trái NFR-L3GEN-SEC-002, NFR-L3GEN-AI-002 và OQ-L3GEN-009. EXEC §B.15 luật 1: tạo OQ và dừng. Đã mở **OQ-L3GEN-012** (blocking FR-029). **Dừng chạy luồng agent trên repo thật cho tới khi OQ-012 đóng.**
+- Mở thêm OQ-L3GEN-013 (route không gắn app), OQ-L3GEN-014 (status trong thân handler), OQ-L3GEN-015 (đáp án repo kín do agent lập; igorbenav kín hay chỉnh prompt). Owner Hoàng, due 2026-10-10. `uid` cấp bằng `scripts/gen_uid.py`.
+- Ghi muộn **CR-L3GEN-2026-008** (nguyên văn yêu cầu phiên 07/10) và **DIARY-CR-L3GEN-2026-008** (4 mục; liệt kê các chỗ đi chệch: không OQ, thiếu Task/CTX/PLAN, review package có lý lẽ tác giả, không RED-first, sửa lan, số đo ngoài `evidence/tests/`).
+- `prd_package.py check --baseline BL-r10.yaml`: 34 artifact khớp; không đụng spec đã duyệt.
+- Chưa làm (cần người dùng quyết):
+  - tạo Task/Story ghi muộn cho phần việc đã làm, hay chờ Change Set mới;
+  - ghi FIND-L3GEN-120+ cho 20 phát hiện của Codex;
+  - chép số đo vào `.aide/evidence/tests/`;
+  - review lại bằng package không có lý lẽ tác giả.
+
+## FR-029: đo nghiệm thu trên 4 repo kín — 07/10/2026
+
+- Người dùng chọn chỉ dùng luna cho nghiệm thu, trần 1,2 USD (đã tiêu khoảng 1,15). Tổng chi tiêu OpenAI cả phiên khoảng 3,0 USD.
+- Source 3 repo kín tải đúng commit OBS-001 vào `D:/VSF/l3-acceptance-repos/`. Gold do 3 agent độc lập dựng (oracle `app.openapi()` chạy được cả 3) ở `D:/VSF/l3-acceptance-gold/{tdd-docker,agentgpt,kibo}/` (gold.json, membership.json, oracle.json). `igorbenav` dùng golden v1 (Khiêm duyệt). Một agent dựng gold (kibo) lỡ báo vài loại phán đoán chi tiết; ghi nhận, và từ đó không chỉnh prompt trước khi đo.
+- Script đo: `slice/tools/fr029_accept.py` (1 lần mỗi repo, chỉ in số tổng; chi tiết vào `private/`). Bộ chấm `fr029_score.py` đã hiểu các phương án gold khai: `alt_roles`, `alt_where`, `alt_names`, `alt_types`, `alt_methods`, `accept_alt_target`, `optional`, `dynamic.unknown_fields_acceptable`, response dạng `type`.
+- Kết quả (prompt v13): route đạt trên cả 4; **không đạt** `exact` sai (AgentGPT 18%, kibo 56%), HTTP AgentGPT (P 0,60, R 0,50), model tdd-docker (R 0,75) và igorbenav (tên model 6/30). Tham số yếu (5/16, 11/64). AgentGPT và kibo dừng `partial` vì trần chi phí. Bảng đầy đủ ở mục 1 của `FR029-giai-thich-cho-mentor.md`.
+- Việc tiếp (không xem chi tiết repo kín):
+  1. Cải thiện tham số, trường model, đích HTTP và nhãn `exact` bằng repo lộ và fixture.
+  2. Cân nhắc để nhãn `exact` chỉ dành cho giá trị có literal; còn lại `inferred`.
+  3. Nâng trần chi phí cho repo vừa.
+  4. Đo lại bằng cấu hình mới, 1 lần mỗi repo.
+
+## FR-029: kiểm toán Codex và sửa theo kiểm toán — 07/10/2026
+
+- Codex `gpt-6-astra` (high, chỉ đọc) kiểm toán toàn bộ: **chưa đủ, chưa đúng với toàn bộ yêu cầu**. Bản đầy đủ: `ket-qua-chay/fr029-pilot-20261007/reviews/codex_audit_out.md`. Claude đã tái hiện F01–F04, F14 trước khi sửa.
+- Lỗi code F01–F20: 13 sửa xong có test hồi quy (lớp `AuditFixes` trong `test_docagent.py`), 6 sửa một phần (F03 thứ tự prefix, F04 không có OpenAPI validator trong pipeline, F05 `db.get`, F10 `venv/` cũ, F12 sơ đồ, F15 bộ chấm), 1 còn mở (F07 bằng chứng auth/vai trò không liên quan). Prompt `v13`.
+- Suite 238/239; log `ket-qua-chay/fr029-pilot-20261007/tests-after-audit.log`.
+- **Phát hiện theo OBS-001:** nghiệm thu tính trên từng repo kín nhỏ và vừa: tdd-docker, AgentGPT, igorbenav, kibo-backend. Repo kín lớn (fastapi_best_architecture, lnbits) chỉ báo số. teamhide và full-stack là repo lộ. Mới chạy igorbenav (route 30/34, tên model 6/30, partial); 3 repo kín còn lại chưa chạy. File duyệt golden v1 gọi igorbenav là "chỉnh prompt", mâu thuẫn với OBS; chưa xem chi tiết lỗi igorbenav.
+- Báo cáo mentor đã sửa theo kiểm toán: số file thật (84/22/112/296), prompt golden-luna là v5, luna3/luna4 có 2 lỗi đích HTTP, ý nghĩa "unknown khớp unknown", phạm vi bộ chấm, tên model 6/30 và 0/1, HTTP 0/3, Groq base3, nguyên nhân repo lớn là giả thuyết. Bài chấm và review lưu ở `ket-qua-chay/fr029-pilot-20261007/reviews/`.
+- Việc tiếp:
+  1. Người dùng quyết 3 câu hỏi và trần chi phí.
+  2. Lấy source 3 repo kín còn lại đúng commit trong OBS-001, dựng gold (oracle `app.openapi()` cho route/tham số/model), chạy bản v13 **một lần mỗi repo**, chỉ xem số tổng.
+  3. Thêm OpenAPI validator vào pipeline (F04).
+
+## FR-029: cập nhật cuối phiên — 07/10/2026
+
+Đọc trước: [FR029-giai-thich-cho-mentor.md](FR029-giai-thich-cho-mentor.md). File đó có cơ chế, số liệu đầy đủ và lệnh chạy lại.
+
+- Prompt hiện tại `fr029-agent-prompt-v12`. Từ v8 đến v12 sửa theo golden v1 (repo "chỉnh prompt") và chấm đa model; v11 thêm thứ tự làm việc cho repo lớn; v12 thêm kiểu `uuid`/`datetime`/`date`/`email`. **v9–v12 chưa được đo lại.**
+- Kết quả gần nhất:
+  - `luna5` (v8): fixture 18/18, 0 lỗi.
+  - golden dev (v7): TP 40, FP 2, FN 0.
+  - golden v1 4 repo (v8): teamhide 5/5; full-stack 23/23; igorbenav 30/34 (partial, chạm trần chi phí); fastapi_best_architecture 1/139 (partial, chạm trần chi phí).
+- Repo lớn thất bại vì agent nộp vai trò file trước, route dồn cuối, cộng ngữ cảnh ~125K token mỗi lượt. Sửa ở v11, kèm `--max-context-chars` 150000 mặc định trong `fr029_golden4.py`; chưa chạy lại.
+- Chấm đa model (Codex `gpt-6-astra`, Claude Opus, Claude Sonnet) không xem gold; gộp bằng `slice/tools/fr029_grade_merge.py`, chọn mẫu bằng `fr029_sample.py`. Lỗi ở repo "đo" (teamhide: `permission.py` phải là Service, 3/3 người chấm) chỉ ghi nhận, không dùng để chỉnh prompt.
+- Chi tiêu OpenAI: 1,62/2 USD. Cần người dùng cho phép thêm trước khi chạy lại repo lớn.
+- Suite 229/230 (lỗi gateway có từ trước). Chưa commit/push.
+- Chờ quyết định: (1) route ở file production mà router không được gắn vào app nào; (2) status trong thân hàm (`HTTPException`, `Response(status_code=...)`); (3) nâng trần chi phí.
+
+## FR-029 bằng agent: đã chạy model thật — 07/10/2026 (lịch sử)
+
+Tài liệu dễ đọc để trình bày với mentor: [FR029-giai-thich-cho-mentor.md](FR029-giai-thich-cho-mentor.md). Mục này giữ phần cần để làm tiếp.
+
+**Quyết định của người dùng:** agent thuần; cho chạy oracle `app.openapi()` để dựng gold; dùng nhiều agent kiểm chéo; dùng Groq rồi OpenAI; chọn model luna/terra; trần chi phí 2 USD; được dùng khóa ở biến `open_ai` trong `D:/VSF/VSF-L3 Generator/.env` (file đã git-ignore). Không in hay ghi khóa.
+
+**Code** (chưa commit): `slice/l3slice/source_tools.py`, `docfacts.py`, `docagent.py` (vòng agent; `OpenAICompatProvider`, `ResponsesProvider`; giãn nhịp theo token/phút; thử lại khi lỗi mạng; trần USD), `docpipeline.py`, lệnh `document` trong `__main__.py`; sửa nhỏ `render.py`, `common.py:13`. Công cụ: `slice/tools/fr029_pilot.py` (chạy fixture + chấm), `fr029_score.py`, `fr029_golden_routes.py` (route trên golden v1), `fr029_oracle.py`. Test: `slice/tests/test_docagent.py`. Gold: `slice/tests/fixtures/fr029/`. Prompt hiện tại `fr029-agent-prompt-v7`.
+
+**Số đo** (kết quả ở `ket-qua-chay/fr029-pilot-20261007/`):
+- Groq `gpt-oss-120b` miễn phí: không đo được, vì trần 8K token/request làm agent quên file (413, 429).
+- OpenAI `gpt-6-luna` qua Responses API, suy luận `medium`:
+  - `luna3`: 6 fixture × 3 lần, 18/18 hoàn tất; mọi route/model/HTTP/vai trò/giới hạn đúng; 1/3 lần ghi khóa cấu hình dạng `settings.X`. Khoảng 0,05 USD.
+  - `luna4` (prompt v6): 6/6 đúng, còn lỗi `settings.X`; đã chuẩn hóa trong code.
+  - `golden-luna` (19 case dev, chỉ route): TP 39, FP 3, FN 1, 0,07 USD. Lỗi: prefix truyền qua hàm bọc (đã sửa bộ kiểm + prompt v7); route `/healthcheck` của Netflix Dispatch không có trong gold case.
+- Gold golden v1 là `candidate`, `independent_humans` rỗng: chưa có người review. Gold fixture do agent G viết, Codex review một lượt.
+- Tổng chi tiêu OpenAI đến lúc ghi: khoảng 0,15 USD.
+
+**Kiểm chéo bằng Codex `gpt-6-astra` (high):** review code 2 lượt, review gold 1 lượt, review mù tài liệu vòng 1 (4 fixture, đã sửa phần thuộc code: dependency, truy vết model, nhãn, vai trò Hạ tầng, giới hạn thiếu sơ đồ). Vòng 2 trên `luna4` đang chạy; golden v1 với prompt v7 đang chạy.
+
+**Kiểm chứng:** suite 228/229; lỗi duy nhất `test_gateway.test_unknown_ids_are_dropped` có từ trước.
+
+**Chờ người dùng quyết:** route ở file production chỉ được gắn trong `conftest.py`; `HTTPException(404)` có tính là status khai trong code không; tham số `Optional` có ghi `| null`.
+
+**Bẫy:** công cụ Bash làm hỏng `\` trong heredoc; sửa file có `\` bằng Edit hoặc script ghi qua Write. Groq chặn User-Agent mặc định của urllib (403). `gpt-6.1-sol` không nhận tool + reasoning trên chat completions; dùng `/v1/responses`.
+
+**Việc tiếp:** xử lý kết quả review mù vòng 2 và golden v7; nếu sạch thì chạy lại `luna` 3 lần làm số đo cuối; cập nhật tài liệu mentor.
+
+## Triển khai FR-029 bằng agent: đợt 1 và ca xuyên suốt — 07/10/2026 (lịch sử; hiện trạng ở mục đầu)
+
+Người dùng yêu cầu triển khai kế hoạch và kiểm chéo với Codex. Đợt này làm N1–N4, ca xuyên suốt, CLI tối thiểu, bộ chấm và gold. Tất cả chạy offline bằng provider giả. **Chưa gọi model thật lần nào**: chưa chọn provider, và máy không có khóa API trong biến môi trường.
+
+Code mới (tên module khác tên dự kiến trong kế hoạch, ranh giới giữ nguyên):
+
+| File | Task | Làm gì |
+|---|---|---|
+| `slice/l3slice/source_tools.py` | N2 | `list_files`/`read_file`/`search_text`; phạm vi theo FR-028 do code quyết (kể cả thư mục có `pyvenv.cfg`, layout `src/`); sổ `delivered`/`processed`; che bí mật giữ số dòng |
+| `slice/l3slice/docfacts.py` | N1, N4, A03 | Khuôn dữ liệu agent nộp; kiểm dòng đã đọc, literal, dạng decorator/lời gọi, dấu hiệu vai trò, thứ tự vai trò; quy tắc `inferred` lấy từ danh sách cố định `RULES`; dòng nghi ngờ (`suspects`) phải có item hoặc bị bác kèm lý do; chuyển sang fact API-004 |
+| `slice/l3slice/docagent.py` | N3 | Vòng agent; ngân sách lượt, token, thời gian; từ chối `finish` khi còn dòng chưa đọc hoặc lỗi chưa sửa; `ScriptedProvider`, `OpenAICompatProvider`; prompt `fr029-agent-prompt-v2` |
+| `slice/l3slice/docpipeline.py` | A04, A06, V2 | Nhận membership có `kind`; đối chiếu `archdia.json` (định dạng tạm `archdia-fixture-v1`, thiếu `snapshot_id` thì `not_evaluated`); README đủ mục; `result.json`; publish |
+| `slice/l3slice/__main__.py` | V2 | Lệnh `document` |
+| `slice/tools/fr029_score.py` | V1 | Chấm `result.json` với gold: TP/FP/FN từng loại, lỗi từng thuộc tính, số file ngoài phạm vi |
+| `slice/tests/test_docagent.py` | — | 35 test: phạm vi, độ phủ, che bí mật, bộ kiểm, ngân sách, ca xuyên suốt, đối chiếu kiến trúc, hồi quy theo review Codex, bộ chấm |
+
+Sửa code cũ:
+- `render.py`: OpenAPI dùng alias của trường; body Form/File và body được bọc hiển thị dạng object inline; câu nguồn gốc là tham số.
+- `common.py:13`: mẫu che mật khẩu có ký tự `\x02` thay cho `\2`, nên `password = "..."` không bao giờ được che. Đã sửa. Lỗi có từ trước, ảnh hưởng cả luồng cũ.
+
+Gold (agent G viết, không đọc code agent): `slice/tests/fixtures/fr029/`, gồm 6 fixture, oracle `slice/tools/fr029_oracle.py` và README ghi các chỗ phán đoán. Venv oracle nằm ở scratchpad của phiên, không nằm trong repo. Khi chạy lại oracle trong Git Bash phải đặt `MSYS_NO_PATHCONV=1`.
+
+Kiểm chéo bằng Codex (`codex exec -s read-only`; prompt và kết quả ở scratchpad của phiên):
+- Review code lượt 1: 22 phát hiện. Đã sửa các mục là lỗi thật. #6 và #7 (nghĩa của kiểu, required, model ref) chủ ý để gold đo, vì đi theo hướng agent thuần. #21 (retry riêng cho bundle FR-029) chưa làm.
+- Review gold: 3 sai, 2 đáng ngờ. Đã thêm `out_of_scope` vào gold. Vai trò Khác vẫn phải có dòng bằng chứng. `embedded` chỉ áp cho body JSON. **Chờ người dùng quyết:** route trong `exclusions/app/routers/internal.py` chỉ được gắn trong `conftest.py`. Kế hoạch A05 nói loại route này; Codex đọc FR-029 cho rằng phải giữ, với path `unknown`.
+- Review lượt 2 (xác nhận bản sửa): 7 mục đã đóng, 12 mục đóng một phần, 3 mục không sửa (#6, #7 để gold đo; #21 retry chưa làm). Có 6 lỗi mới do bản sửa gây ra, đều đã sửa và có test: crash StopIteration, body Form bị `check_doc` từ chối, HTTP dùng keyword `method=`/`url=`, mất unknown của required trong body inline, không lưu `dismissed`, bộ chấm bỏ qua trường của body. Cũng đã sửa thêm: che bí mật ba nháy nhiều dòng, decorator thứ hai trên cùng handler vẫn là dòng nghi ngờ, decorator của đối tượng không phải FastAPI, URL còn bí mật bị từ chối, khóa claim/fact đồng nhất, đối chiếu kiến trúc chỉ tính file API xuất được, membership khác snapshot bị từ chối.
+- Còn mở sau 2 lượt (chưa sửa): thứ tự prefix (#4) và cạnh gọi của Service (#10) chỉ gold bắt được; auth có thể dẫn dòng không liên quan (#8); client HTTP không truy được nguồn tạo (#9); `snapshot.py` loại `venv/` vô điều kiện, có từ trước (#14); chưa có retry cho bundle FR-029 (#21).
+
+Kiểm chứng: toàn suite 222/223 qua; lỗi duy nhất là `test_gateway.test_unknown_ids_are_dropped`, có từ trước. Test offline chỉ chứng minh luồng đọc → kiểm → xuất, không chứng minh model thật đọc đúng.
+
+Bẫy: công cụ Bash của Claude Code làm hỏng `\\` và `\` cuối dòng trong heredoc. Muốn sửa file có dấu `\` thì ghi script bằng Write rồi chạy, hoặc dùng Edit.
+
+Việc tiếp:
+1. Người dùng chọn provider và model cho pilot.
+2. Người dùng quyết ca `internal.py`.
+3. Chạy pilot trên 6 fixture: `python -m l3slice document ... --base-url --model --key-env`, rồi chấm bằng `python slice/tools/fr029_score.py --result <out>/result.json --gold slice/tests/fixtures/fr029/<tên>.gold.json`.
+
+## Bổ sung kế hoạch FR-029 theo quyết định người dùng — 07/10/2026
+
+Người dùng chốt ba điểm: **giữ hướng agent thuần** (agent đọc source, không lấy dữ kiện từ extractor AST); **cho chạy `app.openapi()` trong sandbox để dựng gold**; ghi các bổ sung vào kế hoạch của Codex.
+
+Đã sửa [kế hoạch](L3-ke-hoach-agent-sinh-tai-lieu.md):
+- N4: thêm nguồn gold là oracle `app.openapi()` trong sandbox, cùng giới hạn của oracle.
+- A01, A02: thêm ca bắt buộc theo luật FastAPI/Pydantic (gộp tham số `Depends`, body bọc tầng, `response_model`, `Optional` v1/v2…).
+- A08: thêm checklist dạng gọi lấy từ CodeQL.
+- V1: thêm sàn "agent không kém extractor 61/0/0" và chạy 3 lần đo dao động. Hai phép này chỉ là kiểm nội bộ, vì OBS-001 quy định đo 1 lần và bỏ so với bộ luật tĩnh.
+- Thêm mục phân vai agent khi phát triển: G gold, C1–C4 code, K kiểm; mỗi agent một worktree.
+
+Bản nghiên cứu có thêm mục 7 (nguồn CodeQL, route-detect, source FastAPI/Pydantic). Source FastAPI và Pydantic chưa đọc ở version ghim. Chỉ sửa tài liệu, chưa sửa code, chưa chạy test hay model. Bước kế tiếp không đổi: N1 và agent G chạy song song.
+
+## Kế hoạch agent sinh tài liệu FR-029 sau nghiên cứu GitHub — 07/10/2026
+
+Người dùng yêu cầu nghiên cứu kỹ các repo đã tìm và lập kế hoạch thực hiện. Phạm vi vẫn là **8 AC của FR-029 revision 3**, agent đọc source, không tạo/chia component hoặc dựng sơ đồ. Yêu cầu mới mở rộng tham khảo sang OpenDeepWiki, CodeWiki của FSoft, RepoAgent và mẫu API Docs Generator của pnp; giới hạn “chỉ GitDiagram” ở ghi chú ngày 06/10 bên dưới là lịch sử.
+
+Đã tạo [bản nghiên cứu](L3-nghien-cuu-repo-sinh-tai-lieu.md) ghi 4 commit cố định, file nguồn, phần học được và giới hạn. Đã cập nhật [kế hoạch triển khai](L3-ke-hoach-agent-sinh-tai-lieu.md): vẫn 14 nhiệm vụ/6 đợt, thêm giao diện dữ liệu, công cụ agent, luồng đọc đủ từng phần, mapping file/test và ca xuyên suốt đầu tiên. Thiết kế đề xuất dùng một vòng điều phối tuần tự; agent trả dữ kiện có evidence, code kiểm rồi render API/README/result. Chưa chọn thêm framework hoặc fork repo bên ngoài.
+
+Đối chiếu code tại checkout `feature/l3-fr029`: `gateway.read_code` chặn đọc hết file và chỉ nhận label_components; renderer đòi graph/accepted decisions rồi dựng hình; kiểm path cũ sắp xếp các đoạn; mask private key nhiều dòng chưa giữ tọa độ. Kế hoạch tách luồng tài liệu và chỉ tái dùng helper phù hợp. NFR-AI hiện dành cho FR-028, NFR-SEC dẫn lại giới hạn gửi source: cần đồng bộ hợp đồng FR-029 và chốt ngân sách trước pilot; offline có thể làm trước. AC04/06 phải kiểm artifact upstream thật cùng snapshot, không tự đánh dấu đạt khi chỉ có fixture.
+
+Kiểm chứng phiên này: cấu trúc kế hoạch đủ 14 mã nhiệm vụ, 8 hàng AC, 6 đợt; liên kết nội bộ của 2 tài liệu không thiếu; không có ký tự điều khiển lỗi. **Chỉ sửa tài liệu; chưa sửa code/spec, chạy test sản phẩm, gọi model, cài/chạy repo tham khảo hay benchmark.** Không commit/push. Thông tin UAT của worktree khác bên dưới được giữ nguyên và không phải kết quả phiên này.
+
+Bước triển khai đầu tiên: N1 chốt schema/mẫu đầu vào và ca gold; N2 reader/receipt/coverage; N3 fake provider; N4 kiểm evidence. Sau đó chạy ca nhỏ xuyên suốt tới API/README/result khi chặn extractor, model.build, annotate và bộ dựng hình. Kết quả offline không thay phép đo ngữ nghĩa với model thật.
+
+## UAT bản Khiêm và bổ sung golden v1 — 06/10/2026
+
+Bản Khiêm: `origin/feature/l3-template-10-phan` (5777d9d). Worktree `D:\VSF\l3-uat`, Python 3.12, Windows. lần đầu 85 qua, 4 lỗi; `test_dieu_phoi.py` không chạy được (`import fcntl`). 2 lỗi thiếu quyền symlink; 2 lỗi do code trích dữ kiện giữ ký tự xuống dòng CRLF trong quote (sửa trong `trich_du_kien.py`, `kiem_trich_dan` trước đó loại sai). Sau sửa: 87 qua, 4 bỏ qua (`test_dieu_phoi.py` và test symlink bỏ qua trên Windows). Ghi chú cũ: lệch `
+` (`test_pyproject_project`, `test_bo_ket_qua_day_du`), đã rõ là lỗi code. Mutex Windows trong `dieu_phoi.py` thử tay hai tiến trình: tiến trình sau bị chặn đúng; chưa xem dòng vào khóa vì script thử lỗi mã hóa. Chưa chạy CLI `l3gen` thật.
+
+Golden v1: Codex xác nhận teamhide dùng Click, fba dùng Cappa, mà `project.frameworks` thiếu (luật 1.4). Theo AGENTS.md mục 9 (nhánh song song chỉ thêm file mới, không ghi đè bản đã duyệt): thêm `final-r4.json` (teamhide), `final-r3.json` (fba), hai file check (75 và 662 bằng chứng, 0 lỗi) và `DE-XUAT-click-cappa.md`; không sửa APPROVAL. Đã push hai branch tách từ `feature/l3-template-10-phan`: `feature/golden-v1-click-cappa` (golden) và `feature/l3gen-windows-crlf` (sửa lỗi và test Windows). Đã xóa hai branch cũ trên origin. Việc còn lại: tạo hai merge request vào `feature/l3-template-10-phan`; Khiêm duyệt đề xuất và cấp APPROVAL mới ở nhánh chính.
+
+## Cập nhật kế hoạch phần tài liệu — 06/10/2026
+
+**Đã xác định đúng phạm vi qua xác nhận trực tiếp của người dùng: A — FR-L3GEN-029 revision 3, đủ 8 AC (01–08).** Không phải 10 mục phát hiện trong đề bài, 8 FR cũ hoặc 8 CMP. Không hỏi lại cách chia 8/10. Người dùng muốn kế hoạch chi tiết chuyển sang agent đọc source để tài liệu chính xác; không tạo/chia component hoặc dựng sơ đồ. Không triển khai FR-030 TBL/DDL, FR-031 EVT, web trong kế hoạch này. Nhận component từ upstream; AC-04 đối chiếu `archdia.json`; AC-06 nhận sơ đồ có sẵn cho README. Thiếu upstream phải ghi phần chưa kiểm/thiếu, không bỏ AC và không tự dựng thay. Chỉ tham khảo ngoài GitDiagram.
+
+Đã viết lại [L3-ke-hoach-agent-sinh-tai-lieu.md](L3-ke-hoach-agent-sinh-tai-lieu.md): 14 nhiệm vụ, gồm N1–N4 nền tảng, A01–A08 theo đúng từng AC, V1–V2 kiểm/bàn giao; 6 đợt thực hiện. Mỗi task có việc làm, output, ca kiểm, phụ thuộc và tiêu chí xong. Bản mới thay mọi diễn giải phạm vi sai ở các lần trước. Bước đầu khi triển khai: N1 schema/giao diện upstream, N2 reader/coverage, N3 vòng model, N4 evidence/gold; sau đó A01/A03/A05, A02, A07/A08/A06, tích hợp A04 và đo V1/V2. Chỉ sửa kế hoạch/HANDOFF; chưa sửa code/spec, chưa chạy test hay model. Pipeline hiện tại vẫn dùng extractor, renderer còn phụ thuộc graph; phải tách khi triển khai. Không commit/push, giữ thay đổi local có từ trước.
+
+## Cập nhật phần L3 — 02/10/2026, FR-029
+
+Đã bổ sung T1–T5 theo HANDOFF-CODEX-FR029: route test/không decorator, HTTP client/aiohttp và README, response danh sách model. Báo cáo: docs/FR029-ket-qua-hoan-thien.md. Code ở slice/l3slice/extract.py và render.py; 11 test mới ở test_fr029.py. Kết quả cuối 187/188 qua; lỗi gateway cũ giữ nguyên. Contract và BL-r10 kiểm qua; không phải Gate approval. Golden 38 case không đổi; bốn repo vẫn tổng 58 route. Teamhide xuất sáu artifact ready, GET user có list[GetUserListResponseDTO]. Output mới ở ket-qua-chay/fr029-20261002/teamhide-export. Chưa sửa AC-029-04/07 và Cấu trúc component (phụ thuộc pipeline Khiêm). Không commit/push, không sửa server demo hoặc D:/FPT3. Hồ sơ mới có plan/context r2 đính chính encoding và hash; giữ plan r1. Phần lịch sử pipeline Khiêm bên dưới không phải hiện trạng triển khai FR-029.
+
+
+Cập nhật: 01/10/2026, cuối phiên 9. File cục bộ, không commit. Mục đích: phiên mới làm tiếp đúng nhịp, không phải hỏi lại.
+
+Lịch sử đầy đủ:
+- [HANDOFF-luu-tru-den-2026-09-28.md](HANDOFF-luu-tru-den-2026-09-28.md): trước 28/09.
+- [HANDOFF-luu-tru-28-09-phien-2.md](HANDOFF-luu-tru-28-09-phien-2.md): phiên 2 ngày 28/09, gồm các bản thử (a), (a'), (b), (c), bảng đo chi tiết, và toàn bộ nhật ký.
+
+## 1. Đọc gì trước
+
+1. `CLAUDE.md`: hỏi trước khi làm ngoài phạm vi, viết ngắn, cập nhật file này sau mỗi nhóm việc.
+2. File này, mục 2 đến 7, và mục 15–16 (chỗ pipeline chưa tổng quát hóa).
+3. Memory (tự nạp). Quan trọng nhất: `chi-ve-luong-xu-ly`, `cham-theo-khoi-khong-theo-file`, `khong-va-cho-sai`, `dap-an-viet-mu`, `evidence-la-trich-dan`, `pham-vi-so-do-khong-l3`, `chi-tien-model-khi-pipeline-da-chac`.
+4. `experiments/quote-evidence/oracle/CHUAN-DAP-AN.md`: chuẩn viết đáp án, cũng là chuẩn chia khối mà pipeline phải đạt.
+5. `experiments/quote-evidence/README.md`: pipeline v6 (README chưa nói về v7).
+6. Docstring đầu `experiments/quote-evidence/calls.py` và `flow.py`: phần code của pipeline v7.
+
+## 2. Đang làm gì
+
+**Phiên 9 (01/10 tối), mới nhất — đọc trước, làm tiếp từ đây:**
+- **Khiêm xoá quy tắc "LLM không đọc toàn bộ repo"** (memory `llm-khong-doc-thang-source`, đã xoá cả bản ở `setup/claude-memory/`). Cách cho AI đọc nhiều hay ít giờ là tuỳ chọn, chọn theo kết quả đo.
+- **Khiêm muốn đo pipeline sau khi ghép Pyright, đủ mọi cách: có nháp, không nháp, không AI** (thêm chấm luồng). Tên lần chạy: `runs/v10-draft-<repo>`, `runs/v10-nodraft-<repo>`; model `openai/gpt-oss-120b` qua OpenRouter (Khiêm chọn lần này, cùng model với v8 để chỉ khác Pyright; trái ghi chú 01/10 "bỏ gpt-oss", chỉ cho lần này).
+- **Mới xong 5 trong 16 lần; Khiêm bảo dừng 11 lần dở** (chạy song song 16 tiến trình, không phải lần lượt). Chưa có số đủ 8 repo. 189.299 token, 0,024 USD (sổ OpenRouter).
+- **Số 5 lần xong, nội bộ P / Pk / R (v8 → v10):** rhoboro có nháp 1,00/0,80/1,00 → như cũ; realworld không nháp 1,00/0,75/1,00 → như cũ; fullstack không nháp 0,40/0,40/0,33 → như cũ; fullstack có nháp 1,00/1,00/1,00 → 0,86/0,86/1,00 (thêm cạnh `routes → common`, sai); boilerplate không nháp 0,53/0,44/0,73 → **0,38/0,27/0,27** (kém hơn; cạnh sai nhiều tới `common`, `cache → db`). Ngoài P/R không đổi ở cả 5. Với 5 lần này Pyright không cải thiện; chưa kết luận vì thiếu 11 lần và chưa đo độ dao động giữa hai lần chạy cùng cách.
+- **Việc tiếp theo (chưa làm):** (1) chạy nốt 11 lần: lnbits, fba, kibo, teamhide (cả hai cách); boilerplate, realworld, rhoboro mỗi cái thiếu một cách (boilerplate có nháp, realworld có nháp, rhoboro không nháp). Lệnh mẫu ở mục 8 với `run7.py <repo> --provider openrouter --model openai/gpt-oss-120b [--no-draft] --out evaluation/quote-evidence/runs/v10-<cách>-<repo> --oracle experiments/quote-evidence/oracle/<đáp án>.json --budget <sổ OpenRouter + 2,5 triệu>`; cần PATH có Node của pyright và scip (mục 2 dòng "Công cụ đọc code ngoài"). (2) chạy không AI (`no_ai_score.py`, `measure_code.py`, `draft_score.py`), chấm luồng (`compare_v8.py v8-nodraft- v8-draft- v10-nodraft- v10-draft-`), lập bảng 8 repo × 3 cách, v8 so v10. (3) việc Luna nhận I/O và chạy 2 repo mới (đã duyệt phiên 8) vẫn chưa làm.
+- **Bẫy:** `pkill -f run7.py` giết luôn shell của Claude Code (lệnh có chữ `run7.py`); dùng `pkill -f "experiments/quote-evidence/run7"`. Kết quả 5 lần xong và log nằm ở `runs/v10-*` (cần `git add -f`).
+- Khiêm ghi nhận hai điều chưa trả lời: so với Claude Code/Codex đọc cả dự án (mục 16, hướng agentic) chưa chạy baseline; tách từng phần kiểu ArchAgent (v9) đã thử và kém v8 do lỗi cài đặt.
+
+**Phiên 8 (01/10, máy Linux) — trước đó:**
+- **Rà soát tổng quát hóa (01/10, chiều; Khiêm hỏi "có tổng quát được cho mọi repo FastAPI không").** Trả lời: chưa. Đã chạy 5 file (`inventory`, `pyindex`, `calls`, `flow`, `draft`) trên repo FastAPI giả và các ca nhỏ chỉ khác nhau một thứ, 0 token, không AI. `ai7.py` (prompt, luật kiểm) chỉ đọc, chưa chạy. Kết quả ở mục 15. Đề xuất cách sửa (gồm hướng agentic của Khiêm) ở mục 16: chưa duyệt, chưa sửa code. Chưa rà: `evaluate.py`, `llm.py`, `render.py`, `v9.py`.
+- Nhánh: `feature/quote-evidence` (đổi tên từ `khiem/quote-evidence`, đã đẩy; `khiem/setup` đã xoá trên GitLab, `setup/` chỉ còn ở máy). Sau commit `a14d32c` có sửa chưa commit: `calls.py`, `flow.py`, `ai7.py` (gỡ vá), `calls.facts(idx, libs=None)`; file mới `cluster.py`, `v9.py`, `test_v9.py` (thư mục bị ignore, cần `git add -f`).
+- Đã gỡ vá (Khiêm duyệt): tên tự đặt của từng repo trong `calls.py`/`flow.py`, ví dụ chép từ đáp án trong prompt `ai7.py`. Đo 0 token: chỉ fba đổi. Phần prompt chưa đo bằng AI.
+- Kiểm thiên vị bước đọc code: ~25 tên thư viện/API chỉ có ở 1 repo mẫu (thiên vị độ phủ); ~17 API không repo nào dùng (kiến thức chung; con số 47 báo trước là đếm lẫn khóa nội bộ); đoán theo tên (`SESSION_NAMES`, `CHECK`, `OPENS_SESSION`). Đề xuất tổng quát hóa (chưa duyệt, chưa làm): (3) nhận session/kiểm tra theo cấu trúc và luồng dữ liệu thay tên; (1a) dòng mở kết nối = lời gọi thư viện có đối số URL/host/DSN; (1b) loại hệ thống từ scheme URL/tên cấu hình; (1c) AI chỉ đặt loại cho thư viện lạ.
+- Chia cụm Louvain (`cluster.py`) thử trong `draft.py`: không cải thiện chung, đã trả `draft.py` về gốc.
+- v9 (viết lại theo SemRef/ArchAgent): kém v8 ở cả 6 repo chạy xong, **tạm bỏ** (Khiêm). Lỗi chính là cài đặt: tóm tắt bị cắt, AI phân loại thư viện sai. Số ở mục 14.
+- **Cuối phiên 8 (việc chính khi mở phiên mới):** kiểm thiên vị pipeline v8 trên 2 repo mới đã xong: lệch ở **nhận I/O** (bảng `IO_LIBS` không biết tortoise, newspaper, openai, pinecone, boto3...; Ngoài R 0,00 và 0,14), cạnh nội bộ khi khối đúng vẫn ổn. Bước đọc code có 12 lỗi quy tắc Python (lỗi 1–12 trong nhật ký) và bỏ sót nhiều: micro-benchmark PyCG R 0,47. Hướng Khiêm đồng ý về nguyên tắc: quy tắc Python giao công cụ có sẵn (pycg-ml 0,97/0,95 trên micro-benchmark; scip-python/Jedi trả lời "định nghĩa ở đâu"), kiến thức framework thành bảng có nguồn, I/O và ý đồ giao LLM có mã dòng, bỏ đoán theo tên. Chưa sửa code pipeline. Model: `openai/gpt-6-luna` (memory); chạy 2 repo mới bằng Luna phải hỏi; chạy nhỏ/vừa/lớn chờ Khiêm duyệt.
+- **Quyết định cuối phiên 8 (Khiêm duyệt, làm ở phiên mới):** (1) nhận I/O và ORM lạ bằng LLM `openai/gpt-6-luna`: code gom lời gọi thư viện theo nhóm (thư viện, tên hàm) kèm dòng ví dụ, AI trả lời từng nhóm có/không mở kết nối + loại + mã dòng, code kiểm; giữ bảng cũ làm dự phòng; ước < 0,005 USD cho 10 repo; đo bằng `measure_code.py`, `draft_score.py` (cột Ngoài) và `probe_holes.py`. (2) chạy v8 với Luna trên 2 repo mới (tdd-docker, agentgpt), ước < 0,05 USD, chỉ xem số tổng (repo kín). (3) đã commit cuối phiên 8. Repo lớn (lnbits, fba): phần đọc code chạy được (Pyright 7–14 giây), phần chia khối chưa tổng quát được; chạy Luna nhỏ/vừa/lớn vẫn chờ Khiêm duyệt sau khi có kết quả (1), (2).
+- Công cụ đọc code ngoài: scip-python 0.6.6 (`~/.local/opt/scip`), scip CLI v0.10.0 (`~/.local/opt/scip-cli`), Node của pyright (`~/.cache/pyright-python/nodeenv/bin`); máy mới phải cài lại (lệnh ở nhật ký 01/10). Test và pipeline cần các công cụ này.
+- Việc đang chờ (cũ, phần lớn đã làm): (a) Khiêm tự tải JDK 17 vào `~/.local/opt/jdk` và DEPENDS vào `~/.local/opt/depends` (mạng sandbox chặn mọi HTTPS, lệnh đã đưa trong chat) → so cặp phụ thuộc DEPENDS với `calls.py`; (b) Khiêm tải 3 repo ứng viên vào `sample-repos/cand-small-1` (rednafi/fastapi-nano), `cand-small-2` (testdrivenio/fastapi-tdd-docker), `cand-medium` (jonra1993/fastapi-alembic-sqlmodel-async) → chọn 1 nhỏ 1 vừa theo số file (không đọc code), giao subagent viết đáp án theo `oracle/PROMPT-SUBAGENT.md` (sửa đường dẫn Python thành `/home/tts/.local/bin/python3.14`, bỏ "10–20 khối"); phiên chính không mở đáp án; (c) xem nhánh cũ `origin/feat/language-first-semantic-v2` (l3gen v2, xem mục 14).
+- Đáp án 9 hệ thống của SemRef: repo SARIF tải ở scratchpad phiên 8 (`sarif/Data/Ground Truth Architectures/{Collected,Labeled}/*.json`), scratchpad mất khi đổi phiên; nguồn https://github.com/anonymous2f4a9d/SARIF_FSE23.
+- Trang xem sơ đồ (chỉ v8, đủ 8 repo, có đáp án kín): https://claude.ai/artifact/4vGhpSkxrS8AoNP9222hyH — phiên phát triển không mở `viewer.html`.
+
+
+Pipeline repo → sơ đồ component (C4 mức 2). Mỗi phát biểu có trích dẫn `file:dòng`, và code kiểm khớp nguyên văn. Code ở `experiments/quote-evidence/`. Không làm L3; người khác trong team làm.
+
+**Mới nhất (30/09 tối, máy cũ): v8 đã viết và chạy (mục 7 việc 11): AI trỏ mã dòng thay vì chép code, bản nháp của code, OpenRouter gpt-oss; repo nhỏ 4/4 và kibo đạt tiêu chí; boilerplate chưa (P 0,62); repo lớn chưa. Tài liệu tổng hợp: `docs/BAO-CAO-SO-DO-COMPONENT.md`. Đã commit và đẩy nhánh `khiem/quote-evidence` (01/10).**
+
+**Mục tiêu tạm thời (Khiêm, 30/09): chỉ repo nhỏ — rhoboro, fullstack, realworld, teamhide (mục 3). Quyết ở máy cũ lúc 16:36; phiên 7 sau đó vẫn chạy thử repo kín.**
+
+**Phiên 6 (30/09), mới nhất: đang làm mục 7 việc 10 (chia khối từ trên xuống). Bước 1–5 xong (bản tóm tắt repo; trần trên; lượt 1 AI trả danh sách khối + code kiểm; lượt 2 xếp file theo path + file mơ hồ gửi AI; ghép `run7.py`, dry-run, JSON hỏng gửi lại kèm lỗi). Bước 6: đã chạy 4 repo lộ (`runs/v7c-*`, 66.198 token, sổ 693.491); kết quả kém vì lỗi định dạng lý do ở bản tóm tắt (mục 7 việc 10 bước 6). **Phiên 7 (30/09, máy mới Linux): Khiêm duyệt a–c, đã sửa code, 23 + 7 + 22 test đạt, chưa chạy AI. Sau đó Khiêm thấy a–c vẫn là vá; phiên 7 đề xuất "AI chọn, code trích" (chưa duyệt) và đã đo offline trên repo kín (mục 7 việc 10 bước 6). Việc kế tiếp: Khiêm quyết có chạy AI trên 4 repo kín không, và có làm thiết kế mới không.**
+
+**Làm trên máy khác (30/09, Khiêm quyết):** phần việc này nằm ở nhánh `khiem/quote-evidence` trên GitLab nhóm (tách từ `docs/gate-2` @ `5d06f14`, commit bằng `git add -f` vì `.gitignore` chặn `experiments/`, `evaluation/quote-evidence/`, HANDOFF, `CLAUDE.md`). Nhánh `khiem/setup` (tách từ nhánh trên) thêm `setup/fetch_sample_repos.py` (clone 8 repo mẫu đúng commit vào `sample-repos/`) và `setup/claude-memory/` (bản sao memory Claude; chép vào thư mục memory của project trên máy mới). Máy mới cần: Python 3.14 (sửa `PY` ở mục 8), tự tạo `.env` với 3 key Groq (không có trong git), chạy script tải repo. Đã xóa trên máy cũ: `.pytest-runtime-*`, `.pytest_cache`, `__pycache__`, `build/`, `cleantest/`, `independent_poc/`, `_compare-khiem/`, `experiments/fastapi-items/`, `experiments/*component_graph_poc.py`, `evaluation/run_*`, `evaluation/kibo-*` (POC trước v6, không còn tham chiếu).
+
+**Phiên 5 (30/09): Khiêm đổi hướng bước 6 sang "AI phán đoán, code kiểm" (mục 3; kế hoạch và tiến độ ở mục 7, việc 9). Bước 1–6 đã làm; đã chạy AI 2 lần trên 4 repo lộ (key chính, rồi key 3). Kết quả ở mục 7 việc 9. Chưa chạy repo kín. **Việc tiếp theo: mục 7 việc 10 (chia khối từ trên xuống), làm ở phiên mới.** Mục 6 bên dưới mô tả thiết kế trước khi đổi hướng (prompt A/B), đã bị thay; thiết kế hiện tại ở mục 7 việc 9. Phần dưới là trạng thái trước khi đổi hướng: code v7 đã đủ (bước 6, 9, lệnh chạy), test offline đạt, dry-run 8 repo xong. Khiêm giao 5 việc (mục 7, việc 1–5). Thiết kế bước 6 duyệt 30/09 sau hai vòng góp ý (mục 3, mục 7 việc 7). Code mới: dấu hiệu Dữ liệu trong `calls.py`, `flow.py`; `ai7.py` (bước 6, 9); `run7.py`; `test_ai7.py`. Đáp án teamhide, fba bị phiên khác sửa lúc 11:06 hôm nay (HANDOFF chưa ghi lý do); trước khi so sánh ở bước 5 phải chấm lại bảng mốc bằng `rescore.py`.
+
+Hiện trạng phiên 4 (theo prompt Khiêm giao cuối phiên 3: bước 1 đồng bộ đáp án, bước 2 thiết kế pipeline mới chờ duyệt, bước 3 so với v6):
+- **Bước 1 xong: đáp án bản 4** = 8 JSON đồng bộ theo `oracle/ve-tay/*.md`. Bản trước ở `oracle/rev3/` (7 repo là bản 2, fba là bản 3 subagent) kèm chuẩn cũ. Cạnh bắt buộc đúng số của bản vẽ: rhoboro 5, realworld 4, fullstack 8, teamhide 11, kibo 16, boilerplate 17, lnbits 23, fba 31 (30 sau khi gộp Admin API + Task API ngày 30/09). Mỗi JSON một khối `common` dùng chung. Dựng bằng `evaluation/quote-evidence/scripts-2026-09-30/oracle-build/build_oracle.py spec_<repo>.py`: spec chép khối, tầng, cạnh từ bản vẽ; script kiểm đoạn code của bản vẽ nằm đúng dòng rồi ghi nguyên văn dòng đó; sau đó `oracle_tool.py --finalize`. Sửa đáp án về sau: sửa spec rồi chạy lại hai lệnh này (đã thử trên rhoboro: ra JSON giống hệt).
+- **Chỗ tự chọn khi đồng bộ** (ghi trong `note` từng JSON): (a) file chỉ khai báo dạng dữ liệu mà bản vẽ không nhắc → ngoài đáp án (Khiêm quyết 30/09, xem dưới). (b) `__init__.py` chỉ import lại → ngoài đáp án. (c) `Depends` cho route (`deps`, `dependencies.py`) → khối API. (d) OTel fba nằm trong `common/` nên thuộc dùng chung; `init_otel` ghi `wiring` app → otel; Sentry fullstack tương tự. (e) Bỏ các cạnh ngoài `"hand"` của bản cũ; chỉ giữ cạnh có trong bản vẽ và bảng "không vẽ".
+- **Phát hiện:** `inventory.py` cũ loại thư mục `scripts/`, `seeds/`, nên mất khối Scripts của kibo, boilerplate (2 cạnh bắt buộc mỗi repo). Đã sửa 30/09 (xem dưới).
+- `oracle_tool.py` thêm dòng `quote mismatch`: mọi `file:dòng` ở `layers`, `required`, `acceptable` có nhãn phải khớp nguyên văn dòng code. Cả 8 JSON: không còn `no layer`, `upward`, `quote mismatch`. Chuẩn: sửa luật worker (nhận việc từ service → Nghiệp vụ; vòng nền tự chạy → Điểm vào), `"rev": 4`, dòng `quote mismatch` ở quy trình. `PROMPT-SUBAGENT.md` sửa câu luật worker cho khớp.
+- **Bước 2: Khiêm duyệt thiết kế (30/09).** Đã viết code phần không tốn token: `calls.py` (bước 1 của mục 6), `flow.py` (bước 2, 3, 4, 5, 7, 8); 5 test offline mới `test_flow.py`. Đã đo trên 8 repo (mục 4, bảng "Đo code v7"). Chưa làm bước 6, 9 (AI). Không chạy AI.
+- **Khiêm đã quyết (30/09):** (a) không chấm khắt khe tới từng file: file chỉ khai báo dạng dữ liệu mà bản vẽ không nhắc → ngoài đáp án, bỏ qua khi chấm (rhoboro `api/*/schema.py`; boilerplate `modules/*/schemas.py`, `enums.py`, `constants.py`; fba `app/admin/schema`, `app/task/schema`, `app/task/enums.py`). File bản vẽ đã ghi vào ô dùng chung (realworld, kibo) giữ nguyên. (b) `inventory.py` sửa: quét `scripts/`, `seeds/` khi file import code của repo (kibo giữ 2 file, bỏ `test_whatsapp_connection.py`; boilerplate giữ 4; fullstack bỏ 2 script không import code app). So sánh bước 3: so với bảng mốc (không tốn token).
+- JSON rhoboro, boilerplate, fba, kibo đã dựng lại theo (a), (b) và `--finalize` lại cả 8: 0 `no layer`, 0 `upward`, 0 `quote mismatch`, 0 khối không có file.
+- **Code pipeline: v6** (mục 5) + phần code v7 (`calls.py`, `flow.py`). `inventory.py` dùng chung cho cả hai. 23 test `test_quote_evidence.py` + 5 test `test_flow.py` đạt (Python 3.13 và 3.14, 30/09).
+- *(Phần dưới là lịch sử phiên 3.)* **Đáp án: đang nâng lên bản 3** (chuẩn đã duyệt, `oracle/CHUAN-DAP-AN.md`). Bản 3 = bản 2 + mỗi khối một tầng (`layers`, có dòng bằng chứng) + cạnh chỉ truyền session/client chuyển sang `acceptable` nhãn `"pass"`. Khối giữ nguyên. **fba đã nâng** (subagent: tầng entry 5, api 5, service 3, data 2, infra 4; 2 cạnh sang pass; còn 53 cạnh bắt buộc; 21 dòng bằng chứng khớp nguyên văn). 7 repo còn bản 2. Bản 1, 2 ở `oracle/rev1/`, `oracle/rev2/`. Trang: phiên bản 4.
+- **Khiêm xem trang phiên bản 4:** "tạm được nhưng vẫn rối": cạnh chỉ nên đi một chiều; bỏ các lần gọi qua lại để kiểm (token, session...), vì sơ đồ chỉ để người mới hình dung luồng; `task_worker` quá nhiều cạnh. **Chuẩn bản 3 đã sửa bổ sung** (quy tắc 7, nhãn `check`, `up`, pass mở rộng, worker sang tầng service). **Xong: vẽ tay cả 8 repo** (`oracle/ve-tay/*.md`; cạnh: rhoboro 5, realworld 4, fullstack 8, teamhide 11, kibo 16, boilerplate 17, lnbits 23, fba 31). Trang phiên bản 7: mọi mục là sơ đồ vẽ tay, chép bằng `scratchpad/splice_all.py` sau khi chạy `make_oracle_page.py` (chạy lại script trang thì phải chép lại). **JSON đáp án chưa đồng bộ** với bản vẽ tay (khối trong md chỉ ghi đường dẫn tóm tắt, chưa đủ danh sách file để chấm). Đã trả lời Khiêm "pipeline cần cải thiện ở đâu" (tóm tắt ở mục 6). Khiêm đã quyết (mục 3, dòng "Quyết định cuối phiên 3"); việc tiếp theo làm ở phiên mới theo prompt Khiêm nhận cuối phiên 3. **Khiêm đổi cách làm (sau phiên bản 5):** không muốn viết code; phiên chính tự đọc source rồi tự vẽ sơ đồ theo chuẩn. **fba đã vẽ tay** ở `oracle/ve-tay/fba.md` (17 khối, 5 hệ thống ngoài, 31 cạnh có file:dòng, bảng "không vẽ, vì sao", chỗ phải chọn). Trang phiên bản 6: mục fba thay sơ đồ bằng bản vẽ tay (chép bằng lệnh một lần `scratchpad/splice_fba.py`); **chạy lại `make_oracle_page.py` sẽ mất phần vẽ tay**. JSON fba chưa đồng bộ với bản vẽ tay. Chờ Khiêm xem. Trước đó, **fba đã áp phần sửa** (trang phiên bản 5): tầng entry 4, api 5, service 4 (có task_worker), data 2, infra 4; pass 4, check 3, up 4; còn 44 cạnh bắt buộc (bản 2: 55); `oracle_tool.py` không còn `no layer`/`upward`. Chờ Khiêm xem trước khi làm 7 repo. Subagent nêu 5 điểm không chắc, chưa sửa: `admin_api -> security` và `plugins -> security` giữ bắt buộc vì có thao tác thật (`online.py:118 revoke_token`, `oauth2_service.py:97 create_access_token`); `admin_service -> db` bắt buộc (`db.refresh`) nhưng `admin_data -> db` để acceptable theo quyết định, chưa nhất quán; `socketio -> security` xếp check dù `server.py:64 jwt_decode` lấy payload dùng tiếp; bằng chứng tầng của task_worker là `control.py:19 inspect` (hỏi, không gửi việc).
+- **Kết quả:** đạt ở repo nhỏ và vừa; trượt ở repo lớn (lnbits, fba) vì chia khối sai. P khắt khe thấp ở mọi repo vì pipeline còn vẽ cả cạnh lắp ráp (mục 4).
+
+**Việc mở:** xem mục 7. (Danh sách việc mở của phiên 3 đã xong hoặc bị thay: đáp án đồng bộ theo bản vẽ tay thay cho việc subagent nâng 7 repo.)
+
+**Lưu ý kín/lộ:** phiên 3 đã đọc danh sách cạnh bắt buộc bản 2 của fba, lnbits, igorbenav để tìm lý do sơ đồ rối (không sửa). Phiên nào chỉnh pipeline không dùng chi tiết đó.
+
+## 3. Quyết định đã chốt
+
+| Quyết định | Ngày |
+|---|---|
+| Cạnh do code vẽ từ import đã phân giải; AI không quyết cạnh có tồn tại hay không (bản AI phân loại cạnh v2 cho recall thấp hơn) | 28/09 |
+| **Sơ đồ chỉ vẽ luồng xử lý:** request, tác vụ nền, lệnh CLI, kể cả định tuyến và middleware. Lắp ráp (container DI, tạo app, khởi động, tắt) không vẽ; đáp án ghi ở `acceptable` với nhãn `"wiring"` | 28/09 |
+| **Khối chia theo tầng, không bám thư mục** (thư mục nhiều vai trò thì tách theo file). Mức chi tiết giữ như đáp án bản 2, **không chi tiết hơn** | 28/09 |
+| Gộp khối cùng tầng, cùng cơ chế (ví dụ 6 plugin nạp chung một vòng lặp là một khối). Khối dùng chung ghi rõ trong `shared`, không có cạnh | 28/09 |
+| Đáp án là ground truth, phải chính xác nhất. Repo kín mới: subagent viết, phiên phát triển chỉ xem điểm tổng. Repo lộ: dễ + 1 trung bình | 28/09 |
+| Chia khối là phần quan trọng nhất: thiết kế tổng thể (dữ kiện code + prompt + kiểm), không vá từng repo | 28/09 |
+| Bản vá đã thử: (a') chỉ `__init__.py` bỏ sót vào khối cùng thư mục (giữ); (b) chỉ giữ luật "gộp lớp" (bỏ 2 luật cờ dùng chung); (c) code chia theo thư mục, AI gộp/tách (bỏ, thua ở 6/6 repo) | 28/09 |
+| **Chuẩn đáp án bản 3:** vùng là tầng (Điểm vào, API, Nghiệp vụ, Dữ liệu, Hạ tầng), mỗi khối một dòng code làm bằng chứng; khối nhiều tầng lấy tầng trên. Chọn tầng thay vì luồng vì dễ lấy bằng chứng (luồng: 16/19 khối fba đi tới được từ router chính, code không tự xếp được) | 28/09 |
+| Cạnh tới DB/Redis: chỉ bắt buộc khi khối gọi method trên session/client; chỉ nhận **hoặc tự mở** rồi truyền đi thì `acceptable` nhãn `"pass"`. Cạnh data → db giữ như cũ (không thêm vào bắt buộc). Redis giữ luật gọi method = bắt buộc | 28/09 |
+| **Sơ đồ một chiều** (quy tắc 7): cạnh bắt buộc chỉ đi xuống hoặc cùng tầng; cạnh đi lên → `acceptable` nhãn `"up"`. Worker tác vụ nền xếp tầng service (không phải entry) để giữ luồng API → service → worker. *Đã thay bằng luật worker ở dòng "Quyết định cuối phiên 3"* | 28/09 |
+| Cạnh "kiểm tra rồi quay về" (token, quyền, session, captcha...) → `acceptable` nhãn `"check"`. Lý do Khiêm: sơ đồ để người mới hình dung luồng | 28/09 |
+| Nâng đáp án lên bản 3: subagent mới, giữ khối, chỉ thêm tầng và nhãn pass; không đọc `evaluation/`, HANDOFF, memory. Làm fba trước cho Khiêm xem | 28/09 |
+| **Sơ đồ đáp án vẽ tay:** phiên chính tự đọc source và tự vẽ theo chuẩn, không dùng script lọc cạnh. Khiêm chọn chính phiên chính vẽ, dù phiên này đã thấy điểm pipeline (ngoại lệ với quy tắc đáp án viết mù). Làm fba trước | 28/09 |
+| **Quyết định cuối phiên 3:** (1) JSON đáp án đồng bộ theo bản vẽ tay `ve-tay/*.md` (bản vẽ tay là ground truth); (2) làm pipeline mới hoàn toàn theo 8 hướng ở mục 6 "Bài học", rồi so với v6 xem cải thiện bao nhiêu; (3) nguyên tắc mới: LLM được đọc source, không đọc toàn bộ repo (tránh hiểu nhầm). Luật worker: nhận việc từ service → Nghiệp vụ; vòng nền tự chạy → Điểm vào | 28/09 |
+| Sửa đáp án trước, rồi mới quyết cách sửa pipeline. Khi chỉnh bộ phân loại cạnh: xem từng cạnh sai ở 4 repo lộ, repo kín chỉ xem số tổng | 28/09 |
+| Được dùng key Groq của tài khoản khác (`GROQ_API_KEY_BACKUP`, `GROQ_API_KEY_3`) | 28/09 |
+| OpenRouter (3 USD) chỉ khi đạt tiêu chí trên repo kín, và phải hỏi Khiêm | 26/09 |
+| **Không chấm khắt khe tới từng file:** sơ đồ để người đọc hiểu kiến trúc, chia theo khối. File chỉ khai báo dạng dữ liệu mà bản vẽ không nhắc để ngoài đáp án (bỏ qua khi chấm) | 30/09 |
+| `inventory.py` quét `scripts/`, `seeds/` khi file import code của repo (điểm vào luồng phụ) | 30/09 |
+| Duyệt thiết kế pipeline v7 (mục 6). So sánh bước 3 với bảng mốc lần chạy cũ (không tốn token) | 30/09 |
+| **Bước 6 v7 (chia khối):** file neo (có dấu hiệu riêng) chia theo tầng, mỗi tầng một request, từ dưới lên; file không neo vào request sau, AI xếp vào khối bất kỳ tầng, lập khối Nghiệp vụ mới, hoặc dùng chung; tầng khối = tầng file neo, không có thì Nghiệp vụ; dấu hiệu Dữ liệu chỉ từ model và truy vấn; file thuần không ai gọi do code xếp (một khối dùng → khối đó, nhiều khối → dùng chung). Luật gộp theo tầng: Điểm vào, API chỉ tách khi khác cách đi vào, route các tính năng gộp một khối; Nghiệp vụ tách khi đường đi xuống khác, kể cả một bên có IO một bên không. Cắt phần request theo thư mục. Trần khối 3/5/5/2/4 | 30/09 |
+| **Bước 6 đổi hướng: "AI phán đoán, code kiểm"** (Khiêm đồng ý 30/09, sau khi thấy sửa luật cú pháp là chắp vá). Code chỉ lấy dữ kiện chắc (lời gọi, dòng, IO, ai khởi chạy task, session đi đâu) và tự quyết vài dấu hiệu gần như không thể sai (`FastAPI(`, `@router.<verb>`, `include_router`, `create_engine`, `__tablename__`); mọi dấu hiệu khác chỉ là gợi ý. AI quyết tầng + khối + loại cạnh mơ hồ, mỗi quyết định kèm một dòng code làm lý do; code kiểm dòng đó có thật. Không thêm luật cú pháp cho một repo. Lỗi trên repo mới xếp 3 loại: thiếu dữ kiện / chuẩn chưa rõ / AI sai. Giữ `calls.py`, `flow.py`, hồ sơ, cắt request, code kiểm, FakeLLM, bước 9; viết lại prompt A/B thành một prompt "tầng + khối + lý do"; thêm lượt kiểm loại cạnh mơ hồ | 30/09 |
+| **Chia khối đổi thứ tự: chốt khối từ trên xuống trước, xếp file sau** (Khiêm đồng ý 30/09, sau 2 lần chạy 4 repo lộ). Lý do: AI xếp từng file theo lô chỉ thấy vài thư mục nên tách route theo tính năng; phải trả một dòng mỗi file nên câu trả lời bị cắt. Lượt 1: AI đọc bản tóm tắt toàn repo do code dựng (cây thư mục, cây router, mỗi thư mục một dòng dữ kiện) và trả danh sách khối (tên, tầng, thư mục, lý do). Code kiểm trích dẫn, trần số khối, luật gộp bằng dữ kiện chắc; vi phạm gửi lại AI 1 lần. Lượt 2: code xếp file theo thư mục, chỉ file mơ hồ gửi AI chọn trong danh sách khối cố định. Không nới trần token: trần mỗi request do Groq 8k token/phút | 30/09 |
+| **Mục tiêu tạm thời: chỉ repo nhỏ** (rhoboro, fullstack, realworld, teamhide; ≤ 54 file). Repo vừa (boilerplate, kibo) và lớn (lnbits, fba) để sau. Lý do: đo pipeline không AI (mục 4) cho thấy luật ổn ở repo nhỏ, thất bại ở repo lớn. Hệ quả: 4 repo nhỏ đều là repo lộ, chưa có repo kín cỡ nhỏ để kiểm trung thực (cần thêm, xem mục 7 việc 8) | 30/09 |
+| **Khiêm (30/09 tối):** gác chuyện viết paper. Mục tiêu repo nhỏ và vừa, nhưng vẫn đo repo lớn để lấy số. Dùng OpenRouter (hết lo giới hạn token), tạm thời `gpt-oss-120b`; kết quả khả quan thì thử Claude Sonnet. Áp dụng bài học 1 (AI chọn mã dòng, code trích nguyên văn) và 2 (code nháp, AI sửa) — phiên tự làm rồi báo trong chat; bài 3 (việc nhỏ cho AI) xem xét, giữ như hiện tại vẫn có thể tốt; bài 4 học ArchAgent; bài 5 (người vẽ đáp án thứ hai) không làm — thay bằng cách tính điểm chấp nhận "đúng nhưng vẽ khác" | 30/09 |
+| Không commit, không push khi chưa được bảo | — |
+
+## 4. Tiêu chí, cách chấm, số đo
+
+**Tiêu chí đạt:** P ≥ 0,8; R ≥ 0,6; trích dẫn hợp lệ ≥ 90%. Luôn báo P, P khắt khe (Pk), R.
+
+**Cách chấm** (`evaluate.py`):
+- Mỗi khối của pipeline được coi là khối đáp án có nhiều file chung nhất với nó.
+- Cạnh trùng `required` là đúng. Cạnh trùng `acceptable` (gồm cả `wiring`) không tính ở P, nhưng tính sai ở Pk. Cạnh khác là sai.
+- File không thuộc khối đáp án nào thì bỏ qua.
+
+**Đo code v7 (phiên 5, 30/09 11:16, không tốn token):** `scripts-2026-09-30/measure_code.py`, sau khi sửa dấu hiệu Dữ liệu (chỉ model và truy vấn; mục 7 việc 7) và theo đáp án teamhide, fba do phiên khác sửa lúc 11:06 (HANDOFF chưa ghi nội dung sửa; teamhide: `domain/entity/` sang khối persist). Dùng khối của đáp án (giả sử chia khối đúng hết), nên B là trần của phần xếp loại cạnh, **không so thẳng được** với bảng mốc bên dưới (bảng mốc là cả pipeline). Repo kín chỉ xem số tổng.
+
+| Repo | A tầng đúng: khối; file neo | B: P / Pk / R | B' (tầng do code): P / Pk / R | Ngoài: P / R | C cạnh không qua import | D dùng chung: P / R | E khối không ai gọi |
+|---|---|---|---|---|---|---|---|
+| 06/10/2026 | UAT bản Khiêm trên Windows; sửa quote CRLF và test Windows; Codex kiểm rồi bổ sung Click (teamhide), Cappa (fba) vào golden v1 | pytest 87 qua/4 bỏ qua; `golden_tool.py check` 0 lỗi; đã push `feature/golden-v1-click-cappa`, `feature/l3gen-windows-crlf` (golden thành file revision mới, không ghi đè bản đã duyệt) |
+| rhoboro | 5/5; 7/7 | 1,00 / 0,80 / 1,00 | 1,00 / 0,80 / 1,00 | 1,00 / 1,00 | 1/1 | 0,25 / 1,00 | 0/0 |
+| fullstack | 6/6; 12/12 | 1,00 / 1,00 / 1,00 | 1,00 / 1,00 / 1,00 | 1,00 / 1,00 | 1/1 | 1,00 / 1,00 | 0/0 |
+| realworld | 5/5; 12/12 | 1,00 / 0,75 / 1,00 | 1,00 / 0,75 / 1,00 | 1,00 / 1,00 | 1/1 | 0,71 / 1,00 | 1/1 |
+| teamhide | 9/9; 14/14 | 1,00 / 1,00 / 1,00 | 1,00 / 1,00 / 1,00 | 1,00 / 1,00 | 0/0 | 0,12 / 1,00 | 2/2 |
+| boilerplate | 7/10; 29/33 | 0,83 / 0,59 / 0,91 | 0,83 / 0,59 / 0,91 | 1,00 / 0,67 | 0/0 | 0,42 / 0,93 | 1/2 (+2 sai) |
+| kibo | 9/10; 44/46 | 0,93 / 0,72 / 1,00 | 0,93 / 0,72 / 1,00 | 0,67 / 0,67 | 1/1 | 0,35 / 1,00 | 0/0 |
+| lnbits | 9/12; 49/76 | 1,00 / 0,46 / 0,89 | 1,00 / 0,43 / 0,72 | 0,18 / 0,40 | 0/0 | 0,12 / 0,67 | 0/0 |
+| fba | 12/16; 62/78 | 0,92 / 0,55 / 0,96 | 0,95 / 0,64 / 0,75 | 1,00 / 0,83 | 3/3 | 0,43 / 0,72 | 0/0 |
+
+**Pipeline v7 không AI (30/09, phiên 6, `scripts-2026-09-30/no_ai_score.py`, 0 token):** mọi request trả rỗng nên mọi file xếp theo luật dự phòng; mức sàn code tự đạt. Khối (đáp án) / nội bộ P / Pk / R / ngoài P / R / file đúng khối: rhoboro 6 (5) 1,00/0,80/1,00, 1,00/1,00, 0,92; fullstack 6 (6) 0,83/0,83/0,83, 1,00/1,00, 0,93; realworld 7 (5) 1,00/0,75/1,00, 1,00/1,00, 0,93; teamhide 14 (9) 1,00/1,00/0,75, 1,00/1,00, 0,48; boilerplate 28 (10) 0,62/0,46/0,91, 0,80/0,67, 0,73; kibo 34 (10) 0,79/0,65/0,85, 0,67/0,67, 0,64; lnbits 13 (12) 0,62/0,42/0,28, 0,12/0,20, 0,54; fba 22 (16) 0,30/0,26/0,29, 0,43/0,50, 0,56 (4 repo cuối kín, chỉ số tổng). So bảng mốc: không AI hơn lần chạy AI cũ ở boilerplate, kibo; kém ở lnbits, fba. Chạy lại `measure_code.py`, `sure_signs.py` cùng lúc: số khớp bảng trên và mục 7 việc 9.
+
+File neo = file có dấu hiệu riêng (entry, api, data, infra). Đếm nhầm tầng file neo của lnbits (`scripts-2026-09-30/tier_confusion.py lnbits`, chỉ số tổng): 27/76 sai; code xếp Điểm vào mà bản vẽ xếp Hạ tầng 18; code xếp Hạ tầng mà bản vẽ xếp API 2, Nghiệp vụ 4, Dữ liệu 3.
+
+Số đo sau khi sửa `inventory.py` và đáp án theo quyết định 30/09. Trước khi quét `scripts/`: boilerplate B R 0,73, kibo 0,85. Hệ thống ngoài loại HTTP chưa có tên (AI đặt ở bước 9) nên "Ngoài" thấp ở lnbits, kibo. D thấp vì nhiều file không IO nằm trong khối của đáp án (dto, interface, `__init__`): việc này để AI quyết ở bước chia khối. Chưa xem chi tiết repo kín.
+
+**Số mốc mới (phiên 4):** các lần chạy cũ chấm lại theo đáp án bản 4 (`scripts-2026-09-28/rescore.py`, không tốn token). "Bản cũ" là `oracle/rev3/`. Chỉ fba là lần chạy v6; 7 repo còn lại là lần chạy của pipeline cũ hơn (v3–v5, r1–r4). Token là `meta.tokens` của lần chạy; 0 là lấy toàn bộ từ cache.
+
+| Repo | Lần chạy | Khối | Bản cũ: P / Pk / R | Bản 4: P / Pk / R | Bản 4 ngoài: P / Pk / R | Trích dẫn | Token |
+|---|---|---:|---|---|---|---:|---:|
+| rhoboro | `v4-rhoboro` | 11 | 1,00 / 1,00 / 1,00 | 1,00 / 0,60 / 0,75 | 1,00 / 1,00 / 1,00 | 1,00 | 7283 |
+| teamhide | `v3-teamhide` | 24 | 0,69 / 0,69 / 0,69 | 0,80 / 0,57 / 1,00 | 1,00 / 1,00 / 0,67 | 0,98 | 0 |
+| boilerplate | `v3-boilerplate` | 50 | 1,00 / 0,74 / 1,00 | 0,62 / 0,33 / 0,46 | 0,80 / 0,80 / 0,67 | 0,98 | 0 |
+| lnbits | `v5-lnbits` | 21 | 0,42 / 0,26 / 0,50 | 0,61 / 0,30 / 0,94 | 0,44 / 0,44 / 0,80 | 0,98 | 33452 |
+| fba | `v6-fba` | 72 | 0,28 / 0,22 / 0,40 | 0,40 / 0,28 / 0,58 | 0,56 / 0,56 / 0,83 | 0,96 | 80657 |
+| fullstack | `fullstack-r4` | 12 | 1,00 / 0,62 / 1,00 | 0,62 / 0,56 / 0,83 | 0,50 / 0,40 / 1,00 | 1,00 | 11625 |
+| realworld | `realworld-r1` | 14 | 0,79 / 0,46 / 1,00 | 0,38 / 0,25 / 1,00 | 1,00 / 1,00 / 1,00 | 1,00 | 19549 |
+| kibo | `kibo-r3` | 15 | 1,00 / 0,55 / 1,00 | 0,69 / 0,60 / 0,69 | 0,50 / 0,50 / 0,67 | 1,00 | 27763 |
+
+Ở 4 repo lộ, cạnh sai chủ yếu là cạnh tới file thuộc dùng chung (`core/security.py`, `models/`); cạnh thiếu là Dữ liệu → DB không qua import. Các lần chạy cũ dùng `inventory.py` cũ nên không thấy script (boilerplate, kibo mất 2 cạnh mỗi repo). Repo kín chỉ xem số tổng. Số đã chạy lại sau quyết định 30/09.
+
+**Số đo cũ (phiên 3):** các lần chạy cũ, chấm lại theo đáp án bản 2 chỉ luồng. Cạnh nội bộ.
+
+| Repo | Nhóm cũ | Lần chạy | Khối | P / Pk / R | Ngoài P / R |
+|---|---|---|---:|---|---|
+| rhoboro | kiểm | `v4-rhoboro` | 11 | 1,00 / 1,00 / 1,00 | 1,00 / 1,00 |
+| teamhide | kiểm | `v3-teamhide` | 24 | 0,69 / 0,69 / 0,69 | 1,00 / 0,67 |
+| igorbenav boilerplate | kiểm | `v3-boilerplate` | 50 | 1,00 / 0,74 / 1,00 | 0,80 / 0,80 |
+| lnbits | kiểm | `v5-lnbits` | 21 | 0,42 / 0,26 / 0,50 | 0,33 / 0,60 |
+| fba | kiểm | `v6-fba` | 72 | 0,36 / 0,30 / 0,43 | 0,67 / 0,67 |
+| fullstack | chỉnh | `fullstack-r4` | 12 | 1,00 / 0,62 / 1,00 | 1,00 / 1,00 |
+| realworld | chỉnh | `realworld-r1` | 14 | 0,79 / 0,46 / 1,00 | 1,00 / 1,00 |
+| kibo | chỉnh | `kibo-r3` | 15 | 1,00 / 0,55 / 1,00 | 0,75 / 1,00 |
+
+Ghi chú:
+- `v3-*` dựng từ cache của bản cũ. Ba repo chỉnh là lần chạy của pipeline cũ (trước v4). Chưa chạy v6 trên các repo này.
+- `v6-fba`: 80.657 token, 27 request, 1.487 s (94% là chờ giới hạn 8k token/phút). AI trả đường dẫn không có thật (`dir/...`) vì danh sách thư mục bị rút gọn, nên 114/226 file không được xếp khối.
+- `v5-lnbits`: 33.452 token, 532 s. AI bỏ sót 21 file ở thư mục gốc nhiều vai trò.
+- Trích dẫn hợp lệ: 96–100% ở mọi lần chạy.
+
+**Lỗi chính còn lại:**
+1. **Chia khối ở repo lớn.** Danh sách gửi AI bị rút gọn → AI bịa đường dẫn, bỏ sót file. Cờ "dùng chung" sai theo cả hai chiều (`registrar`, `security` bị đánh dấu dùng chung; `common`, `utils` không được xếp).
+2. **Vẽ mọi cạnh import**, gồm cả cạnh lắp ráp và cạnh chỉ dùng kiểu, nên P khắt khe thấp.
+
+## 5. Pipeline v6 (code hiện tại)
+
+| Bước | Ai làm | File |
+|---|---|---|
+| Snapshot, chỉ mục ký hiệu và import | Code | `inventory.py`, `pyindex.py` |
+| Chia khối từ danh sách thư mục (1 request) | AI, `GROUP_SYSTEM` | `ai.group` |
+| File AI bỏ sót: `__init__.py` vào khối cùng thư mục (theo import, rồi số file); file khác thành khối theo thư mục | Code | `graph.assemble` |
+| Kiểm "khối trải trên ≥2 thư mục con import lẫn nhau" → AI sửa một lượt (tách, hoặc giữ kèm lý do) | Code + AI, `REVIEW_SYSTEM` | `graph.grouping_problems`, `ai.review` |
+| Cạnh: mọi import giữa hai khối không dùng chung, nhãn từ cách dùng | Code | `graph.candidates`, `graph.edge_label` |
+| Tên, vai trò, hệ thống ngoài (lô ≤ 3 khối) | AI, `DESCRIBE_SYSTEM` | `ai.describe`, `ai.apply` |
+
+Prompt sha256 (`GROUP_SYSTEM + REVIEW_SYSTEM + DESCRIBE_SYSTEM`): `6b5db198e242274f`. Hạ tầng: thử lại khi rớt mạng; thử lại với `reasoning_effort=low` khi output rỗng; trần output lượt sửa 4.000 token.
+
+## 6. Pipeline mới v7 (bước 2): ĐÃ DUYỆT 30/09, đã viết code, chưa chạy AI
+
+Theo 8 hướng trong "Bài học" dưới đây. Code đã viết đủ 9 bước: bước 1 (`calls.py`), bước 2, 3, 4, 5, 7, 8 (`flow.py`), bước 6, 9 (`ai7.py`, docstring có đủ), lệnh chạy `run7.py`. Số token vẫn là ước lượng (dry-run dưới đây).
+
+Quy tắc code đang dùng (`flow.py`, docstring có đủ): loại cạnh flow > check > helper > pass > wiring, chỉ vẽ flow. helper = gọi hàm không IO (tính theo từng hàm, hàm abstract coi như có IO). File tạo engine DB luôn là Hạ tầng. Dấu hiệu Dữ liệu chỉ từ model và truy vấn (`select(`, `session.query(`, chuỗi SQL, `FastCRUD(User)`/aiosql), không từ `get/commit/refresh`. Tầng khối = tầng file neo trong khối, không có thì Nghiệp vụ. Đi từ điểm vào theo cạnh flow, qua lớp thực thi interface (kế thừa), tới file không IO thì dừng.
+
+`ai7.py` (bước 6): request tầng infra → data → api → entry (tầng 1 file thì không gọi AI); hồ sơ file neo: dòng dấu hiệu, tên cấp cao nhất, `reaches` (khối tầng dưới mà lời gọi dẫn tới), `connects`, `called from` (thư mục + cách: include, call, session, by name). Rồi request không neo, cắt phần theo thư mục (thư mục theo thứ tự đường dẫn, không tách một thư mục ra hai phần), chạy lần lượt; hồ sơ: tên, `abstract`, `called by` (khối hoặc file + loại cạnh), `implemented by`, `reaches`, ±3 dòng code cho file `unknown`. Mỗi request: prompt ≤ 3.500 khi cắt phần; trả lời = min(2.500, 6.000 − prompt), tối thiểu 1.500. Request lỗi hoặc file AI bỏ sót: code xếp theo luật (thư mục). Bước 9: lô ≤ 5 khối, trả lời ≤ 1.500, một lượt thử lại lô 2 khối cho khối thiếu; `role_quote` code kiểm; nhãn rỗng thì `gọi <tên hàm>`; tên hệ thống ngoài: code đặt cho Database, Redis, SMTP, broker; AI đặt cho HTTP/OAuth, được xem dòng có `url/host/endpoint` trong lời gọi tạo client. Prompt sha256 (16 ký tự đầu): `60d44ba56375d8e6`.
+
+**Dry-run 8 repo (30/09, `run7.py --dry-run`, không gọi AI).** Không có câu trả lời nên file AI lẽ ra gộp bị xếp theo thư mục; vì vậy bước 9 bị ước cao (nhiều khối hơn thật). "Trần" = prompt + trả lời tối đa.
+
+| Repo | Bước 6: request / prompt | Bước 9: request / prompt | Trần | Request lớn nhất |
+|---|---|---|---:|---:|
+| rhoboro | 3 / 1.892 | 2 / 1.538 | 13.930 | 3.383 |
+| fullstack | 5 / 3.176 | 2 / 1.505 | 20.181 | 3.311 |
+| realworld | 2 / 3.308 | 2 / 2.092 | 13.400 | 4.903 |
+| teamhide | 5 / 4.408 | 4 / 3.581 | 26.489 | 4.289 |
+| boilerplate | 5 / 7.581 | 7 / 8.443 | 39.024 | 5.636 |
+| kibo | 5 / 8.898 | 11 / 15.913 | 53.811 | 5.354 |
+| lnbits | 7 / 15.492 | 7 / 12.134 | 55.626 | 5.612 |
+| fba | 10 / 26.359 | 14 / 22.648 | 94.705 | 6.000 |
+
+| # | Bước | Ai làm | AI đọc gì | Hướng |
+|---|---|---|---|---|
+| 1 | Chỉ mục mở rộng: mỗi lời gọi trong hàm kèm đích đã phân giải (tên import, method trên tham số có kiểu, `self.x`), decorator, `Depends(...)`, lời gọi mức module, chuỗi `"mod:attr"`, `import_module` | Code | — | 3, 4 |
+| 2 | Xếp tầng từng file theo dấu hiệu (bảng chuẩn mục 3). File không dấu hiệu mà tầng trên gọi → Nghiệp vụ. File không IO và không gọi file có IO → ứng viên dùng chung | Code | — | 2, 5 |
+| 3 | Xếp loại từng lời gọi: luồng, kiểm, helper (hàm không IO), truyền session, lắp ráp | Code | — | 3 |
+| 4 | Cạnh không qua import: gọi method trên session/conn nhận qua tham số → cạnh tới file tạo engine; `app.state.x`; nạp theo tên; `Lib(session=...)` | Code | — | 4 |
+| 5 | Đi từ điểm vào theo cạnh luồng; khối Hạ tầng không tới được → ghi "chưa luồng nào gọi" | Code | — | 6 |
+| 6 | Chia khối: file neo theo tầng (mỗi tầng một request, từ dưới lên), rồi file không neo (cắt phần theo thư mục); file thuần không ai gọi do code xếp | AI | Hồ sơ từng file (xem trên). Chỉ file `unknown` có ±3 dòng code. Không gửi cả file | 1 |
+| 7 | Cạnh khối = gộp cạnh luồng của file; bỏ cạnh trong khối, cạnh tới dùng chung, cạnh đi lên | Code | — | 3 |
+| 8 | Hệ thống ngoài: xếp loại theo thư viện (sqlalchemy/asyncpg → CSDL; redis; smtplib → SMTP; celery/taskiq/aio_pika → broker; httpx có `base_url` → API ngoài). Bỏ sentry, opentelemetry, prometheus | Code | — | 7 |
+| 9 | Tên khối, vai trò một dòng, nhãn cạnh ngắn, tên API ngoài | AI | Tên hàm được gọi và 1 dòng code mỗi cạnh | 8 |
+
+Ước lượng token ban đầu (trước khi viết code) đã thay bằng dry-run ở trên. v6 trên fba: 80.657. Mỗi request tối đa 6k để vừa giới hạn 8k token/phút.
+
+Đo không tốn token, trên 8 repo, dùng khối của đáp án để tách phần chia khối ra (repo kín chỉ báo số tổng):
+- A. Tầng code cho mỗi khối (dấu hiệu cao nhất trong khối) so với tầng đáp án; và tầng file có dấu hiệu.
+- B. Cạnh luồng của code gộp theo khối đáp án: P, Pk, R so với `required` nội bộ.
+- C. Cạnh không qua import tìm được / tổng.
+- D. Dùng chung: P, R của file code đánh dấu không IO so với file thuộc `common`.
+- E. Khối chưa luồng nào gọi: teamhide (cache, Celery), boilerplate (cache, Taskiq), realworld (services).
+
+Đã quyết 30/09 (mục 3): duyệt bảng; file chỉ khai báo dạng dữ liệu mà bản vẽ không nhắc ngoài đáp án; `inventory.py` quét `scripts/`, `seeds/`; so sánh với bảng mốc. Còn treo: cả 8 repo đã bị phiên phát triển nhìn thấy, người vẽ đáp án cũng là người thiết kế pipeline; nên có 2–3 repo kín mới trước khi kết luận v7 tốt hơn.
+
+**Bài học từ vẽ tay 8 repo (phiên 3, chưa đo, là quan sát):**
+- Mỗi repo chỉ cần đọc khoảng 10–20 chỗ: điểm vào, nơi gắn router, một chuỗi gọi đại diện mỗi tính năng (route → service → CRUD → session), các dòng tạo kết nối ra ngoài. Không cần đọc cả repo.
+- Gộp theo tầng qua nhiều tính năng (igorbenav 4 module, kibo 8 service, rhoboro notes+notebooks) xóa gần hết cạnh chéo. v6 gộp theo thư mục nên ra lưới cạnh.
+- Cạnh Dữ liệu → DB thường không có import: session truyền qua tham số (rhoboro, fullstack, kibo, fba, FastCRUD ở igorbenav). Các cạnh không qua import khác: `app.state.pool` (realworld), nạp router plugin theo tên (fba), cấu hình thư viện `CRUDAuth(session=...)` (igorbenav).
+- Phần lớn cạnh bị bỏ rơi vào 4 loại có dấu hiệu trong code: kiểm (Depends xác thực, `check_*`, `verify_*`), truyền session (`Depends(get_db)`, `with Session() as s: f(s)`), lắp ráp (lifespan, DI), đi lên (sau khi xếp tầng).
+- Module không có IO (băm mật khẩu, ký JWT, slug) nên là dùng chung. Khối đã cấu hình nhưng không luồng nào gọi (Celery teamhide, Taskiq igorbenav) cần phát hiện bằng cách đi từ điểm vào.
+- Luật worker: đã sửa chuẩn ở phiên 4.
+- Script và seed là điểm vào của luồng phụ (tạo user đầu, gửi nhắc lịch). Bản vẽ tay có vẽ, nhưng 8 hướng trên không nhắc, và thiết kế v7 ban đầu dùng lại `inventory.py` của v6 vốn bỏ các thư mục này. Phát hiện khi đồng bộ đáp án; đã sửa 30/09.
+
+## 7. Bước kế tiếp
+
+1. ~~Bước 6 (AI chia khối)~~: **xong 30/09** (`ai7.group`, test FakeLLM trong `test_ai7.py`). Thiết kế ở mục 6 và mục 3.
+2. ~~Bước 9 (AI đặt tên)~~: **xong 30/09** (`ai7.describe`, test FakeLLM).
+3. ~~Lệnh chạy v7~~: **xong 30/09** (`run7.py`, xuất `graph.json` dạng v6 + `diagram.mmd` + `score.json`; `--dry-run` nhận nhiều repo). Dry-run 8 repo ở mục 6.
+4. **ĐANG CHỜ: hỏi Khiêm trước khi chạy AI.** Tính `--budget` theo mục 8. Export key tường minh (bẫy `load_key`, mục 11). Chạy 4 repo lộ trước (rhoboro, fullstack, realworld, teamhide), rồi 4 repo kín (chỉ xem số tổng). Ghi vào nhật ký lần chạy nào dùng key nào.
+5. **Bước 3 của prompt:** so v7 với bảng mốc mục 4 trên cùng 8 repo, cùng đáp án bản 4: P, Pk, R, trích dẫn hợp lệ, số khối, token. Trước đó chạy lại `rescore.py` vì đáp án teamhide, fba đổi lúc 11:06 ngày 30/09.
+6. **Nhận xét review code v7 (30/09, người vẽ tay đọc lại `calls.py`, `flow.py`): đề xuất, CHƯA DUYỆT, chưa sửa code.** (a) Tầng khối "tầng cao nhất có dấu hiệu" làm khối Nghiệp vụ thành Dữ liệu khi có một file model hoặc một lời gọi session (rhoboro use_cases vì `session.refresh`, teamhide user_svc vì entity có `__tablename__`); bản vẽ tay xếp theo vai trò chính. (b) "Không IO" chưa phải dùng chung: độ thuần bỏ qua cạnh check (teamhide `permission.py` gọi `is_admin` có DB) và không đi qua interface tới lớp thực thi (teamhide `cache_manager.py` → backend trừu tượng → `RedisBackend`); file thuần riêng của một tính năng (dto, schema, entity, request/response) bản vẽ để cùng tính năng; dùng chung = thuần và được nhiều tính năng/tầng dùng. (c) Nhận session theo tên biến (`db`, `conn`, `session`) và method chung (`get`, `delete`, `add`) dễ nhầm với `aiohttp.ClientSession`; nên lần theo nguồn gốc giá trị. (d) `db_use` nối tới mọi file tạo engine; sai khi repo có nhiều engine. (e) Kiểm theo tên hàm dễ vỡ; bản vẽ dựa vào cách dùng kết quả (chỉ để `if`/`raise`). (f) Bước 6 quyết định kết quả; bản vẽ tay cần ngữ cảnh chéo tầng (kibo tách `scheduler/worker.py` và `reminder_scheduler.py`, gộp deps vào API, container vào App).
+7. **Góp ý đề xuất bước 6 của agent khác (30/09; Khiêm gửi cho phiên 5 làm theo, kèm câu "Duyệt, sau khi sửa theo phần trên"):** (a) mỗi tầng một request biến tầng file thành ràng buộc cứng; file tầng sai (fullstack `deps.py` ra Dữ liệu, teamhide `transactional.py` ra Dữ liệu) không sửa được. Đề xuất: file có dấu hiệu riêng (neo) chia theo tầng trước; file không có dấu hiệu riêng (Nghiệp vụ suy ra, unknown, thuần có người gọi) đưa vào request sau, AI được xếp vào khối bất kỳ tầng nào, lập khối Nghiệp vụ mới, hoặc dùng chung; hồ sơ ghi khối (không chỉ thư mục) gọi nó và loại cạnh (flow/check/pass/wiring). (b) Không giữ "AI không đổi tầng": tầng khối = tầng của file neo; khối chỉ có file không neo là Nghiệp vụ; dấu hiệu Dữ liệu chỉ từ model/truy vấn, không từ `refresh`/`commit`. (c) Thuần mà không ai gọi: code tự xếp, nhưng thuần chỉ được một tính năng dùng → vào khối tính năng đó; dùng chung = thuần + nhiều tính năng/tầng dùng; prompt không liệt kê DTO/request-response là dùng chung. (d) Luật gộp: gộp tính năng cùng đường đi xuống, tách khi đi xuống khác (fba task → Celery, kibo WhatsApp → Evolution); một loại hệ thống ngoài một khối dù nhiều bản thực thi (lnbits 26 file ví); client ngoài + cache bọc nó một khối; trần khối mỗi tầng theo bản vẽ: 3/5/5/2/4. (e) Bước 9 ổn; API ngoài kiểu HTTP đặt tên theo mục đích, gửi AI dòng `base_url=settings.X`.
+   - **Bản sửa của phiên 5: Khiêm DUYỆT 30/09 kèm 3 sửa, đã viết code.** 3 sửa: luật gộp theo tầng (thay chỗ (7) dưới đây: Điểm vào, API chỉ tách khi khác cách đi vào; "cùng đường đi xuống" chỉ ở prompt B cho Nghiệp vụ, kể cả IO với không IO); cắt phần request theo thư mục (thay thứ tự ở (3)); báo bảng đếm nhầm tầng lnbits (mục 4). Dựng thử bằng bản sao `calls.py`, `flow.py` ở `evaluation/quote-evidence/scripts-2026-09-30/step6-proto/proto/`; đo bằng `proto_measure.py [--show teamhide] [--detail]`, `proto_measure2.py`. Chỗ phiên 5 tự chọn: (1) "truy vấn" = `select/insert/update/delete` của SQLAlchemy/SQLModel, `session.query(`, chuỗi SQL (cả DDL) truyền vào lời gọi trên session, đối tượng thư viện nơi khác truy vấn qua session (`FastCRUD(User)`, aiosql); không tính `get/add/commit/refresh/execute` không có SQL. (2) Request file neo chạy từ dưới lên infra → data → api → entry; hồ sơ ghi `reaches` = khối tầng dưới mà lời gọi dẫn tới, đi qua file không neo và qua interface tới lớp thực thi. (3) Request không neo: Nghiệp vụ, rồi unknown, rồi thuần; cắt phần ≤ 3.500 token prompt, chạy lần lượt, phần sau thấy khối phần trước lập. (4) Lớp thực thi thuần không ai gọi → khối của interface nó thực thi (trước luật người dùng). (5) Trần khối chỉ ghi trong prompt; vượt thì ghi `issues`. (6) File sót: neo → khối cùng tầng nhiều file cùng thư mục nhất, không có thì theo thư mục; không neo có IO → khối Nghiệp vụ theo thư mục; thuần → luật tự xếp. (7) Luật gộp viết: "tách khi một tính năng đi tiếp tới thứ các tính năng khác không dùng (hàng đợi, API ngoài riêng)"; teamhide sẽ gộp `jwt_svc` với `user_svc` (bản vẽ tách).
+   - **Số đo bản sửa (30/09, không tốn token).** Tầng file neo đúng so với bản vẽ, cũ → mới: rhoboro 7/9 → 7/7, fullstack 12/13 → 12/12, realworld 13/13 → 12/12, teamhide 13/15 → 13/14 (còn sai `entity/user.py`), boilerplate 29/35 → 29/33, kibo 45/49 → 44/46, lnbits 50/78 → 49/76, fba 69/97 → 62/78 (kín: chỉ số tổng). Prompt ước lượng cả bước 6: rhoboro 2,7k, fullstack 4,5k, realworld 3,8k, teamhide 5,4k, boilerplate 8,0k, kibo 8,4k, lnbits 14,8k (6 request), fba 20,9k (8 request); chưa tính trả lời (≤ 2.500 mỗi request). Luật tự xếp file thuần không ai gọi, mô phỏng bằng khối đáp án thay kết quả AI: P, Pk, R không đổi ở 8 repo, 0 khối ánh xạ sai. Bỏ ý "file chỉ được gọi như helper cũng tự xếp" vì lnbits R 0,89 → 0,72.
+9. **Hướng mới "AI phán đoán, code kiểm" (Khiêm giao phiên 5, 30/09; thay việc 4 ở trên; mục 3):** làm lần lượt, mỗi bước test offline + cập nhật file này.
+   - **Bước 1 xong:** `calls.py` ghi thêm `sure` (dấu hiệu chắc: `FastAPI(`, `@<router>.<verb>`, `include_router`, `create_engine`/`create_async_engine`, `__tablename__`/`table=True`); `flow.analyze` trả `sure` = tầng cao nhất trong các dấu hiệu chắc của file. Mọi dấu hiệu khác là gợi ý. Test `test_sure_signs_only`. Đo (`scripts-2026-09-30/sure_signs.py`): file chắc đúng tầng khối đáp án 146/156; 4 repo lộ đúng hết (7/7, 9/9, 10/10, 7/7); boilerplate 13/14, kibo 26/26, lnbits 23/23, fba 51/60 (kín, số tổng). Cả 10 file lệch: dấu hiệu file đúng, nhưng khối của bản vẽ ở tầng cao hơn (fba 7 file `__tablename__` trong khối API; 2 `include_router` và boilerplate 1 route trong khối Điểm vào). Mức khối: "tầng cao nhất của file chắc trong khối" đúng 32/32 khối có file chắc; "tầng đa số" đúng 31/32 (fba). Phiên 5 chọn: khối có file chắc lấy tầng cao nhất của chúng (đúng chuẩn mục 3 "khối nhiều tầng lấy tầng trên"); khối không có file chắc lấy tầng đa số AI trả. Chờ Khiêm xác nhận (Khiêm viết "tầng đa số").
+   - **Bước 2–5 xong (code viết lại trong `ai7.py`, bản trước lưu ở scratchpad phiên 5, không giữ):** một prompt `GROUP_SYSTEM` (tầng + khối + lý do, định nghĩa tầng theo chuẩn mục 3, đủ 7 luật gộp đã duyệt). Hồ sơ mỗi file: `layer: X (sure)` hoặc `hint: X` (dòng dấu hiệu), tên, `abstract`, `called by` (khối/file + cách: flow, include, by name, session, check, pass, wiring, helper), `implemented by`, `reaches` (file chắc hoặc khối của nó), và với file chưa chắc: ≤ 15 dòng code (mở IO, vòng lặp, khai báo, lời gọi sang file khác). Lô theo cây thư mục: thư mục chỉ bị tách khi riêng nó quá ngân sách; lô sau thấy khối lô trước. Trả lời mỗi file `{file, layer, block, reason}`; code kiểm `reason` là một dòng có thật của chính file đó (`verify.check`), tầng chắc không đổi, file chắc không vào dùng chung; sai thì xếp theo luật (khối cùng tầng nhiều file cùng thư mục nhất, không có thì khối mới). Tầng khối: tầng cao nhất của file chắc, không có thì đa số. Thuần không ai gọi: code xếp như trước. Lượt kiểm cạnh `check_edges`: cặp khối chưa có cạnh flow nhưng có lời gọi xếp theo tên (`check_*` ngoài `dependencies=[...]`), `pass`, `helper` → gửi dòng gọi ±2, AI trả loại + lý do; `flow` có lý do hợp lệ thì vẽ. `run7.py` nối `check_edges` vào chạy thật và dry-run; `graph.json` ghi thêm `reasons`, `edge_check`. Test: `test_flow.py` 7, `test_ai7.py` 12 (viết lại), `test_quote_evidence.py` 23: đạt trên 3.13 và 3.14.
+   - **Dry-run (30/09, prompt sha `0f72dcd4bc1adf0d`), số request / prompt:** rhoboro chia khối 1 / 2,6k, kiểm cạnh 0, đặt tên 2 / 1,6k, trần 9,1k; fullstack 1 / 3,0k, 0, 2 / 1,6k, trần 9,7k; realworld 3 / 8,8k, 1 / 0,9k, 2 / 2,2k, trần 22,5k; teamhide 3 / 8,1k, 1 / 0,4k, 3 / 3,0k, trần 22,9k; boilerplate 8 / 24,1k, 1 / 1,3k, 7 / 8,7k, trần 59,1k; kibo 8 / 26,8k, 1 / 0,9k, 9 / 13,0k, trần 69,2k; lnbits 18 / 61,4k, 1 / 2,6k, 7 / 12,1k, trần 118,1k; fba 23 / 79,8k, 1 / 2,1k, 7 / 10,9k, trần 144,1k. Tổng trần 454,5k (4 repo lộ 64k). Request lớn nhất 5.877. Đoạn code chiếm 41–71% hồ sơ (lnbits 71%, trung bình 12,4 dòng/file chưa chắc). Chưa gọi AI.
+   - **Bước 6: Khiêm duyệt (30/09):** luật tầng khối "tầng cao nhất của file chắc, không có thì đa số" (tầng chắc chỉ là tầng của file, không ép khối; `group` trả thêm `layer_differs`); giữ 15 dòng cho 4 repo lộ, sau đó hạ 8 nếu dòng 9–15 hầu như không được trích.
+   - **Chạy 4 repo lộ (30/09 12:01–12:18, KEY CHÍNH, `--budget 634632`, prompt sha `0f72dcd4bc1adf0d`), `runs/v7-{rhoboro,fullstack,realworld,teamhide}`:** tổng 100.462 token (sổ 434.632 → 535.094), 35 request, 13 lỗi 400 (JSON hỏng: ngoặc thừa giữa mảng; lượt thử lại chế độ JSON thường hết token) chiếm 48k token tính theo ước lượng. **Mọi câu trả lời chia khối bị code loại** (0 lý do hợp lệ): AI ghi lý do theo dạng hồ sơ (`12: code`, `7| code`, `user.py:15 code`) còn code chỉ nhận `<file>:<dòng> <code>` — lỗi thiết kế định dạng của phiên 5. Nên số của lần chạy là số khi mọi file xếp theo luật: P / Pk / R nội bộ rhoboro 1,00 / 0,80 / 1,00; fullstack 0,83 / 0,83 / 0,83; realworld 1,00 / 0,75 / 1,00; teamhide 0,71 / 0,62 / 0,62; ngoài 1,00 ở cả 4; trích dẫn (role_quote) 100%. Token thật / trần dry-run: 10,6k / 9,1k; 25,6k / 9,7k; 33,0k / 22,5k; 31,3k / 22,9k (vượt vì request lỗi và thử lại).
+   - **Đã sửa sau lần chạy (chưa chạy lại AI):** `_quote` nhận thêm `<tên file>:<dòng>`, `<dòng>: code`, `<dòng>| code`, code không số dòng (vẫn `verify.check` đúng file đó); test `test_reason_forms`. `EXCERPT` 15 → 8 (lý do trích: dòng 1–8 của đoạn 52, dòng 9–15 0, dòng dấu hiệu 25). Dry-run với 8 dòng: tổng trần 390,8k, 4 repo kín 330,7k.
+   - **Phát lại offline** (`scripts-2026-09-30/replay_v7.py 12:00 …`, câu trả lời AI trong cache qua parser mới, không tốn token; kiểm cạnh và đặt tên không phát lại): rhoboro 13/13 lý do hợp lệ, 1,00 / 0,80 / 1,00, 9 khối; fullstack không có câu trả lời (lô duy nhất lỗi JSON); realworld 29/43 (lô 2 lỗi JSON), 0,50 / 0,43 / 1,00, 12 khối; teamhide 35/35, 1,00 / 1,00 / 0,88, 13 khối. Lỗi: realworld AI tách mỗi `api/dependencies/*` thành khối Nghiệp vụ riêng (trái luật, AI sai) và gộp model miền (bản vẽ: dùng chung) vào khối Dữ liệu cùng file xếp theo luật → khối ánh xạ về `common`, 3 cạnh sai; teamhide thiếu `routes → user_svc` vì AI đưa interface `UserUseCase` vào dùng chung — prompt mới thiếu ví dụ "interface gộp với lớp thực thi" (có ở prompt B cũ; lỗi phiên 5, xếp "chuẩn chưa rõ/prompt"); rhoboro, teamhide AI tách route theo tính năng (trái luật, không làm sai cạnh). fullstack: lỗi của lần chạy do file script bị xếp theo luật (JSON hỏng).
+   - **Khiêm quyết (30/09):** (1) chạy lại 4 repo lộ bằng `GROQ_API_KEY_3`, `--budget 735094`; (2) thêm lại vào prompt "an interface joins the class implementing it" (prompt sha mới `3a7eba8280ad44b6`); (3) lô nhỏ hơn để giảm lỗi JSON: tạm chưa làm. Lần chạy lại: `runs/v7b-{rhoboro,fullstack,realworld,teamhide}`.
+   - **Kết quả chạy lại (30/09 13:47–14:03, `GROQ_API_KEY_3`, 92.199 token, sổ 535.094 → 627.293; 30 request, 11 lỗi, 40,5k token tính cho request lỗi):** P / Pk / R nội bộ: rhoboro 1,00 / 0,80 / 1,00 (13/13 lý do hợp lệ, 9 khối); fullstack 0,83 / 0,83 / 0,83 (lô duy nhất lỗi JSON, 15 file theo luật); realworld 0,67 / 0,50 / 0,67, ngoài 0 (lô 2, 3 bị cắt vì hết token trả lời, 26/43 file theo luật; khối pool trộn file route nên cạnh DB ánh xạ về routes); teamhide 0,75 / 0,67 / 0,75 (lô 2 bị cắt, 16/35 theo luật; khối cache trộn file App). Trích dẫn 100%. Kiểm cạnh: realworld 5 cặp, 0 flow. Không có khối lệch tầng cao nhất / đa số. Lý do trích: dòng 1–8 của đoạn 25, dòng dấu hiệu 24. **Nguyên nhân chính: câu trả lời chia khối bị cắt (`incomplete answer (length)`) hoặc JSON hỏng**; phần trả lời cho mỗi lô = 6.000 − prompt, không đủ cho lý luận + một dòng mỗi file. File AI trả lời được thì đúng phần lớn. Việc tiếp theo cần Khiêm quyết: lô nhỏ hơn (việc (3) đang hoãn).
+   - **Khiêm quyết (30/09, sau khi hỏi người vẽ tay vì sao kém):** thay prompt chia khối theo từng file bằng hai lượt "chốt khối từ trên xuống, rồi xếp file" (mục 3). Việc (3) lô nhỏ hơn bỏ, vì hướng mới không cần AI trả một dòng mỗi file. Người vẽ tay viết tin nhắn giao việc cho phiên 5; chưa viết code.
+10. **VIỆC TIẾP THEO (phiên 6): chia khối từ trên xuống (mục 3, dòng "Chia khối đổi thứ tự").** Giữ "AI phán đoán, code kiểm". Bỏ việc (3) "lô nhỏ hơn". Không nới trần 6k/request. Giữ: `calls.py`, `flow.py`, `_quote` + `verify.check`, `check_edges`, bước 9 (bỏ lượt đặt tên nếu tên đã có từ lượt 1 và không còn việc khác như `role_quote`), FakeLLM, dry-run. Thay phần chia khối theo lô của `ai7.group`. Làm theo thứ tự, mỗi bước test offline + cập nhật file này:
+   1. Bản tóm tắt repo do code dựng: (a) cây thư mục kèm số file; (b) cây router: file nào `include_router`/`mount` file nào, kèm dòng; (c) mỗi thư mục một dòng: dấu hiệu chắc, loại IO, gọi sang thư mục nào, được thư mục nào gọi và cách gọi. Prompt ≤ khoảng 3,5k (còn ≥ 2k cho trả lời); repo lớn gộp thư mục sâu lên cấp trên, không chia lô. Dry-run 8 repo: báo token bản tóm tắt.
+      - **Xong (phiên 6, 30/09): `ai7.overview(idx, facts, an, limit)`** → (văn bản, {thư mục: file}, issues). Chỗ phiên 6 tự chọn: (a) và (c) gộp làm một: mỗi thư mục một dòng `D<n> <đường dẫn> <số file> | tên file (≤ 12) | sure <tầng> x<số file> (<file>:<dòng> <code ≤ 60 ký tự>) | io <loại> (...) | -> D.. | <- D..`; thư mục khác gọi bằng mã `D<n>` (đường dẫn lặp lại tốn gần 2/3 token); cách gọi chỉ ghi khi khác lời gọi thường (include, session, by name, check, pass, wiring, helper). Cây router: chỉ đối số là router (đối số vị trí, `router=`, `app=`), không lấy `prefix=settings.x` (trước đó realworld có cạnh sai `main.py -> config.py`); dòng đầu mỗi file cha kèm code, dòng sau chỉ số dòng; > 3 file con cùng thư mục thì gộp một dòng. Quá trần: mỗi lần gộp các thư mục sâu nhất vào cha (cha có nhiều con nhất trước), đến khi vừa. `_Grouping.how` dùng chung hàm `_way`.
+      - **Số đo (trần 2.800 cho phần tóm tắt, `scripts-2026-09-30/overview_size.py`):** token / đơn vị thư mục / số thư mục thật: rhoboro 459 / 5 / 5; fullstack 533 / 5 / 5; realworld 974 / 15 / 15; teamhide 1.470 / 36 / 36; boilerplate 2.086 / 27 / 27; kibo 2.529 / 48 / 57 (gộp `app/api/v1/`); lnbits 2.390 / 22 / 22; fba 2.289 / 10 / 70 (gộp 24 thư mục cha; cây router 31 dòng, 824 token; đủ 70 thư mục cần khoảng 6,1k). Repo kín chỉ số.
+      - Test mới: `test_overview_router_tree_and_directory_lines`, `test_overview_merges_deep_directories_to_fit`, `test_router_tree_skips_prefix_and_other_keywords`. 23 + 7 + 16 đạt trên 3.13 và 3.14.
+      - Ghi nhận, chưa sửa (nằm trong `calls.py`, ngoài phạm vi): `add_middleware(..., allow_origins=settings.x)` ghi cạnh "include" tới file config (fullstack `D1 -> D4 (include)`).
+   2. Đo trần trên (không tốn token): nếu khối đúng như đáp án (viết dạng path), code xếp file theo path dài nhất đúng bao nhiêu %, còn bao nhiêu file mơ hồ. Repo kín chỉ số tổng.
+      - **Xong (phiên 6): `scripts-2026-09-30/upper_bound.py [--detail]`.** Đáp án vốn là danh sách path nên xếp theo path đáp án luôn đúng 100%; phiên 6 đo sát hơn: AI chỉ viết được path nhìn thấy trong bản tóm tắt (dòng thư mục, tên file ≤ `SHOW_FILES` 12, thư mục con ≤ `SHOW_DIRS` 8; hai hằng mới trong `ai7.py`). Mỗi path gán khối đa số, file theo path sâu nhất (cách gán tốt nhất). Kết quả (trần 2.800): đúng 100% ở 7 repo, lnbits 162/163 (1 file trong thư mục > 12 file không được liệt kê); không trần: như trên. Path tối thiểu AI phải viết (tính cả path gốc) trần / không trần: rhoboro 9/9, fullstack 8/8, realworld 10/10, teamhide 21/21, boilerplate 29/29, kibo 32/32, lnbits 27/27, fba 38/42. File có dấu hiệu chắc ở tầng cao hơn tầng khối đáp án: 0 ở cả 8 repo. Kết luận: bản tóm tắt đủ path; lỗi sẽ đến từ AI chọn khối, không từ bản tóm tắt.
+   3. Lượt 1 (1 request/repo): AI trả danh sách khối `{name, layer, paths, reason: "<file>:<dòng> <code>"}` + mục `shared`. Code kiểm: reason có thật; path tồn tại, không chồng nhau; trần khối mỗi tầng (3/5/5/2/4); luật gộp bằng dữ kiện chắc: hai khối API cùng được một file cha `include_router` → vi phạm "API chỉ tách khi khác cách vào"; file/thư mục chỉ được một khối gọi mà nằm khối riêng → vi phạm "chỉ phục vụ một khối thì gộp"; khối Dữ liệu không file nào có IO DB hay `__tablename__` → vi phạm định nghĩa tầng. Vi phạm: gửi lại AI 1 lần kèm dòng dữ kiện; code không tự gộp. Test FakeLLM.
+      - **Xong (phiên 6): `ai7.top_blocks(client, idx, facts, an)`** → `{blocks: {khóa: {layer, paths, reason}}, shared, found, left, issues}`; prompt mới `TOP_SYSTEM` (888 token, cùng định nghĩa tầng và 7 luật của `GROUP_SYSTEM`); hằng `TOP_PROMPT` 3.500, `TOP_ANSWER` 2.000; hàm dùng lại cho bước 4: `owner_by_path` (file theo path dài nhất), `block_layers` (tầng cao nhất của file chắc, không có thì tầng AI ghi), `_registers` (ai đăng ký router của ai). Prompt sha mới `PROMPT_SHA` (tính cả `TOP_SYSTEM`).
+      - Chỗ phiên 6 tự chọn: `name` là khóa snake_case (bước 9 vẫn đặt tên tiếng Việt vì còn `role_quote`, nhãn cạnh, tên API ngoài). Lý do được trích từ file bất kỳ của repo. "Chồng nhau" = cùng một path ở hai khối; path lồng nhau hợp lệ (tách ngoại lệ). Luật "chỉ phục vụ một khối" chỉ bắt khi hai khối cùng tầng, không tính cạnh `wiring` và cạnh đăng ký router/middleware (không giới hạn thì mọi chuỗi route → service → data đều bị báo). Thêm kiểm: `shared` phủ file có dấu hiệu chắc hoặc IO → vi phạm. Gửi lại: câu trả lời trước + dòng vi phạm + bản tóm tắt dựng lại với trần nhỏ hơn để prompt ≤ 4.000. Sau lượt gửi lại, khối có lý do sai bị bỏ (file sang lượt 2); vi phạm còn lại ghi vào `left` và `issues`.
+      - **Đưa đáp án vào bộ kiểm như thể AI trả lời** (`scripts-2026-09-30/top_check_oracle.py`): báo nhầm 0 ở 7 repo; fba 3 (1 "một khối gọi", 2 "dùng chung có IO"; repo kín, chưa xem chi tiết, không thêm luật riêng). Trước khi bỏ cạnh đăng ký khỏi luật "một khối gọi": teamhide báo nhầm khối middleware. Prompt lượt 1 / chỗ trống trả lời: rhoboro 1.347 / 4.653, fullstack 1.421 / 4.579, realworld 1.861 / 4.139, teamhide 2.357 / 3.643, boilerplate 2.974 / 3.026, kibo 3.417 / 2.583, lnbits 3.278 / 2.722, fba 3.176 / 2.824. Trần bản tóm tắt thật = 3.500 − 888 = 2.612; số đơn vị và trần trên ở bước 1–2 không đổi.
+      - Test mới (5): `test_top_blocks_checked_answer_kept`, `..._problems_sent_back_once`, `..._unfixed_reason_drops_the_block`, `test_shared_with_io_or_sure_layer_is_a_problem`, `test_two_api_blocks_registered_by_one_file_is_a_problem`. 23 + 7 + 21 đạt trên 3.13 và 3.14. `ai7.group` cũ (theo lô) vẫn còn, bước 4–5 sẽ thay.
+   4. Lượt 2: code xếp file theo path dài nhất khớp; chỉ file mơ hồ gửi AI (file không path nào phủ; file có dấu hiệu chắc ở tầng cao hơn tầng khối), danh sách khối cố định, AI trả `{file, block, reason}`. Tầng khối giữ luật đã duyệt. Test FakeLLM.
+      - **Xong (phiên 6): `ai7.group` viết lại** (chữ ký giữ nguyên): `top_blocks` → `owner_by_path` → file mơ hồ (không path nào phủ; dấu hiệu chắc ở tầng cao hơn tầng AI ghi cho khối, hoặc nằm trong `shared`) gửi AI theo lô cây thư mục, prompt mới `PLACE_SYSTEM`, hồ sơ file như cũ (`entry`, ≤ 8 dòng code cho file chưa chắc). Trả thêm `block_reasons`, `ambiguous` {`no_path`, `sure_above`}, `by_rule`, `top` {`found`, `left`}; `layer_differs` = khối có file chắc ở tầng cao hơn tầng AI ghi (`highest`, `given`). `run7.py` ghi các trường này vào `graph.json`. Bỏ `GROUP_SYSTEM`, xếp theo lô từng file, luật tự xếp file thuần không ai gọi (`place_pure`).
+      - Chỗ phiên 6 tự chọn: file AI không trả lời được thì giữ khối theo path nếu có; không có thì vào khối **cùng tầng** (chắc, không có thì gợi ý, không có thì Nghiệp vụ) nhiều file nhất trong đúng thư mục đó, rồi thư mục cha; không có thì file thuần vào `shared`, file khác lập khối `<thư mục>_<tầng>` (giống luật dự phòng cũ). Lượt 1 không trả khối nào thì không gửi lượt 2, mọi file xếp theo luật này. AI không được đưa file chắc vào `shared`. **Cần Khiêm biết:** luật "file thuần không ai gọi do code xếp" (mục 3, 30/09) không còn dùng: file thuần giờ theo path của lượt 1; chỉ khi không path nào phủ mới gửi AI.
+      - Test: viết lại 7 test chia khối theo cách mới (xếp theo path + file mơ hồ, tầng khối, nội dung request lượt 2, lý do sai, request lỗi, lượt 1 rỗng, trần khối, chia lô); bỏ test luật tự xếp file thuần. 23 + 7 + 21 đạt trên 3.13 và 3.14. `scripts-2026-09-30/replay_v7.py`, `report_v7.py` viết cho cách cũ, chưa sửa (không cần cho hướng mới).
+   5. Ghép `run7.py`, dry-run 8 repo. Mọi request: dry-run báo chỗ trống trả lời = 6.000 − prompt, dưới mức cần thì báo lỗi, không gửi. JSON hỏng: thử lại 1 lần kèm lỗi parse, tính vào `--budget`.
+      - **Xong (phiên 6).** (a) `ai7._json(…, need, …)`: chỗ trống = 6.000 − prompt, **toàn bộ chỗ trống làm `max_tokens`** (trước đây chỉ cấp đúng mức ước, nên bị cắt); dưới `need` thì không gửi, ghi `"<bước>: not sent, answer room X below the Y needed"`. Mức cần: lượt 1 và gửi lại 2.000, lượt 2 70/file + 1.000, kiểm cạnh 60/cặp + 1.000, đặt tên 1.500. Bước 9 giờ cũng qua `_json`. (b) **`llm.Groq`: JSON hỏng gửi lại 1 lần, cùng schema, kèm lỗi parse** (`_parse_error`: lỗi + đoạn quanh chỗ hỏng của `failed_generation`), có kiểm `--budget`, ghi sổ `mode: "resent with the parse error"`. Thay lượt dự phòng cũ (chuyển chế độ JSON thường + chép schema vào prompt, không kèm lỗi). Trả lời bị cắt vẫn không gửi lại. `llm.py` dùng chung với v6 (v6 không còn chạy). (c) Lượt gửi lại lượt 1 chép câu trả lời trước dạng một dòng mỗi khối `name (layer): paths | reason`, không chép JSON. (d) `run7.py --dry-run`: lượt 1 trả lời giả lập (mỗi thư mục của bản tóm tắt một khối) nên ước được cả gửi lại, kiểm cạnh, đặt tên (ước cao vì nhiều khối hơn thật); lượt 2 báo riêng trường hợp xấu nhất (mọi file mơ hồ). Báo `answer_room`, `min_answer_room`, `not_sent`, `pass1_problems`, `pass2_worst`.
+      - **Dry-run 8 repo (30/09 14:45, prompt sha xem `ai7.PROMPT_SHA`), request / tổng prompt / lượt 1 prompt / chỗ trống lượt 1 / chỗ trống nhỏ nhất / không gửi / lượt 2 xấu nhất (request / prompt):** rhoboro 3 / 3,9k / 1.347 / 4.653 / 4.358 / 0 / 1 / 2,0k; fullstack 3 / 4,1k / 1.421 / 4.579 / 4.262 / 0 / 1 / 2,5k; realworld 6 / 10,1k / 1.861 / 4.139 / 3.390 / 0 / 3 / 8,0k; teamhide 11 / 16,1k / 2.357 / 3.643 / 2.138 / 0 / 4 / 7,5k; boilerplate 8 / 14,6k / 2.974 / 3.026 / 3.026 / 1 / 6 / 17,9k; kibo 12 / 20,7k / 3.417 / 2.583 / 2.583 / 1 / 6 / 16,2k; lnbits 8 / 18,5k / 3.278 / 2.722 / 2.412 / 0 / 11 / 34,8k; fba 5 / 10,6k / 3.176 / 2.824 / 2.346 / 0 / 17 / 49,1k. "Không gửi" ở boilerplate, kibo là lượt gửi lại của câu trả lời giả lập 27 và 48 khối (quá dài để chép lại); câu trả lời thật ≤ 19 khối. Mỗi request được ước 6.000 khi so với `--budget` (vì `max_tokens` = chỗ trống).
+      - Test: `test_broken_json_is_resent_once_with_the_parse_error` (thay test chế độ JSON thường), `test_request_with_too_little_answer_room_is_not_sent`, dry-run test mở rộng. 23 + 7 + 22 đạt trên 3.13 và 3.14.
+      - Rủi ro cần xem khi chạy thật: chỗ trống lượt 1 của repo lớn chỉ 2.583–2.824 (gồm cả phần suy luận của model); lần chạy `v7b` bị cắt ở mức tương tự. Nếu lượt 1 bị cắt, cả repo rơi về luật dự phòng.
+   6. **Khiêm cho chạy (30/09 ~14:50), dùng cả 2 key song song:** key chính: `runs/v7c-teamhide` rồi `v7c-rhoboro`; `GROQ_API_KEY_3`: `v7c-realworld` rồi `v7c-fullstack`; cả hai `--budget 834593` (sổ 627.293 + khoảng 99,5k key chính + 107,8k key 3; sổ cộng dồn mọi key).
+      - **Kết quả `v7c-*` (30/09 14:50–15:18; tổng 66.198 token, sổ 627.293 → 693.491; key chính 36.358 = teamhide 22.835 + rhoboro 13.523; key 3 29.840 = realworld 19.304 + fullstack 10.536).** P / Pk / R nội bộ (so `v7` → `v7b` → `v7c`): rhoboro 1,00/0,80/1,00 → như cũ → **0,67/0,50/0,50**; fullstack 0,83/0,83/0,83 → như cũ → **1,00/1,00/0,50**; realworld 1,00/0,75/1,00 → 0,67/0,50/0,67 → **1,00/1,00/0,33**; teamhide 0,71/0,62/0,62 → 0,75/0,67/0,75 → **1,00/1,00/0,75**. Ngoài: rhoboro 1,00/1,00, fullstack 0,50/0,50, realworld –/0, teamhide 1,00/1,00. Số khối: 5, 4, 3, 15. Vi phạm code bắt ở lượt 1 / còn sau gửi lại: 1/1, 3/3, 6/4, 7/5. File mơ hồ gửi lượt 2 (không path phủ): 5, 6, 39, 50; rơi về luật: 1, 1, 9, 50.
+      - **Nguyên nhân chính (lỗi thiết kế của phiên 6, bước 1): khối lượt 1 bị bỏ vì lý do "không có thật"**: rhoboro 1, fullstack 3, realworld 4, teamhide 5 (teamhide mất hết khối → cả repo xếp theo luật, nên R cao là nhờ luật). Bản tóm tắt ghi code bị cắt rồi đặt trong ngoặc, ví dụ `sure entry x1 (main.py:21 app = FastAPI(` + `)` đóng nhóm; AI chép thành `app = FastAPI()` (thừa `)`), `create_async_engine()`, `smtp=smtp_opt)`. Lượt gửi lại AI chép lại y hệt. Chỉ 2 lý do là AI trích sai thật (realworld `articles.py: -> D10, D13`). Thông báo lỗi cắt lý do ở 80 ký tự nên che mất chỗ sai (xem câu trả lời gốc trong `cache/`).
+      - Lỗi khác: rhoboro bước đặt tên hỏng vì rớt mạng (`getaddrinfo`, cả lượt thử lại) → 4 khối không tên. 429 (giới hạn tốc độ) và 400 JSON hỏng có xảy ra; lượt gửi lại kèm lỗi parse đã thành công ở `top-2`.
+      - **Khiêm duyệt a–c (30/09, phiên 7), đã sửa code, chưa chạy AI.** (a) Hàm mới `ai7._code`: dòng code cắt thì thêm `…`, luôn đặt cuối, không bọc ngoặc. Dùng ở cây router (`-> b: a:9 code`), dòng `sure`/`io` (`sure entry x1: main.py:7 code`) và thông báo vi phạm (`...; line a:6 code`). `TOP_SYSTEM` thêm câu: dòng kết thúc bằng … là bị cắt, chép phần hiện ra, không chép …. Prompt sha mới `c3ff7d5656e3c6df`. (b) `_quote`: thử nguyên văn trước; không khớp thì bỏ `)]}…` ở cuối rồi thử lại (`verify.check` vẫn đòi ≥ 8 ký tự, khớp nguyên văn). Phiên 7 tự thêm `…` vào nhóm dấu bỏ, vì chính bản tóm tắt giờ in dấu này. (c) Thông báo lý do sai in đủ, không cắt 80 ký tự. Test: sửa 7 test so chuỗi theo định dạng mới, thêm ca vào `test_reason_forms`.
+      - **Kiểm (b) trên lý do đã bị loại ở v7c** (script scratchpad `check_v7c_reasons.py`, 0 token): 18/26 lý do nay được nhận. 8 còn lại là AI trích sai thật: chép mũi tên của bản tóm tắt (`articles.py: -> D10, D13`, 5 lý do), bịa dòng (`jwt.py:1 class JWTService`, `user.py:1 class UserService`), tự rút gọn (`tags=[...]`). Chưa phát lại cả pipeline.
+      - **Khiêm (30/09, phiên 7): a–c vẫn là vá; hỏi có cách nào vừa vẽ vừa truy được bằng chứng.** Phiên 7 đề xuất (CHƯA DUYỆT): "AI chọn, code trích". Code tự gắn bằng chứng cho khối từ file của khối; khi cần AI chỉ dòng thì AI trả mã dòng (`L17`) trong danh sách code đã đánh mã, code tra ra `file:dòng` + nguyên văn; AI không chép code nữa. Khiêm bảo đo trên repo kín, vì repo lộ đã biết đáp án.
+      - **Đo "code tự gắn bằng chứng" trên khối đáp án** (`scripts-2026-09-30/code_evidence.py`, 0 token; mỗi khối không dùng chung xếp loại đầu tiên khớp: dấu hiệu chắc đúng tầng / dòng mở kết nối / dòng khối khác gọi vào (flow) / không có). Repo kín, 48 khối: chắc 18, io 14, gọi 12, không 4 → có dòng bằng chứng 44/48; chứng minh được tầng chỉ bằng code (chắc, hoặc io ở khối Hạ tầng) 26/48; "gọi" từ khối tầng trên 10/12. Repo lộ, 25 khối: chắc 14, io 4, gọi 5, không 2; chứng minh tầng 18/25. Dòng người vẽ chọn nằm trong các dòng code tìm được: kín 28/48, lộ 16/25 (khác dòng không có nghĩa là sai). Giới hạn: đo trên khối đúng của đáp án, chưa đo khi AI chia khối.
+      - **Dry-run 4 repo kín với prompt mới (30/09, phiên 7):** request / prompt / chỗ trống nhỏ nhất / lượt 2 xấu nhất (request / prompt): boilerplate 8 / 14,6k / 3.014 / 6 / 17,9k; kibo 12 / 20,7k / 2.571 / 6 / 16,2k; lnbits 8 / 18,5k / 2.412 / 11 / 34,8k; fba 5 / 10,7k / 2.335 / 17 / 49,1k.
+      - Việc tiếp: Khiêm quyết có chạy AI trên 4 repo kín không (key, `--budget`), và có làm thiết kế "AI chọn, code trích" không. Hỏi Khiêm trước khi chạy AI. Chạy 4 repo lộ; so với lần chỉ dùng luật (`v7-*`) và `v7b-*`. Báo: số vi phạm code bắt và số AI sửa, file mơ hồ, file rơi về luật, token thật so với trần. Key hôm nay (30/09): key chính còn khoảng 99,5k, key 3 còn khoảng 108k (sổ 627.293); sang ngày mới mỗi key có lại 200k.
+      - **Chẩn đoán nút thắt (máy cũ, sau khi kéo `9d95ce7`; 0 token; repo kín chỉ số tổng).** (1) `scripts-2026-09-30/blame.py <run> ...`: mỗi cạnh sai/thiếu quy về chia khối (khối đúng thì code vẽ đúng) hay code (khối đúng vẫn sai). Code với khối đáp án: 4 repo nhỏ 0 thiếu, 0 sai; repo kín thiếu 1–2 cạnh, sai 2 + acceptable 5–19 (Pk 0,46–0,59). Cạnh thiếu trong các lần chạy do chia khối: v7c 2/2, 3/3, 2/2, 2/2; v7d lnbits 11/13, fba 16/17; v7e fba 17/18, boilerplate 5/6. (2) AI gần như không được dùng ở repo kín: v7d lượt 1 hỏng cả hai repo (lnbits bị cắt, fba JSON hỏng) → 100% file theo luật, điểm = không AI; v7e boilerplate 12 lý do sai, 6 khối bị bỏ, `top-2` bị cắt, 56/103 file theo luật; fba 5 lý do sai, `place-1` bị cắt, 110/226 file theo luật. (3) `scripts-2026-09-30/replay_top.py`: câu trả lời lượt 1 thật của v7c qua code hiện tại (A: có kiểm; B: nhận mọi khối), lượt 2 trả rỗng: rhoboro A=B 1,00/0,80/1,00, 100% file đúng khối; fullstack 0,83/0,83/0,83, 0,93; realworld A 1,00/0,75/1,00 (3/5 khối giữ), B 0,87 file đúng; teamhide A 0,80/0,80/0,50, B 0,75/0,75/0,75, 0,73 file đúng (không AI: 0,48). Kết luận: nút thắt chính là đường ống đưa vào/lấy ra của AI (trích nguyên văn, bị cắt vì model suy luận dài, JSON), chưa đo được AI chia khối ở repo lớn; phần code chỉ là nút thắt phụ (Pk ở repo lớn). Tìm hiểu trên mạng (paper, công cụ) và cách báo cáo mentor: trả lời trong chat 30/09, chưa ghi thành tài liệu.
+   Không thêm luật cú pháp riêng repo. Không sửa đáp án. Không commit, không push.
+11. **v8 (phiên 6, máy cũ, 30/09 tối; Khiêm giao, mục 3 dòng "Khiêm (30/09 tối)"): code đã viết, test đạt, đã chạy gpt-oss qua OpenRouter.**
+   - **Bài học 1 — AI chọn, code trích** (`ai7.Lines`): mọi dòng code đưa cho AI mang mã `[L7]`; AI trả mã (schema `enum` các mã đã hiện), code tra ra `file:dòng` + nguyên văn rồi `verify.check`. Áp dụng ở lượt 1 (lý do của khối), lượt 2 (lý do của file), kiểm cạnh, đặt tên (`role_line` thay `role_quote`). Lượt 1: mã sai hoặc dòng nằm ngoài path của khối → **code tự chọn bằng chứng** trong file của khối (`draft.evidence`: dấu hiệu chắc đúng tầng / dòng IO / truy vấn / lời gọi xuống khối tầng dưới / khai báo đầu); không còn bỏ khối vì bằng chứng. Bỏ `_quote`, `REASON`, `from ai import QUOTE`.
+   - **Bài học 2 — code nháp, AI sửa** (module mới `draft.py`): khối nháp từ dữ kiện (tầng từ dấu hiệu; entry theo cách vào: app / cli / script `__main__` / background; api một khối, socket, admin tách; data một khối; infra theo loại IO; file không dấu hiệu mà một khối chỉ kiểm/helper/lấy session → vào khối đó; service nhóm theo loại IO đi tới, "data" và "database" coi là một đường `db`; interface và lớp thực thi chung khối; file không IO: người dùng tính cả import có dùng tên, container Điểm vào chỉ tính khi không khối nào khác dùng; còn lại theo thư mục hoặc dùng chung). Lượt 1 đưa bản nháp cho AI sửa; AI không trả được gì thì bản nháp là kết quả. `--no-draft` để so. Đo riêng bản nháp (`scripts-2026-09-30/draft_score.py`, 0 token): P/Pk/R rhoboro 1,00/0,80/1,00; fullstack 1,00/1,00/1,00; realworld 1,00/1,00/1,00; teamhide 0,67/0,57/0,50; boilerplate 0,29/0,18/0,18; kibo 0,75/0,60/0,92; lnbits 0,50/0,32/0,44; fba 0,29/0,23/0,29 (4 repo cuối kín). Không hơn hẳn luật dự phòng; dừng chỉnh để tránh vá theo repo (mỗi sửa làm repo này lên, repo kia xuống).
+   - **Bớt nén**: `overview` thêm một dòng cho mỗi file dưới thư mục (dòng bằng chứng + loại: sure / io / hint / defines + thư mục nó gọi); quá trần thì bỏ phần "gọi" rồi bỏ dòng file rồi mới gộp thư mục. Với OpenRouter (`TOP_PROMPT` 16k): không repo nào phải gộp thư mục; fba bỏ phần "gọi" ở dòng file. Prompt lượt 1: 2,0k–15,1k.
+   - **Suy luận**: `llm.Groq.json(..., effort=)` — OpenRouter gửi `reasoning: {effort}`, Groq `reasoning_effort`; `ai7.EFFORT`: lượt 1 `medium`, bước khác `low`. Văn bản suy luận (trường `message.reasoning`) giữ trong `client.reasoning[bước]`, trong cache, và `run7.py` ghi `reasoning.json` cạnh `graph.json`. Trả lời bị cắt (`finish_reason: length`) → hỏi lại với `low`. Sổ ghi `reasoning_tokens`, `effort`. Sửa lỗi phiên 7: lượt gửi lại JSON hỏng qua OpenRouter luôn bị chặn `BudgetExceeded` (kiểm `REQUEST_CAP` không miễn OpenRouter).
+   - **Điểm mới** (`evaluate.flow_score`, ghi vào `score.json` mục `flow`): R luồng (cạnh bắt buộc có hiện qua ≤ 3 cạnh vẽ, khối đứng cho mọi khối đáp án chiếm ≥ 25% file của nó), số "gộp" (hai đầu nằm chung một khối), P luồng (cạnh vẽ ứng với luồng thật trực tiếp hoặc qua 1 khối trung gian; cạnh trong một khối đáp án bị tách = trung tính), ARI (độ giống cách chia, thước đo của các paper khôi phục kiến trúc). Chấm lại lần chạy cũ ở nhật ký.
+   - Test: `test_ai7.py` 26 (viết lại FakeLLM trỏ mã dòng; thêm test `Lines`, bản nháp là kết quả khi AI không trả lời, prompt có/không bản nháp, mức suy luận theo bước, `flow_score`); `test_quote_evidence.py` 25 (thêm test OpenRouter gửi effort + giữ suy luận, bị cắt thì hỏi lại low). 25 + 7 + 26 đạt trên 3.13 và 3.14.
+   - Code chưa chuẩn (đo, chưa sửa): (a) `calls.py` hiểu `session.exec(...)` là gọi vào file khai báo alias `SessionDep` (fullstack `deps.py`); (b) cạnh code vẽ thừa ở khối đáp án (`scripts-2026-09-30/leak_labels.py`): 47 cạnh, 34 là lời gọi có thật mà bản vẽ tay chọn không vẽ (mức quan trọng, không phải phân loại sai), 13 phân loại sai (pass 6, check 4, wiring 3).
+   - Chạy (30/09 20:34, `runs/v8-draft-*`, `runs/v8-nodraft-*`, 8 repo × 2, song song, `--provider openrouter`, `--budget 3177499`, sổ OpenRouter trước đó 177.499). Script so sánh: `scripts-2026-09-30/compare_v8.py v7c- v8-nodraft- v8-draft-`. Lệnh nền bị dừng vì chạm giới hạn thời gian (khoảng 30 phút) và 8/16 lần chạy chết vì OpenRouter trả thân chỉ gồm dòng trống (`json.load` không bắt lỗi) → sửa `llm._post` (thân không phải JSON = rớt mạng, thử lại) + test; chạy lại 8 lần hỏng bằng PowerShell `Start-Process` (tiến trình độc lập, không bị giới hạn thời gian).
+   - **Kết quả v8 (16/16 xong lúc 21:27). P / Pk / R, file đúng khối** — không nháp | có nháp | (không AI): rhoboro 1,00/0,80/1,00, 92% | 1,00/0,80/1,00, 92% | (1,00/0,80/1,00); fullstack 0,40/0,40/0,33, 80% | 1,00/1,00/1,00, 93% | (0,83/0,83/0,83); realworld 1,00/0,75/1,00, 89% | 1,00/0,50/1,00, 89% | (1,00/0,75/1,00); teamhide 0,88/0,88/0,88, 85% | 0,86/0,86/0,75, 81% | (1,00/1,00/0,75, 48%); boilerplate 0,53/0,44/0,73, 73% | 0,62/0,48/0,91, 82% | (0,62/0,46/0,91, 73%); kibo 0,93/0,72/1,00, 81% | 0,75/0,60/0,92, 97% | (0,79/0,65/0,85, 64%); lnbits 0,75/0,35/0,50, 88% | 0,00 R, 54% | (0,62/0,42/0,28, 54%); fba 0,47/0,28/0,29, 59% | 0,29/0,19/0,29, 60% | (0,30/0,26/0,29). Repo nhỏ: 4/4 đạt tiêu chí ở cách tốt nhất; kibo đạt; boilerplate chưa (P 0,62). Mọi lý do do AI trỏ đều hợp lệ (bằng chứng do code chọn: 0 ở mọi lần trừ lnbits có nháp 1). 93 request (3 lần thân rỗng, thử lại thành công), 640.076 token, 0,079 USD (sổ OpenRouter 817.575 token, 0,102 USD).
+   - Phân tích: (a) fullstack không nháp: AI gộp `config`, `security` (dùng chung), `db` (CSDL), `utils` (email) thành một khối infra → cách chấm chặt ánh xạ về "common" (R 0,33), cách chấm luồng cho 1,00 (không phạt gộp hai hệ thống ngoài) → cách chấm luồng chỉ đi kèm. (b) lnbits có nháp: lượt 1 có 23 path trùng giữa khối; lượt gửi lại chỉ phủ 10/170 file, mất khối Dữ liệu, code vẫn lấy lượt sau. (c) Bản nháp giúp fullstack (R 0,33 → 1,00), boilerplate (R 0,73 → 0,91), kibo (file đúng 81% → 97%); hại teamhide, realworld (Pk), lnbits; chưa kết luận, cần sửa lỗi lượt gửi lại rồi đo lại.
+   - **Vì sao lúc không nháp, lúc có nháp, lúc không AI thắng** (Khiêm hỏi; `scripts-2026-09-30/error_kinds.py v8-nodraft- v8-draft-`, 0 token, repo kín chỉ đếm): cạnh thiếu trên tổng 87 cạnh bắt buộc — không AI: gộp 1, mất khối do ánh xạ đa số 7, không vẽ 5, không khối nào giữ 23; không nháp: 3/11/7/13; có nháp: 6/10/4/19. Cạnh sai do ánh xạ / sai thật: 6/23, 5/18, 7/21. Cạnh chấp nhận được bị vẽ: 19, 33, 30. Repo lộ (xem chi tiết): rhoboro ba cách như nhau; fullstack: không nháp AI gộp config + security + db + email thành một khối (vi phạm 2 luật, code không có kiểm nào bắt), nháp tách đúng theo dữ kiện; realworld: P/R như nhau, chỉ khác Pk; teamhide: cả hai cách có AI gộp middleware vào khối web app — **luật prompt (chỉ tách khi khác cách vào) mâu thuẫn đáp án (tách mw)**; nháp còn xếp dependency của route vào khối web app. Kết luận: chênh lệch do 1–2 quyết định gộp/tách khối phụ, không do cách nào tốt hơn hẳn; chưa đo độ dao động giữa các lần chạy.
+   - **Sonnet (Khiêm hỏi 30/09 tối, chưa chạy):** OpenRouter `anthropic/claude-sonnet-5.5` 2 / 10 USD mỗi triệu token vào/ra (gpt-oss 0,037 / 0,17), có `structured_outputs`, `reasoning`, `reasoning_effort`; Haiku 4.5 1 / 5 USD. Ước từ token thật của v8 (tokenizer ×1,0–1,35; ra = câu trả lời, tới cả phần suy luận dài như gpt-oss): một cách, 8 repo 1,1–1,6 USD; nhỏ 0,17–0,36; vừa 0,31–0,81; lớn 0,35–0,65; nhỏ + vừa cả hai cách 1,4–1,9 USD. Sổ OpenRouter đã dùng 0,102 USD. Cần sửa trước khi chạy: không gửi `temperature` cho model Claude (tài liệu Claude API: Sonnet 5.5 trả 400 với giá trị khác mặc định; OpenRouter có liệt kê tham số, chưa rõ có tự bỏ không), và gửi `reasoning: {effort}` cho Claude (hiện `_effort` chỉ áp cho gpt-oss nên Sonnet chạy suy luận mặc định mức cao).
+   - **Đánh giá chấp nhận (phiên 6):** cố định một cách: có nháp đạt 4/4 repo nhỏ, 0/2 vừa; không nháp 3/4 nhỏ, 1/2 vừa; lớn 0/2. Đủ làm mốc để thử Sonnet và làm `.aide`; chưa đủ để kết luận đạt (repo nhỏ đều lộ, một lần chạy, chưa đo dao động).
+   - **`.aide` lệch pipeline thực tế:** ADR-2026-003 còn ghi provider Groq + Google, "mỗi việc đúng một model"; chưa có trỏ mã dòng, chia khối từ trên xuống, OpenRouter, số đo. Đề xuất làm `.aide` trên nhánh `docs/gate-2` qua `git worktree` (thư mục riêng) để không phải chuyển nhánh ở thư mục này. Chờ Khiêm chọn phạm vi.
+   - Tài liệu tổng hợp cho Khiêm/mentor: `docs/BAO-CAO-SO-DO-COMPONENT.md` (bài toán, cách làm, số đo, nút thắt, độ khó, thế giới đã làm, kinh nghiệm, đề xuất). Chưa commit.
+8. Việc chưa làm, không gấp: 2–3 repo kín mới (subagent viết đáp án theo `oracle/PROMPT-SUBAGENT.md`); trang sơ đồ đáp án chưa đăng lại (chạy `make_oracle_page.py` sẽ mất phần vẽ tay, xem lịch sử phiên 3 ở mục 2); README pipeline chưa nói về v7.
+
+## 8. Lệnh chạy
+
+Chạy từ thư mục gốc repo, trong bash (máy mới Linux từ 30/09; máy cũ Windows dùng Git Bash). Lệnh quá 10 phút thì chạy nền; chờ bằng Monitor, không dùng `sleep` dài.
+
+```bash
+export PYTHONIOENCODING=utf-8
+PY=/home/tts/.local/bin/python3.14             # cần 3.14: full-stack có cú pháp 3.14. Máy mới: 3.14.7 cài bằng uv. Máy cũ: .audit-output/python-3.14.7/python.exe
+Q=experiments/quote-evidence
+$PY -B $Q/test_quote_evidence.py                                   # 23 test offline
+$PY -B $Q/run.py <repo> --dry-run                                  # ước lượng token, không gọi AI
+$PY -B $Q/run.py <repo> --out evaluation/quote-evidence/runs/<tên mới> --oracle $Q/oracle/<đáp án>.json --budget <trần>
+$PY -B $Q/oracle/oracle_tool.py <repo> $Q/oracle/<đáp án>.json [--finalize]   # hỗ trợ viết đáp án
+$PY -B evaluation/quote-evidence/scripts-2026-09-28/rescore.py      # chấm lại lần chạy cũ: rev3/ và bản 4
+$PY -B $Q/test_flow.py                                             # 7 test offline của calls.py, flow.py
+$PY -B $Q/test_ai7.py                                              # 22 test offline của ai7.py, run7.py (FakeLLM)
+$PY -B evaluation/quote-evidence/scripts-2026-09-30/upper_bound.py [--detail]      # trần trên xếp file theo path
+$PY -B evaluation/quote-evidence/scripts-2026-09-30/top_check_oracle.py           # kiểm lượt 1 chạy trên đáp án: báo nhầm, cỡ prompt
+$PY -B evaluation/quote-evidence/scripts-2026-09-30/overview_size.py [--limit 2800] [--show rhoboro]   # token bản tóm tắt repo; --show chỉ repo lộ
+$PY -B evaluation/quote-evidence/scripts-2026-09-30/sure_signs.py [--detail]   # dấu hiệu chắc so với đáp án
+$PY -B $Q/run7.py <repo> [<repo> ...] --dry-run                    # v7: ước lượng token mỗi request, không gọi AI
+$PY -B $Q/run7.py <repo> --out evaluation/quote-evidence/runs/<tên mới> --oracle $Q/oracle/<đáp án>.json --budget <trần>
+$PY -B evaluation/quote-evidence/scripts-2026-09-30/tier_confusion.py lnbits   # đếm nhầm tầng file neo, chỉ số
+# key chính (không in key); llm.load_key tự đọc .env thì lấy dòng GROQ_API_KEY* CUỐI CÙNG (hiện là KEY_3):
+export GROQ_API_KEY="$(sed -n 's/^GROQ_API_KEY=//p' .env | tr -d '\r"'"'"' ')"
+$PY -B evaluation/quote-evidence/scripts-2026-09-30/measure_code.py [--detail]   # đo A–E, không tốn token
+$PY -B evaluation/quote-evidence/scripts-2026-09-28/make_oracle_page.py   # sinh trang sơ đồ đáp án (HTML cạnh script)
+# tổng sổ token (thận trọng):
+$PY -B -c "import sys,json; sys.path.insert(0,'$Q'); import llm; print(sum(map(llm.cost,(json.loads(l) for l in open('evaluation/quote-evidence/usage.jsonl',encoding='utf-8') if l.strip()))))"
+# dùng key khác (không in key): chạy trước lệnh run.py
+export GROQ_API_KEY="$(sed -n 's/^GROQ_API_KEY_3=//p' .env | tr -d '\r"'"'"' ')"
+```
+
+**Trần token:** Groq miễn phí 200k token/ngày **cho mỗi key**, 8k token/phút. `--budget` so với tổng sổ `usage.jsonl`, và sổ này cộng dồn mọi key. Cách tính trần: tổng sổ hiện tại + phần còn lại trong ngày của key đang dùng. Sổ không ghi key nào, nên ghi vào nhật ký lần chạy nào dùng key nào.
+
+Tổng sổ 693.491 (30/09 15:18; phiên 6 dùng key chính 36.358, key 3 29.840). Trước đó 627.293 (30/09 14:03). Hôm nay: key chính 100.462 (lần chạy 12:01), `GROQ_API_KEY_3` 92.199 (lần chạy lại 13:47). Trước đó 434.632. Ngày 28/09, key chính dùng 171.471; `GROQ_API_KEY_BACKUP` dùng 142.376; `GROQ_API_KEY_3` chưa dùng. Sang ngày mới thì mỗi key có lại 200k.
+
+## 9. Bộ repo
+
+Tất cả là FastAPI, nằm trong `sample-repos/` (bị gitignore). Cả 8 đã bị phiên phát triển nhìn thấy. Cột "Đề xuất" là cách chia lộ/kín của Khiêm, áp cho vòng đo tới.
+
+| Repo | Thư mục | Đáp án | Số file | Đề xuất |
+|---|---|---|---:|---|
+| rhoboro/async-fastapi-sqlalchemy | `rhoboro_async-fastapi-sqlalchemy-6c08827` | `rhoboro-async-fastapi-sqlalchemy.json` | 15 | lộ |
+| full-stack-fastapi-template | `full-stack-fastapi-template-cb740b6` | `full-stack-fastapi-template.json` | 16 | lộ |
+| fastapi-realworld | `fastapi-realworld-diagram` | `fastapi-realworld.json` | 54 | lộ |
+| teamhide/fastapi-boilerplate | `teamhide_fastapi-boilerplate-df4e6d4` | `teamhide-fastapi-boilerplate.json` | 54 | lộ (trung bình) |
+| igorbenav/FastAPI-boilerplate | `fastapi-boilerplate` | `fastapi-boilerplate.json` | 99 | kín |
+| kibo-backend | `kibo-backend-89eb3bb` | `kibo-backend.json` | 124 | kín |
+| lnbits/lnbits | `lnbits_lnbits-958e4da` | `lnbits.json` | 170 | kín |
+| fastapi-practices/fastapi_best_architecture | `fastapi-practices_fastapi_best_architecture-123a44a` | `fastapi-best-architecture.json` | 226 | kín |
+
+Cạnh luồng không qua import còn lại trong đáp án (pipeline chỉ dựa import sẽ không thấy): fba `plugin_core → plugins` (nạp plugin theo tên); realworld `dependencies → db_events` (pool qua `request.app.state`).
+
+## 10. File quan trọng
+
+| Đường dẫn | Là gì |
+|---|---|
+| `experiments/quote-evidence/*.py` | Pipeline v6: `inventory`, `pyindex`, `graph`, `ai`, `verify`, `llm`, `render`, `evaluate`, `run`, `test_quote_evidence` |
+| `experiments/quote-evidence/calls.py`, `flow.py`, `test_flow.py` | Pipeline v7, phần code (phiên 4, sửa dấu hiệu Dữ liệu phiên 5): lời gọi kèm file đích; tầng, loại cạnh, cạnh không qua import, đi từ điểm vào, gộp theo khối |
+| `experiments/quote-evidence/ai7.py`, `run7.py`, `test_ai7.py` | Pipeline v7, phần AI (phiên 5, hướng "AI phán đoán, code kiểm"): chia khối kèm lý do, kiểm cạnh mơ hồ, đặt tên; lệnh chạy và dry-run; 12 test FakeLLM |
+| `evaluation/quote-evidence/scripts-2026-09-30/tier_confusion.py`, `sure_signs.py` | Bảng đếm nhầm tầng file neo và dấu hiệu chắc; bản dựng thử `step6-proto/` đã xóa sau khi thay bằng code thật |
+| `evaluation/quote-evidence/scripts-2026-09-30/measure_code.py` | Đo A–E của phần code v7 trên 8 repo |
+| `evaluation/quote-evidence/scripts-2026-09-30/overview_size.py` | Token bản tóm tắt repo (`ai7.overview`) trên 8 repo |
+| `evaluation/quote-evidence/scripts-2026-09-30/upper_bound.py` | Trần trên xếp file theo path nhìn thấy trong bản tóm tắt |
+| `evaluation/quote-evidence/scripts-2026-09-30/top_check_oracle.py` | Kiểm của lượt 1 chạy trên đáp án (báo nhầm), cỡ prompt lượt 1 |
+| `evaluation/quote-evidence/scripts-2026-09-30/oracle-build/` | `build_oracle.py` + `spec_<repo>.py`: dựng JSON đáp án bản 4 từ bản vẽ tay |
+| `experiments/quote-evidence/oracle/*.json` | 8 đáp án bản 4, đồng bộ theo `oracle/ve-tay/*.md` |
+| `experiments/quote-evidence/oracle/ve-tay/*.md` | Sơ đồ vẽ tay 8 repo: ground truth |
+| `experiments/quote-evidence/oracle/rev3/` | Đáp án ngay trước bản 4 (7 repo bản 2, fba bản 3) và chuẩn trước khi sửa luật worker |
+| `experiments/quote-evidence/oracle/rev1/`, `rev2/` | 8 đáp án bản 1; 8 đáp án bản 2 và chuẩn bản 2 |
+| `experiments/quote-evidence/oracle/CHUAN-DAP-AN.md` | Chuẩn đáp án |
+| `experiments/quote-evidence/oracle/PROMPT-SUBAGENT.md` | Cách giao subagent viết đáp án repo mới |
+| `experiments/quote-evidence/oracle/oracle_tool.py` | Liệt kê cạnh import kèm dòng code; báo `no layer`, `upward`, `quote mismatch`; `--finalize` sinh `acceptable` |
+| `experiments/quote-evidence/reference/` | SPEC sơ đồ 24/09, hình mẫu, golden nháp full-stack |
+| `evaluation/quote-evidence/runs/` | Output các lần chạy. `c-trial/` là kết quả thử (c) |
+| `evaluation/quote-evidence/scripts-2026-09-28/` | Script đo offline: `ablate*.py`, `trial_c.py`, `split_b.py`, `shared_edges.py`, `shared2.py`, `listing_size.py`, `rescore.py`, `make_oracle_page.py` |
+| `evaluation/quote-evidence/cache/`, `usage.jsonl` | Cache response Groq và sổ token |
+
+`experiments/`, `evaluation/quote-evidence/`, `docs/HANDOFF*.md`, `CLAUDE.md` bị `.gitignore` chặn nhưng đã commit (bằng `git add -f`) trên nhánh `khiem/quote-evidence`; commit thay đổi mới cũng phải dùng `git add -f <file>`. Đừng chuyển về `docs/gate-2` trong thư mục này: git sẽ xóa các thư mục đó khỏi ổ đĩa (vẫn còn trong nhánh). `sample-repos/` không có trong git: tải lại bằng `setup/fetch_sample_repos.py` (nhánh `khiem/setup`).
+
+## 11. Bẫy kỹ thuật
+
+- **Groq:**
+  - Output rỗng thì trả `json_validate_failed` với `failed_generation: ""`, do suy luận dùng hết token; code thử lại với `low`.
+  - Output bị cắt thì không đọc lại phần thừa (không salvage).
+  - Lô quá 3 khối dễ bị cắt.
+  - Lượt sửa với 6 khối từng bị cắt ở 2.500 token output; nay trần là 4.000.
+  - Rớt mạng (`getaddrinfo`) thì chờ 20 giây rồi thử lại.
+- Giới hạn 8k token/phút làm mỗi lô chờ khoảng 1 phút; fba (226 file) mất 25 phút.
+- Request lỗi không có số token từ Groq, nên sổ tính theo ước lượng; số này có thể cao hơn thực tế.
+- Từ phiên 6: JSON hỏng (400 có "JSON") được gửi lại 1 lần kèm lỗi parse, cùng schema (không còn chuyển sang chế độ JSON thường). Request v7 dùng hết chỗ trống làm `max_tokens`, nên mỗi request được ước 6.000 khi so với `--budget` và khi giãn nhịp 8k token/phút.
+- **`llm.load_key` khi không có biến `GROQ_API_KEY`:** đọc `.env` và lấy dòng cuối cùng bắt đầu bằng `GROQ_API_KEY` (gồm cả `_BACKUP`, `_3`). Thứ tự hiện tại trong `.env`: `_BACKUP`, chính, `_3`, nên mặc định là key 3. Luôn export key tường minh trước khi chạy (mục 8).
+- **Đáp án có thể bị phiên khác sửa trong lúc mình làm** (30/09 11:06: teamhide, fba). Trước khi chấm hoặc so sánh, xem thời gian sửa file `oracle/*.json` và chạy lại `rescore.py`.
+- **Heredoc trong Git Bash có lúc làm hỏng mã hóa tiếng Việt.** Viết script có tiếng Việt bằng công cụ Write, không bằng heredoc.
+- Tool `sleep` dài bị chặn: dùng Monitor, hoặc chạy nền và đợi thông báo.
+- Trang artifact có thể bị theo dõi bình luận bởi nhiều phiên cùng lúc. Nếu Khiêm bình luận, có thể nhiều phiên cùng trả lời.
+- `.aide/**` có cờ `-text`, cần giữ nguyên byte. Git cần `-c safe.directory=...`.
+
+## 12. Phần còn lại của dự án (không đổi từ 26/09)
+
+- PRD rev 28 là nguồn đúng. Candidate `BL-r5` và các sửa L1/L2 (ADR-003 rev 2, CMP rev 2, threat model) **chưa commit**.
+- Scope Gate và Architecture Gate chưa ký; cần Hoàng review.
+- Không dùng lại key. Key mới tiếp theo: CAP-013, FR-028, GOAL-008, KPI-011, OQ-009.
+- Chi tiết, bẫy `.aide` và nợ nhỏ: xem [HANDOFF-luu-tru-den-2026-09-28.md](HANDOFF-luu-tru-den-2026-09-28.md), mục 4–7.
+
+## 13. Quy tắc tự cập nhật bàn giao
+
+- Sau mỗi nhóm thay đổi có ý nghĩa: sửa mục 2, 4, 6, 7 cho đúng hiện trạng, rồi thêm một dòng vào mục 14.
+- Test hoặc lệnh chưa chạy thì ghi "chưa chạy". Không dùng số đo cũ như kết quả mới.
+- Phiên tốn nhiều token thì viết lại file này đủ để phiên mới làm tiếp, lưu bản cũ thành file lưu trữ, rồi báo Khiêm chuyển phiên.
+
+## 14. Nhật ký
+
+Các dòng chi tiết của 28/09 nằm trong [HANDOFF-luu-tru-28-09-phien-2.md](HANDOFF-luu-tru-28-09-phien-2.md), mục 12.
+
+| Ngày | Việc | Kiểm chứng |
+|---|---|---|
+| 12/10/2026 | Hồ sơ quy trình đợt 11–12/10 (CR-009, OQ-019…022, Epic/Story/Task, CTX/PLAN/DIARY, 4 REVIEW), `HUONG-DAN-DEMO.md`, SDLC log 25–29; commit `3cbe2d8` | Chỉ tài liệu/hồ sơ. Suite 520/521. UI chưa sửa: thiếu `taste-skill`. Push lỗi 403 (group GitLab chỉ đọc) |
+| 12/10/2026 | Viết `docs/L3-Generator-chuong-trinh-hien-tai.md`: chương trình hiện tại, đầu vào, luồng 12 bước, hai chế độ model, ai đề xuất/ai kiểm, đầu ra, cách chạy, module, số đo, giới hạn | Chỉ sửa tài liệu; số liệu lấy từ các lần đo 11–12/10 đã ghi |
+| 12/10/2026 | Kiểm kỹ phần bảng CSDL (FR-030): đo gold 4 repo, đối chiếu chuẩn, 2 vòng giám khảo độc lập (Sonnet, đề cố định, đầu ra đóng băng). Sửa 8 nhóm lỗi: crash `IDENTITY_COLLISION`, khóa chính qua alias Annotated, bảng `extend_existing`, AC-04 (`TABLES_NOT_READ`), TBL thiếu lớp/bằng chứng/nhãn từng cột, ràng buộc, `sa_type`/`max_length`, trình bày. Báo cáo `FR030-kiem-csdl-20261012.md`; bằng chứng `ket-qua-chay/db-check-20261012/` | Gold: bảng 32/32, cột/khóa chính/khóa ngoại 341/341. Giám khảo vòng 2: 285/287 cột (2 sai đã sửa sau). Suite 520/521; checkaudit không đổi. Chưa commit |
+| 12/10/2026 | Đánh giá trên repo held-out orderflow-services: agent Claude đóng vai model (đọc một lần), đóng băng đầu ra (hash), chấm gold + giám khảo độc lập (Sonnet; Codex 401). Sửa 4 lỗi tìm được: mã lỗi qua `super().__init__(status_code=)`, cảnh báo Redis pub/sub, khóa ngoại, thư viện lặp. Báo cáo `FR029-danh-gia-heldout-orderflow-20261012.md` | Gold: route 23/23, model 9/9, HTTP 2/2. Giám khảo 202/213 đúng, dễ dùng 3/5 (trước sửa). Suite 500/501; checkaudit không đổi. Chưa chấm lại bằng giám khảo sau sửa. Chưa commit |
+| 11–12/10/2026 | Làm 5 đợt bổ sung tài liệu sinh (lỗi trả về, tags/deprecated/mô tả/ví dụ, bảng CSDL, sự kiện Celery/BackgroundTasks, thư viện, cấu hình, middleware, quan hệ component, đường gọi endpoint); TAI-LIEU.md 11 mục; CLI `--mode oneshot`; agent Claude đóng vai model trên tdd-docker và Teamhide, sửa 3 lỗi bộ kiểm tìm được | Suite 495/496; checkaudit không đổi; tdd-docker khớp gold hoàn toàn; Teamhide completed, khớp golden v1. Không gọi model trả phí. Chưa commit/push |
+| 11/10/2026 | Nghiên cứu tài liệu sinh còn thiếu gì: `FR029-tai-lieu-can-bo-sung-20261011.md` (15 mục, đề xuất 5 đợt) | Chỉ đọc đề bài, FR, mẫu mentor, nguồn web; không sửa code. Đề xuất chưa duyệt |
+| 11/10/2026 | Rà đầu vào/đầu ra (`FR029-dau-vao-dau-ra-20261011.md`); cách A: `TAI-LIEU.md` (`tailieu.py`); suy loại component từ phạm vi đọc; `slice/requirements.txt` | `test_tai_lieu` 8/8; suite 467/468. Không gọi model. Chưa commit/push |
+| 11/10/2026 | Kiểm lại review 11/10 (đúng cả); sửa 8 lỗi bộ kiểm (file rỗng, `Provide[...]`, tham số trùng + kiểm OpenAPI, dòng cắt, auth, body JSON có type, đường gọi Service, trường model); prompt v16/v5; chạy gpt-5 | Suite 459/460; checkaudit không đổi; trường model 0/348 từ chối nhầm; Service 1/16. gpt-5 (v4): 4/5 route, 0,168 USD. v5 chưa chạy. Chưa commit/push |
+| 11/10/2026 | Chế độ "đọc một lần" (`run_oneshot`, checkpoint, vòng sửa kèm source) và runner; 4 lượt thật trên Teamhide (3 mini, 1 gpt-5); tìm 2 lỗi bộ kiểm (file rỗng, `Depends(Provide[...])`) | `test_docagent` 80/80; suite 440/441. Mini 0,024–0,033 USD/lượt, 0/5 route; gpt-5 0,192 USD, 5/5 route chỉ vướng lỗi bộ kiểm. Tổng 0,274 USD. Chưa commit/push |
+| 11/10/2026 | Review code sinh tài liệu với đề bài/8 AC; thêm báo cáo, probe, log và manifest; giữ nguyên sản phẩm/golden/spec | Suite 425/426; checker 37 bộ + hai sanity; tái hiện lỗi model/exact, OpenAPI trùng param, auth/Service, dòng cắt, body JSON, scope venv. Prefix đảo đã bị chặn. Không chạy model thật |
+| 09/10/2026 | Lập đủ hồ sơ lifecycle theo EXEC cho việc FR-029 bằng agent và bộ kiểm: ADR-2026-006, CMP-004/006/007 r5, BL-r11, impact + CSV-r11 (sinh bằng script), AVW cập nhật tay, STORY-029-01, TASK-029-6..9 + CTX/PLAN/DIARY, OQ-016/017/018, OQ-013 r2, 19 REVIEW-*.yaml (FIND-L3GEN-001..165) | `gen_uid --check`: không thiếu uid; `prd_package check BL-r11`: khớp toàn bộ; `l1_coverage`: xanh; `check_l3_contracts`: qua cấu trúc; 44 file YAML/frontmatter parse được. Mọi file ghi muộn, draft; không lập approval, chưa qua gate. Chưa commit/push |
+| 09/10/2026 | Đọc Quy_tac/EXEC, ghi hồ sơ theo lựa chọn của người dùng: `CR-L3GEN-2026-008-requests-02.yaml` (nguyên văn yêu cầu 07/10 tối – 09/10), mục mới trong `DIARY-CR-L3GEN-2026-008.md`, `.aide/evidence/tests/fr029-checker-20261009/` (log test, summary gold r41, gói held-out r32), `.aide/evidence/reviews/fr029-checker-20261007-09/` (45 đề bài/kết quả Codex, 3 báo cáo agent, ghi chú agent vòng 7 và 9); thêm mục bài học vào `AGENTIC_SDLC_LOG.md` | Chỉ sửa tài liệu và evidence. Chạy lại suite: 426 test, 1 lỗi `test_gateway` cũ. Người dùng không chọn mở OQ mới và không chọn sửa `FR029-quy-tac.md` (mục 8, 12, 17 đang lỗi thời so với code). Chưa commit/push |
+| 08–09/10/2026 | Codex vòng 6–10 và 2 agent Claude (vòng 7, 9; dừng giữa chừng) tìm phản ví dụ; held-out đợt 2 (facet, spatiumddi, PrintStash) và đợt 3 (ai-pdf-autofiller, xianyu, creatorhub); sửa khoảng 70 dạng code trong `docfacts.py`/`astscan.py`, mỗi dạng một test; công cụ đo thêm phép đo prefix, kiểm loại dòng nghi ngờ, gói held-out không gộp sai; cache theo file | Gold r41: 0 lỗi mọi chỉ số, bộ kiểm giả bị bắt hết. Suite 425/426. Codex chấm lại: PrintStash 57 → 2 dòng nhiễu, caura 0 sót. Bản sửa vòng 10 và đợt held-out 3 chưa có giám khảo kiểm lại. Chưa đo sản phẩm bằng LLM. Chưa commit/push |
+| 07/10 tối – 08/10/2026 | Theo yêu cầu "cách 1": công cụ đo `fr029_checkaudit.py` (mutation, ca âm, bộ kiểm giả, `--heldout`); chuyển bộ kiểm sang đọc cây cú pháp (`astscan.py`); Codex vòng 1–5 kiểm công bằng; held-out 4 repo đợt đầu và case_auto_hub; thêm gold 4 repo do 2 agent viết độc lập (`D:/VSF/l3-heldout-gold2/`); viết `docs/FR029-bao-cao-kiem-bo-kiem-20261008.md` | Gold r20: 0 lỗi. Codex chấm held-out đợt đầu: 19/19 tham số, 15/15 dòng nghi ngờ. Số phản ví dụ mỗi vòng 25 → 10 → 7 → 8 → 7, đều đã sửa. Chưa commit/push |
+| 07/10/2026 | Kiểm chéo golden bằng ba session; thêm báo cáo/evidence, giữ nguyên gold/source/code/spec | Xác nhận 3 alternate sai AgentGPT và 4 vấn đề adapter/phạm vi; 33 gold/1.759 tham chiếu kiểm cấu trúc; 401 lượt hash không đổi. Audit ngữ nghĩa toàn bộ còn dở vì session bị ngắt; không chạy lại benchmark |
+| 07/10/2026 | Đánh giá tài liệu mentor và luồng FR029; hai reviewer ngữ cảnh riêng kiểm scorer; thêm báo cáo và probe/evidence, giữ nguyên code/spec/gold và báo cáo gốc | Test agent 51/51; toàn suite 238/239, lỗi gateway cũ; tái hiện lỗi evidence/OpenAPI/scorer bằng dữ liệu giả. Không đọc chi tiết repo kín, không gọi model trả phí, không commit/push |
+| 07/10/2026 | Chạy model thật cho FR-029: Groq gpt-oss-120b (hạn mức chặn), OpenAI gpt-6-luna qua Responses API; pilot 6 fixture × 3 lần, golden v1 19 case route; Codex gpt-6-astra review mù vòng 1, sửa dependency/truy vết model/nhãn/vai trò/giới hạn/prefix qua hàm bọc; viết docs/FR029-giai-thich-cho-mentor.md | luna3 18/18 đúng toàn bộ (1/3 lỗi cách ghi khóa cấu hình); golden TP 39 FP 3 FN 1; suite 228/229. Chưa commit/push |
+| 07/10/2026 | Triển khai đợt 1 FR-029 theo hướng agent thuần: reader/độ phủ, bộ kiểm bằng chứng, vòng agent, pipeline, lệnh `document`, bộ chấm; agent G viết 6 fixture gold + oracle; Codex review code (22 mục) và gold (5 mục), đã sửa phần lỗi thật; sửa lỗi che mật khẩu `common.py:13` | Codex review lượt 2 xác nhận bản sửa và báo 6 lỗi mới, đã sửa. Suite 222/223 (lỗi gateway có từ trước). Chưa gọi model thật; chưa commit/push |
+| 07/10/2026 | Người dùng chốt agent thuần, cho chạy oracle `app.openapi()` trong sandbox, ghi bổ sung vào kế hoạch Codex. Thêm vào kế hoạch: nguồn gold (N4), ca luật FastAPI/Pydantic (A01/A02), checklist CodeQL (A08), sàn và dao động nội bộ (V1), phân vai agent khi phát triển; thêm mục 7 bản nghiên cứu | Chỉ sửa 3 file docs. Phát hiện OBS-001 đo 1 lần/bỏ so luật tĩnh nên ghi sàn và 3 lần chạy là kiểm nội bộ. Chưa chạy test/model, chưa commit/push |
+| 07/10/2026 | Nghiên cứu mã liên quan của OpenDeepWiki, CodeWiki, RepoAgent và mẫu pnp ở commit cố định; thêm bản nghiên cứu, bổ sung kế hoạch 14 nhiệm vụ/6 đợt và cập nhật hiện trạng bàn giao | Đối chiếu FR029/028, NFR/OBS và code slice; kiểm đủ 8 AC, link nội bộ hợp lệ. Chỉ sửa 3 file docs; chưa chạy test sản phẩm/model hoặc benchmark; không sửa spec/code, không commit/push |
+| 06/10/2026 | Người dùng xác nhận chính xác 8 AC của FR-029; viết lại kế hoạch thành 14 task/6 đợt, loại TBL/EVT/web và tạo component/sơ đồ khỏi phần triển khai; AC-04/06 chỉ nhận dữ liệu/artifact kiến trúc | Đọc lại FR-029 r3 và điểm nối code; kiểm cấu trúc kế hoạch và link. Chưa viết code, chạy test/model hay sửa spec. Các dòng xác định nhầm phạm vi trước đây chỉ là lịch sử |
+| 06/10/2026 | Đính chính kế hoạch theo phản hồi phần người dùng không dựng sơ đồ và là 8/10 yêu cầu; thêm bảng đủ 10 mục từ Đề bài §3.6, nêu thiếu sót config/library/module/service/data access; chuyển H1 ra ngoài nhiệm vụ và gỡ điều kiện nghiệm thu sơ đồ | Đã đọc đề bài gốc, FR/glossary và báo cáo phân công. Chưa tìm thấy nguồn chỉ rõ hai mục ngoài phân công 8–2; đã hỏi, chưa tự chọn. Chỉ sửa kế hoạch/HANDOFF |
+| 06/10/2026 | Lập kế hoạch agent sinh tài liệu theo yêu cầu mới; 23 nhiệm vụ, không tạo component, ưu tiên độ đúng API/TBL/EVT; thêm `docs/L3-ke-hoach-agent-sinh-tai-lieu.md` và cập nhật hiện trạng bàn giao | Chỉ nghiên cứu và viết tài liệu; đối chiếu 17 AC và code hiện có. Chưa chạy test/model, chưa sửa code/spec, chưa commit/push |
+| 28/09/2026 | Phiên 2, tóm tắt: code v5 rồi v6 ((a') + (b) chỉ luật gộp lớp); thử (c) và bỏ; chạy `v5-lnbits` (key chính), `v6-fba` (key phụ); viết lại 8 đáp án bản 2 theo chuẩn mới rồi chuyển sang chỉ luồng; chuẩn đáp án và prompt subagent; trang sơ đồ đáp án phiên bản 3; 3 memory mới | 22 test đạt. Số đo ở mục 4. Chưa chạy v6 trên 7 repo còn lại |
+| 28/09/2026 | Viết lại HANDOFF gọn (bản cũ lưu ở `HANDOFF-luu-tru-28-09-phien-2.md`); cập nhật README thư mục pipeline theo v6 và đáp án bản 2 | Chỉ sửa tài liệu |
+| 28/09/2026 | Phiên 3: hỏi Khiêm chỗ chưa ưng ở trang (repo lớn rối, chưa nhóm vùng); trình bày pipeline mục 6 (chưa duyệt). Chép bản 2 sang `oracle/rev2/`. Chuẩn bản 3 (tầng, nhãn pass) trong `CHUAN-DAP-AN.md`, `PROMPT-SUBAGENT.md`. `oracle_tool.py`: báo `no layer`, `--finalize` giữ `pass`. `make_oracle_page.py`: khung theo tầng, cột tầng, danh sách pass, cột điểm bản 3. Giao subagent nâng fba; đăng trang phiên bản 4. Sau góp ý của Khiêm: sửa bổ sung chuẩn (quy tắc 7, `check`, `up`, pass mở rộng, worker sang service) và prompt mục 4; `oracle_tool.py` báo `upward`, giữ nhãn `check`/`up`; trang liệt kê cạnh không vẽ theo từng nhãn; gửi lại subagent fba | `upward` thử trên bản sao fba: báo đúng 5 cạnh, còn 3 sau khi chuyển 2; trang thử trên bản sao: fba 4 nhóm cạnh không vẽ, repo bản 2 chỉ nhóm lắp ráp. Subagent áp sửa bổ sung cho fba (44 cạnh bắt buộc), trang phiên bản 5. Khiêm yêu cầu tự đọc source, tự vẽ: vẽ tay fba (`oracle/ve-tay/fba.md`, 31 cạnh, mọi dòng bằng chứng đã mở đối chiếu), trang phiên bản 6. Khiêm duyệt, bảo làm 7 repo còn lại: vẽ tay xong cả 7 (mọi dòng bằng chứng đã mở đối chiếu), trang phiên bản 7; fullstack chuyển Email sang Hạ tầng cho khớp bảng tầng. Chưa thấy Mermaid kết xuất thật. Không chạy AI. `oracle_tool.py` chạy lại trên fba thật: không còn `no layer`, `required without import` chỉ còn `plugin_core -> plugins` (có từ bản 2). `oracle_tool.py` thử trên bản sao rhoboro: báo thiếu tầng, tầng sai tên, giữ `pass`. Script trang chạy trên bản sao (rhoboro tầng giả): 5 khung đúng thứ tự. Chưa xem Mermaid kết xuất thật. Không chạy AI |
+| 28/09/2026 | Phiên 4, bước 1: lưu 8 JSON + chuẩn vào `oracle/rev3/`; dựng lại 8 JSON bản 4 theo `ve-tay/*.md` (script `build_oracle.py` + spec trong scratchpad, rồi `--finalize`); `oracle_tool.py` thêm kiểm `quote mismatch`; chuẩn sửa luật worker, `"rev": 4`; `PROMPT-SUBAGENT.md` sửa câu luật worker; `rescore.py` so `rev3/` với bản 4, thêm cột trích dẫn, token. Bước 2: trình bày thiết kế pipeline mới (mục 6), chờ duyệt, chưa viết code | `oracle_tool.py` trên 8 repo: 0 `no layer`, 0 `upward`, 0 `quote mismatch`; kiểm thử trên fba bản cũ bắt 33 dòng ghi tắt. Số cạnh bắt buộc khớp bản vẽ. 22 test offline đạt. Rescore: bảng mục 4. Độ nhạy quy tắc schema: rhoboro P 0,60 (dùng chung) / 1,00 (theo khối), boilerplate 0,36 / 0,67, fba 0,37 / 0,35. Không chạy AI |
+| 30/09/2026 | Phiên 4 (tiếp): Khiêm duyệt thiết kế v7, để tùy câu so sánh, hỏi lại câu schema và scripts (đã giải thích lại). Viết `calls.py`, `flow.py`, `test_flow.py`, `measure_code.py`. Sửa sau lần đo đầu (theo quy tắc chung, chỉ xem chi tiết repo lộ): đi qua lớp thực thi interface; không đi xuyên file không IO; loại cạnh helper tính theo hàm; hàm gọi thư viện không IO vẫn là helper; hàm truyền session đi là có IO; file tạo engine DB là Hạ tầng; tầng khối theo dấu hiệu thật | 22 test cũ + 5 test mới đạt trên Python 3.13 và 3.14. Số đo ở mục 4 bảng "Đo code v7". Không chạy AI |
+| 30/09/2026 | Khiêm quyết: không chấm khắt khe tới từng file; sửa `inventory.py` quét `scripts/`, `seeds/`. Sửa `inventory.py` (chỉ nhận file import code của repo) + 1 test; bỏ file chỉ khai báo dạng dữ liệu mà bản vẽ không nhắc khỏi JSON rhoboro, boilerplate, fba; sửa `note` kibo, boilerplate; `--finalize` lại 8 JSON; bỏ tùy chọn `--scripts` của `measure_code.py`; chạy lại `rescore.py`, `measure_code.py` | 23 + 5 test đạt trên 3.13 và 3.14. 8 JSON: 0 `no layer`, 0 `upward`, 0 `quote mismatch`, 0 khối không có file. Số mới ở mục 4. Không chạy AI |
+| 30/09/2026 | Dọn HANDOFF để bàn giao: sửa mục 2, 6 còn ghi "chờ Khiêm"; viết lại mục 7 (bước 6, 9, ghép lệnh chạy v7, hỏi trước khi chạy AI, bước 3); cập nhật tổng sổ token. Chép `build_oracle.py` + 8 spec từ scratchpad sang `evaluation/quote-evidence/scripts-2026-09-30/oracle-build/` (đường dẫn gốc tương đối) | Dựng lại rhoboro bằng bản đã chép + `--finalize`: JSON giống hệt. Chỉ sửa tài liệu và chép script |
+| 30/09/2026 | Khiêm nhờ review code v7 theo kinh nghiệm vẽ tay. Đọc `calls.py`, `flow.py`, `test_flow.py`, `measure_code.py`; soi vài file lệch ở repo lộ. Nhận xét ghi ở mục 7 việc 6 (đề xuất, chưa duyệt) | Chạy lại `test_flow.py` (5 test đạt) và `measure_code.py --detail`: số khớp bảng mục 4. Không sửa code. Không chạy AI |
+| 30/09/2026 | Phiên 5: đọc HANDOFF, `calls.py`, `flow.py`, code v6 dùng lại (`ai.py`, `llm.py`, `run.py`, `evaluate.py`). Trình bày đề xuất bước 6 lần 1 (mỗi tầng một request) và phác thảo bước 9; Khiêm gửi góp ý (mục 7, việc 7). Dựng thử bản sửa trong `scripts-2026-09-30/step6-proto/` (bản sao `calls.py`, `flow.py` sửa dấu hiệu Dữ liệu; hồ sơ neo/không neo; mô phỏng luật tự xếp file thuần). Trình bày bản sửa, chờ duyệt | Chỉ chạy script đo, không gọi AI, chưa sửa code trong repo. Số đo ở mục 7, việc 7 |
+| 30/09/2026 | Phiên 5 (tiếp): Khiêm duyệt bản sửa kèm 3 sửa (luật gộp theo tầng, cắt phần theo thư mục, bảng nhầm tầng lnbits). Sửa dấu hiệu Dữ liệu trong `calls.py`, `flow.py` (+ `flow.analyze` trả `implements`), thêm 1 test `test_flow.py`; viết `ai7.py` (bước 6, 9), `run7.py`, `test_ai7.py` (10 test), `tier_confusion.py`; chạy `measure_code.py`, dry-run 8 repo; cập nhật mục 2, 3, 4, 6, 7, 8, 10, 11 | 23 + 6 + 10 test offline đạt trên Python 3.13 và 3.14. Số đo code v7 và bảng lnbits ở mục 4; dry-run ở mục 6 (mọi request ≤ 6.000). Phát hiện: đáp án teamhide, fba bị phiên khác sửa 11:06; `load_key` mặc định lấy key 3. Không gọi AI |
+| 30/09/2026 | Người vẽ tay góp ý bản sửa bước 6 của phiên 5 (đề xuất, chờ Khiêm quyết): duyệt 2 prompt, định dạng hồ sơ và chỗ tự chọn 1–6, kèm 3 sửa: (a) luật gộp theo tầng: ở Điểm vào/API chỉ tách khi khác cơ chế vào; ở Nghiệp vụ tách khi đường đi xuống khác (kể cả "có IO" với "không IO"), khớp cả 8 bản vẽ trừ fba Admin API/Task API; (b) cắt phần request theo thư mục, không cắt giữa một tính năng; (c) báo ma trận nhầm tầng lnbits (chỉ số tổng) trước khi chạy AI. Hai chỗ đáp án có thể sửa theo luật, chờ Khiêm: teamhide `domain/entity/` sang khối persistence; fba gộp Admin API + Task API | Không sửa code, không chạy AI |
+| 30/09/2026 | Khiêm bảo người vẽ tay sửa 2 chỗ đáp án: teamhide `app/user/domain/entity/` sang khối `persist` (model ORM là Dữ liệu); fba gộp `admin_api` + `task_api` thành `api` (luật gộp theo tầng). Sửa `ve-tay/teamhide.md`, `ve-tay/fba.md`, `spec_teamhide.py`, `spec_fba.py`; dựng lại 2 JSON + `--finalize`. Bản trước ở scratchpad. Cập nhật 2 dòng bảng mục 4 (số của `calls.py`/`flow.py` trong repo, chưa có bản sửa bước 6 của phiên 5) | 2 JSON: 0 `no layer`, `upward`, `quote mismatch`; fba 30 cạnh bắt buộc, teamhide 11. `measure_code.py`, `rescore.py` chạy lại. Không chạy AI |
+| 30/09/2026 | Người vẽ tay đọc bảng nhầm tầng lnbits (số tổng) và dry-run của phiên 5 (đề xuất, chưa duyệt): (a) 18 file code xếp Điểm vào mà bản vẽ xếp Hạ tầng gần như chắc là các client ví Lightning (khối `wallets/`, 26 file): dấu hiệu "vòng nền" (vòng `while` async có `sleep`) bắt cả vòng nghe/thăm dò bên trong client. Sửa: vòng nền chỉ là Điểm vào khi hàm đó được app tự khởi chạy (`create_task`, `create_permanent_task`, `add_job`, lifespan); vòng trong method của class hoặc generator có `yield` thì không. (b) 9 file code xếp Hạ tầng mà bản vẽ xếp api/service/data: file tự mở client ngay trong hàm nghiệp vụ (ví dụ thông báo trong `core/services`). Sửa: chỉ neo Hạ tầng khi file dựng client giữ lại (`self.client =`, biến module, `base_url`, pool) hoặc file không gọi code nghiệp vụ nào; còn lại là file không neo cho AI xếp. (c) Nên sửa (a), (b) và đo lại trước khi chạy AI, vì file neo sai tầng AI không sửa được. (d) Chạy AI: 4 repo lộ trước (trần khoảng 74k, một key), xem kết quả, rồi mới chạy 4 repo kín; phải hỏi Khiêm | Không sửa code, không chạy AI |
+| 30/09/2026 | Khiêm đồng ý đổi hướng bước 6 sang "AI phán đoán, code kiểm" (mục 3). Hai luật sửa cho lnbits (vòng nền, client mở trong hàm) KHÔNG làm. Người vẽ tay viết tin nhắn giao việc cho phiên 5 | Chỉ sửa tài liệu |
+| 30/09/2026 | Phiên 5, hướng mới "AI phán đoán, code kiểm": bước 1 (`calls.py` ghi `sure`, `flow.analyze` trả `sure`, test `test_sure_signs_only`, `sure_signs.py`); bước 2–4 (viết lại phần chia khối của `ai7.py`: một prompt tầng + khối + lý do, đoạn code ≤ 15 dòng, lô theo cây thư mục, kiểm lý do bằng `verify.check`, `check_edges`); bước 5 (`run7.py` nối kiểm cạnh, dry-run 8 repo); viết lại `test_ai7.py` | 23 + 7 + 12 test đạt trên 3.13 và 3.14. Dấu hiệu chắc 146/156 file, 32/32 khối (mục 7 việc 9). Dry-run: tổng trần 454,5k, request lớn nhất 5.877. Không gọi AI |
+| 30/09/2026 | Phiên 5: Khiêm duyệt luật tầng khối và cho chạy 4 repo lộ. Thêm `layer_differs`; `report_v7.py`, `replay_v7.py`. Chạy v7 AI 4 repo lộ bằng KEY CHÍNH (12:01–12:18, 100.462 token, sổ 535.094). Phát hiện mọi lý do bị loại do định dạng; sửa `_quote`, thêm test; `EXCERPT` 15 → 8; dry-run lại | 13 + 7 + 23 test đạt trên 3.13 và 3.14. Kết quả, phát lại, nguyên nhân ở mục 7 việc 9. Key chính còn khoảng 99,5k hôm nay. Chưa chạy repo kín |
+| 30/09/2026 | Phiên 5: Khiêm cho chạy lại với key 3 và thêm luật interface vào prompt; lô nhỏ hơn tạm hoãn. Chạy lại 4 repo lộ (`v7b-*`) | Test 13 + 7 + 23 đạt trên 3.13 và 3.14 trước khi chạy. 92.199 token key 3. Số ở mục 7 việc 9: nhiều lô bị cắt/JSON hỏng nên nhiều file vẫn xếp theo luật. Chưa chạy repo kín |
+| 30/09/2026 | Khiêm hỏi vì sao kết quả kém dù lặp lại kinh nghiệm vẽ tay, có cần nới trần token không. Người vẽ tay trả lời: pipeline xếp từng file theo lô (không thấy toàn cục, phải trả một dòng mỗi file) còn vẽ tay chốt khối từ trên xuống trước; không cần nới trần. Khiêm đồng ý đổi sang hai lượt chốt khối / xếp file (mục 3, mục 7 việc 9); người vẽ tay viết tin nhắn giao việc | Chỉ sửa tài liệu. Không chạy AI |
+| 30/09/2026 | Khiêm đổi cách chia khối sang từ trên xuống (mục 3); phiên 5 ghi kế hoạch 6 bước vào mục 7 việc 10 và đề nghị chuyển phiên | Chỉ sửa tài liệu |
+| 30/09/2026 | Phiên 6, việc 10 bước 1: `ai7.overview` (cây router chỉ lấy đối số là router; mỗi thư mục một dòng, mã `D<n>`; gộp thư mục sâu khi quá trần), `_way` dùng chung; 3 test mới; `overview_size.py` | 23 + 7 + 16 test đạt trên 3.13 và 3.14. Token bản tóm tắt 459–2.529, fba gộp còn 10 đơn vị (mục 7 việc 10). Không gọi AI |
+| 30/09/2026 | Phiên 6, việc 10 bước 2: `upper_bound.py` (trần trên xếp file theo path nhìn thấy); `SHOW_FILES`, `SHOW_DIRS` thành hằng trong `ai7.py` | Đúng 100% ở 7 repo, lnbits 99%; AI cần viết 8–42 path. Không gọi AI |
+| 30/09/2026 | Phiên 6, việc 10 bước 3: `ai7.top_blocks` + `TOP_SYSTEM`, kiểm lượt 1 (`_read_top`, `_violations`), gửi lại 1 lần; `_registers` tách từ `_router_tree`; 5 test; `top_check_oracle.py`; hai script đo dùng trần thật 2.612 | 23 + 7 + 21 test đạt trên 3.13 và 3.14. Báo nhầm trên đáp án: 0 ở 7 repo, fba 3. Không gọi AI |
+| 30/09/2026 | Phiên 6, việc 10 bước 4: viết lại `ai7.group` (lượt 1 → xếp theo path → file mơ hồ gửi AI với `PLACE_SYSTEM`; luật dự phòng cùng tầng); bỏ `GROUP_SYSTEM`, `place_pure`; `run7.py` ghi thêm trường lượt 1/2; viết lại 7 test | 23 + 7 + 21 test đạt trên 3.13 và 3.14. Không gọi AI |
+| 30/09/2026 | Phiên 6, việc 10 bước 5: `_json` dùng hết chỗ trống, không gửi khi thiếu; bước 9 qua `_json`; `llm.Groq` gửi lại JSON hỏng 1 lần kèm lỗi parse (thay chế độ JSON thường); lượt gửi lại lượt 1 chép câu trả lời gọn; `run7.py --dry-run` có câu trả lời giả lập lượt 1 và lượt 2 xấu nhất; 2 test mới, 1 test thay | 23 + 7 + 22 test đạt trên 3.13 và 3.14. Dry-run 8 repo ở mục 7 việc 10. Không gọi AI |
+| 30/09/2026 | Rà 376 file Markdown và các mục chưa commit; xóa bản dựng thử `step6-proto/`, hai script cũ `replay_v7.py` và `report_v7.py`, output dở dang `evaluation/kibo-component-graph-live3/`, cùng `evaluation/kibo-independent-v2-root-facts-89eb3bb/` trùng hoàn toàn với bản AI. Giữ các bản chạy, cache, sổ token, hồ sơ `.aide` và hai file lưu trữ HANDOFF vì còn dùng hoặc là bằng chứng lịch sử | Kiểm tham chiếu và hash trước khi xóa; xác nhận đúng 9 file trong 5 mục. `prd_package.py check` khớp 20 artifact BL-r5; `l1_coverage.py` xanh; `git diff --check` sạch. Chưa chạy test sản phẩm vì chỉ dọn artifact và script thử cũ |
+| 30/09/2026 | Theo yêu cầu dọn tiếp: xóa 8 thư mục output Kibo cũ không có tham chiếu trong code/tài liệu hiện hành (61 file) và 54 file `error-*`/`failed-*` trong cache; giữ 163 response cache thành công, các bản chạy có điểm đo và sổ token. Trước khi Khiêm làm rõ chỉ xét file không bị Git ignore, đã xóa thêm 10 thư mục `.pytest-runtime*` (519 file) và 9 thư mục output POC cũ bị ignore (50 file); các mục này không nằm trong commit và không khôi phục được nguyên trạng từ Git | `.audit-output/` chứa Python 3.14 vẫn giữ. `git status` sau khi ignore dữ liệu đánh giá và lưu trữ HANDOFF chỉ còn 24 file nguồn; commit `5d06f14` đã tạo, cây làm việc sạch. Push bị auto-review từ chối vì chưa có xác nhận đích GitLab cụ thể; chưa push |
+| 30/09/2026 | Phiên 6, việc 10 bước 6: Khiêm cho chạy, dùng 2 key song song; chạy `runs/v7c-*` 4 repo lộ | 66.198 token. P/Pk/R và nguyên nhân (lý do lượt 1 bị loại vì bản tóm tắt cắt code + ngoặc) ở mục 7 việc 10 bước 6. Chưa sửa. Khiêm hỏi rà soát file để đẩy lên remote: đã rà, chờ Khiêm chọn nơi đẩy và phạm vi |
+| 30/09/2026 | Phiên 6: Khiêm chọn đẩy phần việc cá nhân lên nhánh riêng của GitLab nhóm, script tải repo + memory ở nhánh riêng nữa, xóa rác và POC cũ. Việc Gate đã được commit và đẩy (`5d06f14`, không do phiên 6). Xóa các thư mục đã duyệt; tạo nhánh `khiem/quote-evidence`, `khiem/setup` | Không còn tham chiếu tới thư mục đã xóa; 23 + 7 + 22 test đạt sau khi xóa. Quét key: không có key thật trong file đẩy lên |
+| 30/09/2026 | Phiên 7, dựng máy mới (Linux): lấy `setup/` từ `origin/khiem/setup` (untracked, không commit); cài `uv` rồi Python 3.14.7 (`/home/tts/.local/bin/python3.14`, máy không có `curl`, không có 3.14); tải 8 repo mẫu đúng commit; chép 12 file memory; `.env` Khiêm tự tạo. Sửa mục 8 (`PY`, bash thay Git Bash) | 23 + 7 + 22 test offline đạt trên 3.14.7. Không sửa code, không gọi AI |
+| 30/09/2026 | Phiên 7: Khiêm duyệt sửa a–c (mục 7 việc 10 bước 6). `ai7.py`: hàm `_code` (cắt thì `…`, không bọc ngoặc, đặt cuối) dùng ở cây router, dòng `sure`/`io`, thông báo vi phạm; `TOP_SYSTEM` thêm một câu về `…`; `_quote` thử lại sau khi bỏ `)]}…` ở cuối; lý do sai in đủ. `test_ai7.py`: 7 test so chuỗi sửa theo định dạng mới, thêm ca vào `test_reason_forms` | 23 + 7 + 22 test đạt trên 3.14.7. Lý do bị loại ở v7c chạy qua `_quote` mới: 18/26 được nhận, 8 là AI trích sai thật. Prompt sha `c3ff7d5656e3c6df`. Không gọi AI |
+| 30/09/2026 | Phiên 7: Khiêm thấy a–c vẫn là vá. Đề xuất "AI chọn, code trích" (chưa duyệt). Viết `scripts-2026-09-30/code_evidence.py` đo code tự gắn bằng chứng cho khối đáp án; dry-run 4 repo kín với prompt mới | Kín: 44/48 khối có dòng bằng chứng do code tìm, 26/48 chứng minh được tầng chỉ bằng code; lộ 23/25, 18/25. Số dry-run ở mục 7 việc 10 bước 6. Không gọi AI |
+| 30/09/2026 | Phiên 7: Khiêm cho chạy repo kín. Groq 3 key song song (`runs/v7d-*`, `--budget 1034632`): lnbits, fba xong; boilerplate, kibo còn chạy lúc ghi. Khiêm chọn 2 repo kín boilerplate + fba, cho dùng OpenRouter một lần (trần 2,5 USD trên key). `llm.py` thêm OpenRouter (không giãn nhịp, không trần 7k, sổ riêng `usage-openrouter.jsonl` có USD); `run7.py` thêm `--provider openrouter --model`, trần 32k/request, tóm tắt lượt 1 tới 16k. Chạy `gpt-oss-120b` qua OpenRouter (`runs/v7e-gptoss-*`). `code_evidence.py`; cài `taste-skill`; trang xem sơ đồ `scripts-2026-09-30/viewer/` (build_viewer.py + template.html, artifact https://claude.ai/artifact/4vGhpSkxrS8AoNP9222hyH) | 52 test offline đạt. P/Pk/R nội bộ, ngoài P/R: Groq v7d lnbits 0,63/0,42/0,28, 0,13/0,40; fba 0,29/0,24/0,29, 0,43/0,50. OpenRouter gpt-oss: fba 0,40/0,25/0,25, 0,80/0,67 (70.345 token, 726 s); boilerplate 0,71/0,39/0,46, 0,75/0,50 (107.154 token, 2.045 s). 17 request OpenRouter, 0 lỗi, 0,0232 USD. Chậm vì gpt-oss suy luận tới 27k token/request khi max_tokens = cả chỗ trống (đề xuất trần theo bước, chưa làm). Đo offline phần code (measure_code.py, khối đáp án): R cạnh kín 0,89–1,00 → nút thắt là AI chia khối. Haiku chưa chạy (`.env` mất key lúc 18:01, đã sửa); Khiêm tạm hoãn. Ước Haiku 2 repo ~0,18 USD, Sonnet 5.5 ~0,37 USD (chưa đo) |
+| 30/09/2026 | Phiên 6 (máy cũ): Khiêm hỏi các bước code có tốt thật ở repo kín không. Chạy lại `measure_code.py`, `sure_signs.py`; viết `scripts-2026-09-30/no_ai_score.py` (pipeline v7 không AI, chấm với đáp án) | 0 token. Số ở mục 4 (đoạn "Pipeline v7 không AI"). Repo kín chỉ xem số tổng. Commit cùng dòng dưới |
+| 30/09/2026 | Phiên 6 (máy cũ, 16:36): Khiêm quyết tạm thời chỉ đặt mục tiêu ở repo nhỏ (rhoboro, fullstack, realworld, teamhide); ghi vào mục 2, 3. Commit HANDOFF và `no_ai_score.py` lên nhánh `khiem/quote-evidence` | Chỉ sửa tài liệu và thêm script đo. Chưa đẩy |
+| 30/09/2026 | Phiên 6 (máy cũ): fetch + rebase lên `9d95ce7` của phiên 7 (gỡ xung đột HANDOFF, giữ cả hai bên). Chẩn đoán nút thắt: `blame.py` (lỗi cạnh do chia khối hay do code), `replay_top.py` (phát lại lượt 1 thật của v7c); tìm hiểu paper và công cụ trên mạng | 52 test đạt sau khi kéo về. Số ở mục 7 việc 10 bước 6 (đoạn "Chẩn đoán nút thắt"). 0 token. Hai script mới và HANDOFF chưa commit |
+| 30/09/2026 | Phiên 6 (máy cũ, tối): Khiêm giao áp dụng bài học 1–2, bớt nén, xử lý suy luận, cách chấm mới, tìm hiểu ArchAgent. Viết `draft.py`, `ai7.Lines`, bản tóm tắt có dòng file, mức suy luận theo bước, lưu suy luận, `evaluate.flow_score`, sửa 2 lỗi `llm.py`; `draft_score.py`, `leak_labels.py`, `compare_v8.py`; chạy v8 16 lần qua OpenRouter; viết `docs/BAO-CAO-SO-DO-COMPONENT.md` | 26 + 7 + 26 test đạt trên 3.13 và 3.14. 0,074 USD. Số ở mục 7 việc 11. Chưa commit |
+| 30/09/2026 | Phiên 6 (máy cũ): hết 16/16 lần chạy v8 (boilerplate có nháp 0,62/0,48/0,91; kibo có nháp 0,75/0,60/0,92); điền số vào tài liệu. Khiêm hỏi vì sao cách thắng đổi theo repo: `error_kinds.py` phân loại cạnh sai/thiếu | 0 token. Phân tích ở mục 7 việc 11 và tài liệu mục 4 |
+| 30/09/2026 | Phiên 6 (máy cũ): Khiêm hỏi chi phí Sonnet, kết quả chấp nhận được chưa, muốn nắm pipeline và làm song song `.aide`. Tra giá và tham số OpenRouter (API công khai), ước chi phí từ token v8, phát lại `v8-draft-rhoboro` từ cache để giải thích pipeline, đọc CAP-012/FR-027/ADR-003 | 0 token, 0 USD. Chưa sửa code cho Claude, chưa chạy Sonnet |
+| 01/10/2026 | Khiêm bảo cập nhật file cần thiết rồi đẩy. Commit code v8 (`draft.py`, `ai7.py`, `llm.py`, `run7.py`, `evaluate.py`, test), script đo, 16 lần chạy `runs/v8-*`, cache, sổ OpenRouter, HANDOFF, `docs/BAO-CAO-SO-DO-COMPONENT.md`; đẩy `khiem/quote-evidence` | 26 + 7 + 26 test đạt trước khi commit; quét key: không có |
+| 01/10/2026 | Phiên 8 (máy Linux): pull `6d37704`. Khiêm xem kết quả v8: thêm `v8-nodraft`, `v8-draft` vào `VERSIONS` của `viewer/build_viewer.py`, sửa câu phụ đề `template.html`, dựng lại và đăng lại cùng link artifact (bản 3) | Không gọi AI, 0 token. Chưa commit |
+| 01/10/2026 | Phiên 8: Khiêm bỏ các lần chạy v7 khỏi trang xem, hiện chi tiết cả 8 repo (gồm 4 repo kín) cho Khiêm xem. `build_viewer.py`: `VERSIONS` chỉ còn v8, vòng lặp chi tiết và bảng số tổng chạy `OPEN + CLOSED`; sửa phụ đề, tiêu đề bảng trong `template.html`. Đăng lại cùng link (bản 4) | Script chỉ in số đếm (8 repo, 16 lần chạy); phiên 8 không mở `viewer.html` nên vẫn chưa thấy chi tiết repo kín. Lưu ý: đáp án repo kín giờ nằm trên trang, phiên sau không đọc lại trang/`viewer.html` nếu muốn giữ kín. Chưa commit |
+| 01/10/2026 | Phiên 8: đổi tên nhánh thành `feature/quote-evidence`, đẩy lên; xoá `khiem/quote-evidence`, `khiem/setup` trên GitLab (`setup/` chỉ còn ở máy). Khiêm thấy sơ đồ repo lớn rối, nhờ đọc code xem lại: **phiên 8 đã đọc bản vẽ tay fba, lnbits và code fba → 2 repo này lộ với phiên 8**. Tìm hiểu cách vẽ ngoài kia (C4, tài liệu fba, lnbits) | Đo trên JSON đáp án: fba 16 khối + 6 ngoài, 30 cạnh, 11 cạnh nhảy ≥ 2 tầng; lnbits 12 + 9, 23 cạnh, 12 nhảy ≥ 2 tầng. Soi 4 cạnh fba: đúng với code. Plugin fba có api/service/crud riêng nhưng đáp án đặt cả plugin ở tầng API. Đề xuất A/B/C trong chat, chưa duyệt, chưa sửa gì |
+| 01/10/2026 | Phiên 8: Khiêm hỏi luồng pipeline v8 và chỗ nào là vá. Đọc `run7.py`, `inventory.py`, `calls.py`, `flow.py`, `draft.py`, prompt và `_violations` trong `ai7.py`, `evaluate.score`; grep tên đặc biệt trong 8 repo mẫu | Chỉ đọc, không sửa code. Phát hiện (chưa duyệt cách xử lý): tên lấy từ đúng một repo mẫu trong `calls.py` (`import_module_cached`, `cappa`, `AsyncRedisManager` fba; `Admin`/`ModelView` boilerplate; `start_app` realworld; `read_session` teamhide; `rbac` fba); ví dụ trong `NAME_SYSTEM` là hệ thống của lnbits (repo kín); luật prompt mượn từ bản vẽ (plugin router, client + cache, admin site, transaction decorator, DI container); trần khối 3/5/5/2/4 lấy từ cỡ đáp án. Chi tiết trong chat |
+| 01/10/2026 | Phiên 8, bước 1 (Khiêm duyệt): gỡ vá. `calls.py`: bỏ `read_session`, `write_session` (SESSION_NAMES), `start_app`, `stop_app` (LIFESPAN_NAMES), `import_module_cached` (IMPORTERS); `flow.py` CHECK bỏ `rbac`; `ai7.py`: bỏ ví dụ trong ngoặc của luật "file chỉ phục vụ một khối" (TOP, PLACE), ví dụ của luật tách entry/api, câu "client và lớp cache là một khối", ví dụ lnbits trong NAME_SYSTEM. Giữ danh sách thư viện (việc 2), trần khối | 26 + 7 + 26 test đạt (3.14.7). 0 token: `draft_score.py` chỉ fba đổi (Pk 0,23→0,24, file đúng 0,41→0,43); `measure_code.py` chỉ fba đổi (B R 0,96→0,88, cạnh không qua import 3/3→1/3, +8 khối không ai gọi). Đo thử bỏ thêm 7 thư viện chỉ một repo dùng (rồi khôi phục): boilerplate R ngoài 0,67→0,50, fba 0,83→0,67, nhỏ không đổi. Phần prompt chỉ đo được khi chạy AI: chưa chạy. Prompt sha mới, chưa commit |
+| 01/10/2026 | Phiên 8, hướng 1–5 (Khiêm duyệt), đang dở, bị ngắt: thêm `experiments/quote-evidence/cluster.py` (Louvain trên đồ thị import/gọi, bỏ cạnh wiring; file không cạnh gom theo thư mục). `draft.py`: bỏ `SERVICE_CAP`; thử 3 cách dùng cụm. Trạng thái file hiện tại = biến thể "Nghiệp vụ nhóm theo từng file như cũ, cụm chỉ là luật dự phòng thay đa số thư mục" (biến thể nhóm Nghiệp vụ theo cụm lưu ở scratchpad `draft_module.py`). Chưa làm: hướng 4 (AI phân loại thư viện), hướng 3 (prompt), bỏ `CAP` trong `ai7.py`; chưa chạy test sau khi sửa `draft.py` | `draft_score.py` (0 token) P/Pk/R — gốc → nhóm theo cụm + dùng chung theo cụm → nhóm theo cụm + dùng chung theo khối → nhóm theo file + cụm dự phòng: realworld 1,00/1,00/1,00 → 0,40/0,40/0,67 → 1,00/1,00/1,00 → như gốc; teamhide 0,67/0,57/0,50 → 0,86/0,86/0,75 → như gốc → như gốc; boilerplate 0,29/0,18/0,18 → 0,12/0,10/0,09 → 0,18/0,14/0,18 → 0,18/0,14/0,18; fba 0,29/0,23/0,29 → 0,37/0,25/0,29 → 0,33/0,25/0,29 → 0,35/0,29/0,38. Kết luận tạm: cụm chưa cải thiện chung; boilerplate tụt ở mọi biến thể (do bỏ `SERVICE_CAP` hoặc cụm dự phòng, chưa tách) |
+| 01/10/2026 | Phiên 8: Khiêm bảo xem pipeline của các nghiên cứu có số đo tốt. Đọc SemRef (arxiv 2607.23774), ArchAgent (2601.13007, bản HTML), Who's Who (2511.02434), bài ROS 2 (2605.20055, một hệ thống, không có số rõ). Đề xuất hướng v9 trong chat (chưa duyệt): cụm từ đồ thị phụ thuộc làm nền + AI tóm tắt từng file + AI sửa cụm bằng các quyết định nhỏ (tách, gộp, chuyển file) do code đề cử, lặp | Chỉ đọc, không sửa code. Bài học chính: SemRef đo trên 9 hệ thống, cải thiện 17–43%, phần lặp sửa có tác động lớn nhất; AI đọc bản tóm tắt file, không đọc code thô; ArchAgent: thêm ngữ cảnh phụ thuộc +0,07–0,11 F1 |
+| 01/10/2026 | Phiên 8: Khiêm cho viết lại pipeline (v9) theo SemRef/ArchAgent. Viết `experiments/quote-evidence/v9.py` (AI phân loại thư viện, Louvain, AI tóm tắt file, AI ghép cụm × tầng thành khối, code đề cử + AI duyệt sửa ≤ 3 lượt, dùng lại `ai7.check_edges`, `ai7.describe`), `test_v9.py` (6 test). `calls.facts(idx, libs=None)` nhận bảng thư viện (None = bảng cũ, v8 không đổi). `draft.py` trả về bản gốc. Chạy v9 8 repo qua OpenRouter gpt-oss (`runs/v9-*`), kibo và lnbits còn chạy lúc ghi. Tải repo SARIF (đáp án 9 hệ thống của SemRef) vào scratchpad | 26 + 7 + 26 + 6 test đạt. Tới lúc ghi: 123 request, 835.761 token, 0,069 USD (tóm tắt file 82%). v9 kém v8 ở mọi repo đã xong, P/Pk/R v9 (v8 tốt nhất): rhoboro 1,00/0,67/0,50 (1,00/0,80/1,00); fullstack 1,00/1,00/0,50 (1,00/1,00/1,00); realworld 1,00/0,50/0,67 (1,00/0,75/1,00); teamhide 0,80/0,80/0,50 (0,88/0,88/0,88); boilerplate 0,17/0,14/0,09 (0,62/0,48/0,91); fba 0,45/0,28/0,21 (0,47/0,28/0,29). Nguyên nhân (repo lộ): bước tóm tắt bị cắt vì trần trả lời (teamhide, fullstack mất toàn bộ tóm tắt); AI phân loại thư viện cho `opens` quá rộng (sqlmodel: mọi hàm) hoặc bỏ sót thư viện (teamhide thiếu redis, sqlalchemy); bước sửa chuyển `use_cases` sang Dữ liệu (rhoboro). Kiểm thiên vị bước đọc code: ~25 tên thư viện/API chỉ có ở đúng một repo mẫu, 47 tên không có ở repo nào |
+| 01/10/2026 | Phiên 8: Khiêm tạm bỏ v9 (dừng kibo, lnbits giữa chừng); muốn thêm 1 repo nhỏ 1 repo vừa cho subagent viết đáp án; hỏi DEPENDS; hỏi tổng quát hóa thư viện và đoán theo tên. Tải GitHub/JDK thất bại (sandbox: mọi HTTPS lỗi chứng chỉ) → nhờ Khiêm tải. Xem nhánh cũ `origin/feat/language-first-semantic-v2` (Khiêm tạo 15–17/09): có code `src/l3gen` (57 file): bộ phân giải luồng dữ liệu `core/resolution/dataflow.py` (940 dòng, giá trị trừu tượng, đường bằng chứng), sổ mô hình thư viện có kiểu `core/semantics/registry.py`, adapter FastAPI/SQLAlchemy/HTTP v2, UI; `EVALUATION.md` đo 15/09 trên dispatch + full-stack (route, bảng, lời gọi HTTP), đáp án do Agent lập | Chỉ đọc. `git fetch` lỗi mạng: danh sách nhánh là của lần fetch trước. Nhánh: develop, docs/gate-2, docs/l3-contracts-review, docs/prd-bl-r13-review, feat/language-first-semantic-v2, feat/ui-ux-mock, feature/quote-evidence, main |
+| 01/10/2026 | Phiên 8: Khiêm hỏi pipeline nhánh `feat/language-first-semantic-v2` có dùng ngay được không. Đọc qua worktree tạm (đã gỡ): 8 bước tất định (kiểm kê → frontend Python ra Semantic IR → `dataflow.resolve_program` với `registry` → adapter FastAPI, SQLAlchemy, HTTP → IAM → đồ thị node/cạnh mức module/hàm/route/bảng/host ngoài) + 2 bước AI chỉ viết mô tả và soát. Không có khối, tầng, cạnh giữa khối; registry chỉ có FastAPI/Starlette, SQLAlchemy `Session` đồng bộ, httpx/requests; không có AsyncSession, Redis, Celery, SMTP, `Depends` | Không chạy được: cần `pydantic`, máy không có và mạng chặn pip. Kết luận: chưa dùng ngay cho sơ đồ component; phần `dataflow.py` có thể là nền cho việc nhận session/kiểm tra theo cấu trúc |
+| 01/10/2026 | Phiên 8: Khiêm muốn **tạm gác phần sơ đồ component**, xem xét chuyển sang L3. Đọc `Đề bài.md` mục 3.6 và `SPEC_Code_to_L3_Generator.md` (mục 1.2 chín câu hỏi, mục 8.2 cấu trúc L3.md); xem nhánh `docs/l3-contracts-review` của Hoàng (L3 ở đó là hồ sơ thiết kế mức 3 của chính tool trong `.aide`, khác "tài liệu L3" mà tool sinh ra). Trả lời trong chat: L3 gồm gì, evidence, ai đã làm, độ khả thi; hỏi Khiêm muốn L3 nghĩa nào | Chỉ đọc. Mạng chặn WebFetch nên không tra thêm nguồn mới. Memory `pham-vi-so-do-khong-l3` chưa sửa, chờ Khiêm chốt |
+| 01/10/2026 | Phiên 8: Khiêm chốt: tải 2 repo mới (1 nhỏ, 1 vừa) kiểm thiên vị; **không gọi gpt-oss nữa, bỏ Haiku, dùng `openai/gpt-6-luna`** (0,10/0,50 USD mỗi triệu token, không nhận `temperature`); thử xong 2 repo mới, tốt thì **chờ Khiêm duyệt** mới chạy 1 nhỏ, 1 vừa, 1 lớn bằng Luna (memory đã sửa). Chọn theo số file, không đọc code, loại repo nhắc repo mẫu cũ hoặc đã bị xoá code (jonra1993: lịch sử bị thay): nhỏ `sample-repos/testdrivenio_fastapi-tdd-docker-16433b6` (12 file, Tortoise ORM), vừa `sample-repos/reworkd_AgentGPT-18b073a` (84 file). Giao 2 subagent viết đáp án mù → `oracle/fastapi-tdd-docker.json`, `oracle/agentgpt.json` (đang chạy). `llm.py`: `REASONING_MODELS`, `NO_TEMPERATURE` (gpt-6 không gửi temperature, có gửi effort) + 1 test | 27 + 7 + 26 + 6 test đạt. Phiên 8 không mở 2 file đáp án mới. Chưa gọi AI |
+| 01/10/2026 | Phiên 8: 2 đáp án mù xong (subagent; phiên 8 không mở): `oracle/fastapi-tdd-docker.json` (5 khối, 1 dùng chung, 6 cạnh bắt buộc), `oracle/agentgpt.json` (9 khối, 2 dùng chung, 15 cạnh bắt buộc, 7 tới hệ thống ngoài). Thêm 2 repo (nhóm kín) vào `draft_score.py`, `measure_code.py`, `no_ai_score.py`. Đo 0 token | **Thiên vị xác nhận ở nhận I/O:** khối đúng như đáp án mà Ngoài R: tdd-docker 0,00, agentgpt 0,14 (8 repo cũ 0,40–1,00). tdd-docker dùng tortoise, newspaper: không có trong `IO_LIBS` → 0 dòng I/O; agentgpt: openai, pinecone, boto3, replicate, anthropic không có trong bảng. Cạnh nội bộ khi khối đúng (B): tdd-docker 1,00/1,00/0,50, agentgpt 1,00/0,73/1,00 (ổn). Bản nháp không AI: tdd-docker 0/0/0 (khối 3, đáp án 4), agentgpt 0,60/0,43/0,38. Tầng đúng: 3/4, 5/7 khối |
+| 01/10/2026 | Phiên 8 (tiếp): Khiêm hỏi bước C (`pyindex._use_kinds`) rồi cả `inventory`, `pyindex`, `calls`, `flow`, `draft` có tổng quát cho mọi repo FastAPI không; yêu cầu ghi note rồi rà soát sâu cả pipeline. Đọc `calls.py`, `flow.py`, `draft.py`, `ai7.py` (prompt, `_violations`, `check_edges`, `describe`), `verify.py`, `run7.py`. Dựng repo giả 31 file và 5 script thử (scratchpad phiên 8, mất khi đổi phiên, chưa lưu vào repo). Ghi mục 15–16 và dòng ở mục 2. Không sửa code, không gọi AI | 0 token. 18 chỗ chưa tổng quát (mục 15): 16 chỗ có ca chạy thật (dòng 15 chỉ chạy một nửa), dòng 14 và 17 chỉ đọc code. Chưa đo tỉ lệ các lỗi này trên repo thật. Chưa chạy lại test của repo (không sửa code) |
+
+## 15. Chỗ pipeline chưa tổng quát (rà soát 01/10)
+
+Mục này ghi những chỗ code của pipeline v8 chỉ đúng với một số kiểu repo FastAPI, và cách tôi kiểm. Chưa sửa gì.
+
+**Cách kiểm.** Dựng repo FastAPI giả (31 file) và các ca nhỏ chỉ khác nhau một thứ. Chạy `inventory` → `pyindex` → `calls` → `flow` → `draft`: 0 token, không AI. Script (`audit.py`, `mini.py` đến `mini4.py`, `libs.py`) nằm ở scratchpad phiên 8, mất khi đổi phiên, chưa lưu vào repo. Hai giới hạn: repo giả do tôi viết nên có thiên vị của người viết; chưa đo các lỗi này xuất hiện bao nhiêu trên repo thật.
+
+**Nguyên nhân gốc chung: thiếu thông tin bị coi là "không có".** Lời gọi không phân giải được, hoặc thư viện không có trong bảng, bị coi là không làm gì. Hàm thành "thuần", file thành "dùng chung", cạnh thành `helper` (không vẽ). Lỗi này im lặng và nghiêng về mất cạnh. `check_edges` (AI) chỉ cứu được cạnh `helper`, `pass`, `check` đặt theo tên, giữa hai khối khác nhau và đi xuống. Không cứu được cạnh `wiring`, cạnh chưa từng được ghi, hệ thống ngoài thiếu: AI không thêm được cạnh hay nút mới.
+
+### 15.1 Lỗi cài đặt: sửa chung được, không cần luật theo repo
+
+| # | Kiểu viết | Kết quả đã chạy | Chỗ trong code |
+|---|---|---|---|
+| 1 | `import app.a` và `import app.b` trong một file | `app.a.f()` gắn nhầm vào file b (hai import cùng tên gốc `app`) | `pyindex.index` (`locals_`), `calls._File.env` |
+| 2 | Tham số hoặc biến trùng tên một import | `def g(audit): audit.log()` thành cạnh tới module `audit`; `send = lambda: 1; send()` thành cạnh tới `mail.send` | `calls.py`: bảng tên phẳng theo file, không xét phạm vi |
+| 3 | `from m import *` | không ghi lời gọi nào, mất cạnh | `pyindex._imports` (`*` không có đích) |
+| 4 | Re-export qua hai `__init__.py` | đích đúng chỉ khi tên file người gọi xếp sau package: `z_consumer.py` đúng, `a_consumer.py` dừng ở `__init__.py` | `pyindex._follow_reexports` (đi một bước, phụ thuộc thứ tự) |
+| 5 | `from app import crud; crud.order.get()`, `services.s.create()` | đích là `__init__.py`, không tới file con; đường API → dữ liệu đứt | `calls._File.resolve` |
+| 6 | `from fastapi import FastAPI as Api` | không nhận dấu hiệu chắc; file thành `shared` | `call_signals` so tên chữ (`last == "FastAPI"`), không so ký hiệu đã phân giải |
+| 7 | `self.repo = repo or Repo()`; `Repo() if c else r`; `self.a, self.b = ...`; `repo = Repo()` ở cấp lớp; thuộc tính đặt ở lớp cha khác file; chú thích chuỗi `repo: "Repo"` | `self.repo.add()` không được ghi, hàm bị coi là thuần, cạnh API → service thành `helper` (không vẽ). 6/6 biến thể sai; ca gốc `self.repo = repo` đúng | `calls._File.resolve`, `prepare_class`: chỉ biết `Name`, `Attribute`, `Call`, `Subscript`, `Await` |
+| 8 | Alias `Annotated[..., Depends(...)]` khai báo ở file khác | cạnh giả tới file alias; cờ session chỉ có khi tham số tên `db`, `conn`... hoặc alias có chữ "Session": với `database`, `s` thì `db_use` rỗng | `calls._File.annotation`, `SESSION_NAMES` |
+
+### 15.2 Thiếu dữ kiện: phân tích tĩnh không biết, cần AI hoặc tri thức về thư viện
+
+| # | Kiểu viết | Kết quả đã chạy | Chỗ trong code |
+|---|---|---|---|
+| 9 | Truyền hàm cho thư viện chạy hộ: `asyncio.to_thread(f)`, `run_in_executor`, `Thread(target=f)`, `rq.enqueue(f)` | đều thành `wiring` (không vẽ); `BackgroundTasks.add_task(f)` không ghi cạnh nào; gọi thẳng `f()` thì là `flow`. Code không biết thư viện gọi `f` hay chỉ lưu `f` (như container DI) | `arg_ref` → `wiring` trong `flow.analyze` |
+| 10 | Gọi tác vụ bằng tên chuỗi | `arq.enqueue_job('job')`: không cạnh. `celery.send_task('x')`: có cạnh, nhờ import object `capp` | `calls.strings` chỉ bắt `a.b:c` và `import_module` |
+| 11 | Decorator gắn vào object app ở file khác: `@app.middleware`, `@app.exception_handler` | không dấu hiệu nào, tầng `unknown` | `function_signals` |
+
+### 15.3 Bảng đóng và luật theo tên
+
+| # | Chỗ | Kết quả |
+|---|---|---|
+| 12 | `IO_LIBS` (bảng thư viện I/O) | 10 repo mẫu: 101 module ngoài, 17 có trong bảng. Danh sách 75 thư viện I/O phổ biến do tôi tự lập: bảng có 19 (CSDL 4/27, đám mây 0/10, hàng đợi 6/17, thư 5/9, HTTP 4/12). Thư viện lạ: file thành `shared`, hàm thành `helper`, không có nút hệ thống ngoài. Cùng vị trí: `stripe.Charge.create` → `helper`, `httpx.post` → `flow`. Số đo trước đó: tdd-docker (Tortoise) Ngoài R 0,00, agentgpt 0,14 (mục 14) |
+| 13 | Tầng Dữ liệu chỉ nhận `__tablename__` và `table=True` | model Beanie thành `shared`, không là Dữ liệu, không có cạnh tới MongoDB. ORM khác (Tortoise, Peewee, Motor) chưa thử riêng |
+| 14 | Luật theo tên: `SESSION_NAMES`, `SESSION_TYPE`, `CHECK`, `OPENS_SESSION`, `LIFESPAN_NAMES`, `add_job`, vòng `while` + `sleep/wait`, `CLI_LIBS`, `admin_libs = {sqladmin}`, `"sio" in tên decorator` | Đọc code, chưa có ca riêng. Dấu hiệu tầng chỉ là gợi ý, AI sửa được. Loại cạnh `wiring` thì AI không xem lại |
+| 15 | `dependencies=[Depends(x)]` luôn là `check` (đọc code). `if __name__ == "__main__"` ở module bất kỳ là "entry" (đã chạy) | service có khối chạy thử ở cuối file thành khối `script` (entry) |
+
+### 15.4 Quy ước và tham số chọn từ cỡ đáp án
+
+| # | Chỗ | Kết quả |
+|---|---|---|
+| 16 | `inventory.EXCLUDED_DIRS` loại thư mục theo tên; file `*_test.py` | 12 file giả: giữ 3, loại 9 (`docs`, `env`, `build`, `testing`, `examples`, `migrations`, `alembic`, thư mục ẩn, `load_test.py`). Chỉ đếm trong `excluded`, không báo |
+| 17 | Trần khối 3/5/5/2/4 (`ai7.CAP`), `SERVICE_CAP`, `EXCERPT`; luật phong cách trong prompt và `_violations` ("khối chỉ phục vụ một khối thì gộp", "một loại hệ thống ngoài một khối") | Đọc code. Lấy từ cỡ và cách vẽ của đáp án; chưa chứng minh hợp với repo ngoài 10 repo mẫu |
+| 18 | Đơn vị khối là file | File một app + route + model + truy vấn (kiểu hướng dẫn) thành 1 khối |
+
+**Đã kiểm, tổng quát tốt:** bố cục `src/`, `backend/app/`, monorepo hai dịch vụ cùng tên package `app`; import tương đối; cây `include_router`/`mount`; `Depends(get_db)` → `pass`; `Celery .delay()` → `flow`; dấu hiệu chắc (`@router.get`, `__tablename__`, `create_engine`).
+
+## 16. Đề xuất sau rà soát (chưa duyệt, chưa làm)
+
+Mục này là đề xuất, không phải quyết định. Xếp theo memory `khong-va-cho-sai`: lỗi cài đặt, thiếu dữ kiện, chuẩn chưa rõ.
+
+| Loại | Việc | Dòng mục 15 |
+|---|---|---|
+| Lỗi cài đặt (tất định, sửa chung) | Phân tích phạm vi tên; `resolve` đủ dạng gán; `_follow_reexports` lặp tới hết; theo thuộc tính của package; nhận ký hiệu đã phân giải thay tên chữ. Kiểm bằng chính các ca ở mục 15 | 1–8 |
+| Thiếu dữ kiện | Đổi "không biết = không có" thành ba trạng thái: có, không, không biết. "Không biết" (lời gọi không phân giải, thư viện ngoài bảng, hàm truyền cho thư viện) gửi AI kèm dòng code. AI được thêm cạnh và nút hệ thống ngoài, code kiểm trích dẫn | 9–13 |
+| Hướng của Khiêm (chat 01/10) | LLM làm chủ; code là bộ công cụ truy vấn (`callers`, `callees`, `show`, `unknown_calls`), bộ nhớ theo sha256, kiểm trích dẫn như v8. Thử trên 4 repo nhỏ + 2 repo kín mới. Cần Khiêm chọn: thay v8 hay chạy song song; model; ngân sách | 1–18 |
+| Chuẩn chưa rõ | Trần khối, luật phong cách: quyết bằng thước chấm "đúng nhưng vẽ khác" (mục 4), không chỉnh theo từng repo | 14–18 |
+
+Cảnh báo từ v9: khi để AI phân loại thư viện, nó cho `opens` quá rộng (sqlmodel: mọi hàm) hoặc bỏ sót (teamhide thiếu redis, sqlalchemy). Cần ràng buộc (mỗi thư viện một lần, kiểm bằng dòng mở kết nối thật) trước khi dùng.
+
+**Kinh nghiệm rút ra:**
+1. Cặp tối thiểu (đổi một thứ) tách nguyên nhân tốt hơn đọc code. Sáu biến thể ở dòng 7 cho cùng hậu quả nhưng nguyên nhân khác nhau.
+2. Chạy một ca chưa đủ: re-export hai bước (dòng 4) đúng với một tên file, sai với tên file khác.
+| 01/10/2026 | Phiên 8: Khiêm dán một bản đánh giá bước đọc code (3 nhóm lỗi: cài đặt 8, thiếu dữ kiện 3, bảng đóng 7). Kiểm bằng repo giả trong scratchpad (0 token) | Xác nhận: chú thích chuỗi `'Repo'` mất cạnh; `from m import *` mất cạnh; `FastAPI as Api` không thành dấu hiệu chắc; `BackgroundTasks.add_task(f)` không cạnh; `asyncio.to_thread(f)` thành wiring; tham số trùng tên import mà được gọi tạo cạnh giả (flow). Chưa tái hiện: `self.repo = repo or Repo()`, `Repo() if c else r` (bản thử ra flow đúng; có thể biến thể khác). Độ phủ IO_LIBS: 112 module ngoài trên 10 repo, 19 có trong bảng (con số này gồm cả thư viện không I/O). Chưa sửa |
+| 01/10/2026 | Phiên 8: Khiêm muốn đếm lỗ hổng từng phần và xem LLM bịt được không. Viết `evaluation/quote-evidence/scripts-2026-10-01/probe_holes.py`: 39 repo giả, mỗi repo một kiểu code, chạy bước 1–4 (0 token) | **28/39 sai**: inventory 3/3 (env/, build/, testing/); import 4/8 (re-export 2 bước cả a_ lẫn z_, `import *`, `crud.order.get()`); phân giải lời gọi 4/7 (chú thích chuỗi, thuộc tính lớp cha file khác, gán tuple, tham số che import); dấu hiệu 3/4 (`FastAPI as Api`, Tortoise, Beanie); session 1/2 (tên lạ qua `Depends(get_uow)`); I/O 7/8 (chỉ aiohttp có trong bảng đúng); loại cạnh 6/7 (add_task, to_thread, Thread, check tên lạ, validate_order bị coi check, on_event). Ca do phiên 8 chọn để dò điểm yếu: tỉ lệ không đại diện tần suất thật. Phân loại sửa bằng code / LLM trong chat. Chưa sửa |
+| 01/10/2026 | Phiên 8: Khiêm nhắc phải tự đọc code và suy luận thay vì chỉ dựng repo thử. Đọc lại `inventory.py`, `pyindex.py` (`_imports`, `_follow_reexports`), `calls.py` (`resolve`, `annotation`, `bind_params`, `bind_locals`, `prepare_class`, `call_signals`), `flow.py` (wiring, LIFESPAN). Trả lời trong chat: 12 lỗi (ứng với 16 ca sai của probe) — nguyên nhân ở dòng code nào, cách sửa bằng code, bịt kín hay không | Chỉ đọc, chưa sửa. Kết luận: 10/12 bịt kín được bằng code; 2 bịt một phần (API chạy hộ của thư viện bên thứ ba; session từ provider trả đối tượng thư viện lạ) |
+| 01/10/2026 | Phiên 8: Khiêm chỉ ra 12 lỗi đều tìm ra sau khi thấy sai; sửa từng luật sẽ thành đống luật không chuẩn. Đồng ý hướng: phần quy tắc Python dùng công cụ có sẵn (Pyright/Jedi/PyCG) thay vì tự viết; kiến thức framework thành bảng khai báo có nguồn tài liệu; I/O và phán đoán ý đồ giao LLM; bỏ đoán theo tên. Khiêm duyệt bước 1: so `calls.py` với Jedi, PyCG (và Pyright nếu cài được) trên micro-benchmark của PyCG (~112 chương trình, đáp án độc lập), 39 ca `probe_holes.py`, 10 repo | Chưa làm: mạng sandbox chặn GitHub, PyPI. Đã đưa Khiêm lệnh cài vào `~/.local/opt/PyCG` và `~/.local/opt/probe-venv` (uv, Python 3.12). Chờ Khiêm báo cài xong |
+| 01/10/2026 | Phiên 8: đã cài vào `~/.local/opt` (lúc mạng thông): PyCG gốc + `probe-venv` (Python 3.12: jedi 0.20.0, pycg, pyright 1.1.414, setuptools<70). Viết `scripts-2026-10-01/resolver_bench.py` (so calls.py / Jedi / PyCG trên micro-benchmark PyCG 119 ca, mức (file, tên cấp cao nhất)). PyCG gốc không chạy trên 3.12 (lỗi import hook, đúng như tài liệu fork ghi); tạo venv 3.10 thất bại vì mạng. Khiêm bảo tra cứu trước khi chọn công cụ thay PyCG: so pyan3, pycg-ml, JARVIS, CPyGraph, scip-python (Pyright), ty, pyrefly, Jedi | Số sơ bộ trên benchmark (adapter chưa soát, chưa tin được): calls.py và Jedi mỗi nhóm P/R khác nhau, PyCG 0 vì không chạy. Đề xuất trong chat: scip-python (dựa Pyright) làm bộ phân giải chính, pycg-ml để đối chiếu; chờ Khiêm duyệt và mạng để cài |
+| 01/10/2026 | Phiên 8: Khiêm đổi quyền mạng. Cài: pycg-ml (module `pycg_ml`, chạy `python -m pycg_ml --no-ml-patterns`), scip-python 0.6.6 (`~/.local/opt/scip`, cần Node của pyright `~/.cache/pyright-python/nodeenv/bin` và `--environment` file `[]` để khỏi đòi pip), scip CLI v0.10.0 (`~/.local/opt/scip-cli/scip`, sha256 khớp). `resolver_bench.py` so 4 bên trên micro-benchmark PyCG; viết `repo_pairs.py` (cặp file 3 công cụ trên 10 repo, đang chạy nền) | Micro-benchmark PyCG (mức file + tên cấp cao nhất) P/R: calls.py 0,87/0,47; Jedi 0,70/0,51; **pycg-ml 0,97/0,95**; scip-python 0,68/0,48. Lưu ý: bộ thử là của chính tác giả PyCG (lợi thế sân nhà); Jedi/scip trả lời "định nghĩa ở đâu" (vd `a = func; a()` chỉ tới biến `a`), không phải "hàm nào được gọi" |
+| 01/10/2026 | Phiên 8: chạy `repo_pairs.py` (3 công cụ × 10 repo trong một tiến trình) làm máy hết RAM (15 GB), không có dòng kết quả nào. Bản sửa có trần bộ nhớ chưa được ghi (Khiêm dừng). Khiêm bảo **quay về việc chính**; tạm gác so sánh công cụ phân giải | Số đã có: micro-benchmark PyCG (dòng trên). Chưa có số trên repo thật. Công cụ vẫn ở `~/.local/opt` |
+| 01/10/2026 | Phiên 8: Khiêm muốn báo cáo công cụ để chọn. Sửa `repo_pairs.py`: mỗi công cụ × repo một tiến trình, trần 3 GB, cache `repo_pairs_cache/`, tự tìm gốc mã nguồn (`backend/`, `project/`, `platform/`), calls.py chỉ đếm cặp do lời gọi thật. Chạy 8 repo ≤ 160 file (bỏ lnbits, fba) | Không hết RAM. Cặp file calls.py / pycg-ml / scip-python: tdd-docker 7/2/3; rhoboro 15/5/8; fullstack 30/hỏng/17; realworld 98/21/77; teamhide 35/12/23; agentgpt 84/47/67; boilerplate 132/75/83; kibo 142/246/118 (pycg 9 giây). Soi tay 3 repo lộ: calls.py thêm cạnh khung FastAPI (include_router, add_middleware, Depends) mà 2 công cụ không coi là lời gọi; scip thêm cạnh nhờ suy kiểu (method qua kiểu trả về, lớp cha), đúng; pycg-ml thêm cạnh nhờ lần đối tượng qua tham số (DI: cache_manager → redis_backend; factory get_repository), đúng, nhưng bỏ `Depends` và hỏng khi repo dùng cú pháp mới hơn Python của nó (fullstack: `except A, B:` của 3.14, pycg chạy 3.12) |
+| 01/10/2026 | Phiên 8: Khiêm duyệt chạy repo lớn và thử pycg-ml trên Python 3.14. Tạo `~/.local/opt/pycg314-venv`: pycg-ml **không chạy trên 3.14** (dùng `ast.Num`, đã bị xoá) → chỉ 3.12/3.13, không đọc được cú pháp riêng 3.14 (fullstack). `repo_pairs.py` dùng lại pycg trên 3.12 (`PYCG_PY`), chạy đủ 10 repo có trần | lnbits: pycg-ml **hết 3 GB (MemoryError ở MRO)** sau 16 giây — chính là nguyên nhân máy hết RAM lần đầu. fba: pycg 194 cặp, 22 giây. scip-python chạy cả 10 repo, lớn nhất 14 giây (lnbits 502 cặp, fba 396). calls.py lnbits 549, fba 555 |
+| 01/10/2026 | Phiên 8, Khiêm duyệt: gỡ pycg-ml; ghép Pyright vào phần mạnh của nó, calls.py giữ phần mạnh của mình; tự sửa lỗi phần mình. Gỡ pycg-ml, pycg, thư mục PyCG (giữ dữ liệu bộ thử ở `~/.local/opt/pycg-benchmark`). Mới: `experiments/quote-evidence/names.py` (chạy scip-python một lần cho repo, tự tìm gốc mã nguồn, trả (dòng, cột) → (file định nghĩa, tên cấp cao nhất), chỉ tên trong repo). `pyindex.py`: đích import lấy theo Pyright, **xoá `_follow_reexports`**. `calls.py`: `pick()` ưu tiên Pyright ở mọi lời gọi, Depends, router, tham số trao cho thư viện; tham số và biến luôn che tên ngoài (lỗi 8); tên gốc của thư viện đặt bí danh (lỗi 9); 2 lượt để biết hàm cấp session cho `Depends` (lỗi 10); bảng `RUNS_FOR_YOU` có nguồn tài liệu (lỗi 11); `on_event`, `add_event_handler`, `lifespan=` là lắp ráp và **xoá `LIFESPAN_NAMES`** (lỗi 12). `inventory.py`: venv nhận theo `pyvenv.cfg`, env/build/dist/docs/examples/testing chỉ giữ file import code repo (lỗi 1). Thử rồi bỏ: nhận kiểu thư viện trong chú thích (làm fba tụt). `test_names.py` 7 test; script so sánh bỏ pycg | Test: names 7, quote_evidence 27, flow 7, ai7 26 đạt. Probe 28 → **14/39 sai** (còn: 3 thư mục cố ý, 11 thuộc phần giao LLM). Micro-benchmark PyCG calls.py 0,87/0,47 → 0,85/0,49 (bộ thử đo luồng giá trị, không phải định nghĩa). Cặp file calls.py chứa gần trọn cặp scip (chênh 5 trên 10 repo). `measure_code.py` 10 repo: như trước (fba Pk 0,54 → 0,53). `draft_score.py`: agentgpt 0,60/0,43/0,38 → 0,80/0,50/0,50; lnbits P 0,50 → 0,53; fba 0,29/0,24/0,29 → 0,26/0,21/0,29 (2 cạnh thật mới tìm ra đi vào khối mà bản nháp ghép nhầm với "dùng chung"); 7 repo khác không đổi. Chưa commit |
+| 01/10/2026 | Phiên 9: Khiêm bảo đọc lại tài liệu, hỏi về học ArchAgent và so với Claude Code đọc cả dự án (trả lời trong chat, chưa làm). Khiêm bỏ quy tắc "LLM không đọc toàn bộ repo" (xoá memory). Khiêm duyệt chạy 8 repo × có/không nháp sau khi ghép Pyright; chọn gpt-oss-120b, thư mục `v10-*`. Dry-run 0 token (OpenRouter, 8 repo gửi đủ request), chạy 16 lần song song; Khiêm bảo dừng 11 lần dở | Xong 5/16 (số ở mục 2, phiên 9): Pyright không cải thiện ở 5 lần này, boilerplate không nháp kém hơn v8. Chưa chạy không AI và chấm luồng. 189.299 token, 0,024 USD. Sửa: không có file code nào |

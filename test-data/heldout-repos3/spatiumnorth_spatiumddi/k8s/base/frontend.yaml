@@ -1,0 +1,125 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: spatiumddi
+  labels:
+    app.kubernetes.io/name: spatiumddi
+    app.kubernetes.io/component: frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: spatiumddi-frontend
+  template:
+    metadata:
+      labels:
+        app: spatiumddi-frontend
+        app.kubernetes.io/component: frontend
+    spec:
+      # #983 — Kubernetes runs a container ``Unconfined`` unless a profile is
+      # asked for, while docker-compose applies the runtime's default profile
+      # to every service. Without this the same image runs with FEWER syscall
+      # restrictions here than under Compose.
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      # #590 — spread replicas across nodes so a single node loss can't
+      # take every replica of this workload with it. Soft (preferred): a
+      # single-node or replicas>nodes cluster must still schedule. The
+      # Helm chart's appliance path uses required anti-affinity, where the
+      # replica count tracks the control-plane node count exactly.
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: spatiumddi-frontend
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: frontend
+          image: ghcr.io/spatiumnorth/spatiumddi-frontend:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 80
+          # Probe nginx's OWN health, not ``/`` (#767). ``/`` is the SPA
+          # fallback, which now gates on an auth_request probe of the api
+          # and answers 503 while the api is unreachable — probing it
+          # would mark the frontend NotReady during exactly the cold-boot
+          # window the initialising page exists to cover (pulling the pod
+          # out of the Service so the page can't be reached at all), then
+          # CrashLoop it on liveness. ``/nginx-health`` is served by
+          # nginx alone and touches no upstream.
+          # timeoutSeconds is EXPLICIT for the same reason as the api's:
+          # the k8s default is 1s, and a probe that is merely slow then
+          # reads as a dead container. nginx serving a static file is far
+          # less likely to blow that budget than a single-worker uvicorn,
+          # so this is prophylactic rather than a fix for an observed
+          # failure — but leaving the fleet's LAST 1s-default probe in
+          # place is how the api's own omission survived unnoticed.
+          livenessProbe:
+            httpGet:
+              path: /nginx-health
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 15
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /nginx-health
+              port: 80
+            initialDelaySeconds: 3
+            periodSeconds: 10
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: spatiumddi
+spec:
+  selector:
+    app: spatiumddi-frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+---
+# Ingress — adjust host and TLS secret for your environment
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: spatiumddi
+  namespace: spatiumddi
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+    # Uncomment to enable cert-manager / Let's Encrypt:
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  # tls:
+  #   - hosts:
+  #       - spatiumddi.example.com
+  #     secretName: spatiumddi-tls
+  rules:
+    - host: spatiumddi.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80

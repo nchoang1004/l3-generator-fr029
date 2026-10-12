@@ -1,0 +1,385 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>登录 - 闲鱼管理系统</title>
+  <link rel="icon" type="image/png" href="/static/favicon.png">
+  <link rel="stylesheet" href="/static/lib/bootstrap/bootstrap.min.css">
+  <link rel="stylesheet" href="/static/lib/bootstrap-icons/bootstrap-icons.css">
+  <style>
+    :root {
+      --primary-color: #0d6efd;
+      --secondary-color: #6c757d;
+      --success-color: #198754;
+      --danger-color: #dc3545;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .login-container {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+      overflow: hidden;
+      width: 100%;
+      max-width: 400px;
+    }
+    
+    .login-header {
+      background: var(--primary-color);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+    
+    .login-header h2 {
+      margin: 0;
+      font-weight: 600;
+    }
+    
+    .login-header p {
+      margin: 10px 0 0 0;
+      opacity: 0.9;
+    }
+    
+    .login-body {
+      padding: 40px 30px;
+    }
+    
+    .form-control {
+      border-radius: 10px;
+      border: 2px solid #e9ecef;
+      padding: 12px 15px;
+      font-size: 16px;
+      transition: all 0.3s ease;
+    }
+    
+    .form-control:focus {
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+    }
+    
+    .btn-login {
+      background: var(--primary-color);
+      border: none;
+      border-radius: 10px;
+      padding: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      width: 100%;
+      transition: all 0.3s ease;
+    }
+    
+    .btn-login:hover {
+      background: #0b5ed7;
+      transform: translateY(-2px);
+    }
+    
+    .input-group {
+      position: relative;
+      margin-bottom: 20px;
+    }
+    
+    .input-group i {
+      position: absolute;
+      left: 15px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--secondary-color);
+      z-index: 10;
+    }
+    
+    .input-group .form-control {
+      padding-left: 45px;
+    }
+    
+    .alert {
+      border-radius: 10px;
+      border: none;
+    }
+    
+    .loading {
+      display: none;
+    }
+    
+    .loading.show {
+      display: inline-block;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <div class="login-header">
+      <img src="/static/xianyu-logo.png" alt="??" height="72" class="mb-3">
+      <h2>欢迎登录</h2>
+      <p>闲鱼管理系统</p>
+    </div>
+    
+    <div class="login-body">
+
+      <!-- 首次启动提示 -->
+      <div class="alert alert-info py-2 px-3 mb-3" style="font-size: 14px; border-radius: 10px;">
+        <i class="bi bi-info-circle me-1"></i>
+        首次启动密码请查看启动日志，或通过 <strong>ADMIN_PASSWORD</strong> 安全配置
+      </div>
+
+      <form id="loginForm">
+        <!-- 用户名/密码登录 -->
+        <div id="usernameLoginForm" class="login-form-section">
+          <div class="input-group">
+            <i class="bi bi-person-fill"></i>
+            <input type="text" class="form-control" id="username" placeholder="请输入用户名">
+          </div>
+
+          <div class="input-group">
+            <i class="bi bi-lock-fill"></i>
+            <input type="password" class="form-control" id="password" placeholder="请输入密码">
+          </div>
+          
+          <!-- 登录验证码 -->
+          <div id="securityCaptchaSection" class="mb-3">
+            <label class="form-label"><i class="bi bi-shield-check text-primary me-1"></i>安全验证</label>
+            <div class="row g-2">
+              <div class="col-7">
+                <input type="text" class="form-control" id="securityCaptchaCode" placeholder="输入验证码" maxlength="4" autocomplete="off">
+              </div>
+              <div class="col-5">
+                <div class="captcha-container" style="position: relative; height: 38px;">
+                  <img id="securityCaptchaImage" src="/captcha/generate" alt="安全验证码"
+                       style="width: 100%; height: 100%; border: 1px solid #ddd; border-radius: 5px; cursor: pointer; object-fit: contain; background: #f8f9fa;"
+                       onclick="refreshSecurityCaptcha()" title="点击刷新验证码">
+                  <div id="securityCaptchaLoading" style="display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);">
+                    <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="form-text text-muted">
+              <i class="bi bi-info-circle me-1"></i>请输入图中验证码，点击图片可刷新
+            </div>
+          </div>
+        </div>
+
+          <!-- 邮箱验证码（默认隐藏，邮箱登录时显示） -->
+          <div id="emailLoginSection" style="display:none;">
+          <div class="input-group">
+            <input type="text" class="form-control" id="verificationCode" placeholder="输入6位验证码" maxlength="6">
+            <button type="button" class="btn btn-outline-secondary" id="sendCodeBtn" onclick="sendVerificationCode()" disabled>
+              发送验证码
+            </button>
+          </div>
+          <div class="form-text mb-3">
+            <span id="codeStatus">请先验证图形验证码</span>
+          </div>
+
+          </div>
+        <div id="errorAlert" class="alert alert-danger d-none" role="alert">
+          <i class="bi bi-exclamation-triangle-fill me-2"></i>
+          <span id="errorMessage"></span>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-login">
+          <span class="loading spinner-border spinner-border-sm me-2" role="status"></span>
+          <span id="loginText">登录</span>
+        </button>
+      </form>
+
+
+
+    </div>
+  </div>
+
+  <script src="/static/lib/bootstrap/bootstrap.bundle.min.js"></script>
+  <script>
+    // 安全验证码相关变量
+    let securityCaptchaId = null;
+    let loginCaptchaEnabled = true;
+
+    // 检查登录验证码是否启用
+    async function checkLoginCaptchaEnabled() {
+      try {
+        const checkResp = await fetch('/captcha/check-required');
+        const checkResult = await checkResp.json();
+        
+        const securityCaptchaSection = document.getElementById('securityCaptchaSection');
+        
+        if (checkResult.codex_browser) {
+          loginCaptchaEnabled = false;
+          if (securityCaptchaSection) securityCaptchaSection.style.display = 'none';
+        } else {
+          loginCaptchaEnabled = true;
+          if (securityCaptchaSection) securityCaptchaSection.style.display = loginCaptchaEnabled ? 'block' : 'none';
+        }
+        
+        return loginCaptchaEnabled;
+      } catch (error) {
+        console.error('检查验证码状态失败:', error);
+        return true;
+      }
+    }
+
+    // 加载图形验证码
+    function loadSecurityCaptcha() {
+      const captchaImage = document.getElementById('securityCaptchaImage');
+      const captchaLoading = document.getElementById('securityCaptchaLoading');
+      if (!captchaImage) return;
+      if (captchaLoading) captchaLoading.style.display = 'block';
+      captchaImage.style.opacity = '0.3';
+      
+      fetch('/captcha/generate?' + Date.now())
+        .then(function(response) {
+          var captchaId = response.headers.get('X-Captcha-Id') || response.headers.get('x-captcha-id');
+          if (captchaId) {
+            securityCaptchaId = captchaId;
+          }
+          return response.blob();
+        })
+        .then(function(blob) {
+          captchaImage.src = URL.createObjectURL(blob);
+          captchaImage.style.opacity = '1';
+          if (captchaLoading) captchaLoading.style.display = 'none';
+        })
+        .catch(function(err) {
+          console.error('Captcha load failed:', err);
+          if (captchaLoading) captchaLoading.style.display = 'none';
+          captchaImage.style.opacity = '1';
+        });
+    }
+
+    function refreshSecurityCaptcha() {
+      loadSecurityCaptcha();
+    }
+
+    function showError(message) {
+      var errorAlert = document.getElementById('errorAlert');
+      var errorMessage = document.getElementById('errorMessage');
+      errorMessage.textContent = message;
+      errorAlert.classList.remove('d-none');
+    }
+    
+    function hideError() {
+      document.getElementById('errorAlert').classList.add('d-none');
+    }
+    
+    function setLoading(isLoading) {
+      var loading = document.querySelector('.loading');
+      var loginText = document.getElementById('loginText');
+      var loginForm = document.getElementById('loginForm');
+      if (isLoading) {
+        loading.classList.add('show');
+        loginText.textContent = '登录中...';
+        loginForm.querySelector('button').disabled = true;
+      } else {
+        loading.classList.remove('show');
+        loginText.textContent = '登录';
+        loginForm.querySelector('button').disabled = false;
+      }
+    }
+
+    // 登录表单提交
+    document.getElementById('loginForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      hideError();
+      setLoading(true);
+
+      try {
+        var username = document.getElementById('username').value.trim();
+        var password = document.getElementById('password').value;
+
+        if (!username || !password) {
+          showError('请输入用户名和密码');
+          setLoading(false);
+          return;
+        }
+
+        var loginData = { username: username, password: password };
+
+        if (loginCaptchaEnabled) {
+          var captchaCode = document.getElementById('securityCaptchaCode').value.trim();
+          if (!captchaCode) {
+            showError('请输入验证码');
+            setLoading(false);
+            return;
+          }
+          loginData.captcha_id = securityCaptchaId;
+          loginData.captcha_code = captchaCode;
+        }
+
+        var response = await fetch('/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify(loginData)
+        });
+
+        var result = await response.json();
+
+        if (result.success) {
+          localStorage.setItem('auth_token', result.token);
+          localStorage.setItem('user_info', JSON.stringify({
+            user_id: result.user_id,
+            username: result.username,
+            is_admin: result.is_admin
+          }));
+          window.location.href = result.is_admin ? '/admin' : '/download';
+        } else {
+          showError(result.message || '登录失败');
+          if (loginCaptchaEnabled) {
+            loadSecurityCaptcha();
+          }
+        }
+      } catch (error) {
+        console.error('登录请求失败:', error);
+        showError('网络错误，请检查连接');
+        if (loginCaptchaEnabled) {
+          loadSecurityCaptcha();
+        }
+      } finally {
+        setLoading(false);
+      }
+    });
+
+    // 页面初始化
+    document.addEventListener('DOMContentLoaded', async function() {
+      // 检查当前是否有活跃的 Cookie 或 Token 登录态，如有则直接免密跳转
+      try {
+        var existingToken = localStorage.getItem('auth_token') || '';
+        var headers = {};
+        if (existingToken) {
+          headers['Authorization'] = 'Bearer ' + existingToken;
+        }
+        var verifyResp = await fetch('/verify', {
+          headers: headers,
+          credentials: 'same-origin'
+        });
+        if (verifyResp.ok) {
+          var verifyResult = await verifyResp.json();
+          if (verifyResult.authenticated) {
+            if (verifyResult.token && !existingToken) {
+              localStorage.setItem('auth_token', verifyResult.token);
+            }
+            window.location.href = verifyResult.is_admin ? '/admin' : '/download';
+            return;
+          }
+        }
+      } catch (e) {
+        // 忽略静默探测失败，继续走正常登录表单流程
+        console.debug('免密登录探测跳过:', e);
+      }
+
+      await checkLoginCaptchaEnabled();
+      if (loginCaptchaEnabled) {
+        loadSecurityCaptcha();
+      }
+    });
+  </script>
+</body>
+</html>

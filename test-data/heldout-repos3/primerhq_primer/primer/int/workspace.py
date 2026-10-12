@@ -1,0 +1,571 @@
+"""Abstract base classes for Workspace and WorkspaceBackend.
+
+Sibling of :class:`primer.int.LLM`, :class:`primer.int.Embedder`,
+:class:`primer.int.ToolsetProvider`, :class:`primer.int.Storage`, and
+:class:`primer.int.VectorStore`.
+
+Two ABCs are exported:
+
+* :class:`Workspace` -- one materialised sandbox + ``.state`` + ``.tmp``
+  + a session registry. Multiple :class:`AgentSession` instances can
+  attach concurrently and share the workspace's filesystem and shell.
+* :class:`WorkspaceBackend` -- backend-agnostic factory + lifecycle
+  for :class:`Workspace` instances. One per execution backend
+  (``LocalWorkspaceBackend`` ships in sub-project E; future
+  Docker / Firecracker / chroot backends in later sub-projects). The
+  configuration that selects which backend is the
+  :class:`primer.model.workspace.WorkspaceProvider` model.
+
+The :class:`AgentSession` concrete class and the workspace tool
+implementations live under :mod:`primer.workspace` -- those land in
+sub-projects D and C respectively. This module references them
+through forward strings so it remains importable on its own.
+
+See ``docs/superpowers/specs/2026-05-02-workspace-design.md`` for the
+full design.
+"""
+
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from collections.abc import AsyncIterator, Sequence
+from typing import Any, TYPE_CHECKING
+
+from primer.model.workspace_session import AgentBinding, SessionInfo, SessionStatus
+from primer.model.workspace import (
+    FileEntry,
+    WorkspaceDiagnosticResult,
+    WorkspaceRuntimeMeta,
+    WorkspaceStatus,
+    WorkspaceTemplate,
+    WorkspaceTemplateOverrides,
+)
+
+
+if TYPE_CHECKING:
+    # AgentSession is concrete and lives at primer/workspace/session.py
+    # (sub-project D); WorkspaceTool ABC lives at primer/workspace/tool.py
+    # (already shipped in sub-project A). Import both here under
+    # TYPE_CHECKING so this module is importable without sub-project D
+    # while still giving type checkers the right types.
+    from primer.workspace.session import AgentSession
+    from primer.model.workspace import CommitInfo
+    from primer.workspace.tool import WorkspaceTool
+    from primer.workspace.files import FileResolvers
+
+
+# ===========================================================================
+# Workspace
+# ===========================================================================
+
+
+class Workspace(ABC):
+    """One materialised sandbox + ``.state`` + ``.tmp`` + session registry.
+
+    Multiple :class:`AgentSession` instances can run concurrently. The
+    workspace is the user-facing handle: it lets the user list
+    sessions, append instructions (via the returned session handles),
+    browse / download files, and inspect history. It does NOT drive
+    sessions -- the agent runtime calls into the workspace to start
+    sessions and update their state.
+    """
+
+    @property
+    @abstractmethod
+    def id(self) -> str:
+        """Stable identifier of this workspace."""
+
+    @property
+    @abstractmethod
+    def template(self) -> WorkspaceTemplate:
+        """The template this workspace was materialised from."""
+
+    @property
+    @abstractmethod
+    def runtime_meta(self) -> WorkspaceRuntimeMeta:
+        """Connection coordinates for the workspace's primer-runtime.
+
+        Returned by every backend's :meth:`WorkspaceBackend.create` so the
+        API layer can persist the URL+token on the workspace row for
+        re-attach. The token is wrapped in :class:`pydantic.SecretStr` so
+        it is redacted by default when the row is serialised on GET.
+
+        For the local backend (no real runtime) implementations return a
+        sentinel value (``url="local://<id>"``, empty token); for the
+        container/k8s backends the URL is built via
+        :func:`primer.workspace.runtime.url.build_runtime_url` and the
+        token is the same bearer minted into the container/Secret on
+        materialisation.
+        """
+
+    @property
+    def state_repo(self) -> "Any | None":
+        """Optional handle to the workspace's state repository.
+
+        Backends that persist state via a local git repo (currently
+        :class:`primer.workspace.local.LocalWorkspace`) expose a
+        :class:`primer.workspace.local.state.LocalStateRepo` here so
+        downstream callers — primarily the graph executor — can
+        commit per-graph state directly. Backends that do not yet
+        offer a compatible state-repo surface (sandbox / container /
+        k8s) return ``None``; callers that require state_repo MUST
+        check for ``None`` and raise a clear error.
+
+        Default implementation returns ``None`` so existing backends
+        opt in by override rather than being broken by the new
+        method. The graph dispatch in
+        :mod:`primer.worker.pool` is the only consumer today.
+        """
+        return None
+
+    @property
+    def gone(self) -> bool:
+        """``True`` when the underlying runtime has confirmed the workspace
+        is destroyed and this handle is dead.
+
+        Backends backed by a :class:`RuntimeClient` (container / k8s)
+        override this to delegate to the client's ``gone`` flag, which the
+        reconnect loop sets after a 404 handshake. A backend cache that
+        hands out cached handles MUST evict a handle whose ``gone`` is
+        ``True`` rather than returning the dead handle.
+
+        Default implementation returns ``False`` so backends without a
+        runtime client (the local FS backend) opt in by override rather
+        than being broken by the new property.
+        """
+        return False
+
+    # ---------- Tool surface ----------------------------------------------
+
+    @abstractmethod
+    def get_tools(self) -> list["WorkspaceTool"]:
+        """Return the workspace tool set.
+
+        Returns the seven concrete tools (``ls``, ``read``, ``write``,
+        ``edit``, ``glob``, ``grep``, ``exec``). The agent runtime
+        composes these onto an agent's other tools at session start.
+
+        These tools are NOT registered in the global tools collection;
+        they are workspace-local and their execution requires an
+        :class:`AgentSession` for context.
+        """
+
+    # ---------- Session lifecycle -----------------------------------------
+
+    @abstractmethod
+    async def start_session(
+        self,
+        agent_binding: AgentBinding,
+        *,
+        id: str | None = None,
+        instructions: str | None = None,
+        parent_session_id: str | None = None,
+        name: str | None = None,
+    ) -> "AgentSession":
+        """Begin a new session of ``agent_binding.agent_id`` on this workspace.
+
+        Allocates a fresh ``session_id``, creates the
+        ``.state/sessions/<session_id>/`` slot, writes ``session.json``
+        and ``agent.json`` (the supplied :class:`AgentBinding` snapshot),
+        creates the per-session cache subdirectory ``.tmp/<session_id>/``,
+        and records an initial ``attach`` commit. If ``instructions``
+        is non-empty, writes them as the first user-role message in
+        ``messages.jsonl`` -- the agent will see them on its first turn.
+
+        ``id``: If supplied, use as the session_id; otherwise generate a
+        fresh UUID. Lets the REST API allocate the id ahead of time so
+        the persisted Session row and the on-disk slot share the same
+        identifier.
+
+        ``parent_session_id`` is set when the session was spawned by
+        another session (the agent runtime's spawn meta-tool); used
+        for history attribution. No state is automatically propagated
+        from parent to child.
+
+        ``name`` is an optional user-supplied friendly label persisted
+        onto ``session.json``; ``None`` (the default) leaves the console
+        falling back to the id.
+
+        Returns a fresh :class:`AgentSession` in status
+        :attr:`SessionStatus.RUNNING`.
+        """
+
+    @abstractmethod
+    async def list_sessions(
+        self,
+        *,
+        agent_id: str | None = None,
+        status: SessionStatus | None = None,
+    ) -> list[SessionInfo]:
+        """List sessions on this workspace, optionally filtered.
+
+        Reads from the in-memory registry (fast). Filters are AND-ed.
+        Returns sessions in start order, most recent first.
+        """
+
+    @abstractmethod
+    async def get_session(self, session_id: str) -> "AgentSession | None":
+        """Return the live session handle, or ``None`` if no such session."""
+
+    async def remove_session(self, session_id: str) -> bool:
+        """Forget the in-memory session handle for ``session_id``.
+
+        Called by the session DELETE handler after the scheduler-visible
+        row and the on-disk slot have been removed, so subsequent
+        ``list_sessions()`` calls don't surface a stale entry. Backends
+        without in-memory caches can leave this as a no-op (the default
+        returns ``False``). Returns ``True`` when an entry was removed.
+        """
+        del session_id  # default no-op
+        return False
+
+    # ---------- File browsing for users ----------------------------------
+
+    @abstractmethod
+    async def list_files(
+        self,
+        path: str = ".",
+        *,
+        recursive: bool = False,
+        max_entries: int | None = None,
+    ) -> list[FileEntry]:
+        """List files in the workspace (user-facing, NOT a tool).
+
+        Distinct from the ``ls`` workspace tool: this method is called
+        by the user via the workspace handle, not by an agent. Returns
+        :class:`FileEntry` records (path, kind, size, modified_at)
+        suitable for rendering in a UI / CLI.
+
+        ``max_entries`` bounds a ``recursive=True`` walk's own cost --
+        the walk stops as soon as it has collected this many entries,
+        rather than materialising the whole subtree before the caller
+        gets to page/slice it. ``None`` (the default) is unbounded,
+        preserving the exact pre-existing behaviour for any caller that
+        doesn't pass it. Ignored when ``recursive=False`` (a one-level
+        ``iterdir`` is already bounded by the directory's own size).
+        """
+
+    @abstractmethod
+    async def read_file(self, path: str) -> bytes:
+        """Return raw bytes of a file (user-facing).
+
+        For downloading a single file. Bypasses the truncation cache
+        and the workspace tool dispatch -- the user might want a 100 MB
+        binary.
+        """
+
+    @abstractmethod
+    def download_archive(
+        self,
+        paths: list[str] | None = None,
+    ) -> AsyncIterator[bytes]:
+        """Stream a tar archive of the requested paths (or whole workspace).
+
+        Used by the user UI / CLI to bulk-download workspace contents.
+        ``paths=None`` means "everything except .state and .tmp".
+
+        Concrete implementations are async generators
+        (``async def download_archive(...): ... yield chunk``); this
+        ABC declaration uses a regular ``def`` returning
+        :class:`AsyncIterator` so the call shape doesn't require an
+        extra ``await`` before iteration -- mirroring the convention
+        used by :meth:`primer.int.LLM.stream` and
+        :meth:`primer.int.Storage.list_tools`.
+        """
+
+    @abstractmethod
+    async def file_info(self, path: str) -> FileEntry:
+        """Return :class:`FileEntry` for one path (file, dir, or symlink).
+
+        User-facing — distinct from the agent ``ls`` tool which
+        returns descriptive metadata for many entries. Raises
+        :class:`primer.model.except_.NotFoundError` if the path does
+        not exist; :class:`primer.model.except_.BadRequestError` if
+        the path tries to escape the workspace root.
+        """
+
+    @abstractmethod
+    async def write_file(self, path: str, content: bytes) -> None:
+        """Replace (or create) the file at ``path`` with ``content``.
+
+        Creates parent directories as needed. Raises
+        :class:`primer.model.except_.BadRequestError` for invalid
+        paths (null byte, escape-attempt, attempts to overwrite a
+        directory).
+        """
+
+    @abstractmethod
+    async def make_dir(self, path: str) -> None:
+        """Create the directory at ``path`` (and any missing parents).
+
+        Raises :class:`primer.model.except_.BadRequestError` for invalid
+        paths (null byte, escape-attempt) or when ``path`` already exists,
+        and refuses creation inside the reserved ``.state`` / ``.tmp``
+        trees.
+        """
+
+    @abstractmethod
+    async def delete_file(self, path: str, *, recursive: bool = False) -> None:
+        """Delete the file or directory at ``path``.
+
+        A non-empty directory is only removed when ``recursive`` is True;
+        otherwise deleting a non-empty directory raises
+        :class:`primer.model.except_.BadRequestError`.
+
+        Raises :class:`primer.model.except_.NotFoundError` if absent.
+        Refuses to delete the workspace root or the ``.state`` /
+        ``.tmp`` directories with
+        :class:`primer.model.except_.BadRequestError`.
+        """
+
+    async def move_file(self, src: str, dst: str) -> None:
+        """Move / rename the file or directory at ``src`` to ``dst``.
+
+        A single primitive for both rename (same parent dir, new basename)
+        and move (different parent dir) within the workspace filesystem.
+
+        Mirrors :meth:`delete_file`'s safety envelope: both paths must stay
+        inside the workspace root and outside the reserved ``.state`` /
+        ``.tmp`` trees; ``src`` must exist; ``src`` must not be the workspace
+        root; ``dst`` must NOT already exist (no silent overwrite); and a
+        directory may not be moved onto itself or into one of its own
+        descendants. Violations raise
+        :class:`primer.model.except_.BadRequestError` /
+        :class:`primer.model.except_.NotFoundError` /
+        :class:`primer.model.except_.ConflictError` as appropriate.
+
+        Default implementation raises :class:`NotImplementedError`; concrete
+        backends override. Intentionally NOT ``@abstractmethod`` so
+        pre-existing backends + duck-typed test fakes that predate this
+        method remain instantiable while the implementation is rolled out
+        (same convention as :meth:`diagnostic_exec`).
+        """
+        raise NotImplementedError(
+            f"{type(self).__name__} does not implement move_file"
+        )
+
+    @abstractmethod
+    async def log(
+        self, *, limit: int = 50, with_files: bool = False
+    ) -> "list[CommitInfo]":
+        """Return up to ``limit`` recent commits from the ``.state`` repo.
+
+        Newest commits first. Each commit carries the parsed
+        ``X-Primer-*`` trailers (workspace, session, agent, op, tool,
+        call) so callers can render structured history without
+        re-parsing the message body.
+
+        ``with_files=True`` additionally populates ``CommitInfo.files`` with
+        per-file line deltas where the backend can supply them; it stays
+        ``None`` (never ``[]``) where it cannot.
+        """
+
+    @abstractmethod
+    async def status(self) -> WorkspaceStatus:
+        """Return a snapshot of this workspace's runtime health.
+
+        See :class:`primer.model.workspace.WorkspaceStatus`. The
+        ``backend`` field in the returned object identifies the
+        materialising backend ('local', 'container', 'kubernetes').
+        """
+
+    @abstractmethod
+    async def ping(self) -> bool:
+        """Cheap liveness probe. True if the underlying transport is healthy.
+
+        Called by the workspace probe task at ~30s intervals to drive
+        phase transitions. Must be fast — implementations should not
+        retry or wait beyond the connection's natural timeout.
+        """
+
+    async def diagnostic_exec(
+        self,
+        command: str | Sequence[str],
+        *,
+        timeout_seconds: float = 5.0,
+    ) -> WorkspaceDiagnosticResult:
+        """Run a short, read-only ``command`` against the workspace.
+
+        Used by the diagnostic endpoint
+        (``POST /v1/workspaces/{id}/diagnostic``) to confirm a workspace
+        is reachable end-to-end. The route restricts WHICH program may run
+        (a small allowlist). A backend MUST execute the command as a plain
+        program with arguments, never through a shell, and MUST refuse shell
+        syntax with a ``ValueError`` (``primer.workspace.diagnostic.
+        parse_diagnostic_command`` is the shared rule): a string is split
+        into an argv list first. It must not hand the program the primer
+        process's environment.
+
+        Returns a :class:`WorkspaceDiagnosticResult` with stdout / stderr
+        / exit_code / duration_seconds. Backends MUST enforce the
+        ``timeout_seconds`` ceiling (kill the process and surface
+        ``exit_code=-1`` on overrun) rather than blocking the caller.
+
+        Default implementation raises :class:`NotImplementedError`;
+        concrete backends override. The default is intentionally not
+        ``@abstractmethod`` so pre-existing backends + duck-typed test
+        fakes that predate this method continue to be instantiable while
+        the implementation is rolled out.
+        """
+        raise NotImplementedError(
+            f"{type(self).__name__} does not implement diagnostic_exec"
+        )
+
+    async def append_message_line(self, session_id: str, line: bytes) -> None:
+        """Append ``line`` to the session's ``messages.jsonl``.
+
+        The file lives at ``<state_path>/sessions/<session_id>/messages.jsonl``
+        inside the workspace.  The method ensures ``line`` ends with a
+        newline byte before writing.
+
+        Called by :class:`primer.session.persistence.WorkspaceMessageWriter`
+        (via the ``WorkspaceIO`` protocol) on every buffer flush.  Multiple
+        workers may hold leases on *different* sessions of the same workspace
+        concurrently, so implementations must be safe for concurrent callers
+        **with distinct session_ids**.  Writes for the *same* session_id from
+        a single worker are always sequential (the writer flushes synchronously
+        before the next append).
+
+        Default implementation raises :class:`NotImplementedError`.  Concrete
+        backends override this method; the default is intentionally not
+        ``@abstractmethod`` so pre-existing backends that predate this method
+        continue to be instantiable while the implementation is rolled out.
+        """
+        raise NotImplementedError(
+            f"{type(self).__name__} does not implement append_message_line"
+        )
+
+    @property
+    def state_path(self) -> str:
+        """The configured state subdirectory inside the workspace root.
+
+        Convenience accessor that resolves the active template's
+        ``state_path`` (typically ``".state"`` but operators can
+        override it via :class:`WorkspaceTemplate`). Use this instead
+        of poking the private ``_template`` attribute so consumer code
+        works against the public ABC surface.
+        """
+        return self.template.state_path
+
+    async def append_state_line(self, relative_path: str, line: bytes) -> None:
+        """Append ``line`` to ``<workspace_root>/<relative_path>``.
+
+        Used by the turn-log writer to persist structured per-turn events
+        under ``<state_path>/sessions/<sid>/turns.jsonl`` (agent sessions)
+        or ``<state_path>/graphs/<gsid>/turns.jsonl`` (graph runs).
+
+        Path is interpreted relative to the workspace root and MUST stay
+        inside it. Unlike ``append_message_line``, the caller controls the
+        exact path so the workspace can append to any operator-visible
+        observability file (turn logs, future per-tool audit trails, etc.).
+
+        Default raises :class:`NotImplementedError`. Concrete backends
+        that want turn-log emission override this; backends that don't
+        leave it unimplemented and the dispatch silently no-ops.
+        """
+        raise NotImplementedError(
+            f"{type(self).__name__} does not implement append_state_line"
+        )
+
+    @abstractmethod
+    async def aclose(self) -> None:
+        """Tear down the workspace.
+
+        Whether this destroys the underlying container / chroot is the
+        backend's choice (durable backends keep state on disk;
+        ephemeral backends clean up). The ``.state`` repo is
+        preserved if at all possible -- backends that destroy data
+        MUST surface the choice in their config.
+        """
+
+
+# ===========================================================================
+# Workspace provider
+# ===========================================================================
+
+
+class WorkspaceBackend(ABC):
+    """Backend-agnostic factory + lifecycle for :class:`Workspace`.
+
+    One per execution backend. Mirrors the
+    :class:`primer.int.StorageProvider` /
+    :class:`primer.int.VectorStoreProvider` pattern. The configuration
+    that selects which backend (and supplies its connection settings)
+    lives in :class:`primer.model.workspace.WorkspaceProvider`.
+    """
+
+    @abstractmethod
+    async def initialize(self) -> None:
+        """Open backend connections / pools. Idempotent."""
+
+    @abstractmethod
+    async def aclose(self) -> None:
+        """Close backend connections / pools. Idempotent."""
+
+    @abstractmethod
+    async def create(
+        self,
+        template: WorkspaceTemplate,
+        *,
+        overrides: WorkspaceTemplateOverrides | None = None,
+        workspace_id: str | None = None,
+        resolvers: "FileResolvers | None" = None,
+    ) -> Workspace:
+        """Materialise a new workspace from ``template``.
+
+        ``overrides`` allows per-instantiation tweaks (additional env
+        vars, additional files, additional init commands). Override
+        semantics are merge-then-extend (see
+        :class:`primer.model.workspace.WorkspaceTemplateOverrides`).
+
+        ``workspace_id`` pins the id of the live instance. When ``None``
+        the backend generates one. When supplied the backend MUST
+        materialise the instance under exactly that id -- callers pass
+        it so the durable row id and the live instance id agree, which
+        is what makes re-attach (see :meth:`get`) work after the
+        in-memory cache is evicted, and gives backends predictable /
+        stable object names (e.g. K8s object names).
+
+        ``resolvers`` supplies the document/secret resolver callables
+        for ``document``- and ``secret``-sourced file mounts. ``None``
+        means those source kinds are unsupported for this call and will
+        raise during materialisation.
+        """
+
+    @abstractmethod
+    async def get(
+        self,
+        workspace_id: str,
+        *,
+        template: WorkspaceTemplate | None = None,
+    ) -> Workspace | None:
+        """Look up an existing workspace by id, or ``None`` if not found.
+
+        ``template`` is the persisted recipe for this workspace; backends
+        that re-attach to a long-lived sandbox after a process restart
+        use it to materialise a fresh :class:`Workspace` handle. The
+        local backend ignores it (handles are kept in process memory
+        and there is no re-attach to perform). The API-layer
+        :class:`WorkspaceRegistry` reads the template from storage and
+        passes it down on every call so re-attach Just Works.
+        """
+
+    @abstractmethod
+    async def list(self) -> list[str]:
+        """Return ids of every workspace this provider currently manages."""
+
+    @abstractmethod
+    async def destroy(self, workspace_id: str) -> None:
+        """Permanently remove a workspace -- backend resources AND state.
+
+        Distinct from :meth:`Workspace.aclose`, which only releases
+        the runtime handle. Raises
+        :class:`primer.model.except_.NotFoundError` if no such
+        workspace exists.
+        """
+
+
+__all__ = [
+    "Workspace",
+    "WorkspaceBackend",
+]

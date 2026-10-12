@@ -1,0 +1,170 @@
+import { Bell, CircleAlert, Info, TriangleAlert, X } from "lucide-react";
+import { useState } from "react";
+
+import { HeaderPopover } from "./header-popover";
+import { Link } from "react-router";
+
+import { Button } from "@/components/ui/button";
+import { useDismissNotification, useNotifications } from "@/lib/queries";
+import type { AppNotification } from "@/lib/types";
+import { cn } from "@/lib/utils";
+
+const SEVERITY = {
+  error: { icon: CircleAlert, className: "text-destructive-text" },
+  warning: { icon: TriangleAlert, className: "text-warning" },
+  info: { icon: Info, className: "text-primary" },
+} as const;
+
+function NotificationRow({
+  item,
+  onDismiss,
+  onNavigate,
+}: {
+  item: AppNotification;
+  onDismiss: (id: string) => void;
+  onNavigate: () => void;
+}) {
+  const { icon: Icon, className } = SEVERITY[item.severity] ?? SEVERITY.info;
+  const isExternal = /^https?:\/\//.test(item.action_url);
+  return (
+    <li className="flex gap-2.5 px-3 py-2.5">
+      <Icon
+        className={cn("mt-0.5 h-4 w-4 shrink-0", className)}
+        aria-hidden="true"
+      />
+      <div className="min-w-0 flex-1 space-y-1">
+        <p className="text-sm font-medium">{item.title}</p>
+        {/* `whitespace-pre-line`: a body long enough to need a second paragraph writes one as a
+            blank line, and collapsing it turns the notification into a wall of text. Only the line
+            breaks are honoured — wrapping still works normally, so a single-paragraph body is
+            rendered exactly as before. */}
+        <p className="whitespace-pre-line text-xs text-muted-foreground">
+          {item.body}
+        </p>
+        <div className="flex items-center gap-3 pt-0.5">
+          {item.action_url &&
+            (isExternal ? (
+              <a
+                href={item.action_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-primary underline-offset-4 hover:underline"
+              >
+                {item.action_label}
+              </a>
+            ) : (
+              <Link
+                to={item.action_url}
+                onClick={onNavigate}
+                className="text-xs text-primary underline-offset-4 hover:underline"
+              >
+                {item.action_label}
+              </Link>
+            ))}
+          {item.dismissable && (
+            <button
+              type="button"
+              onClick={() => onDismiss(item.id)}
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              Dismiss
+            </button>
+          )}
+        </div>
+      </div>
+    </li>
+  );
+}
+
+/** A bell with a count badge that opens a panel of the owner's current notifications. `align`
+ *  controls which way the panel opens: "left" (into the content, for the desktop sidebar) or
+ *  "right" (for the mobile top bar). */
+export function NotificationBell({
+  align = "left",
+}: {
+  align?: "left" | "right";
+}) {
+  const [open, setOpen] = useState(false);
+  const notifications = useNotifications();
+  const dismiss = useDismissNotification();
+  const items = notifications.data?.notifications ?? [];
+  const count = items.length;
+  const hasError = items.some((n) => n.severity === "error");
+
+
+  return (
+    <HeaderPopover open={open} onOpenChange={setOpen} align={align} label="Notifications" trigger={
+      <Button
+        variant="ghost"
+        size="icon"
+        className="relative"
+        aria-label={count ? `Notifications (${count})` : "Notifications"}
+        aria-expanded={open}
+      >
+        <Bell aria-hidden="true" />
+        {count > 0 && (
+          <span
+            className={cn(
+              "absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold",
+              hasError
+                ? "bg-destructive text-destructive-foreground"
+                : "bg-warning text-warning-foreground",
+            )}
+          >
+            {count}
+          </span>
+        )}
+      </Button>
+      }>
+          <div className="flex items-center justify-between border-b px-3 py-2">
+            <span className="text-sm font-medium">Notifications</span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              aria-label="Close notifications"
+              onClick={() => setOpen(false)}
+            >
+              <X aria-hidden="true" />
+            </Button>
+          </div>
+          {/* A failed fetch is NOT good news. `data?.notifications ?? []` made an error and a
+              genuinely quiet server identical, so an unreachable API rendered "You're all caught
+              up." — the most reassuring sentence in the app, shown at the exact moment nothing is
+              known. This is the bell that reports privacy problems, so silence has to mean silence. */}
+          {notifications.isPending ? (
+            <p className="px-3 py-8 text-center text-sm text-muted-foreground">
+              Checking&hellip;
+            </p>
+          ) : notifications.isError ? (
+            <div className="space-y-2 px-3 py-6 text-center">
+              <p className="text-sm text-destructive-text">
+                Couldn&rsquo;t load notifications.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => notifications.refetch()}
+              >
+                Try again
+              </Button>
+            </div>
+          ) : count === 0 ? (
+            <p className="px-3 py-8 text-center text-sm text-muted-foreground">
+              You&rsquo;re all caught up.
+            </p>
+          ) : (
+            <ul className="max-h-96 divide-y overflow-y-auto">
+              {items.map((item) => (
+                <NotificationRow
+                  key={item.id}
+                  item={item}
+                  onDismiss={(id) => dismiss.mutate(id)}
+                  onNavigate={() => setOpen(false)}
+                />
+              ))}
+            </ul>
+          )}
+    </HeaderPopover>
+  );
+}

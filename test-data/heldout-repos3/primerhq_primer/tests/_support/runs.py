@@ -1,0 +1,314 @@
+"""Helpers for run-based SMK tests against the live e2e server.
+
+Build a scripted agent (LLM provider + agent whose model name is the mock
+scenario id), materialise a local workspace, start a session, and poll it to
+a terminal state. Used by the Phase 1+ run-based tests.
+"""
+from __future__ import annotations
+
+import asyncio
+from pathlib import Path
+
+import httpx
+
+from tests._support.mock_llm import Rule, ScriptRegistry
+from tests._support.model_profiles import agent_model, seed_llm_provider
+
+_TERMINAL = {"ended"}
+
+
+async def make_scripted_agent(
+    client: httpx.AsyncClient,
+    registry: ScriptRegistry,
+    mock_base_url: str,
+    *,
+    suffix: str,
+    scenario: str,
+    rules: list[Rule],
+    tools: list[str] | None = None,
+    system_prompt: list[str] | None = None,
+) -> dict:
+    """Register the script, create an OpenChat provider + agent; return ids.
+
+    The agent's model name IS the scenario id, so the mock keys its rules off
+    the request model. The provider lists that scenario id as its only model.
+    """
+    registry.register(scenario, rules)
+    pid = f"p-{suffix}"
+    aid = f"a-{suffix}"
+    pr = await seed_llm_provider(
+        client,
+        {
+            "id": pid,
+            "provider": "openchat",
+            "models": [{"name": scenario, "context_length": 8192}],
+            "config": {"url": mock_base_url, "flavor": "lmstudio"},
+            "limits": {"max_concurrency": 4},
+        },
+    )
+    assert pr.status_code in (200, 201), pr.text
+    ar = await client.post(
+        "/v1/agents",
+        json={
+            "id": aid,
+            "description": "smk scripted agent",
+            "model": agent_model(pid, scenario),
+            "tools": tools or [],
+            "system_prompt": system_prompt or ["You are a scripted test agent."],
+        },
+    )
+    assert ar.status_code in (200, 201), ar.text
+    return {"provider_id": pid, "agent_id": aid, "model": scenario}
+
+
+async def make_real_agent(
+    client: httpx.AsyncClient,
+    real_cfg: dict,
+    *,
+    suffix: str,
+    tools: list[str] | None = None,
+    system_prompt: list[str] | None = None,
+) -> dict:
+    """Create an OpenChat provider + agent pointed at the REAL LM Studio model.
+
+    ``real_cfg`` is ``load_config()["llm"]["real"]`` — carries base_url, model,
+    and api_key (resolved from ${LMSTUDIO_API_KEY}). Flavor is ``lmstudio`` so
+    the api_key (required by the nginx in front of LM Studio) is forwarded as a
+    bearer token but not schema-enforced.
+    """
+    pid = f"pr-{suffix}"
+    aid = f"ar-{suffix}"
+    model = real_cfg["model"]
+    pr = await seed_llm_provider(
+        client,
+        {
+            "id": pid,
+            "provider": "openchat",
+            "models": [{"name": model, "context_length": 8192}],
+            "config": {
+                "url": real_cfg["base_url"],
+                "flavor": "lmstudio",
+                "api_key": real_cfg.get("api_key") or None,
+            },
+            "limits": {"max_concurrency": 2},
+        },
+    )
+    assert pr.status_code in (200, 201), pr.text
+    ar = await client.post(
+        "/v1/agents",
+        json={
+            "id": aid,
+            "description": "smk real-llm agent",
+            "model": agent_model(pid, model),
+            "tools": tools or [],
+            "system_prompt": system_prompt
+            or ["You are a terse assistant. Follow the user's instruction exactly."],
+        },
+    )
+    assert ar.status_code in (200, 201), ar.text
+    return {"provider_id": pid, "agent_id": aid, "model": model}
+
+
+async def make_local_workspace(
+    client: httpx.AsyncClient, *, suffix: str, root: Path
+) -> str:
+    wp = f"wp-{suffix}"
+    tpl = f"tpl-{suffix}"
+    rp = await client.post(
+        "/v1/workspace_providers",
+        json={"id": wp, "provider": "local", "config": {"kind": "local", "root_path": str(root)}},
+    )
+    assert rp.status_code in (200, 201), rp.text
+    rt = await client.post(
+        "/v1/workspace_templates",
+        json={"id": tpl, "description": "smk", "provider_id": wp, "backend": {"kind": "local"}},
+    )
+    assert rt.status_code in (200, 201), rt.text
+    rw = await client.post("/v1/workspaces", json={"template_id": tpl})
+    assert rw.status_code in (200, 201), rw.text
+    return rw.json()["id"]
+
+
+async def make_graph(
+    client: httpx.AsyncClient, *, suffix: str, nodes: list[dict], edges: list[dict],
+    max_iterations: int | None = None,
+) -> str:
+    gid = f"g-{suffix}"
+    body: dict = {"id": gid, "description": "smk graph", "nodes": nodes, "edges": edges}
+    if max_iterations is not None:
+        body["max_iterations"] = max_iterations
+    r = await client.post("/v1/graphs", json=body)
+    assert r.status_code in (200, 201), r.text
+    return gid
+
+
+async def start_graph_session(
+    client: httpx.AsyncClient,
+    *,
+    workspace_id: str,
+    graph_id: str,
+    instructions: str = "go",
+    auto_start: bool = True,
+) -> str:
+    r = await client.post(
+        f"/v1/workspaces/{workspace_id}/sessions",
+        json={
+            "binding": {"kind": "graph", "graph_id": graph_id},
+            "initial_instructions": instructions,
+            "auto_start": auto_start,
+        },
+    )
+    assert r.status_code in (200, 201), r.text
+    return r.json()["id"]
+
+
+async def start_agent_session(
+    client: httpx.AsyncClient,
+    *,
+    workspace_id: str,
+    agent_id: str,
+    instructions: str = "go",
+    auto_start: bool = True,
+) -> str:
+    r = await client.post(
+        f"/v1/workspaces/{workspace_id}/sessions",
+        json={
+            "binding": {"kind": "agent", "agent_id": agent_id},
+            "initial_instructions": instructions,
+            "auto_start": auto_start,
+        },
+    )
+    assert r.status_code in (200, 201), r.text
+    return r.json()["id"]
+
+
+async def wait_for_status(
+    client: httpx.AsyncClient,
+    session_id: str,
+    target: str,
+    *,
+    timeout_s: float = 30.0,
+    interval_s: float = 0.3,
+) -> dict:
+    """Poll the session until it reaches `target` status (or timeout)."""
+    iters = max(1, int(timeout_s / interval_s))
+    last: dict = {}
+    for _ in range(iters):
+        resp = await client.get(f"/v1/sessions/{session_id}")
+        if resp.status_code == 200:
+            last = resp.json()
+            if last.get("status") == target:
+                return last
+        await asyncio.sleep(interval_s)
+    return last
+
+
+async def wait_terminal(
+    client: httpx.AsyncClient,
+    session_id: str,
+    *,
+    timeout_s: float = 60.0,
+    interval_s: float = 0.5,
+) -> dict:
+    """Poll until the session reaches ``status in _TERMINAL`` ("ended").
+
+    01a0518a: a clean stop on a plain INTERACTIVE agent session
+    (start_agent_session, no autonomous override) no longer reaches
+    "ended" - it rests WAITING/parked instead, so this will burn its
+    full timeout_s and return a non-"ended" row for that case. Still
+    correct for autonomous sessions (graphs, or an explicit
+    autonomous=True), which always end on completion regardless of the
+    flag. For a plain agent session, use :func:`wait_completed` instead.
+    """
+    iters = max(1, int(timeout_s / interval_s))
+    last: dict = {}
+    for _ in range(iters):
+        resp = await client.get(f"/v1/sessions/{session_id}")
+        if resp.status_code == 200:
+            last = resp.json()
+            if last.get("status") in _TERMINAL:
+                return last
+        await asyncio.sleep(interval_s)
+    return last
+
+
+async def wait_completed(
+    client: httpx.AsyncClient,
+    session_id: str,
+    *,
+    timeout_s: float = 60.0,
+    interval_s: float = 0.5,
+) -> dict:
+    """Poll until an interactive agent session's turn cleanly finishes,
+    however it now surfaces.
+
+    Never wait on ``status=="waiting"`` alone for this: the rest is TWO
+    writes (dispatch stamps status=WAITING, then on_release bumps
+    turn_no in a later update), so a status-only poll can stop inside
+    the gap and read a stale session_state (01a0590e, a CI-only flake
+    that hit three times before being traced).
+
+    01a0518a: a clean stop on a plain interactive (non-autonomous) agent
+    session rests it WAITING (session_state="parked") instead of ending
+    it; a genuine failure/internal error still reaches ENDED as before
+    (the flag only gates the plain clean-stop case). Use this instead of
+    :func:`wait_terminal` for a plain agent session where the caller
+    needs "the turn is over, whichever way it went" - then read
+    ``session_state`` / ``status`` / ``ended_reason`` off the result to
+    tell success from failure.
+
+    ``session_state="parked"`` is ALSO what a genuinely-yielding-tool
+    park reads (parked_status set) - including the transient window a
+    session sits in between "the operator answered" and "a worker has
+    actually claimed the row and cleared the park" (parked_status flips
+    ``"parked" -> "resumable"`` the instant the reply lands, then back to
+    ``None`` once claimed - see primer.session.yields and
+    primer.claim.adapters.sessions.on_release). Stopping here on THAT
+    transient shape is wrong - the turn hasn't run yet, so require
+    ``parked_status is None`` too: that's only true once a real
+    yielding-tool park has fully resolved, or - the case this helper
+    exists for - a clean stop rested the row via turn_no>0 with no
+    yielding-tool park in play at all.
+    """
+    iters = max(1, int(timeout_s / interval_s))
+    last: dict = {}
+    for _ in range(iters):
+        resp = await client.get(f"/v1/sessions/{session_id}")
+        if resp.status_code == 200:
+            last = resp.json()
+            if last.get("status") in _TERMINAL or (
+                last.get("session_state") == "parked"
+                and last.get("parked_status") is None
+            ):
+                return last
+        await asyncio.sleep(interval_s)
+    return last
+
+
+async def wait_turn_advanced(
+    client: httpx.AsyncClient,
+    session_id: str,
+    *,
+    min_turn_no: int = 0,
+    timeout_s: float = 10.0,
+    interval_s: float = 0.25,
+) -> dict:
+    """Poll until the session's ``turn_no`` exceeds ``min_turn_no``.
+
+    ``turn_no`` is bumped by the claim engine's ``on_release`` hook, which
+    commits in a transaction landing just AFTER the terminal-status write — so
+    a freshly-completed session can momentarily read ``status=ended`` with
+    ``turn_no`` not yet incremented. Use this (after :func:`wait_terminal`)
+    when asserting a turn actually ran, to avoid a read-after-write race.
+    Returns the latest row seen (caller asserts on it).
+    """
+    iters = max(1, int(timeout_s / interval_s))
+    last: dict = {}
+    for _ in range(iters):
+        resp = await client.get(f"/v1/sessions/{session_id}")
+        if resp.status_code == 200:
+            last = resp.json()
+            if last.get("turn_no", 0) > min_turn_no:
+                return last
+        await asyncio.sleep(interval_s)
+    return last

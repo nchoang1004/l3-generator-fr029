@@ -1,0 +1,3606 @@
+import { Component, inject, signal, computed, effect, untracked, viewChild, ElementRef, OnDestroy, WritableSignal, HostListener, TemplateRef } from '@angular/core';
+import { Router, ActivatedRoute } from '@angular/router';
+import { HttpErrorResponse } from '@angular/common/http';
+import { CdkTrapFocus } from '@angular/cdk/a11y';
+import { DecimalPipe, NgClass, NgTemplateOutlet, PercentPipe } from '@angular/common';
+import { MatIconModule } from '@angular/material/icon';
+import { MatButtonModule } from '@angular/material/button';
+import { MatMenuModule } from '@angular/material/menu';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatSliderModule } from '@angular/material/slider';
+import { ApiService } from '../../core/services/api.service';
+import type { ComparisonStats } from '../../core/api/types';
+import { AuthService } from '../../core/services/auth.service';
+import { AlbumService, Album } from '../../core/services/album.service';
+import { GalleryStore } from './gallery.store';
+import { SceneDatePipe, MomentLabelPipe, MomentUncertainPipe } from '../scenes/scenes.pipes';
+import { TranslatePipe } from '../../shared/pipes/translate.pipe';
+import { ThumbnailUrlPipe, FaceThumbnailUrlPipe, ImageUrlPipe } from '../../shared/pipes/thumbnail-url.pipe';
+import { LoupeDirective } from '../../shared/directives/loupe.directive';
+import { SwipeDecisionDirective } from '../../shared/directives/swipe-decision.directive';
+import { I18nService } from '../../core/services/i18n.service';
+import { PageHelpService } from '../../core/services/page-help.service';
+import { HeaderSlotService } from '../../core/services/header-slot.service';
+import { InfiniteScrollDirective } from '../../shared/directives/infinite-scroll.directive';
+import { isTypingContext } from '../../shared/utils/keyboard';
+import { isBracketLadderRejection } from '../../shared/utils/sequence-ladder';
+import { createLoupeState } from '../../shared/utils/loupe-state';
+import { useCoarsePointerSignal } from '../../shared/utils/media-query';
+import { SyncedZoomComponent, ZoomState, FIT_ZOOM } from './synced-zoom.component';
+import { CompareFiltersService } from '../comparison/compare-filters.service';
+import { PanoramaSettingsService } from '../comparison/panorama-settings.service';
+import { SequenceOverrideService, SequenceKind } from '../../core/services/sequence-override.service';
+import { UndoService } from '../../core/services/undo.service';
+import { SequenceKindLabelPipe, SUPPRESSED_OVERRIDE } from '../../shared/pipes/sequence-kind.pipe';
+import { firstValueFrom } from 'rxjs';
+import { I18N, I18N_KEYS as I18N_KEYS_TABLE } from '../../core/i18n/keys';
+import {
+  IsKeptPipe, IsDecidedPipe, IsConfirmedPipe, IsPassingPipe, PassCountdownPipe,
+  CullReasonPipe, FacesForPathPipe, FacePoorExpressionPipe, FaceRingClassPipe,
+  FaceDimmedPipe, WeightRemainingPipe, CullGroupIconPipe, CullGroupLabelPipe,
+  SortIconPipe, CategoryIconPipe, CullProfileIconPipe, CullPreviewUrlPipe,
+  SubjectForPathPipe, SubjectRingClassPipe, EvOffsetPipe, GroupOverridePipe,
+  GroupOverridePendingPipe, PeakingOverlayPipe, FrameViewBoxPipe, GridLinesPipe,
+  KeySubjectForPathPipe, IsKeyFacePipe, CanMarkBracketPipe,
+  cullPreviewUrl, computePeakingOverlay, computePooledPeakingOverlays, loadFrameImage, GRID_MODES,
+  KEY_SUBJECT_COORDINATE_SPACE,
+  CullingGroup, CullingPhoto, CullingFace, CullingSubject, FaceThresholds, CullStyle,
+  FrameSize, GridMode, KeySubject,
+} from './burst-culling.pipes';
+
+/**
+ * Local re-materialization of `I18N_KEYS` (see the header comment in keys.ts for the general
+ * self-shadow rewrite bug that name exists to dodge), read by the `I18N` field below.
+ *
+ * That general fix is not sufficient for this file specifically: verified empirically across
+ * two consecutive full suite runs, a class field here initialized directly from the imported
+ * `I18N_KEYS` binding -- despite it being a distinctly-named, correctly-rewritten reference --
+ * still captures `undefined` under this file's esbuild chunk layout, apparently because this
+ * component is large enough to land in its own chunk, and a *class-field-initializer* read of
+ * an imported binding in that chunk resolves before the real keys module has finished
+ * initializing there. A plain module-top-level `const`, evaluated as ordinary sequential module
+ * code (which the ES module spec guarantees runs only after this file's imports have settled)
+ * rather than as a class field, sidesteps that hazard entirely. Keep this local step; do not
+ * collapse it back to `protected readonly I18N = I18N_KEYS_TABLE;`.
+ */
+const I18N_KEYS = I18N_KEYS_TABLE;
+
+interface CullingGroupsResponse {
+  groups: CullingGroup[];
+  total_groups: number;
+  page: number;
+  per_page: number;
+  total_pages: number;
+}
+
+/** Response of POST /api/culling/auto (dry-run preview and apply share the shape). */
+interface AutoCullResponse {
+  groups_processed: number;
+  kept: number;
+  rejected: number;
+  highlights_added: number;
+  dry_run: boolean;
+  preview: { group_id: number; type: string; keep_paths: string[]; reject_paths: string[]; best_path: string }[];
+  preview_truncated: boolean;
+}
+
+/** A genre culling preset (GET /api/culling/profiles) bundling the culling knobs. */
+interface CullProfile {
+  id: string;
+  label_key: string;
+  strictness: number | null;
+  eyes_closed_max: number | null;
+  poor_expression_min: number | null;
+  keep_min_per_group: number;
+  similarity_threshold: number | null;
+}
+interface CullProfilesResponse { profiles: CullProfile[]; default: string; }
+
+/** Request body of POST /culling/auto. The dry run's body is kept verbatim so
+ *  the apply re-sends the very parameters the displayed counts came from. */
+interface AutoCullRequest {
+  group_by: GroupBy;
+  strictness: number;
+  dry_run: boolean;
+  highlights_album: string;
+  trim_brackets: boolean;
+  profile?: string;
+  album_id?: number;
+  date_from?: string;
+  date_to?: string;
+}
+
+/** How an auto-cull dry run ended, for the callers that reconcile their own
+ *  state against the snapshot it publishes. `superseded` covers both a newer
+ *  run and the destructive apply owning the dialog: in neither case is the
+ *  outcome this caller's to act on, and reading it as its own failure reverts
+ *  UI state to a snapshot that is no longer the one on screen. */
+type AutoCullRunOutcome = 'landed' | 'superseded' | 'failed';
+
+/** Response of GET /api/culling/suggest_profile: the preset the scope's own
+ *  content argues for, and the confidence it named it with (surfaced in the
+ *  Suggested badge's tooltip). The endpoint also returns `evidence` -- the
+ *  per-genre counts `confidence` was computed from -- which nothing here
+ *  reads, so it is left off this type rather than declared and ignored. */
+interface ProfileSuggestion {
+  profile: string | null;
+  confidence: number;
+}
+
+// Per-user culling toolbar preferences, persisted so the page reopens the way
+// the user left it. The URL query param (deep links / "Cull this scene") still
+// overrides the stored granularity.
+const CULL_GROUP_BY_KEY = 'facet_culling_group_by';
+const CULL_SORT_KEY = 'facet_culling_sort';
+const CULL_SORT_DIR_KEY = 'facet_culling_sort_direction';
+const CULL_CATEGORY_KEY = 'facet_culling_category';
+const CULL_FACE_EYES_KEY = 'facet_culling_face_eyes_min';
+const CULL_FACE_SMILE_KEY = 'facet_culling_face_smile_min';
+const CULL_FACE_SIZE_KEY = 'facet_culling_face_size';
+const CULL_PROFILE_KEY = 'facet_culling_profile';
+const CULL_LEGEND_KEY = 'facet_culling_legend';
+const CULL_DARKROOM_LOUPE_KEY = 'facet_culling_darkroom_loupe';
+const CULL_SWIPE_HINT_KEY = 'facet_culling_swipe_hint';
+
+/** Stored face-panel slider value (0-10); 0 = highlight filter off. */
+function readStoredFaceMin(key: string): number {
+  const v = Number(localStorage.getItem(key));
+  return Number.isFinite(v) && v >= 0 && v <= 10 ? v : 0;
+}
+
+/** Face close-up thumbnail display size, in CSS px. Stored thumbnails are
+ *  640px, so the top of the range stays sharp when upscaled. */
+const FACE_SIZE_MIN_PX = 64;
+const FACE_SIZE_MAX_PX = 256;
+const FACE_SIZE_STEP_PX = 16;
+const FACE_SIZE_DEFAULT_PX = 112;
+
+/** Stored face close-up size (px); falls back to the default on anything
+ *  not on the slider's step grid within [min, max]. */
+function readStoredFaceSize(): number {
+  const v = Number(localStorage.getItem(CULL_FACE_SIZE_KEY));
+  const onStep = (v - FACE_SIZE_MIN_PX) % FACE_SIZE_STEP_PX === 0;
+  return Number.isFinite(v) && v >= FACE_SIZE_MIN_PX && v <= FACE_SIZE_MAX_PX && onStep
+    ? v
+    : FACE_SIZE_DEFAULT_PX;
+}
+const GROUP_BY_VALUES = ['all', 'burst', 'similar', 'scene', 'bracket',
+                         'panorama', 'hdr_panorama'] as const;
+type GroupBy = typeof GROUP_BY_VALUES[number];
+// Sets whose frames were shot to be combined: kept whole by default, and
+// never a source of comparison pairs.
+const KEEP_WHOLE_KINDS: readonly string[] = ['bracket', 'panorama', 'hdr_panorama'];
+const SORT_VALUES = ['easiest', 'redundant', 'best', 'recent', 'needs_comparisons', 'chronological'];
+
+/** Thumbnail width the darkroom displays. Shared with the peaking pipeline so
+ *  the edge map is computed from the very pixels on screen. */
+const DARKROOM_THUMB_SIZE = 1920;
+
+/** Stable empty overlay map, so clearing an already-empty one is a no-op
+ *  instead of a change-detection round for every darkroom navigation. */
+const NO_PEAKING_OVERLAYS = new Map<string, string>();
+
+/** How many edge maps stay cached beyond the frames on screen. Stepping back
+ *  through a group is then instant, while a long culling session cannot pile up
+ *  a data URL per frame it ever showed. */
+const PEAKING_CACHE_MAX = 8;
+
+function readStoredGroupBy(): GroupBy {
+  const v = localStorage.getItem(CULL_GROUP_BY_KEY);
+  return (GROUP_BY_VALUES as readonly string[]).includes(v ?? '') ? v as GroupBy : 'all';
+}
+
+function readStoredSort(): string {
+  const v = localStorage.getItem(CULL_SORT_KEY);
+  return v && SORT_VALUES.includes(v) ? v : 'easiest';
+}
+
+/** Stored sort direction. '' means "whatever the active mode naturally does". */
+function readStoredSortDirection(): '' | 'asc' | 'desc' {
+  const v = localStorage.getItem(CULL_SORT_DIR_KEY);
+  return v === 'asc' || v === 'desc' ? v : '';
+}
+
+/** Lightweight scene shape for the album→scene scope cascade (GET /scenes?summary=true). */
+interface SceneSummary {
+  scene_id: number;
+  start: string | null;
+  end: string | null;
+  count: number;
+  moment?: string | null;
+}
+
+interface ShortcutRow {
+  keys: string[];
+  labelKey: string;
+}
+
+/** Monotonic guard for the two passes here that can be superseded while they
+ *  await — darkroom focus peaking and the auto-cull dry run. A pass takes a
+ *  ticket with `next()` and drops its result unless `isCurrent(ticket)` still
+ *  holds; `cancel()` invalidates whatever is in flight without starting one. */
+class RunGeneration {
+  private value = 0;
+
+  next(): number {
+    return ++this.value;
+  }
+
+  isCurrent(run: number): boolean {
+    return run === this.value;
+  }
+
+  cancel(): void {
+    this.value++;
+  }
+}
+
+@Component({
+  selector: 'app-burst-culling',
+  imports: [
+    DecimalPipe,
+    PercentPipe,
+    NgClass,
+    MatIconModule,
+    MatButtonModule,
+    MatMenuModule,
+    MatTooltipModule,
+    MatProgressSpinnerModule,
+    MatSnackBarModule,
+    MatSliderModule,
+    TranslatePipe,
+    SceneDatePipe,
+    MomentLabelPipe,
+    MomentUncertainPipe,
+    LoupeDirective,
+    SwipeDecisionDirective,
+    ThumbnailUrlPipe,
+    FaceThumbnailUrlPipe,
+    ImageUrlPipe,
+    SyncedZoomComponent,
+    IsKeptPipe,
+    IsDecidedPipe,
+    IsConfirmedPipe,
+    IsPassingPipe,
+    PassCountdownPipe,
+    CullReasonPipe,
+    FacesForPathPipe,
+    FacePoorExpressionPipe,
+    FaceRingClassPipe,
+    FaceDimmedPipe,
+    WeightRemainingPipe,
+    CullGroupIconPipe,
+    CullGroupLabelPipe,
+    SortIconPipe,
+    CategoryIconPipe,
+    CullProfileIconPipe,
+    CullPreviewUrlPipe,
+    SubjectForPathPipe,
+    SubjectRingClassPipe,
+    EvOffsetPipe,
+    GroupOverridePipe,
+    GroupOverridePendingPipe,
+    PeakingOverlayPipe,
+    FrameViewBoxPipe,
+    GridLinesPipe,
+    KeySubjectForPathPipe,
+    IsKeyFacePipe,
+    CanMarkBracketPipe,
+    SequenceKindLabelPipe,
+    InfiniteScrollDirective,
+    NgTemplateOutlet,
+    CdkTrapFocus,
+  ],
+  template: `
+    <div class="px-2 pt-2 md:px-8 md:pt-3 mx-auto w-full lg:max-w-[96%] h-full flex flex-col">
+      <!-- Header (sticky: only the group list below scrolls) -->
+      <!-- The toolbar projects into the global header on lg+ (HeaderSlotService) and
+           renders as a fixed bottom bar on small screens (same #cullToolbar template).
+           When scoped, the back button is its first element (see below). -->
+      <div class="lg:hidden">
+        <ng-container [ngTemplateOutlet]="cullToolbar" />
+      </div>
+      <ng-template #cullToolbar>
+        <div class="flex items-center gap-3 md:gap-4 min-w-0
+                    max-lg:fixed max-lg:bottom-0 max-lg:left-0 max-lg:right-0 max-lg:z-40
+                    max-lg:px-3 max-lg:py-2
+                    max-lg:bg-[var(--mat-sys-surface-container)] max-lg:border-t max-lg:border-[var(--mat-sys-outline-variant)]
+                    max-lg:shadow-lg safe-area-pb">
+          <!-- Secondary controls scroll; the actions after this row stay pinned, so no
+               viewport can push the primary action out of reach or paint it over the
+               shell controls the toolbar is projected next to.
+               The fade is unconditional: this row overflows at desktop widths too
+               (a 1366px window clipped the last control with only a hairline native
+               scrollbar to say so), and whether it overflows right now is not
+               something CSS can ask -- the toolbar renders twice (inline and
+               projected into the shell header), so no single element measurement
+               would answer for both. -->
+          <div class="flex flex-nowrap items-center gap-3 md:gap-4 min-w-0 flex-1 overflow-x-auto
+                      [mask-image:linear-gradient(to_right,black_calc(100%_-_1.5rem),transparent)]">
+            @if (scoped()) {
+              <button mat-icon-button (click)="exitScope()"
+                      [matTooltip]="I18N.culling.exit_scene | translate"
+                      [attr.aria-label]="I18N.culling.exit_scene | translate">
+                <mat-icon>arrow_back</mat-icon>
+              </button>
+            }
+            <!-- Filters ordered by impact: scope → granularity → sort → category →
+                 thresholds. The actions live in the pinned cluster below. -->
+            @if (albums().length > 0) {
+              <button mat-icon-button [matMenuTriggerFor]="scopeMenu"
+                      [class.!text-[var(--mat-sys-primary)]]="scoped()"
+                      [matTooltip]="scopeLabel() ?? (I18N.culling.scope_whole_library | translate)"
+                      [attr.aria-label]="scopeLabel() ?? (I18N.culling.scope_whole_library | translate)">
+                <mat-icon>filter_alt</mat-icon>
+              </button>
+              <mat-menu #scopeMenu="matMenu">
+                <button mat-menu-item (click)="scopeWholeLibrary()">
+                  <mat-icon>photo_library</mat-icon>
+                  <span>{{ I18N.culling.scope_whole_library | translate }}</span>
+                </button>
+                @for (a of albums(); track a.id) {
+                  <button mat-menu-item [matMenuTriggerFor]="sceneMenu" (menuOpened)="loadAlbumScenes(a)">
+                    <mat-icon>photo_album</mat-icon>
+                    <span>{{ a.name }}</span>
+                  </button>
+                }
+              </mat-menu>
+              <mat-menu #sceneMenu="matMenu">
+                <button mat-menu-item (click)="scopeAlbumWhole()">
+                  <mat-icon>photo_album</mat-icon>
+                  <span>{{ I18N.culling.scope_whole_album | translate }}</span>
+                </button>
+                @if (loadingScenes()) {
+                  <div class="flex justify-center px-4 py-2"><mat-spinner diameter="18" [attr.aria-label]="I18N.ui.labels.loading | translate" /></div>
+                } @else {
+                  @for (s of expandedScenes(); track s.scene_id) {
+                    <button mat-menu-item (click)="scopeAlbumScene(s)">
+                      <mat-icon>movie_filter</mat-icon>
+                      <span>{{ s.start | sceneDate }} · {{ s.count }}@if (s.moment | momentLabel; as ml) { · {{ ml }}}</span>
+                    </button>
+                  }
+                }
+              </mat-menu>
+            }
+            <button mat-icon-button [matMenuTriggerFor]="cullGroupByMenu"
+                    [class.!text-[var(--mat-sys-primary)]]="groupBy() !== 'all'"
+                    [matTooltip]="I18N.culling.group_by.label | translate"
+                    [attr.aria-label]="I18N.culling.group_by.label | translate">
+              <mat-icon>{{ groupBy() | cullGroupIcon }}</mat-icon>
+            </button>
+            <mat-menu #cullGroupByMenu="matMenu">
+              <button mat-menu-item (click)="onGroupByChange('all')">
+                <mat-icon>{{ 'all' | cullGroupIcon }}</mat-icon>
+                <span [class.font-bold]="groupBy() === 'all'">{{ I18N.culling.group_by.all | translate }}</span>
+              </button>
+              <button mat-menu-item (click)="onGroupByChange('burst')">
+                <mat-icon>{{ 'burst' | cullGroupIcon }}</mat-icon>
+                <span [class.font-bold]="groupBy() === 'burst'">{{ I18N.culling.group_by.bursts | translate }}</span>
+              </button>
+              <button mat-menu-item (click)="onGroupByChange('similar')">
+                <mat-icon>{{ 'similar' | cullGroupIcon }}</mat-icon>
+                <span [class.font-bold]="groupBy() === 'similar'">{{ I18N.culling.group_by.similar | translate }}</span>
+              </button>
+              @if (store.config()?.features?.show_scenes || groupBy() === 'scene') {
+                <button mat-menu-item (click)="onGroupByChange('scene')">
+                  <mat-icon>{{ 'scene' | cullGroupIcon }}</mat-icon>
+                  <span [class.font-bold]="groupBy() === 'scene'">{{ I18N.culling.group_by.scenes | translate }}</span>
+                </button>
+              }
+              <button mat-menu-item (click)="onGroupByChange('bracket')">
+                <mat-icon>{{ 'bracket' | cullGroupIcon }}</mat-icon>
+                <span [class.font-bold]="groupBy() === 'bracket'">{{ I18N.culling.group_by.brackets | translate }}</span>
+              </button>
+              <button mat-menu-item (click)="onGroupByChange('panorama')">
+                <mat-icon>{{ 'panorama' | cullGroupIcon }}</mat-icon>
+                <span [class.font-bold]="groupBy() === 'panorama'">{{ I18N.culling.group_by.panoramas | translate }}</span>
+              </button>
+              <button mat-menu-item (click)="onGroupByChange('hdr_panorama')">
+                <mat-icon>{{ 'hdr_panorama' | cullGroupIcon }}</mat-icon>
+                <span [class.font-bold]="groupBy() === 'hdr_panorama'">{{ I18N.culling.group_by.hdr_panoramas | translate }}</span>
+              </button>
+            </mat-menu>
+            @if (groupBy() !== 'scene') {
+              <button mat-icon-button [matMenuTriggerFor]="cullSortMenu"
+                      [class.!text-[var(--mat-sys-primary)]]="sortMode() !== 'easiest'"
+                      [matTooltip]="'culling.sort.' + sortMode() | translate"
+                      [attr.aria-label]="'culling.sort.' + sortMode() | translate">
+                <mat-icon>{{ sortMode() | sortIcon }}</mat-icon>
+              </button>
+              <mat-menu #cullSortMenu="matMenu">
+                @for (m of sortModes; track m) {
+                  <button mat-menu-item (click)="onSortChange(m)">
+                    <mat-icon>{{ m | sortIcon }}</mat-icon>
+                    <span [class.font-bold]="sortMode() === m">{{ 'culling.sort.' + m | translate }}</span>
+                  </button>
+                }
+              </mat-menu>
+              <button mat-icon-button (click)="toggleSortDirection()"
+                      [class.!text-[var(--mat-sys-primary)]]="sortDirection() !== ''"
+                      [matTooltip]="(sortAscending() ? I18N.culling.sort.ascending : I18N.culling.sort.descending) | translate"
+                      [attr.aria-label]="(sortAscending() ? I18N.culling.sort.ascending : I18N.culling.sort.descending) | translate">
+                <mat-icon>{{ sortAscending() ? 'arrow_upward' : 'arrow_downward' }}</mat-icon>
+              </button>
+            }
+            @if (categoryOptions().length > 0) {
+              <button mat-icon-button [matMenuTriggerFor]="cullCategoryMenu"
+                      [class.!text-[var(--mat-sys-primary)]]="categoryFilter() !== ''"
+                      [matTooltip]="categoryFilter() ? (('category_names.' + categoryFilter()) | translate) : (I18N.culling.filter_category | translate)"
+                      [attr.aria-label]="categoryFilter() ? (('category_names.' + categoryFilter()) | translate) : (I18N.culling.filter_category | translate)">
+                <mat-icon>{{ categoryFilter() | categoryIcon }}</mat-icon>
+              </button>
+              <mat-menu #cullCategoryMenu="matMenu">
+                <button mat-menu-item (click)="onCategoryFilterChange('')">
+                  <mat-icon>category</mat-icon>
+                  <span [class.font-bold]="categoryFilter() === ''">{{ I18N.culling.all_categories | translate }}</span>
+                </button>
+                @for (c of categoryOptions(); track c) {
+                  <button mat-menu-item (click)="onCategoryFilterChange(c)">
+                    <mat-icon>{{ c | categoryIcon }}</mat-icon>
+                    <span [class.font-bold]="categoryFilter() === c">{{ 'category_names.' + c | translate }}</span>
+                  </button>
+                }
+              </mat-menu>
+            }
+            @if (groupBy() === 'similar' || groupBy() === 'all') {
+              <button mat-icon-button [matMenuTriggerFor]="thresholdMenu"
+                      [matTooltip]="(I18N.culling.threshold | translate) + ' · ' + similarityThreshold() + '%'"
+                      [attr.aria-label]="I18N.culling.threshold | translate">
+                <mat-icon>compare</mat-icon>
+              </button>
+              <mat-menu #thresholdMenu="matMenu">
+                <div class="flex items-center gap-2 px-4 py-3" tabindex="-1" (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
+                  <span class="text-xs opacity-60">{{ I18N.culling.threshold | translate }}</span>
+                  <mat-slider class="!w-28 !min-w-0" [min]="70" [max]="95" [step]="5" [discrete]="true">
+                    <input matSliderThumb [value]="similarityThreshold()" (valueChange)="onThresholdChange($event)" [attr.aria-label]="I18N.culling.threshold | translate" />
+                  </mat-slider>
+                  <span class="text-xs font-medium w-8">{{ similarityThreshold() }}%</span>
+                </div>
+              </mat-menu>
+            }
+            @if (cullProfiles().length > 0) {
+              <button mat-icon-button [matMenuTriggerFor]="profileMenu"
+                      [class.!text-[var(--mat-sys-primary)]]="selectedProfile() !== ''"
+                      [matTooltip]="selectedProfileLabel() | translate"
+                      [attr.aria-label]="selectedProfileLabel() | translate">
+                <mat-icon>{{ selectedProfile() | cullProfileIcon }}</mat-icon>
+              </button>
+              <mat-menu #profileMenu="matMenu">
+                @for (p of cullProfiles(); track p.id) {
+                  <button mat-menu-item (click)="applyProfile(p)">
+                    <mat-icon>{{ p.id | cullProfileIcon }}</mat-icon>
+                    <span [class.font-bold]="selectedProfile() === p.id">{{ p.label_key | translate }}</span>
+                  </button>
+                }
+              </mat-menu>
+            }
+            <button mat-icon-button [matMenuTriggerFor]="strictnessMenu"
+                    [matTooltip]="(I18N.culling.strictness_tooltip | translate) + ' · ' + strictness() + '%'"
+                    [attr.aria-label]="I18N.culling.strictness | translate">
+              <mat-icon>tune</mat-icon>
+            </button>
+            <mat-menu #strictnessMenu="matMenu">
+              <div class="flex items-center gap-2 px-4 py-3" tabindex="-1" (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
+                <span class="text-xs opacity-60">{{ I18N.culling.strictness | translate }}</span>
+                <mat-slider class="!w-28 !min-w-0" [min]="0" [max]="100" [step]="5" [discrete]="true">
+                  <input matSliderThumb [value]="strictness()" (valueChange)="onStrictnessChange($event)" [attr.aria-label]="I18N.culling.strictness | translate" />
+                </mat-slider>
+                <span class="text-xs font-medium w-8">{{ strictness() }}%</span>
+              </div>
+            </mat-menu>
+          </div>
+          <!-- Exclude-rejected and the loupe act on the photos rather than
+               selecting which ones the feed serves, so they are pinned with the
+               other actions instead of scrolling away with the filters. -->
+          <button mat-icon-button class="shrink-0" (click)="onExcludeRejectedChange(!excludeRejected())"
+                  [class.!text-[var(--mat-sys-primary)]]="excludeRejected()"
+                  [attr.aria-pressed]="excludeRejected()"
+                  [matTooltip]="I18N.culling.exclude_rejected | translate"
+                  [attr.aria-label]="I18N.culling.exclude_rejected | translate">
+            <mat-icon>{{ excludeRejected() ? 'visibility_off' : 'visibility' }}</mat-icon>
+          </button>
+          <button mat-icon-button class="shrink-0" (click)="loupeActive.set(!loupeActive())"
+                  [class.!text-[var(--mat-sys-primary)]]="loupeActive()"
+                  [attr.aria-pressed]="loupeActive()"
+                  [matTooltip]="I18N.culling.loupe_hint | translate"
+                  [attr.aria-label]="I18N.culling.loupe | translate">
+            <mat-icon>{{ loupeActive() ? 'zoom_in' : 'search' }}</mat-icon>
+          </button>
+          @if (loupeActive()) {
+            <mat-slider class="!w-28 !min-w-0 shrink-0" [min]="2" [max]="8" [step]="1" [discrete]="true">
+              <input matSliderThumb [value]="loupeZoom()" (valueChange)="loupeZoom.set($event)"
+                     [attr.aria-label]="I18N.culling.loupe | translate" />
+            </mat-slider>
+          }
+          @if (auth.isEdition() && !keepWholeGranularity()) {
+            <button mat-icon-button class="shrink-0" (click)="openAutoCull()" [disabled]="autoCullBusy()"
+                    [matTooltip]="I18N.culling.auto_cull.tooltip | translate"
+                    [attr.aria-label]="I18N.culling.auto_cull.button | translate">
+              <mat-icon>auto_fix_high</mat-icon>
+            </button>
+          }
+          @if (unconfirmedCount() > 0) {
+            <button mat-flat-button (click)="confirmAllRemaining()" [disabled]="confirming()" class="!hidden lg:!inline-flex !rounded-md shrink-0">
+              <mat-icon>done_all</mat-icon>
+              {{ I18N.culling.confirm_all | translate }} ({{ unconfirmedCount() }})
+            </button>
+          }
+        </div>
+      </ng-template>
+
+      @if (pageHelp.open()) {
+        <div class="shrink-0 p-3 mb-3 rounded-lg bg-[var(--mat-sys-surface-container)] space-y-3">
+          <p class="text-sm opacity-80">{{ I18N.culling.help_text | translate }}</p>
+          @if (rankerComparisons() !== null) {
+            <span class="text-xs opacity-70 flex items-center gap-1"
+                  [matTooltip]="I18N.culling.my_taste_tooltip | translate">
+              <mat-icon class="!text-sm !w-4 !h-4 !leading-4 text-[var(--mat-sys-primary)]">auto_awesome</mat-icon>
+              {{ (rankerTrained() ? I18N.culling.my_taste_trained : I18N.culling.my_taste_learning)
+                 | translate:{ count: (rankerComparisons() ?? 0) } }}
+            </span>
+          }
+          <div class="flex flex-wrap gap-x-10 gap-y-3">
+            @for (section of shortcutSections; track section.titleKey) {
+              <div>
+                <div class="text-xs font-semibold uppercase opacity-50 mb-1.5">{{ section.titleKey | translate }}</div>
+                <div class="space-y-1">
+                  @for (row of section.rows; track row.labelKey) {
+                    <div class="flex items-center gap-2 text-xs">
+                      <span class="flex gap-1">
+                        @for (k of row.keys; track k) {
+                          <kbd class="px-1.5 py-0.5 rounded border border-[var(--mat-sys-outline-variant)] bg-[var(--mat-sys-surface-container-high)] text-xs font-mono">{{ k }}</kbd>
+                        }
+                      </span>
+                      <span class="opacity-80">{{ row.labelKey | translate }}</span>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+      }
+
+      <!-- Corrections change nothing until the detector runs again, and that run
+           is a whole-library batch pass -- far too expensive to fire once per
+           click. So they accumulate and the run is offered here, once. -->
+      @if (rerunNeeded() > 0) {
+        <div class="shrink-0 flex flex-wrap items-center gap-3 p-3 mb-3 rounded-lg bg-[var(--mat-sys-surface-container)]" role="status">
+          <mat-icon class="!text-base !w-5 !h-5 !leading-5 text-amber-500" aria-hidden="true">schedule</mat-icon>
+          <span class="text-sm">{{ I18N.culling.panorama.rerun_banner | translate:{ count: rerunNeeded() } }}</span>
+          <button mat-stroked-button class="!h-8 !text-sm !rounded-md" [disabled]="detecting()"
+                  (click)="rerunDetection()"
+                  [matTooltip]="I18N.panorama.settings.redetect_tooltip | translate">
+            <mat-icon>refresh</mat-icon>{{ I18N.panorama.settings.redetect | translate }}
+          </button>
+          @if (detecting()) { <mat-spinner diameter="18" [attr.aria-label]="I18N.ui.labels.loading | translate" /> }
+          @if (detectMessage(); as m) {
+            <span class="text-sm opacity-80" [class.text-red-500]="detectFailed()">{{ m | translate }}</span>
+          }
+        </div>
+      }
+
+      <!-- Scrollable group list; the header above stays fixed -->
+      <div class="flex-1 min-h-0 overflow-y-auto -mx-4 px-4 md:-mx-8 md:px-8 pb-4 max-lg:pb-24" data-culling-scroll>
+      <!-- Content -->
+      @if (loading()) {
+        <div class="flex justify-center items-center py-20">
+          <mat-spinner diameter="40" [attr.aria-label]="I18N.ui.labels.loading | translate" />
+        </div>
+      } @else if (visibleGroups().length === 0) {
+        <p class="text-center py-20 opacity-60">{{ (scoped() ? I18N.culling.scene_complete : I18N.culling.no_bursts) | translate }}</p>
+      } @else {
+        <div class="space-y-3 pb-4">
+          @for (group of visibleGroups(); track group.group_id + '_' + group.type; let i = $index) {
+            <div class="rounded-xl border-2 overflow-hidden transition-colors duration-300"
+                 [attr.data-gidx]="i"
+                 [ngClass]="i === selectedGroupIndex()
+                   ? 'bg-[var(--mat-sys-surface-container-high)] border-[var(--mat-sys-surface-container-high)]'
+                   : 'bg-[var(--mat-sys-surface-container)] border-[var(--mat-sys-surface-container)]'">
+              @if (group.start) {
+                <div class="flex items-center gap-2 px-4 pt-2 text-xs">
+                  <mat-icon class="!text-base text-[var(--mat-sys-primary)]">schedule</mat-icon>
+                  <span class="opacity-80">{{ group.start | sceneDate }}</span>
+                  @if (group.moment | momentLabel; as ml) {
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[var(--mat-sys-primary)]/20 text-[var(--mat-sys-primary)]"
+                          [class.!opacity-50]="group.moment_confidence | momentUncertain:momentConfidenceMin()">
+                      <mat-icon class="!text-sm !w-4 !h-4 !leading-4">auto_awesome</mat-icon>{{ ml }}@if (group.moment_confidence | momentUncertain:momentConfidenceMin()) { <span class="opacity-80">({{ I18N.moments.uncertain | translate }})</span> }
+                    </span>
+                  }
+                </div>
+              }
+              <!-- One subject at several exposures, not competing takes: say so
+                   rather than let the user hunt for the "best" of a bracket. -->
+              @if (group.sequence_kind === 'bracket') {
+                <div class="flex items-center gap-2 px-4 pt-2 text-xs">
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400">
+                    <mat-icon class="!text-sm !w-4 !h-4 !leading-4">{{ 'bracket' | cullGroupIcon }}</mat-icon>{{ I18N.culling.bracket.label | translate }}
+                  </span>
+                  <span class="opacity-70">{{ I18N.culling.bracket.hint | translate }}</span>
+                </div>
+              }
+              <!-- A pan has no best frame: every one covers a different part of
+                   the scene and the set only means anything whole. -->
+              @if (group.sequence_kind === 'panorama' || group.sequence_kind === 'hdr_panorama') {
+                <div class="flex flex-wrap items-center gap-2 px-4 pt-2 text-xs">
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-600 dark:text-sky-400">
+                    <mat-icon class="!text-sm !w-4 !h-4 !leading-4">{{ group.sequence_kind | cullGroupIcon }}</mat-icon>{{ group.sequence_kind | sequenceKindLabel | translate }}
+                  </span>
+                  <span class="opacity-70">{{ I18N.culling.panorama.hint | translate }}</span>
+                </div>
+              }
+              <!-- The pending/corrected chip renders for ANY group carrying a
+                   sequence_override, not only a panorama-kind one: a plain
+                   burst group with a pending bracket correction has no
+                   sequence_kind yet (the correction has not applied), which is
+                   exactly when the chip matters most. The detector still owns
+                   the label above until it runs again, so a saved correction
+                   can only ever read as pending here -- saying otherwise would
+                   claim a set had changed while the feed still groups it the
+                   old way. -->
+              @if (group | groupOverridePending; as pending) {
+                <div class="flex flex-wrap items-center gap-2 px-4 pt-2 text-xs">
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300"
+                        [matTooltip]="I18N.culling.panorama.pending_tooltip | translate">
+                    <mat-icon class="!text-sm !w-4 !h-4 !leading-4" aria-hidden="true">schedule</mat-icon>{{ I18N.culling.panorama.pending | translate }}
+                    <span class="opacity-80">({{ (pending === 'suppressed' ? I18N.culling.panorama.not_a_panorama : (pending | sequenceKindLabel)) | translate }})</span>
+                  </span>
+                </div>
+              }
+              <!-- Photos -->
+              <div class="flex gap-2 md:gap-3 overflow-x-auto px-2 py-3 items-center transition-opacity duration-300 [&::-webkit-scrollbar]:h-2.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[var(--mat-sys-outline-variant)] [&::-webkit-scrollbar-track]:bg-transparent"
+                   [class.pointer-events-none]="(group | isConfirmed:confirmedGroups())"
+                   [class.opacity-40]="(group | isConfirmed:confirmedGroups())">
+                @for (photo of group.photos; track photo.path; let pIdx = $index) {
+                  <div class="group/photo relative inline-block cursor-pointer rounded-lg overflow-hidden border-2 transition-colors flex-shrink-0"
+                       [class.border-green-500]="photo.path | isKept:selectionsMap():group.group_id"
+                       [class.border-red-500]="!(photo.path | isKept:selectionsMap():group.group_id) && (photo.path | isDecided:selectionsMap():group.group_id)"
+                       [class.border-transparent]="!(photo.path | isDecided:selectionsMap():group.group_id)"
+                       role="button"
+                       tabindex="0"
+                       [attr.aria-label]="photo.filename + ', ' + (
+                         (photo.path | isKept:selectionsMap():group.group_id)
+                           ? (I18N.culling.lightbox.kept | translate)
+                           : (photo.path | isDecided:selectionsMap():group.group_id)
+                             ? (I18N.culling.lightbox.rejected | translate)
+                             : (I18N.culling.lightbox.undecided | translate))"
+                       [attr.aria-pressed]="photo.path | isKept:selectionsMap():group.group_id"
+                       (click)="toggleSelection(photo.path, group)"
+                       (keydown.enter)="toggleSelection(photo.path, group); $event.stopPropagation()"
+                       (keydown.space)="toggleSelection(photo.path, group); $event.stopPropagation(); $event.preventDefault()"
+                       (dblclick)="selectExclusive(photo.path, group); $event.stopPropagation()">
+                    <img [src]="photo.path | thumbnailUrl:640"
+                         [appLoupe]="photo.path | imageUrl:true"
+                         [loupeActive]="loupeActive()"
+                         [loupeZoom]="loupeZoom()"
+                         class="block h-72 md:h-96 w-auto object-cover" [alt]="photo.filename" loading="lazy" />
+                    @if (photo.path === group.best_path) {
+                      <div class="absolute top-2 left-2 px-2 py-0.5 rounded bg-green-600 text-white text-xs font-bold">
+                        {{ I18N.culling.auto_best | translate }}
+                      </div>
+                    } @else if (photo.cull_reason; as reason) {
+                      <div class="absolute top-2 left-2 px-2 py-0.5 rounded bg-black/70 text-white text-xs font-medium max-w-[160px] truncate">
+                        {{ reason | cullReason }}
+                      </div>
+                    }
+                    @if (photo.path | isKept:selectionsMap():group.group_id) {
+                      <div class="absolute top-2 right-2 w-7 h-7 rounded-full bg-green-600 inline-flex items-center justify-center">
+                        <mat-icon class="!text-base !w-4 !h-4 !leading-4 !text-white">check</mat-icon>
+                      </div>
+                    } @else if (photo.path | isDecided:selectionsMap():group.group_id) {
+                      <div class="absolute top-2 right-2 w-7 h-7 rounded-full bg-red-600 inline-flex items-center justify-center">
+                        <mat-icon class="!text-base !w-4 !h-4 !leading-4 !text-white">close</mat-icon>
+                      </div>
+                    }
+                    <div class="absolute bottom-2 left-2 flex items-center gap-1">
+                      <span class="px-2 py-0.5 rounded bg-black/60 text-white text-xs font-medium">
+                        {{ photo.aggregate | number:'1.1-1' }}
+                      </span>
+                      @if (photo.sequence_kind === 'bracket') {
+                        <span class="px-2 py-0.5 rounded bg-amber-600 text-white text-xs font-bold">
+                          {{ photo.sequence_ev_offset | evOffset }}
+                        </span>
+                      }
+                    </div>
+                    @if (photo.is_blink) {
+                      <div class="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-yellow-600 text-white text-xs font-bold">
+                        {{ I18N.ui.badges.blink | translate }}
+                      </div>
+                    }
+                    @if (!(photo.path | isKept:selectionsMap():group.group_id)) {
+                      <button class="absolute top-2 right-2 w-7 h-7 rounded-full bg-black/60 inline-flex items-center justify-center opacity-0 group-hover/photo:opacity-100 transition-opacity cursor-pointer"
+                              [matTooltip]="I18N.culling.view_detail | translate"
+                              [attr.aria-label]="I18N.culling.view_detail | translate"
+                              (click)="openDetail($event, photo.path)">
+                        <mat-icon class="!text-base !w-4 !h-4 !leading-4 !text-white">info</mat-icon>
+                      </button>
+                    }
+                  </div>
+                }
+              </div>
+
+              <!-- Group actions -->
+              <div class="flex flex-wrap items-center gap-x-2 gap-y-2 px-2 py-2 border-t border-[var(--mat-sys-outline-variant)]">
+                <mat-icon class="inline-flex !text-base !w-4 !h-4 !leading-4 opacity-60"
+                          [matTooltip]="group.type | cullGroupLabel | translate"
+                          [attr.aria-label]="group.type | cullGroupLabel | translate">{{ group.type | cullGroupIcon }}</mat-icon>
+                <span class="text-xs opacity-50">{{ group.count }} {{ I18N.culling.photos | translate }}</span>
+                @if (group.category; as category) {
+                  @if (comparisonStats(); as stats) {
+                    @if ((category | weightRemaining:stats); as remaining) {
+                      <button class="inline-flex items-center justify-center w-6 h-6 rounded hover:bg-[var(--mat-sys-surface-container-high)] transition-colors cursor-pointer"
+                              (click)="tuneCategory(category)"
+                              [matTooltip]="I18N.culling.weight_remaining | translate:{ count: remaining }"
+                              [attr.aria-label]="I18N.culling.weight_remaining | translate:{ count: remaining }">
+                        <mat-icon class="!text-base !w-4 !h-4 !leading-4 opacity-60">tune</mat-icon>
+                      </button>
+                    } @else {
+                      <button class="inline-flex items-center justify-center w-6 h-6 rounded hover:bg-[var(--mat-sys-surface-container-high)] transition-colors cursor-pointer"
+                              (click)="tuneCategory(category)"
+                              [matTooltip]="I18N.culling.weight_ready | translate"
+                              [attr.aria-label]="I18N.culling.weight_ready | translate">
+                        <mat-icon class="!text-base !w-4 !h-4 !leading-4 text-green-500">tune</mat-icon>
+                      </button>
+                    }
+                  }
+                  <span class="text-xs opacity-50">{{ 'category_names.' + category | translate }}</span>
+                }
+                @if ((group | isConfirmed:confirmedGroups())) {
+                  <span class="inline-flex items-center gap-1 text-xs text-green-500 font-medium">
+                    <mat-icon class="inline-flex !text-sm !w-4 !h-4 !leading-4">check_circle</mat-icon>
+                    {{ I18N.culling.confirmed_badge | translate }}
+                  </span>
+                }
+                <div class="flex gap-2 ml-auto">
+                  @if (group | isPassing:passingGroups()) {
+                    <div class="relative overflow-hidden rounded-md">
+                      <button mat-stroked-button (click)="cancelPass(group)" class="!h-8 !text-sm !rounded-md relative z-10"
+                              [matTooltip]="I18N.culling.cancel_restore | translate">
+                        {{ I18N.culling.cancel_pass | translate }} ({{ group | passCountdown:passingGroups() }}s)
+                      </button>
+                      <div class="absolute inset-0 bg-[var(--mat-sys-outline-variant)] opacity-30 origin-right transition-transform duration-1000 ease-linear"
+                           [style.transform]="'scaleX(' + ((group | passCountdown:passingGroups()) / passCountdownSeconds) + ')'"></div>
+                    </div>
+                  } @else {
+                    <!-- Geometry cannot recover intent, so a residual error rate
+                         is inherent and this is where it is corrected. Only on
+                         panorama sets: a bracket is identified from EXIF, not
+                         from a measurement that can read a subject-tracking pan
+                         as a sweep. -->
+                    @if (auth.isEdition() && (group.sequence_kind === 'panorama' || group.sequence_kind === 'hdr_panorama')) {
+                      <button mat-icon-button [matMenuTriggerFor]="correctMenu"
+                              [matTooltip]="I18N.culling.panorama.correct_tooltip | translate"
+                              [attr.aria-label]="I18N.culling.panorama.correct | translate">
+                        <mat-icon>edit_note</mat-icon>
+                      </button>
+                      <mat-menu #correctMenu="matMenu">
+                        <button mat-menu-item (click)="correctSequence(group)">
+                          <mat-icon>wrong_location</mat-icon>{{ I18N.culling.panorama.not_a_panorama | translate }}
+                        </button>
+                        @if (group.sequence_kind !== 'panorama') {
+                          <button mat-menu-item (click)="correctSequence(group, 'panorama')">
+                            <mat-icon>{{ 'panorama' | cullGroupIcon }}</mat-icon>{{ I18N.culling.panorama.relabel_plain | translate }}
+                          </button>
+                        }
+                        @if (group.sequence_kind !== 'hdr_panorama') {
+                          <button mat-menu-item (click)="correctSequence(group, 'hdr_panorama')">
+                            <mat-icon>{{ 'hdr_panorama' | cullGroupIcon }}</mat-icon>{{ I18N.culling.panorama.relabel_hdr | translate }}
+                          </button>
+                        }
+                        @if (group | groupOverride) {
+                          <button mat-menu-item (click)="clearCorrection(group)">
+                            <mat-icon>undo</mat-icon>{{ I18N.culling.panorama.clear_correction | translate }}
+                          </button>
+                        }
+                      </mat-menu>
+                    }
+                    <!-- A plain burst group has no set of its own to relabel or
+                         suppress -- the only correction that applies to it is
+                         naming a missed bracket, so this trigger offers just
+                         that one action rather than reusing the panorama
+                         menu's shape. -->
+                    @if (auth.isEdition() && (group | canMarkBracket)) {
+                      <button mat-icon-button [matMenuTriggerFor]="bracketMenu"
+                              [matTooltip]="I18N.culling.bracket.correct_tooltip | translate"
+                              [attr.aria-label]="I18N.culling.panorama.correct | translate">
+                        <mat-icon>edit_note</mat-icon>
+                      </button>
+                      <mat-menu #bracketMenu="matMenu">
+                        <button mat-menu-item (click)="correctSequence(group, 'bracket')">
+                          <mat-icon>{{ 'bracket' | cullGroupIcon }}</mat-icon>{{ I18N.culling.bracket.mark_action | translate }}
+                        </button>
+                      </mat-menu>
+                    }
+                    <!-- A bracket-kind group's own membership was named by this
+                         correction (detected or forced alike) -- offer to drop
+                         it back to the detector, mirroring the panorama menu's
+                         own "Clear correction" entry. -->
+                    @if (auth.isEdition() && group.sequence_kind === 'bracket' && (group | groupOverride)) {
+                      <button mat-icon-button [matMenuTriggerFor]="bracketClearMenu"
+                              [matTooltip]="I18N.culling.panorama.correct | translate"
+                              [attr.aria-label]="I18N.culling.panorama.correct | translate">
+                        <mat-icon>edit_note</mat-icon>
+                      </button>
+                      <mat-menu #bracketClearMenu="matMenu">
+                        <button mat-menu-item (click)="clearCorrection(group)">
+                          <mat-icon>undo</mat-icon>{{ I18N.culling.panorama.clear_correction | translate }}
+                        </button>
+                      </mat-menu>
+                    }
+                    <button mat-icon-button (click)="openLightbox(group, 0)"
+                            [matTooltip]="I18N.culling.darkroom_tooltip | translate"
+                            [attr.aria-label]="I18N.culling.darkroom | translate">
+                      <mat-icon>fullscreen</mat-icon>
+                    </button>
+                    <button mat-icon-button (click)="skipGroup(group)"
+                            [matTooltip]="I18N.culling.skip_tooltip | translate"
+                            [attr.aria-label]="I18N.culling.skip | translate">
+                      <mat-icon>skip_next</mat-icon>
+                    </button>
+                    <button mat-icon-button (click)="confirmGroup(group)" [disabled]="confirming()"
+                            [matTooltip]="I18N.culling.confirm_tooltip | translate"
+                            [attr.aria-label]="I18N.culling.confirm | translate">
+                      <mat-icon>check_circle</mat-icon>
+                    </button>
+                  }
+                </div>
+              </div>
+            </div>
+          }
+
+          <!-- Infinite scroll sentinel -->
+          @if (hasMore()) {
+            <div appInfiniteScroll scrollRoot="[data-culling-scroll]" (scrollReached)="onScrollReached()" class="flex justify-center py-6">
+              @if (loadingMore()) {
+                <mat-spinner diameter="32" [attr.aria-label]="I18N.ui.labels.loading | translate" />
+              }
+            </div>
+          }
+        </div>
+      }
+      </div>
+
+      <!-- Sticky footer (small screens only): on lg+ the action moves into the top toolbar.
+           On small screens the toolbar is fixed to the viewport bottom, so this bar clears
+           its height (max-lg:mb-16) to avoid stacking under the fixed icon bar. -->
+      @if (unconfirmedCount() > 0) {
+        <div class="lg:!hidden shrink-0 flex justify-center py-1.5 max-lg:mb-14 border-t border-[var(--mat-sys-outline-variant)] bg-[var(--mat-sys-surface)]">
+          <button mat-flat-button (click)="confirmAllRemaining()" [disabled]="confirming()" class="!px-6 !rounded-md !h-9">
+            <mat-icon>done_all</mat-icon>
+            {{ I18N.culling.confirm_all | translate }} ({{ unconfirmedCount() }})
+          </button>
+        </div>
+      }
+    </div>
+
+    <!-- Lightbox overlay -->
+    @if (lightboxGroup(); as lbGroup) {
+      <!-- cdkTrapFocus without auto-capture: the effect below focuses the container
+           itself, so Space/arrows reach the darkroom shortcuts instead of whichever
+           toolbar button auto-capture would have landed on. -->
+      <div #lightboxDialog class="fixed inset-0 z-[100] bg-black/95 flex flex-col"
+           role="dialog"
+           aria-modal="true"
+           tabindex="-1"
+           cdkTrapFocus
+           (click)="closeLightbox()"
+           (keydown.escape)="closeLightbox()">
+        <!-- Escape reaches this binding only from the container itself: every
+             inner region shields the page from the darkroom's keys, so each one
+             acts on Escape through onDarkroomKeydown() instead. -->
+        <!-- Header. Opaque, not a tint: at bg-black/70 the gallery toolbar behind
+             it stayed legible through the darkroom's own controls. -->
+        <div class="flex items-center justify-between gap-4 px-4 py-2.5 text-white text-sm bg-neutral-950">
+          <div class="opacity-70 shrink-0">
+            {{ lightboxIndex() + 1 }} / {{ lbGroup.photos.length }}
+          </div>
+          @if (legendVisible()) {
+            <div class="flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-sm">
+              @for (row of darkroomShortcuts; track row.labelKey) {
+                <span class="inline-flex items-center gap-1.5">
+                  <span class="flex gap-1">
+                    @for (k of row.keys; track k) {
+                      <kbd class="px-1.5 py-0.5 rounded border border-white/30 bg-white/10 text-xs font-mono leading-none">{{ k }}</kbd>
+                    }
+                  </span>
+                  <span class="opacity-80">{{ row.labelKey | translate }}</span>
+                </span>
+              }
+            </div>
+          }
+          <div class="flex items-center gap-1 shrink-0" role="presentation"
+               (click)="$event.stopPropagation()" (keydown)="onDarkroomKeydown($event)">
+            <button mat-icon-button [class.!text-white]="!legendVisible()"
+                    [class.!text-[var(--mat-sys-primary)]]="legendVisible()"
+                    [attr.aria-pressed]="legendVisible()"
+                    [matTooltip]="I18N.culling.legend.tooltip | translate"
+                    [attr.aria-label]="I18N.culling.legend.label | translate"
+                    (click)="toggleLegend()"><mat-icon>keyboard</mat-icon></button>
+            <button mat-icon-button [class.!text-white]="compareMode() !== 'single'"
+                    [class.!text-[var(--mat-sys-primary)]]="compareMode() === 'single'"
+                    [matTooltip]="I18N.culling.compare.single | translate"
+                    [attr.aria-label]="I18N.culling.compare.single | translate"
+                    (click)="setCompareMode('single')"><mat-icon>crop_original</mat-icon></button>
+            <button mat-icon-button [class.!text-white]="compareMode() !== '2up'"
+                    [class.!text-[var(--mat-sys-primary)]]="compareMode() === '2up'"
+                    [matTooltip]="I18N.culling.compare['2up'] | translate"
+                    [attr.aria-label]="I18N.culling.compare['2up'] | translate"
+                    (click)="setCompareMode('2up')"><mat-icon>splitscreen</mat-icon></button>
+            <button mat-icon-button [class.!text-white]="compareMode() !== '4up'"
+                    [class.!text-[var(--mat-sys-primary)]]="compareMode() === '4up'"
+                    [matTooltip]="I18N.culling.compare['4up'] | translate"
+                    [attr.aria-label]="I18N.culling.compare['4up'] | translate"
+                    (click)="setCompareMode('4up')"><mat-icon>grid_view</mat-icon></button>
+            <button mat-icon-button [class.!text-white]="!peakingActive()"
+                    [class.!text-[var(--mat-sys-primary)]]="peakingActive()"
+                    [attr.aria-pressed]="peakingActive()"
+                    [matTooltip]="I18N.culling.peaking.tooltip | translate"
+                    [attr.aria-label]="I18N.culling.peaking.label | translate"
+                    (click)="togglePeaking()"><mat-icon>filter_center_focus</mat-icon></button>
+            <button mat-icon-button [class.!text-white]="gridMode() === ''"
+                    [class.!text-[var(--mat-sys-primary)]]="gridMode() !== ''"
+                    [attr.aria-pressed]="gridMode() !== ''"
+                    [matTooltip]="I18N.culling.grid.tooltip | translate"
+                    [attr.aria-label]="gridModeLabel() | translate"
+                    (click)="cycleGrid()"><mat-icon>grid_3x3</mat-icon></button>
+            <button mat-icon-button [class.!text-white]="!darkroomLoupeActive()"
+                    [class.!text-[var(--mat-sys-primary)]]="darkroomLoupeActive()"
+                    [attr.aria-pressed]="darkroomLoupeActive()"
+                    [matTooltip]="I18N.culling.darkroom_loupe_hint | translate"
+                    [attr.aria-label]="I18N.culling.darkroom_loupe | translate"
+                    (click)="toggleDarkroomLoupe()">
+              <mat-icon>{{ darkroomLoupeActive() ? 'zoom_in' : 'search' }}</mat-icon>
+            </button>
+            @if (cullStyleCapable() && compareMode() === 'single') {
+              <button mat-icon-button [matMenuTriggerFor]="cullStyleMenu"
+                      [class.!text-white]="activeStyle() === ''"
+                      [class.!text-[var(--mat-sys-primary)]]="activeStyle() !== ''"
+                      [matTooltip]="I18N.culling.cull_style.tooltip | translate"
+                      [attr.aria-label]="I18N.culling.cull_style.tooltip | translate">
+                <mat-icon>palette</mat-icon>
+              </button>
+              <mat-menu #cullStyleMenu="matMenu">
+                <button mat-menu-item (click)="selectCullStyle('')">
+                  <span [class.font-bold]="activeStyle() === ''">{{ I18N.culling.cull_style.original | translate }}</span>
+                </button>
+                @for (s of cullStyles(); track s.name) {
+                  <button mat-menu-item (click)="selectCullStyle(s.name)">
+                    <span [class.font-bold]="activeStyle() === s.name">{{ s.label_key | translate }}</span>
+                  </button>
+                }
+              </mat-menu>
+            }
+          </div>
+          <button mat-icon-button
+                  [matTooltip]="I18N.slideshow.fullscreen | translate"
+                  [attr.aria-label]="I18N.slideshow.fullscreen | translate"
+                  (click)="toggleFullscreen(); $event.stopPropagation()" class="!text-white">
+            <mat-icon>{{ isFullscreen() ? 'fullscreen_exit' : 'fullscreen' }}</mat-icon>
+          </button>
+          <button mat-icon-button
+                  [attr.aria-label]="I18N.dialog.cancel | translate"
+                  (click)="closeLightbox(); $event.stopPropagation()" class="!text-white">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+        <!-- Per-pane overlays: the peaking edge map rides the image's own
+             transform, the composition grid stays fixed to the frame box. -->
+        <ng-template #frameOverlays let-path="path">
+          @if (path | peakingOverlay:peakingOverlays(); as overlay) {
+            <img [src]="overlay" alt="" aria-hidden="true"
+                 class="absolute inset-0 w-full h-full object-contain origin-center
+                        pointer-events-none opacity-60 will-change-transform"
+                 [style.transform]="frameTransform()" />
+          }
+          @if (gridMode(); as grid) {
+            @if (path | frameViewBox:frameSizes(); as viewBox) {
+              <svg class="absolute inset-0 w-full h-full pointer-events-none"
+                   [attr.viewBox]="viewBox" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+                @for (line of grid | gridLines; track line) {
+                  <line [attr.x1]="line" y1="0%" [attr.x2]="line" y2="100%"
+                        stroke="white" stroke-opacity="0.45" stroke-width="1"
+                        vector-effect="non-scaling-stroke" />
+                  <line x1="0%" [attr.y1]="line" x2="100%" [attr.y2]="line"
+                        stroke="white" stroke-opacity="0.45" stroke-width="1"
+                        vector-effect="non-scaling-stroke" />
+                }
+              </svg>
+            }
+          }
+        </ng-template>
+        <!-- Kept / rejected, in the tile grid's own idiom: a solid circle with a
+             white glyph, which survives any frame under it. The bare tinted icon
+             this replaced was unreadable over a busy photo. -->
+        <ng-template #frameState let-kept="kept" let-decided="decided">
+          @if (kept) {
+            <div class="absolute top-2 right-2 w-7 h-7 rounded-full bg-green-600 inline-flex items-center justify-center shadow"
+                 [attr.aria-label]="I18N.culling.lightbox.kept | translate">
+              <mat-icon class="!text-base !w-4 !h-4 !leading-4 !text-white">check</mat-icon>
+            </div>
+          } @else if (decided) {
+            <div class="absolute top-2 right-2 w-7 h-7 rounded-full bg-red-600 inline-flex items-center justify-center shadow"
+                 [attr.aria-label]="I18N.culling.lightbox.rejected | translate">
+              <mat-icon class="!text-base !w-4 !h-4 !leading-4 !text-white">close</mat-icon>
+            </div>
+          }
+        </ng-template>
+        <!-- Image -->
+        @if (lbGroup.photos[lightboxIndex()]; as lbPhoto) {
+          @if (compareMode() === 'single') {
+            <!-- overflow-hidden: the peaking overlay rides the zoom transform as a
+                 sibling of the zoom pane, so only this box keeps it off the chrome. -->
+            <div class="relative flex-1 min-h-0 overflow-hidden"
+                 role="presentation"
+                 #swipe="appSwipeDecision"
+                 [appSwipeDecision]="swipeEnabled()"
+                 (swipeKeep)="onSwipeDecision(lbGroup, true)"
+                 (swipeReject)="onSwipeDecision(lbGroup, false)"
+                 (click)="$event.stopPropagation()"
+                 (keydown)="onDarkroomKeydown($event)">
+              <app-synced-zoom #singlePane class="w-full h-full"
+                               [src]="(activeStyle() && !previewLoading()) ? (lbPhoto.path | cullPreviewUrl:activeStyle()) : (lbPhoto.path | thumbnailUrl:darkroomThumbSize)"
+                               [fullResSrc]="activeStyle() ? null : (lbPhoto.path | imageUrl:true)"
+                               [zoom]="zoom()"
+                               [focusPoint]="(lbPhoto.path | keySubjectForPath:keySubjectMap())?.center ?? null"
+                               (zoomChange)="zoom.set($event)"
+                               [loupeSrc]="lbPhoto.path | imageUrl:true"
+                               [loupeActive]="darkroomLoupeEffective()"
+                               [loupeZoom]="darkroomLoupeZoom()"
+                               [alt]="lbPhoto.filename" />
+              <ng-container [ngTemplateOutlet]="frameOverlays"
+                            [ngTemplateOutletContext]="{ path: lbPhoto.path }" />
+              <!-- Inset to the rendered photo, not to the pane: object-contain
+                   letterboxes, so the pane's corner can be far off the image. -->
+              <div class="absolute pointer-events-none"
+                   [style.top.px]="singlePane.fitInsetY()" [style.bottom.px]="singlePane.fitInsetY()"
+                   [style.left.px]="singlePane.fitInsetX()" [style.right.px]="singlePane.fitInsetX()">
+                <ng-container [ngTemplateOutlet]="frameState"
+                              [ngTemplateOutletContext]="{
+                                kept: (lbPhoto.path | isKept:selectionsMap():lbGroup.group_id),
+                                decided: (lbPhoto.path | isDecided:selectionsMap():lbGroup.group_id) }" />
+              </div>
+              @if (previewLoading()) {
+                <div class="absolute inset-0 flex items-center justify-center bg-black/40 pointer-events-none"
+                     [attr.aria-label]="I18N.culling.cull_style.loading | translate">
+                  <mat-spinner diameter="40" [attr.aria-label]="I18N.ui.labels.loading | translate" />
+                </div>
+              }
+              <!-- Swipe feedback. Rendered inside the element the gesture moves,
+                   so the tint and the verdict travel with the frame; aria-hidden
+                   because the footer status below already says what was decided. -->
+              @if (swipeEnabled()) {
+                <div class="absolute inset-0 pointer-events-none bg-green-500/30"
+                     aria-hidden="true" [style.opacity]="swipe.keepProgress()"></div>
+                <div class="absolute inset-0 pointer-events-none bg-red-600/30"
+                     aria-hidden="true" [style.opacity]="swipe.rejectProgress()"></div>
+                <div class="absolute inset-0 flex items-center justify-between px-6 pointer-events-none"
+                     aria-hidden="true">
+                  <span class="inline-flex items-center gap-1.5 rounded-full bg-red-600 px-4 py-2
+                               text-white text-sm font-bold uppercase tracking-wide"
+                        [style.opacity]="swipe.rejectProgress()">
+                    <mat-icon class="!text-base !w-4 !h-4 !leading-4">close</mat-icon>
+                    {{ I18N.culling.swipe.reject | translate }}
+                  </span>
+                  <span class="inline-flex items-center gap-1.5 rounded-full bg-green-600 px-4 py-2
+                               text-white text-sm font-bold uppercase tracking-wide"
+                        [style.opacity]="swipe.keepProgress()">
+                    <mat-icon class="!text-base !w-4 !h-4 !leading-4">check</mat-icon>
+                    {{ I18N.culling.swipe.keep | translate }}
+                  </span>
+                </div>
+              }
+            </div>
+          } @else {
+            <div class="flex-1 grid grid-cols-2 gap-1 overflow-hidden p-1"
+                 [class.grid-rows-2]="compareMode() === '4up'"
+                 role="presentation"
+                 (click)="$event.stopPropagation()"
+                 (keydown)="onDarkroomKeydown($event)">
+              @for (photo of compareFrames(); track photo.path) {
+                <div class="relative w-full h-full min-h-0 rounded overflow-hidden">
+                  <app-synced-zoom #pane class="w-full h-full min-h-0"
+                                   [src]="photo.path | thumbnailUrl:darkroomThumbSize"
+                                   [fullResSrc]="photo.path | imageUrl:true"
+                                   [zoom]="zoom()"
+                                   [focusPoint]="(photo.path | keySubjectForPath:keySubjectMap())?.center ?? null"
+                                   (zoomChange)="zoom.set($event)"
+                                   [loupeSrc]="photo.path | imageUrl:true"
+                                   [loupeActive]="darkroomLoupeEffective()"
+                                   [loupeZoom]="darkroomLoupeZoom()"
+                                   [alt]="photo.filename" />
+                  <ng-container [ngTemplateOutlet]="frameOverlays"
+                                [ngTemplateOutletContext]="{ path: photo.path }" />
+                  <!-- Every per-frame mark traces the rendered photo, not the
+                       cell: a letterboxed pane put them up to 90px off the image,
+                       where they read as chrome about the pair rather than about
+                       this frame. The focus ring follows for the same reason. -->
+                  <div class="absolute pointer-events-none"
+                       [style.top.px]="pane.fitInsetY()" [style.bottom.px]="pane.fitInsetY()"
+                       [style.left.px]="pane.fitInsetX()" [style.right.px]="pane.fitInsetX()"
+                       [class.ring-2]="photo.path === lbPhoto.path"
+                       [class.ring-inset]="photo.path === lbPhoto.path"
+                       [class.ring-amber-400]="photo.path === lbPhoto.path">
+                    <ng-container [ngTemplateOutlet]="frameState"
+                                  [ngTemplateOutletContext]="{
+                                    kept: (photo.path | isKept:selectionsMap():lbGroup.group_id),
+                                    decided: (photo.path | isDecided:selectionsMap():lbGroup.group_id) }" />
+                    <!-- The ↑ / ↓ keys only ever reach the focused frame, so a
+                         compare grid needs a way to decide the pane the user is
+                         actually looking at. Same write as those keys. -->
+                    <div class="absolute bottom-2 right-2 flex items-center gap-2 pointer-events-auto">
+                      <button type="button"
+                              class="w-7 h-7 rounded-full bg-green-600 inline-flex items-center justify-center shadow transition-opacity hover:opacity-100 cursor-pointer"
+                              [class.opacity-70]="!(photo.path | isKept:selectionsMap():lbGroup.group_id)"
+                              [attr.aria-pressed]="photo.path | isKept:selectionsMap():lbGroup.group_id"
+                              [matTooltip]="I18N.culling.lightbox.keep | translate"
+                              [attr.aria-label]="photo.filename + ', ' + (I18N.culling.lightbox.keep | translate)"
+                              (click)="setPhotoKept(lbGroup, photo.path, true)">
+                        <mat-icon class="!text-base !w-4 !h-4 !leading-4 !text-white">check</mat-icon>
+                      </button>
+                      <button type="button"
+                              class="w-7 h-7 rounded-full bg-red-600 inline-flex items-center justify-center shadow transition-opacity hover:opacity-100 cursor-pointer"
+                              [class.opacity-70]="!(photo.path | isDecided:selectionsMap():lbGroup.group_id)"
+                              [attr.aria-pressed]="photo.path | isDecided:selectionsMap():lbGroup.group_id"
+                              [matTooltip]="I18N.culling.lightbox.reject | translate"
+                              [attr.aria-label]="photo.filename + ', ' + (I18N.culling.lightbox.reject | translate)"
+                              (click)="setPhotoKept(lbGroup, photo.path, false)">
+                        <mat-icon class="!text-base !w-4 !h-4 !leading-4 !text-white">close</mat-icon>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              }
+            </div>
+          }
+          <!-- Footer status -->
+          <div class="px-4 py-3 text-center"
+               role="presentation"
+               (click)="$event.stopPropagation()"
+               (keydown)="onDarkroomKeydown($event)">
+            @if (compareMode() !== 'single') {
+              <!-- The status that follows is the focused frame's alone. Spanning
+                   the whole width under a grid of panes, unnamed, it read as a
+                   verdict on all of them. -->
+              <span class="text-white/60 text-sm mr-2">{{ lbPhoto.filename }}</span>
+            }
+            @if (lbPhoto.path | isKept:selectionsMap():lbGroup.group_id) {
+              <span class="inline-flex items-center gap-1 text-green-400 text-sm">
+                <mat-icon class="!text-base !w-4 !h-4 !leading-4">check</mat-icon>
+                {{ I18N.culling.lightbox.kept | translate }}
+              </span>
+            } @else if (lbPhoto.path | isDecided:selectionsMap():lbGroup.group_id) {
+              <span class="inline-flex items-center gap-1 text-red-400 text-sm">
+                <mat-icon class="!text-base !w-4 !h-4 !leading-4">close</mat-icon>
+                {{ I18N.culling.lightbox.rejected | translate }}
+              </span>
+            } @else {
+              <span class="text-white/40 text-sm">{{ I18N.culling.lightbox.undecided | translate }}</span>
+            }
+            @if (swipeEnabled() && !swipeHintDismissed()) {
+              <div class="flex items-center justify-center gap-2 pt-2 text-white/60 text-xs">
+                <mat-icon class="!text-base !w-4 !h-4 !leading-4" aria-hidden="true">swipe</mat-icon>
+                <span>{{ I18N.culling.swipe.hint | translate }}</span>
+                <button mat-button class="!min-w-0 !px-2 !text-xs !text-white/80"
+                        (click)="dismissSwipeHint()">
+                  {{ I18N.culling.swipe.hint_dismiss | translate }}
+                </button>
+              </div>
+            }
+          </div>
+        }
+
+        <!-- Face / expression close-up grid -->
+        @if (faceGridHasFaces()) {
+          <div class="border-t border-white/10 px-4 py-3 overflow-x-auto"
+               role="presentation"
+               (click)="$event.stopPropagation()"
+               (keydown)="onDarkroomKeydown($event)">
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-1 mb-2">
+              <div class="text-white/50 text-xs">{{ I18N.culling.face_grid_title | translate }}</div>
+              <div class="flex items-center gap-2"
+                   [matTooltip]="'culling.face_eyes_min_tooltip' | translate">
+                <span class="text-white/50 text-xs">{{ 'culling.face_eyes_min' | translate }}</span>
+                <mat-slider class="!w-24 !min-w-0" [min]="0" [max]="10" [step]="1" [discrete]="true">
+                  <input matSliderThumb [value]="faceEyesMin()" (valueChange)="onFaceEyesMinChange($event)"
+                         (dragEnd)="releaseSliderFocus()"
+                         [attr.aria-label]="'culling.face_eyes_min' | translate" />
+                </mat-slider>
+                <span class="text-white/70 text-xs font-medium w-4">{{ faceEyesMin() }}</span>
+              </div>
+              <div class="flex items-center gap-2"
+                   [matTooltip]="'culling.face_smile_min_tooltip' | translate">
+                <span class="text-white/50 text-xs">{{ 'culling.face_smile_min' | translate }}</span>
+                <mat-slider class="!w-24 !min-w-0" [min]="0" [max]="10" [step]="1" [discrete]="true">
+                  <input matSliderThumb [value]="faceSmileMin()" (valueChange)="onFaceSmileMinChange($event)"
+                         (dragEnd)="releaseSliderFocus()"
+                         [attr.aria-label]="'culling.face_smile_min' | translate" />
+                </mat-slider>
+                <span class="text-white/70 text-xs font-medium w-4">{{ faceSmileMin() }}</span>
+              </div>
+              <div class="flex items-center gap-2"
+                   [matTooltip]="'culling.face_size_tooltip' | translate">
+                <span class="text-white/50 text-xs">{{ 'culling.face_size' | translate }}</span>
+                <mat-slider class="!w-24 !min-w-0" [min]="faceSizeMinPx" [max]="faceSizeMaxPx"
+                            [step]="faceSizeStepPx" [discrete]="true">
+                  <input matSliderThumb [value]="faceSize()" (valueChange)="onFaceSizeChange($event)"
+                         (dragEnd)="releaseSliderFocus()"
+                         [attr.aria-label]="'culling.face_size' | translate" />
+                </mat-slider>
+                <span class="text-white/70 text-xs font-medium w-8">{{ faceSize() }}</span>
+              </div>
+            </div>
+            <div class="flex gap-3 items-start">
+              @for (photo of lbGroup.photos; track photo.path; let pIdx = $index) {
+                @if ((photo.path | facesForPath:faceMap()).length > 0) {
+                  <div class="flex flex-col items-center gap-1 flex-shrink-0">
+                    <div class="flex gap-1">
+                      @for (face of photo.path | facesForPath:faceMap(); track face.id) {
+                        <div class="relative">
+                          <img [src]="face.id | faceThumbnailUrl"
+                               class="rounded object-cover ring-2 ring-inset transition-opacity"
+                               [style.width.px]="faceSize()" [style.height.px]="faceSize()"
+                               [ngClass]="face | faceRingClass:faceThresholds()"
+                               [class.opacity-40]="face | faceDimmed:faceEyesMin():faceSmileMin()"
+                               [appLoupe]="face.id | faceThumbnailUrl"
+                               [loupeActive]="darkroomLoupeActive()"
+                               [loupeZoom]="darkroomLoupeZoom()"
+                               loupeFit="cover"
+                               [alt]="photo.filename" loading="lazy" />
+                          @if (face.confidence !== null && face.confidence !== undefined) {
+                            <div class="absolute top-0 right-0 bg-black/60 text-white/80 text-[9px] leading-none px-1 py-0.5 rounded-bl">
+                              {{ face.confidence | number:'1.0-2' }}
+                            </div>
+                          }
+                          <!-- Key person: top-left, because the bottom edge carries the
+                               blink / expression bar and the frame number. Shown only
+                               when the winning face has a name to put on it. -->
+                          @if (photo.path | keySubjectForPath:keySubjectMap(); as keySubject) {
+                            @if ((face | isKeyFace:keySubject) && keySubject.person_name; as keyPersonName) {
+                              <!-- A button, not a bare div: the explanation lives only in
+                                   matTooltip, which a keyboard or screen-reader user can only
+                                   reach through a focusable host (same pattern as the "My
+                                   Taste" badge in app.html). The sr-only span also folds that
+                                   explanation in, so it reaches assistive tech regardless of
+                                   focus/hover. -->
+                              <button type="button"
+                                      class="absolute top-0 left-0 max-w-full truncate rounded-br bg-amber-500/90 px-1 py-0.5 text-[9px] leading-none font-bold text-black"
+                                      [matTooltip]="I18N.culling.key_person_tooltip | translate">
+                                <span class="sr-only">{{ I18N.culling.key_person | translate }}: {{ I18N.culling.key_person_tooltip | translate }}</span>&ngsp;{{ keyPersonName }}
+                              </button>
+                            }
+                          }
+                          @if (face.is_blink) {
+                            <div class="absolute bottom-0 inset-x-0 bg-yellow-600/90 text-white text-[10px] leading-tight text-center font-bold py-0.5">
+                              {{ I18N.ui.badges.blink | translate }}
+                            </div>
+                          } @else if (face | facePoorExpression:faceThresholds()) {
+                            <div class="absolute bottom-0 inset-x-0 bg-orange-600/80 text-white text-[10px] leading-tight text-center font-bold py-0.5">
+                              {{ I18N.culling.face_badge_expression | translate }}
+                            </div>
+                          }
+                          <div class="absolute bottom-1 right-1 px-1 py-0.5 rounded bg-black/70 text-white text-[10px] leading-none">{{ pIdx + 1 }}</div>
+                        </div>
+                      }
+                    </div>
+                    @if (photo.path === lbGroup.best_path) {
+                      <span class="text-green-400 text-[10px] font-bold">{{ I18N.culling.auto_best | translate }}</span>
+                    } @else if (photo.cull_reason; as reason) {
+                      <span class="text-white/60 text-[10px] truncate" [style.max-width.px]="faceSize()">{{ reason | cullReason }}</span>
+                    }
+                  </div>
+                }
+              }
+            </div>
+          </div>
+        }
+
+        <!-- Subject close-up grid (non-face groups with a saliency subject box) -->
+        @if (subjectStripVisible()) {
+          <div class="border-t border-white/10 px-4 py-3 overflow-x-auto"
+               role="presentation"
+               (click)="$event.stopPropagation()"
+               (keydown)="onDarkroomKeydown($event)">
+            <div class="text-white/50 text-xs mb-2">{{ I18N.culling.subject_grid_title | translate }}</div>
+            <div class="flex gap-3 items-start">
+              @for (photo of lbGroup.photos; track photo.path; let pIdx = $index) {
+                @if (photo.path | subjectForPath:subjectMap(); as subject) {
+                  @if (subject.has_subject) {
+                    <button type="button"
+                            class="flex flex-col items-center gap-1 flex-shrink-0 cursor-zoom-in"
+                            [matTooltip]="I18N.culling.subject_sharpness | translate"
+                            (click)="focusPhotoInLightbox(pIdx)">
+                      <div class="relative">
+                        <img [src]="subject.crop"
+                             class="w-24 h-24 rounded object-cover ring-2 ring-inset"
+                             [ngClass]="subject | subjectRingClass"
+                             [class.!ring-amber-400]="photo.path === lbGroup.photos[lightboxIndex()]?.path"
+                             [alt]="photo.filename" loading="lazy" />
+                        @if (subject.crop_sharpness_score !== null) {
+                          <div class="absolute top-0 right-0 bg-black/60 text-white/80 text-[9px] leading-none px-1 py-0.5 rounded-bl">
+                            {{ subject.crop_sharpness_score | number:'1.0-1' }}
+                          </div>
+                        }
+                        <div class="absolute bottom-1 right-1 px-1 py-0.5 rounded bg-black/70 text-white text-[10px] leading-none">{{ pIdx + 1 }}</div>
+                      </div>
+                      @if (photo.path === lbGroup.best_path) {
+                        <span class="text-green-400 text-[10px] font-bold">{{ I18N.culling.auto_best | translate }}</span>
+                      } @else if (photo.cull_reason; as reason) {
+                        <span class="text-white/60 text-[10px] max-w-[96px] truncate">{{ reason | cullReason }}</span>
+                      }
+                    </button>
+                  }
+                }
+              }
+            </div>
+          </div>
+        }
+      </div>
+    }
+
+    <!-- Auto-cull preview / confirm dialog -->
+    @if (autoCullPreview(); as ac) {
+      <div class="fixed inset-0 z-[110] bg-black/50 flex items-center justify-center p-4"
+           role="presentation"
+           (click)="cancelAutoCull()"
+           (keydown.escape)="cancelAutoCull()">
+        <!-- Escape is handled here, not only on the backdrop: the blanket keydown
+             shield below (which keeps the page's cull shortcuts from firing behind
+             the modal) stops the event before any ancestor or document handler. -->
+        <div #autoCullDialog class="rounded-xl bg-[var(--mat-sys-surface-container-high)] p-6 w-full max-w-md space-y-4"
+             role="dialog"
+             aria-modal="true"
+             aria-labelledby="autoCullTitle"
+             tabindex="-1"
+             cdkTrapFocus
+             [cdkTrapFocusAutoCapture]="true"
+             (click)="$event.stopPropagation()"
+             (keydown.escape)="cancelAutoCull()"
+             (keydown)="$event.stopPropagation()">
+          <h2 id="autoCullTitle" class="text-lg font-semibold">{{ I18N.culling.auto_cull.title | translate }}</h2>
+          @if (selectedProfile(); as profile) {
+            <p class="flex items-center gap-1.5 text-sm opacity-80">
+              <mat-icon class="!text-base !w-4 !h-4 !leading-4">{{ profile | cullProfileIcon }}</mat-icon>
+              {{ selectedProfileLabel() | translate }}
+              @if (suggestedProfileActive()) {
+                <!-- A button, not a bare span: same reasoning as the "My Taste" badge in
+                     app.html -- the explanation lives only in matTooltip, unreachable by
+                     keyboard/AT users without a focusable host. -->
+                <button type="button"
+                        class="px-2 py-0.5 rounded-full text-xs bg-[var(--mat-sys-primary)]/20 text-[var(--mat-sys-primary)]"
+                        [matTooltip]="I18N.culling.auto_cull.suggested_tooltip | translate">
+                  {{ I18N.culling.auto_cull.suggested | translate }}
+                  @if (profileSuggestion(); as suggestion) {
+                    <span class="sr-only">: {{ suggestion.confidence | percent }}</span>
+                  }
+                </button>
+              }
+            </p>
+          }
+          <label class="flex items-center gap-2 text-sm cursor-pointer"
+                 [matTooltip]="I18N.culling.auto_cull.trim_brackets_hint | translate">
+            <input type="checkbox" class="accent-[var(--mat-sys-primary)]"
+                   [checked]="trimBrackets()" [disabled]="autoCullBusy()"
+                   (change)="onTrimBracketsChange(!trimBrackets())" />
+            {{ I18N.culling.auto_cull.trim_brackets | translate }}
+          </label>
+          <!-- A cold suggest+preview takes seconds, during which the counts below are
+               last run's. Say so rather than let them read as this run's answer. -->
+          @if (autoCullBusy()) {
+            <p class="flex items-center gap-2 text-sm opacity-80" role="status">
+              <mat-spinner diameter="16" [attr.aria-label]="I18N.ui.labels.loading | translate" />
+              {{ I18N.culling.auto_cull.updating | translate }}
+            </p>
+          }
+          @if (autoCullSuggestionNotice(); as suggested) {
+            <p class="text-xs text-[var(--mat-sys-primary)]" role="status">
+              {{ I18N.culling.auto_cull.preview_updated | translate:{ profile: suggested } }}
+            </p>
+          }
+          @if (trimBracketsUnchanged()) {
+            <p class="text-xs opacity-70" role="status">{{ I18N.culling.auto_cull.trim_brackets_none | translate }}</p>
+          }
+          @if (ac.groups_processed === 0) {
+            <p class="text-sm opacity-80">{{ I18N.culling.auto_cull.empty | translate }}</p>
+          } @else {
+            <p class="text-sm opacity-80">
+              {{ I18N.culling.auto_cull.summary | translate:{ groups: ac.groups_processed, kept: ac.kept, rejected: ac.rejected } }}
+            </p>
+            <p class="text-xs opacity-60">{{ I18N.culling.strictness | translate }} · {{ strictness() }}%</p>
+            @if (ac.highlights_added > 0) {
+              <label class="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" class="accent-[var(--mat-sys-primary)]"
+                       [checked]="autoCullHighlights()"
+                       (change)="autoCullHighlights.set(!autoCullHighlights())" />
+                {{ I18N.culling.auto_cull.highlights_label | translate:{ count: ac.highlights_added } }}
+              </label>
+            }
+          }
+          <div class="flex justify-end gap-2">
+            <button mat-stroked-button (click)="cancelAutoCull()" [disabled]="autoCullApplying()">{{ I18N.dialog.cancel | translate }}</button>
+            @if (ac.groups_processed > 0) {
+              <button mat-flat-button (click)="confirmAutoCull()" [disabled]="autoCullBusy()">
+                {{ I18N.culling.auto_cull.apply | translate:{ rejected: ac.rejected } }}
+              </button>
+            }
+          </div>
+        </div>
+      </div>
+    }
+  `,
+  host: { class: 'block h-full' },
+})
+export class BurstCullingComponent implements OnDestroy {
+  protected readonly I18N = I18N_KEYS;
+  private readonly api = inject(ApiService);
+  private readonly router = inject(Router);
+  private readonly route = inject(ActivatedRoute);
+  private readonly snackBar = inject(MatSnackBar);
+  private readonly i18n = inject(I18nService);
+  protected readonly pageHelp = inject(PageHelpService);
+  private readonly headerSlot = inject(HeaderSlotService);
+  private readonly albumService = inject(AlbumService);
+  private readonly compareFilters = inject(CompareFiltersService);
+  private readonly sequenceOverrides = inject(SequenceOverrideService);
+  private readonly panoramaSettings = inject(PanoramaSettingsService);
+  private readonly undoService = inject(UndoService);
+  protected readonly auth = inject(AuthService);
+  protected readonly store = inject(GalleryStore);
+  private readonly sceneDate = new SceneDatePipe();
+
+  /** Granularity served by the feed: all (merged burst+similar) | burst | similar | scene.
+   *  Restored from localStorage (default 'all'); a ?group_by= query param overrides it. */
+  protected readonly groupBy = signal<GroupBy>(readStoredGroupBy());
+  /** Min posterior below which a moment label is shown dimmed + "(uncertain)". */
+  protected readonly momentConfidenceMin = computed(
+    () => this.store.config()?.moment_confidence_min ?? 0,
+  );
+
+  // Optional scope from "Cull this scene" / album entry points (query params).
+  protected readonly scopeAlbum = signal<string | null>(null);
+  protected readonly scopeFrom = signal<string | null>(null);
+  protected readonly scopeTo = signal<string | null>(null);
+  protected readonly scopeScene = signal<string | null>(null);
+  protected readonly scoped = computed(
+    () => !!(this.scopeAlbum() || this.scopeFrom() || this.scopeTo()),
+  );
+  // Non-smart albums + lazily-loaded scenes powering the scope cascade menu.
+  protected readonly albums = signal<Album[]>([]);
+  protected readonly expandedAlbumId = signal<number | null>(null);
+  protected readonly expandedScenes = signal<SceneSummary[]>([]);
+  protected readonly loadingScenes = signal(false);
+  // Album name for the current scope, resolved from the loaded album list
+  // (works for both menu selection and a deep-linked ?album=ID).
+  protected readonly scopeAlbumName = computed(() =>
+    AlbumService.nameById(this.albums(), this.scopeAlbum()));
+  // Human label for the scope button / banner (null = whole library).
+  protected readonly scopeLabel = computed(() => {
+    const album = this.scopeAlbumName();
+    const scene = this.scopeScene();
+    if (album && scene) return `${album} · ${scene}`;
+    return album ?? scene ?? null;
+  });
+  // Personal-ranker status, surfaced as the "this cull trains My Taste" chip.
+  protected readonly rankerComparisons = signal<number | null>(null);
+  protected readonly rankerTrained = signal(false);
+
+  // Photo-Mechanic-style hover loupe over the group tiles (Z toggles; zoom slider).
+  private readonly loupe = createLoupeState();
+  protected readonly loupeActive = this.loupe.loupeActive;
+  protected readonly loupeZoom = this.loupe.loupeZoom;
+  protected readonly similarityThreshold = signal(85);
+  /** Auto-keep strictness (0-100): higher keeps fewer photos below the best. */
+  protected readonly strictness = signal(100);
+
+  /** Genre culling presets (GET /api/culling/profiles). */
+  protected readonly cullProfiles = signal<CullProfile[]>([]);
+  /** Active preset id ('' = custom / none). Persisted; re-applied on open. */
+  protected readonly selectedProfile = signal<string>(localStorage.getItem(CULL_PROFILE_KEY) ?? '');
+  /** Label of the active preset, or "Custom" when none matches the current knobs. */
+  protected readonly selectedProfileLabel = computed(() => {
+    const p = this.cullProfiles().find(x => x.id === this.selectedProfile());
+    return p ? p.label_key : I18N.culling.profiles.custom;
+  });
+
+  /** The preset the current scope's own content argues for
+   *  (GET /culling/suggest_profile), or null while none was inferred. */
+  protected readonly profileSuggestion = signal<ProfileSuggestion | null>(null);
+  /** Set the moment the user picks a preset or moves a knob — including a
+   *  choice restored from a previous session. A manual choice is never
+   *  overwritten by a suggestion for the rest of the session. */
+  private readonly profileChosen = signal(false);
+  /** The scope the cached suggestion answers for; a scope change refetches. */
+  private suggestionScopeKey: string | null = null;
+  private suggestionApplied = false;
+
+  /** True when the active preset is the suggested one and the user never chose
+   *  it — the only case where the dialog claims a suggestion. */
+  protected readonly suggestedProfileActive = computed(() => {
+    const suggested = this.profileSuggestion()?.profile;
+    return !!suggested && !this.profileChosen() && this.selectedProfile() === suggested;
+  });
+  protected readonly excludeRejected = signal(true);
+  protected readonly groups = signal<CullingGroup[]>([]);
+  protected readonly totalGroups = signal(0);
+  protected readonly loading = signal(true);
+  protected readonly loadingMore = signal(false);
+  protected readonly confirming = signal(false);
+
+  /** Monotonic id bumped on every filter change; loadGroups/loadMore drop late responses whose generation no longer matches. */
+  private loadGenerationId = 0;
+
+  /** group_id -> set of kept paths */
+  protected readonly selectionsMap = signal<Map<number, Set<string>>>(new Map());
+
+  /** Set of confirmed group keys (group_id + '_' + type) */
+  protected readonly confirmedGroups = signal<Set<string>>(new Set());
+
+  /** Seconds a skipped group stays cancellable before it is hidden. */
+  protected readonly passCountdownSeconds = 7;
+
+  /** Map of group key -> remaining countdown seconds for groups being passed */
+  protected readonly passingGroups = signal<Map<string, number>>(new Map());
+
+  /** Set of group keys hidden after pass timeout */
+  private readonly hiddenGroups = signal<Set<string>>(new Set());
+
+  /** Group keys in the feed carrying a correction the detector has not applied yet. */
+  private readonly pendingCorrectionKeys = computed(
+    () => new Set(this.groups()
+      .filter(g => g.photos.some(p => p.sequence_override && p.sequence_override_pending))
+      .map(g => this.groupKey(g))),
+  );
+
+  /**
+   * Corrections dropped this session that the detector had already applied.
+   *
+   * Dropping a still-pending correction needs no re-run: the detector never
+   * touched `photos` for it. But dropping an APPLIED one (`sequence_override`
+   * set, not pending) leaves the forced set sitting in `photos` until the
+   * detector runs again -- and by then `pendingCorrectionKeys` sees nothing, so
+   * the re-run banner would never appear without this counter.
+   *
+   * A key is only ever removed here by a successful re-run (see
+   * `pollDetection`): the group may still be pending again in the meantime
+   * (re-marked) or no longer pending (undone), but in either case `photos`
+   * still holds the stale applied set until the detector runs, so the key
+   * must stay recorded regardless of what happens to the pending correction.
+   */
+  private readonly droppedApplied = signal<Set<string>>(new Set());
+
+  /** Groups needing a re-run: the union of still-pending corrections and applied
+   *  ones dropped this session. A group that is both pending and dropped counts
+   *  once, and keeps counting even after its pending correction is cleared or
+   *  re-marked away, because `droppedApplied` is never trimmed by that. */
+  protected readonly rerunNeeded = computed(
+    () => new Set([...this.pendingCorrectionKeys(), ...this.droppedApplied()]).size);
+
+  /**
+   * True in a granularity whose sets are kept whole.
+   *
+   * Auto-cull picks one frame per group, which is meaningless for a bracket or a
+   * pan and is why the server accepts no such scope. Hidden rather than
+   * disabled: a control that can never apply here is noise, and leaving it
+   * enabled produced a bare 422 behind a generic failure message.
+   */
+  protected readonly keepWholeGranularity = computed(
+    () => KEEP_WHOLE_KINDS.includes(this.groupBy()),
+  );
+  /** True while a re-detection subprocess runs (spawned here or elsewhere). */
+  protected readonly detecting = signal(false);
+  protected readonly detectMessage = signal('');
+  protected readonly detectFailed = signal(false);
+  private detectPollTimer: ReturnType<typeof setInterval> | null = null;
+
+  /** Active timers for passing groups (for cleanup) */
+  private readonly passTimers = new Map<string, { timeoutId: ReturnType<typeof setTimeout>; intervalId: ReturnType<typeof setInterval>; onElapsed: () => void; commit: boolean }>();
+
+  protected readonly currentPage = signal(1);
+  protected readonly totalPages = signal(1);
+  private readonly similarSeed = Math.floor(Math.random() * 1_000_000);
+
+  protected readonly hasMore = computed(() => this.currentPage() < this.totalPages());
+
+  /** Lightbox state — group being viewed, and current photo index inside it. */
+  protected readonly lightboxGroupId = signal<string | null>(null);
+  protected readonly lightboxIndex = signal(0);
+  protected readonly lightboxGroup = computed<CullingGroup | null>(() => {
+    const key = this.lightboxGroupId();
+    if (!key) return null;
+    return this.groups().find(g => this.groupKey(g) === key) ?? null;
+  });
+
+  /** Compare mode for the darkroom: single view, or a synced 2-up / 4-up grid. */
+  protected readonly compareMode = signal<'single' | '2up' | '4up'>('single');
+  /** Pan/zoom transform shared by every compare pane (synced peek). */
+  protected readonly zoom = signal<ZoomState>(FIT_ZOOM);
+
+  private readonly coarsePointer = useCoarsePointerSignal();
+
+  /**
+   * Whether swipe-to-decide is live on the open frame.
+   *
+   * Three gates, each closing a way the gesture would fight another one:
+   * a coarse pointer, because a mouse has the ↑ / ↓ keys and cannot swipe;
+   * single view, because a compare grid has no one frame a swipe would be
+   * about; and the fit scale, because past it the very same drag is the pane's
+   * pan — `SyncedZoomComponent` ignores pointerdown at fit and captures the
+   * pointer above it, so this flag is what keeps exactly one handler reading
+   * any given drag.
+   */
+  protected readonly swipeEnabled = computed(
+    () => this.coarsePointer.isCoarsePointer()
+      && this.compareMode() === 'single'
+      && this.zoom().scale <= SyncedZoomComponent.MIN_SCALE,
+  );
+
+  /** One-line swipe hint, shown until the user says they have read it. */
+  protected readonly swipeHintDismissed = signal(localStorage.getItem(CULL_SWIPE_HINT_KEY) === 'true');
+
+  protected dismissSwipeHint(): void {
+    localStorage.setItem(CULL_SWIPE_HINT_KEY, 'true');
+    this.swipeHintDismissed.set(true);
+  }
+  /** True while the darkroom dialog is the document's fullscreen element. */
+  protected readonly isFullscreen = signal(false);
+
+  /** Named darktable styles for the edited-look preview (empty = feature hidden). */
+  protected readonly cullStyles = computed<CullStyle[]>(
+    () => (this.store.config()?.['cull_styles'] as CullStyle[] | undefined) ?? [],
+  );
+  /** Whether to expose the style selector: edition rights + at least one style. */
+  protected readonly cullStyleCapable = computed(
+    () => this.auth.isEdition() && this.cullStyles().length > 0,
+  );
+  /** Selected style for this darkroom session ('' = flat Original). Not persisted. */
+  protected readonly activeStyle = signal('');
+  /** True while a developed preview renders (spinner overlay over the flat frame). */
+  protected readonly previewLoading = signal(false);
+  /** In-flight developed-preview image, so its handlers can be detached when a newer frame supersedes it. */
+  private previewImg: HTMLImageElement | null = null;
+
+  /** Keyboard-shortcut legend in the darkroom header. Hidden by default (it was
+   *  permanent chrome noise, and the French labels reflowed to two rows at
+   *  1280-1440px); persisted like the rest of the toolbar prefs above. */
+  protected readonly legendVisible = signal(localStorage.getItem(CULL_LEGEND_KEY) === 'true');
+
+  /** Focus peaking over the darkroom frames (P). Session-only, like the compare
+   *  mode and the style preview — none of the darkroom's view toggles persist. */
+  protected readonly peakingActive = signal(false);
+  /** Hover loupe over the darkroom's single/compare panes and face strip. ON
+   *  by default (unlike the grid's own loupe toggle, which defaults off) and
+   *  persisted, unlike the rest of the darkroom's session-only view toggles —
+   *  it's a pixel-peeking aid a culler wants to keep set the way they left it. */
+  protected readonly darkroomLoupeActive = signal(localStorage.getItem(CULL_DARKROOM_LOUPE_KEY) !== 'false');
+  /** Shared zoom level for every darkroom loupe instance (single pane, compare
+   *  panes, face strip) — same signal the spec calls for, from the same
+   *  createLoupeState() the grid uses. */
+  private readonly darkroomLoupe = createLoupeState();
+  protected readonly darkroomLoupeZoom = this.darkroomLoupe.loupeZoom;
+  /** The loupe must never show while the frame is zoomed past fit: dragging
+   *  to pan a magnified image and a lens fighting for the same cursor makes
+   *  neither usable. */
+  protected readonly darkroomLoupeEffective = computed(() =>
+    this.darkroomLoupeActive() && this.zoom().scale <= SyncedZoomComponent.MIN_SCALE);
+  protected toggleDarkroomLoupe(): void {
+    const next = !this.darkroomLoupeActive();
+    this.darkroomLoupeActive.set(next);
+    localStorage.setItem(CULL_DARKROOM_LOUPE_KEY, String(next));
+  }
+  /** Composition grid: off → rule of thirds → golden ratio (G). Session-only. */
+  protected readonly gridMode = signal<GridMode>('');
+  /** Frame path → generated edge-map PNG, for the frames currently on screen. */
+  protected readonly peakingOverlays = signal<Map<string, string>>(NO_PEAKING_OVERLAYS);
+  /** Frame path → natural pixel size, so the grid lands on the letterboxed
+   *  image box rather than on the pane's own (usually wider) rectangle. */
+  protected readonly frameSizes = signal<Map<string, FrameSize>>(new Map());
+  /** Guards against a superseded pass publishing over a newer one. */
+  private readonly peakingRun = new RunGeneration();
+
+  protected readonly darkroomThumbSize = DARKROOM_THUMB_SIZE;
+
+  /** The image transform of every pane, shared with the peaking overlay so the
+   *  edge map pans and zooms with the frame instead of being recomputed. */
+  protected readonly frameTransform = computed(() => {
+    const z = this.zoom();
+    return `translate(${z.tx}px, ${z.ty}px) scale(${z.scale})`;
+  });
+
+  /** Whether the panes have swapped to their full-resolution source. A computed
+   *  boolean, so panning at a fixed scale never re-triggers the peaking pass. */
+  private readonly darkroomHiRes = computed(() => this.zoom().scale > SyncedZoomComponent.MIN_SCALE);
+
+  protected readonly gridModeLabel = computed(() => {
+    const mode = this.gridMode();
+    if (mode === 'thirds') return I18N.culling.grid.thirds;
+    return mode === 'golden' ? I18N.culling.grid.golden : I18N.culling.grid.off;
+  });
+
+  /** The frames the darkroom is showing right now: the focused one in single
+   *  view, the whole tiled set in compare mode (where peaking earns its keep). */
+  protected readonly darkroomFramePaths = computed<string[]>(() => {
+    const group = this.lightboxGroup();
+    if (!group) return [];
+    if (this.compareMode() !== 'single') return this.compareFrames().map(p => p.path);
+    const photo = group.photos[this.lightboxIndex()];
+    return photo ? [photo.path] : [];
+  });
+
+  /** The frames shown in compare mode: N photos from the current index, clamped. */
+  protected readonly compareFrames = computed(() => {
+    const group = this.lightboxGroup();
+    if (!group) return [];
+    const count = this.compareMode() === '4up' ? 4 : 2;
+    const start = Math.min(this.lightboxIndex(), Math.max(0, group.photos.length - count));
+    return group.photos.slice(start, start + count);
+  });
+
+  protected setCompareMode(mode: 'single' | '2up' | '4up'): void {
+    this.compareMode.set(mode);
+    this.zoom.set(FIT_ZOOM);
+  }
+
+  // --- Darkroom overlays (focus peaking + composition grid) ---
+
+  /** Frame path → the edge map already built for it and the source it came from. */
+  private readonly peakingCache = new Map<string, { src: string; url: string }>();
+  private readonly thumbnailUrl = new ThumbnailUrlPipe();
+  private readonly fullResUrl = new ImageUrlPipe();
+
+  protected togglePeaking(): void {
+    this.peakingActive.set(!this.peakingActive());
+  }
+
+  protected toggleLegend(): void {
+    const next = !this.legendVisible();
+    this.legendVisible.set(next);
+    localStorage.setItem(CULL_LEGEND_KEY, String(next));
+  }
+
+  /** Cycle the composition grid: off → rule of thirds → golden ratio. */
+  protected cycleGrid(): void {
+    this.gridMode.set(GRID_MODES[(GRID_MODES.indexOf(this.gridMode()) + 1) % GRID_MODES.length]);
+  }
+
+  /** The source a pane is actually displaying: the darkroom thumbnail until it
+   *  swaps to full resolution past the fit scale (SyncedZoomComponent's rule). */
+  private frameSource(path: string, hiRes: boolean): string {
+    return hiRes
+      ? this.fullResUrl.transform(path, true)
+      : this.thumbnailUrl.transform(path, DARKROOM_THUMB_SIZE);
+  }
+
+  /** Drop the overlays and everything that could still republish them: a pass
+   *  awaiting its raster work would otherwise land after the toggle went off and
+   *  paint the frames again. */
+  private clearPeaking(): void {
+    this.peakingRun.cancel();
+    this.peakingCache.clear();
+    if (this.peakingOverlays().size > 0) this.peakingOverlays.set(NO_PEAKING_OVERLAYS);
+  }
+
+  /**
+   * Rebuild the peaking overlays for the displayed frames, publishing each as it
+   * lands so a 4-up compare shows the first pane's edges without waiting on the
+   * other three. A frame already convolved from the same source is reused, and a
+   * newer pass invalidates this one rather than racing it.
+   *
+   * Panes shown together go through the pooled pass instead: side by side, the
+   * question is which frame carries more red, and that only means something when
+   * one threshold painted them both.
+   */
+  private async refreshPeaking(paths: string[], hiRes: boolean): Promise<void> {
+    const run = this.peakingRun.next();
+    if (paths.length > 1) return this.refreshPooledPeaking(paths, hiRes, run);
+    const overlays = new Map<string, string>();
+    for (const path of paths) {
+      const src = this.frameSource(path, hiRes);
+      const cached = this.peakingCache.get(path);
+      let url = cached?.src === src ? cached.url : null;
+      if (!url) {
+        url = await this.renderPeaking(src);
+        if (!this.peakingRun.isCurrent(run)) return;
+        if (url) {
+          this.peakingCache.set(path, { src, url });
+          this.trimPeakingCache();
+        }
+      }
+      if (!url) continue;
+      overlays.set(path, url);
+      this.peakingOverlays.set(new Map(overlays));
+    }
+  }
+
+  /**
+   * One pooled pass over every visible pane, published together.
+   *
+   * Cached under the whole set's sources rather than each frame's own, because a
+   * pooled overlay is only valid for the set it was pooled over: the same frame
+   * paired with a different one is a different answer.
+   */
+  private async refreshPooledPeaking(paths: string[], hiRes: boolean, run: number): Promise<void> {
+    const srcs = paths.map(path => this.frameSource(path, hiRes));
+    const poolKey = srcs.join('|');
+    const cached = paths.map(path => this.peakingCache.get(path));
+    if (cached.every(entry => entry?.src === poolKey)) {
+      this.peakingOverlays.set(new Map(paths.map((path, i) => [path, cached[i]!.url])));
+      return;
+    }
+    const urls = await this.renderPooledPeaking(srcs);
+    if (!this.peakingRun.isCurrent(run)) return;
+    const overlays = new Map<string, string>();
+    paths.forEach((path, i) => {
+      const url = urls.get(srcs[i]);
+      if (!url) return;
+      this.peakingCache.set(path, { src: poolKey, url });
+      overlays.set(path, url);
+    });
+    this.trimPeakingCache();
+    this.peakingOverlays.set(overlays);
+  }
+
+  /** Drop the oldest edge maps once the cache is over its bound (insertion
+   *  order, which for a walk through a group is also least-recently-shown). */
+  private trimPeakingCache(): void {
+    while (this.peakingCache.size > PEAKING_CACHE_MAX) {
+      const oldest = this.peakingCache.keys().next().value;
+      if (oldest === undefined) return;
+      this.peakingCache.delete(oldest);
+    }
+  }
+
+  /** Seam over the raster pipeline, so it can be stubbed where no canvas exists. */
+  private renderPeaking(src: string): Promise<string | null> {
+    return computePeakingOverlay(src).catch(() => null);
+  }
+
+  /** The same seam for the pooled pass. */
+  private renderPooledPeaking(srcs: string[]): Promise<Map<string, string>> {
+    return computePooledPeakingOverlays(srcs).catch(() => new Map<string, string>());
+  }
+
+  /** Measure a frame once, for the composition grid's viewBox. */
+  private async ensureFrameSize(path: string): Promise<void> {
+    if (this.frameSizes().has(path)) return;
+    const size = await this.measureFrame(this.frameSource(path, false));
+    if (size) this.updateMapSignal(this.frameSizes, path, size);
+  }
+
+  /** Seam over the image load, for the same reason as renderPeaking. */
+  private measureFrame(src: string): Promise<FrameSize | null> {
+    return loadFrameImage(src)
+      .then(img => ({ w: img.naturalWidth || img.width, h: img.naturalHeight || img.height }))
+      .catch(() => null);
+  }
+
+  /** True Fullscreen API on the darkroom overlay (mirrors the slideshow pattern). */
+  protected toggleFullscreen(): void {
+    if (document.fullscreenElement) {
+      void document.exitFullscreen().catch(() => {});
+    } else {
+      void this.lightboxDialog()?.nativeElement.requestFullscreen().catch(() => {});
+    }
+  }
+
+  /** The fullscreen darkroom dialog element, focused on open so the photo tiles
+   *  behind the overlay stop receiving keystrokes (otherwise Space double-fires). */
+  private readonly lightboxDialog = viewChild<ElementRef<HTMLElement>>('lightboxDialog');
+  /** The auto-cull confirm dialog, focused on open so keyboard users aren't
+   *  stranded behind the modal overlay near the destructive "Reject" button. */
+  private readonly autoCullDialog = viewChild<ElementRef<HTMLElement>>('autoCullDialog');
+  private readonly cullToolbar = viewChild<TemplateRef<unknown>>('cullToolbar');
+
+  /** The single-view zoom pane, so the Z key runs the pane's own focus-aware
+   *  zoom math (which needs the pane rect) rather than a second copy of it. */
+  private readonly zoomPane = viewChild(SyncedZoomComponent);
+
+  /** photo path -> detected faces, loaded lazily when a lightbox group opens. */
+  protected readonly faceMap = signal<Map<string, CullingFace[]>>(new Map());
+
+  /** Config-driven face-signal cutoffs from the faces response (ring colors + badges). */
+  protected readonly faceThresholds = signal<FaceThresholds | null>(null);
+
+  /** photo path -> subject close-up crop, loaded lazily for non-face groups. */
+  protected readonly subjectMap = signal<Map<string, CullingSubject>>(new Map());
+
+  /** photo path -> who/what the frame is about, loaded for every focused group.
+   *  Drives the darkroom's zoom target and the key-person badge. */
+  protected readonly keySubjectMap = signal<Map<string, KeySubject>>(new Map());
+
+  /** Face-panel live-highlight sliders (0 = off): faces below the chosen
+   *  eyes-open / smile value stay bright while the rest dim. Persisted. */
+  protected readonly faceEyesMin = signal(readStoredFaceMin(CULL_FACE_EYES_KEY));
+  protected readonly faceSmileMin = signal(readStoredFaceMin(CULL_FACE_SMILE_KEY));
+
+  protected onFaceEyesMinChange(value: number): void {
+    this.faceEyesMin.set(value);
+    localStorage.setItem(CULL_FACE_EYES_KEY, String(value));
+  }
+
+  protected onFaceSmileMinChange(value: number): void {
+    this.faceSmileMin.set(value);
+    localStorage.setItem(CULL_FACE_SMILE_KEY, String(value));
+  }
+
+  /** Face close-up display size (px), persisted browser preference. */
+  protected readonly faceSize = signal(readStoredFaceSize());
+  protected readonly faceSizeMinPx = FACE_SIZE_MIN_PX;
+  protected readonly faceSizeMaxPx = FACE_SIZE_MAX_PX;
+  protected readonly faceSizeStepPx = FACE_SIZE_STEP_PX;
+
+  protected onFaceSizeChange(value: number): void {
+    this.faceSize.set(value);
+    localStorage.setItem(CULL_FACE_SIZE_KEY, String(value));
+  }
+
+  /** A pointer drag (or a plain click) on a face-strip slider leaves the thumb
+   *  focused, so the next arrow key adjusts the slider instead of reaching the
+   *  darkroom's document-level nav/keep/reject handlers. Return focus to the
+   *  dialog so keyboard navigation resumes. Keyboard-only interaction (Tab then
+   *  arrow keys) never fires `dragEnd`, so that a11y path keeps native
+   *  slider focus untouched. */
+  protected releaseSliderFocus(): void {
+    this.lightboxDialog()?.nativeElement.focus();
+  }
+
+  /** True when at least one photo in the focused group has loaded faces. */
+  protected readonly faceGridHasFaces = computed(() => {
+    const group = this.lightboxGroup();
+    if (!group) return false;
+    const map = this.faceMap();
+    return group.photos.some(p => (map.get(p.path)?.length ?? 0) > 0);
+  });
+
+  /** True when at least one photo in the focused group has a subject close-up. */
+  protected readonly subjectGridHasSubjects = computed(() => {
+    const group = this.lightboxGroup();
+    if (!group) return false;
+    const map = this.subjectMap();
+    return group.photos.some(p => map.get(p.path)?.has_subject === true);
+  });
+
+  /** Show the subject close-up strip only for groups with subjects but no faces,
+   *  so face groups get the face strip and non-face subject groups get this one. */
+  protected readonly subjectStripVisible = computed(
+    () => !this.faceGridHasFaces() && this.subjectGridHasSubjects(),
+  );
+
+  /** Groups visible in the UI (excludes hidden groups + honors the category filter). */
+  protected readonly visibleGroups = computed(() => {
+    const hidden = this.hiddenGroups();
+    const cat = this.categoryFilter();
+    return this.groups().filter(g => !hidden.has(this.groupKey(g)) && (!cat || g.category === cat));
+  });
+
+  protected readonly unconfirmedCount = computed(() => {
+    const confirmed = this.confirmedGroups();
+    return this.visibleGroups().filter(g => !confirmed.has(this.groupKey(g))).length;
+  });
+
+  /** Index of the keyboard-selected group (page-level nav when the lightbox is closed). */
+  protected readonly selectedGroupIndex = signal(0);
+
+  /** Server-side ordering of culling groups; reloads from page 1 on change. Persisted. */
+  protected readonly sortMode = signal(readStoredSort());
+  protected readonly sortModes = ['easiest', 'redundant', 'best', 'recent', 'needs_comparisons', 'chronological'] as const;
+
+  /** Explicit sort direction; '' leaves each mode its natural one. Persisted. */
+  protected readonly sortDirection = signal<'' | 'asc' | 'desc'>(readStoredSortDirection());
+
+  /** Whether the active mode currently runs oldest/smallest-first. */
+  protected readonly sortAscending = computed(() => {
+    const explicit = this.sortDirection();
+    if (explicit) return explicit === 'asc';
+    return this.sortMode() === 'chronological';
+  });
+
+  /** Content-category to cull ('' = all). Filters the visible group list client-side. Persisted. */
+  protected readonly categoryFilter = signal(localStorage.getItem(CULL_CATEGORY_KEY) ?? '');
+
+  /** Distinct categories among loaded groups, for the header filter select. */
+  protected readonly availableCategories = computed<string[]>(() => {
+    const set = new Set<string>();
+    for (const g of this.groups()) if (g.category) set.add(g.category);
+    return [...set].sort();
+  });
+
+  /** Options for the category select: loaded categories plus the persisted filter
+   *  value, so a stale stored category (from another library/feed) stays visible
+   *  and the user can always clear it back to "All categories" — otherwise the
+   *  select would hide while visibleGroups() filtered everything out. */
+  protected readonly categoryOptions = computed<string[]>(() => {
+    const set = new Set(this.availableCategories());
+    const active = this.categoryFilter();
+    if (active) set.add(active);
+    return [...set].sort();
+  });
+
+  /** Per-category comparison counts + threshold, for the weight-tuning chip. */
+  protected readonly comparisonStats = signal<ComparisonStats | null>(null);
+
+  /** Dry-run result of POST /culling/auto shown in the confirm dialog (null = closed). */
+  protected readonly autoCullPreview = signal<AutoCullResponse | null>(null);
+  /** The dry-run body the preview on screen was computed from, set with it and
+   *  never re-derived: Apply re-sends this verbatim (dry_run flipped) so the
+   *  counts the user agreed to and the knobs that run cannot diverge. A
+   *  suggestion applying a preset mid-flight used to move strictness and the
+   *  profile between the request and its answer, and the apply then read the
+   *  moved signals. */
+  private readonly autoCullRequest = signal<AutoCullRequest | null>(null);
+  /** Bumped per dry run, so a superseded one can never publish over a newer
+   *  preview — the pair above must always describe the same run. */
+  private readonly autoCullRun = new RunGeneration();
+  /** True between a dry run's request and its answer. A suggestion landing in
+   *  that window has to re-run too: the dialog is not open yet, so waiting on
+   *  `autoCullPreview` would have opened it on counts from the knobs the
+   *  suggestion just replaced. */
+  private dryRunInFlight = false;
+  /** True while any auto-cull request is in flight (dry run or apply): it drives
+   *  the dialog's spinner and disables the knobs that would re-run it. */
+  protected readonly autoCullLoading = signal(false);
+  /** True while the *destructive* apply is in flight — the one request that
+   *  cannot be abandoned. Every dismissal path (Cancel, backdrop, Escape) is
+   *  ignored for its duration and Apply refuses to fire twice, because
+   *  dismissing mid-flight re-armed Apply over a snapshot already being applied,
+   *  and the apply's own close then bumped the dry-run generation over the run
+   *  the reopened dialog was waiting on. */
+  protected readonly autoCullApplying = signal(false);
+  /** What the dialog actually renders busy. Not `autoCullLoading` alone: a dry
+   *  run that a profile suggestion started behind the apply clears that flag
+   *  when it lands, which would drop the spinner and re-arm the knobs while the
+   *  destructive request is still open. */
+  protected readonly autoCullBusy = computed(() => this.autoCullLoading() || this.autoCullApplying());
+  /** Whether the apply also fills the Highlights album (dialog checkbox, opt-in). */
+  protected readonly autoCullHighlights = signal(false);
+  /** Whether auto-cull also proposes trimming redundant, non-clipping bracket
+   *  exposures (dialog checkbox); toggling re-runs the dry run since it
+   *  changes the preview's group/keep/reject counts. */
+  protected readonly trimBrackets = signal(false);
+  /** Translated preset name whose suggestion re-ran an already-open dialog's
+   *  preview — the counts changed under the user, so the dialog says why. */
+  protected readonly autoCullSuggestionNotice = signal<string | null>(null);
+  /** True when trimming brackets returned the very same counts: without this the
+   *  toggle looks broken, since a re-run that changes nothing is silent. */
+  protected readonly trimBracketsUnchanged = signal(false);
+
+  protected readonly darkroomShortcuts: ShortcutRow[] = [
+    { keys: ['←', '→'], labelKey: 'culling.shortcuts.navigate' },
+    { keys: ['↑'], labelKey: 'culling.shortcuts.keep' },
+    { keys: ['↓'], labelKey: 'culling.shortcuts.reject' },
+    { keys: ['Z'], labelKey: 'culling.shortcuts.zoom' },
+    { keys: ['P'], labelKey: 'culling.shortcuts.peaking' },
+    { keys: ['G'], labelKey: 'culling.shortcuts.grid' },
+    { keys: ['F'], labelKey: 'slideshow.fullscreen' },
+    { keys: ['Space'], labelKey: 'culling.shortcuts.confirm_next' },
+    { keys: ['Esc'], labelKey: 'culling.shortcuts.close' },
+  ];
+
+  protected readonly shortcutSections: { titleKey: string; rows: ShortcutRow[] }[] = [
+    {
+      titleKey: 'culling.shortcuts.page_title',
+      rows: [
+        { keys: ['↑', '↓'], labelKey: 'culling.shortcuts.select' },
+        { keys: ['Enter'], labelKey: 'culling.shortcuts.open' },
+        { keys: ['Space'], labelKey: 'culling.shortcuts.confirm_next' },
+      ],
+    },
+    { titleKey: 'culling.shortcuts.darkroom_title', rows: this.darkroomShortcuts },
+  ];
+
+  constructor() {
+    this.pageHelp.setDescription(null);
+    this.coarsePointer.setup();
+    const qp = this.route.snapshot.queryParamMap;
+    this.scopeAlbum.set(qp.get('album'));
+    this.scopeFrom.set(qp.get('from'));
+    this.scopeTo.set(qp.get('to'));
+    this.scopeScene.set(qp.get('scene'));
+    const gb = qp.get('group_by');
+    // Validated against the shared list, not a repeated literal union: the
+    // hand-written one silently dropped every granularity added after it.
+    if (gb && (GROUP_BY_VALUES as readonly string[]).includes(gb)) this.groupBy.set(gb as GroupBy);
+    void this.loadGroups();
+    void this.loadAlbums();
+    void this.loadCullProfiles();
+    void this.refreshComparisonStats();
+    void this.refreshRankerStatus();
+    // Keep the keyboard selection in bounds as groups load / get hidden, preserving
+    // the identity of the highlighted group when an earlier one drops out of the list.
+    let previousVisibleKeys: string[] = [];
+    effect(() => {
+      const groups = this.visibleGroups();
+      const count = groups.length;
+      if (count === 0) { previousVisibleKeys = []; return; }
+      const idx = this.selectedGroupIndex();
+      const currentKeys = groups.map(g => this.groupKey(g));
+      const groupsChanged = currentKeys.length !== previousVisibleKeys.length
+        || currentKeys.some((k, i) => k !== previousVisibleKeys[i]);
+      if (groupsChanged && previousVisibleKeys[idx] !== undefined) {
+        const newIdx = currentKeys.indexOf(previousVisibleKeys[idx]);
+        if (newIdx >= 0 && newIdx !== idx) {
+          previousVisibleKeys = currentKeys;
+          this.selectedGroupIndex.set(newIdx);
+          return;
+        }
+      }
+      previousVisibleKeys = currentKeys;
+      const clamped = Math.min(idx, count - 1);
+      if (clamped !== idx) this.selectedGroupIndex.set(clamped);
+    });
+    // Scroll the keyboard-selected group into view (mirrors gallery.focusCard).
+    effect(() => {
+      if (this.lightboxGroup()) return;
+      const idx = this.selectedGroupIndex();
+      queueMicrotask(() => {
+        document.querySelector(`[data-gidx="${idx}"]`)?.scrollIntoView({ block: 'nearest' });
+      });
+    });
+    // Move focus onto the darkroom dialog when it opens so the photo tiles behind
+    // it stop receiving keydowns (the tile's own Space handler would otherwise
+    // re-open its group and fight the confirm+advance).
+    effect(() => {
+      this.lightboxDialog()?.nativeElement.focus();
+    });
+    // Focus the auto-cull confirm dialog on open so keyboard users land inside
+    // the modal (not stranded on the tiles behind it) next to a destructive action.
+    effect(() => {
+      if (this.autoCullPreview()) this.autoCullDialog()?.nativeElement.focus();
+    });
+    // Project the toolbar into the global header on lg+ (the page renders it in
+    // its own bottom bar on small screens — see the #cullToolbar template).
+    effect(() => {
+      const tpl = this.cullToolbar();
+      if (tpl) this.headerSlot.set(tpl);
+    });
+    // Render the developed preview whenever the focused single-view frame or the
+    // selected style changes; the spinner shows over the flat frame until it loads.
+    effect(() => {
+      const style = this.activeStyle();
+      const group = this.lightboxGroup();
+      const idx = this.lightboxIndex();
+      const single = this.compareMode() === 'single';
+      const photo = group?.photos[idx];
+      if (!style || !photo || !single) {
+        this.previewLoading.set(false);
+        return;
+      }
+      this.preloadDevelopedPreview(photo.path, style);
+    });
+    // Rebuild the peaking edge map when the toggle, the displayed frames or the
+    // pane's source resolution change. Panning never lands here: the transform
+    // moves the existing overlay, and the hi-res flag is a computed boolean, so
+    // a pan at a fixed scale notifies nothing.
+    effect(() => {
+      const active = this.peakingActive();
+      const paths = this.darkroomFramePaths();
+      const hiRes = this.darkroomHiRes();
+      untracked(() => {
+        if (!active || paths.length === 0) {
+          this.clearPeaking();
+          return;
+        }
+        void this.refreshPeaking(paths, hiRes);
+      });
+    });
+    // Measure the frames the composition grid is about to cover, so its viewBox
+    // letterboxes onto the image exactly like the pane's object-contain does.
+    effect(() => {
+      if (!this.gridMode()) return;
+      const paths = this.darkroomFramePaths();
+      untracked(() => {
+        for (const path of paths) void this.ensureFrameSize(path);
+      });
+    });
+  }
+
+  /** Preload the developed JPEG for a frame; swap it in on load, revert on error. */
+  private preloadDevelopedPreview(path: string, style: string): void {
+    this.previewLoading.set(true);
+    if (this.previewImg) {
+      this.previewImg.onload = null;
+      this.previewImg.onerror = null;
+    }
+    const img = new Image();
+    this.previewImg = img;
+    const isStale = () =>
+      path !== this.lightboxGroup()?.photos[this.lightboxIndex()]?.path
+      || style !== this.activeStyle();
+    img.onload = () => {
+      if (isStale()) return;
+      this.previewLoading.set(false);
+    };
+    img.onerror = () => {
+      if (isStale()) return;
+      this.previewLoading.set(false);
+      this.activeStyle.set('');
+      this.snackBar.open(this.i18n.t(I18N.culling.cull_style.error), '', { duration: 2000, horizontalPosition: 'right', verticalPosition: 'bottom' });
+    };
+    img.src = cullPreviewUrl(path, style);
+  }
+
+  /** Pick a darktable style for the darkroom preview ('' = flat Original). */
+  protected selectCullStyle(style: string): void {
+    this.activeStyle.set(style);
+  }
+
+  /** Update a signal holding a Map by cloning and setting a key. */
+  private updateMapSignal<K, V>(sig: WritableSignal<Map<K, V>>, key: K, value: V): void {
+    sig.update(m => { const next = new Map(m); next.set(key, value); return next; });
+  }
+
+  /** Update a signal holding a Map by cloning and deleting a key. */
+  private deleteMapKey<K, V>(sig: WritableSignal<Map<K, V>>, key: K): void {
+    sig.update(m => { if (!m.has(key)) return m; const next = new Map(m); next.delete(key); return next; });
+  }
+
+  /** Update a signal holding a Set by cloning and adding a value. */
+  private addToSetSignal<V>(sig: WritableSignal<Set<V>>, value: V): void {
+    sig.update(s => { const next = new Set(s); next.add(value); return next; });
+  }
+
+  ngOnDestroy(): void {
+    this.pageHelp.setDescription(null);
+    this.coarsePointer.cleanup();
+    this.clearAllPassTimers();
+    this.stopDetectionPolling();
+    if (document.fullscreenElement) {
+      void document.exitFullscreen().catch(() => {});
+    }
+    const tpl = this.cullToolbar();
+    if (tpl) this.headerSlot.clear(tpl);
+  }
+
+  protected groupKey(group: CullingGroup): string {
+    return `${group.group_id}_${group.type}`;
+  }
+
+  private buildParams(page: number): Record<string, string | number | boolean> {
+    const params: Record<string, string | number | boolean> = {
+      page,
+      per_page: 20,
+      similarity_threshold: (this.similarityThreshold() / 100).toString(),
+      seed: this.similarSeed,
+      exclude_rejected: this.excludeRejected(),
+      sort: this.sortMode(),
+      direction: this.sortDirection(),
+      group_by: this.groupBy(),
+    };
+    const album = this.scopeAlbum();
+    const from = this.scopeFrom();
+    const to = this.scopeTo();
+    if (album) params['album_id'] = album;
+    if (from) params['date_from'] = from;
+    if (to) params['date_to'] = to;
+    return params;
+  }
+
+  /** Clear the scene/album scope and return to the full unreviewed feed. */
+  protected exitScope(): void {
+    this.scopeAlbum.set(null);
+    this.scopeFrom.set(null);
+    this.scopeTo.set(null);
+    this.scopeScene.set(null);
+    void this.router.navigate(['/culling']);
+    void this.loadGroups();
+  }
+
+  /** Non-smart albums for the scope cascade's first level (best-effort). */
+  private async loadAlbums(): Promise<void> {
+    try {
+      this.albums.set(await firstValueFrom(this.albumService.listNonSmart()));
+    } catch {
+      // Scope menu keeps the "Whole library" entry only.
+    }
+  }
+
+  /** Lazily load an album's scenes when its submenu opens (summary = no photos[]). */
+  protected async loadAlbumScenes(album: Album): Promise<void> {
+    if (this.expandedAlbumId() === album.id) return;
+    this.expandedAlbumId.set(album.id);
+    this.expandedScenes.set([]);
+    this.loadingScenes.set(true);
+    try {
+      const data = await firstValueFrom(this.api.get<{ scenes: SceneSummary[] }>(
+        '/scenes', { album_id: album.id, summary: true, per_page: 100 },
+      ));
+      if (this.expandedAlbumId() === album.id) this.expandedScenes.set(data.scenes);
+    } catch {
+      // Submenu still offers "Whole album".
+    } finally {
+      if (this.expandedAlbumId() === album.id) this.loadingScenes.set(false);
+    }
+  }
+
+  private applyScope(album: string | null, from: string | null, to: string | null, scene: string | null): void {
+    this.resetProfileSuggestion();
+    this.scopeAlbum.set(album);
+    this.scopeFrom.set(from);
+    this.scopeTo.set(to);
+    this.scopeScene.set(scene);
+    void this.router.navigate(['/culling'], {
+      queryParams: { album: album ?? null, from: from ?? null, to: to ?? null, scene: scene ?? null },
+    });
+    this.selectedGroupIndex.set(0);
+    this.resetForReload();
+  }
+
+  protected scopeWholeLibrary(): void {
+    this.applyScope(null, null, null, null);
+  }
+
+  protected scopeAlbumWhole(): void {
+    const id = this.expandedAlbumId();
+    if (id === null) return;
+    this.applyScope(id.toString(), null, null, null);
+  }
+
+  protected scopeAlbumScene(scene: SceneSummary): void {
+    const id = this.expandedAlbumId();
+    if (id === null) return;
+    this.applyScope(id.toString(), scene.start, scene.end, this.sceneDate.transform(scene.start));
+  }
+
+  /** Fetch personal-ranker status for the "trains My Taste" chip (best-effort). */
+  private async refreshRankerStatus(): Promise<void> {
+    try {
+      const s = await firstValueFrom(
+        this.api.get<{ trained: boolean; comparison_count: number }>('/ranker/status'),
+      );
+      this.rankerTrained.set(!!s.trained);
+      this.rankerComparisons.set(s.comparison_count ?? null);
+    } catch {
+      // The chip is a nice-to-have; ignore status failures.
+    }
+  }
+
+  private autoSelectBest(groups: CullingGroup[], base?: Map<number, Set<string>>): Map<number, Set<string>> {
+    const map = base ? new Map(base) : new Map<number, Set<string>>();
+    for (const group of groups) {
+      if (!map.has(group.group_id)) {
+        const kept = this.computeAutoKeep(group);
+        if (kept.size > 0) {
+          map.set(group.group_id, kept);
+        }
+      }
+    }
+    return map;
+  }
+
+  /**
+   * Derive the auto-keep set for a group from the current strictness (0-100).
+   * The best photo is always kept; additional photos whose burst_score falls
+   * within a strictness-derived margin of the best are also kept. At strictness
+   * 100 only the single best survives; at 0 everything within ~5 points stays.
+   *
+   * A bracket or a panorama is the exception and starts fully kept whatever the
+   * strictness: their frames were shot to be merged, not to compete, so
+   * proposing to drop the flanking exposures or half a sweep would be proposing
+   * to destroy the set. Trimming a bracket stays available deliberately,
+   * through auto-cull's `trim_brackets`, which first checks the base exposure
+   * clips nothing.
+   */
+  private computeAutoKeep(group: CullingGroup): Set<string> {
+    if (group.sequence_kind && KEEP_WHOLE_KINDS.includes(group.sequence_kind)) {
+      return new Set<string>(group.photos.map(p => p.path));
+    }
+    const best = group.best_path || group.photos[0]?.path;
+    if (!best) return new Set<string>();
+    const kept = new Set<string>([best]);
+
+    const bestScore = group.photos.find(p => p.path === best)?.burst_score
+      ?? Math.max(0, ...group.photos.map(p => p.burst_score));
+    // strictness 100 -> margin 0 (only the best); strictness 0 -> margin 5.
+    const margin = (100 - this.strictness()) / 100 * 5;
+    if (margin > 0) {
+      for (const photo of group.photos) {
+        if (bestScore - photo.burst_score <= margin) {
+          kept.add(photo.path);
+        }
+      }
+    }
+    return kept;
+  }
+
+  protected onThresholdChange(value: number): void {
+    this.similarityThreshold.set(value);
+    this.profileChosen.set(true);
+    this.clearProfileSelection();
+    this.resetForReload();
+  }
+
+  /** Moving a knob by hand drops the preset label — the mix is now custom. */
+  private clearProfileSelection(): void {
+    if (this.selectedProfile()) {
+      this.selectedProfile.set('');
+      localStorage.removeItem(CULL_PROFILE_KEY);
+    }
+  }
+
+  protected onStrictnessChange(value: number): void {
+    this.strictness.set(value);
+    this.profileChosen.set(true);
+    this.clearProfileSelection();
+    this.reselectFromStrictness();
+  }
+
+  /**
+   * Re-derive the auto-keep selection for every loaded group from the current
+   * strictness. Purely client-side over the burst_score values already
+   * returned — no backend round-trip. Confirmed groups are left untouched.
+   */
+  private reselectFromStrictness(): void {
+    const confirmed = this.confirmedGroups();
+    const map = new Map<number, Set<string>>();
+    for (const group of this.groups()) {
+      if (confirmed.has(this.groupKey(group))) {
+        const existing = this.selectionsMap().get(group.group_id);
+        if (existing) map.set(group.group_id, existing);
+        continue;
+      }
+      const kept = this.computeAutoKeep(group);
+      if (kept.size > 0) map.set(group.group_id, kept);
+    }
+    this.selectionsMap.set(map);
+  }
+
+  // --- Genre culling profiles (preset selector + moment auto-suggest) ---
+
+  /** Load the genre culling presets; re-apply the persisted one on open. */
+  private async loadCullProfiles(): Promise<void> {
+    try {
+      const data = await firstValueFrom(this.api.get<CullProfilesResponse>('/culling/profiles'));
+      this.cullProfiles.set(data.profiles ?? []);
+      const stored = this.cullProfiles().find(p => p.id === this.selectedProfile());
+      if (stored) {
+        // A restored preset is a choice the user made, just in an earlier
+        // session; a suggestion must not silently replace it.
+        this.profileChosen.set(true);
+        this.applyProfile(stored, false);
+      } else {
+        this.clearProfileSelection();
+      }
+    } catch {
+      // Preset selector stays hidden when the list can't load.
+    }
+  }
+
+  /**
+   * Apply a preset: set strictness first (so a reload auto-selects with it) and
+   * the similarity threshold, remember the choice, then re-derive the auto-keep
+   * selection in place — or reload only when the threshold changed the grouping.
+   */
+  protected applyProfile(p: CullProfile, persist = true): void {
+    this.selectedProfile.set(p.id);
+    if (persist) {
+      localStorage.setItem(CULL_PROFILE_KEY, p.id);
+      this.profileChosen.set(true);
+    }
+    if (p.strictness != null) this.strictness.set(p.strictness);
+    if (p.similarity_threshold != null && p.similarity_threshold !== this.similarityThreshold()) {
+      this.similarityThreshold.set(p.similarity_threshold);
+      this.resetForReload();
+    } else if (p.strictness != null) {
+      this.reselectFromStrictness();
+    }
+  }
+
+  /** Identity of the current scope, so a scope change refetches its suggestion. */
+  private scopeKey(): string {
+    return [this.scopeAlbum() ?? '', this.scopeFrom() ?? '', this.scopeTo() ?? ''].join('|');
+  }
+
+  /** Drop a suggestion that answered for another scope. */
+  private resetProfileSuggestion(): void {
+    this.suggestionScopeKey = null;
+    this.suggestionApplied = false;
+    this.profileSuggestion.set(null);
+  }
+
+  /**
+   * Preselect the preset the scope's content argues for, at most once per scope.
+   *
+   * Fetched alongside the dry run rather than before it, so the dialog opens at
+   * the same speed whether or not a suggestion arrives; one that lands while the
+   * dialog is open — or while its dry run is still in flight — re-runs the
+   * preview under the suggested knobs rather than leaving stale counts on
+   * screen. An explicit choice — a preset click, a knob move, or one restored
+   * from a previous session — is never overwritten.
+   *
+   * Refused outright once the destructive apply is in flight, and refused again
+   * after the fetch, since that is the whole window this can resolve in. The
+   * apply owns the knobs the same way it owns the snapshot: refusing only at the
+   * dry run's door came after applyProfile() had already moved strictness and lit
+   * the preset chip, so the user watched them jump under a request neither the
+   * counts on screen nor the apply itself were computed from. Nothing is queued
+   * for afterwards — the dialog a late suggestion would repaint is gone by then.
+   */
+  private async applySuggestedProfile(): Promise<void> {
+    if (this.profileChosen() || this.suggestionApplied || this.autoCullApplying()) return;
+    const key = this.scopeKey();
+    const suggestion = this.suggestionScopeKey === key
+      ? this.profileSuggestion()
+      : await this.fetchProfileSuggestion(key);
+    const suggested = suggestion?.profile;
+    if (!suggested || this.profileChosen() || this.autoCullApplying()) return;
+    const profile = this.cullProfiles().find(p => p.id === suggested);
+    if (!profile || profile.id === this.selectedProfile()) return;
+    this.suggestionApplied = true;
+    this.applyProfile(profile, false);
+    if (this.autoCullPreview() || this.dryRunInFlight) {
+      // Named only once the re-run published: a refused one (the apply owns the
+      // dialog) leaves the counts exactly as they were, and the notice claims
+      // they were recomputed under the preset it names.
+      if (await this.openAutoCull() === 'landed') {
+        this.autoCullSuggestionNotice.set(this.i18n.t(profile.label_key));
+      }
+    }
+  }
+
+  /** Ask the backend which preset this scope's stored content looks like. */
+  private async fetchProfileSuggestion(key: string): Promise<ProfileSuggestion | null> {
+    const params: Record<string, string | number> = {};
+    const album = this.scopeAlbum();
+    if (album) params['album_id'] = Number(album);
+    const from = this.scopeFrom();
+    if (from) params['date_from'] = from;
+    const to = this.scopeTo();
+    if (to) params['date_to'] = to;
+    try {
+      const data = await firstValueFrom(
+        this.api.get<ProfileSuggestion>('/culling/suggest_profile', params),
+      );
+      this.suggestionScopeKey = key;
+      this.profileSuggestion.set(data);
+      return data;
+    } catch {
+      // No suggestion: the dialog keeps whatever preset is already active.
+      return null;
+    }
+  }
+
+  protected onExcludeRejectedChange(value: boolean): void {
+    this.excludeRejected.set(value);
+    this.resetForReload();
+  }
+
+  protected onCategoryFilterChange(value: string): void {
+    this.categoryFilter.set(value);
+    localStorage.setItem(CULL_CATEGORY_KEY, value);
+    this.selectedGroupIndex.set(0);
+  }
+
+  protected onSortChange(value: string): void {
+    this.sortMode.set(value);
+    localStorage.setItem(CULL_SORT_KEY, value);
+    this.selectedGroupIndex.set(0);
+    this.resetForReload();
+  }
+
+  /** Flip the active sort. Writes an explicit direction rather than a "reversed"
+   *  flag, so switching mode afterwards keeps the direction the user asked for. */
+  protected toggleSortDirection(): void {
+    const next = this.sortAscending() ? 'desc' : 'asc';
+    this.sortDirection.set(next);
+    localStorage.setItem(CULL_SORT_DIR_KEY, next);
+    this.selectedGroupIndex.set(0);
+    this.resetForReload();
+  }
+
+  /** Switch the feed granularity (all | burst | similar | scene); reloads from page 1. */
+  protected onGroupByChange(value: GroupBy): void {
+    if (value === this.groupBy()) return;
+    this.groupBy.set(value);
+    localStorage.setItem(CULL_GROUP_BY_KEY, value);
+    this.selectedGroupIndex.set(0);
+    void this.router.navigate([], { queryParams: { group_by: value }, queryParamsHandling: 'merge' });
+    this.resetForReload();
+  }
+
+  private resetForReload(): void {
+    this.loadGenerationId++;
+    this.currentPage.set(1);
+    this.groups.set([]);
+    this.confirmedGroups.set(new Set());
+    this.selectionsMap.set(new Map());
+    this.clearAllPassTimers();
+    void this.loadGroups();
+  }
+
+  protected async loadGroups(): Promise<void> {
+    const gen = this.loadGenerationId;
+    this.loading.set(true);
+    try {
+      const data = await firstValueFrom(
+        this.api.get<CullingGroupsResponse>('/culling-groups', this.buildParams(1)),
+      );
+      if (gen !== this.loadGenerationId) return;
+      this.groups.set(data.groups);
+      this.totalGroups.set(data.total_groups);
+      this.totalPages.set(data.total_pages);
+      this.currentPage.set(1);
+      this.selectionsMap.set(this.autoSelectBest(data.groups));
+    } catch {
+      if (gen !== this.loadGenerationId) return;
+      this.snackBar.open(this.i18n.t(I18N.culling.error_loading), '', { duration: 2000, horizontalPosition: 'right', verticalPosition: 'bottom' });
+    } finally {
+      if (gen === this.loadGenerationId) this.loading.set(false);
+    }
+  }
+
+  protected async loadMore(): Promise<void> {
+    if (!this.hasMore()) return;
+    const gen = this.loadGenerationId;
+    this.loadingMore.set(true);
+    try {
+      const nextPage = this.currentPage() + 1;
+      const data = await firstValueFrom(
+        this.api.get<CullingGroupsResponse>('/culling-groups', this.buildParams(nextPage)),
+      );
+      if (gen !== this.loadGenerationId) return;
+      this.groups.update(existing => [...existing, ...data.groups]);
+      this.totalPages.set(data.total_pages);
+      this.currentPage.set(nextPage);
+      this.selectionsMap.set(this.autoSelectBest(data.groups, this.selectionsMap()));
+    } catch {
+      if (gen !== this.loadGenerationId) return;
+      this.snackBar.open(this.i18n.t(I18N.culling.error_loading), '', { duration: 2000, horizontalPosition: 'right', verticalPosition: 'bottom' });
+    } finally {
+      if (gen === this.loadGenerationId) this.loadingMore.set(false);
+    }
+  }
+
+  protected onScrollReached(): void {
+    if (this.hasMore() && !this.loadingMore()) {
+      this.loadMore();
+    }
+  }
+
+  protected openDetail(event: Event, path: string): void {
+    event.stopPropagation();
+    this.router.navigate(['/photo'], { queryParams: { path } });
+  }
+
+  /** Open Comparison scoped to a group's category so its weights can be tuned. */
+  protected tuneCategory(category: string): void {
+    this.compareFilters.selectedCategory.set(category);
+    void this.router.navigate(['/compare']);
+  }
+
+  // --- Lightbox handlers ---
+
+  protected openLightbox(group: CullingGroup, index: number): void {
+    this.zoom.set(FIT_ZOOM);  // never inherit a prior session's zoom/pan
+    this.activeStyle.set('');  // each darkroom session starts on the flat Original
+    this.lightboxGroupId.set(this.groupKey(group));
+    this.lightboxIndex.set(index);
+    const gi = this.visibleGroups().findIndex(g => this.groupKey(g) === this.groupKey(group));
+    if (gi >= 0) this.selectedGroupIndex.set(gi);
+    void this.loadCloseupsForGroup(group);
+  }
+
+  /** Jump the darkroom's main view to a group photo (subject-strip click). */
+  protected focusPhotoInLightbox(index: number): void {
+    const group = this.lightboxGroup();
+    if (!group) return;
+    this.lightboxIndex.set(this.clampIndex(index, group.photos.length));
+    this.zoom.set(FIT_ZOOM);
+  }
+
+  /**
+   * Keydown shield for everything inside the darkroom.
+   *
+   * The page's own cull shortcuts must not fire behind the open darkroom, so
+   * every inner region stops keys from reaching the document — which also
+   * stopped the Escape that closes it, from any control the user was focused
+   * on. Escape is therefore acted on here, on the shield itself, exactly the way
+   * the auto-cull dialog handles its own.
+   */
+  protected onDarkroomKeydown(event: KeyboardEvent): void {
+    event.stopPropagation();
+    if (event.key === 'Escape') this.closeLightbox();
+  }
+
+  protected closeLightbox(): void {
+    if (document.fullscreenElement) {
+      void document.exitFullscreen().catch(() => {});
+    }
+    // Leave the page focused on the group just reviewed in the darkroom, so its
+    // keep/reject choices (already written to the shared selectionsMap) are the
+    // ones highlighted and scrolled into view on exit.
+    const group = this.lightboxGroup();
+    if (group) {
+      const gi = this.visibleGroups().findIndex(g => this.groupKey(g) === this.groupKey(group));
+      if (gi >= 0) this.selectedGroupIndex.set(gi);
+    }
+    this.lightboxGroupId.set(null);
+  }
+
+  /**
+   * Lazily fetch detected faces for the focused group in a single batch call,
+   * enriched with per-face eyes-open/expression/confidence/is_blink so the
+   * lightbox can tile face crops with per-face badges. Results are cached in
+   * faceMap; already-loaded paths are skipped.
+   */
+  private async loadFacesForGroup(group: CullingGroup): Promise<void> {
+    const missing = group.photos.filter(p => !this.faceMap().has(p.path));
+    if (missing.length === 0) return;
+    try {
+      const data = await firstValueFrom(
+        this.api.post<{ faces_by_path: Record<string, CullingFace[]>; thresholds?: FaceThresholds }>(
+          '/culling-group/faces', { paths: missing.map(p => p.path), profile: this.selectedProfile() || undefined },
+        ),
+      );
+      if (data.thresholds) this.faceThresholds.set(data.thresholds);
+      const byPath = data.faces_by_path ?? {};
+      this.faceMap.update(m => {
+        const next = new Map(m);
+        for (const photo of missing) next.set(photo.path, byPath[photo.path] ?? []);
+        return next;
+      });
+    } catch {
+      // Best-effort: record empty results so we don't refetch on every open.
+      this.faceMap.update(m => {
+        const next = new Map(m);
+        for (const photo of missing) next.set(photo.path, []);
+        return next;
+      });
+    }
+  }
+
+  /**
+   * Load the close-up strips for a group: faces first, then — only when the
+   * group has no faces — the subject close-ups, so a wildlife/macro/product
+   * burst gets a subject strip while portrait groups keep the face strip and
+   * face-heavy groups never pay for subject crops.
+   *
+   * The key subjects are fetched for every group, face or not: unlike the
+   * crops they are not a strip but the zoom target, and a wildlife burst wants
+   * one as much as a portrait does.
+   */
+  private async loadCloseupsForGroup(group: CullingGroup): Promise<void> {
+    await this.loadFacesForGroup(group);
+    await this.loadKeySubjectsForGroup(group);
+    const hasFaces = group.photos.some(p => (this.faceMap().get(p.path)?.length ?? 0) > 0);
+    if (!hasFaces) await this.loadSubjectsForGroup(group);
+  }
+
+  /**
+   * Resolve who / what each frame of the focused group is about, in one batch
+   * call rather than a per-photo fan-out. The answer gives the darkroom its
+   * zoom target (the pane centres on `center` past the fit scale) and tells the
+   * face strip which crop to badge. Cached in keySubjectMap; already-resolved
+   * paths are skipped, and a failure records unresolved entries so a broken
+   * call is not retried on every open.
+   */
+  private async loadKeySubjectsForGroup(group: CullingGroup): Promise<void> {
+    const missing = group.photos.filter(p => !this.keySubjectMap().has(p.path));
+    if (missing.length === 0) return;
+    try {
+      const data = await firstValueFrom(
+        this.api.post<{ key_subjects_by_path: Record<string, KeySubject> }>(
+          '/photos/key_subjects', { paths: missing.map(p => p.path) },
+        ),
+      );
+      this.applyKeySubjects(missing, data.key_subjects_by_path ?? {});
+    } catch {
+      this.applyKeySubjects(missing);
+    }
+  }
+
+  /** An unresolved key subject: nothing to zoom at, nothing to badge. */
+  private emptyKeySubject(path: string): KeySubject {
+    return {
+      path, kind: 'none', coordinate_space: KEY_SUBJECT_COORDINATE_SPACE,
+      image_width: null, image_height: null, bbox: null, center: null,
+      area_ratio: null, centrality: null, score: null,
+      face_id: null, face_index: null, person_id: null, person_name: null,
+      subject_sharpness: null, subject_prominence: null,
+      subject_placement: null, bg_separation: null,
+    };
+  }
+
+  /** Merge resolved key subjects, filling unreturned paths with an empty entry. */
+  private applyKeySubjects(missing: CullingPhoto[], byPath: Record<string, KeySubject> = {}): void {
+    this.keySubjectMap.update(m => {
+      const next = new Map(m);
+      for (const photo of missing) {
+        next.set(photo.path, byPath[photo.path] ?? this.emptyKeySubject(photo.path));
+      }
+      return next;
+    });
+  }
+
+  /**
+   * Lazily fetch subject close-up crops for the focused group in one batch call.
+   * Each crop is the stored thumbnail cut to the persisted BiRefNet subject box
+   * with a group-normalized sharpness score. Cached in subjectMap; already-loaded
+   * paths are skipped. Degrades silently: photos without a subject box just don't
+   * appear in the strip.
+   */
+  private async loadSubjectsForGroup(group: CullingGroup): Promise<void> {
+    const missing = group.photos.filter(p => !this.subjectMap().has(p.path));
+    if (missing.length === 0) return;
+    try {
+      const data = await firstValueFrom(
+        this.api.post<{ subjects_by_path: Record<string, CullingSubject> }>(
+          '/culling-group/subjects', { paths: missing.map(p => p.path) },
+        ),
+      );
+      this.applySubjects(missing, data.subjects_by_path ?? {});
+    } catch {
+      this.applySubjects(missing);
+    }
+  }
+
+  /** A subject entry with no crop, so a photo without a subject box stays out of the strip. */
+  private emptySubject(path: string): CullingSubject {
+    return { path, has_subject: false, crop: null,
+      subject_sharpness: null, subject_prominence: null,
+      crop_sharpness: null, crop_sharpness_score: null };
+  }
+
+  /** Merge fetched subject crops into subjectMap, filling unreturned paths with an empty entry. */
+  private applySubjects(missing: CullingPhoto[], byPath: Record<string, CullingSubject> = {}): void {
+    this.subjectMap.update(m => {
+      const next = new Map(m);
+      for (const photo of missing) {
+        next.set(photo.path, byPath[photo.path] ?? this.emptySubject(photo.path));
+      }
+      return next;
+    });
+  }
+
+  private clampIndex(value: number, max: number): number {
+    if (max <= 0) return 0;
+    return Math.max(0, Math.min(max - 1, value));
+  }
+
+  /** Step the darkroom one frame and drop back to fit. The single advance the
+   *  arrow keys and a committed swipe both go through, so they cannot drift. */
+  private stepLightbox(group: CullingGroup, delta: number): void {
+    this.lightboxIndex.update(i => this.clampIndex(i + delta, group.photos.length));
+    this.zoom.set(FIT_ZOOM);
+  }
+
+  @HostListener('document:keydown.arrowleft', ['$event'])
+  protected onArrowLeft(event: Event): void {
+    const group = this.lightboxGroup();
+    if (!group) return;
+    event.preventDefault();
+    this.stepLightbox(group, -1);
+  }
+
+  @HostListener('document:keydown.arrowright', ['$event'])
+  protected onArrowRight(event: Event): void {
+    const group = this.lightboxGroup();
+    if (!group) return;
+    event.preventDefault();
+    this.stepLightbox(group, 1);
+  }
+
+  /** Z toggles the darkroom zoom (fit ↔ 2×) when open, else the grid hover loupe.
+   *  In single view the pane does it, so the key subject is what lands under the
+   *  loupe; the compare grid has no single frame to aim at and stays centred. */
+  @HostListener('document:keydown.z', ['$event'])
+  protected onZoomToggle(event: Event): void {
+    if (isTypingContext(event)) return;
+    if (!this.lightboxGroup()) {
+      this.loupeActive.set(!this.loupeActive());
+      return;
+    }
+    event.preventDefault();
+    const pane = this.compareMode() === 'single' ? this.zoomPane() : undefined;
+    if (pane) {
+      pane.toggleZoom();
+      return;
+    }
+    this.zoom.set(this.zoom().scale > SyncedZoomComponent.MIN_SCALE
+      ? FIT_ZOOM
+      : { scale: SyncedZoomComponent.TOGGLE_SCALE, tx: 0, ty: 0 });
+  }
+
+  /** P toggles focus peaking over the open darkroom's frames. */
+  @HostListener('document:keydown.p', ['$event'])
+  protected onPeakingKey(event: Event): void {
+    if (!this.lightboxGroup()) return;
+    if (isTypingContext(event)) return;
+    event.preventDefault();
+    this.togglePeaking();
+  }
+
+  /** G cycles the open darkroom's composition grid. */
+  @HostListener('document:keydown.g', ['$event'])
+  protected onGridKey(event: Event): void {
+    if (!this.lightboxGroup()) return;
+    if (isTypingContext(event)) return;
+    event.preventDefault();
+    this.cycleGrid();
+  }
+
+  /** F toggles true fullscreen on the open darkroom (mirrors the slideshow's F key). */
+  @HostListener('document:keydown.f', ['$event'])
+  protected onFullscreenToggle(event: Event): void {
+    if (!this.lightboxGroup()) return;
+    if (isTypingContext(event)) return;
+    event.preventDefault();
+    this.toggleFullscreen();
+  }
+
+  @HostListener('document:fullscreenchange')
+  protected onFullscreenChange(): void {
+    this.isFullscreen.set(!!document.fullscreenElement);
+  }
+
+  /** The one write behind every darkroom decision: the ↑ / ↓ keys, a swipe, and
+   *  the per-pane buttons a compare grid needs (where "the current photo" is not
+   *  a question the keyboard can answer for the pane the user is looking at). */
+  protected setPhotoKept(group: CullingGroup, path: string, keep: boolean): void {
+    const map = new Map(this.selectionsMap());
+    const kept = new Set(map.get(group.group_id) ?? []);
+    if (keep) kept.add(path); else kept.delete(path);
+    map.set(group.group_id, kept);
+    this.selectionsMap.set(map);
+  }
+
+  private setCurrentLightboxPhotoKept(group: CullingGroup, keep: boolean): void {
+    const photo = group.photos[this.lightboxIndex()];
+    if (!photo) return;
+    this.setPhotoKept(group, photo.path, keep);
+  }
+
+  /**
+   * Commit a swipe on the focused frame: exactly the state ↑ / ↓ write, then
+   * exactly the step → takes.
+   *
+   * The Undo is the part the keyboard does not need. A mis-keyed ↑ is undone by
+   * pressing ↓, but a mis-flicked thumb has already moved on to the next frame
+   * and has no opposite gesture to reach for, so the decision *and* the frame it
+   * was made on are both restored from the snackbar.
+   */
+  protected onSwipeDecision(group: CullingGroup, keep: boolean): void {
+    const photo = group.photos[this.lightboxIndex()];
+    if (!photo) return;
+    const previousKept = new Set(this.selectionsMap().get(group.group_id) ?? []);
+    const previousIndex = this.lightboxIndex();
+    this.setCurrentLightboxPhotoKept(group, keep);
+    this.stepLightbox(group, 1);
+    this.undoService.register({
+      labelKey: keep ? I18N.culling.swipe.kept : I18N.culling.swipe.rejected,
+      labelParams: { filename: photo.filename },
+      undo: () => {
+        this.updateMapSignal(this.selectionsMap, group.group_id, previousKept);
+        this.lightboxIndex.set(previousIndex);
+        this.zoom.set(FIT_ZOOM);
+        return Promise.resolve();
+      },
+    });
+  }
+
+  /** True when the event originates from a text/slider control we must not hijack. */
+  @HostListener('document:keydown.arrowup', ['$event'])
+  protected onArrowUp(event: Event): void {
+    const group = this.lightboxGroup();
+    if (group) {
+      event.preventDefault();
+      this.setCurrentLightboxPhotoKept(group, true);
+      return;
+    }
+    if (isTypingContext(event)) return;
+    event.preventDefault();
+    this.selectedGroupIndex.update(i => this.clampIndex(i - 1, this.visibleGroups().length));
+  }
+
+  @HostListener('document:keydown.arrowdown', ['$event'])
+  protected onArrowDown(event: Event): void {
+    const group = this.lightboxGroup();
+    if (group) {
+      event.preventDefault();
+      this.setCurrentLightboxPhotoKept(group, false);
+      return;
+    }
+    if (isTypingContext(event)) return;
+    event.preventDefault();
+    this.selectedGroupIndex.update(i => this.clampIndex(i + 1, this.visibleGroups().length));
+  }
+
+  @HostListener('document:keydown.enter', ['$event'])
+  protected onEnter(event: Event): void {
+    if (this.lightboxGroup()) return;
+    if (isTypingContext(event)) return;
+    const group = this.visibleGroups()[this.selectedGroupIndex()];
+    if (!group) return;
+    event.preventDefault();
+    this.openLightbox(group, 0);
+  }
+
+  /** Next visible, not-yet-confirmed group after the given one (for darkroom auto-advance). */
+  private nextUnconfirmedGroupAfter(group: CullingGroup): CullingGroup | null {
+    const groups = this.visibleGroups();
+    const confirmed = this.confirmedGroups();
+    const startIdx = groups.findIndex(g => this.groupKey(g) === this.groupKey(group));
+    for (let i = startIdx + 1; i < groups.length; i++) {
+      if (!confirmed.has(this.groupKey(groups[i]))) return groups[i];
+    }
+    return null;
+  }
+
+  @HostListener('document:keydown.space', ['$event'])
+  protected onSpace(event: Event): void {
+    const group = this.lightboxGroup();
+    if (group) {
+      // Darkroom: confirm the open group and jump into the next one.
+      event.preventDefault();
+      if (!this.confirmGroup(group)) return;
+      const next = this.nextUnconfirmedGroupAfter(group);
+      if (next) {
+        this.openLightbox(next, 0);
+        this.lightboxDialog()?.nativeElement.focus();
+      } else {
+        this.closeLightbox();
+      }
+      return;
+    }
+    // List: confirm the selected group and move the selection to the next one.
+    if (isTypingContext(event)) return;
+    const selected = this.visibleGroups()[this.selectedGroupIndex()];
+    if (!selected) return;
+    event.preventDefault();
+    if (!this.confirmGroup(selected)) return;
+    const next = this.nextUnconfirmedGroupAfter(selected);
+    if (next) {
+      const gi = this.visibleGroups().findIndex(g => this.groupKey(g) === this.groupKey(next));
+      if (gi >= 0) this.selectedGroupIndex.set(gi);
+    } else {
+      this.selectedGroupIndex.update(i => this.clampIndex(i + 1, this.visibleGroups().length));
+    }
+  }
+
+  @HostListener('document:keydown.escape', ['$event'])
+  protected onEscape(event: Event): void {
+    if (this.autoCullPreview()) {
+      event.preventDefault();
+      this.cancelAutoCull();
+      return;
+    }
+    if (this.lightboxGroup()) {
+      event.preventDefault();
+      this.closeLightbox();
+    }
+  }
+
+  // --- Auto-cull (one-button cull under a keeper budget) ---
+
+  /** Request body for POST /culling/auto, reusing the page's scope + strictness. */
+  private autoCullBody(dryRun: boolean, highlightsAlbum: string): AutoCullRequest {
+    const body: AutoCullRequest = {
+      group_by: this.groupBy(),
+      strictness: this.strictness(),
+      dry_run: dryRun,
+      highlights_album: highlightsAlbum,
+      trim_brackets: this.trimBrackets(),
+    };
+    const profile = this.selectedProfile();
+    if (profile) body.profile = profile;
+    const album = this.scopeAlbum();
+    if (album) body.album_id = Number(album);
+    const from = this.scopeFrom();
+    if (from) body.date_from = from;
+    const to = this.scopeTo();
+    if (to) body.date_to = to;
+    return body;
+  }
+
+  /** Deterministic Highlights album name for the current scope and day. */
+  private highlightsAlbumName(): string {
+    const scope = this.scopeLabel() ?? this.i18n.t(I18N.culling.scope_whole_library);
+    const day = new Date().toISOString().slice(0, 10);
+    return `${this.i18n.t(I18N.culling.auto_cull.highlights_name)} — ${scope} ${day}`;
+  }
+
+  /** True while this dry run is still the one the dialog answers to: no newer
+   *  run took over, and the destructive apply does not own the snapshot. */
+  private ownsAutoCullDialog(run: number): boolean {
+    return this.autoCullRun.isCurrent(run) && !this.autoCullApplying();
+  }
+
+  /**
+   * Put the trim-brackets checkbox back to what the snapshot Apply sends carries.
+   *
+   * Called from the failure of whichever run owns the dialog, because that run is
+   * the one the box has to agree with — not necessarily the one the user clicked.
+   * A failed run never moved the snapshot, so a box left on the value that run
+   * asked for promises a trim the apply would not perform.
+   */
+  private reconcileTrimBrackets(): void {
+    const applied = this.autoCullRequest();
+    if (applied) this.trimBrackets.set(applied.trim_brackets);
+  }
+
+  /**
+   * Dry-run the auto-cull for the current scope and open the confirm dialog.
+   *
+   * Refused outright while the apply is in flight, and its answer dropped if an
+   * apply started under it: the apply sends the snapshot below verbatim, so a dry
+   * run repainting it mid-flight would leave the dialog describing a request the
+   * user never agreed to. The suggestion's re-run is fire-and-forget, so it can
+   * arrive at any point — including over the destructive request.
+   *
+   * The outcome is for the callers that mirror the snapshot in their own state:
+   * a bail-out is not this caller's run failing, and reconciling on it reverts to
+   * a snapshot the newer run is about to replace.
+   */
+  protected async openAutoCull(): Promise<AutoCullRunOutcome> {
+    if (this.autoCullApplying()) return 'superseded';
+    // Only a fresh open clears the notices: the re-runs that raise them come back
+    // through here, and clearing unconditionally would erase them on the way in —
+    // including the re-run of a dry run whose preview has not landed yet.
+    if (!this.autoCullPreview() && !this.dryRunInFlight) this.clearAutoCullNotices();
+    const run = this.autoCullRun.next();
+    this.dryRunInFlight = true;
+    void this.applySuggestedProfile();
+    const body = this.autoCullBody(true, this.highlightsAlbumName());
+    this.autoCullLoading.set(true);
+    try {
+      const preview = await firstValueFrom(this.api.post<AutoCullResponse>('/culling/auto', body));
+      if (!this.ownsAutoCullDialog(run)) return 'superseded';
+      this.autoCullPreview.set(preview);
+      this.autoCullRequest.set(body);
+      return 'landed';
+    } catch {
+      if (!this.ownsAutoCullDialog(run)) return 'superseded';
+      this.reconcileTrimBrackets();
+      this.snackBar.open(this.i18n.t(I18N.culling.auto_cull.error), '', { duration: 2000, horizontalPosition: 'right', verticalPosition: 'bottom' });
+      return 'failed';
+    } finally {
+      if (this.autoCullRun.isCurrent(run)) {
+        this.dryRunInFlight = false;
+        this.autoCullLoading.set(false);
+      }
+    }
+  }
+
+  /** Every dismissal lands here — the Cancel button, the backdrop and Escape.
+   *  It is a no-op while the apply is in flight: the destructive request cannot
+   *  be called off, so the dialog stays up with its spinner rather than pretend
+   *  it was. */
+  protected cancelAutoCull(): void {
+    if (this.autoCullApplying()) return;
+    this.closeAutoCull();
+    this.clearAutoCullNotices();
+  }
+
+  /** Drop the dialog and the run behind it, so a dry run still in flight cannot
+   *  reopen it with counts nobody asked for. Safe from the apply's own success
+   *  path for the same reason the guard above exists: no dismissal can have
+   *  reopened the dialog mid-apply, so the bump can only cancel a dry run whose
+   *  preview this apply just made obsolete. */
+  private closeAutoCull(): void {
+    this.autoCullRun.cancel();
+    this.dryRunInFlight = false;
+    this.autoCullPreview.set(null);
+    this.autoCullRequest.set(null);
+    this.autoCullLoading.set(false);
+  }
+
+  private clearAutoCullNotices(): void {
+    this.autoCullSuggestionNotice.set(null);
+    this.trimBracketsUnchanged.set(false);
+  }
+
+  /** Trim-brackets changes the group set the dry run splits, so the preview
+   *  counts must be re-fetched through the same path openAutoCull() uses.
+   *
+   *  A scope with no redundant exposures answers with the very same counts, which
+   *  is indistinguishable from a dead toggle — so that case is stated. The
+   *  identity check on the preview object keeps a failed re-run (which leaves the
+   *  old preview in place) from being read as "nothing to trim".
+   *
+   *  Reverting the checkbox over a failed re-run is not this handler's to do: the
+   *  run that fails is not always the one this call started. A superseded re-run
+   *  reads from here exactly like its own failure, and the snapshot it would be
+   *  reconciled against is the stale one the newer run has not replaced yet — so
+   *  the box would be reverted to a value that run is about to contradict, and
+   *  the newer run failing in turn would leave nobody to put it back. The run
+   *  that owns the dialog reconciles the box, in openAutoCull(); this handler
+   *  only reads the outcome. */
+  protected async onTrimBracketsChange(value: boolean): Promise<void> {
+    if (this.autoCullApplying()) return;
+    const before = this.autoCullPreview();
+    this.trimBrackets.set(value);
+    this.trimBracketsUnchanged.set(false);
+    if (await this.openAutoCull() !== 'landed') return;
+    const after = this.autoCullPreview();
+    this.trimBracketsUnchanged.set(
+      value && !!before && !!after && after !== before
+      && after.groups_processed === before.groups_processed
+      && after.kept === before.kept
+      && after.rejected === before.rejected,
+    );
+  }
+
+  /**
+   * Apply the previewed auto-cull (dry_run=false), then refresh the feed.
+   *
+   * The body is the dry run's own, not one rebuilt from the live signals: a
+   * profile suggestion can land between the preview request and its answer, and
+   * rebuilding here would then apply knobs the counts on screen never described.
+   * Only the Highlights album is the dialog's to decide, being a checkbox the
+   * user ticks after the preview.
+   *
+   * The `autoCullApplying` gate makes the click idempotent: a second one over
+   * the same snapshot is refused rather than sent, since the two applies would
+   * reject different sets — the first has already moved the state the second
+   * would be computed from.
+   */
+  protected async confirmAutoCull(): Promise<void> {
+    const previewed = this.autoCullRequest();
+    if (!previewed || this.autoCullApplying()) return;
+    this.autoCullApplying.set(true);
+    this.autoCullLoading.set(true);
+    try {
+      const body: AutoCullRequest = {
+        ...previewed,
+        dry_run: false,
+        highlights_album: this.autoCullHighlights() ? previewed.highlights_album : '',
+      };
+      const result = await firstValueFrom(this.api.post<AutoCullResponse>('/culling/auto', body));
+      this.closeAutoCull();
+      this.clearAutoCullNotices();
+      this.snackBar.open(
+        this.i18n.t(I18N.culling.auto_cull.applied, { kept: result.kept, rejected: result.rejected }),
+        '', { duration: 3000, horizontalPosition: 'right', verticalPosition: 'bottom' },
+      );
+      this.selectedGroupIndex.set(0);
+      this.resetForReload();
+      void this.refreshComparisonStats();
+      void this.refreshRankerStatus();
+    } catch {
+      this.snackBar.open(this.i18n.t(I18N.culling.auto_cull.error), '', { duration: 2000, horizontalPosition: 'right', verticalPosition: 'bottom' });
+    } finally {
+      this.autoCullApplying.set(false);
+      this.autoCullLoading.set(false);
+    }
+  }
+
+  protected toggleSelection(path: string, group: CullingGroup): void {
+    const map = new Map(this.selectionsMap());
+    const kept = new Set(map.get(group.group_id) ?? []);
+
+    if (kept.has(path)) {
+      kept.delete(path);
+    } else {
+      kept.add(path);
+    }
+    map.set(group.group_id, kept);
+    this.selectionsMap.set(map);
+  }
+
+  /**
+   * A bracket or a pan is a no-op here: its frames were shot to be merged, not
+   * to compete (see KEEP_WHOLE_KINDS), and every other surface -- computeAutoKeep,
+   * the hidden auto-cull button -- already protects that. The persistent hint
+   * badge on these groups already explains why, so this stays silent rather
+   * than adding a second, redundant message.
+   */
+  protected selectExclusive(path: string, group: CullingGroup): void {
+    if (group.sequence_kind && KEEP_WHOLE_KINDS.includes(group.sequence_kind)) return;
+    this.updateMapSignal(this.selectionsMap, group.group_id, new Set([path]));
+  }
+
+  protected confirmGroup(group: CullingGroup): boolean {
+    const kept = this.selectionsMap().get(group.group_id);
+    if (!kept || kept.size === 0) return false;
+
+    // Grey the group and start the cancellable cooldown; the commit + close only
+    // happen when it elapses, so Cancel within the window fully reverts it.
+    const key = this.groupKey(group);
+    const keepPaths = [...kept];
+    this.addToSetSignal(this.confirmedGroups, key);
+    this.startCountdown(key, () => {
+      void firstValueFrom(this.api.post('/culling-groups/confirm', {
+        group_id: group.group_id,
+        type: group.type,
+        paths: group.photos.map(p => p.path),
+        keep_paths: keepPaths,
+      }))
+        .then(() => {
+          this.addToSetSignal(this.hiddenGroups, key);
+          void this.refreshComparisonStats();
+          void this.refreshRankerStatus();
+        })
+        .catch(() => {
+          this.unconfirmGroup(key);
+          this.snackBar.open(this.i18n.t(I18N.culling.error_confirming), '', { duration: 2000, horizontalPosition: 'right', verticalPosition: 'bottom' });
+        });
+    }, true);
+    return true;
+  }
+
+  private unconfirmGroup(key: string): void {
+    this.confirmedGroups.update(s => {
+      const next = new Set(s);
+      next.delete(key);
+      return next;
+    });
+  }
+
+  /**
+   * Record what this set really is: not a panorama (no `kind`), or the kind it
+   * should have been given.
+   *
+   * Offered as Undo rather than the 7-second cooldown the confirm uses: the
+   * correction only takes effect at the next detection run, so blocking for
+   * seven seconds would buy nothing, and the group must stay on screen —
+   * a suppressed set is still served here until that run.
+   */
+  protected async correctSequence(group: CullingGroup, kind?: SequenceKind): Promise<void> {
+    const paths = group.photos.map(p => p.path);
+    const previous = new Map(group.photos.map(p => [p.path, p.sequence_override ?? null]));
+    try {
+      await this.sequenceOverrides.setAsync(paths, kind);
+    } catch (error) {
+      const notALadder = isBracketLadderRejection(kind, error);
+      this.snackBar.open(
+        this.i18n.t(notALadder ? I18N.culling.bracket.not_a_ladder : I18N.culling.panorama.correction_failed),
+        '', { duration: 3000, horizontalPosition: 'right', verticalPosition: 'bottom' },
+      );
+      return;
+    }
+    this.patchOverrides(paths, kind ?? 'suppressed');
+    this.undoService.register({
+      labelKey: I18N.culling.panorama.corrected,
+      undo: async () => {
+        await this.restoreOverridesOnServer(previous);
+        this.restoreOverrides(previous);
+      },
+    });
+  }
+
+  /**
+   * Put the stored overrides back where `previous` says they were.
+   *
+   * Clearing alone would not undo a re-labelling, it would delete it: a set the
+   * user had already corrected once carries an override before this call, so
+   * dropping the row discards that earlier decision — and the detector would
+   * then re-apply the very misread they had fixed, while the badge still
+   * claimed a correction the server no longer held.
+   */
+  private async restoreOverridesOnServer(previous: Map<string, string | null>): Promise<void> {
+    const byValue = new Map<string | null, string[]>();
+    for (const [path, value] of previous) {
+      const bucket = byValue.get(value);
+      if (bucket) bucket.push(path); else byValue.set(value, [path]);
+    }
+    for (const [value, paths] of byValue) {
+      if (value === null) await this.sequenceOverrides.clearAsync(paths);
+      else if (value === SUPPRESSED_OVERRIDE) await this.sequenceOverrides.setAsync(paths);
+      else await this.sequenceOverrides.setAsync(paths, value as SequenceKind);
+    }
+  }
+
+  /** Hand this set back to the detector, dropping the pending correction. */
+  protected async clearCorrection(group: CullingGroup): Promise<void> {
+    const paths = group.photos.map(p => p.path);
+    // An already-applied correction left the forced set in `photos`; dropping
+    // it here only clears the override row, so the re-run banner must be told
+    // by hand -- `pendingCorrectionKeys` sees no pending row left to count.
+    const hadApplied = group.photos.some(p => p.sequence_override && !p.sequence_override_pending);
+    try {
+      await this.sequenceOverrides.clearAsync(paths);
+    } catch {
+      this.snackBar.open(this.i18n.t(I18N.culling.panorama.correction_failed), '',
+                         { duration: 3000, horizontalPosition: 'right', verticalPosition: 'bottom' });
+      return;
+    }
+    this.patchOverrides(paths, null);
+    if (hadApplied) {
+      const key = this.groupKey(group);
+      this.droppedApplied.update(keys => new Set(keys).add(key));
+    }
+  }
+
+  /** Set one override value on the named frames, wherever they sit in the feed. */
+  private patchOverrides(paths: string[], value: string | null): void {
+    this.restoreOverrides(new Map(paths.map(path => [path, value])));
+  }
+
+  /** Write back per-path override values (the undo path restores the old ones). */
+  private restoreOverrides(values: Map<string, string | null>): void {
+    // `droppedApplied` is deliberately left untouched here: `rerunNeeded` unions it
+    // with the pending-correction keys, so re-marking (or undoing the re-mark) a
+    // group whose applied override was already dropped this session must not stop
+    // it counting -- `photos` still holds the stale applied set either way.
+    this.groups.update(groups => groups.map(group => (
+      group.photos.some(p => values.has(p.path))
+        ? {
+            ...group,
+            photos: group.photos.map(p => (
+              values.has(p.path)
+                ? {
+                    ...p,
+                    sequence_override: values.get(p.path) ?? null,
+                    // Anything just written here is by definition unapplied: the
+                    // detector is a batch pass, not a live query.
+                    sequence_override_pending: values.get(p.path) ? 1 : null,
+                  }
+                : p
+            )),
+          }
+        : group
+    )));
+  }
+
+  /**
+   * Spawn the whole-library detection run the pending corrections need.
+   *
+   * Polls the shared job status rather than assuming success: the run is a
+   * background subprocess holding the library lock, and a 409 means another job
+   * already holds it.
+   */
+  protected async rerunDetection(): Promise<void> {
+    if (this.detecting()) return;
+    this.detecting.set(true);
+    this.detectFailed.set(false);
+    this.detectMessage.set('');
+    try {
+      await firstValueFrom(this.panoramaSettings.redetect());
+    } catch (error: unknown) {
+      this.detecting.set(false);
+      this.detectFailed.set(true);
+      const busy = error instanceof HttpErrorResponse && error.status === 409;
+      this.detectMessage.set(busy ? I18N.culling.panorama.rerun_busy : I18N.culling.panorama.rerun_failed);
+      return;
+    }
+    this.detectMessage.set(I18N.culling.panorama.rerun_running);
+    this.detectPollTimer = setInterval(() => void this.pollDetection(), 2000);
+  }
+
+  private async pollDetection(): Promise<void> {
+    try {
+      const status = await firstValueFrom(
+        this.api.get<{ running: boolean; kind: string | null; exit_code: number | null }>(
+          '/scan/recompute_status'));
+      if (status.running) return;
+      this.stopDetectionPolling();
+      const failed = status.exit_code !== 0 && status.exit_code !== null;
+      this.detectFailed.set(failed);
+      this.detectMessage.set(failed ? I18N.culling.panorama.rerun_failed : I18N.culling.panorama.rerun_done);
+      // A completed run has re-applied or dropped every correction the feed
+      // held, so the applied-drops this session no longer need a re-run.
+      if (!failed) this.droppedApplied.set(new Set());
+    } catch {
+      this.stopDetectionPolling();
+      this.detectFailed.set(true);
+      this.detectMessage.set(I18N.culling.panorama.rerun_failed);
+    }
+  }
+
+  private stopDetectionPolling(): void {
+    this.detecting.set(false);
+    if (this.detectPollTimer !== null) {
+      clearInterval(this.detectPollTimer);
+      this.detectPollTimer = null;
+    }
+  }
+
+  /** Fetch per-category comparison counts + threshold for the weight-tuning chip. */
+  private async refreshComparisonStats(): Promise<void> {
+    try {
+      const stats = await firstValueFrom(this.api.get<ComparisonStats>('/comparison/stats'));
+      this.comparisonStats.set(stats);
+    } catch {
+      // Best-effort: the chip simply stays hidden if stats are unavailable.
+    }
+  }
+
+  /**
+   * Shared 7s cooldown: a per-second countdown in passingGroups plus a one-shot
+   * timer that runs onElapsed (hide for skip; commit + hide for confirm). Cancel
+   * via cancelPass before it fires fully reverts the action.
+   */
+  private startCountdown(key: string, onElapsed: () => void, commit = false): void {
+    this.clearPassTimer(key);
+    this.updateMapSignal(this.passingGroups, key, this.passCountdownSeconds);
+
+    const intervalId = setInterval(() => {
+      this.passingGroups.update(m => {
+        const current = m.get(key);
+        if (current === undefined) return m;
+        const next = new Map(m);
+        next.set(key, current - 1);
+        return next;
+      });
+    }, 1000);
+
+    const timeoutId = setTimeout(() => {
+      this.clearPassTimer(key);
+      onElapsed();
+    }, this.passCountdownSeconds * 1000);
+
+    this.passTimers.set(key, { timeoutId, intervalId, onElapsed, commit });
+  }
+
+  protected skipGroup(group: CullingGroup): void {
+    const key = this.groupKey(group);
+    this.startCountdown(key, () => this.addToSetSignal(this.hiddenGroups, key));
+  }
+
+  protected cancelPass(group: CullingGroup): void {
+    const key = this.groupKey(group);
+    this.clearPassTimer(key);
+    this.unconfirmGroup(key);
+  }
+
+  private clearPassTimer(key: string): void {
+    const timers = this.passTimers.get(key);
+    if (timers) {
+      clearTimeout(timers.timeoutId);
+      clearInterval(timers.intervalId);
+      this.passTimers.delete(key);
+    }
+    this.deleteMapKey(this.passingGroups, key);
+  }
+
+  private clearAllPassTimers(): void {
+    // A confirm defers its server commit into the cooldown timer; cancelling
+    // that timer on teardown/reload without running it would silently drop the
+    // user's keep/reject decision. So flush pending confirm commits here (skip
+    // timers only hide a group, nothing to persist). Explicit cancelPass goes
+    // through clearPassTimer and is unaffected — an abort still aborts.
+    const pendingCommits: (() => void)[] = [];
+    for (const { timeoutId, intervalId, onElapsed, commit } of this.passTimers.values()) {
+      clearTimeout(timeoutId);
+      clearInterval(intervalId);
+      if (commit) pendingCommits.push(onElapsed);
+    }
+    this.passTimers.clear();
+    this.passingGroups.set(new Map());
+    this.hiddenGroups.set(new Set());
+    for (const commit of pendingCommits) commit();
+  }
+
+  protected async confirmAllRemaining(): Promise<void> {
+    this.confirming.set(true);
+    try {
+      const confirmed = this.confirmedGroups();
+      const remaining = this.visibleGroups().filter(g => !confirmed.has(this.groupKey(g)));
+      const toConfirm = remaining.filter(g => {
+        const kept = this.selectionsMap().get(g.group_id);
+        return kept && kept.size > 0;
+      });
+
+      // Process in batches of 5 to avoid overwhelming the server
+      const batchSize = 5;
+      for (let i = 0; i < toConfirm.length; i += batchSize) {
+        const batch = toConfirm.slice(i, i + batchSize);
+        await Promise.all(batch.map(g => {
+          const kept = this.selectionsMap().get(g.group_id)!;
+          return firstValueFrom(this.api.post('/culling-groups/confirm', {
+            group_id: g.group_id,
+            type: g.type,
+            paths: g.photos.map(p => p.path),
+            keep_paths: [...kept],
+          }));
+        }));
+        this.confirmedGroups.update(s => {
+          const next = new Set(s);
+          for (const g of batch) next.add(this.groupKey(g));
+          return next;
+        });
+      }
+
+      const skipped = remaining.filter(g => !toConfirm.includes(g));
+      this.confirmedGroups.update(s => {
+        const next = new Set(s);
+        for (const g of skipped) next.add(this.groupKey(g));
+        return next;
+      });
+      this.snackBar.open(this.i18n.t(I18N.culling.confirmed), '', { duration: 2000, horizontalPosition: 'right', verticalPosition: 'bottom' });
+    } catch {
+      this.snackBar.open(this.i18n.t(I18N.culling.error_auto_select), '', { duration: 2000, horizontalPosition: 'right', verticalPosition: 'bottom' });
+    } finally {
+      this.confirming.set(false);
+    }
+  }
+}

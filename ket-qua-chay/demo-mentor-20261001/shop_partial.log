@@ -1,0 +1,10 @@
+README.md
+architecture.mmd
+architecture.svg
+result.json
+tech-specs/ORDERS-API/api/API-SHOP-PARTIAL-ORDERS-API-v1.md
+tech-specs/ORDERS-DB/schema/TBL-SHOP-PARTIAL-ORDERS-DB.md
+
+model_not_run: Giới hạn MODEL_NOT_RUN
+runtime_dependent_prefix: Giới hạn RUNTIME_DEPENDENT_PREFIX
+slice_scope: Giới hạn SLICE_SCOPE

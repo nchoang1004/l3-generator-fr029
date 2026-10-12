@@ -1,0 +1,195 @@
+"""Build a row from a ranked candidate pool — the one path every run uses, with no LLM in it.
+
+The AI providers are used only to FIND titles (web search). Everything after that is code: ranking
+(``ranking.score``/``pre_rank``), spreading picks across tastes (``ranking.diversify_by_seed``), and
+the per-pick "why" line. This module is where the pool becomes the final, ordered list of Picks.
+
+Reasons are templates built from data the pool already carries (the seeding title + its genres).
+They're shown only on the owner's dashboard and run report — never written to Plex — so a plain,
+honest template is all they need to be; there is nothing an LLM could add here worth a token.
+"""
+
+from __future__ import annotations
+
+import re
+
+from shortlist.engine import ranking
+from shortlist.engine.models import Candidate, MediaType, Pick
+
+# Why a seedless pick is here, by the source that produced it. A seedless candidate has no "because
+# you watched X" to point at, but the reason must still be TRUE to its source — the old blanket
+# "Popular in your library" was wrong for all three (web picks aren't from the library at all) and
+# contradicted the provenance line shown right beneath it. The web line no longer says "AI" either:
+# with Exa the source runs with no AI provider at all, so claiming one on the row was untrue.
+_SEEDLESS_REASON = {
+    # No genre claim: a season candidate is admitted on season FIT (weighted 0.5-1.0 in
+    # `candidates.py`), which lets in titles sharing no genre with anything they watch, and a failed
+    # genre lookup left the claim empty for the whole row.
+    "season": "Right for the season",
+    # Only a placeholder: a theme pick's line names the theme, which `theme_reason` knows and this table does not.
+    "theme": "Fits the theme",
+    "llm_web": "Recommended on the web right now",
+    "tmdb_discover": "In genres you watch a lot",
+    "cold_start": "Popular on this server",
+    "history": "You've watched this before",
+}
+# Explicit precedence for a candidate whose sources include MORE THAN ONE of the above (e.g. found by
+# both llm_web and tmdb_discover) — a plain `.items()` walk would pick whichever happened to be
+# inserted first in the dict literal, silently coupling the reason shown to the user to source order.
+# `season` before the search sources: on a seasonal row, being right for the season is why a title is there.
+_SEEDLESS_SOURCE_PRECEDENCE = ("history", "season", "theme", "llm_web", "tmdb_discover", "cold_start")
+_SEEDLESS_REASON_DEFAULT = "Matched to your taste"
+
+
+def reason_for(candidate: Candidate) -> str:
+    """A one-line "why you're seeing this" built from the candidate's own data.
+
+    Prefers the genres it shares with the seeding title ("Because you watched sci-fi, action like
+    Dune"), falls back to the bare seed title, and — for a seedless pick (discover / web /
+    cold-start) — to a per-source line that matches how it was actually found.
+
+    "Watched", never "liked": a seed is a title from their history, weighted by watch count and
+    recency. Ratings only ever REMOVE a seed (`history.disliked_seed_keys`) — nothing in the engine
+    marks a title as liked, so claiming it would be a guess dressed up as a fact.
+    """
+    seed = candidate.top_seed
+    if not seed:
+        for source in _SEEDLESS_SOURCE_PRECEDENCE:
+            if source in candidate.sources:
+                return _SEEDLESS_REASON[source]
+        return _SEEDLESS_REASON_DEFAULT
+    if candidate.genres:
+        genres = ", ".join(candidate.genres[:2]).lower()
+        base = f"Because you watched {genres} like {seed.title}"
+    else:
+        base = f"Because you watched {seed.title}"
+    return base + _extra_causes(candidate)
+
+
+#: A theme pick's whole line, AI sentence included, is cut to this.
+_THEME_REASON_MAX_CHARS = 160
+_MARKDOWN = re.compile(r"[*`#>~|\\\[\]]+|\{|\}")
+
+
+def sanitise_ai_reason(text: str) -> str:
+    """An AI-written sentence made safe to show: no markdown, no ``{placeholders}``, one line.
+
+    The text is model output, so it is never trusted to be plain; a stray ``{top_seed}`` must not be mistaken
+    for a placeholder further on, and a newline must not break the row's line.
+    """
+    return " ".join(_MARKDOWN.sub("", text).split())
+
+
+def theme_reason(candidate: Candidate | None, theme_name: str, ai_reason: str | None, *, named: bool = True) -> str:
+    """Why a theme pick is here: the theme it fits and, when it has one, the AI's line before the hook.
+
+    A title the theme did not name (a tag or genre match filling the row) only shares its genres, so it never
+    claims to fit the theme by name (``named=False``).
+
+    ``{ai_reason} · {personal hook}``, cut to 160 characters. The hook is what makes it theirs, so it is
+    the AI sentence that gives way.
+    """
+    seed = candidate.top_seed if candidate else None
+    fits = f"Fits {theme_name}" if named else "Shares its genres"
+    # No watched-genre claim, as for a season: a theme title is admitted on theme fit and may share no genre
+    # with anything they watched.
+    hook = f"{fits} \u2014 like {seed.title}, which you watched" if seed else fits
+    line = sanitise_ai_reason(ai_reason) if ai_reason else ""
+    if not line:
+        return hook
+    reason = f"{line} \u00b7 {hook}"
+    if len(reason) <= _THEME_REASON_MAX_CHARS:
+        return reason
+    return reason[: _THEME_REASON_MAX_CHARS - 1].rstrip() + "\u2026"
+
+
+#: Beyond this the line stops being an explanation and becomes a list.
+_MAX_EXTRA_CAUSES = 2
+_REASON_MAX_CHARS = 180
+
+
+def _extra_causes(candidate: Candidate) -> str:
+    """The clause naming signals BEYOND the plain seed match, or "" when there is nothing to add.
+
+    Only franchise and cast: "similarity" is what the sentence already said, and repeating it as
+    "…and is similar to Dune" would pad every reason on the server for no information.
+
+    Returns "" for the overwhelmingly common single-signal case, so the existing wording is
+    byte-identical for every pick that has nothing extra to explain.
+    """
+    extras: list[str] = []
+    for attribution in candidate.attributions:
+        if attribution.signal == "franchise":
+            name = attribution.detail or "the same series"
+            extras.append(f"also part of {name}")
+        elif attribution.signal == "cast" and attribution.detail:
+            extras.append(f"shares {attribution.detail} with {attribution.seed_title}")
+        if len(extras) == _MAX_EXTRA_CAUSES:
+            break
+    if not extras:
+        return ""
+    clause = " — " + ", and ".join(extras)
+    # A row name is rendered next to this; an unbounded sentence wraps to three lines and buries the
+    # part that mattered. Drop the extras entirely rather than truncate mid-word.
+    return clause if len(clause) <= _REASON_MAX_CHARS else ""
+
+
+def build_picks(
+    candidates: list[Candidate],
+    k: int,
+    *,
+    theme_name: str | None = None,
+    theme_reasons: dict[tuple[MediaType, int], str] | None = None,
+    theme_named: frozenset[tuple[MediaType, int]] = frozenset(),
+) -> list[Pick]:
+    """The top ``k`` picks for a row: spread across the tastes that seeded them, each with a reason.
+
+    ``candidates`` is the already-ranked pool (``ranking.pre_rank`` output — best first). This is the
+    final selection step that used to be the LLM curate call: ``diversify_by_seed`` keeps one
+    heavily-watched title from swallowing the whole row, and the top-scoring pick still leads.
+
+    ``theme_name`` is an AI row's theme: a candidate the ``theme`` source found gets the theme's reason,
+    with ``theme_reasons``'s AI line for it when there is one.
+
+    ``theme_named`` is the titles the theme's AI or owner named: they fill the row first, and the rest of the
+    pool only tops up what they leave short. Each group keeps its own best-first, seed-spread order.
+    """
+    theme_reasons = theme_reasons or {}
+    chosen: list[Candidate] = []
+    if k > 0 and theme_named:
+        named = [c for c in candidates if (c.media_type, c.tmdb_id) in theme_named]
+        chosen = ranking.diversify_by_seed(named, k)
+        if len(chosen) < k:
+            rest = [c for c in candidates if (c.media_type, c.tmdb_id) not in theme_named]
+            chosen = [*chosen, *ranking.diversify_by_seed(rest, k - len(chosen))]
+    elif k > 0:
+        chosen = ranking.diversify_by_seed(candidates, k)
+    picks: list[Pick] = []
+    for c in chosen:
+        seed = c.top_seed
+        picks.append(
+            Pick(
+                tmdb_id=c.tmdb_id,
+                rating_key=c.rating_key or 0,
+                title=c.title,
+                rank=len(picks) + 1,
+                reason=(
+                    theme_reason(
+                        c,
+                        theme_name,
+                        theme_reasons.get((c.media_type, c.tmdb_id)),
+                        named=(c.media_type, c.tmdb_id) in theme_named,
+                    )
+                    if theme_name and "theme" in c.sources
+                    else reason_for(c)
+                ),
+                media_type=c.media_type,
+                seed_tmdb_id=seed.tmdb_id if seed else None,
+                seed_title=seed.title if seed else None,
+                sources=sorted(c.sources | {"theme_named"} if (c.media_type, c.tmdb_id) in theme_named else c.sources),
+                affinity=c.affinity,
+                rating=c.rating,
+                year=c.year,
+            )
+        )
+    return picks

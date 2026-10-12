@@ -1,0 +1,729 @@
+"""Tests for the one-way Immich push (sync/immich.py) — HTTP transport fully mocked."""
+
+import sqlite3
+import threading
+
+import pytest
+
+from db.schema import init_database
+from sync import immich as sync_immich
+from sync.immich import (
+    RESULT_FAILED, RESULT_PUSHED, RESULT_SKIPPED, RESULT_UNKNOWN,
+    RESULT_UNMATCHED, ImmichClient, _effective_rating, load_pending_paths,
+    map_facet_path, map_immich_path, push_photo_update, push_photo_updates,
+    record_pending_path, record_pending_paths, sync_to_immich,
+)
+
+
+class FakeTransport:
+    def __init__(self, assets_by_path=None, albums=None, bulk_assets=None):
+        self.assets_by_path = assets_by_path or {}
+        # What the bulk-listing pass returns; None => same as assets_by_path.
+        self.bulk_assets = bulk_assets
+        self.albums = albums or []
+        self.requests = []
+
+    def __call__(self, method, path, payload=None):
+        self.requests.append((method, path, payload))
+        if method == "POST" and path == "/api/search/metadata":
+            if "originalPath" in payload:
+                asset_id = self.assets_by_path.get(payload["originalPath"])
+                items = [{"id": asset_id}] if asset_id else []
+                return {"assets": {"items": items, "nextPage": None}}
+            source = self.bulk_assets if self.bulk_assets is not None else self.assets_by_path
+            items = [{"id": aid, "originalPath": p} for p, aid in source.items()]
+            return {"assets": {"items": items, "nextPage": None}}
+        if method == "PUT" and path == "/api/assets":
+            return None
+        if method == "GET" and path == "/api/albums":
+            return self.albums
+        if method == "POST" and path == "/api/albums":
+            return {"id": "album-new"}
+        if method == "PUT" and path.startswith("/api/albums/"):
+            return []
+        raise AssertionError(f"Unexpected request: {method} {path}")
+
+    def writes(self):
+        return [r for r in self.requests
+                if r[0] == "PUT" or (r[0] == "POST" and r[1] == "/api/albums")]
+
+    def asset_updates(self):
+        return [payload for method, path, payload in self.requests
+                if method == "PUT" and path == "/api/assets"]
+
+    def searched_paths(self):
+        return [payload["originalPath"] for method, path, payload in self.requests
+                if path == "/api/search/metadata" and "originalPath" in payload]
+
+    def bulk_listings(self):
+        return sum(1 for method, path, payload in self.requests
+                   if path == "/api/search/metadata" and "originalPath" not in payload)
+
+
+def make_db(tmp_path, rows, user_rows=()):
+    db_path = str(tmp_path / "immich.db")
+    init_database(db_path)
+    conn = sqlite3.connect(db_path)
+    conn.executemany(
+        "INSERT INTO photos (path, filename, star_rating, is_favorite, is_rejected) "
+        "VALUES (?, ?, ?, ?, ?)",
+        [(p, p.rsplit('/', 1)[-1], s, f, r) for p, s, f, r in rows],
+    )
+    if user_rows:
+        conn.executemany(
+            "INSERT INTO user_preferences (user_id, photo_path, star_rating, "
+            "is_favorite, is_rejected) VALUES (?, ?, ?, ?, ?)",
+            user_rows,
+        )
+    conn.commit()
+    conn.close()
+    return db_path
+
+
+def make_config(**immich_overrides):
+    immich = {
+        "url": "http://immich.local:2283",
+        "api_key": "test-key",
+        "path_map": [],
+        "push": {"ratings": True, "favorites": True, "top_picks_album": ""},
+        "timeout_seconds": 5,
+    }
+    immich.update(immich_overrides)
+    return {"immich": immich}
+
+
+@pytest.fixture()
+def transport(monkeypatch):
+    fake = FakeTransport()
+    monkeypatch.setattr(ImmichClient, "_request", fake)
+    return fake
+
+
+class TestPathMapping:
+    def test_multiple_prefixes_and_unmapped(self, tmp_path, transport):
+        db_path = make_db(tmp_path, [
+            ('/photos/a.jpg', 5, 0, 0),
+            ('/mnt/other/b.jpg', 4, 0, 0),
+            ('/elsewhere/c.jpg', 3, 0, 0),
+        ])
+        transport.assets_by_path = {
+            '/usr/src/app/upload/a.jpg': 'id-a',
+            '/data/b.jpg': 'id-b',
+        }
+        config = make_config(path_map=[
+            {"facet_prefix": "/photos/", "immich_prefix": "/usr/src/app/upload/"},
+            {"facet_prefix": "/mnt/other/", "immich_prefix": "/data/"},
+        ])
+        summary = sync_to_immich(db_path, config)
+        assert summary["matched"] == 2
+        assert summary["unmatched"] == 1
+        # One bulk pass resolves both mapped paths; no per-path fallback needed.
+        assert transport.bulk_listings() == 1
+        assert transport.searched_paths() == []
+
+    def test_empty_or_placeholder_map_is_identity(self):
+        assert map_facet_path('/x/y.jpg', []) == '/x/y.jpg'
+        assert map_facet_path('/x/y.jpg', [{"facet_prefix": "", "immich_prefix": ""}]) == '/x/y.jpg'
+
+    def test_search_miss_counts_unmatched(self, tmp_path, transport):
+        db_path = make_db(tmp_path, [('/photos/gone.jpg', 5, 0, 0)])
+        summary = sync_to_immich(db_path, make_config())
+        assert summary == {"matched": 0, "unmatched": 1, "updated": 0,
+                           "skipped_unrated": 0, "albums_created": 0,
+                           "webhook_pending": 0}
+
+
+class TestPayloadGrouping:
+    def test_groups_by_identical_rating_and_favorite(self, tmp_path, transport):
+        db_path = make_db(tmp_path, [
+            ('/p/a.jpg', 5, 1, 0),
+            ('/p/b.jpg', 5, 1, 0),
+            ('/p/c.jpg', 3, 0, 0),
+        ])
+        transport.assets_by_path = {'/p/a.jpg': 'id-a', '/p/b.jpg': 'id-b', '/p/c.jpg': 'id-c'}
+        summary = sync_to_immich(db_path, make_config())
+        updates = transport.asset_updates()
+        assert len(updates) == 2
+        by_key = {(u.get("rating"), u.get("isFavorite")): sorted(u["ids"]) for u in updates}
+        assert by_key[(5, True)] == ['id-a', 'id-b']
+        assert by_key[(3, False)] == ['id-c']
+        assert summary["updated"] == 3
+
+
+class TestRatingPolicy:
+    def test_zero_never_pushed_and_favorite_only_has_no_rating_key(self, tmp_path, transport):
+        db_path = make_db(tmp_path, [
+            ('/p/fav.jpg', 0, 1, 0),
+            ('/p/plain.jpg', 0, 0, 0),
+        ])
+        transport.assets_by_path = {'/p/fav.jpg': 'id-fav'}
+        summary = sync_to_immich(db_path, make_config())
+        updates = transport.asset_updates()
+        assert len(updates) == 1
+        assert "rating" not in updates[0]
+        assert updates[0]["isFavorite"] is True
+        assert summary["matched"] == 1
+
+    def test_rejected_photo_is_skipped_never_minus_one(self, tmp_path, transport):
+        db_path = make_db(tmp_path, [('/p/rej.jpg', 0, 0, 1)])
+        summary = sync_to_immich(db_path, make_config())
+        # Pure-rejected rows are excluded at fetch — no dead iterations, no requests.
+        assert transport.requests == []
+        assert summary["skipped_unrated"] == 0
+
+    def test_effective_rating_bounds(self):
+        assert _effective_rating(-1) is None
+        assert _effective_rating(0) is None
+        assert _effective_rating(6) is None
+        assert _effective_rating(None) is None
+        assert _effective_rating(1) == 1
+        assert _effective_rating(5) == 5
+
+
+class TestDryRun:
+    def test_dry_run_resolves_but_never_writes(self, tmp_path, transport):
+        db_path = make_db(tmp_path, [
+            ('/p/a.jpg', 5, 0, 0),
+            ('/p/b.jpg', 4, 1, 0),
+        ])
+        transport.assets_by_path = {'/p/a.jpg': 'id-a', '/p/b.jpg': 'id-b'}
+        config = make_config(push={"ratings": True, "favorites": True,
+                                   "top_picks_album": "Facet Top Picks"})
+        summary = sync_to_immich(db_path, config, dry_run=True)
+        assert transport.writes() == []
+        # dry-run still resolves via the read-only bulk pass, just never writes.
+        assert transport.bulk_listings() == 1
+        assert summary["matched"] == 2
+        assert summary["updated"] == 2
+        assert summary["albums_created"] == 0
+
+
+class TestUserPreferencesSource:
+    def test_user_overlay_replaces_global_columns(self, tmp_path, transport):
+        db_path = make_db(
+            tmp_path,
+            [('/p/a.jpg', 1, 0, 0), ('/p/b.jpg', 4, 0, 0)],
+            user_rows=[('alice', '/p/a.jpg', 5, 1, 0)],
+        )
+        transport.assets_by_path = {'/p/a.jpg': 'id-a', '/p/b.jpg': 'id-b'}
+        config = make_config()
+        config["users"] = {"alice": {"role": "regular"}}
+        summary = sync_to_immich(db_path, config, user_id="alice")
+        updates = transport.asset_updates()
+        assert len(updates) == 1
+        assert updates[0]["ids"] == ['id-a']
+        assert updates[0]["rating"] == 5
+        assert updates[0]["isFavorite"] is True
+        assert summary["matched"] == 1
+
+    def test_without_user_id_reads_global_columns(self, tmp_path, transport):
+        db_path = make_db(
+            tmp_path,
+            [('/p/a.jpg', 1, 0, 0)],
+            user_rows=[('alice', '/p/a.jpg', 5, 1, 0)],
+        )
+        transport.assets_by_path = {'/p/a.jpg': 'id-a'}
+        summary = sync_to_immich(db_path, make_config())
+        updates = transport.asset_updates()
+        assert updates[0]["rating"] == 1
+        assert summary["matched"] == 1
+
+
+class TestTopPicksAlbum:
+    def test_creates_album_above_min_rating(self, tmp_path, transport):
+        db_path = make_db(tmp_path, [('/p/a.jpg', 5, 0, 0), ('/p/b.jpg', 3, 0, 0)])
+        transport.assets_by_path = {'/p/a.jpg': 'id-a', '/p/b.jpg': 'id-b'}
+        config = make_config(push={"ratings": True, "favorites": True,
+                                   "top_picks_album": "Facet Top Picks",
+                                   "top_picks_min_rating": 4})
+        summary = sync_to_immich(db_path, config)
+        assert summary["albums_created"] == 1
+        creates = [p for m, path, p in transport.requests
+                   if m == "POST" and path == "/api/albums"]
+        assert creates == [{"albumName": "Facet Top Picks", "assetIds": ['id-a']}]
+
+    def test_reuses_existing_album(self, tmp_path, transport):
+        db_path = make_db(tmp_path, [('/p/a.jpg', 5, 0, 0)])
+        transport.assets_by_path = {'/p/a.jpg': 'id-a'}
+        transport.albums = [{"albumName": "Facet Top Picks", "id": "album-old"}]
+        config = make_config(push={"ratings": True, "favorites": True,
+                                   "top_picks_album": "Facet Top Picks"})
+        summary = sync_to_immich(db_path, config)
+        assert summary["albums_created"] == 0
+        adds = [(path, p) for m, path, p in transport.requests
+                if m == "PUT" and path.startswith("/api/albums/")]
+        assert adds == [("/api/albums/album-old/assets", {"ids": ['id-a']})]
+
+
+class TestClientValidation:
+    def test_rejects_bad_scheme_and_missing_url(self):
+        with pytest.raises(ValueError):
+            ImmichClient("ftp://immich.local", "key")
+        with pytest.raises(ValueError):
+            ImmichClient("", "key")
+
+    def test_strips_trailing_slash(self):
+        assert ImmichClient("http://immich.local:2283/", "key").base_url == "http://immich.local:2283"
+
+    def test_missing_api_key_raises(self, tmp_path):
+        db_path = make_db(tmp_path, [('/p/a.jpg', 5, 0, 0)])
+        config = make_config(api_key="")
+        with pytest.raises(ValueError):
+            sync_to_immich(db_path, config)
+
+
+class TestBulkResolution:
+    def test_bulk_pass_resolves_and_misses_fall_back(self, tmp_path, transport):
+        db_path = make_db(tmp_path, [
+            ('/p/a.jpg', 5, 0, 0),
+            ('/p/b.jpg', 4, 0, 0),
+            ('/p/c.jpg', 3, 0, 0),
+        ])
+        transport.assets_by_path = {'/p/a.jpg': 'id-a', '/p/b.jpg': 'id-b', '/p/c.jpg': 'id-c'}
+        # The bulk listing only knows a and b; c is resolvable per-path only.
+        transport.bulk_assets = {'/p/a.jpg': 'id-a', '/p/b.jpg': 'id-b'}
+        summary = sync_to_immich(db_path, make_config())
+        assert summary["matched"] == 3
+        assert summary["unmatched"] == 0
+        assert transport.bulk_listings() == 1
+        assert transport.searched_paths() == ['/p/c.jpg']
+
+
+class TestUpdateBatching:
+    def test_over_500_assets_split_into_two_puts(self, tmp_path, transport):
+        rows = [(f'/p/{i}.jpg', 5, 0, 0) for i in range(501)]
+        db_path = make_db(tmp_path, rows)
+        transport.assets_by_path = {f'/p/{i}.jpg': f'id-{i}' for i in range(501)}
+        summary = sync_to_immich(db_path, make_config())
+        updates = transport.asset_updates()
+        assert len(updates) == 2
+        assert len(updates[0]["ids"]) == 500
+        assert len(updates[1]["ids"]) == 1
+        assert summary["updated"] == 501
+
+
+class TestPushConfig:
+    def test_ratings_false_skips_rating_writes(self, tmp_path, transport):
+        db_path = make_db(tmp_path, [('/p/a.jpg', 5, 1, 0)])
+        transport.assets_by_path = {'/p/a.jpg': 'id-a'}
+        config = make_config(push={"ratings": False, "favorites": True, "top_picks_album": ""})
+        sync_to_immich(db_path, config)
+        updates = transport.asset_updates()
+        assert len(updates) == 1
+        assert "rating" not in updates[0]
+        assert updates[0]["isFavorite"] is True
+
+    def test_favorites_false_skips_favorite_writes(self, tmp_path, transport):
+        db_path = make_db(tmp_path, [('/p/a.jpg', 5, 1, 0)])
+        transport.assets_by_path = {'/p/a.jpg': 'id-a'}
+        config = make_config(push={"ratings": True, "favorites": False, "top_picks_album": ""})
+        sync_to_immich(db_path, config)
+        updates = transport.asset_updates()
+        assert len(updates) == 1
+        assert updates[0]["rating"] == 5
+        assert "isFavorite" not in updates[0]
+
+
+class TestClearingPreviouslySyncedState:
+    """A rating/favorite that gets reset to 0/false must still reach Immich.
+
+    Regression: _fetch_rating_rows only ever selected currently-active rows,
+    so a photo pushed with rating=5 and then un-rated in Facet fell out of the
+    WHERE clause entirely — Immich kept the stale rating=5 forever.
+    """
+
+    def test_reset_rating_and_favorite_are_pushed_as_a_clear(self, tmp_path, transport):
+        db_path = make_db(tmp_path, [('/p/a.jpg', 5, 1, 0)])
+        transport.assets_by_path = {'/p/a.jpg': 'id-a'}
+
+        # First sync: establishes id-a as having an active rating + favorite.
+        summary1 = sync_to_immich(db_path, make_config())
+        assert summary1["matched"] == 1
+        updates1 = transport.asset_updates()
+        assert updates1[-1]["rating"] == 5
+        assert updates1[-1]["isFavorite"] is True
+
+        # User clears the star rating and un-favorites.
+        conn = sqlite3.connect(db_path)
+        conn.execute("UPDATE photos SET star_rating = 0, is_favorite = 0 WHERE path = ?",
+                    ('/p/a.jpg',))
+        conn.commit()
+        conn.close()
+
+        summary2 = sync_to_immich(db_path, make_config())
+        updates2 = transport.asset_updates()
+        # The clear must actually reach Immich, not be silently dropped — and
+        # as null, not 0, which Immich v3 rejects (aborting the whole sync).
+        assert summary2["matched"] == 1
+        assert "rating" in updates2[-1]
+        assert updates2[-1]["rating"] is None
+        assert updates2[-1]["isFavorite"] is False
+
+        # Once the clear is confirmed pushed, the row drops out of tracking
+        # entirely (no longer active, no longer in synced state) so it falls
+        # outside the fetch WHERE clause: a third sync must not re-touch it.
+        requests_before = len(transport.requests)
+        summary3 = sync_to_immich(db_path, make_config())
+        assert summary3["matched"] == 0
+        assert summary3["skipped_unrated"] == 0
+        assert len(transport.requests) == requests_before
+
+    def test_never_synced_zero_rating_still_never_pushed(self, tmp_path, transport):
+        # A photo with no history in synced state and no active rating/favorite
+        # must keep costing zero requests, exactly as before this fix (excluded
+        # at the fetch WHERE, same as a pure-rejected row).
+        db_path = make_db(tmp_path, [('/p/untouched.jpg', 0, 0, 0)])
+        summary = sync_to_immich(db_path, make_config())
+        assert transport.requests == []
+        assert summary["skipped_unrated"] == 0
+
+    def test_dry_run_does_not_persist_synced_state(self, tmp_path, transport):
+        db_path = make_db(tmp_path, [('/p/a.jpg', 5, 0, 0)])
+        transport.assets_by_path = {'/p/a.jpg': 'id-a'}
+        # A dry run must not confirm state that was never actually written.
+        sync_to_immich(db_path, make_config(), dry_run=True)
+
+        conn = sqlite3.connect(db_path)
+        row = conn.execute(
+            "SELECT value FROM stats_cache WHERE key = 'immich_synced_paths:global'"
+        ).fetchone()
+        conn.close()
+        assert row is None
+
+
+class TestPartialProgress:
+    def test_network_error_carries_partial_summary(self, tmp_path, monkeypatch):
+        import urllib.error
+
+        db_path = make_db(tmp_path, [('/p/a.jpg', 5, 0, 0), ('/p/b.jpg', 4, 0, 0)])
+
+        def failing(_self, method, path, payload=None):
+            if method == "POST" and path == "/api/search/metadata" and "originalPath" not in payload:
+                return {"assets": {"items": [
+                    {"id": "id-a", "originalPath": "/p/a.jpg"},
+                    {"id": "id-b", "originalPath": "/p/b.jpg"},
+                ], "nextPage": None}}
+            if method == "PUT" and path == "/api/assets":
+                raise urllib.error.HTTPError(path, 500, "boom", {}, None)
+            return None
+
+        monkeypatch.setattr(ImmichClient, "_request", failing)
+        with pytest.raises(urllib.error.URLError) as excinfo:
+            sync_to_immich(db_path, make_config())
+        assert excinfo.value.partial_summary["matched"] == 2
+        assert excinfo.value.partial_summary["updated"] == 0
+
+
+def _set_rejected(db_path, path, rejected=1):
+    conn = sqlite3.connect(db_path)
+    conn.execute("UPDATE photos SET is_rejected = ? WHERE path = ?", (rejected, path))
+    conn.commit()
+    conn.close()
+
+
+def _rejecting_config(**overrides):
+    push = {"ratings": True, "favorites": True, "rejected": True, "top_picks_album": ""}
+    push.update(overrides)
+    return make_config(push=push)
+
+
+class TestPushRejected:
+    """``immich.push.rejected`` — Immich v3's rating -1 means "rejected"."""
+
+    def test_off_by_default_a_rejected_photo_pushes_its_stars(self, tmp_path, transport):
+        db_path = make_db(tmp_path, [('/p/rej.jpg', 5, 0, 1)])
+        transport.assets_by_path = {'/p/rej.jpg': 'id-rej'}
+        sync_to_immich(db_path, make_config())
+        assert transport.asset_updates()[0]["rating"] == 5
+
+    def test_rejected_photo_with_no_stars_pushes_minus_one(self, tmp_path, transport):
+        db_path = make_db(tmp_path, [('/p/rej.jpg', 0, 0, 1)])
+        transport.assets_by_path = {'/p/rej.jpg': 'id-rej'}
+        summary = sync_to_immich(db_path, _rejecting_config())
+        updates = transport.asset_updates()
+        assert len(updates) == 1
+        assert updates[0] == {"ids": ['id-rej'], "rating": -1, "isFavorite": False}
+        assert summary["matched"] == 1
+
+    def test_rejection_outranks_stars(self, tmp_path, transport):
+        db_path = make_db(tmp_path, [('/p/rej.jpg', 5, 0, 1)])
+        transport.assets_by_path = {'/p/rej.jpg': 'id-rej'}
+        sync_to_immich(db_path, _rejecting_config())
+        assert transport.asset_updates()[0]["rating"] == -1
+
+    def test_unrejecting_clears_a_previously_pushed_minus_one(self, tmp_path, transport):
+        db_path = make_db(tmp_path, [('/p/rej.jpg', 0, 0, 1)])
+        transport.assets_by_path = {'/p/rej.jpg': 'id-rej'}
+        sync_to_immich(db_path, _rejecting_config())
+        assert transport.asset_updates()[-1]["rating"] == -1
+
+        _set_rejected(db_path, '/p/rej.jpg', 0)
+        summary = sync_to_immich(db_path, _rejecting_config())
+        # The clear must reach Immich as null — 0 is rejected by Immich v3.
+        assert summary["matched"] == 1
+        assert transport.asset_updates()[-1]["rating"] is None
+
+        # Once cleared, the row drops out of tracking and costs nothing more.
+        before = len(transport.requests)
+        sync_to_immich(db_path, _rejecting_config())
+        assert len(transport.requests) == before
+
+    def test_unrejecting_a_starred_photo_restores_its_stars(self, tmp_path, transport):
+        db_path = make_db(tmp_path, [('/p/rej.jpg', 4, 0, 1)])
+        transport.assets_by_path = {'/p/rej.jpg': 'id-rej'}
+        sync_to_immich(db_path, _rejecting_config())
+        assert transport.asset_updates()[-1]["rating"] == -1
+
+        _set_rejected(db_path, '/p/rej.jpg', 0)
+        sync_to_immich(db_path, _rejecting_config())
+        assert transport.asset_updates()[-1]["rating"] == 4
+
+    def test_ratings_disabled_suppresses_the_minus_one(self, tmp_path, transport):
+        db_path = make_db(tmp_path, [('/p/rej.jpg', 0, 0, 1)])
+        transport.assets_by_path = {'/p/rej.jpg': 'id-rej'}
+        # -1 IS a rating write: push.ratings=false must not smuggle one back in.
+        sync_to_immich(db_path, _rejecting_config(ratings=False))
+        assert transport.requests == []
+
+    def test_rejected_photo_never_joins_the_top_picks_album(self, tmp_path, transport):
+        db_path = make_db(tmp_path, [('/p/rej.jpg', 5, 0, 1), ('/p/keep.jpg', 5, 0, 0)])
+        transport.assets_by_path = {'/p/rej.jpg': 'id-rej', '/p/keep.jpg': 'id-keep'}
+        config = _rejecting_config(top_picks_album="Facet Top Picks", top_picks_min_rating=4)
+        sync_to_immich(db_path, config)
+        creates = [p for m, path, p in transport.requests
+                   if m == "POST" and path == "/api/albums"]
+        assert creates == [{"albumName": "Facet Top Picks", "assetIds": ['id-keep']}]
+
+    def test_user_overlay_rejection_drives_the_minus_one(self, tmp_path, transport):
+        db_path = make_db(
+            tmp_path,
+            [('/p/a.jpg', 5, 0, 0)],
+            user_rows=[('alice', '/p/a.jpg', 0, 0, 1)],
+        )
+        transport.assets_by_path = {'/p/a.jpg': 'id-a'}
+        config = _rejecting_config()
+        config["users"] = {"alice": {"role": "regular"}}
+        sync_to_immich(db_path, config, user_id="alice")
+        assert transport.asset_updates()[0]["rating"] == -1
+
+
+class TestWebhookPendingReporting:
+    """The sync reports (and prunes) what the inbound webhook queued."""
+
+    def test_pending_paths_are_reported_and_scored_ones_pruned(self, tmp_path, transport):
+        db_path = make_db(tmp_path, [('/p/a.jpg', 5, 0, 0)])
+        transport.assets_by_path = {'/p/a.jpg': 'id-a'}
+        record_pending_path(db_path, '/p/a.jpg')
+        record_pending_path(db_path, '/p/gone.jpg')
+        conn = sqlite3.connect(db_path)
+        conn.execute("UPDATE photos SET aggregate = 8.0 WHERE path = '/p/a.jpg'")
+        conn.commit()
+        conn.close()
+
+        summary = sync_to_immich(db_path, make_config())
+        assert summary["webhook_pending"] == 1
+        assert load_pending_paths(db_path) == ['/p/gone.jpg']
+
+    def test_dedup_and_bound(self, tmp_path):
+        db_path = make_db(tmp_path, [])
+        for path in ('/p/1.jpg', '/p/1.jpg', '/p/2.jpg', '/p/3.jpg'):
+            record_pending_path(db_path, path, max_pending=2)
+        assert load_pending_paths(db_path) == ['/p/2.jpg', '/p/3.jpg']
+
+    def test_dry_run_does_not_prune(self, tmp_path, transport):
+        db_path = make_db(tmp_path, [])
+        record_pending_path(db_path, '/p/a.jpg')
+        conn = sqlite3.connect(db_path)
+        conn.execute("INSERT INTO photos (path, filename, aggregate) VALUES ('/p/a.jpg', 'a.jpg', 8.0)")
+        conn.commit()
+        conn.close()
+        summary = sync_to_immich(db_path, make_config(), dry_run=True)
+        assert summary["webhook_pending"] == 0
+        assert load_pending_paths(db_path) == ['/p/a.jpg']
+
+
+class TestBatchedPush:
+    """``push_photo_updates`` — the webhook's whole delivery in one DB pass."""
+
+    def test_one_result_per_entry_in_order(self, tmp_path, transport):
+        db_path = make_db(tmp_path, [('/p/push.jpg', 5, 0, 0),
+                                     ('/p/quiet.jpg', 0, 0, 0),
+                                     ('/p/gone.jpg', 4, 0, 0)])
+        conn = sqlite3.connect(db_path)
+        conn.execute("UPDATE photos SET aggregate = 8.0 WHERE path LIKE '/p/%'")
+        conn.commit()
+        conn.close()
+        transport.assets_by_path = {'/p/push.jpg': 'id-push'}
+        results = push_photo_updates(db_path, make_config(), [
+            ('/p/push.jpg', 'id-push'),
+            ('/p/quiet.jpg', None),      # nothing worth sending
+            ('/p/gone.jpg', None),       # no Immich asset resolvable
+            ('/p/unscanned.jpg', None),  # not in the library at all
+        ])
+        assert [r for r, _ in results] == [
+            RESULT_PUSHED, RESULT_SKIPPED, RESULT_UNMATCHED, RESULT_UNKNOWN]
+        assert all(err is None for _, err in results)
+
+    def test_unscored_row_is_unknown_not_pushed(self, tmp_path, transport):
+        # aggregate IS NULL: scanned but never scored is indistinguishable from
+        # never scanned — both belong on the pending list, neither is pushable.
+        db_path = make_db(tmp_path, [('/p/a.jpg', 5, 0, 0)])
+        transport.assets_by_path = {'/p/a.jpg': 'id-a'}
+        results = push_photo_updates(db_path, make_config(), [('/p/a.jpg', 'id-a')])
+        assert results == [(RESULT_UNKNOWN, None)]
+        assert transport.requests == []
+
+    def test_a_failing_asset_is_isolated_from_the_rest(self, tmp_path, monkeypatch):
+        import urllib.error
+
+        db_path = make_db(tmp_path, [('/p/boom.jpg', 5, 0, 0), ('/p/ok.jpg', 4, 0, 0)])
+        conn = sqlite3.connect(db_path)
+        conn.execute("UPDATE photos SET aggregate = 8.0 WHERE path LIKE '/p/%'")
+        conn.commit()
+        conn.close()
+
+        def flaky(_self, method, path, payload=None):
+            if method == "PUT" and payload["ids"] == ['id-boom']:
+                raise urllib.error.URLError("connection refused")
+            return None
+
+        monkeypatch.setattr(ImmichClient, "_request", flaky)
+        results = push_photo_updates(db_path, make_config(),
+                                     [('/p/boom.jpg', 'id-boom'), ('/p/ok.jpg', 'id-ok')])
+        assert results[0][0] == RESULT_FAILED
+        assert isinstance(results[0][1], urllib.error.URLError)
+        assert results[1] == (RESULT_PUSHED, None)
+        # Only the asset that actually reached Immich is tracked as pushed, so
+        # the failed one retries (and can still push its clear) next time.
+        conn = sqlite3.connect(db_path)
+        state = conn.execute(
+            "SELECT value FROM stats_cache WHERE key = 'immich_synced_paths:global'"
+        ).fetchone()[0]
+        conn.close()
+        assert '/p/ok.jpg' in state
+        assert '/p/boom.jpg' not in state
+
+    def test_no_entries_touches_nothing(self, tmp_path, transport):
+        db_path = make_db(tmp_path, [])
+        assert push_photo_updates(db_path, make_config(), []) == []
+        assert transport.requests == []
+
+
+class TestSingleAssetPush:
+    """``push_photo_update`` — one entry through the batch, exceptions re-raised."""
+
+    def test_returns_the_single_result(self, tmp_path, transport):
+        db_path = make_db(tmp_path, [('/p/a.jpg', 5, 0, 0)])
+        conn = sqlite3.connect(db_path)
+        conn.execute("UPDATE photos SET aggregate = 8.0 WHERE path = '/p/a.jpg'")
+        conn.commit()
+        conn.close()
+        transport.assets_by_path = {'/p/a.jpg': 'id-a'}
+        assert push_photo_update(db_path, make_config(), '/p/a.jpg') == RESULT_PUSHED
+        assert transport.asset_updates() == [{"ids": ['id-a'], "rating": 5, "isFavorite": False}]
+
+    def test_a_failure_is_raised_not_returned(self, tmp_path):
+        # The batch isolates failures into a result pair; the one-shot caller
+        # gets the exception back, which is the contract it already had.
+        db_path = make_db(tmp_path, [('/p/a.jpg', 5, 0, 0)])
+        with pytest.raises(ValueError):
+            push_photo_update(db_path, make_config(api_key=""), '/p/a.jpg')
+
+
+class TestConcurrentStateWrites:
+    """Two deliveries mutating a side-table blob at once must lose nothing.
+
+    Regression: load-mutate-save on the whole JSON document with no lock and no
+    transaction. Two webhook deliveries in the FastAPI threadpool both read the
+    same blob and the second save overwrote the first's entry.
+
+    The barrier forces exactly that interleaving. Serialized, the second thread
+    cannot enter while the first holds the lock, so it never joins the barrier;
+    the first times out (harmlessly, that is the whole point of the timeout),
+    commits, and the second then reads the committed blob. Unserialized, both
+    threads meet at the barrier with the same stale copy and one entry is lost.
+    """
+
+    def _barrier_on_load(self, monkeypatch, attr):
+        barrier = threading.Barrier(2)
+        original = getattr(sync_immich, attr)
+
+        def load_at_the_barrier(*args, **kwargs):
+            try:
+                barrier.wait(timeout=0.3)
+            except threading.BrokenBarrierError:
+                pass  # already broken (or timed out): proceed, serialized
+            return original(*args, **kwargs)
+
+        monkeypatch.setattr(sync_immich, attr, load_at_the_barrier)
+
+    @staticmethod
+    def _run_both(target, args_a, args_b):
+        threads = [threading.Thread(target=target, args=args_a),
+                   threading.Thread(target=target, args=args_b)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=10)
+        assert not any(thread.is_alive() for thread in threads)
+
+    def test_concurrent_pending_records_keep_both_paths(self, tmp_path, monkeypatch):
+        db_path = make_db(tmp_path, [])
+        self._barrier_on_load(monkeypatch, "_load_pending")
+        self._run_both(record_pending_paths,
+                       (db_path, ['/p/first.jpg']), (db_path, ['/p/second.jpg']))
+        assert sorted(load_pending_paths(db_path)) == ['/p/first.jpg', '/p/second.jpg']
+
+    def test_concurrent_pushes_keep_both_synced_entries(self, tmp_path, transport,
+                                                        monkeypatch):
+        db_path = make_db(tmp_path, [('/p/a.jpg', 5, 0, 0), ('/p/b.jpg', 4, 0, 0)])
+        conn = sqlite3.connect(db_path)
+        conn.execute("UPDATE photos SET aggregate = 8.0 WHERE path LIKE '/p/%'")
+        conn.commit()
+        conn.close()
+        transport.assets_by_path = {'/p/a.jpg': 'id-a', '/p/b.jpg': 'id-b'}
+        self._barrier_on_load(monkeypatch, "_load_synced_state")
+        self._run_both(
+            lambda db, entry: push_photo_updates(db, make_config(), [entry]),
+            (db_path, ('/p/a.jpg', 'id-a')), (db_path, ('/p/b.jpg', 'id-b')))
+        conn = sqlite3.connect(db_path)
+        state = conn.execute(
+            "SELECT value FROM stats_cache WHERE key = 'immich_synced_paths:global'"
+        ).fetchone()[0]
+        conn.close()
+        assert '/p/a.jpg' in state
+        assert '/p/b.jpg' in state
+
+
+class TestReversePathMapping:
+    def test_round_trips_through_the_configured_pairs(self):
+        pairs = [{"facet_prefix": "/photos/", "immich_prefix": "/usr/src/app/upload/"},
+                 {"facet_prefix": "/mnt/other/", "immich_prefix": "/data/"}]
+        assert map_immich_path('/usr/src/app/upload/a.jpg', pairs) == '/photos/a.jpg'
+        assert map_immich_path('/data/b.jpg', pairs) == '/mnt/other/b.jpg'
+        assert map_facet_path(map_immich_path('/data/b.jpg', pairs), pairs) == '/data/b.jpg'
+
+    def test_empty_or_placeholder_map_is_identity(self):
+        assert map_immich_path('/x/y.jpg', []) == '/x/y.jpg'
+        assert map_immich_path('/x/y.jpg', [{"facet_prefix": "", "immich_prefix": ""}]) == '/x/y.jpg'
+
+    def test_unmapped_prefix_returns_none(self):
+        pairs = [{"facet_prefix": "/photos/", "immich_prefix": "/usr/src/app/upload/"}]
+        assert map_immich_path('/somewhere/else.jpg', pairs) is None
+
+    def test_a_pair_without_an_immich_prefix_never_shadows_a_later_one(self):
+        # Regression: inbound mapping filtered on facet_prefix but matched on
+        # ``pair.get("immich_prefix", "")`` — and ''.startswith is true of every
+        # path, so the first such pair swallowed the whole map and every asset
+        # came back rewritten under /nas/.
+        pairs = [{"facet_prefix": "/nas/", "immich_prefix": ""},
+                 {"facet_prefix": "/photos/", "immich_prefix": "/usr/src/app/upload/"}]
+        assert map_immich_path('/usr/src/app/upload/a.jpg', pairs) == '/photos/a.jpg'
+
+    def test_only_uninvertible_pairs_passes_through(self):
+        # A pair with no immich_prefix maps OUTBOUND onto a bare relative path;
+        # nothing can invert that. With no invertible pair left the path passes
+        # through unchanged, matching map_facet_path's own "no configured pairs
+        # ⇒ identity" rule — it is None that means "pairs exist, none matched".
+        pairs = [{"facet_prefix": "/nas/", "immich_prefix": ""}]
+        assert map_immich_path('/usr/src/app/upload/a.jpg', pairs) == '/usr/src/app/upload/a.jpg'

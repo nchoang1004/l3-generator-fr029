@@ -1,0 +1,717 @@
+"""WorkspaceSession factory.
+
+Extracted from ``POST /v1/workspaces/{wid}/sessions``
+(:mod:`primer.api.routers.sessions`) so the REST endpoint and the
+trigger dispatcher (Phase 4+) share a single canonical session-create
+code path. Spec §12.5 (Plan §3.2).
+
+Scope
+-----
+
+The factory owns the *persistence* + *auto-start* + *claim/scheduler
+registration* steps. It deliberately does NOT do:
+
+* binding validation (agent / graph existence, ``graph_input`` schema
+  check) — the REST router has structured 404/422 mapping it must keep.
+* on-disk session slot allocation via
+  :meth:`Workspace.start_session` — only the router needs that today
+  because the trigger dispatcher targets an existing parent session
+  (subscriber kind ``existing_session``) or creates a fresh chat row
+  rather than a workspace session. When subscription kinds for
+  fresh-workspace-sessions land we add slot allocation behind the
+  optional ``workspace_registry`` dep.
+
+Callers that need the full router behaviour pre-validate the binding,
+then invoke :func:`create_session` with the validated inputs. The
+helper handles the rest atomically.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import uuid
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from typing import Any
+
+import primer.observability.metrics as _metrics
+from primer.int.claim import ClaimKind
+from primer.model.agent import Agent
+from primer.model.except_ import (
+    ConfigError,
+    ConflictError,
+    NotFoundError,
+    ValidationError,
+)
+from primer.model.graph import Graph
+from primer.model.principal import PrincipalRef
+from primer.model.workspace import Workspace as WorkspaceRow
+from primer.session.mutation_lock import session_lifecycle_lock
+from primer.model.workspace_session import (
+    AgentBinding as OnDiskAgentBinding,
+)
+from primer.model.workspace_session import (
+    AgentSessionBinding,
+    GraphSessionBinding,
+    SessionBinding,
+    SessionStatus,
+    WorkspaceSession,
+)
+
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class SessionFactoryDeps:
+    """Bundle of collaborators :func:`create_session` needs.
+
+    ``storage_provider``, ``claim_engine`` and ``scheduler`` are
+    load-bearing and intentionally have NO ``None`` default: an
+    ``auto_start=True`` create needs a real ``ClaimEngine`` to register
+    the lease (without it the row flips RUNNING but is never claimed and
+    hangs forever -- :func:`create_session` raises ``ConfigError`` to
+    surface that loudly). Type them ``Any`` (not ``Any | None``) so a
+    ``None`` is a construction-time signal rather than a silent runtime
+    skip.
+
+    ``workspace_registry`` is legitimately optional: when present (today:
+    REST router) the factory allocates the on-disk session slot via the
+    backend; when ``None`` (today: trigger dispatcher's existing-session
+    target case) the factory just writes the scheduler-visible row.
+    """
+
+    storage_provider: Any
+    claim_engine: Any
+    scheduler: Any
+    workspace_registry: Any | None = None
+
+
+async def start_workspace_session(
+    *,
+    workspace_id: str,
+    binding: SessionBinding,
+    initial_instructions: str | None,
+    graph_input: Any | None,
+    auto_start: bool,
+    metadata: dict | None,
+    parent_session_id: str | None,
+    autonomous: bool | None = None,
+    deps: SessionFactoryDeps,
+    name: str | None = None,
+    initiated_by: PrincipalRef | None = None,
+    external_tools: "list | None" = None,
+) -> WorkspaceSession:
+    """Full create flow shared by the REST route and the workspaces tool:
+    validate workspace + binding (+ graph_input vs Begin.input_schema),
+    allocate the on-disk slot via deps.workspace_registry, then persist
+    via create_session. Raises NotFoundError (workspace) / ValidationError
+    (agent, graph, graph_input).
+
+    Extracted verbatim from ``POST /v1/workspaces/{wid}/sessions``
+    (:mod:`primer.api.routers.sessions`) so the REST endpoint and the
+    ``create_workspace_session`` MCP tool share one canonical path.
+    """
+    workspaces = deps.storage_provider.get_storage(WorkspaceRow)
+    agents = deps.storage_provider.get_storage(Agent)
+    graphs = deps.storage_provider.get_storage(Graph)
+
+    workspace = await workspaces.get(workspace_id)
+    if workspace is None:
+        raise NotFoundError(f"Workspace {workspace_id!r} does not exist")
+
+    resolved_agent = None
+    resolved_graph = None
+    if isinstance(binding, AgentSessionBinding):
+        resolved_agent = await agents.get(binding.agent_id)
+        if resolved_agent is None:
+            raise ValidationError(
+                f"Agent {binding.agent_id!r} does not exist"
+            )
+    elif isinstance(binding, GraphSessionBinding):
+        resolved_graph = await graphs.get(binding.graph_id)
+        if resolved_graph is None:
+            raise ValidationError(
+                f"Graph {binding.graph_id!r} does not exist"
+            )
+        # Enforce runnability at session-start (the canonical create path
+        # for REST + create_workspace_session MCP). Graph *creation* now
+        # permits empty / partial drafts; a graph must actually be runnable
+        # — exactly one Begin, >=1 End, End reachable, bounded loops —
+        # before a session may bind to it. Surface as 422, not a mid-run
+        # crash.
+        try:
+            resolved_graph.assert_runnable()
+        except ValueError as exc:
+            raise ValidationError(str(exc)) from exc
+        # Pre-validate graph_input against the graph's Begin.input_schema
+        # before persisting the session row. The workspace executor reads
+        # ``session.metadata['graph_input']`` as the initial input, so any
+        # shape mismatch must surface as a 422 at create time rather than
+        # blowing up the first turn. When no Begin or no schema is
+        # present we accept whatever was sent (back-compat).
+        import jsonschema as _jsonschema  # local import keeps top clean
+        from primer.model.graph import _BeginNode
+
+        begin = next(
+            (n for n in resolved_graph.nodes if isinstance(n, _BeginNode)),
+            None,
+        )
+        if begin is not None and begin.input_schema is not None:
+            resolved_input: Any | None = graph_input
+            if resolved_input is None and initial_instructions:
+                # Legacy fallback: parse initial_instructions as JSON so
+                # callers that still drive graphs through that field
+                # continue to work.
+                try:
+                    resolved_input = json.loads(initial_instructions)
+                except json.JSONDecodeError as exc:
+                    raise ValidationError(
+                        "initial_instructions for graph with "
+                        "input_schema must be valid JSON (or pass "
+                        "graph_input directly)"
+                    ) from exc
+            if resolved_input is None:
+                raise ValidationError(
+                    f"graph {binding.graph_id!r} requires graph_input"
+                )
+            try:
+                _jsonschema.validate(
+                    instance=resolved_input,
+                    schema=begin.input_schema,
+                )
+            except _jsonschema.ValidationError as exc:
+                raise ValidationError(
+                    f"graph_input invalid at path "
+                    f"{list(exc.absolute_path)!r}: {exc.message}"
+                ) from exc
+            # Normalise so the persistence block below writes the
+            # validated value (covers the legacy
+            # initial_instructions-as-JSON fallback path).
+            graph_input = resolved_input
+
+    # Pre-generate the sid so we can allocate the on-disk slot BEFORE
+    # the factory's auto_start path makes the row claimable. Spec §12.5
+    # (Plan §3.2): persist + auto-start + claim registration live in
+    # create_session so the trigger dispatcher, this helper and the
+    # REST handler share one canonical create path.
+    # Registration gate for invoker-supplied tools on the initial turn,
+    # BEFORE any slot allocation. Agent bindings check the resolved
+    # agent's flag; graph bindings need at least one agent node whose
+    # agent allows them (injection is then gated per node, so flag-off
+    # nodes never see the defs).
+    if external_tools:
+        if resolved_agent is not None:
+            if not resolved_agent.allow_external_tools:
+                raise ValidationError(
+                    "this session's agent does not have "
+                    "allow_external_tools enabled; external_tools rejected"
+                )
+        elif resolved_graph is not None:
+            node_agent_ids = {
+                n.agent_id
+                for n in resolved_graph.nodes
+                if getattr(n, "kind", None) == "agent"
+            }
+            any_allows = False
+            for aid in sorted(node_agent_ids):
+                a = await agents.get(aid)
+                if a is not None and a.allow_external_tools:
+                    any_allows = True
+                    break
+            if not any_allows:
+                raise ValidationError(
+                    f"no agent node in graph {resolved_graph.id!r} has "
+                    "allow_external_tools enabled; external_tools rejected"
+                )
+        else:
+            raise ValidationError(
+                "external_tools requires an agent or graph binding"
+            )
+
+    sid = f"sess-{uuid.uuid4().hex[:12]}"
+
+    # Allocate the on-disk session slot inside the workspace so the
+    # scheduler-visible Session row and the workspace's
+    # .state/sessions/<sid>/ directory share the same id (spec §11.4
+    # step 5). Both agent and graph bindings get a holder slot;
+    # graph bindings use a synthetic agent_id (``graph:<graph_id>``)
+    # so the graph executor in primer/worker/pool.py can compose the
+    # workspace's tools into every per-node ToolExecutionManager.
+    live_workspace = None
+    if isinstance(binding, AgentSessionBinding):
+        assert resolved_agent is not None  # guarded above
+        on_disk_binding = OnDiskAgentBinding(
+            agent_id=resolved_agent.id,
+            agent_name=resolved_agent.id,
+            registered_tool_ids=list(resolved_agent.tools or []),
+            allow_external_tools=resolved_agent.allow_external_tools,
+        )
+        live_workspace = await deps.workspace_registry.get_workspace(
+            workspace_id,
+        )
+        await live_workspace.start_session(
+            on_disk_binding,
+            id=sid,
+            instructions=initial_instructions,
+            parent_session_id=parent_session_id,
+            name=name,
+        )
+    elif isinstance(binding, GraphSessionBinding):
+        # Synthetic AgentBinding for the graph-holder slot. The
+        # registered_tool_ids list is informational only; the per-node
+        # tool managers register their own toolsets via the worker
+        # pool's tool_manager_resolver. The workspace tools (ls/read/
+        # write/exec/...) become available to every graph node via the
+        # AgentSession the executor consumes.
+        on_disk_binding = OnDiskAgentBinding(
+            agent_id=f"graph:{binding.graph_id}",
+            agent_name=f"graph:{binding.graph_id}",
+            registered_tool_ids=[],
+        )
+        live_workspace = await deps.workspace_registry.get_workspace(
+            workspace_id,
+        )
+        await live_workspace.start_session(
+            on_disk_binding,
+            id=sid,
+            instructions=initial_instructions,
+            parent_session_id=parent_session_id,
+            name=name,
+        )
+
+    # Write-side symmetry with primer.session.enqueue.wake_session's own
+    # steer path (01a04dde-b331, SEV-2 follow-up): live_workspace.
+    # start_session above wrote initial_instructions ONLY as a legacy
+    # {role,parts} Message line (AgentSession.append_instruction) -
+    # nothing ever wrote the modern SessionMessageRecord(kind=USER_INPUT)
+    # counterpart wake_session writes for every LATER steer. A session
+    # created via this path could sit RUNNING for the length of a real
+    # turn with GET /sessions/{id}/messages showing nothing but that
+    # legacy line (confirmed live) - the exact repro that motivated
+    # this fix. start_seq=0: this is a brand-new session, nothing has
+    # been written to the modern log yet regardless of the legacy
+    # line's presence (modern seqs and legacy lines are independent
+    # counters - see WorkspaceMessageWriter's own docstring). The
+    # resulting seq is threaded into create_session below so the
+    # PERSISTED row's last_seq matches the log from the moment the row
+    # exists - never a window where the row says last_seq=0 while the
+    # file already holds seq=1 (an auto_start=True create's worker claim
+    # could otherwise seed its own writer at the stale value and collide
+    # seqs with this record).
+    initial_last_seq = 0
+    if initial_instructions and live_workspace is not None:
+        from primer.model.workspace_session import (
+            SessionMessageKind,
+            SessionMessageRecord,
+        )
+        from primer.session.persistence import WorkspaceMessageWriter
+
+        writer = WorkspaceMessageWriter(
+            workspace_io=live_workspace, session_id=sid, start_seq=0,
+        )
+        initial_last_seq = await writer.append(SessionMessageRecord(
+            seq=1,  # overwritten by the writer's monotonic counter
+            kind=SessionMessageKind.USER_INPUT,
+            payload={"text": initial_instructions},
+            created_at=datetime.now(timezone.utc),
+        ))
+        await writer.flush()
+
+    # Persist the row + (optionally) auto-start + always register a
+    # forward-compat ClaimEngine upsert via the shared service helper.
+    # workspace_registry=None because the slot is already allocated above.
+    row = await create_session(
+        workspace_id=workspace_id,
+        binding=binding,
+        initial_instructions=initial_instructions,
+        graph_input=graph_input,
+        auto_start=auto_start,
+        metadata=metadata,
+        parent_session_id=parent_session_id,
+        autonomous=autonomous,
+        session_id=sid,
+        name=name,
+        initiated_by=initiated_by,
+        external_tools=external_tools,
+        initial_last_seq=initial_last_seq,
+        deps=SessionFactoryDeps(
+            storage_provider=deps.storage_provider,
+            claim_engine=deps.claim_engine,
+            scheduler=deps.scheduler,
+            workspace_registry=None,
+        ),
+    )
+    from primer.events.recorder import actor_of, recorder_for
+    await recorder_for(deps.storage_provider).emit(
+        "session.invoked",
+        actor=actor_of(initiated_by),
+        workspace_id=workspace_id,
+        session_id=row.id,
+        payload={
+            "binding": binding.model_dump(mode="json"),
+            "auto_start": auto_start,
+        },
+    )
+    return row
+
+
+async def create_session(
+    *,
+    workspace_id: str,
+    binding: SessionBinding,
+    initial_instructions: str | None,
+    graph_input: Any | None,
+    auto_start: bool,
+    metadata: dict | None,
+    deps: SessionFactoryDeps,
+    parent_session_id: str | None = None,
+    session_id: str | None = None,
+    autonomous: bool | None = None,
+    name: str | None = None,
+    initiated_by: PrincipalRef | None = None,
+    external_tools: "list | None" = None,
+    initial_last_seq: int = 0,
+) -> WorkspaceSession:
+    """Persist a :class:`WorkspaceSession` row + optionally auto-start.
+
+    Steps mirror :func:`primer.api.routers.sessions.create_session` so
+    the two call paths produce identical rows:
+
+    1. Persist the row with ``status=CREATED``.
+    2. Fold ``graph_input`` into ``metadata['graph_input']`` for graph
+       bindings.
+    3. If ``auto_start``: flip to ``RUNNING``, stamp ``started_at``,
+       call ``scheduler.enqueue(sid)`` (best-effort - a broken
+       scheduler must not strand the row), and upsert with the
+       :class:`ClaimEngine` so the worker pool sees the row.
+    4. If NOT ``auto_start``: the session stays in ``CREATED`` with no
+       lease registered. The worker never claims it until the caller
+       later calls the resume route (POST .../resume), which performs
+       its own upsert.
+
+    Returns the persisted (and possibly auto-started) session row.
+
+    ``session_id`` lets the caller pre-generate the id so it can run
+    its own setup (e.g., on-disk slot allocation) before the row lands
+    in storage. When ``None``, a fresh ``sess-<hex>`` id is generated.
+
+    ``initial_last_seq`` (01a04dde-b331): when the caller already wrote
+    a modern USER_INPUT record for ``initial_instructions`` before this
+    call (``start_workspace_session`` does, immediately after on-disk
+    slot allocation), the row must be PERSISTED with ``last_seq`` set to
+    that record's seq from the moment it first exists - baked into the
+    initial ``WorkspaceSession(...)`` construction below, before
+    ``sessions_storage.create`` or any auto_start claim/enqueue call, so
+    there is no window where the row reads a stale ``last_seq=0`` while
+    the log already holds a real seq that a worker's own turn-start
+    writer could collide with. Defaults to 0 (today's implicit
+    behaviour) for every other caller of this shared factory function
+    (trigger subscribers, the workspaces MCP tool) that doesn't
+    pre-write anything.
+    """
+    # Config guard: an auto_start session that has no ClaimEngine to register
+    # with flips to RUNNING but is NEVER claimed by any worker -- it hangs in
+    # RUNNING forever (the "None-deps silently hangs a session" class of bug;
+    # see the webhook background-task path that historically passed
+    # claim_engine=None). Fail loud at construction instead of stranding the
+    # row. The non-auto_start path is exempt: it deliberately leaves the row
+    # in CREATED with no lease until an explicit resume/start (which performs
+    # its own upsert), so a None claim_engine there is legitimate.
+    if auto_start and deps.claim_engine is None:
+        raise ConfigError(
+            "create_session(auto_start=True) requires a ClaimEngine: with "
+            "deps.claim_engine=None the session would flip to RUNNING but "
+            "never be claimed by a worker, hanging forever. Thread the real "
+            "claim_engine into SessionFactoryDeps (and DispatchDeps for the "
+            "trigger/webhook dispatch paths)."
+        )
+
+    sid = session_id if session_id is not None else f"sess-{uuid.uuid4().hex[:12]}"
+    now = datetime.now(timezone.utc)
+
+    md: dict[str, Any] = dict(metadata or {})
+    # Graph bindings carry graph_input on metadata so the workspace
+    # graph executor can pick it up as the initial input. Mirrors the
+    # router's behaviour at primer/api/routers/sessions.py.
+    if isinstance(binding, GraphSessionBinding) and graph_input is not None:
+        md["graph_input"] = graph_input
+
+    session = WorkspaceSession(
+        id=sid,
+        workspace_id=workspace_id,
+        binding=binding,
+        status=SessionStatus.CREATED,
+        name=(name.strip() or None) if isinstance(name, str) else name,
+        parent_session_id=parent_session_id,
+        initial_instructions=initial_instructions,
+        metadata=md,
+        autonomous=autonomous,
+        initiated_by=initiated_by,
+        created_at=now,
+        last_seq=initial_last_seq,
+        external_tools=(
+            [d.model_dump(by_alias=True) for d in external_tools]
+            if external_tools
+            else None
+        ),
+    )
+    sessions_storage = deps.storage_provider.get_storage(WorkspaceSession)
+    await sessions_storage.create(session)
+
+    if auto_start:
+        session.status = SessionStatus.RUNNING
+        session.started_at = now
+        await sessions_storage.update(session)
+        # Best-effort scheduler enqueue: the row is the source of truth.
+        # A scheduler outage must not roll back the session.
+        try:
+            await deps.scheduler.enqueue(sid)
+        except Exception as exc:  # noqa: BLE001 — defensive perimeter
+            logger.warning(
+                "session_factory: scheduler.enqueue(%r) raised: %s",
+                sid, exc,
+            )
+
+    # ClaimEngine upsert - only when the session is actually starting now
+    # (auto_start=True). When auto_start=False the session stays in CREATED
+    # with no lease, so the worker never claims it. The explicit-start path
+    # (POST .../resume) performs its own upsert when the operator later
+    # transitions the row to RUNNING. The claim_engine-None case is impossible
+    # here: the auto_start guard at the top of this function already raised.
+    if auto_start:
+        try:
+            await deps.claim_engine.upsert(ClaimKind.SESSION, sid)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(
+                "session_factory: claim_engine.upsert(%r) raised: %s",
+                sid, exc,
+            )
+
+    return session
+
+
+@dataclass
+class SessionCancelDeps:
+    """Bundle of collaborators :func:`cancel_session` needs.
+
+    ``event_bus`` is optional: when present, the ``running`` cancel path
+    publishes ``session:{id}:cancel`` so the engine-path worker's
+    ``_cancel_watcher`` preempts the in-flight turn. When ``None`` the
+    publish is skipped (the legacy ``scheduler.signal_cancel`` still
+    fires).
+    """
+
+    storage_provider: Any
+    scheduler: Any
+    claim_engine: Any
+    event_bus: Any | None = None
+    # Optional: when present, an INLINE cancel (created/waiting/paused, i.e.
+    # no worker is leasing the turn) also mirrors the terminal status onto
+    # the workspace's on-disk AgentSession slot (``session.json``) so the
+    # workspace-side reads (``get_workspace_session`` / ``list_*``) agree
+    # with the scheduler row. Absent it, the inline-cancel path still
+    # updates the scheduler row (back-compat); only the on-disk mirror is
+    # skipped.
+    workspace_registry: Any | None = None
+
+
+async def _mirror_inline_cancel_to_slot(
+    *, workspace_id: str, session_id: str, deps: SessionCancelDeps,
+) -> None:
+    """Best-effort: commit ENDED/cancelled onto the on-disk AgentSession.
+
+    Only the inline-cancel path needs this: a RUNNING cancel is converged
+    by the worker's dispatch terminal transition (which already mirrors the
+    slot), but a created/waiting/paused session is ended here without a
+    worker ever touching its slot. Never raises -- a registry / slot /
+    commit failure must not fail the cancel (the authoritative scheduler
+    row is already written by the caller).
+    """
+    registry = getattr(deps, "workspace_registry", None)
+    if registry is None:
+        return
+    try:
+        ws = await registry.get_workspace(workspace_id)
+        session = await ws.get_session(session_id)
+        if session is None:
+            return
+        if (await session.status()) == SessionStatus.ENDED:
+            return
+        await session.set_status(SessionStatus.ENDED, ended_reason="cancelled")
+    except Exception:  # noqa: BLE001 -- advisory; never block the cancel
+        logger.warning(
+            "cancel_session: failed to mirror inline cancel onto slot for %s",
+            session_id, exc_info=True,
+        )
+
+
+async def cancel_session(
+    *, workspace_id: str, session_id: str, deps: SessionCancelDeps
+) -> WorkspaceSession:
+    """Hard-cancel a session (shared by the REST route + the workspaces tool).
+
+    created/waiting/paused -> ended/cancelled inline + drop the claim lease;
+    running -> set cancel_requested + publish session:{id}:cancel + signal_cancel.
+    Raises NotFoundError (missing/mismatched) / ConflictError (already ended).
+
+    Extracted verbatim from ``POST .../sessions/{sid}/cancel``
+    (:mod:`primer.api.routers.sessions`) so the REST endpoint and the
+    ``cancel_workspace_session`` MCP tool share one canonical path.
+    """
+    sessions = deps.storage_provider.get_storage(WorkspaceSession)
+
+    # Serialize the whole read-modify-write (+ lease mutation) against a
+    # concurrent resume/pause on the same session. Without this, a resume
+    # racing this cancel can clobber the ENDED write back to RUNNING while
+    # this branch drops the lease, leaving a RUNNING row no worker can
+    # claim (T0432). See primer.session.mutation_lock.
+    async with session_lifecycle_lock().acquire(session_id):
+        s = await sessions.get(session_id)
+        if s is None or s.workspace_id != workspace_id:
+            raise NotFoundError(
+                f"Session {session_id!r} does not exist on workspace "
+                f"{workspace_id!r}"
+            )
+        if s.status == SessionStatus.ENDED:
+            raise ConflictError(f"Session {session_id!r} has ended")
+        if s.status in {
+            SessionStatus.CREATED,
+            SessionStatus.WAITING,
+            SessionStatus.PAUSED,
+        }:
+            s.status = SessionStatus.ENDED
+            s.ended_reason = "cancelled"
+            s.ended_at = datetime.now(timezone.utc)
+            await sessions.update(s)
+            # Mirror onto the on-disk slot so workspace-side reads agree (no
+            # worker runs for an inline-cancelled session, so nothing else
+            # would update session.json).
+            await _mirror_inline_cancel_to_slot(
+                workspace_id=workspace_id, session_id=session_id, deps=deps,
+            )
+            # Drop the lease -- session is gone, no point claiming it.
+            if deps.claim_engine is not None:
+                await deps.claim_engine.delete_lease(
+                    ClaimKind.SESSION, session_id
+                )
+            return s
+        now = datetime.now(timezone.utc)
+        s.cancel_requested = True
+        s.cancel_requested_at = now
+        await sessions.update(s)
+        # Publish on the bus so the engine-path worker's _cancel_watcher
+        # preempts the running turn. The WS interrupt handler publishes the
+        # same key.
+        if deps.event_bus is not None:
+            try:
+                await deps.event_bus.publish(f"session:{session_id}:cancel", {})
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "cancel_session: event_bus.publish failed "
+                    "(legacy path still signalled)",
+                    extra={
+                        "session_id": session_id,
+                        "exception": type(exc).__name__,
+                    },
+                )
+        await deps.scheduler.signal_cancel(session_id)
+        return s
+
+
+@dataclass
+class SessionInterruptDeps:
+    """Bundle of collaborators :func:`interrupt_session` needs.
+
+    ``event_bus`` is optional: when present, a Stop on a RUNNING session publishes ``session:{id}:cancel`` (the fast path). Without a
+    bus the Stop is still recorded on the session row, which the worker polls, so it is delayed, not lost. No scheduler and no
+    claim engine: a Stop touches neither, which is why the tool built on this works in a deployment that has not wired them.
+    """
+
+    storage_provider: Any
+    event_bus: Any | None = None
+
+
+async def interrupt_session(
+    *, workspace_id: str, session_id: str, deps: SessionInterruptDeps
+) -> WorkspaceSession:
+    """Stop (interrupt) the running turn without ending the session (shared by the REST route + the workspaces tool).
+
+    RUNNING: flag ``interrupt_requested`` on the session row, then publish
+    ``session:{sid}:cancel``. The worker running the turn stops it at its next wait for
+    the model and lands the session in WAITING (alive). The bus message is the fast path
+    (milliseconds); the flag is the durable one, which the worker re-reads every couple of
+    seconds while the turn runs (``primer.session.dispatch._INTERRUPT_POLL_S``). So a publish
+    that fails here is logged and counted but still answers 200: the Stop is delayed, not lost.
+    Non-running: 200 no-op. ENDED: 409 (studio-agents-interact §4.4). PARKED (waiting on an
+    approval, an answer or a timer): 409, and nothing is recorded, because no turn is running
+    and a flag left on the row would kill the continuation after a later decision. RESUMABLE
+    (the event fired and a worker is resuming the parked turn): 409 as well, with its own
+    text, because a graph or subagent resume runs model calls inline.
+
+    Raises NotFoundError (missing/mismatched) / ConflictError (ended, parked, resuming).
+
+    Extracted verbatim from ``POST .../sessions/{sid}/interrupt``
+    (:mod:`primer.api.routers.workspaces`) so the REST endpoint and the
+    ``interrupt_workspace_session`` MCP tool share one canonical path, as
+    :func:`cancel_session` does for Cancel.
+    """
+    sessions = deps.storage_provider.get_storage(WorkspaceSession)
+    event_bus = deps.event_bus
+
+    async with session_lifecycle_lock().acquire(session_id):
+        s = await sessions.get(session_id)
+        if s is None or s.workspace_id != workspace_id:
+            raise NotFoundError(
+                f"Session {session_id!r} does not exist on workspace "
+                f"{workspace_id!r}"
+            )
+        if s.status == SessionStatus.ENDED:
+            raise ConflictError(f"Session {session_id!r} has ended")
+        if s.status == SessionStatus.RUNNING and s.parked_status is not None:
+            # Parked (waiting on an approval, an answer or a timer): no turn is running, so there
+            # is nothing to stop. Recording the flag anyway would let it outlive the park and kill
+            # the continuation after a LATER human decision (approve hours later, the approved tool
+            # runs, then the continuation is killed before its first token). A later explicit human
+            # action wins over an earlier Stop, so the Stop is refused instead of parked on the row.
+            if s.parked_status == "resumable":
+                # The event already fired and a worker is resuming the parked turn. A graph or subagent
+                # resume runs model calls inline, so "no turn is running" would be untrue; the Stop is
+                # refused for the same reason as above (no flag may outlive the resume).
+                raise ConflictError(
+                    f"Session {session_id!r}: the session is resuming; Stop is not available "
+                    "during a resume. Use Cancel to end it."
+                )
+            raise ConflictError(
+                f"Session {session_id!r}: no turn is running; the session is waiting for you "
+                "(an approval, an answer or a timer). Use Cancel to end it."
+            )
+        if s.status == SessionStatus.RUNNING:
+            s.interrupt_requested = True
+            s.cancel_requested_at = datetime.now(timezone.utc)
+            await sessions.update(s)
+            if event_bus is not None:
+                try:
+                    await event_bus.publish(
+                        f"session:{session_id}:cancel", {}
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    _metrics.session_interrupt_publish_failures_total.inc()
+                    logger.warning(
+                        "interrupt_session: bus publish failed for %s (%s: %s); the Stop is "
+                        "recorded on the session row and the worker will find it by polling",
+                        session_id, type(exc).__name__, exc,
+                    )
+        return s
+
+
+__all__ = [
+    "SessionCancelDeps",
+    "SessionFactoryDeps",
+    "SessionInterruptDeps",
+    "cancel_session",
+    "create_session",
+    "interrupt_session",
+    "start_workspace_session",
+]

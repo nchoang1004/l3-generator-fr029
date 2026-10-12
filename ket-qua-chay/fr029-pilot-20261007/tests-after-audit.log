@@ -1,0 +1,38 @@
+...Thông báo l3gen-egress-v1: dữ kiện đã trích, tên symbol, đường dẫn tương đối, vị trí, literal như route path, chữ ký hàm và đoạn code có giới hạn có thể được gửi tới Groq và Google. Không gửi cả repository hoặc nguyên file; giá trị giống bí mật được che trước. Bộ lọc bí mật có giới hạn.
+paid_route_disabled: Giới hạn PAID_ROUTE_DISABLED
+slice_scope: Giới hạn SLICE_SCOPE
+.................................................................................................................F.....................................................................................................model_not_run: Giới hạn MODEL_NOT_RUN
+slice_scope: Giới hạn SLICE_SCOPE
+source_output_overlap: Source và output bao nhau.
+.....................
+======================================================================
+FAIL: test_unknown_ids_are_dropped (test_gateway.Gateway.test_unknown_ids_are_dropped)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\VSF\l3-generator-l3\slice\tests\test_gateway.py", line 149, in test_unknown_ids_are_dropped
+    self.assertEqual([x["name"] for x in r["result"]["component_labels"]], ["Kho"])
+AssertionError: Lists differ: [] != ['Kho']
+
+Second list contains 1 additional elements.
+First extra element 0:
+'Kho'
+
+- []
++ ['Kho']
+
+----------------------------------------------------------------------
+Ran 239 tests in 13.409s
+
+FAILED (failures=1)
+README.md
+architecture.mmd
+architecture.svg
+result.json
+tech-specs/CUA-HANG-API/api/API-SHOP-FULL-CUA-HANG-API-v1.md
+tech-specs/LUU-TRU/schema/TBL-SHOP-FULL-LUU-TRU.md
+README.md
+architecture.mmd
+architecture.svg
+result.json
+tech-specs/CUA-HANG-API/api/API-SHOP-FULL-CUA-HANG-API-v1.md
+tech-specs/LUU-TRU/schema/TBL-SHOP-FULL-LUU-TRU.md

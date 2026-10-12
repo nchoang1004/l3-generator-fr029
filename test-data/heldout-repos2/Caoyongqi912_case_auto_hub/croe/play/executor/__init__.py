@@ -1,0 +1,35 @@
+#!/usr/bin/env python
+# -*- coding:utf-8 -*-
+# @Time : 2026/1/30
+# @Author : cyq
+# @File : __init__.py
+# @Software: PyCharm
+# @Desc:
+from croe.play.executor.play_executor import PlayExecutor
+from croe.play.executor.step_content_strategy import *
+from enums.CaseEnum import PlayStepContentType
+
+
+def get_step_strategy(step_type: int):
+    """获取步骤执行策略"""
+    match step_type:
+        case PlayStepContentType.STEP_PLAY:
+            return PlayStepContentStrategy()
+        case PlayStepContentType.STEP_PLAY_GROUP:
+            return PlayGroupContentStrategy()
+
+        case PlayStepContentType.STEP_PLAY_API:
+            return PlayInterfaceContentStrategy()
+
+        case PlayStepContentType.STEP_PLAY_SCRIPT:
+            return PlayScriptContentStrategy()
+        case PlayStepContentType.STEP_PLAY_CONDITION:
+            return PlayConditionContentStrategy()
+        case PlayStepContentType.STEP_PLAY_ASSERT:
+            return PlayAssertContentStrategy()
+        case PlayStepContentType.STEP_PLAY_DB:
+            return PlayDBContentStrategy()
+        case _:
+            raise Exception(f"Unknown step type: {step_type}")
+
+

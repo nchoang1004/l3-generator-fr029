@@ -1,0 +1,130 @@
+{
+  "schema": "fr029-gold-v1",
+  "fixture": "gabryelvs_fx-service",
+  "repository": "gabryelvs/fx-service",
+  "commit": "892ec394fa8a1995ba4e47d2cb4168e03fced935",
+  "root": ".",
+  "pydantic_major": 2,
+  "fastapi_version": "unknown",
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/rates",
+      "handler": "app/routers/fx.py::get_rates",
+      "declared_at": "app/routers/fx.py:11",
+      "params": [
+        {
+          "name": "base",
+          "in": "query",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "symbols",
+          "in": "query",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "GET",
+      "path": "/convert",
+      "handler": "app/routers/fx.py::convert",
+      "declared_at": "app/routers/fx.py:33",
+      "params": [
+        {
+          "name": "from",
+          "in": "query",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "to",
+          "in": "query",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "amount_minor",
+          "in": "query",
+          "type": "integer",
+          "required": true
+        }
+      ],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "GET",
+      "path": "/healthz",
+      "handler": "app/main.py::healthz",
+      "declared_at": "app/main.py:60",
+      "params": [],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    }
+  ],
+  "models": [],
+  "excluded_routes": [],
+  "limitations": [],
+  "http_calls": [
+    {
+      "where": "app/providers/frankfurter.py:20",
+      "library": "httpx",
+      "method": "GET",
+      "target": {
+        "kind": "config",
+        "value": "frankfurter_base_url"
+      },
+      "accept_alt_target": {
+        "kind": "unknown",
+        "value": null,
+        "reason": "path \"/latest\" ghép với base_url của client; client là tham số tùy chọn của fetch_latest (dòng 14), chỉ khi client=None mới dùng settings.frankfurter_base_url (dòng 18)"
+      }
+    }
+  ],
+  "non_http_calls": [
+    {
+      "where": "app/cache.py:18",
+      "detail": "redis_client.get(...) là client Redis (app/cache.py:6), không phải HTTP"
+    },
+    {
+      "where": "app/providers/frankfurter.py:18",
+      "detail": "httpx.AsyncClient(base_url=..., timeout=10.0) chỉ tạo client; lời gọi HTTP là dòng 20"
+    },
+    {
+      "where": "app/main.py:60",
+      "detail": "@app.get(\"/healthz\") là decorator route, không phải lời gọi HTTP ra ngoài (cùng loại: app/routers/fx.py:11, 33)"
+    }
+  ],
+  "notes": [
+    "root = \".\": code import theo gói app (app/main.py:9-12); Dockerfile chạy uvicorn app.main:app.",
+    "fastapi_version = unknown: pyproject.toml chỉ ghi fastapi>=0.115, không có file lock. pydantic>=2.9 => pydantic_major = 2.",
+    "Prefix: app/main.py:57 include_router(fx.router) không prefix; app/routers/fx.py:8 APIRouter(tags=[\"fx\"]) không prefix => /rates, /convert. /healthz khai thẳng trên app.",
+    "/rates: base, symbols khai str = Query(default=None) (app/routers/fx.py:13-14) => query, string, không bắt buộc (kiểu ghi theo annotation str, không ghi nullable cho tham số).",
+    "/convert: from_ có Query(alias=\"from\") (app/routers/fx.py:35) => tên HTTP là \"from\". to: Query() và amount_minor: Query(ge=1) không default => bắt buộc; ràng buộc ge=1 không ghi.",
+    "/rates, /convert: không response_model, không kiểu trả về => response null; handler trả dict hoặc JSONResponse (error_response, app/errors.py:4).",
+    "/healthz: kiểu trả về JSONResponse (app/main.py:61) là lớp Response => FastAPI không suy response model => response null.",
+    "Status [200] mặc định cho cả ba route. 503/422 trả lúc chạy (app/routers/fx.py:19, 24, 41, 46; app/main.py:65) và từ exception_handler (app/main.py:34, 44) không phải status khai trên route.",
+    "models rỗng: RateSnapshot (app/snapshot.py:6) là Pydantic nhưng không route nào dùng làm request/response; Settings (app/config.py:4) là BaseSettings.",
+    "HTTP call duy nhất: app/providers/frankfurter.py:20 client.get(\"/latest\", params=...). Đích ghi config frankfurter_base_url (trường Settings, app/config.py:8) vì code production luôn gọi fetch_latest với client=None (app/refresh.py:11, 13). \"/latest\" là path tương đối, không phải URL literal đầy đủ. Chấp nhận unknown (accept_alt_target). Tên biến môi trường FRANKFURTER_BASE_URL (fly.toml) là cách viết khác của cùng khóa, scorer không nhận.",
+    "Không có add_api_route/add_route/add_websocket_route, mount, urllib/urllib3/http.client/requests/aiohttp trong app/ => limitations rỗng. Redis (app/cache.py:6) không phải HTTP.",
+    "tests/ không khai route (chỉ dùng app của app/main.py) => excluded_routes rỗng.",
+    "Route tài liệu tự sinh (/openapi.json, /docs, /docs/oauth2-redirect, /redoc) bỏ theo quy ước, không ghi vào excluded_routes."
+  ]
+}

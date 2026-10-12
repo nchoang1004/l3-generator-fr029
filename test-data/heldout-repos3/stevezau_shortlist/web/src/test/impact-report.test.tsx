@@ -1,0 +1,1258 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import { ImpactReport } from "@/components/dashboard/impact-report";
+import type * as ApiModule from "@/lib/api";
+import type {
+  DeletedRowHistory,
+  EffectivenessReport,
+  ReportWindow,
+} from "@/lib/types";
+
+type ClearedRows = { cleared: number; picks: number; slugs: string[] };
+
+const {
+  getReport,
+  getEngagement,
+  syncWatched,
+  getDeletedRows,
+  clearDeletedRows,
+} = vi.hoisted(() => ({
+  getReport: vi.fn(),
+  syncWatched: vi.fn(() => Promise.resolve({ started: true })),
+  getDeletedRows: vi.fn<() => Promise<DeletedRowHistory[]>>(() =>
+    Promise.resolve([]),
+  ),
+  clearDeletedRows: vi.fn<(slug?: string) => Promise<ClearedRows>>(() =>
+    Promise.resolve({ cleared: 1, picks: 5, slugs: ["zz-claude-test"] }),
+  ),
+  // The engagement panel is a SECOND request inside the dashboard. Left unmocked it rejects, and
+  // its error boundary renders another `role="alert"` — which broke three unrelated assertions
+  // here on multiple-alert ambiguity rather than on anything they were testing.
+  getEngagement: vi.fn((_window: ReportWindow) =>
+    Promise.resolve({
+      window: "30",
+      people: [],
+      losing: [],
+      stop_points: [],
+      observed: false,
+    }),
+  ),
+}));
+
+vi.mock("@/lib/api", async (importOriginal) => {
+  const actual = await importOriginal<typeof ApiModule>();
+  return {
+    ...actual,
+    api: {
+      getReport: (window: ReportWindow) => getReport(window),
+      getEngagement: (window: ReportWindow) => getEngagement(window),
+      syncWatched: () => syncWatched(),
+      getDeletedRows: () => getDeletedRows(),
+      clearDeletedRows: (slug?: string) => clearDeletedRows(slug),
+    },
+  };
+});
+
+function renderReport() {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter>
+        <ImpactReport />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
+const LANDING = {
+  delivered: 10,
+  watched: 4,
+  finished: 3,
+  finished_rate: 0.3,
+  rate: 0.4,
+  cohort_from: "2026-05-30T00:00:00Z",
+  cohort_to: "2026-06-29T00:00:00Z",
+  matured_days: 30,
+};
+
+// Distinct from every other figure in the fixture, so a swapped slot renders as different text.
+const VIEWING_SHARE = { watched: 537, from_rows: 82, rate: 0.153 };
+
+const EMPTY = {
+  window: "30" as ReportWindow,
+  window_days: 30,
+  since: "2026-06-29T00:00:00Z",
+  first_pick: "2026-01-01T00:00:00Z",
+  watch_sync: {
+    last: null,
+    next: null,
+    live_since: new Date().toISOString(),
+    live_down_since: null,
+  },
+  coverage: {
+    users_enabled: 2,
+    users_total: 2,
+    users_with_picks: 1,
+    // Emitted by the API, never derived here: `users_with_picks - users_watched` subtracts two
+    // differently-scoped populations and can read zero while somebody watched nothing.
+    users_idle: 0,
+    users_watched: 1,
+    // NB: `users_with_picks - users_watched` == 0 == users_idle here, which is fine for the EMPTY
+    // fixture (it renders no idle line) but is exactly the coincidence that hid the derived-value
+    // regression in engagement.test.tsx — see the note on its own coverage fixture.
+    users_watched_delta: 1,
+    rows_enabled: 1,
+  },
+  runs: {
+    total: 3,
+    in_window: 3,
+    in_window_delta: 0,
+    last_finished: null,
+    last_status: "ok",
+    errors_last: 0,
+  },
+  // Every one of these DISTINCT. They were `sent: 2, pending: 1, watched_after_sent: 1`, and with two
+  // of the three equal the requests line could put any figure in any slot with nothing to notice
+  // (mutation audit 2026-08-25). Distinct values are what make a swap show up as different text.
+  requests: { sent: 21, pending: 22, watched_after_sent: 23 },
+  top_titles: [] as EffectivenessReport["top_titles"],
+};
+
+const REPORT: EffectivenessReport = {
+  overall: {
+    // DISTINCT on purpose. `watched: 4` used to collide with the "4 of 10" in the landing detail
+    // inside the same card, so the verdict's 4xl headline could render ANY other figure and the
+    // assertion still found a "4" somewhere (mutation audit 2026-08-25).
+    delivered: 100,
+    watched: 41,
+    watched_prev: 2,
+    watched_delta: 2,
+    finished: 32,
+    bounced: 1,
+    dropped: 2,
+    avg_days_to_watch: 3.5,
+    avg_days_to_watch_delta: -0.8,
+    landing: LANDING,
+    viewing_share: VIEWING_SHARE,
+  },
+  ...EMPTY,
+  top_titles: [
+    {
+      tmdb_id: 693134,
+      media_type: "movie",
+      title: "Dune: Part Two",
+      watchers: 3,
+      rating_key: 7007,
+      year: 2024,
+      watcher_sample: [
+        { id: 42, name: "Sarah H" },
+        { id: 43, name: "Mike" },
+      ],
+    },
+  ],
+  trend: [{ week: "2026-28", watched: 4, finished: 3 }],
+  per_user: [
+    {
+      id: 42,
+      username: "sarah",
+      display_name: "Sarah H",
+      slug: "sarah",
+      // All three DISTINCT, and distinct from every per_row figure, so a wrong-field swap on the
+      // person line changes the rendered text. The per_row assertions used to cover the row half
+      // while the person half was asserted by nothing.
+      delivered: 61,
+      watched: 34,
+      finished: 12,
+    },
+  ],
+  per_row: [
+    {
+      slug: "picked",
+      section_key: "10",
+      library: "Movies",
+      name: "✨ Movies Picked for You",
+      deleted: false,
+      delivered: 10,
+      watched: 4,
+      finished: 4,
+    },
+    {
+      slug: "faves",
+      section_key: "20",
+      library: "TV Shows",
+      name: "My Faves",
+      deleted: false,
+      delivered: 6,
+      watched: 3,
+      finished: 0,
+    },
+  ],
+  recent: [
+    {
+      user_id: 42,
+      username: "sarah",
+      // DIFFERENT from `username`, so swapping the two is visible. They were both "sarah", which is
+      // why the linked name could render the raw Plex username with nothing to catch it.
+      display_name: "Sarah H",
+      title: "Dune: Part Two",
+      media_type: "movie",
+      tmdb_id: 693134,
+      rating_key: 7007,
+      year: 2024,
+      row: "✨ Movies Picked for You",
+      library: "Movies",
+      seed_title: "Arrival",
+      // DISTINCT times. Both were `new Date()`, so the feed could print the finish time where the
+      // watch time belongs and read identically.
+      watched_at: new Date(Date.now() - 5 * 3600_000).toISOString(),
+      finished_at: new Date(Date.now() - 1 * 3600_000).toISOString(),
+    },
+  ],
+};
+
+describe("ImpactReport", () => {
+  beforeEach(() => {
+    getReport.mockReset();
+    getReport.mockResolvedValue(REPORT);
+    getDeletedRows.mockReset();
+    getDeletedRows.mockResolvedValue([]);
+    clearDeletedRows.mockClear();
+  });
+
+  it("shows the headline metrics, breakdowns, requests, and recent-watches feed", async () => {
+    renderReport();
+
+    expect(await screen.findByTestId("verdict-watched")).toBeTruthy();
+    expect(screen.getByText("People who watched a pick")).toBeTruthy();
+    expect(screen.getByTestId("verdict-reach")).toHaveTextContent("1 of 2");
+    // Each requests figure in its OWN slot. `/sent ·/` matched the label regardless of which number
+    // sat beside it, and the fixture had two of the three equal — so any figure could appear in any
+    // slot (mutation audit 2026-08-25). The three are now distinct and each is named.
+    expect(screen.getByTestId("requests-sent")).toHaveTextContent(/^21\s*sent$/);
+    expect(screen.getByTestId("requests-watched")).toHaveTextContent(/^23\s*watched since$/);
+    expect(screen.getByTestId("requests-pending")).toHaveTextContent(/^22\s*awaiting approval$/);
+    expect(screen.getByRole("link", { name: /Review 22 waiting/ })).toHaveAttribute("href", "/requests");
+    expect(
+      screen.getByRole("link", { name: /full send log/i }),
+    ).toHaveAttribute("href", "/requests?tab=sent"); // deep-links to the send-log tab
+    // The DISPLAY name, which is what the UI is supposed to render — `username` is "sarah".
+    expect(screen.getAllByText("Sarah H").length).toBeGreaterThan(0);
+    expect(screen.queryByText("sarah")).toBeNull();
+    // The feed times the WATCH, not the finish — a series finished weeks after it was started would
+    // otherwise be filed under the wrong day.
+    // How long ago, at a glance — the owner preferred it to a clock time. The exact time is on hover.
+    const clock = (iso: string) =>
+      new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+    const watch = REPORT.recent[0]!;
+    const when = screen.getByText("5h ago");
+    expect(when).toHaveAttribute("title", clock(watch.watched_at!));
+    expect(screen.queryByText("1h ago")).toBeNull();
+    // Counts, labelled — never "3 of 6". They are two different sets (watched-in-window vs
+    // delivered-in-window), so a fraction makes "4 of 0" reachable when delivery paused.
+    // Counts, labelled — never "3 of 6". Two different sets (watched-in-window vs
+    // delivered-in-window), so a fraction makes "4 of 0" reachable when delivery paused.
+    // "delivered", not "sent": the Requests card uses "sent" for Sonarr asks on this same page.
+    // More than one line matches (a person and a row), so assert on count rather than uniqueness.
+    expect(screen.getAllByText(/· 61 delivered/).length).toBeGreaterThan(0);
+    // The PERSON line's own figures. Only the per_row lines were ever asserted, so ByPerson could
+    // render `delivered` in the watched slot with nothing to notice.
+    expect(document.body.textContent).toMatch(/34\s*watched · 12\s*finished/);
+    expect(screen.queryByText(/3 of 6/)).toBeNull();
+    expect(screen.getAllByText("Dune: Part Two").length).toBeGreaterThan(0); // top titles + recent
+    // By row is split per library: a {library_name} row reads its library in the name; a plain-named
+    // row ("My Faves") carries a library badge instead.
+    expect(
+      screen.getAllByText("✨ Movies Picked for You").length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText("My Faves")).toBeTruthy();
+    expect(screen.getByText("TV Shows")).toBeTruthy(); // the library badge on the plain-named row
+  });
+
+  it("shows Finished beside Watched, never instead of it", async () => {
+    // A series is credited as watched on its FIRST episode, so a lone watched count says nothing
+    // about whether anyone saw a thing out. Both numbers have to be on the page for that to read.
+    renderReport();
+
+    const card = await screen.findByTestId("verdict");
+    // Read through the TEST IDS, not by hunting the card's text. `toContain("4")` was satisfied by
+    // the "4 of 10" in the landing detail inside this same card, so the 4xl headline — the biggest
+    // number on the dashboard — could render ANY other figure in the payload and this still passed
+    // (mutation audit 2026-08-25). The ids exist precisely so the two figures can be named.
+    expect(screen.getByTestId("verdict-watched").textContent).toBe("41");
+    expect(screen.getByTestId("verdict-finished").textContent).toBe("32");
+    // And both inside the SAME card, so the verdict still has to read as one sentence.
+    expect(card).toContainElement(screen.getByTestId("verdict-watched"));
+    expect(card).toContainElement(screen.getByTestId("verdict-finished"));
+    expect(card.textContent).toMatch(/Finished\s*32/);
+    // NO "N picks delivered". `watched` is windowed on when the watch happened and `delivered` on
+    // when the pick was created, so the ratio that sentence invited was never a rate of anything —
+    // and the correctly matched cohort is already rendered below it.
+    expect(card.textContent).not.toMatch(/picks delivered/);
+  });
+
+  it("qualifies each person and row line with what was actually finished", async () => {
+    // The line that makes the difference visible: the TV row landed 3 and finished none of them,
+    // while the movie row finished all 4 it landed. Before the split these rendered identically.
+    // Asserted against the rendered text because the count and its word are separate elements.
+    renderReport();
+    await screen.findByTestId("verdict-watched");
+
+    const page = document.body.textContent ?? "";
+    expect(page).toContain("4 watched · 4 finished");
+    expect(page).toContain("3 watched · 0 finished");
+  });
+
+  it("defaults to the 30-day window and refetches when it changes", async () => {
+    renderReport();
+    await screen.findByTestId("verdict-watched");
+
+    expect(getReport).toHaveBeenCalledWith("30");
+
+    await userEvent.click(screen.getByRole("button", { name: "90 days" }));
+
+    expect(getReport).toHaveBeenCalledWith("90");
+  });
+
+  it("says there is no earlier period rather than dangling a comparison", async () => {
+    // A server too new to have a full previous window. The API sends null rather than 0 (see
+    // `TestADeltaNeedsAPreviousPeriodToCompareAgainst`) precisely so this can be said out loud —
+    // "vs previous 30 days" with no number reads as a comparison that failed to render.
+    getReport.mockResolvedValue({
+      ...REPORT,
+      overall: { ...REPORT.overall, watched_prev: null, watched_delta: null },
+    });
+    renderReport();
+
+    expect(await screen.findByText(/no earlier period yet/i)).toBeTruthy();
+    expect(screen.queryByText(/vs previous/i)).toBeNull();
+  });
+
+  it("says whether live tracking is actually running", async () => {
+    // A separate mechanism from the scheduled sync, and it fails on its own. It is the ONLY source
+    // of a partial watch, so while it is down the page stops learning how far anyone gets — and
+    // every other number on it carries on looking healthy.
+    renderReport();
+
+    expect(await screen.findByText("Live tracking on")).toBeTruthy();
+  });
+
+  it("says so, and for how long, when the listener has dropped", async () => {
+    getReport.mockResolvedValue({
+      ...REPORT,
+      watch_sync: {
+        ...REPORT.watch_sync,
+        live_down_since: new Date(Date.now() - 3 * 3600_000).toISOString(),
+      },
+    });
+    renderReport();
+
+    // "and for how long" is in this test's NAME, and it did not check it: `/Live tracking down/` is a
+    // prefix that matches whatever duration follows, so reading `live_since` instead of
+    // `live_down_since` — reporting "down just now" during a three-hour outage — passed.
+    expect(await screen.findByText(/Live tracking down 3h ago/)).toBeTruthy();
+    expect(screen.queryByText("Live tracking on")).toBeNull();
+  });
+
+  it("reports a synced watch status", async () => {
+    // The default fixture has `sync.last: null`, so the synced branch never rendered.
+    // (The last run's outcome used to sit on this line too. It moved to the dashboard's status strip,
+    // which already reported the same run — its three tiers are tested in dashboard.test.tsx.)
+    getReport.mockResolvedValue({
+      ...REPORT,
+      watch_sync: {
+        ...REPORT.watch_sync,
+        last: new Date(Date.now() - 7200_000).toISOString(),
+      },
+    });
+    renderReport();
+
+    expect(await screen.findByText(/Synced 2h ago/)).toBeTruthy();
+    expect(screen.queryByText(/Not synced yet/)).toBeNull();
+  });
+
+  it("leaves the last run's outcome to the status strip, which already reports it", async () => {
+    getReport.mockResolvedValue({
+      ...REPORT,
+      runs: { ...REPORT.runs, last_finished: new Date(Date.now() - 3600_000).toISOString(), errors_last: 2 },
+    });
+    renderReport();
+
+    await screen.findByTestId("verdict-watched");
+    expect(screen.queryByText(/Last run/)).toBeNull();
+  });
+
+  it("draws a gain as a gain and a loss as a loss", async () => {
+    // The only Delta test used `value: null`, so nothing asserted how a real delta renders — the
+    // arrow, the sign and the colour could all invert and every test passed. +2 must read as up.
+    renderReport();
+
+    const delta = await screen.findByText(/vs previous/);
+    expect(delta.textContent).toMatch(/▲/);
+    expect(delta.textContent).toMatch(/\+2/);
+    expect(delta.className).toMatch(/success/);
+  });
+
+  it("draws a drop as a drop", async () => {
+    getReport.mockResolvedValue({
+      ...REPORT,
+      overall: { ...REPORT.overall, watched_prev: 50, watched_delta: -9 },
+    });
+    renderReport();
+
+    const delta = await screen.findByText(/vs previous/);
+    expect(delta.textContent).toMatch(/▼/);
+    expect(delta.textContent).toMatch(/−9/);
+    expect(delta.className).not.toMatch(/success/);
+  });
+
+  it("says 'vs previous' with no arrow when nothing changed", async () => {
+    // A delta of exactly zero is not a decline. It used to be able to render "▼ −0".
+    getReport.mockResolvedValue({
+      ...REPORT,
+      overall: { ...REPORT.overall, watched_prev: 41, watched_delta: 0 },
+    });
+    renderReport();
+
+    const delta = await screen.findByText(/vs previous/);
+    expect(delta.textContent).not.toMatch(/[▲▼]/);
+  });
+
+  it("distinguishes never-started from dropped", async () => {
+    // A fresh install has no listener yet, which is not a fault and must not render as one.
+    getReport.mockResolvedValue({
+      ...REPORT,
+      watch_sync: {
+        ...REPORT.watch_sync,
+        live_since: null,
+        live_down_since: null,
+      },
+    });
+    renderReport();
+
+    expect(await screen.findByText("Live tracking not started")).toBeTruthy();
+  });
+
+  it("links a person to their own page, from both places they are named", async () => {
+    // The next question a name on this page provokes is "what else did they get", and that is a page
+    // that already exists. `/users/:id` takes the id, which is why the report carries one — `slug`
+    // addresses nothing.
+    renderReport();
+
+    const links = await screen.findAllByRole("link", { name: "Sarah H" });
+    expect(links.length).toBeGreaterThanOrEqual(2); // By person, and the recent-watches feed
+    for (const link of links) {
+      // `?tab=watched` — arriving from a watch figure onto their ROW list is a second click for
+      // something the first click already asked. The key matches the tab's LABEL now; it used to
+      // say `history` against a tab called "Watched" (audit finding, Sep 2026).
+      expect(link.getAttribute("href")).toBe("/users/42?tab=watched");
+    }
+  });
+
+  it("names someone who has left the server without linking anywhere", async () => {
+    // Their watches stay on record, so the line still renders — it just has nowhere to send you, and
+    // a link to a page that 404s is worse than plain text.
+    getReport.mockResolvedValue({
+      ...REPORT,
+      recent: [
+        { ...REPORT.recent[0], user_id: null, display_name: "departed" },
+      ],
+    });
+    renderReport();
+
+    expect(await screen.findByText("departed")).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "departed" })).toBeNull();
+  });
+
+  it("hides deleted rows behind a disclosure, and keeps their numbers", async () => {
+    getReport.mockResolvedValue({
+      ...REPORT,
+      per_row: [
+        ...REPORT.per_row,
+        {
+          slug: "zz-claude-test",
+          section_key: "10",
+          library: "Movies",
+          name: "zz-claude-test",
+          deleted: true,
+          delivered: 5,
+          watched: 0,
+        },
+      ],
+    });
+    renderReport();
+
+    // Collapsed by default: a row you deleted is history, not something to scroll past.
+    const toggle = await screen.findByRole("button", {
+      name: /Show 1 deleted row/i,
+    });
+    expect(screen.queryByText("zz-claude-test")).toBeNull();
+
+    await userEvent.click(toggle);
+
+    expect(screen.getByText("zz-claude-test")).toBeTruthy();
+    expect(screen.getByText(/still counts in the totals above/i)).toBeTruthy();
+  });
+
+  it("can delete a deleted row's history for good, and says what that costs", async () => {
+    getDeletedRows.mockResolvedValue([
+      {
+        slug: "zz-claude-test",
+        picks: 5,
+        first_seen: "2026-07-01T00:00:00Z",
+        last_seen: "2026-07-02T00:00:00Z",
+      },
+    ]);
+    getReport.mockResolvedValue({
+      ...REPORT,
+      per_row: [
+        ...REPORT.per_row,
+        {
+          slug: "zz-claude-test",
+          section_key: "10",
+          library: "Movies",
+          name: "zz-claude-test",
+          deleted: true,
+          delivered: 5,
+          watched: 0,
+        },
+      ],
+    });
+    renderReport();
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Show 1 deleted row/i }),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: /Delete their history/i }),
+    );
+
+    // The count is the point of the confirm: "5 picks" is what makes the totals dropping expected
+    // rather than a bug the owner reports later.
+    // "records", not "picks": for a SHARED row the number counts watch credits, because a shared row
+    // writes no pick rows at all.
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      /5 history records in total/,
+    );
+    // The three sentences around the number must use the same noun. A shared-only deleted row has no
+    // picks at all, so "their picks" was literally false for it.
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      /Their history disappears from every total that counts it/,
+    );
+    // Clearing is never windowed, so the all-time total can exceed the lines above. Unexplained, that
+    // difference reads as a bug — on the real server it was "20 picks" over a visible 5 + 5 + 5.
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      /lines above show only the last 30 days/i,
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent(/can.t be undone/i);
+    // The warning has to name the other places these picks are counted, not just this page.
+    expect(screen.getByRole("alert")).toHaveTextContent(/each person.s page/i);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: /Delete the history/i }),
+    );
+
+    // No slug: the server recomputes which rows are gone, so a stale list can't purge a live row.
+    expect(clearDeletedRows).toHaveBeenCalledWith(undefined);
+  });
+
+  it("deletes nothing when the confirm is dismissed", async () => {
+    getDeletedRows.mockResolvedValue([
+      { slug: "zz-claude-test", picks: 5, first_seen: null, last_seen: null },
+    ]);
+    getReport.mockResolvedValue({
+      ...REPORT,
+      per_row: [
+        ...REPORT.per_row,
+        {
+          slug: "zz-claude-test",
+          section_key: "10",
+          library: "Movies",
+          name: "zz-claude-test",
+          deleted: true,
+          delivered: 5,
+          watched: 0,
+        },
+      ],
+    });
+    renderReport();
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: /Show 1 deleted row/i }),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: /Delete their history/i }),
+    );
+    await userEvent.click(screen.getByRole("button", { name: /Keep it/i }));
+
+    expect(clearDeletedRows).not.toHaveBeenCalled();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("reads out a week's count on hover, and names the latest one before you hover anything", async () => {
+    // The count used to hang off a native `title` on the BAR, so a quiet week's target was a ~3px
+    // sliver at the bottom of an 80px box and most of the column hit nothing at all.
+    getReport.mockResolvedValue({
+      ...REPORT,
+      trend: [
+        { week: "2026-27", watched: 9, finished: 4 },
+        { week: "2026-28", watched: 2, finished: 0 },
+        { week: "2026-32", watched: 5, finished: 5 },
+      ],
+    });
+    renderReport();
+
+    // Nothing hovered: the readout names the LATEST week, so a touch screen — which has no hover to
+    // give — still gets a number rather than a blank line.
+    const readout = await screen.findByText(/watched in the week of/i);
+    expect(readout).toHaveTextContent(/5/);
+    expect(readout).toHaveTextContent(/latest/i);
+
+    // The whole column is the target, including the empty space above a two-watch bar.
+    const columns = screen.getAllByTestId("trend-week");
+    expect(columns).toHaveLength(3);
+    await userEvent.hover(columns[1] as HTMLElement);
+    expect(readout).toHaveTextContent(/2/);
+    expect(readout).toHaveTextContent(/Jul/);
+    expect(readout).not.toHaveTextContent(/latest/i);
+  });
+
+  it("shows a count and a way to see active watchers past the first 10, instead of silently hiding them", async () => {
+    // Issue 7.3: `active.slice(0, 10)` used to just drop everyone past the tenth, with no count and
+    // no way to see them — unlike the IDLE half of this same list, which already got a disclosure.
+    const many = Array.from({ length: 12 }, (_, i) => ({
+      username: `user${i}`,
+      slug: `user${i}`,
+      delivered: 5,
+      watched: 12 - i,
+      finished: Math.max(0, 6 - i),
+    }));
+    getReport.mockResolvedValue({ ...REPORT, per_user: many });
+    renderReport();
+
+    await screen.findByText("user0");
+    expect(screen.getByText("user9")).toBeInTheDocument();
+    // The 11th and 12th are not silently dropped...
+    expect(screen.queryByText("user10")).toBeNull();
+    expect(screen.queryByText("user11")).toBeNull();
+    // ...they're named and offered, the same way idle people already were. The label is POSITIONAL
+    // ("show 2 more"), not a second claim — "2 more people watched something" reused the section's
+    // own verb and read as a separate finding rather than the tail of the list above it.
+    const toggle = screen.getByRole("button", {
+      name: /Show 2 more people/i,
+    });
+    await userEvent.click(toggle);
+    expect(screen.getByText("user10")).toBeInTheDocument();
+    expect(screen.getByText("user11")).toBeInTheDocument();
+  });
+
+  it("folds away people with nothing watched in the window", async () => {
+    getReport.mockResolvedValue({
+      ...REPORT,
+      per_user: [
+        { username: "sarah", slug: "sarah", delivered: 6, watched: 3 },
+        { username: "mike", slug: "mike", delivered: 80, watched: 0 },
+        { username: "amy", slug: "amy", delivered: 95, watched: 0 },
+      ],
+    });
+    renderReport();
+
+    await screen.findAllByText("sarah");
+    // A wall of empty bars says nothing; it is one click away, not deleted.
+    expect(screen.queryByText("mike")).toBeNull();
+
+    await userEvent.click(
+      screen.getByRole("button", {
+        name: /2 people with none in this window/i,
+      }),
+    );
+
+    expect(screen.getByText("mike")).toBeTruthy();
+    expect(screen.getByText("amy")).toBeTruthy();
+  });
+
+  it("explains the empty state before anything is delivered", async () => {
+    getReport.mockResolvedValue({
+      ...REPORT,
+      overall: {
+        ...REPORT.overall,
+        delivered: 0,
+        watched: 0,
+        // `finished` must come down with `watched`: it is a proven subset server-side, so
+        // `watched: 0, finished: 3` is a payload the API cannot emit, and inheriting it left the
+        // zero-watched branch of the Finished hint rendered by this test but asserted by nothing.
+        finished: 0,
+        landing: {
+          ...LANDING,
+          delivered: 0,
+          watched: 0,
+          finished: 0,
+          rate: null,
+        },
+      },
+      runs: { ...EMPTY.runs, total: 0, in_window: 0 },
+      requests: { sent: 0, pending: 0, watched_after_sent: 0 },
+      trend: [],
+      per_user: [],
+      per_row: [],
+      recent: [],
+    });
+    renderReport();
+
+    expect(
+      await screen.findByText(/Nothing has reached anyone's rows yet/i),
+    ).toBeTruthy();
+  });
+
+  it("states a zero week rather than dividing by it", async () => {
+    // The old Finished tile read "of N watched", which at N = 0 rendered "of 0 watched". The verdict
+    // has no such phrasing to break: it prints the count, and "0 watched" IS the statement.
+    getReport.mockResolvedValue({
+      ...REPORT,
+      overall: { ...REPORT.overall, watched: 0, finished: 0 },
+    });
+    renderReport();
+
+    const card = await screen.findByTestId("verdict");
+    expect(card.textContent).toContain("0");
+    expect(card.textContent).not.toMatch(/of 0 watched/);
+  });
+
+  it("draws a finished segment inside each trend column", async () => {
+    // `trend[].finished` reached the DOM through an untyped mock, so a fixture missing the field
+    // produced `height: "NaN%"` — silently dropped by the CSSOM, with every test still green.
+    // This asserts the segment is actually drawn, and drawn at a real height.
+    //
+    // Three weeks, supplied here rather than in the shared fixture: `Trend` short-circuits to a
+    // single number below three points, so a one-week fixture renders no columns at all and every
+    // column assertion becomes vacuous.
+    getReport.mockResolvedValue({
+      ...REPORT,
+      trend: [
+        { week: "2026-27", watched: 9, finished: 4 },
+        { week: "2026-28", watched: 2, finished: 0 },
+        { week: "2026-32", watched: 5, finished: 5 },
+      ],
+    });
+    renderReport();
+    await screen.findByTestId("verdict-watched");
+
+    const columns = document.querySelectorAll('[data-testid="trend-week"]');
+    expect(columns.length).toBeGreaterThan(0);
+    const heights = [...columns].flatMap((c) =>
+      [...c.children].map((el) => (el as HTMLElement).style.height),
+    );
+    expect(heights.length).toBeGreaterThan(0);
+    expect(heights.every((h) => h !== "" && !h.includes("NaN"))).toBe(true);
+  });
+
+  it("distinguishes an empty window from an empty install", async () => {
+    getReport.mockResolvedValue({
+      ...REPORT,
+      overall: {
+        ...REPORT.overall,
+        delivered: 0,
+        watched: 0,
+        // `finished` must come down with `watched`: it is a proven subset server-side, so
+        // `watched: 0, finished: 3` is a payload the API cannot emit, and inheriting it left the
+        // zero-watched branch of the Finished hint rendered by this test but asserted by nothing.
+        finished: 0,
+        landing: {
+          ...LANDING,
+          delivered: 0,
+          watched: 0,
+          finished: 0,
+          rate: null,
+        },
+      },
+      per_user: [],
+      per_row: [],
+      recent: [],
+    });
+    renderReport();
+
+    // 3 runs exist, so "nothing yet" would be a lie — the window is just too short.
+    expect(
+      await screen.findByText(
+        /Nothing reached a row, and nothing was watched, in the last 30 days/i,
+      ),
+    ).toBeTruthy();
+  });
+});
+
+describe("Sync now", () => {
+  beforeEach(() => {
+    getReport.mockReset();
+    getReport.mockResolvedValue(REPORT);
+    getDeletedRows.mockReset();
+    getDeletedRows.mockResolvedValue([]);
+    syncWatched.mockReset();
+  });
+
+  it("re-enables after a successful sync instead of sticking on 'Syncing…' forever", async () => {
+    // Issue 7.4: `disabled={isPending || isSuccess}` with the label keyed on `isSuccess` meant a
+    // SUCCESSFUL sync permanently disabled the button and permanently read "Syncing…" until the page
+    // was reloaded — the opposite of what a finished sync should look like.
+    let resolveSync!: (v: { started: boolean }) => void;
+    syncWatched.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveSync = resolve;
+        }),
+    );
+    renderReport();
+    await screen.findByTestId("verdict-watched");
+
+    await userEvent.click(screen.getByRole("button", { name: /Sync now/i }));
+    expect(
+      await screen.findByRole("button", { name: /Syncing…/i }),
+    ).toBeDisabled();
+
+    resolveSync({ started: true });
+
+    const again = await screen.findByRole("button", { name: /Sync now/i });
+    expect(again).toBeEnabled();
+  });
+
+  it("shows an error and re-enables the button when the sync can't be started", async () => {
+    // The old version had no isError branch at all — a failed POST looked identical to nothing
+    // having happened.
+    syncWatched.mockRejectedValueOnce(new Error("boom"));
+    renderReport();
+    await screen.findByTestId("verdict-watched");
+
+    await userEvent.click(screen.getByRole("button", { name: /Sync now/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /Couldn.t start the sync/i,
+    );
+    expect(screen.getByRole("button", { name: /Try again/i })).toBeEnabled();
+  });
+});
+
+describe("the window selector on a young install", () => {
+  beforeEach(() => {
+    getReport.mockReset();
+    getDeletedRows.mockReset();
+    getDeletedRows.mockResolvedValue([]);
+  });
+
+  it("explains why the numbers don't move when every window covers all the data", async () => {
+    // 3 runs' worth of picks a few days old: 7 / 30 / 90 / all return identical figures, so pressing
+    // a button changes nothing on screen and reads as a broken control. This line is the difference
+    // between "it's broken" and "there isn't older data yet".
+    getReport.mockResolvedValue({
+      ...REPORT,
+      since: "2026-06-29T00:00:00Z",
+      first_pick: "2026-07-28T00:00:00Z", // newer than the window start
+    });
+    renderReport();
+
+    expect(
+      await screen.findByText(/only been recording since/i),
+    ).toBeInTheDocument();
+  });
+
+  it("says nothing once there IS history older than the window", async () => {
+    getReport.mockResolvedValue({
+      ...REPORT,
+      since: "2026-06-29T00:00:00Z",
+      first_pick: "2026-01-01T00:00:00Z", // older than the window start
+    });
+    renderReport();
+
+    await screen.findByTestId("verdict-watched");
+    expect(screen.queryByText(/only been recording since/i)).toBeNull();
+  });
+
+  it("says nothing on the all-time window, which cannot be narrower than the data", async () => {
+    getReport.mockResolvedValue({
+      ...REPORT,
+      window: "all" as ReportWindow,
+      since: null,
+      first_pick: "2026-07-28T00:00:00Z",
+    });
+    renderReport();
+
+    await screen.findByTestId("verdict-watched");
+    expect(screen.queryByText(/only been recording since/i)).toBeNull();
+  });
+});
+
+describe("ImpactReport — recently watched", () => {
+  beforeEach(() => {
+    getReport.mockReset();
+    syncWatched.mockClear();
+    getDeletedRows.mockResolvedValue([]);
+  });
+
+  it("caps the list and offers the rest, instead of dropping them silently", async () => {
+    // The server sends up to 20 (`report_service._recent_watches`) and the page sliced to 12, so
+    // eight were dropped with no count and no disclosure — a bounded feed reading as a full history.
+    const many = Array.from({ length: 20 }, (_, i) => ({
+      username: `user${i}`,
+      display_name: `User ${i}`,
+      title: `Title ${i}`,
+      media_type: "movie" as const,
+      row: "✨ Picked for You",
+      library: "Movies",
+      seed_title: "Arrival",
+      watched_at: new Date(Date.now() - i * 3600_000).toISOString(),
+    }));
+    getReport.mockResolvedValue({ ...REPORT, recent: many });
+    renderReport();
+
+    expect(await screen.findByText("Title 0")).toBeInTheDocument();
+    expect(screen.getByText("Title 11")).toBeInTheDocument();
+    // The 13th onwards are folded, not discarded...
+    expect(screen.queryByText("Title 12")).toBeNull();
+    expect(screen.queryByText("Title 19")).toBeNull();
+
+    await userEvent.click(screen.getByRole("button", { name: /Show 8 more/i }));
+
+    expect(screen.getByText("Title 12")).toBeInTheDocument();
+    expect(screen.getByText("Title 19")).toBeInTheDocument();
+  });
+
+  it("says how many watches the feed holds, so it doesn't read as everything", async () => {
+    getReport.mockResolvedValue({
+      ...REPORT,
+      recent: [
+        {
+          username: "sarah",
+          display_name: "Sarah",
+          title: "Dune",
+          media_type: "movie" as const,
+          row: "✨ Picked for You",
+          library: "Movies",
+          seed_title: "Arrival",
+          watched_at: new Date().toISOString(),
+        },
+      ],
+    });
+    renderReport();
+
+    expect(await screen.findByText(/newest watch/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Show .* more/i })).toBeNull();
+  });
+});
+
+describe("ImpactReport — titles shown as titles", () => {
+  beforeEach(() => {
+    getReport.mockReset();
+    getReport.mockResolvedValue(REPORT);
+    getDeletedRows.mockReset();
+    getDeletedRows.mockResolvedValue([]);
+  });
+
+  it("shows Most watched as posters with rank, year, watchers and look-up links", async () => {
+    // It was a bare "Ted Lasso · 10 watchers" list: nothing said what a title was, and nothing let
+    // you look one up.
+    renderReport();
+
+    const shelf = await screen.findByRole("list", { name: "Most watched" });
+    const item = within(shelf).getAllByRole("listitem")[0]!;
+    expect(item.querySelector("img")?.getAttribute("src")).toBe("/api/picks/7007/poster");
+    expect(item).toHaveTextContent("1");
+    expect(item).toHaveTextContent("Dune: Part Two");
+    expect(item).toHaveTextContent("2024");
+    expect(item).toHaveTextContent("3 watchers");
+    // Faces for the first few watchers, named for screen readers and on hover.
+    expect(within(item).getByTitle("Sarah H")).toBeTruthy();
+    expect(within(item).getByTitle("Mike")).toBeTruthy();
+    expect(within(item).getByRole("link", { name: "Dune: Part Two on TMDB" })).toHaveAttribute(
+      "href",
+      "https://www.themoviedb.org/movie/693134",
+    );
+    expect(within(item).getByRole("link", { name: "Dune: Part Two on IMDb" })).toBeTruthy();
+    expect(within(item).getByRole("link", { name: "Dune: Part Two on Trakt" })).toBeTruthy();
+  });
+
+  it("gives each recent watch its poster and look-up links, grouped under its day", async () => {
+    // Local midday, and a watch two hours before it: "Today" in every timezone. Against the real clock
+    // a watch "5 hours ago" is Yesterday between midnight and 5am, so this failed for part of every day.
+    const midday = new Date();
+    midday.setHours(12, 0, 0, 0);
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(midday);
+    getReport.mockResolvedValue({
+      ...REPORT,
+      recent: [
+        {
+          ...REPORT.recent[0]!,
+          watched_at: new Date(midday.getTime() - 2 * 3600_000).toISOString(),
+          finished_at: null,
+        },
+      ],
+    });
+    renderReport();
+
+    const feed = await screen.findByRole("list", { name: "Recently watched from Shortlist" });
+    vi.useRealTimers();
+    expect(within(feed).getByText("Today")).toBeTruthy();
+    const line = within(feed).getByText("Dune: Part Two").closest("li")!;
+    expect(line.querySelector("img")?.getAttribute("src")).toBe("/api/picks/7007/poster");
+    expect(line).toHaveTextContent("2024");
+    expect(within(line).getByRole("link", { name: "Dune: Part Two on TMDB" })).toBeTruthy();
+  });
+
+  it("stacks Requests under Worth a look, and gives the two long lists the full width below", async () => {
+    // "Recently watched" runs to twenty lines, so a Requests card beside it floated over a column of
+    // empty space. Beside the tall By-person list, under Worth a look, it fills a gap instead.
+    renderReport();
+
+    await screen.findByRole("list", { name: "Recently watched from Shortlist" });
+    const order = screen
+      .getAllByRole("heading")
+      .map((h) => h.textContent)
+      .filter((t) => ["Worth a look", "Requests", "Most watched", "Recently watched from Shortlist"].includes(t ?? ""));
+    expect(order).toEqual(["Worth a look", "Requests", "Most watched", "Recently watched from Shortlist"]);
+  });
+});
+
+describe("ImpactReport — the recent feed says which kind of watch it was", () => {
+  beforeEach(() => {
+    getReport.mockReset();
+    getDeletedRows.mockReset();
+    getDeletedRows.mockResolvedValue([]);
+  });
+
+  function withRecent(
+    recent: Partial<(typeof REPORT)["recent"][number]>[],
+  ): void {
+    getReport.mockResolvedValue({
+      ...REPORT,
+      recent: recent.map((r) => ({ ...REPORT.recent[0]!, ...r })),
+    });
+  }
+
+  it("says a series was only STARTED when nobody saw it out", async () => {
+    // Plex credits a series on its first finished episode, so "watched" here has always meant
+    // "began". Measured on a real server: 21 of 158 credited show picks were actually finished.
+    withRecent([
+      {
+        title: "Love, Death & Robots",
+        media_type: "show",
+        finished_at: null,
+      },
+    ]);
+    renderReport();
+
+    const line = await screen.findByText(/Love, Death & Robots/);
+    expect(line.closest("li")).toHaveTextContent(/started/i);
+    expect(line.closest("li")).not.toHaveTextContent(/watched/i);
+  });
+
+  it("says FINISHED for a series they saw out", async () => {
+    withRecent([
+      {
+        title: "Fleabag",
+        media_type: "show",
+        finished_at: new Date().toISOString(),
+      },
+    ]);
+    renderReport();
+
+    const line = await screen.findByText(/Fleabag/);
+    expect(line.closest("li")).toHaveTextContent(/finished/i);
+  });
+
+  it("leaves a FILM as watched, finished or not", async () => {
+    // A film has no middle state. "finished" adds a word without adding a fact, and "started" would
+    // be wrong for the overwhelmingly common case — so the split must not reach movies at all.
+    withRecent([
+      { title: "The Martian", media_type: "movie", finished_at: null },
+      {
+        title: "Toy Story",
+        media_type: "movie",
+        finished_at: new Date().toISOString(),
+      },
+    ]);
+    renderReport();
+
+    for (const title of ["The Martian", "Toy Story"]) {
+      const line = (await screen.findByText(title)).closest("li");
+      expect(line).toHaveTextContent(/watched/i);
+      expect(line).not.toHaveTextContent(/started|finished/i);
+    }
+  });
+});
+
+describe("ImpactReport — the engagement split", () => {
+  it("counts everyone who was lost after pressing play, in the verdict itself", async () => {
+    // 2 dropped + 1 bounced. One number, because the question is "how many did we lose after they
+    // pressed play" — the split is not worth a second figure in a sentence.
+    getReport.mockResolvedValue(REPORT);
+    renderReport();
+
+    const card = await screen.findByTestId("verdict");
+    expect(card.textContent).toMatch(/3\s*gave up part-way/);
+  });
+
+  it("says nothing about giving up when nobody did", async () => {
+    // A dashboard printing "0 gave up" every day teaches you to stop reading the line that matters
+    // on the day it is not zero. It was a tile that could only ever read zero on most servers.
+    getReport.mockResolvedValue({
+      ...REPORT,
+      overall: { ...REPORT.overall, bounced: 0, dropped: 0 },
+    });
+    renderReport();
+
+    await screen.findByTestId("verdict-watched");
+    expect(screen.queryByText(/gave up part-way/)).toBeNull();
+  });
+
+  it("says how much of what people watched was in their Shortlist row", async () => {
+    // Replaced "picks watched while their row still showed them" (0.7% on a real server), which divided
+    // by every title ever SHOWN and so stayed tiny whether Shortlist worked or not.
+    renderReport();
+
+    expect(await screen.findByText("15.3%")).toBeTruthy();
+    expect(screen.getByText("Share of all viewing")).toBeTruthy();
+    expect(
+      screen.getByText("82 of the 537 titles people watched were in their rows · the last 30 days"),
+    ).toBeTruthy();
+    expect(screen.queryByText(/Picks watched while their row still showed them/)).toBeNull();
+  });
+
+  it("tells the two rates apart: a share of TITLES, then a count of PEOPLE", async () => {
+    // Side by side, "Of what people watched, in their Shortlist row 18.2%" and "People who watched
+    // something 34 of 46" read as two takes on one number. The owner could not tell them apart.
+    renderReport();
+
+    expect(await screen.findByText("People who watched a pick")).toBeTruthy();
+    expect(
+      screen.getByText("watched at least one title from their rows · the last 30 days"),
+    ).toBeTruthy();
+    expect(screen.queryByText(/People who watched something/)).toBeNull();
+  });
+
+  it("never reports a real share as zero", async () => {
+    getReport.mockResolvedValue({
+      ...REPORT,
+      overall: {
+        ...REPORT.overall,
+        viewing_share: { watched: 100000, from_rows: 30, rate: 0.0 },
+      },
+    });
+    renderReport();
+
+    expect(await screen.findByText("<0.1%")).toBeTruthy();
+    expect(screen.queryByText("0.0%")).toBeNull();
+  });
+
+  it("blames the missing watch history, not the people, when there is no share to show", async () => {
+    // The share reads the nightly watch sync; the Watched tile reads live credits. A pick credited today
+    // shows "41 watched" above a share of nothing, so "no one has watched anything" would contradict
+    // the headline on the same card. What is actually missing is synced history.
+    getReport.mockResolvedValue({
+      ...REPORT,
+      overall: {
+        ...REPORT.overall,
+        viewing_share: { watched: 0, from_rows: 0, rate: null },
+      },
+    });
+    renderReport();
+
+    expect(await screen.findByText(/Nothing to count yet/i)).toBeTruthy();
+    expect(screen.queryByText(/has watched anything/i)).toBeNull();
+    expect(screen.queryByText("<0.1%")).toBeNull();
+  });
+});
+
+describe("ImpactReport — loading and updating", () => {
+  beforeEach(() => {
+    getReport.mockReset();
+    getDeletedRows.mockReset();
+    getDeletedRows.mockResolvedValue([]);
+  });
+
+  it("shows the labelled skeleton while nothing is cached", () => {
+    getReport.mockReturnValue(new Promise(() => {}));
+
+    renderReport();
+
+    expect(screen.getByRole("status", { name: "Loading the impact report" })).toBeInTheDocument();
+    expect(screen.queryByText("Updating…")).not.toBeInTheDocument();
+  });
+
+  it("shows the remembered report immediately, with Updating… until the fetch lands", async () => {
+    localStorage.setItem("shortlist.report.v1.30", JSON.stringify(REPORT));
+    let resolve!: (value: EffectivenessReport) => void;
+    getReport.mockReturnValue(new Promise<EffectivenessReport>((r) => (resolve = r)));
+
+    renderReport();
+
+    expect(await screen.findByTestId("verdict")).toBeInTheDocument();
+    expect(screen.queryByRole("status", { name: "Loading the impact report" })).not.toBeInTheDocument();
+    expect(screen.getByText("Updating…")).toBeInTheDocument();
+
+    resolve(REPORT);
+    await vi.waitFor(() => expect(screen.queryByText("Updating…")).not.toBeInTheDocument());
+    expect(screen.getByTestId("verdict")).toBeInTheDocument();
+  });
+
+  it("keeps the previous window on screen while the next one loads", async () => {
+    getReport.mockImplementation((window: ReportWindow) =>
+      window === "30" ? Promise.resolve(REPORT) : new Promise(() => {}),
+    );
+    renderReport();
+    await screen.findByTestId("verdict");
+    expect(screen.queryByText("Updating…")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "90 days" }));
+
+    expect(await screen.findByText("Updating…")).toBeInTheDocument();
+    expect(screen.getByTestId("verdict")).toBeInTheDocument();
+    expect(screen.queryByRole("status", { name: "Loading the impact report" })).not.toBeInTheDocument();
+  });
+
+  it("does not remember placeholder data under the new window's key", async () => {
+    getReport.mockImplementation((window: ReportWindow) =>
+      window === "30" ? Promise.resolve(REPORT) : new Promise(() => {}),
+    );
+    renderReport();
+    await screen.findByTestId("verdict");
+
+    await userEvent.click(screen.getByRole("button", { name: "90 days" }));
+    await screen.findByText("Updating…");
+
+    expect(localStorage.getItem("shortlist.report.v1.30")).not.toBeNull();
+    expect(localStorage.getItem("shortlist.report.v1.90")).toBeNull();
+  });
+
+  it("shows the remembered report for the selected window over the previous window's", async () => {
+    const cached90 = { ...REPORT, window: "90" as ReportWindow };
+    localStorage.setItem("shortlist.report.v1.90", JSON.stringify(cached90));
+    getReport.mockImplementation((window: ReportWindow) =>
+      window === "30" ? Promise.resolve(REPORT) : new Promise(() => {}),
+    );
+    renderReport();
+    await screen.findByTestId("verdict");
+
+    await userEvent.click(screen.getByRole("button", { name: "90 days" }));
+
+    await screen.findByText("Updating…");
+    expect(screen.getByTestId("verdict").parentElement?.className).not.toContain("opacity-60");
+    expect(screen.getByTestId("verdict").querySelector(".opacity-60")).toBeNull();
+  });
+
+  it("dims the figures while another window's report stands in", async () => {
+    getReport.mockImplementation((window: ReportWindow) =>
+      window === "30" ? Promise.resolve(REPORT) : new Promise(() => {}),
+    );
+    renderReport();
+    await screen.findByTestId("verdict");
+    expect(document.querySelector(".opacity-60")).toBeNull();
+
+    await userEvent.click(screen.getByRole("button", { name: "90 days" }));
+
+    await screen.findByText("Updating…");
+    expect(document.querySelectorAll(".opacity-60.motion-reduce\\:transition-none").length).toBeGreaterThan(0);
+  });
+});

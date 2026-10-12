@@ -1,0 +1,608 @@
+"""Tests for the export API router (api/routers/export.py).
+
+Covers the three edition-gated endpoints (export_xmp, export/sidecars,
+album export) with the ``edition_client`` happy path and the ``regular_client``
+403 path. A real temp sqlite DB seeded with photos backs ``get_db`` so the
+effective-rating read path runs for real; real image files under ``tmp_path``
+let ``resolve_photo_disk_path`` (no scan dirs in tests -> file-exists check
+only) resolve to disk.
+"""
+
+import os
+import sqlite3
+from contextlib import contextmanager
+from unittest import mock
+from xml.etree import ElementTree as ET
+
+import pytest
+
+from db.schema import init_database
+
+_EXPORT_MODULE = "api.routers.export"
+
+_NS = {
+    "rdf": "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
+    "xmp": "http://ns.adobe.com/xap/1.0/",
+    "dc": "http://purl.org/dc/elements/1.1/",
+}
+
+
+@pytest.fixture()
+def client(edition_client):
+    return edition_client
+
+
+@pytest.fixture(autouse=True)
+def _no_exiftool(monkeypatch):
+    """Exercise the dependency-free pure-XML sidecar path deterministically.
+
+    These endpoint tests use placeholder image files and run in environments
+    without exiftool (like CI); the exiftool embed path is covered by mocked
+    unit tests in ``test_xmp_export.py``.
+    """
+    monkeypatch.setattr("processing.xmp_export.exiftool_available", lambda: False)
+
+
+def _seed_db(db_path, photos):
+    """Build the REAL schema (``init_database``) and insert the given photo dicts."""
+    init_database(db_path)
+    conn = sqlite3.connect(db_path)
+    for p in photos:
+        cols = list(p.keys())
+        placeholders = ", ".join("?" for _ in cols)
+        conn.execute(
+            f"INSERT INTO photos ({', '.join(cols)}) VALUES ({placeholders})",
+            [p[c] for c in cols],
+        )
+    conn.commit()
+    conn.close()
+
+
+def _db_cm(db_path):
+    @contextmanager
+    def _cm():
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        try:
+            yield conn
+        finally:
+            conn.close()
+    return _cm
+
+
+def _make_photo(tmp_path, name, **fields):
+    """Create a real image file and return its path + a photo row dict."""
+    img = tmp_path / name
+    img.write_bytes(b"JPEGDATA")
+    row = {"path": str(img), "filename": name}
+    row.update(fields)
+    return str(img), row
+
+
+def _read_sidecar_desc(sidecar_path):
+    xml = open(sidecar_path, encoding="utf-8").read()
+    body = xml.split("?>", 1)[1].rsplit("<?xpacket", 1)[0]
+    return ET.fromstring(body).find(".//rdf:Description", _NS)
+
+
+# ---------------------------------------------------------------------------
+# POST /api/photo/export_xmp
+# ---------------------------------------------------------------------------
+
+class TestExportXmp:
+    def test_happy_path_writes_sidecar(self, client, tmp_path):
+        path, row = _make_photo(
+            tmp_path, "a.jpg", star_rating=5, is_favorite=1, tags="sunset,beach"
+        )
+        db = str(tmp_path / "t.db")
+        _seed_db(db, [row])
+
+        # No scan dirs configured in tests -> resolve_photo_disk_path only
+        # checks the file exists. Patch get_db at the export module.
+        with mock.patch(f"{_EXPORT_MODULE}.get_db", _db_cm(db)):
+            resp = client.post("/api/photo/export_xmp", json={"path": path})
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["ok"] is True
+        assert body["sidecar"] == path + ".xmp"
+        assert os.path.isfile(body["sidecar"])
+        desc = _read_sidecar_desc(body["sidecar"])
+        assert desc.get(f"{{{_NS['xmp']}}}Rating") == "5"
+        assert desc.get(f"{{{_NS['xmp']}}}Label") == "Yellow"
+        subjects = [li.text for li in desc.findall(".//dc:subject/rdf:Bag/rdf:li", _NS)]
+        assert subjects == ["sunset", "beach"]
+
+    def test_manual_tag_reaches_the_sidecar(self, client, tmp_path):
+        path, row = _make_photo(tmp_path, "m.jpg", tags="sunset")
+        db = str(tmp_path / "t.db")
+        _seed_db(db, [row])
+        conn = sqlite3.connect(db)
+        conn.execute(
+            "INSERT INTO photo_manual_tags (photo_path, tag, source) VALUES (?, 'trip', 'user')",
+            (path,),
+        )
+        conn.commit()
+        conn.close()
+        with mock.patch(f"{_EXPORT_MODULE}.get_db", _db_cm(db)):
+            resp = client.post("/api/photo/export_xmp", json={"path": path})
+        assert resp.status_code == 200
+        desc = _read_sidecar_desc(resp.json()["sidecar"])
+        subjects = [li.text for li in desc.findall(".//dc:subject/rdf:Bag/rdf:li", _NS)]
+        assert subjects == ["sunset", "trip"]
+
+    def test_rejected_photo(self, client, tmp_path):
+        path, row = _make_photo(tmp_path, "r.jpg", is_rejected=1)
+        db = str(tmp_path / "t.db")
+        _seed_db(db, [row])
+        with mock.patch(f"{_EXPORT_MODULE}.get_db", _db_cm(db)):
+            resp = client.post("/api/photo/export_xmp", json={"path": path})
+        assert resp.status_code == 200
+        desc = _read_sidecar_desc(resp.json()["sidecar"])
+        assert desc.get(f"{{{_NS['xmp']}}}Rating") == "-1"
+        assert desc.get(f"{{{_NS['xmp']}}}Label") == "Red"
+
+    def test_unknown_path_404(self, client, tmp_path):
+        db = str(tmp_path / "t.db")
+        _seed_db(db, [])
+        with mock.patch(f"{_EXPORT_MODULE}.get_db", _db_cm(db)):
+            resp = client.post("/api/photo/export_xmp", json={"path": "/nope.jpg"})
+        assert resp.status_code == 404
+
+    def test_regular_client_forbidden(self, regular_client, tmp_path):
+        resp = regular_client.post("/api/photo/export_xmp", json={"path": "/x.jpg"})
+        assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# POST /api/export/sidecars
+# ---------------------------------------------------------------------------
+
+class TestExportSidecars:
+    def test_explicit_paths(self, client, tmp_path):
+        p1, r1 = _make_photo(tmp_path, "a.jpg", star_rating=4)
+        p2, r2 = _make_photo(tmp_path, "b.jpg", is_favorite=1)
+        db = str(tmp_path / "t.db")
+        _seed_db(db, [r1, r2])
+
+        with mock.patch(f"{_EXPORT_MODULE}.get_db", _db_cm(db)):
+            resp = client.post("/api/export/sidecars", json={"paths": [p1, p2, "/missing.jpg"]})
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["written"] == 2
+        assert body["skipped"] == 1  # /missing.jpg not in DB
+        assert os.path.isfile(p1 + ".xmp")
+        assert os.path.isfile(p2 + ".xmp")
+
+    def test_requires_paths_or_filters(self, client, tmp_path):
+        db = str(tmp_path / "t.db")
+        _seed_db(db, [])
+        with mock.patch(f"{_EXPORT_MODULE}.get_db", _db_cm(db)):
+            resp = client.post("/api/export/sidecars", json={})
+        assert resp.status_code == 400
+
+    def test_filter_set(self, client, tmp_path):
+        p1, r1 = _make_photo(tmp_path, "a.jpg", star_rating=5, category="portrait")
+        p2, r2 = _make_photo(tmp_path, "b.jpg", star_rating=1, category="landscape")
+        db = str(tmp_path / "t.db")
+        _seed_db(db, [r1, r2])
+
+        # Bypass the gallery where-builder; resolve filters to just p1.
+        with (
+            mock.patch(f"{_EXPORT_MODULE}.get_db", _db_cm(db)),
+            mock.patch(f"{_EXPORT_MODULE}._resolve_filter_paths", return_value=[p1]),
+        ):
+            resp = client.post("/api/export/sidecars", json={"filters": {"category": "portrait"}})
+
+        assert resp.status_code == 200
+        assert resp.json()["written"] == 1
+        assert os.path.isfile(p1 + ".xmp")
+        assert not os.path.isfile(p2 + ".xmp")
+
+    def test_regular_client_forbidden(self, regular_client):
+        resp = regular_client.post("/api/export/sidecars", json={"paths": ["/x.jpg"]})
+        assert resp.status_code == 403
+
+
+def _full_schema_db(db_path, rows):
+    """A photos DB with the REAL schema, for the tests that run the true
+    ``gallery_scope_sql`` filter branch rather than mocking it out.
+
+    ``_seed_db`` above hand-rolls a handful of columns, which is enough for the
+    path-list tests but makes ``_build_gallery_where`` raise the moment a query
+    touches a column it left out. ``db.schema.init_database`` is the only
+    definition that cannot drift from the one the endpoint queries.
+    """
+    init_database(db_path)
+    conn = sqlite3.connect(db_path)
+    for row in rows:
+        cols = list(row.keys())
+        conn.execute(
+            f"INSERT INTO photos ({', '.join(cols)}) "
+            f"VALUES ({', '.join('?' for _ in cols)})",
+            [row[c] for c in cols],
+        )
+    conn.commit()
+    conn.close()
+
+
+class TestExportSidecarsFilterScopeIsBounded:
+    """The ``filters`` branch must be bounded like the ``paths`` branch.
+
+    ``paths`` carries ``max_length=10000``; the filter branch had no bound at
+    all, and the gallery can now select a whole view without sending its paths.
+    Each photo spawns two exiftool processes and the endpoint is a sync ``def``
+    holding a threadpool worker for the whole run, so an uncapped library-wide
+    export pins that worker for hours.
+    """
+
+    def test_the_cap_matches_the_explicit_path_limit(self):
+        """Both request forms bound the same work, so both bound it the same."""
+        from api.routers.export import ExportSidecarsRequest, _SIDECAR_FILTER_MAX
+
+        paths_max = ExportSidecarsRequest.model_fields["paths"].metadata[0].max_length
+        assert _SIDECAR_FILTER_MAX == paths_max == 10000
+
+    def _db_of(self, tmp_path, count):
+        rows = []
+        for i in range(count):
+            img = tmp_path / f"cap{i}.jpg"
+            img.write_bytes(b"JPEGDATA")
+            rows.append({"path": str(img), "filename": img.name, "category": "capped"})
+        db = str(tmp_path / "cap.db")
+        _full_schema_db(db, rows)
+        return db, [r["path"] for r in rows]
+
+    def test_a_view_over_the_cap_is_refused(self, client, tmp_path):
+        db, paths = self._db_of(tmp_path, 3)
+        with (
+            mock.patch(f"{_EXPORT_MODULE}.get_db", _db_cm(db)),
+            mock.patch(f"{_EXPORT_MODULE}._SIDECAR_FILTER_MAX", 2),
+        ):
+            resp = client.post("/api/export/sidecars",
+                               json={"filters": {"category": "capped"}})
+        assert resp.status_code == 412, resp.text
+        detail = resp.json()["detail"]
+        # Names the count AND the limit: "too many" alone leaves the user with
+        # no idea how far to narrow.
+        assert "3" in detail and "2" in detail
+        # Refused, never half-written: a partial export of a selection the user
+        # believed was whole is worse than a clear refusal.
+        assert [p for p in paths if os.path.exists(p + ".xmp")] == []
+
+    def test_a_view_at_the_cap_still_exports(self, client, tmp_path):
+        db, paths = self._db_of(tmp_path, 2)
+        with (
+            mock.patch(f"{_EXPORT_MODULE}.get_db", _db_cm(db)),
+            mock.patch(f"{_EXPORT_MODULE}._SIDECAR_FILTER_MAX", 2),
+        ):
+            resp = client.post("/api/export/sidecars",
+                               json={"filters": {"category": "capped"}})
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["written"] == 2
+        assert all(os.path.isfile(p + ".xmp") for p in paths)
+
+
+class TestExportSidecarsAlbumScope:
+    """A filter set naming an album answers like the gallery GET does.
+
+    ``_resolve_filter_paths`` called ``gallery_scope_sql`` directly, past the
+    album access check the read paths applied, so a POST body carrying
+    ``filters: {"album_id": N}`` exported ratings out of an album whose GET
+    answers 404/403.
+    """
+
+    def _album_db(self, tmp_path, member_names, other_names):
+        rows = []
+        for name in member_names + other_names:
+            img = tmp_path / name
+            img.write_bytes(b"JPEGDATA")
+            rows.append({"path": str(img), "filename": name, "star_rating": 3})
+        db = str(tmp_path / "album.db")
+        _full_schema_db(db, rows)
+        conn = sqlite3.connect(db)
+        conn.execute("INSERT INTO albums (id, user_id, name) VALUES (1, NULL, 'trip')")
+        conn.executemany(
+            "INSERT INTO album_photos (album_id, photo_path) VALUES (1, ?)",
+            [(str(tmp_path / n),) for n in member_names],
+        )
+        conn.commit()
+        conn.close()
+        return db
+
+    def test_an_album_scoped_export_is_narrowed_to_its_members(self, client, tmp_path):
+        db = self._album_db(tmp_path, ["in.jpg"], ["out.jpg"])
+        with mock.patch(f"{_EXPORT_MODULE}.get_db", _db_cm(db)):
+            resp = client.post("/api/export/sidecars", json={"filters": {"album_id": "1"}})
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["written"] == 1
+        assert os.path.isfile(str(tmp_path / "in.jpg") + ".xmp")
+        assert not os.path.exists(str(tmp_path / "out.jpg") + ".xmp")
+
+    def test_an_unknown_album_is_404_like_the_gallery_get(self, client, tmp_path):
+        db = self._album_db(tmp_path, ["in.jpg"], ["out.jpg"])
+        with mock.patch(f"{_EXPORT_MODULE}.get_db", _db_cm(db)):
+            resp = client.post("/api/export/sidecars", json={"filters": {"album_id": "99"}})
+        assert resp.status_code == 404, resp.text
+        assert not os.path.exists(str(tmp_path / "in.jpg") + ".xmp")
+        assert not os.path.exists(str(tmp_path / "out.jpg") + ".xmp")
+
+
+class TestExportSidecarsTargetIsExactlyOne:
+    """``paths`` and ``filters`` name the same set two ways; never both.
+
+    Sending both silently won for ``paths``: ``_selected_paths`` returns the
+    path list before ``filters`` is read, so the whole-view scope was dropped
+    without a word. ``exclude`` is no longer part of that failure -- it narrows
+    whichever target is sent (see ``TestExportSidecarsExcludeNarrowsEitherTarget``).
+    """
+
+    def test_both_targets_is_422(self, client, tmp_path):
+        p1, r1 = _make_photo(tmp_path, "a.jpg", star_rating=4)
+        db = str(tmp_path / "t.db")
+        _seed_db(db, [r1])
+        with mock.patch(f"{_EXPORT_MODULE}.get_db", _db_cm(db)):
+            resp = client.post("/api/export/sidecars", json={
+                "paths": [p1], "filters": {"category": "portrait"}, "exclude": [p1],
+            })
+        assert resp.status_code == 422, resp.text
+        assert not os.path.exists(p1 + ".xmp")
+
+    def test_neither_target_is_still_400(self, client, tmp_path):
+        """The pre-existing status for a request with no target at all."""
+        db = str(tmp_path / "t.db")
+        _seed_db(db, [])
+        with mock.patch(f"{_EXPORT_MODULE}.get_db", _db_cm(db)):
+            resp = client.post("/api/export/sidecars", json={})
+        assert resp.status_code == 400, resp.text
+
+
+class TestExportSidecarsExcludeNarrowsEitherTarget:
+    """``exclude`` narrows a named path list too, not only a filter set.
+
+    ``_selected_paths`` returned ``body.paths`` before ``body.exclude`` was
+    read, so a caller naming paths plus exceptions had its exceptions dropped
+    and got a sidecar written next to every one of them. Shared helper with
+    ``POST /api/cull/apply``, so the two endpoints cannot disagree about what
+    ``exclude`` means.
+    """
+
+    def _two_photos(self, tmp_path):
+        p1, r1 = _make_photo(tmp_path, "a.jpg", star_rating=4)
+        p2, r2 = _make_photo(tmp_path, "b.jpg", star_rating=5)
+        db = str(tmp_path / "t.db")
+        _seed_db(db, [r1, r2])
+        return p1, p2, db
+
+    def test_an_excluded_path_gets_no_sidecar(self, client, tmp_path):
+        p1, p2, db = self._two_photos(tmp_path)
+        with mock.patch(f"{_EXPORT_MODULE}.get_db", _db_cm(db)):
+            resp = client.post("/api/export/sidecars",
+                               json={"paths": [p1, p2], "exclude": [p2]})
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["written"] == 1
+        assert os.path.isfile(p1 + ".xmp")
+        assert not os.path.exists(p2 + ".xmp"), "the excluded path was exported anyway"
+
+    def test_an_empty_exclude_is_a_no_op(self, client, tmp_path):
+        p1, p2, db = self._two_photos(tmp_path)
+        with mock.patch(f"{_EXPORT_MODULE}.get_db", _db_cm(db)):
+            resp = client.post("/api/export/sidecars",
+                               json={"paths": [p1, p2], "exclude": []})
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["written"] == 2
+        assert os.path.isfile(p1 + ".xmp") and os.path.isfile(p2 + ".xmp")
+
+    def test_excluding_every_named_path_writes_nothing(self, client, tmp_path):
+        """Still a target set, simply an empty one — not the no-target 400."""
+        p1, p2, db = self._two_photos(tmp_path)
+        with mock.patch(f"{_EXPORT_MODULE}.get_db", _db_cm(db)):
+            resp = client.post("/api/export/sidecars",
+                               json={"paths": [p1, p2], "exclude": [p1, p2]})
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["written"] == 0
+        assert not os.path.exists(p1 + ".xmp")
+        assert not os.path.exists(p2 + ".xmp")
+
+
+# ---------------------------------------------------------------------------
+# POST /api/albums/{id}/export
+# ---------------------------------------------------------------------------
+
+class TestAlbumExport:
+    def _seed_album(self, db, album_id, paths):
+        conn = sqlite3.connect(db)
+        conn.execute("INSERT INTO albums (id, user_id, name) VALUES (?, NULL, ?)", (album_id, "A"))
+        for i, p in enumerate(paths):
+            conn.execute(
+                "INSERT INTO album_photos (album_id, photo_path, position) VALUES (?, ?, ?)",
+                (album_id, p, i),
+            )
+        conn.commit()
+        conn.close()
+
+    def test_sidecars_mode(self, client, tmp_path):
+        p1, r1 = _make_photo(tmp_path, "a.jpg", star_rating=3)
+        p2, r2 = _make_photo(tmp_path, "b.jpg", is_rejected=1)
+        db = str(tmp_path / "t.db")
+        _seed_db(db, [r1, r2])
+        self._seed_album(db, 7, [p1, p2])
+
+        with mock.patch(f"{_EXPORT_MODULE}.get_db", _db_cm(db)):
+            resp = client.post("/api/albums/7/export", json={"mode": "sidecars"})
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["mode"] == "sidecars"
+        assert body["written"] == 2
+        assert os.path.isfile(p1 + ".xmp")
+        assert os.path.isfile(p2 + ".xmp")
+
+    def test_copy_mode(self, client, tmp_path):
+        p1, r1 = _make_photo(tmp_path, "a.jpg", star_rating=3)
+        db = str(tmp_path / "t.db")
+        _seed_db(db, [r1])
+        self._seed_album(db, 8, [p1])
+        target = str(tmp_path / "basket")
+
+        with (
+            mock.patch(f"{_EXPORT_MODULE}.get_db", _db_cm(db)),
+            mock.patch(f"{_EXPORT_MODULE}._allowed_export_roots", return_value=[str(tmp_path)]),
+        ):
+            resp = client.post(
+                "/api/albums/8/export",
+                json={"mode": "copy", "target_dir": target},
+            )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["copied"] == 1
+        assert os.path.isfile(os.path.join(target, "a.jpg"))
+
+    def test_copy_rejects_out_of_bounds_target(self, client, tmp_path):
+        """A target_dir outside the allowed roots is refused (no file written)."""
+        p1, r1 = _make_photo(tmp_path, "a.jpg", star_rating=3)
+        db = str(tmp_path / "t.db")
+        _seed_db(db, [r1])
+        self._seed_album(db, 11, [p1])
+        allowed = str(tmp_path / "allowed")
+        evil = str(tmp_path / "evil")
+
+        with (
+            mock.patch(f"{_EXPORT_MODULE}.get_db", _db_cm(db)),
+            mock.patch(f"{_EXPORT_MODULE}._allowed_export_roots", return_value=[allowed]),
+        ):
+            resp = client.post(
+                "/api/albums/11/export",
+                json={"mode": "copy", "target_dir": evil},
+            )
+
+        assert resp.status_code == 403
+        assert not os.path.exists(os.path.join(evil, "a.jpg"))
+        detail = resp.json()["detail"]
+        assert "viewer.export.allowed_target_dirs" in detail
+        assert allowed in detail
+
+    def test_copy_disabled_without_allowlist(self, client, tmp_path):
+        """With no allowed roots configured, copy/symlink export is fail-closed."""
+        p1, r1 = _make_photo(tmp_path, "a.jpg", star_rating=3)
+        db = str(tmp_path / "t.db")
+        _seed_db(db, [r1])
+        self._seed_album(db, 12, [p1])
+
+        with (
+            mock.patch(f"{_EXPORT_MODULE}.get_db", _db_cm(db)),
+            mock.patch(f"{_EXPORT_MODULE}._allowed_export_roots", return_value=[]),
+        ):
+            resp = client.post(
+                "/api/albums/12/export",
+                json={"mode": "copy", "target_dir": str(tmp_path / "x")},
+            )
+
+        assert resp.status_code == 403
+        detail = resp.json()["detail"]
+        assert "viewer.export.allowed_target_dirs" in detail
+        assert "none configured" in detail
+
+    def test_copy_dest_confined_to_target(self, client, tmp_path):
+        """Copied files land inside (and only inside) the validated target_dir."""
+        p1, r1 = _make_photo(tmp_path, "a.jpg", star_rating=3)
+        db = str(tmp_path / "t.db")
+        _seed_db(db, [r1])
+        self._seed_album(db, 13, [p1])
+        target = str(tmp_path / "basket")
+
+        with (
+            mock.patch(f"{_EXPORT_MODULE}.get_db", _db_cm(db)),
+            mock.patch(f"{_EXPORT_MODULE}._allowed_export_roots", return_value=[str(tmp_path)]),
+        ):
+            resp = client.post(
+                "/api/albums/13/export",
+                json={"mode": "copy", "target_dir": target},
+            )
+
+        assert resp.status_code == 200
+        dest = os.path.join(os.path.realpath(target), "a.jpg")
+        assert os.path.isfile(dest)
+        assert os.path.realpath(dest).startswith(os.path.realpath(target) + os.sep)
+
+    def test_copy_requires_target_dir(self, client, tmp_path):
+        db = str(tmp_path / "t.db")
+        _seed_db(db, [])
+        with mock.patch(f"{_EXPORT_MODULE}.get_db", _db_cm(db)):
+            resp = client.post("/api/albums/9/export", json={"mode": "copy"})
+        assert resp.status_code == 400
+
+    def test_album_not_found(self, client, tmp_path):
+        db = str(tmp_path / "t.db")
+        _seed_db(db, [])
+        with mock.patch(f"{_EXPORT_MODULE}.get_db", _db_cm(db)):
+            resp = client.post("/api/albums/999/export", json={"mode": "sidecars"})
+        assert resp.status_code == 404
+
+    def test_regular_client_forbidden(self, regular_client):
+        resp = regular_client.post("/api/albums/1/export", json={"mode": "sidecars"})
+        assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# POST /api/photo/embed_metadata
+# ---------------------------------------------------------------------------
+
+class TestEmbedMetadata:
+    def test_returns_sidecar_and_embedded_key(self, client, tmp_path):
+        path, row = _make_photo(tmp_path, "a.jpg", star_rating=4, tags="x")
+        db = str(tmp_path / "t.db")
+        _seed_db(db, [row])
+        with mock.patch(f"{_EXPORT_MODULE}.get_db", _db_cm(db)):
+            resp = client.post("/api/photo/embed_metadata", json={"path": path})
+        assert resp.status_code == 200
+        body = resp.json()
+        # 'embedded' is always present (None under the no-exiftool fallback).
+        assert "embedded" in body
+        assert body["sidecar"] == path + ".xmp"
+        assert os.path.isfile(body["sidecar"])
+
+    def test_unknown_path_404(self, client, tmp_path):
+        db = str(tmp_path / "t.db")
+        _seed_db(db, [])
+        with mock.patch(f"{_EXPORT_MODULE}.get_db", _db_cm(db)):
+            resp = client.post("/api/photo/embed_metadata", json={"path": "/nope.jpg"})
+        assert resp.status_code == 404
+
+    def test_regular_client_forbidden(self, regular_client):
+        resp = regular_client.post("/api/photo/embed_metadata", json={"path": "/x.jpg"})
+        assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# Finding 6: person_names derived from regions (comma-safe)
+# ---------------------------------------------------------------------------
+
+class TestPersonNamesFromRegions:
+    def _seed_face(self, db, photo_path, person_name):
+        conn = sqlite3.connect(db)
+        conn.execute("INSERT INTO persons (id, name) VALUES (1, ?)", (person_name,))
+        conn.execute(
+            "INSERT INTO faces (photo_path, face_index, embedding, person_id, bbox_x1, bbox_y1, bbox_x2, bbox_y2) "
+            "VALUES (?, 0, x'00', 1, 100, 100, 200, 200)",
+            (photo_path,),
+        )
+        conn.commit()
+        conn.close()
+
+    def test_comma_person_name_not_split(self, client, tmp_path):
+        path, row = _make_photo(
+            tmp_path, "a.jpg", star_rating=3, image_width=1000, image_height=1000
+        )
+        db = str(tmp_path / "t.db")
+        _seed_db(db, [row])
+        self._seed_face(db, path, "Smith, John")
+        with mock.patch(f"{_EXPORT_MODULE}.get_db", _db_cm(db)):
+            resp = client.post("/api/photo/export_xmp", json={"path": path})
+        assert resp.status_code == 200
+        desc = _read_sidecar_desc(resp.json()["sidecar"])
+        subjects = [li.text for li in desc.findall(".//dc:subject/rdf:Bag/rdf:li", _NS)]
+        # The comma-bearing name is one keyword, not split into "Smith" + "John".
+        assert "Smith, John" in subjects

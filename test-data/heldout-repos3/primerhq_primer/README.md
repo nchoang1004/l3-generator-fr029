@@ -1,0 +1,247 @@
+<div align="center">
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/primerhq/primer/main/docs/assets/hero-dark.png">
+  <img alt="Primer - orchestrate fleets of small, context-optimized agents" src="https://raw.githubusercontent.com/primerhq/primer/main/docs/assets/hero-light.png" width="760">
+</picture>
+
+<br>
+
+**A self-hosted, open-source platform for orchestrating fleets of small, context-optimized AI agents - built on one bet: a small, local open-weight model, given a clean and purpose-built context, can do genuinely useful work. Runs on hardware you already own.**
+
+<br>
+
+[![License](https://img.shields.io/badge/license-Apache_2.0-61d46a.svg)](https://github.com/primerhq/primer/blob/main/LICENSE)
+[![Release](https://img.shields.io/github/actions/workflow/status/primerhq/primer/release.yml?branch=main&label=release)](https://github.com/primerhq/primer/actions/workflows/release.yml)
+[![Python](https://img.shields.io/badge/python-3.12+-3776ab.svg)](https://www.python.org/)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-61d46a.svg)](https://github.com/primerhq/primer/blob/main/CONTRIBUTING.md)
+[![Stars](https://img.shields.io/github/stars/primerhq/primer?style=flat&color=61d46a)](https://github.com/primerhq/primer/stargazers)
+
+[Quickstart](#quickstart) · [What makes it different](#what-makes-primer-different) · [Graph engineering](#built-for-graph-engineering) · [How it works](#how-it-works) · [Docs](#documentation) · [Contributing](https://github.com/primerhq/primer/blob/main/CONTRIBUTING.md)
+
+</div>
+
+<!-- transition-banner:start -->
+> **Primer is mid-revamp.** `main` is landing the operator-first UX revamp:
+> agent-independent sessions, wiki-style collections, agent-driven client
+> tools, voice, and a single IDE-style shell. Plain chat and the classic
+> console are being removed.
+>
+> **v0.6.x is the last stable pre-revamp release.** Pin it if you want the
+> behaviour the published docs describe. There are no transition releases
+> between v0.6.x and v2.0.0: the revamp lands as one branch, and the next
+> tag is v2.0.0, when this notice goes away.
+<!-- transition-banner:end -->
+
+---
+
+## Why Primer
+
+A language model spreads a fixed budget of attention across every token in its context. Keep that context tight and the few tokens that matter get most of the attention; bloat it with stale history, unused tool definitions, and irrelevant background, and the signal thins out. Primer's bet is simple: **give a small, local model exactly what it needs - and nothing more - and it can do genuinely useful work.** Not replace a frontier model; just real work, on hardware you already own. It is a bet, not a benchmark, and it is still early - the best way to test it is to run it on your own workload and tell us where it falls apart.
+
+So instead of one giant agent with everything crammed into its prompt, Primer lets you orchestrate **fleets of small, focused agents**, each with a clean working context, wired together with the primitives a real deployment needs: LLM providers, workspaces, agent graphs, knowledge collections, channels, triggers, and semantic search - self-hosted and integrated from the start.
+
+## What makes Primer different
+
+A lot of what Primer ships - knowledge bases, channels, triggers, approvals - you will find in other agent frameworks too. These are the parts that were missing everywhere else, and they are what Primer is really about.
+
+<table>
+  <tr>
+    <td width="33%" valign="top">
+
+🔁 **Directed cyclic agent graphs**
+
+Wire small agents into a topology that branches, fans out, and rejoins. Add an evaluator on a cycle back to the producer and the run **converges on a target** - produce, critique, revise - instead of hoping a one-shot prompt lands.
+
+</td>
+    <td width="33%" valign="top">
+
+📁 **Shared workspaces**
+
+Multiple agents and graphs run in one sandbox, reading and writing the same filesystem - a fleet collaborates by handing off files: one writes, another picks it up.
+
+</td>
+    <td width="33%" valign="top">
+
+⏸️ **Yielding tools**
+
+An agent parks and **yields control** until an event fires - a file change, schedule, webhook, or human reply - so runs continue in the background. One agent can wake the instant another writes a file.
+
+</td>
+  </tr>
+  <tr>
+    <td width="33%" valign="top">
+
+🔎 **Semantic tool search**
+
+Every tool, agent, and graph is a vector embedding. Each agent carries just two meta-tools - **search** and **call** - and reaches all of them without bloating its context.
+
+</td>
+    <td width="33%" valign="top">
+
+🧩 **First-class dogfooding**
+
+The platform's own capabilities are internal tools, so you can build **agents that build other agents**, graphs, and collections - on Primer itself.
+
+</td>
+    <td width="33%" valign="top">
+
+🔌 **MCP over everything**
+
+Every capability is exposed over the **Model Context Protocol**. Drive Primer from Claude, opencode, or any MCP client - **operate it by asking an agent**, not by clicking a UI.
+
+</td>
+  </tr>
+</table>
+
+## Batteries included
+
+Everything else a real deployment needs, integrated from day one and self-hostable:
+
+- **Knowledge collections** - ingest documents into vector collections; agents retrieve only the relevant chunks (semantic search / RAG).
+- **Channels** - bridge agents to **Slack, Telegram, and Discord**: ask questions, request approvals, and kick off work from a message.
+- **Triggers** - start a fresh session or graph run, or resume a parked one, on a **cron schedule, a delay, or a webhook**.
+- **Human approvals** - gate sensitive tool calls behind a person's approval from a channel or the console before the agent proceeds.
+- **Web search** - first-class web search built in.
+- **MCP-server toolsets** - connect external MCP servers and expose their tools to your agents.
+- **Harnesses** - package a tuned set of agents, graphs, and collections into a versioned, git-backed bundle you can share and deploy anywhere.
+
+<!-- DEMO GIF: drop the ask_user -> channel reply -> resume capture here once recorded, e.g.
+<div align="center"><img alt="Park on a question, reply from a channel, resume" src="docs/assets/demo-park-resume.gif" width="760"></div>
+-->
+
+<!-- SCREENSHOTS: add a framed-console section here (Dashboard / Session control room / Approvals / Graph editor) once the captures are produced. -->
+
+## Built for graph engineering
+
+Graph engineering is the shift from prompting an agent turn-by-turn to **designing the structure it runs inside** - which agent handles which step, what runs at the same time, where it branches on the result, who signs off, and where it circles back. The leverage moves from writing a good prompt to drawing a good graph.
+
+A loop is one shape a graph can take: a cycle, usually two nodes and a condition. Most real work is not that shape. It branches on what came back, fans out across a dozen items and rejoins, calls a self-contained sub-graph in the middle, and stops for a human at exactly one step while the rest runs unattended.
+
+Primer's execution model *is* that graph. You declare a topology of typed nodes - agents, sub-graphs, fan-out/fan-in, direct tool calls, and begin/end nodes carrying the run's input and output contracts - wired by static or conditional edges that route on what a node actually returned. A Pregel-style executor walks it in supersteps, running every ready node concurrently; cycles are allowed and bound themselves with `max_iterations`.
+
+The payoff is context discipline you get structurally. Each node is its own agent with its own model profile, its own tools, and its own output schema, so what crosses an edge is a value you chose rather than a transcript that accumulated. Splitting a long job into a researcher, an extractor, and a judge is three small contexts instead of one enormous one.
+
+The rest of the primitives a durable graph needs ship integrated and self-hostable:
+
+| A graph needs... | Primer gives you |
+|---|---|
+| **A heartbeat** - runs surfaced on a cadence, not by hand | **Triggers** that start a fresh session or graph run (or resume a parked one) on a cron schedule, a delay, or a webhook |
+| **Isolation** - parallel branches that don't collide | **Workspaces** - a per-agent local, container, or Kubernetes sandbox with its own persistent, git-backed filesystem |
+| **Durable memory** - the agent forgets, the repo doesn't | Git-backed workspace **state** plus **knowledge collections** agents retrieve from, so knowledge compounds across runs instead of resetting to zero |
+| **A maker and a checker** - keep the writer away from the grader | The producer-judge pattern as a two-node cycle: a conditional edge that delivers, retries, or escalates on the judge's verdict |
+| **Connectors** - reach real tools and real people | A built-in **MCP server** (and MCP client), plus **Slack / Telegram / Discord** channels |
+| **A human gate** - approve the risky, let the safe run | **Approval gates** and mid-graph **park-and-resume**: a run waits at one node for a person for hours without holding compute, then continues when the reply lands |
+
+Primer does not decide the shape for you - it gives you the substrate to draw the graph on and to keep a human in it where that matters.
+
+## Quickstart
+
+Pick whichever install fits. All three start the same server zero-config on an embedded SQLite database - perfect for a first look.
+
+**pipx** (isolated CLI install; needs Python 3.12+):
+
+```bash
+pipx install 'primer-ai[full]'                   # batteries-included
+primer api                                       # API + in-process worker
+```
+
+The bare `pipx install primer-ai` installs a lean core (REST API, console, MCP, SQLite/Postgres storage, and the API-based LLM/embedder providers). Everything else is an extra you opt into.
+
+### Install options
+
+| Extra | Enables | Weight |
+|---|---|---|
+| *(core)* | REST API, console, MCP server and client, SQLite/Postgres storage, API-based LLM and embedder providers, local workspaces | ~345M |
+| `huggingface` | local embeddings, local cross-encoder reranking, exact Ollama token counts | heavy (torch) |
+| `lance` | embedded LanceDB vector store | light |
+| `channels` | Slack, Telegram and Discord | light |
+| `docker` | container workspace backend | light |
+| `kubernetes` | Kubernetes workspace backend | light |
+| `full` | all of the above | heaviest |
+
+```bash
+pipx install 'primer-ai[lance,channels]'    # a la carte
+pipx install 'primer-ai[full]'              # everything
+```
+
+An extra is resolved at import time, so enabling one is install plus restart. Without it the feature is not hidden, just honest: the API returns a `ConfigError` naming the extra, the console labels the option "(not installed)", and `GET /v1/capabilities` reports exactly what this deployment has.
+
+**Docker** (no Python toolchain required):
+
+```bash
+docker run --rm -p 8000:8000 ghcr.io/primerhq/primer:latest        # slim
+docker run --rm -p 8000:8000 ghcr.io/primerhq/primer:latest-full   # batteries included
+```
+
+`:latest` is the slim image: core plus the light operational extras (lance, channels, docker, kubernetes). It boots cleanly and skips the default providers it cannot construct. For local HuggingFace embeddings, use `:latest-full`.
+
+**From source** (for contributors):
+
+```bash
+git clone https://github.com/primerhq/primer.git
+cd primer
+uv sync --all-extras
+uv run primer api
+```
+
+Then verify and open the console:
+
+```bash
+curl http://localhost:8000/v1/health             # -> {"status":"ok"}
+```
+
+The operator console is at **http://localhost:8000/console/**.
+
+### Going to Postgres (multi-process, semantic search, production)
+
+Zero-config SQLite is single-process and ships without a vector store. For multiple workers, semantic search, or production, point Primer at Postgres:
+
+```bash
+docker compose up -d postgres                    # or: podman compose up -d postgres
+cp config.example.yaml config.yaml               # set db.config.password to match
+uv run primer api --config config.yaml
+```
+
+`config.example.yaml` documents every field. Environment variables override file values: every `AppConfig` field maps to `PRIMER_<FIELD>` (nested fields use `__`, e.g. `PRIMER_DB__CONFIG__PASSWORD`). The Docker image reads the same variables - set `PRIMER_DB_HOST` (and friends) and it renders a Postgres + pgvector config automatically; otherwise it runs the embedded-SQLite path above. For a SQLite database that survives container restarts, mount a volume at `/app/data`.
+
+## How it works
+
+Primer is a stack of layers, where each layer keeps the one below it from getting cluttered:
+
+- **Context discipline** - tool selection, meta-tools, and internal collections keep each agent's prompt lean.
+- **State** - workspaces give agents a shared, minimal surface to hand off results without carrying history in-context.
+- **Sequencing** - directed cyclic graphs express multi-step reasoning as structure instead of one giant prompt.
+- **Time** - event-driven park-and-resume frees compute while work waits on a slow tool or a human.
+- **Sharing** - harnesses package a working configuration into a versioned, git-backed bundle.
+- **Edges** - channels, web search, and approval gates handle where agents reach outside the platform.
+
+At runtime, requests arrive from many edges (REST/shell, MCP clients, messaging channels, triggers), become **sessions / graph runs** that a worker pool claims and drives; each turn calls LLM providers, tools, workspaces, and collections, and can park on a human or event and resume later - all backed by Postgres.
+
+## Documentation
+
+- **Operator docs** - served at `/docs` when the server is running.
+- **Agent-usage docs** - [`docs/agents/`](https://github.com/primerhq/primer/tree/main/docs/agents) - how to drive a running Primer instance from an AI agent over MCP.
+- **Developer docs** - [`docs/dev/`](https://github.com/primerhq/primer/tree/main/docs/dev) - architecture patterns and subsystem references. Start at [`docs/dev/README.md`](https://github.com/primerhq/primer/blob/main/docs/dev/README.md).
+
+## Contributing
+
+Read [AGENTS.md](https://github.com/primerhq/primer/blob/main/AGENTS.md) first - it is the authoritative contributor contract (project layout, the Definition of Done, how to run the suites, and the hard rules). [CONTRIBUTING.md](https://github.com/primerhq/primer/blob/main/CONTRIBUTING.md) is the human-facing summary.
+
+```bash
+uv sync --all-extras
+docker compose up -d postgres
+# narrowed unit sweep (excludes e2e/distributed/ui_e2e):
+uv run pytest tests/ -q --ignore=tests/distributed --ignore=tests/ui_e2e \
+  --ignore=tests/e2e --ignore=tests/integration --ignore=tests/llm
+```
+
+See [`CODE_OF_CONDUCT.md`](https://github.com/primerhq/primer/blob/main/CODE_OF_CONDUCT.md) for community expectations.
+
+## Security
+
+Please report vulnerabilities privately - see [SECURITY.md](https://github.com/primerhq/primer/blob/main/SECURITY.md).
+
+## License
+
+Primer is licensed under the Apache License 2.0. See [LICENSE](https://github.com/primerhq/primer/blob/main/LICENSE) for the full text.

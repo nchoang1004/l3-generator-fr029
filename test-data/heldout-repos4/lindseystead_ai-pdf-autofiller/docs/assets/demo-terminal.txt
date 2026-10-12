@@ -1,0 +1,53 @@
+$ curl -s http://127.0.0.1:8000/health | jq '{status,version:.version,semantic:.checks.semantic_provider}'
+{
+  "status": "ok",
+  "version": "0.8.0",
+  "semantic": "unconfigured"
+}
+
+$ curl -s -X POST http://127.0.0.1:8000/inspect -F pdf_file=@samples/sample_form.pdf | jq '{pages,field_count,fields:[.fields[].name]}'
+{
+  "pages": 1,
+  "field_count": 5,
+  "fields": [
+    "txtFirstName",
+    "txtLastName",
+    "txtDOB",
+    "txtEmail",
+    "txtPhone"
+  ]
+}
+
+$ curl -s -X POST http://127.0.0.1:8000/preview -F pdf_file=@samples/sample_form.pdf -F 'user_data={"firstname":"Jane","lastname":"Doe","dob":"1990-01-01"}' | jq '{decisions:[.decisions[]|{field_name,selected_value}],missing_required}'
+{
+  "decisions": [
+    {
+      "field_name": "txtFirstName",
+      "selected_value": "Jane"
+    },
+    {
+      "field_name": "txtLastName",
+      "selected_value": "Doe"
+    },
+    {
+      "field_name": "txtDOB",
+      "selected_value": "1990-01-01"
+    }
+  ],
+  "missing_required": []
+}
+
+$ curl -s -X POST http://127.0.0.1:8000/fill -F pdf_file=@samples/sample_form.pdf -F 'user_data={"firstname":"Jane","lastname":"Doe","dob":"1990-01-01"}' -o filled.pdf -D - -o /dev/null | grep -iE 'HTTP/|X-PDF|content-type'
+HTTP/1.1 200 OK
+x-pdf-fields-written: 3
+x-pdf-fields-skipped-review: 
+x-pdf-fields-skipped-empty: 
+x-pdf-fields-skipped-unwritable: 
+x-pdf-fields-display-warnings: 
+x-pdf-fields-ai-assisted: 
+x-pdf-fields-missing-required: 
+x-pdf-fields-unfilled: 2
+content-type: application/pdf
+x-content-type-options: nosniff
+
+filled.pdf written (    3038 bytes)

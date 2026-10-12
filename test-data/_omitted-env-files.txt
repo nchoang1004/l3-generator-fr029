@@ -1,0 +1,4 @@
+test-data/heldout-repos2/Caoyongqi912_case_auto_hub/.env
+test-data/heldout-repos3/caura-ai_caura/.env.test
+test-data/sample-repos/full-stack-fastapi-template-cb740b6/.env
+test-data/sample-repos/full-stack-fastapi-template-cb740b6/frontend/.env

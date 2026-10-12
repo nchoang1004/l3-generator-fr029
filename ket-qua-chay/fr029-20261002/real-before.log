@@ -1,0 +1,74 @@
+[
+  {
+    "repo": "fastapi-realworld-diagram",
+    "snapshot_id": "snap:cc11d7d982bab274bbbbf8ea295de7483f55b060e6658200582a2e4b7dd00e16",
+    "facts": {
+      "symbol": 315,
+      "reference": 338,
+      "library": 14,
+      "request_model": 6,
+      "config": 29,
+      "response_model": 11,
+      "route": 19
+    },
+    "limitations": {
+      "TABLES_IN_MIGRATIONS_NOT_READ": 1,
+      "REFERENCE_UNRESOLVED": 1
+    }
+  },
+  {
+    "repo": "full-stack-fastapi-template-cb740b6",
+    "snapshot_id": "snap:48597b2fdd287ad86cc29ce72b953974a5e80a8bd80724a4e7127483d7402ac9",
+    "facts": {
+      "reference": 342,
+      "symbol": 194,
+      "route": 23,
+      "config": 20,
+      "library": 14,
+      "request_model": 9,
+      "response_model": 6,
+      "table": 2
+    },
+    "limitations": {
+      "PARSE_FAILED": 1,
+      "REFERENCE_UNRESOLVED": 1
+    }
+  },
+  {
+    "repo": "rhoboro-demo",
+    "snapshot_id": "snap:c1495361276c6c8cd263abcb7919dea2d99441c993412393b1b5bc40363054af",
+    "facts": {
+      "symbol": 132,
+      "config": 3,
+      "reference": 152,
+      "table": 2,
+      "response_model": 10,
+      "library": 4,
+      "route": 11,
+      "request_model": 4
+    },
+    "limitations": {
+      "REFERENCE_UNRESOLVED": 1
+    }
+  },
+  {
+    "repo": "teamhide_fastapi-boilerplate-df4e6d4",
+    "snapshot_id": "snap:96f8c4c9bb1fbd6f13ba0f2b1a22b3c98fb3e718c6744a39e04ab68535bb4a3f",
+    "facts": {
+      "symbol": 297,
+      "reference": 214,
+      "config": 19,
+      "response_model": 3,
+      "library": 20,
+      "route": 5,
+      "table": 1,
+      "request_model": 4
+    },
+    "limitations": {
+      "QUEUE_LIBRARY_UNSUPPORTED": 1,
+      "REFERENCE_UNRESOLVED": 1,
+      "VALUE_REDACTED": 1
+    }
+  }
+]
+

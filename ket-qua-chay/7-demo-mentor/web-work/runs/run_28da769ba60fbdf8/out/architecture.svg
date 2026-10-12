@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 568 230" width="568" height="230" font-family="sans-serif" font-size="13">
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#555"/></marker></defs>
+<g data-node="cmp_43f8883b03e022f572a3a17358740ccf57362703dd4f3ef450d4851ac4cbaa91"><rect x="24" y="24" width="220" height="56" rx="6" fill="#f4f6fb" stroke="#3b5998"/><text x="134.0" y="56.0" text-anchor="middle">(root)</text><title>(root)</title></g>
+<g data-node="cmp_fe58731b979b1a7d89e08f8ea4af232b348c92b15f18d183d3120b05c5ce149e"><rect x="324" y="24" width="220" height="56" rx="6" fill="#f4f6fb" stroke="#3b5998"/><text x="434.0" y="56.0" text-anchor="middle">migrations</text><title>migrations</title></g>
+<g data-node="cmp_feb33ad0dd6c5afcb686ceacb60106d85eaf3b0b9033c5cb172ef4e7fd3ad589"><rect x="24" y="150" width="220" height="56" rx="6" fill="#f4f6fb" stroke="#3b5998"/><text x="134.0" y="182.0" text-anchor="middle">app</text><title>app</title></g>
+</svg>

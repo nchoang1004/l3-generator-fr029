@@ -1,0 +1,21 @@
+[Unit]
+Description=Apply pending SpatiumDDI slot upgrade (Phase 8b-3)
+Documentation=https://github.com/spatiumnorth/spatiumddi/issues/138
+# No docker dependency — slot upgrade writes to a block device, not
+# any container.
+
+[Service]
+Type=oneshot
+# GHSA-h2j9-qrg7-grfw — act only on a trigger written by root, the
+# supervisor or the api; anything else is renamed aside and the unit
+# skips cleanly. See spatiumddi-trigger-guard.
+ExecCondition=/usr/local/bin/spatiumddi-trigger-guard /var/lib/spatiumddi/release-state/slot-upgrade-pending
+ExecStart=/usr/local/bin/spatiumddi-slot-upgrade
+# #421 — backstop above the runner's own $APPLY_TIMEOUT_SECONDS (2700s).
+# If the runner itself wedges (not just the apply subprocess it already
+# caps), systemd SIGTERMs it here; the runner's EXIT trap then records
+# "failed" so the upgrade never sticks at in-flight. KillMode default
+# (control-group) also reaps the in-flight ticker child on any stop.
+TimeoutStartSec=3000
+# No Install section — only invoked by the matching .path unit, never
+# directly enabled at boot.

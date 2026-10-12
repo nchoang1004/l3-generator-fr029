@@ -1,0 +1,37 @@
+# Codecov configuration for primer.
+#
+# Coverage is produced by the `test` job in .github/workflows/ci.yml
+# (pytest-cov -> coverage.xml, in the same run as the unit sweep) and uploaded
+# via codecov/codecov-action. The 80% target (mirroring
+# [tool.coverage.report] fail_under in pyproject.toml) is enforced in-job by
+# pytest-cov and tracked by the project/patch status checks below; add them to
+# branch protection's required checks to also gate on the Codecov side.
+
+coverage:
+  status:
+    project:
+      default:
+        # 80% overall target (mirrors [tool.coverage.report] fail_under in
+        # pyproject.toml). Raise as coverage climbs.
+        target: 80%
+        threshold: 1%
+    patch:
+      default:
+        # Changed lines should meet the same 80% bar.
+        target: 80%
+        threshold: 1%
+
+# Only the primer package is measured (see [tool.coverage.run] source).
+# Tests, the standalone docs site, and vendored UI assets are not project
+# coverage and would skew the number.
+ignore:
+  - "tests/**"
+  - "ui/**"
+  - "docs/**"
+  - "scripts/**"
+  - "primectl/**"
+  - "runtime/**"
+
+comment:
+  layout: "reach, diff, flags, files"
+  require_changes: true

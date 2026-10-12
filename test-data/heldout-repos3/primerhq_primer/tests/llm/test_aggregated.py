@@ -1,0 +1,860 @@
+"""Unit tests for AggregatedLLM (fake-LLM async generators; no SDK/network).
+
+AggregatedLLM's failover ALGORITHM is unchanged by the ModelProfile move
+(01a067c4) -- only its constructor and ``resolve_member`` contract
+changed shape: a "member" used to be an ``AggregatedMember(provider_id,
+model_name)`` resolved by provider id; it is now a member ModelProfile
+id, resolved (recursively, through ``resolve_llm``) to a ``(LLM,
+ResolvedModel)`` pair -- the pair is what now carries the member's own
+``model_name`` for the per-member ``stream(model=...)`` call, since
+that no longer lives on the member reference itself. Every test below
+keeps its ORIGINAL failover-semantics assertion; only the setup
+(``_profile``/``_resolver``) changed to match.
+"""
+
+from __future__ import annotations
+
+import logging
+from collections.abc import AsyncIterator
+
+import pytest
+
+from primer.int.llm import LLM
+from primer.llm.aggregated import AggregatedLLM
+from primer.model.chat import (
+    Done,
+    Error as ChatError,
+    StreamStart,
+    StreamEvent,
+    TextDelta,
+)
+from primer.model.except_ import (
+    AuthenticationError,
+    BadRequestError,
+    ConfigError,
+    NotFoundError,
+    ProviderTimeoutError,
+    RateLimitError,
+    ServerError,
+)
+from primer.model.model_profile import (
+    FailoverClasses,
+    FailoverPoint,
+    ModelProfile,
+    ModelProfileConfig,
+    RoutingStrategy,
+)
+from primer.model_profile.resolver import ResolvedModel
+
+
+class _FakeLLM(LLM):
+    """Scripted downstream LLM.
+
+    ``events`` is the list yielded once the stream opens. ``connect_exc``,
+    if set, is raised on the first ``__anext__`` (connect phase). ``mid_exc``,
+    if set, is RAISED after all ``events`` are yielded (models a mid-stream
+    raise, e.g. ProviderTimeoutError - anthropic.py:760, openchat.py:284).
+    ``record`` (a list) captures each ``model=`` the adapter was asked to
+    stream. ``stream_closed`` flips True when the stream generator is
+    finalized (normal exhaustion OR GeneratorExit from ``aclose``); ``yielded``
+    counts events actually pulled, so an abandonment test can prove the
+    downstream stream was cut short and cleaned up.
+    """
+
+    def __init__(self, *, events=None, connect_exc=None, mid_exc=None,
+                 record=None, name="fake"):
+        self._events = events or []
+        self._connect_exc = connect_exc
+        self._mid_exc = mid_exc
+        self._record = record
+        self._name = name
+        self.closed = False
+        self.stream_closed = False
+        self.yielded = 0
+
+    async def list_models(self):
+        return [self._name]
+
+    async def count_tokens(self, *, model, messages, tools=None) -> int:
+        return 7
+
+    async def stream(self, *, model, messages, **kwargs) -> AsyncIterator[StreamEvent]:
+        if self._record is not None:
+            self._record.append(model)
+        if self._connect_exc is not None:
+            raise self._connect_exc
+        try:
+            for ev in self._events:
+                self.yielded += 1
+                yield ev
+            if self._mid_exc is not None:
+                raise self._mid_exc
+        finally:
+            # Runs on normal exhaustion AND on GeneratorExit thrown by
+            # ``agen.aclose()`` when the aggregated stream is abandoned.
+            self.stream_closed = True
+
+    async def aclose(self) -> None:
+        self.closed = True
+
+
+def _profile(
+    members: list[str],
+    *,
+    strategy=RoutingStrategy.SEQUENTIAL,
+    failover_point=FailoverPoint.BEFORE_FIRST_TOKEN,
+    failover_on=FailoverClasses.TRANSIENT_AND_CONFIG,
+) -> ModelProfile:
+    return ModelProfile(
+        id="agg-1",
+        description="an aggregated profile",
+        kind="aggregated",
+        members=members,
+        strategy=strategy,
+        failover_point=failover_point,
+        failover_on=failover_on,
+    )
+
+
+def _resolver(mapping: dict[str, tuple[LLM, str]]):
+    """``mapping``: member profile id -> ``(llm, model_name)``.
+
+    Mirrors resolve_llm's own (LLM, ResolvedModel) pair contract -- the
+    real resolve_llm recurses through itself for each member; here the
+    member's downstream LLM and its own model_name are supplied directly
+    since these are unit tests of AggregatedLLM alone.
+    """
+    async def resolve(member_id: str) -> tuple[LLM, ResolvedModel]:
+        if member_id not in mapping:
+            raise NotFoundError(f"ModelProfile {member_id!r} does not exist")
+        llm, model_name = mapping[member_id]
+        resolved = ResolvedModel(
+            profile_id=member_id, provider_id="prov", model_name=model_name,
+            context_length=8192, config=ModelProfileConfig(),
+        )
+        return llm, resolved
+    return resolve
+
+
+_MSG = []  # empty message list is fine for the fakes
+
+
+async def _drain(agen) -> list[StreamEvent]:
+    return [ev async for ev in agen]
+
+
+@pytest.mark.asyncio
+async def test_connect_raise_fails_over_to_next_member():
+    good = _FakeLLM(events=[StreamStart(model="m2"), TextDelta(text="hi", index=0),
+                            Done(stop_reason="stop", raw_reason="stop")])
+    bad = _FakeLLM(connect_exc=RateLimitError("429"))
+    profile = _profile(members=["bad", "good"])
+    agg = AggregatedLLM(profile, resolve_member=_resolver(
+        {"bad": (bad, "m1"), "good": (good, "m2")}
+    ))
+    events = await _drain(agg.stream(model="virtual-1", messages=_MSG))
+    assert any(isinstance(e, TextDelta) for e in events)
+    assert isinstance(events[-1], Done)
+
+
+@pytest.mark.asyncio
+async def test_first_event_error_fails_over_no_tokens_emitted():
+    # Realistic: real classifiers still emit code=None for a network or
+    # auth failure that surfaces as a YIELDED fatal Error (anthropic_errors.py,
+    # ollama.py) - rate-limit and server errors got a real code in 01a08598,
+    # so this null-code case now represents network/auth specifically, not
+    # rate-limit. code=None is eligible under either policy either way.
+    bad = _FakeLLM(events=[ChatError(fatal=True, code=None, message="429")])
+    good = _FakeLLM(events=[StreamStart(model="m2"), TextDelta(text="ok", index=0),
+                            Done(stop_reason="stop", raw_reason="stop")])
+    profile = _profile(members=["bad", "good"])
+    agg = AggregatedLLM(profile, resolve_member=_resolver(
+        {"bad": (bad, "m1"), "good": (good, "m2")}
+    ))
+    events = await _drain(agg.stream(model="virtual-1", messages=_MSG))
+    # No Error from the failed member reached the subscriber.
+    assert not any(isinstance(e, ChatError) for e in events)
+    assert any(isinstance(e, TextDelta) for e in events)
+
+
+@pytest.mark.asyncio
+async def test_first_event_error_with_hypothetical_transient_code_fails_over():
+    # 01a08598: no longer hypothetical - every classifier now emits
+    # code="rate_limit" on a yielded fatal Error for a 429 (previously
+    # code=None). Fails over under the default TRANSIENT_AND_CONFIG here;
+    # see the dedicated strict-TRANSIENT test below for the invariant
+    # that actually mattered (a naive "give it a code" fix would have
+    # made this INELIGIBLE under the narrower policy).
+    bad = _FakeLLM(events=[ChatError(fatal=True, code="rate_limit", message="429")])
+    good = _FakeLLM(events=[TextDelta(text="ok", index=0),
+                            Done(stop_reason="stop", raw_reason="stop")])
+    profile = _profile(members=["bad", "good"])
+    agg = AggregatedLLM(profile, resolve_member=_resolver(
+        {"bad": (bad, "m1"), "good": (good, "m2")}
+    ))
+    events = await _drain(agg.stream(model="virtual-1", messages=_MSG))
+    assert any(isinstance(e, TextDelta) for e in events)
+
+
+@pytest.mark.asyncio
+async def test_first_event_rate_limit_and_server_error_fail_over_under_transient_only():
+    """01a08598: rate_limit and server_error must stay failover-eligible
+    under the STRICT TRANSIENT policy (not just the default TRANSIENT_
+    AND_CONFIG) - identically to the null-code case they replace. This
+    is the exact regression 01a082f3's network_error fix had to avoid
+    for aggregated.py; same proof, same reason, for these two codes."""
+    for code in ("rate_limit", "server_error"):
+        bad = _FakeLLM(events=[ChatError(fatal=True, code=code, message="failed")])
+        good = _FakeLLM(events=[TextDelta(text="ok", index=0),
+                                Done(stop_reason="stop", raw_reason="stop")])
+        profile = _profile(members=["bad", "good"], failover_on=FailoverClasses.TRANSIENT)
+        agg = AggregatedLLM(profile, resolve_member=_resolver(
+            {"bad": (bad, "m1"), "good": (good, "m2")}
+        ))
+        events = await _drain(agg.stream(model="virtual-1", messages=_MSG))
+        assert not any(isinstance(e, ChatError) for e in events), code
+        assert any(isinstance(e, TextDelta) for e in events), code
+
+
+@pytest.mark.asyncio
+async def test_first_event_auth_error_does_not_fail_over_under_transient_only():
+    """01a08598: the fix, end to end. A yielded fatal Error coded
+    "auth_error" (e.g. a lazily-classified ollama/gemini 401 - see
+    aggregated.py's own docstring for why those two adapters can yield
+    rather than raise an auth failure) must SURFACE, not fail over,
+    under the strict TRANSIENT policy - identically to how a RAISED
+    AuthenticationError already behaves via _exc_eligible. Before the
+    fix this incorrectly failed over (code=None fell into the
+    universally-eligible branch)."""
+    bad = _FakeLLM(events=[ChatError(fatal=True, code="auth_error", message="401")])
+    good = _FakeLLM(events=[TextDelta(text="SHOULD-NOT-APPEAR", index=0),
+                            Done(stop_reason="stop", raw_reason="stop")])
+    profile = _profile(members=["bad", "good"], failover_on=FailoverClasses.TRANSIENT)
+    agg = AggregatedLLM(profile, resolve_member=_resolver(
+        {"bad": (bad, "m1"), "good": (good, "m2")}
+    ))
+    events = await _drain(agg.stream(model="virtual-1", messages=_MSG))
+    assert isinstance(events[-1], ChatError)
+    assert not any(isinstance(e, TextDelta) for e in events)  # member[1] never ran
+
+
+@pytest.mark.asyncio
+async def test_first_event_auth_error_fails_over_under_transient_and_config():
+    """Companion to the strict-policy test above: under the OPT-IN
+    TRANSIENT_AND_CONFIG policy, the same yielded auth_error DOES fail
+    over - matching _exc_eligible's _CONFIG_EXC treatment of a raised
+    AuthenticationError under the same policy."""
+    bad = _FakeLLM(events=[ChatError(fatal=True, code="auth_error", message="401")])
+    good = _FakeLLM(events=[TextDelta(text="ok", index=0),
+                            Done(stop_reason="stop", raw_reason="stop")])
+    profile = _profile(
+        members=["bad", "good"], failover_on=FailoverClasses.TRANSIENT_AND_CONFIG,
+    )
+    agg = AggregatedLLM(profile, resolve_member=_resolver(
+        {"bad": (bad, "m1"), "good": (good, "m2")}
+    ))
+    events = await _drain(agg.stream(model="virtual-1", messages=_MSG))
+    assert not any(isinstance(e, ChatError) for e in events)
+    assert any(isinstance(e, TextDelta) for e in events)
+
+
+@pytest.mark.asyncio
+async def test_stream_start_then_error_surfaces_no_failover():
+    # PINNED DECISION A: the commit point is the FIRST event of ANY kind
+    # (StreamStart counts). Member[0] yields StreamStart then a fatal Error;
+    # since StreamStart already committed, the Error SURFACES in the default
+    # BEFORE_FIRST_TOKEN mode - no failover to member[1].
+    bad = _FakeLLM(events=[StreamStart(model="m1"),
+                           ChatError(fatal=True, code=None, message="boom")])
+    good = _FakeLLM(events=[TextDelta(text="SHOULD-NOT-APPEAR", index=0),
+                            Done(stop_reason="stop", raw_reason="stop")])
+    profile = _profile(members=["bad", "good"])
+    agg = AggregatedLLM(profile, resolve_member=_resolver(
+        {"bad": (bad, "m1"), "good": (good, "m2")}
+    ))
+    events = await _drain(agg.stream(model="virtual-1", messages=_MSG))
+    assert isinstance(events[0], StreamStart)
+    assert isinstance(events[-1], ChatError)
+    assert not any(isinstance(e, TextDelta) for e in events)  # member[1] never ran
+
+
+@pytest.mark.asyncio
+async def test_abandoned_stream_closes_downstream_generator():
+    # IMPORTANT: on consumer abandonment (task cancellation / client
+    # disconnect) the aggregated stream's per-member ``finally`` must aclose
+    # the downstream generator so its rate-limiter slot is released.
+    good = _FakeLLM(events=[StreamStart(model="m"), TextDelta(text="a", index=0),
+                            TextDelta(text="b", index=0),
+                            Done(stop_reason="stop", raw_reason="stop")])
+    profile = _profile(members=["good"])
+    agg = AggregatedLLM(profile, resolve_member=_resolver({"good": (good, "m")}))
+    agen = agg.stream(model="virtual-1", messages=_MSG)
+    first = await agen.__anext__()          # StreamStart committed
+    assert isinstance(first, StreamStart)
+    await agen.aclose()                     # consumer abandons the stream
+    assert good.stream_closed is True       # downstream generator finalized
+    assert good.yielded < 4                 # member stream was cut short
+
+
+@pytest.mark.asyncio
+async def test_token_then_error_before_first_token_surfaces_error_no_failover():
+    # Member[0] commits (a token) then yields a fatal Error. In the default
+    # BEFORE_FIRST_TOKEN mode the error is surfaced; no failover, no dup.
+    bad = _FakeLLM(events=[TextDelta(text="partial", index=0),
+                           ChatError(fatal=True, code=None, message="429")])
+    good = _FakeLLM(events=[TextDelta(text="SHOULD-NOT-APPEAR", index=0),
+                            Done(stop_reason="stop", raw_reason="stop")])
+    profile = _profile(members=["bad", "good"])
+    agg = AggregatedLLM(profile, resolve_member=_resolver(
+        {"bad": (bad, "m1"), "good": (good, "m2")}
+    ))
+    events = await _drain(agg.stream(model="virtual-1", messages=_MSG))
+    assert [e.text for e in events if isinstance(e, TextDelta)] == ["partial"]
+    assert isinstance(events[-1], ChatError)
+
+
+@pytest.mark.asyncio
+async def test_all_members_fail_raises_aggregated_rate_limit():
+    a = _FakeLLM(connect_exc=RateLimitError("429 a"))
+    b = _FakeLLM(connect_exc=ServerError("500 b"))
+    profile = _profile(members=["a", "b"])
+    agg = AggregatedLLM(profile, resolve_member=_resolver(
+        {"a": (a, "m"), "b": (b, "m")}
+    ))
+    with pytest.raises(RateLimitError, match="all 2 aggregated members failed"):
+        await _drain(agg.stream(model="virtual-1", messages=_MSG))
+
+
+@pytest.mark.asyncio
+async def test_not_found_member_is_skipped():
+    good = _FakeLLM(events=[TextDelta(text="ok", index=0),
+                            Done(stop_reason="stop", raw_reason="stop")])
+    profile = _profile(members=["missing", "good"])
+    agg = AggregatedLLM(profile, resolve_member=_resolver({"good": (good, "m2")}))
+    events = await _drain(agg.stream(model="virtual-1", messages=_MSG))
+    assert any(isinstance(e, TextDelta) for e in events)
+
+
+@pytest.mark.asyncio
+async def test_non_eligible_exception_propagates_unchanged():
+    # ConfigError is neither ProviderError nor NetworkError -> propagate.
+    bad = _FakeLLM(connect_exc=ConfigError("boom"))
+    profile = _profile(members=["bad"])
+    agg = AggregatedLLM(profile, resolve_member=_resolver({"bad": (bad, "m")}))
+    with pytest.raises(ConfigError, match="boom"):
+        await _drain(agg.stream(model="virtual-1", messages=_MSG))
+
+
+@pytest.mark.asyncio
+async def test_stream_maps_virtual_model_to_each_member_model_name():
+    record: list[str] = []
+    good = _FakeLLM(events=[Done(stop_reason="stop", raw_reason="stop")], record=record)
+    profile = _profile(members=["good"])
+    agg = AggregatedLLM(profile, resolve_member=_resolver(
+        {"good": (good, "member-model")}
+    ))
+    await _drain(agg.stream(model="virtual-1", messages=_MSG))
+    # The incoming virtual name is NOT forwarded; the member's own
+    # (resolved) model_name is -- now carried by the ResolvedModel half
+    # of resolve_member's pair, not an AggregatedMember field.
+    assert record == ["member-model"]
+
+
+@pytest.mark.asyncio
+async def test_count_tokens_delegates_to_first_resolvable_member():
+    good = _FakeLLM(name="g")
+    profile = _profile(members=["missing", "good"])
+    agg = AggregatedLLM(profile, resolve_member=_resolver({"good": (good, "m2")}))
+    assert await agg.count_tokens(model="virtual-1", messages=_MSG) == 7
+
+
+@pytest.mark.asyncio
+async def test_aclose_is_noop_does_not_close_members():
+    good = _FakeLLM()
+    profile = _profile(members=["good"])
+    agg = AggregatedLLM(profile, resolve_member=_resolver({"good": (good, "m")}))
+    await agg.aclose()
+    assert good.closed is False
+
+
+@pytest.mark.asyncio
+async def test_failover_is_logged(caplog):
+    bad = _FakeLLM(connect_exc=RateLimitError("429"))
+    good = _FakeLLM(events=[Done(stop_reason="stop", raw_reason="stop")])
+    profile = _profile(members=["bad", "good"])
+    agg = AggregatedLLM(profile, resolve_member=_resolver(
+        {"bad": (bad, "m1"), "good": (good, "m2")}
+    ))
+    with caplog.at_level(logging.INFO, logger="primer.llm.aggregated"):
+        await _drain(agg.stream(model="virtual-1", messages=_MSG))
+    assert any("failing over" in r.message or "failing over" in r.getMessage()
+               for r in caplog.records)
+
+
+@pytest.mark.asyncio
+async def test_empty_stream_member_is_treated_as_failure():
+    # Member[0]'s stream ends immediately (StopAsyncIteration on the first
+    # fetch) -> recorded as a member failure and failover proceeds to
+    # member[1] (aggregated.py's connect-phase handling).
+    empty = _FakeLLM(events=[])
+    good = _FakeLLM(events=[TextDelta(text="ok", index=0),
+                            Done(stop_reason="stop", raw_reason="stop")])
+    profile = _profile(members=["empty", "good"])
+    agg = AggregatedLLM(profile, resolve_member=_resolver(
+        {"empty": (empty, "m1"), "good": (good, "m2")}
+    ))
+    events = await _drain(agg.stream(model="virtual-1", messages=_MSG))
+    assert any(isinstance(e, TextDelta) for e in events)
+    assert isinstance(events[-1], Done)
+
+
+@pytest.mark.asyncio
+async def test_sequential_always_starts_at_member_zero():
+    records = {"a": [], "b": []}
+    a = _FakeLLM(events=[Done(stop_reason="stop", raw_reason="stop")], record=records["a"], name="a")
+    b = _FakeLLM(events=[Done(stop_reason="stop", raw_reason="stop")], record=records["b"], name="b")
+    profile = _profile(members=["a", "b"], strategy=RoutingStrategy.SEQUENTIAL)
+    agg = AggregatedLLM(profile, resolve_member=_resolver(
+        {"a": (a, "ma"), "b": (b, "mb")}
+    ))
+    for _ in range(3):
+        await _drain(agg.stream(model="virtual-1", messages=_MSG))
+    # Member[0] served every call; member[1] never reached.
+    assert len(records["a"]) == 3
+    assert len(records["b"]) == 0
+
+
+@pytest.mark.asyncio
+async def test_round_robin_rotates_starting_member():
+    records = {"a": [], "b": [], "c": []}
+
+    def mk(k):
+        return _FakeLLM(events=[Done(stop_reason="stop", raw_reason="stop")],
+                        record=records[k], name=k)
+
+    a, b, c = mk("a"), mk("b"), mk("c")
+    profile = _profile(members=["a", "b", "c"], strategy=RoutingStrategy.ROUND_ROBIN)
+    agg = AggregatedLLM(profile, resolve_member=_resolver(
+        {"a": (a, "ma"), "b": (b, "mb"), "c": (c, "mc")}
+    ))
+    for _ in range(3):
+        await _drain(agg.stream(model="virtual-1", messages=_MSG))
+    # Each call commits to its start member, so each member served exactly once.
+    assert len(records["a"]) == 1
+    assert len(records["b"]) == 1
+    assert len(records["c"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_transient_only_propagates_auth_error():
+    # failover_on=TRANSIENT: an AuthenticationError is NOT eligible -> propagate.
+    bad = _FakeLLM(connect_exc=AuthenticationError("401"))
+    good = _FakeLLM(events=[Done(stop_reason="stop", raw_reason="stop")])
+    profile = _profile(members=["bad", "good"], failover_on=FailoverClasses.TRANSIENT)
+    agg = AggregatedLLM(profile, resolve_member=_resolver(
+        {"bad": (bad, "m1"), "good": (good, "m2")}
+    ))
+    with pytest.raises(AuthenticationError):
+        await _drain(agg.stream(model="virtual-1", messages=_MSG))
+
+
+@pytest.mark.asyncio
+async def test_transient_and_config_fails_over_auth_error():
+    bad = _FakeLLM(connect_exc=AuthenticationError("401"))
+    good = _FakeLLM(events=[TextDelta(text="ok", index=0),
+                            Done(stop_reason="stop", raw_reason="stop")])
+    profile = _profile(
+        members=["bad", "good"], failover_on=FailoverClasses.TRANSIENT_AND_CONFIG,
+    )
+    agg = AggregatedLLM(profile, resolve_member=_resolver(
+        {"bad": (bad, "m1"), "good": (good, "m2")}
+    ))
+    events = await _drain(agg.stream(model="virtual-1", messages=_MSG))
+    assert any(isinstance(e, TextDelta) for e in events)
+
+
+def test_yielded_eligibility_policy():
+    from primer.llm.aggregated import _yielded_eligible
+    # timeout code + None -> eligible under both policies.
+    for policy in (FailoverClasses.TRANSIENT, FailoverClasses.TRANSIENT_AND_CONFIG):
+        assert _yielded_eligible("stream_timeout", policy) is True
+        assert _yielded_eligible(None, policy) is True
+    # a non-null, non-timeout code (bad-request / OpenAI native) -> config only.
+    assert _yielded_eligible("invalid_request_error", FailoverClasses.TRANSIENT) is False
+    assert _yielded_eligible("invalid_request_error", FailoverClasses.TRANSIENT_AND_CONFIG) is True
+
+
+def test_yielded_eligibility_network_error_matches_the_null_code_case():
+    """01a082f3: every classifier's NetworkError construction now sets
+    code="network_error" instead of leaving it None. This must remain
+    eligible under BOTH policies, identically to the null-code case it
+    replaces - a regression here would make an aggregated-pool network
+    failure stop failing over under the default TRANSIENT policy, the
+    canonical case a failover pool exists for."""
+    from primer.llm.aggregated import _yielded_eligible
+    for policy in (FailoverClasses.TRANSIENT, FailoverClasses.TRANSIENT_AND_CONFIG):
+        assert _yielded_eligible("network_error", policy) is True
+
+
+@pytest.mark.asyncio
+async def test_first_event_network_error_fails_over_under_transient_only():
+    """01a082f3: end-to-end companion to the _yielded_eligible unit test
+    above - a yielded network_error-coded Error must still fail over to
+    the next member under the DEFAULT, narrower TRANSIENT policy (not
+    just TRANSIENT_AND_CONFIG)."""
+    bad = _FakeLLM(events=[ChatError(fatal=True, code="network_error", message="dropped")])
+    good = _FakeLLM(events=[TextDelta(text="ok", index=0),
+                            Done(stop_reason="stop", raw_reason="stop")])
+    profile = _profile(members=["bad", "good"], failover_on=FailoverClasses.TRANSIENT)
+    agg = AggregatedLLM(profile, resolve_member=_resolver(
+        {"bad": (bad, "m1"), "good": (good, "m2")}
+    ))
+    events = await _drain(agg.stream(model="virtual-1", messages=_MSG))
+    assert not any(isinstance(e, ChatError) for e in events)
+    assert any(isinstance(e, TextDelta) for e in events)
+
+
+def test_yielded_eligibility_rate_limit_and_server_error_match_the_null_code_case():
+    """01a08598: every classifier's RateLimitError/ServerError construction
+    now sets a real code instead of leaving it None. Both must remain
+    eligible under BOTH policies, identically to the null-code case they
+    replace - a regression here would make an aggregated-pool rate-limit
+    or server failure stop failing over under the default TRANSIENT
+    policy, the canonical case a failover pool exists for."""
+    from primer.llm.aggregated import _yielded_eligible
+    for policy in (FailoverClasses.TRANSIENT, FailoverClasses.TRANSIENT_AND_CONFIG):
+        assert _yielded_eligible("rate_limit", policy) is True
+        assert _yielded_eligible("server_error", policy) is True
+
+
+def test_yielded_eligibility_auth_and_bad_request_are_config_only():
+    """01a08598 auth-exclusion fix: unlike network/rate-limit/server,
+    "auth_error" and "bad_request" must NOT be eligible under plain
+    TRANSIENT - only under TRANSIENT_AND_CONFIG. This is what closes the
+    gap the trace found: before giving AuthenticationError/BadRequestError
+    a real code, a yielded auth/bad-request failure fell into the
+    `code is None` branch and failed over even under strict TRANSIENT,
+    contradicting _exc_eligible's _CONFIG_EXC exclusion for the SAME
+    error classes on the raised path."""
+    from primer.llm.aggregated import _yielded_eligible
+    for code in ("auth_error", "bad_request"):
+        assert _yielded_eligible(code, FailoverClasses.TRANSIENT) is False
+        assert _yielded_eligible(code, FailoverClasses.TRANSIENT_AND_CONFIG) is True
+
+
+@pytest.mark.asyncio
+async def test_round_robin_cursor_is_concurrency_safe():
+    # N concurrent stream calls must each get a distinct start member (a clean
+    # rotation with no cursor races), exercising _cursor_lock for real.
+    import asyncio
+
+    n = 6
+    records = {str(i): [] for i in range(n)}
+
+    def mk(k):
+        return _FakeLLM(events=[Done(stop_reason="stop", raw_reason="stop")],
+                        record=records[k], name=k)
+
+    fakes = {str(i): mk(str(i)) for i in range(n)}
+    profile = _profile(
+        members=[str(i) for i in range(n)], strategy=RoutingStrategy.ROUND_ROBIN,
+    )
+    agg = AggregatedLLM(profile, resolve_member=_resolver(
+        {k: (v, f"m{k}") for k, v in fakes.items()}
+    ))
+    await asyncio.gather(*[
+        _drain(agg.stream(model="virtual-1", messages=_MSG)) for _ in range(n)
+    ])
+    # Each member was the committed start member exactly once (a full rotation
+    # with no duplicates), proving the cursor advanced atomically per call.
+    served = sorted(k for k, calls in records.items() if calls)
+    assert served == sorted(str(i) for i in range(n))
+    assert all(len(calls) == 1 for calls in records.values())
+
+
+# --- MID_STREAM failover mode (Task 4: regression-pin, expected to pass) ---
+
+
+@pytest.mark.asyncio
+async def test_mid_stream_restarts_on_next_member_with_dup():
+    # Member[0] commits a token then yields a fatal eligible Error mid-stream.
+    # With MID_STREAM, the adapter restarts on member[1]; the "partial" token
+    # was already yielded (documented duplication).
+    bad = _FakeLLM(events=[
+        TextDelta(text="partial", index=0),
+        ChatError(fatal=True, code=None, message="mid-stream 429"),
+    ])
+    good = _FakeLLM(events=[
+        TextDelta(text="partial", index=0),
+        TextDelta(text=" full", index=0),
+        Done(stop_reason="stop", raw_reason="stop"),
+    ])
+    profile = _profile(members=["bad", "good"], failover_point=FailoverPoint.MID_STREAM)
+    agg = AggregatedLLM(profile, resolve_member=_resolver(
+        {"bad": (bad, "m1"), "good": (good, "m2")}
+    ))
+    events = await _drain(agg.stream(model="virtual-1", messages=_MSG))
+    texts = [e.text for e in events if isinstance(e, TextDelta)]
+    # "partial" appears twice (member[0] then member[1] restart) -> duplication.
+    assert texts == ["partial", "partial", " full"]
+    assert isinstance(events[-1], Done)
+    # The failed member's Error never reached the subscriber.
+    assert not any(isinstance(e, ChatError) for e in events)
+
+
+@pytest.mark.asyncio
+async def test_before_first_token_does_not_restart_on_mid_stream_error():
+    # Same script, default BEFORE_FIRST_TOKEN: no restart, error surfaced.
+    bad = _FakeLLM(events=[
+        TextDelta(text="partial", index=0),
+        ChatError(fatal=True, code=None, message="mid-stream 429"),
+    ])
+    good = _FakeLLM(events=[TextDelta(text="unused", index=0),
+                            Done(stop_reason="stop", raw_reason="stop")])
+    profile = _profile(
+        members=["bad", "good"], failover_point=FailoverPoint.BEFORE_FIRST_TOKEN,
+    )
+    agg = AggregatedLLM(profile, resolve_member=_resolver(
+        {"bad": (bad, "m1"), "good": (good, "m2")}
+    ))
+    events = await _drain(agg.stream(model="virtual-1", messages=_MSG))
+    texts = [e.text for e in events if isinstance(e, TextDelta)]
+    assert texts == ["partial"]
+    assert isinstance(events[-1], ChatError)
+
+
+@pytest.mark.asyncio
+async def test_mid_stream_raised_timeout_restarts_under_mid_stream():
+    # Mid-stream timeouts are RAISED, not yielded (openchat.py:284,
+    # anthropic.py:760). Under MID_STREAM an eligible raised exception after
+    # commit restarts on the next member.
+    bad = _FakeLLM(
+        events=[StreamStart(model="m1"), TextDelta(text="partial", index=0)],
+        mid_exc=ProviderTimeoutError("stalled", code="stream_timeout"),
+    )
+    good = _FakeLLM(events=[TextDelta(text="served", index=0),
+                            Done(stop_reason="stop", raw_reason="stop")])
+    profile = _profile(members=["bad", "good"], failover_point=FailoverPoint.MID_STREAM)
+    agg = AggregatedLLM(profile, resolve_member=_resolver(
+        {"bad": (bad, "m1"), "good": (good, "m2")}
+    ))
+    events = await _drain(agg.stream(model="virtual-1", messages=_MSG))
+    texts = [e.text for e in events if isinstance(e, TextDelta)]
+    assert texts == ["partial", "served"]      # restarted after the raised timeout
+    assert isinstance(events[-1], Done)
+
+
+@pytest.mark.asyncio
+async def test_before_first_token_propagates_raised_mid_stream_timeout():
+    # In the default mode a post-commit RAISED failure cannot fail over
+    # (would re-emit) -> it propagates.
+    from primer.model.except_ import ProviderTimeoutError as _PTE
+    bad = _FakeLLM(
+        events=[StreamStart(model="m1"), TextDelta(text="partial", index=0)],
+        mid_exc=_PTE("stalled", code="stream_timeout"),
+    )
+    good = _FakeLLM(events=[Done(stop_reason="stop", raw_reason="stop")])
+    profile = _profile(
+        members=["bad", "good"], failover_point=FailoverPoint.BEFORE_FIRST_TOKEN,
+    )
+    agg = AggregatedLLM(profile, resolve_member=_resolver(
+        {"bad": (bad, "m1"), "good": (good, "m2")}
+    ))
+    with pytest.raises(_PTE):
+        await _drain(agg.stream(model="virtual-1", messages=_MSG))
+
+
+@pytest.mark.asyncio
+async def test_mid_stream_failover_closes_abandoned_downstream():
+    # The failed-over member's generator must be aclosed (rate-limiter slot).
+    bad = _FakeLLM(events=[
+        TextDelta(text="partial", index=0),
+        ChatError(fatal=True, code=None, message="mid-stream 429"),
+        TextDelta(text="never", index=0),
+    ])
+    good = _FakeLLM(events=[Done(stop_reason="stop", raw_reason="stop")])
+    profile = _profile(members=["bad", "good"], failover_point=FailoverPoint.MID_STREAM)
+    agg = AggregatedLLM(profile, resolve_member=_resolver(
+        {"bad": (bad, "m1"), "good": (good, "m2")}
+    ))
+    await _drain(agg.stream(model="virtual-1", messages=_MSG))
+    assert bad.stream_closed is True
+
+
+@pytest.mark.asyncio
+async def test_mid_stream_non_eligible_yielded_error_surfaces_no_restart():
+    # A non-null, non-timeout code (e.g. bad-request) is config-eligible only,
+    # so under FailoverClasses.TRANSIENT it is NOT eligible even in MID_STREAM
+    # mode -> the Error surfaces to the subscriber; member[1] never runs.
+    bad = _FakeLLM(events=[
+        TextDelta(text="partial", index=0),
+        ChatError(fatal=True, code="invalid_request_error", message="bad request mid-stream"),
+    ])
+    good = _FakeLLM(events=[TextDelta(text="SHOULD-NOT-APPEAR", index=0),
+                            Done(stop_reason="stop", raw_reason="stop")])
+    profile = _profile(
+        members=["bad", "good"],
+        failover_point=FailoverPoint.MID_STREAM,
+        failover_on=FailoverClasses.TRANSIENT,
+    )
+    agg = AggregatedLLM(profile, resolve_member=_resolver(
+        {"bad": (bad, "m1"), "good": (good, "m2")}
+    ))
+    events = await _drain(agg.stream(model="virtual-1", messages=_MSG))
+    texts = [e.text for e in events if isinstance(e, TextDelta)]
+    assert texts == ["partial"]                # no restart, no duplication
+    assert isinstance(events[-1], ChatError)    # the error surfaced, not raised
+
+
+@pytest.mark.asyncio
+async def test_mid_stream_non_eligible_raised_error_propagates_no_restart():
+    # AuthenticationError is config-eligible only; under FailoverClasses.
+    # TRANSIENT it is NOT eligible even in MID_STREAM mode -> the raised
+    # exception propagates instead of restarting on member[1].
+    bad = _FakeLLM(
+        events=[StreamStart(model="m1"), TextDelta(text="partial", index=0)],
+        mid_exc=AuthenticationError("401 mid-stream"),
+    )
+    good = _FakeLLM(events=[TextDelta(text="SHOULD-NOT-APPEAR", index=0),
+                            Done(stop_reason="stop", raw_reason="stop")])
+    profile = _profile(
+        members=["bad", "good"],
+        failover_point=FailoverPoint.MID_STREAM,
+        failover_on=FailoverClasses.TRANSIENT,
+    )
+    agg = AggregatedLLM(profile, resolve_member=_resolver(
+        {"bad": (bad, "m1"), "good": (good, "m2")}
+    ))
+    with pytest.raises(AuthenticationError):
+        await _drain(agg.stream(model="virtual-1", messages=_MSG))
+
+
+@pytest.mark.asyncio
+async def test_nested_aggregation_raises_bad_request():
+    """Unit-level pin of the runtime guard: if a member resolves to
+    ANOTHER AggregatedLLM (should be unreachable given the CRUD-time
+    eager rejection in model_profiles.py -- ruling 6 -- but this adapter
+    keeps its own defense-in-depth check), stream() raises rather than
+    recursing silently.
+    """
+    inner_good = _FakeLLM(events=[Done(stop_reason="stop", raw_reason="stop")])
+    nested = AggregatedLLM(
+        _profile(members=["inner"]),
+        resolve_member=_resolver({"inner": (inner_good, "m")}),
+    )
+
+    async def resolve_to_nested(member_id: str):
+        return nested, ResolvedModel(
+            profile_id=member_id, provider_id=None, model_name=None,
+            context_length=8192, config=ModelProfileConfig(),
+        )
+
+    outer = AggregatedLLM(_profile(members=["nested-member"]), resolve_member=resolve_to_nested)
+    with pytest.raises(BadRequestError, match="nesting/self-reference is not allowed"):
+        await _drain(outer.stream(model="virtual-1", messages=_MSG))
+
+
+# --- context-overflow exhaustion (01a108b1-2480) ------------------------------------------------------
+#
+# Failing over past an overflow is right (a later member may have the bigger window). But when EVERY member
+# overflowed the pool did not fail "rate limited": the prompt does not fit anywhere, and the executor's
+# recovery (force-compact, replay) keys on the overflow. Wrapping it as RateLimitError hid it.
+
+_OVERFLOW_TEXT = "This model's maximum context length is 8192 tokens. However, your messages resulted in 9000 tokens."
+_OUTPUT_CAP_TEXT = "max_tokens: 100000 > 64000, which is the maximum allowed number of output tokens for the model"
+
+
+@pytest.mark.asyncio
+async def test_every_member_overflowing_re_raises_the_last_members_bad_request():
+    from primer.common.context_overflow import is_context_overflow
+
+    first = BadRequestError(_OVERFLOW_TEXT, code="context_length_exceeded", status_code=400)
+    last = BadRequestError(_OVERFLOW_TEXT + " (member b)", status_code=400)
+    agg = AggregatedLLM(_profile(members=["a", "b"]), resolve_member=_resolver({
+        "a": (_FakeLLM(connect_exc=first), "m"), "b": (_FakeLLM(connect_exc=last), "m"),
+    }))
+
+    with pytest.raises(BadRequestError) as caught:
+        await _drain(agg.stream(model="virtual-1", messages=_MSG))
+
+    assert caught.value is last, "the last member's own exception, not a wrapper"
+    assert is_context_overflow(caught.value)
+
+
+@pytest.mark.asyncio
+async def test_every_member_yielding_an_overflow_raises_a_bad_request_too():
+    """Ollama and Gemini members YIELD the 400: there is no exception to re-raise, so one is built from it."""
+    from primer.common.context_overflow import is_context_overflow
+
+    def member():
+        return _FakeLLM(events=[ChatError(code="bad_request", message=_OVERFLOW_TEXT, fatal=True)])
+
+    agg = AggregatedLLM(_profile(members=["a", "b"]), resolve_member=_resolver({
+        "a": (member(), "m"), "b": (member(), "m"),
+    }))
+
+    with pytest.raises(BadRequestError) as caught:
+        await _drain(agg.stream(model="virtual-1", messages=_MSG))
+
+    assert is_context_overflow(caught.value)
+    assert _OVERFLOW_TEXT in caught.value.message
+
+
+@pytest.mark.asyncio
+async def test_an_overflow_on_one_member_still_fails_over_to_a_member_that_fits():
+    good = _FakeLLM(events=[TextDelta(text="fits", index=0), Done(stop_reason="stop", raw_reason="stop")])
+    small = _FakeLLM(connect_exc=BadRequestError(_OVERFLOW_TEXT, status_code=400))
+    agg = AggregatedLLM(_profile(members=["small", "big"]), resolve_member=_resolver({
+        "small": (small, "m1"), "big": (good, "m2"),
+    }))
+
+    events = await _drain(agg.stream(model="virtual-1", messages=_MSG))
+
+    assert any(isinstance(e, TextDelta) and e.text == "fits" for e in events)
+
+
+@pytest.mark.asyncio
+async def test_a_mixed_failure_is_still_the_aggregated_rate_limit():
+    """One member overflowed, the other was rate limited: the pool is retryable, so it is not an overflow."""
+    agg = AggregatedLLM(_profile(members=["a", "b"]), resolve_member=_resolver({
+        "a": (_FakeLLM(connect_exc=BadRequestError(_OVERFLOW_TEXT, status_code=400)), "m"),
+        "b": (_FakeLLM(connect_exc=RateLimitError("429 b")), "m"),
+    }))
+
+    with pytest.raises(RateLimitError, match="all 2 aggregated members failed"):
+        await _drain(agg.stream(model="virtual-1", messages=_MSG))
+
+
+@pytest.mark.asyncio
+async def test_a_missing_member_among_overflowing_ones_is_still_the_aggregated_rate_limit():
+    agg = AggregatedLLM(_profile(members=["gone", "a"]), resolve_member=_resolver({
+        "a": (_FakeLLM(connect_exc=BadRequestError(_OVERFLOW_TEXT, status_code=400)), "m"),
+    }))
+
+    with pytest.raises(RateLimitError, match="all 2 aggregated members failed"):
+        await _drain(agg.stream(model="virtual-1", messages=_MSG))
+
+
+@pytest.mark.asyncio
+async def test_every_member_rejecting_the_output_cap_stays_the_aggregated_rate_limit():
+    """The negative: a bad max_tokens on every member is not an overflow, so nothing changes for it."""
+    agg = AggregatedLLM(_profile(members=["a", "b"]), resolve_member=_resolver({
+        "a": (_FakeLLM(connect_exc=BadRequestError(_OUTPUT_CAP_TEXT, status_code=400)), "m"),
+        "b": (_FakeLLM(connect_exc=BadRequestError(_OUTPUT_CAP_TEXT, status_code=400)), "m"),
+    }))
+
+    with pytest.raises(RateLimitError, match="all 2 aggregated members failed"):
+        await _drain(agg.stream(model="virtual-1", messages=_MSG))
+
+
+@pytest.mark.asyncio
+async def test_every_member_yielding_the_output_cap_stays_the_aggregated_rate_limit():
+    def member():
+        return _FakeLLM(events=[ChatError(code="bad_request", message=_OUTPUT_CAP_TEXT, fatal=True)])
+
+    agg = AggregatedLLM(_profile(members=["a", "b"]), resolve_member=_resolver({
+        "a": (member(), "m"), "b": (member(), "m"),
+    }))
+
+    with pytest.raises(RateLimitError, match="all 2 aggregated members failed"):
+        await _drain(agg.stream(model="virtual-1", messages=_MSG))

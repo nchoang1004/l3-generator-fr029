@@ -1,0 +1,70 @@
+[project]
+name = "llm-token-proxy"
+version = "0.1.0"
+description = "PII redaction proxy for LLM API traffic. Pseudonymizes sensitive data outbound and restores it inbound — transparent to both client and provider."
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.11"
+authors = [
+    { name = "Attic Security" },
+]
+keywords = ["llm", "token", "pii", "proxy", "redaction", "privacy", "anthropic"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security",
+    "Topic :: Software Development :: Libraries",
+]
+dependencies = [
+    "fastapi>=0.110,<1",
+    "uvicorn[standard]>=0.29,<1",
+    "httpx>=0.27,<1",
+]
+
+[project.optional-dependencies]
+ner = ["spacy>=3.7,<4"]
+geoip = ["maxminddb>=2.6,<3"]
+dev = [
+    "pytest>=8",
+    "pytest-cov>=5",
+    "anyio[trio]>=4",
+    "ruff>=0.4",
+    "mypy>=1.10",
+]
+
+[project.urls]
+Homepage = "https://github.com/zolderio/token-proxy"
+Documentation = "https://github.com/zolderio/token-proxy#readme"
+Repository = "https://github.com/zolderio/token-proxy"
+Issues = "https://github.com/zolderio/token-proxy/issues"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["token_proxy"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["token_proxy"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

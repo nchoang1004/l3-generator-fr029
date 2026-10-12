@@ -1,0 +1,87 @@
+loaded: OPENAI_API_KEY
+tdd-docker: completed cost 0.0087
+[
+ {
+  "repo": "tdd-docker",
+  "size": "nhỏ",
+  "model": "gpt-6-luna",
+  "status": "completed",
+  "reason": "",
+  "coverage_complete": true,
+  "cost_usd": 0.0087,
+  "prompt": "fr029-agent-prompt-v14",
+  "kinds": {
+   "routes": {
+    "tp": 6,
+    "fp": 0,
+    "fn": 0,
+    "precision": 1.0,
+    "recall": 1.0
+   },
+   "models": {
+    "tp": 4,
+    "fp": 0,
+    "fn": 0,
+    "precision": 1.0,
+    "recall": 1.0
+   },
+   "http_calls": {
+    "tp": 0,
+    "fp": 0,
+    "fn": 0,
+    "precision": null,
+    "recall": null
+   },
+   "file_roles": {
+    "tp": 9,
+    "fp": 0,
+    "fn": 0,
+    "precision": 1.0,
+    "recall": 1.0
+   },
+   "limitations": {
+    "tp": 1,
+    "fp": 0,
+    "fn": 1,
+    "precision": 1.0,
+    "recall": 0.5
+   }
+  },
+  "attribute_accuracy": {
+   "routes": {
+    "handler": "6/6",
+    "params": "6/6",
+    "request_body": "6/6",
+    "response": "6/6",
+    "status": "6/6"
+   },
+   "models": {
+    "fields": "3/4 (+1 unknown)"
+   },
+   "http_calls": {
+    "library": "0/0",
+    "method": "0/0",
+    "target": "0/0"
+   },
+   "file_roles": {
+    "role": "9/9",
+    "label": "9/9",
+    "line": "8/9"
+   },
+   "limitations": {}
+  },
+  "exact": {
+   "exact_facts": 4,
+   "exact_wrong": 0,
+   "rate": 0.0,
+   "not_evaluated": 0
+  },
+  "verdict": {
+   "routes": "đạt",
+   "models": "đạt",
+   "http_calls": "not_evaluated",
+   "exact": "đạt",
+   "overall": "đạt"
+  }
+ }
+]

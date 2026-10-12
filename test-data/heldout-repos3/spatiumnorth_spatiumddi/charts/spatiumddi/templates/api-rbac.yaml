@@ -1,0 +1,237 @@
+{{- if .Values.api.serviceAccount.enabled }}
+{{- /* Phase 11 wave 4 (#183) — api ServiceAccount + minimum-needed
+       Role for the appliance management surfaces.
+
+       Two things the api needs from kubeapi:
+
+       * **Pod listing + logs** (formerly /appliance/containers).
+         Reads ``pods`` + ``pods/log`` in the chart's target
+         namespace (default ``spatium``).
+
+       * **TLS Secret patch** (formerly cert deploy to a docker
+         volume + SIGHUP). Reads + patches the
+         ``spatium-appliance-tls`` Secret in the same namespace.
+
+       Permissions:
+         - pods, pods/log → get, list, watch  (listing + log tail)
+         - secrets        → get, patch, update (TLS Secret in-place
+                            update; ``create`` is intentionally
+                            absent — the firstboot-applied Secret
+                            manifest is the only creation path)
+         - deployments    → get, patch         (annotation bump on
+                            frontend Deployment to trigger rollover
+                            after a Secret change)
+
+       Scope is namespace-only — no cluster-scoped permissions,
+       no permission to write pods / deployments other than
+       annotation patches. */}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "spatiumddi.fullname" . }}-api
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "spatiumddi.componentLabels" (merge (dict "component" "api") .) | nindent 4 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "spatiumddi.fullname" . }}-api
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "spatiumddi.componentLabels" (merge (dict "component" "api") .) | nindent 4 }}
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+  - apiGroups: [""]
+    resources: ["secrets"]
+    resourceNames: ["spatium-appliance-tls"]
+    verbs: ["get", "patch", "update"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "patch"]
+  {{- if .Values.api.serviceControlRBAC.enabled }}
+  # #890 — service lifecycle control. ``list`` so the Services screen can
+  # enumerate the chart's own workloads, ``patch`` so a rollout restart can
+  # bump ``kubectl.kubernetes.io/restartedAt`` on the pod template.
+  # Deployments already carry get+patch above; the list verb and the other
+  # two kinds are what this block adds.
+  #
+  # No ``resourceNames`` restriction, deliberately: workload names carry
+  # the release name as a prefix and a resourceNames list cannot express
+  # a prefix — it would have to be regenerated per release and would
+  # silently omit any workload added later. The narrowing that matters
+  # happens in the API instead:
+  # ``app/services/service_control/kube.py`` lists only objects labelled
+  # ``app.kubernetes.io/name=spatiumddi`` (or ``part-of``), and an action
+  # resolves its target against that listing, so an operator's own
+  # Deployment in this namespace is neither listed nor restartable.
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets", "daemonsets"]
+    verbs: ["get", "list", "patch"]
+  {{- end }}
+  {{- if .Values.api.upgradeOrchestratorRBAC.enabled }}
+  # #296 Phase C/D/E — the rolling-upgrade orchestrator reads
+  # Deployments + Jobs in the release namespace during the chart-bump
+  # rollout poll; reads + patches the CNPG Cluster CR's
+  # nodeMaintenanceWindow during per-node primitive steps; creates +
+  # mutates the orchestrator Lease for the cluster-wide single-
+  # upgrader lock. All namespace-scoped (this Role); cluster-scoped
+  # cordon / drain / Node reads live in the ClusterRole rendered
+  # alongside this template.
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["postgresql.cnpg.io"]
+    resources: ["clusters"]
+    verbs: ["get", "patch"]
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    # NB: ``delete`` deliberately absent — Phase A's mutex.release()
+    # clears the holder via PATCH (``clear_lease_holder`` sets an
+    # empty ``holderIdentity`` + expired ``renewTime``) rather than
+    # deleting the Lease object, so ``kubectl get leases`` keeps the
+    # historical last-upgrade-holder visible.
+    verbs: ["get", "list", "create", "update", "patch"]
+  {{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "spatiumddi.fullname" . }}-api
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "spatiumddi.componentLabels" (merge (dict "component" "api") .) | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "spatiumddi.fullname" . }}-api
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "spatiumddi.fullname" . }}-api
+{{- if .Values.api.upgradeOrchestratorRBAC.enabled }}
+---
+# #296 Phase C/D/E — cluster-scoped grants for the rolling-upgrade
+# orchestrator's cordon / drain / Node-Ready introspection. Scoped to
+# the resources the orchestrator actually touches; no wildcards.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "spatiumddi.fullname" . }}-api-upgrade-orchestrator
+  labels:
+    {{- include "spatiumddi.componentLabels" (merge (dict "component" "api") .) | nindent 4 }}
+rules:
+  # cordon / uncordon — PATCH .spec.unschedulable on the node;
+  # GET / list for readiness polling + plan_upgrade's appliance-node
+  # enumeration.
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch", "patch"]
+  # Drain: list every pod scheduled on the node + POST policy/v1
+  # Eviction subresource. Cluster-wide because pods to evict can live
+  # in any namespace (DNS / DHCP DaemonSets are in kube-system,
+  # CNPG StatefulSet is in spatium, etc.).
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/eviction"]
+    verbs: ["create"]
+  # #402 / #983 Phase 2 item 6 — read-only kubelet Summary API for the
+  # Cluster health screen (per-node + per-pod CPU / memory / fs, and since
+  # Kubernetes 1.36 the PSI stall percentages). The appliance ships no
+  # metrics-server / Prometheus, so this response is the only source.
+  #
+  # ``nodes/stats`` is the grant that should survive. Kubernetes 1.36 GA'd
+  # fine-grained kubelet API authorization, so a caller talking to the
+  # kubelet DIRECTLY on :10250 is authorized per-endpoint — this one names
+  # exactly the Summary API and nothing else.
+  - apiGroups: [""]
+    resources: ["nodes/stats"]
+    verbs: ["get"]
+  {{- if .Values.api.upgradeOrchestratorRBAC.kubeletProxyFallback }}
+  # ``nodes/proxy`` is the OLD transport, via the apiserver, and it is much
+  # broader than it looks: ``get`` on it authorizes read GETs to EVERY
+  # kubelet endpoint — /pods, /logs/…, /configz, /debug/… — not just the one
+  # page the health screen wants. (It stops short of exec / attach / run,
+  # which need ``create``.) Retiring it is the entire point of the item.
+  #
+  # It is still granted by default, for one honest reason: whether the
+  # ServiceAccount's CA validates this cluster's kubelet serving cert is a
+  # property of the deployment, and k3s signs kubelet serving certs with its
+  # own ``server-ca``. Nothing in this repo has ever spoken to a kubelet
+  # directly (#983 named the TTY console as a reference; it is not one — it
+  # goes through this same proxy), so the answer was not available at
+  # authoring time. The api tries the direct transport first, falls back
+  # here, and REPORTS which one served: Cluster → Overview, the
+  # ``kubelet_transport`` field, and the ``find_cluster_metrics`` tool.
+  #
+  # Once a cluster shows ``direct``, set this to false. The fallback then
+  # disappears along with the broad grant.
+  - apiGroups: [""]
+    resources: ["nodes/proxy"]
+    verbs: ["get"]
+  {{- end }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "spatiumddi.fullname" . }}-api-upgrade-orchestrator
+  labels:
+    {{- include "spatiumddi.componentLabels" (merge (dict "component" "api") .) | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "spatiumddi.fullname" . }}-api
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "spatiumddi.fullname" . }}-api-upgrade-orchestrator
+---
+# Phase E — the chart bump patches the umbrella HelmChartConfig that
+# lives in kube-system (k3s convention). Same shape as the
+# supervisor's spatium-supervisor-helm Role — scoped to the kube-
+# system namespace, not cluster-wide, so the api can't accidentally
+# edit OTHER chart configs an operator dropped there.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "spatiumddi.fullname" . }}-api-helm
+  namespace: kube-system
+  labels:
+    {{- include "spatiumddi.componentLabels" (merge (dict "component" "api") .) | nindent 4 }}
+rules:
+  - apiGroups: ["helm.cattle.io"]
+    # ``helmcharts`` deliberately NOT included — the chart-bump path
+    # in services/upgrades/chart_bump.py only touches ``helmchartconfigs``
+    # (which the helm-controller merges on top of the manifest-managed
+    # HelmChart). The supervisor's spatium-supervisor-helm Role keeps
+    # both for cp-size patches; the api's role-of-scope is narrower.
+    resources: ["helmchartconfigs"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "spatiumddi.fullname" . }}-api-helm
+  namespace: kube-system
+  labels:
+    {{- include "spatiumddi.componentLabels" (merge (dict "component" "api") .) | nindent 4 }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "spatiumddi.fullname" . }}-api
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "spatiumddi.fullname" . }}-api-helm
+{{- end }}
+{{- end }}

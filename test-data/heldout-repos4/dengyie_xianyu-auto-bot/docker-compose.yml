@@ -1,0 +1,160 @@
+services:
+  xianyu-app:
+    # 生产镜像只来自 GitHub Actions → GHCR，禁止在 1GB VPS 上 compose build
+    # 本地若需改 Dockerfile：用 `docker build` 或 workflow_dispatch，不要在本文件加回 build:
+    image: ${XIANYU_IMAGE:-ghcr.io/dengyie/xianyu-auto-bot:latest}
+    container_name: xianyu-auto-bot
+    # 回收 chrome 退出后的僵尸进程（Playwright 浏览器树）
+    init: true
+    restart: unless-stopped
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    # 使用 bash 执行脚本，避免 Windows 行尾格式问题
+    # 即使挂载了 Windows 文件，bash 也能正确处理
+    entrypoint: ["/bin/bash", "-c", "dos2unix /app/entrypoint.sh 2>/dev/null || true; bash /app/entrypoint.sh"]
+    ports:
+      # 生产默认仅 loopback，避免 9000 对公网裸奔；本机调试可改 0.0.0.0:9000:8090
+      - "127.0.0.1:9000:8090"
+      # 仅建议本机回环暴露；VNC 鉴权已收口到 /websockify 会话校验，无需 VNC_PASSWORD。
+      # - "127.0.0.1:5900:5900"
+      # noVNC Web 端口（浏览器手动接管滑块/风控）；同样仅建议本机回环暴露
+      # - "127.0.0.1:6080:6080"
+    volumes:
+      # 数据持久化
+      - ./data:/app/data:rw
+      - ./logs:/app/logs:rw
+      - ./global_config.yml:/app/global_config.yml:ro
+      # 可选：如果需要自定义配置
+      # - ./custom_config.yml:/app/global_config.yml:ro
+      # 可选：备份目录
+      - ./backups:/app/backups:rw
+      # 上传图片持久化，并与运行时 UID/GID 保持一致
+      - ./static/uploads:/app/static/uploads:rw
+      - ./trajectory_history:/app/trajectory_history:rw
+      # Development only: mount source with docker-compose.override.yml when needed.
+      # - .:/app:rw
+    environment:
+      # user: 指定的 UID 在镜像 /etc/passwd 里不存在（镜像只建了 appuser=1000），
+      # glibc 查不到 home 会让 HOME 退化成 /，slidex 写 ~/.slidex 直接 Permission denied，
+      # 滑块验证 100% 失败（2026-07-26）。显式给一个该 UID 可写的 HOME。
+      - HOME=/app/trajectory_history
+      # 启用虚拟显示（有头模式）
+      - USE_XVFB=true           # 启用 Xvfb 虚拟显示
+      - ENABLE_HEADFUL=true     # 启用有头模式
+      - ENABLE_VNC=${ENABLE_VNC:-false}
+      - DISPLAY=:99             # 虚拟显示编号
+      # 滑块验证有头 + patchright 反检测栈（XY_SLIDER_HEADLESS=0 依赖上面的 Xvfb DISPLAY）
+      - XY_SLIDER_HEADLESS=${XY_SLIDER_HEADLESS:-0}
+      - XY_SLIDER_AUTOMATION_BACKEND=${XY_SLIDER_AUTOMATION_BACKEND:-patchright}
+      # CDP 模式：非空时滑块连接外部真实浏览器（用户 PC Chrome 经 ssh -R 反向隧道
+      # 到 VPS localhost:9222），真实设备指纹 + 家宽直连；会话 cookie 由 slidex 注入
+      - XY_SLIDER_CDP_ENDPOINT=${XY_SLIDER_CDP_ENDPOINT:-}
+
+      - PYTHONUNBUFFERED=${PYTHONUNBUFFERED:-1}
+      - PYTHONDONTWRITEBYTECODE=${PYTHONDONTWRITEBYTECODE:-1}
+      - TZ=${TZ:-Asia/Shanghai}
+      - DB_PATH=${DB_PATH:-/app/data/xianyu_data.db}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - DEBUG=${DEBUG:-false}
+      - RELOAD=${RELOAD:-false}
+      # SQL日志配置（默认关闭，可通过环境变量覆盖）
+      - SQL_LOG_ENABLED=${SQL_LOG_ENABLED:-false}
+      - SQL_LOG_LEVEL=${SQL_LOG_LEVEL:-INFO}
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
+      - XIANYU_REPLY_API_KEY=${XIANYU_REPLY_API_KEY:-}
+      - CAPTCHA_CONTROL_API_KEY=${CAPTCHA_CONTROL_API_KEY:-}
+      # 人工面板 control_url 对外基址（如 https://面板域名）；不设回落 localhost:{API_PORT}
+      - CAPTCHA_PUBLIC_BASE_URL=${CAPTCHA_PUBLIC_BASE_URL:-}
+      - SEND_MESSAGE_API_KEY=${SEND_MESSAGE_API_KEY:-}
+      - SECRET_ENCRYPTION_KEY=${SECRET_ENCRYPTION_KEY:-}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-}
+      - SESSION_TIMEOUT=${SESSION_TIMEOUT:-3600}
+      # 多用户系统配置
+      - MULTIUSER_ENABLED=${MULTIUSER_ENABLED:-true}
+      - USER_REGISTRATION_ENABLED=${USER_REGISTRATION_ENABLED:-true}
+      - EMAIL_VERIFICATION_ENABLED=${EMAIL_VERIFICATION_ENABLED:-true}
+      - CAPTCHA_ENABLED=${CAPTCHA_ENABLED:-true}
+      - TOKEN_EXPIRE_TIME=${TOKEN_EXPIRE_TIME:-86400}
+      - AUTO_REPLY_ENABLED=${AUTO_REPLY_ENABLED:-true}
+      - AUTO_DELIVERY_ENABLED=${AUTO_DELIVERY_ENABLED:-true}
+      - AUTO_DELIVERY_TIMEOUT=${AUTO_DELIVERY_TIMEOUT:-30}
+      - API_CARD_TIMEOUT=${API_CARD_TIMEOUT:-10}
+      - BATCH_DATA_LOCK_TIMEOUT=${BATCH_DATA_LOCK_TIMEOUT:-5}
+      # AI回复相关配置
+      - AI_REPLY_ENABLED=${AI_REPLY_ENABLED:-false}
+      - DEFAULT_AI_MODEL=${DEFAULT_AI_MODEL:-qwen-plus}
+      - DEFAULT_AI_BASE_URL=${DEFAULT_AI_BASE_URL:-https://dashscope.aliyuncs.com/compatible-mode/v1}
+      - AI_REQUEST_TIMEOUT=${AI_REQUEST_TIMEOUT:-30}
+      - AI_MAX_TOKENS=${AI_MAX_TOKENS:-100}
+      - WEBSOCKET_URL=${WEBSOCKET_URL:-wss://wss-goofish.dingtalk.com/}
+      - HEARTBEAT_INTERVAL=${HEARTBEAT_INTERVAL:-15}
+      - HEARTBEAT_TIMEOUT=${HEARTBEAT_TIMEOUT:-5}
+      - TOKEN_REFRESH_INTERVAL=${TOKEN_REFRESH_INTERVAL:-3600}
+      - TOKEN_RETRY_INTERVAL=${TOKEN_RETRY_INTERVAL:-300}
+      # 全局闲鱼出站代理：扫码登录/商品/订单/评价等所有闲鱼域名流量经 mihomo-home
+      # 走家宽出口（与账号级代理同款 mixed 端口；账号级配置存在时优先于它）
+      - XIANYU_GLOBAL_PROXY_URL=${XIANYU_GLOBAL_PROXY_URL:-http://mihomo-home:7891}
+      - MESSAGE_EXPIRE_TIME=${MESSAGE_EXPIRE_TIME:-300000}
+
+    networks:
+      - xianyu-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8090/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    # 资源限制
+    deploy:
+      resources:
+        limits:
+          memory: ${MEMORY_LIMIT:-2048}M
+          cpus: '${CPU_LIMIT:-2.0}'
+        reservations:
+          memory: ${MEMORY_RESERVATION:-512}M
+          cpus: '${CPU_RESERVATION:-0.5}'
+
+  # 家宽出口 sidecar：把 🏠home-win-CF 节点（VLESS+WS+TLS 经 CF Tunnel，出口=上海移动家宽）
+  # 转成本 compose 网络内的 mixed(http+socks) 代理，供账号代理（proxy_host=mihomo-home:7891）使用。
+  # 节点凭据在服务器 ./data/mihomo/config.yaml（不在仓库）；不发布端口，仅内网可达。
+  # home-win 关机 = 该节点 delay 全红、账号 WS 断连，开机自愈（非故障）。
+  mihomo-home:
+    image: metacubex/mihomo:latest
+    container_name: xianyu-mihomo
+    restart: unless-stopped
+    volumes:
+      - ./data/mihomo:/root/.config/mihomo:ro
+    networks:
+      - xianyu-network
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  # 可选：添加Nginx反向代理
+  nginx:
+    image: nginx:alpine
+    container_name: xianyu-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - xianyu-app
+    networks:
+      - xianyu-network
+    profiles:
+      - with-nginx
+
+networks:
+  xianyu-network:
+    driver: bridge
+
+volumes:
+  xianyu-data:
+    driver: local
+  xianyu-logs:
+    driver: local

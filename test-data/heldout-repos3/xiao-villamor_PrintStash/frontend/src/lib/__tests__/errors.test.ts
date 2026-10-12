@@ -1,0 +1,202 @@
+/*
+ * Turning whatever came back from the API into something a person can act on.
+ *
+ * Three shapes arrive here and only one of them is an `ApiError`: a FastAPI
+ * `{"detail": "..."}` body, a bare HTTP status with an unparseable body, and a
+ * `fetch` rejection that never reached the server at all. All three have to end
+ * as a code the UI can branch on and a sentence a user can read, because the
+ * alternative is the raw string — and "TypeError: Failed to fetch" in a toast is
+ * indistinguishable from a bug in PrintStash.
+ *
+ * `isAuthError` is the one flag with behaviour attached: it drives the automatic
+ * token refresh, so a 401 that failed to be recognised logs the user out, and a
+ * 500 wrongly recognised as one puts them in a refresh loop.
+ *
+ * Unknown codes use a localized recovery message; technical codes remain in ApiError.
+ */
+
+import { describe, expect, it } from "vitest";
+
+import { ApiError, getErrorMessage, parseApiError, userMessage } from "@/lib/errors";
+
+describe("ApiError", () => {
+  it("flags 401 as an auth error", () => {
+    expect(new ApiError(401, "not_authenticated", "").isAuthError).toBe(true);
+    expect(new ApiError(500, "boom", "").isAuthError).toBe(false);
+  });
+
+  it("flags the 'already_configured' 409 as unconfigured", () => {
+    expect(new ApiError(409, "already_configured", "").isUnconfigured).toBe(true);
+    expect(new ApiError(409, "duplicate_slug", "").isUnconfigured).toBe(false);
+    expect(new ApiError(400, "already_configured", "").isUnconfigured).toBe(false);
+  });
+});
+
+describe("getErrorMessage", () => {
+  it("explains an unreadable mounted library folder", () => {
+    expect(getErrorMessage("root_path_unreadable")).toMatch(/container mount and permissions/i);
+  });
+
+  it("explains an analysis conflict without implying the server is down", () => {
+    const message = userMessage(new ApiError(409, "similarity_run_active", ""));
+    expect(message).toMatch(/analysis for this scope is already running/i);
+    expect(message).not.toMatch(/server/i);
+  });
+});
+
+describe("parseApiError", () => {
+  it("returns the same instance when given an ApiError", () => {
+    const original = new ApiError(404, "model_not_found", "body");
+    expect(parseApiError(original)).toBe(original);
+  });
+
+  it("extracts status and the FastAPI detail code from an HTTP message", () => {
+    const err = parseApiError(new Error('HTTP 404: {"detail":"model_not_found"}'));
+    expect(err.status).toBe(404);
+    expect(err.code).toBe("model_not_found");
+  });
+
+  it("falls back to the status string when the body is not JSON", () => {
+    const err = parseApiError(new Error("HTTP 502: upstream is down"));
+    expect(err.status).toBe(502);
+    expect(err.code).toBe("502");
+    expect(err.detail).toBe("upstream is down");
+  });
+
+  it("falls back to the status string for structured validation details", () => {
+    const err = parseApiError(new Error('HTTP 422: {"detail":[{"loc":["body","name"]}]}'));
+
+    expect(err.status).toBe(422);
+    expect(err.code).toBe("422");
+  });
+
+  it("preserves the code from a structured storage-risk conflict", () => {
+    const err = parseApiError(
+      new Error(
+        'HTTP 409: {"detail":{"code":"storage_risk_confirmation_required","tier":"guarded","required_confirmation":"confirm_storage_risk=true"}}',
+      ),
+    );
+
+    expect(err.status).toBe(409);
+    expect(err.code).toBe("storage_risk_confirmation_required");
+    expect(userMessage(err)).toMatch(/confirmation/i);
+  });
+
+  it("returns a status-0 'unknown' error for unrecognised input", () => {
+    const err = parseApiError("a plain string");
+    expect(err.status).toBe(0);
+    expect(err.code).toBe("unknown");
+    expect(err.detail).toBe("a plain string");
+  });
+
+  it("maps fetch failures to an actionable network code", () => {
+    const err = parseApiError(new TypeError("Failed to fetch"));
+    expect(err.code).toBe("network_unreachable");
+    expect(userMessage(err)).toMatch(/PrintStash is running/i);
+  });
+
+  it.each(["Failed to fetch", "NetworkError when attempting to fetch resource.", "Load failed"])(
+    "maps the %s fetch rejection to the network code",
+    (message) => {
+      expect(parseApiError(new TypeError(message)).code).toBe("network_unreachable");
+    },
+  );
+
+  it("keeps a TypeError thrown by page code apart from a network failure", () => {
+    // What a plain-HTTP origin raised before any request: `crypto.subtle` is undefined.
+    const err = parseApiError(
+      new TypeError("Cannot read properties of undefined (reading 'digest')"),
+    );
+    expect(err.code).toBe("browser_error");
+    expect(err.detail).toMatch(/digest/);
+    expect(userMessage(err)).toMatch(/reload the page/i);
+    expect(userMessage(err)).not.toMatch(/PrintStash is running/i);
+  });
+
+  it("treats a bare snake_case message as a server detail code", () => {
+    // Failed background jobs surface a bare code with no HTTP envelope.
+    const err = parseApiError(new Error("url_not_a_direct_file"));
+    expect(err.status).toBe(0);
+    expect(err.code).toBe("url_not_a_direct_file");
+    expect(userMessage(err)).toMatch(/direct file/i);
+  });
+
+  it("handles non-error, non-string values", () => {
+    const err = parseApiError({ weird: true });
+    expect(err.code).toBe("unknown");
+    expect(err.detail).toBe("Unknown error");
+  });
+});
+
+describe("provider connection errors", () => {
+  it("explains missing MyMiniFactory application setup", () => {
+    expect(userMessage(new Error('HTTP 503: {"detail":"provider_not_configured"}'))).toMatch(
+      /MyMiniFactory.*server|server.*MyMiniFactory/i,
+    );
+  });
+
+  it("identifies rejected Cults credentials", () => {
+    expect(userMessage(new Error('HTTP 400: {"detail":"provider_auth_failed"}'))).toMatch(
+      /Cults.*credentials|credentials.*Cults/i,
+    );
+  });
+
+  it("explains a temporary provider outage", () => {
+    expect(userMessage(new Error('HTTP 503: {"detail":"provider_retry_exhausted"}'))).toMatch(
+      /provider.*unavailable|provider.*later/i,
+    );
+  });
+
+  it("explains an invalid provider response", () => {
+    expect(userMessage(new Error('HTTP 502: {"detail":"provider_response_invalid"}'))).toMatch(
+      /provider.*response/i,
+    );
+  });
+});
+
+describe("getErrorMessage", () => {
+  it("maps known codes to friendly copy", () => {
+    expect(getErrorMessage("invalid_credentials")).toBe("Invalid username or password.");
+    expect(getErrorMessage("collection_not_empty")).toMatch(/still has models/);
+    expect(getErrorMessage("archive_blob_hash_mismatch")).toMatch(/Vault audit/);
+    expect(getErrorMessage("artifact_upload_file_mismatch")).toMatch(/same file/);
+    expect(getErrorMessage("staging_capacity_exceeded")).toMatch(/Free space/);
+  });
+
+  it("gives unknown codes a localized recovery message", () => {
+    expect(getErrorMessage("some_new_code")).toBe(getErrorMessage("unknown"));
+  });
+
+  it("userMessage parses then maps in one step", () => {
+    expect(userMessage(new Error('HTTP 401: {"detail":"invalid_credentials"}'))).toBe(
+      "Invalid username or password.",
+    );
+  });
+
+  it("explains an ownership conflict without claiming the server is unreachable", () => {
+    const message = userMessage(new Error('HTTP 409: {"detail":"storage_ownership_unverified"}'));
+
+    expect(message).toMatch(/ownership/i);
+    expect(message).toMatch(/not deleted/i);
+    expect(message).not.toMatch(/reach(ing)? the server/i);
+  });
+});
+
+describe("localized error recovery", () => {
+  it("localizes error recovery", () => {
+    localStorage.setItem("printstash.locale", "es");
+    try {
+      expect(getErrorMessage("invalid_credentials")).toBe("Usuario o contraseña incorrectos.");
+      expect(getErrorMessage("artifact_upload_expired")).toBe(
+        "Esta carga ha caducado. Iníciala de nuevo.",
+      );
+      expect(getErrorMessage("storage_ownership_unverified")).toMatch(/almacenamiento/);
+      expect(getErrorMessage("storage_risk_confirmation_required")).toMatch(/confirmar/);
+      expect(getErrorMessage("future_backend_code")).toBe(
+        "Se ha producido un error al conectar con el servidor. Comprueba que PrintStash esté funcionando e inténtalo de nuevo.",
+      );
+    } finally {
+      localStorage.removeItem("printstash.locale");
+    }
+  });
+});

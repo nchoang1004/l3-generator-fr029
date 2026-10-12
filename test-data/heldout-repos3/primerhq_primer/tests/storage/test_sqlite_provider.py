@@ -1,0 +1,169 @@
+"""Lifecycle tests for SqliteStorageProvider."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import aiosqlite
+import pytest
+
+from primer.model.except_ import ConfigError
+from primer.model.provider import SqliteConfig
+from primer.storage.sqlite import SqliteStorage, SqliteStorageProvider
+
+
+@pytest.mark.asyncio
+async def test_initialize_creates_parent_directories(tmp_path: Path):
+    nested = tmp_path / "deep" / "deeper" / "data.sqlite"
+    assert not nested.parent.exists()
+    provider = SqliteStorageProvider(SqliteConfig(path=nested))
+    try:
+        await provider.initialize()
+        assert nested.parent.is_dir()
+        assert nested.exists()
+    finally:
+        await provider.aclose()
+
+
+@pytest.mark.asyncio
+async def test_initialize_applies_pragmas(tmp_path: Path):
+    cfg = SqliteConfig(
+        path=tmp_path / "data.sqlite",
+        journal_mode="wal",
+        synchronous="normal",
+        busy_timeout_ms=7000,
+    )
+    provider = SqliteStorageProvider(cfg)
+    try:
+        await provider.initialize()
+        # journal_mode=WAL is persisted in the file header — a fresh
+        # probe connection will see it.
+        async with aiosqlite.connect(str(cfg.path)) as probe:
+            cur = await probe.execute("PRAGMA journal_mode")
+            row = await cur.fetchone()
+            assert row is not None and row[0].lower() == "wal"
+        # synchronous is a per-connection pragma (not stored in the file);
+        # verify it via the provider's own shared connection instead.
+        cur = await provider.connection.execute("PRAGMA synchronous")
+        row = await cur.fetchone()
+        # 1 = NORMAL per https://sqlite.org/pragma.html#pragma_synchronous
+        assert row is not None and int(row[0]) == 1
+    finally:
+        await provider.aclose()
+
+
+@pytest.mark.asyncio
+async def test_initialize_idempotent(tmp_path: Path):
+    provider = SqliteStorageProvider(SqliteConfig(path=tmp_path / "x.sqlite"))
+    try:
+        await provider.initialize()
+        await provider.initialize()  # must not raise
+    finally:
+        await provider.aclose()
+
+
+@pytest.mark.asyncio
+async def test_aclose_idempotent(tmp_path: Path):
+    provider = SqliteStorageProvider(SqliteConfig(path=tmp_path / "x.sqlite"))
+    await provider.aclose()  # never initialised — no-op
+    await provider.initialize()
+    await provider.aclose()
+    await provider.aclose()  # second close — no-op
+
+
+@pytest.mark.asyncio
+async def test_get_storage_returns_same_instance_for_same_model(
+    sqlite_provider: SqliteStorageProvider,
+):
+    from primer.model.common import Identifiable
+
+    class _A(Identifiable):
+        v: int
+
+    h1 = sqlite_provider.get_storage(_A)
+    h2 = sqlite_provider.get_storage(_A)
+    assert h1 is h2
+    assert isinstance(h1, SqliteStorage)
+
+
+@pytest.mark.asyncio
+async def test_get_storage_before_initialize_raises(tmp_path: Path):
+    provider = SqliteStorageProvider(SqliteConfig(path=tmp_path / "x.sqlite"))
+    from primer.model.common import Identifiable
+
+    class _A(Identifiable):
+        v: int
+
+    handle = provider.get_storage(_A)
+    # handle is returned but using it before initialize must fail loudly.
+    with pytest.raises(ConfigError):
+        await handle.get("anything")
+
+
+@pytest.mark.asyncio
+async def test_sqlite_provider_creates_leases_table(tmp_path: Path):
+    """initialize() must create the leases table for use by the claim engine."""
+    provider = SqliteStorageProvider(SqliteConfig(path=tmp_path / "data.sqlite"))
+    await provider.initialize()
+    try:
+        cur = await provider.connection.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='leases'"
+        )
+        row = await cur.fetchone()
+        assert row is not None, "leases table should exist after initialize()"
+    finally:
+        await provider.aclose()
+
+
+@pytest.mark.asyncio
+async def test_ping_succeeds_on_a_live_connection(tmp_path: Path):
+    provider = SqliteStorageProvider(SqliteConfig(path=tmp_path / "data.sqlite"))
+    await provider.initialize()
+    try:
+        await provider.ping()
+    finally:
+        await provider.aclose()
+
+
+@pytest.mark.asyncio
+async def test_ping_raises_when_the_connection_is_dead(tmp_path: Path):
+    """The provider object still exists and still thinks it is initialised;
+    the backend behind it is gone. ping() must surface that rather than
+    answer from in-process state - that is the entire point of it."""
+    provider = SqliteStorageProvider(SqliteConfig(path=tmp_path / "data.sqlite"))
+    await provider.initialize()
+    await provider.connection.close()
+    with pytest.raises(Exception):
+        await provider.ping()
+
+
+@pytest.mark.asyncio
+async def test_ping_raises_before_initialize(tmp_path: Path):
+    provider = SqliteStorageProvider(SqliteConfig(path=tmp_path / "x.sqlite"))
+    with pytest.raises(ConfigError):
+        await provider.ping()
+
+
+@pytest.mark.asyncio
+async def test_abc_default_ping_does_a_real_round_trip():
+    """A subclass that predates ping() must get a genuine round-trip from
+    the default (via get_system_state), never a silent pass."""
+    from types import SimpleNamespace
+
+    from primer.int.storage_provider import StorageProvider
+
+    reached = []
+
+    async def _state():
+        reached.append(True)
+
+    stub = SimpleNamespace(get_system_state=_state)
+    await StorageProvider.ping(stub)  # type: ignore[arg-type]
+    assert reached == [True]
+
+    async def _dead():
+        raise OSError("gone")
+
+    dead = SimpleNamespace(get_system_state=_dead)
+    with pytest.raises(OSError):
+        await StorageProvider.ping(dead)  # type: ignore[arg-type]

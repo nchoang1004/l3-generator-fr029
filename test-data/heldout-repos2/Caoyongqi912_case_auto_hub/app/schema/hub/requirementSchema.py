@@ -1,0 +1,109 @@
+#!/usr/bin/env python
+# -*- coding:utf-8 -*-
+# @Time : 2025/8/25
+# @Author : cyq
+# @File : requirementSchema
+# @Software: PyCharm
+# @Desc: 需求相关的Schema定义
+from typing import List, Optional
+
+from pydantic import BaseModel, Field
+
+from app.schema import PageSchema
+from enums import ModuleEnum
+
+
+class RequirementsField(BaseModel):
+    """需求基础字段模型"""
+    id: Optional[int] = Field(None, description="需求ID")
+    uid: Optional[str] = Field(None, description="需求唯一标识")
+    requirement_url: Optional[str] = Field(None, description="需求链接")
+    requirement_name: Optional[str] = Field(None, description="需求名称")
+    requirement_level: Optional[str] = Field(None, description="需求级别")
+    process: Optional[int] = Field(None, description="需求进度")
+    develops: Optional[List[int]] = Field(None, description="开发人员ID列表")
+    maintainer: Optional[int] = Field(None, description="维护人员ID")
+    case_number: Optional[int] = Field(0, description="用例数量")
+    module_id: Optional[int] = Field(None, description="模块ID")
+    project_id: Optional[int] = Field(None, description="项目ID")
+
+
+class AddRequirementsSchema(BaseModel):
+    """添加需求模型"""
+    requirement_name: str = Field(..., description="需求名称")
+    requirement_level: str = Field(..., description="需求级别")
+    requirement_url: Optional[str] = Field(None, description="需求链接")
+
+    process: int = Field(5, description="需求进度")
+    develops: Optional[List[int]] = Field(None, description="开发人员ID列表")
+    maintainer: Optional[int] = Field(None, description="维护人员ID")
+    module_id: int = Field(..., description="模块ID")
+    project_id: int = Field(..., description="项目ID")
+    case_ids: Optional[list[int]] = Field(None, description="关联用例")
+
+
+class UpdateRequirementsSchema(BaseModel):
+    """更新需求模型"""
+    id: int = Field(..., description="需求ID")
+    requirement_name: Optional[str] = Field(None, description="需求名称")
+    requirement_level: Optional[str] = Field(None, description="需求级别")
+    requirement_url: Optional[str] = Field(None, description="需求链接")
+
+    process: Optional[int] = Field(None, description="需求进度")
+    develops: Optional[List[int]] = Field(None, description="开发人员ID列表")
+    maintainer: Optional[int] = Field(None, description="维护人员ID")
+    module_id: Optional[int] = Field(None, description="模块ID")
+    project_id: Optional[int] = Field(None, description="项目ID")
+
+
+class UpdateRequirementCaseSchema(BaseModel):
+    case_id: int = Field(..., description="用例ID")
+    requirement_id:int = Field(...,description="需求")
+    case_status: Optional[int] = Field(None, description="用例状态")
+    is_review: Optional[int] = Field(None, description="时否评审 0:未评审 1:已评审")
+    case_level:Optional[str] = Field(None,description="用例等级")
+    case_type:Optional[int] = Field(None,description="用例类型")
+
+
+class RemoveRequirementsSchema(BaseModel):
+    """删除需求模型"""
+    requirement_id: int = Field(..., description="需求ID")
+
+
+class GetRequirementsSchema(BaseModel):
+    """获取需求模型"""
+    requirement_id: int = Field(..., description="需求ID")
+
+
+class PageRequirementsSchema(PageSchema):
+    """需求分页查询模型"""
+    module_type: int = Field(ModuleEnum.REQUIREMENT, description="模块类型")
+    requirement_name: Optional[str] = Field(None, description="需求名称")
+    requirement_level: Optional[str] = Field(None, description="需求级别")
+    process: Optional[int] = Field(None, description="需求进度")
+    module_id: Optional[int] = Field(None, description="模块ID")
+    project_id: Optional[int] = Field(None, description="项目ID")
+    # 注：不再支持 plan_id 过滤
+    # 选需求弹窗直接拉取所有需求；去重由 plan_requirement_association 中间表
+    # 在 associate_requirements 时通过 INSERT IGNORE / 唯一约束处理。
+    # 这样既简化了查询逻辑，也避免了双表 JOIN 时的索引失效。
+
+
+class SetCasesStatusSchema(BaseModel):
+    """设置多个用例状态模型"""
+    requirement_id: int = Field(...,description="需求ID")
+    case_ids: List[int] = Field(..., description="用例ID列表")
+    case_status: int = Field(..., description="状态值")
+
+
+class SetCasesReviewSchema(BaseModel):
+    """设置多个用例状态评审"""
+    requirement_id: int = Field(...,description="需求ID")
+    case_ids: List[int] = Field(..., description="用例ID列表")
+    is_review: int = Field(..., description="状态值 0:未审核 1:已审核")
+
+
+class LinkCommonCasesSchema(BaseModel):
+    """关联公共用例"""
+    requirement_id: int = Field(..., description="需求ID")
+    case_ids: List[int] = Field(..., description="公共用例ID列表")

@@ -1,0 +1,774 @@
+from __future__ import annotations
+
+from datetime import datetime
+from enum import Enum
+from typing import List, Literal, Optional
+from urllib.parse import urlparse
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from app.core.time import ensure_utc
+from app.db.models import CollectionRole, FileRevisionStatus, FileType, PrintJobState
+from app.schemas.editing import EditingBase
+from app.schemas.mesh_measurements import VolumeMeasurementRead
+from app.schemas.orca import OrcaNativeContext
+from app.schemas.printers import (
+    PrintJobIdentityRead,
+    PrintJobReportedMetadataRead,
+    PrintJobReproducibilityRead,
+)
+
+
+class MetadataRead(BaseModel):
+    slicer_name: Optional[str] = None
+    slicer_version: Optional[str] = None
+    printer_model: Optional[str] = None
+    nozzle_diameter_mm: Optional[float] = None
+    layer_height_mm: Optional[float] = None
+    first_layer_height_mm: Optional[float] = None
+    infill_percent: Optional[float] = None
+    wall_loops: Optional[int] = None
+    top_shell_layers: Optional[int] = None
+    bottom_shell_layers: Optional[int] = None
+    support_material: Optional[bool] = None
+    nozzle_temperature_c: Optional[float] = None
+    bed_temperature_c: Optional[float] = None
+
+    estimated_time_s: Optional[int] = None
+    filament_weight_g: Optional[float] = None
+    filament_length_mm: Optional[float] = None
+    filament_cost: Optional[float] = None
+    material_type: Optional[str] = None
+    material_brand: Optional[str] = None
+    native_context: Optional[OrcaNativeContext] = None
+
+    bbox_x_mm: Optional[float] = Field(
+        default=None, strict=True, allow_inf_nan=False, ge=0
+    )
+    bbox_y_mm: Optional[float] = Field(
+        default=None, strict=True, allow_inf_nan=False, ge=0
+    )
+    bbox_z_mm: Optional[float] = Field(
+        default=None, strict=True, allow_inf_nan=False, ge=0
+    )
+    volume_mm3: Optional[float] = Field(default=None, strict=True, allow_inf_nan=False)
+    volume_measurement: VolumeMeasurementRead
+    triangle_count: Optional[int] = None
+
+    @model_validator(mode="after")
+    def volume_scalar_matches_evidence(self):
+        if self.volume_mm3 != self.volume_measurement.value_mm3:
+            raise ValueError("volume scalar disagrees with evidence")
+        return self
+
+
+class FileRead(BaseModel):
+    id: int
+    model_id: int
+    original_filename: str
+    file_type: FileType
+    version: int
+    gcode_revision_number: Optional[int] = None
+    size_bytes: int
+    sha256: str
+    revision_label: Optional[str] = None
+    revision_status: Optional[FileRevisionStatus] = None
+    revision_notes: Optional[str] = None
+    is_recommended: bool = False
+    is_external: bool = False
+    uploaded_at: datetime
+    tags: List[str] = []
+    metadata: Optional[MetadataRead] = None
+
+
+class TrashedSourceFileRead(BaseModel):
+    id: int
+    original_filename: str
+
+
+class FileRevisionUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    revision_label: Optional[str] = Field(default=None, max_length=128)
+    revision_status: Optional[FileRevisionStatus] = None
+    revision_notes: Optional[str] = Field(default=None, max_length=4096)
+    is_recommended: Optional[bool] = None
+
+
+class PartModelRead(BaseModel):
+    id: int
+    name: str
+    slug: str
+    thumbnail_url: Optional[str] = None
+    source_file_count: int = 0
+    gcode_revision_count: int = 0
+
+
+class PartOptionRead(BaseModel):
+    id: int
+    file_id: Optional[int] = None
+    model: PartModelRead
+    name: str
+    is_default: bool
+
+
+class PartGroupRead(BaseModel):
+    id: int
+    name: str
+    options: List[PartOptionRead]
+
+
+class PartOptionWrite(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    file_id: Optional[int] = None
+    model_id: Optional[int] = None
+    name: str = Field(min_length=1, max_length=128)
+    is_default: bool = False
+
+    @model_validator(mode="after")
+    def exactly_one_target(self) -> "PartOptionWrite":
+        if (self.file_id is None) == (self.model_id is None):
+            raise ValueError("part_option_target_required")
+        return self
+
+
+class PartGroupWrite(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=128)
+    options: List[PartOptionWrite] = Field(min_length=1, max_length=100)
+
+
+class PartGroupsReplace(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    groups: List[PartGroupWrite] = Field(max_length=50)
+
+
+class ModelSimilarityRead(BaseModel):
+    open_candidates: int = 0
+    confirmed: int = 0
+
+
+class ModelRead(EditingBase):
+    similarity: ModelSimilarityRead = Field(default_factory=ModelSimilarityRead)
+    id: int
+    name: str
+    slug: str
+    hash: str
+    collection: Optional[str] = None
+    collection_id: Optional[int] = None
+    collection_label: Optional[str]
+    description: Optional[str] = None
+    source_url: Optional[str] = None
+    effective_role: Optional[CollectionRole] = None
+    tags: List[str] = []
+    thumbnail_url: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    files: List[FileRead] = []
+    trashed_source_files: List[TrashedSourceFileRead] = []
+    starred: bool = False
+
+
+class ModelPrinterFileRead(BaseModel):
+    file_id: int
+    printer_id: int
+    printer_name: str
+    remote_filename: str
+    matched_by: str
+    last_seen_at: datetime
+    missing_since: Optional[datetime] = None
+
+
+class ModelPrinterPresenceRead(BaseModel):
+    printer_id: int
+    printer_name: str
+    file_count: int
+
+
+class ModelPrintJobRead(BaseModel):
+    """A print job belonging to a model, enriched for the history view."""
+
+    id: int
+    printer_id: Optional[int] = None
+    printer_name: str
+    file_id: int
+    remote_filename: str
+    source: str = "vault"
+    external_display_name: Optional[str] = None
+    artifact_evidence: str = "vault"
+    artifact_capture_error: Optional[str] = None
+    artifact_capture_error_code: Optional[str] = None
+    artifact_capture_error_message: Optional[str] = None
+    reproducibility_level: Literal["exact", "metadata", "basic"] = "basic"
+    identity: PrintJobIdentityRead = Field(default_factory=PrintJobIdentityRead)
+    metadata: PrintJobReportedMetadataRead = Field(
+        default_factory=PrintJobReportedMetadataRead
+    )
+    reproducibility: PrintJobReproducibilityRead = Field(
+        default_factory=PrintJobReproducibilityRead
+    )
+    download_url: Optional[str] = None
+    toolpath_preview_url: Optional[str] = None
+    gcode_revision_number: Optional[int] = None
+    revision_label: Optional[str] = None
+    state: PrintJobState
+    material_type: Optional[str] = None
+    error: Optional[str] = None
+    # Measured outcome captured from the printer (null when unknown).
+    filament_used_g: Optional[float] = None
+    actual_duration_s: Optional[int] = None
+    filament_cost: Optional[float] = None
+    spool_id: Optional[int] = None
+    spool_name: Optional[str] = None
+    started_at: Optional[datetime] = None
+    finished_at: Optional[datetime] = None
+    created_at: datetime
+
+
+class ArtifactOutcomeRead(BaseModel):
+    file_id: int
+    print_count: int = 0
+    completed_count: int = 0
+    failed_count: int = 0
+    cancelled_count: int = 0
+    success_rate: Optional[float] = None
+    average_duration_s: Optional[float] = None
+    total_filament_g: Optional[float] = None
+    total_cost: Optional[float] = None
+
+
+class PrintSummaryRead(BaseModel):
+    """Aggregated print metadata for a model's most recent G-code file."""
+
+    layer_height_mm: Optional[float] = None
+    estimated_time_s: Optional[int] = None
+    filament_weight_g: Optional[float] = None
+    material_type: Optional[str] = None
+    slicer_name: Optional[str] = None
+    success_rate: Optional[float] = None
+    last_printed_at: Optional[datetime] = None
+    average_duration_s: Optional[float] = None
+    total_cost: Optional[float] = None
+
+
+class ModelListItem(EditingBase):
+    similarity: ModelSimilarityRead = Field(default_factory=ModelSimilarityRead)
+    id: int
+    name: str
+    slug: str
+    collection: Optional[str] = None
+    collection_id: Optional[int] = None
+    # The collection's name path (``Parts/Brackets``); None outside a collection.
+    collection_label: Optional[str] = None
+    source_url: Optional[str] = None
+    effective_role: Optional[CollectionRole] = None
+    tags: List[str] = []
+    thumbnail_url: Optional[str] = None
+    file_count: int
+    # Newest mesh file (STL/3MF/OBJ) — lets the UI preload the 3D preview.
+    mesh_file_id: Optional[int] = None
+    printer_presence: List[ModelPrinterPresenceRead] = []
+    updated_at: datetime
+    print_summary: Optional[PrintSummaryRead] = None
+    recommended_revision_status: Optional[FileRevisionStatus] = None
+    recommended_revision_label: Optional[str] = None
+    starred: bool = False
+
+
+class ModelSort(str, Enum):
+    RELEVANCE = "relevance"
+    DATE_DESC = "date-desc"
+    DATE_ASC = "date-asc"
+    NAME_ASC = "name-asc"
+    NAME_DESC = "name-desc"
+    SUCCESS_DESC = "success-desc"
+    PRINTED_DESC = "printed-desc"
+    DURATION_ASC = "duration-asc"
+    FILAMENT_ASC = "filament-asc"
+    COST_ASC = "cost-asc"
+
+
+class ModelPageRead(BaseModel):
+    items: list[ModelListItem]
+    next_cursor: Optional[str] = None
+    total: int
+
+
+class OutlinerItemRead(BaseModel):
+    id: int
+    name: str
+    collection: Optional[str] = None
+    collection_id: Optional[int] = None
+    # The collection's name path (``Parts/Brackets``); None outside a collection.
+    collection_label: Optional[str] = None
+
+
+class OutlinerModelRead(OutlinerItemRead, EditingBase):
+    pass
+
+
+class ModelFilters(BaseModel):
+    """Canonical additive filter contract shared by browse, facets, and views."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    collection: Optional[str] = Field(default=None, max_length=512)
+    direct: bool = False
+    tag: list[str] = Field(default_factory=list, max_length=64)
+    q: Optional[str] = Field(default=None, max_length=512)
+    printer_id: Optional[int] = Field(default=None, gt=0)
+    printer_presence: Optional[Literal["any", "none"]] = None
+    favorites: bool = False
+    file_type: list[FileType] = Field(default_factory=list)
+    material_type: list[str] = Field(default_factory=list, max_length=64)
+    slicer_name: list[str] = Field(default_factory=list, max_length=64)
+    printer_model: list[str] = Field(default_factory=list, max_length=64)
+    revision_status: list[FileRevisionStatus] = Field(default_factory=list)
+    printed: Optional[bool] = None
+    print_outcome: list[PrintJobState] = Field(default_factory=list)
+    storage: list[Literal["vault", "external"]] = Field(default_factory=list)
+    uploaded_after: Optional[datetime] = None
+    uploaded_before: Optional[datetime] = None
+    printed_after: datetime | None = Field(
+        default=None,
+        description="Inclusive finished_at lower bound; UTC when no offset is supplied.",
+    )
+    printed_before: datetime | None = Field(
+        default=None, description="Exclusive finished_at upper bound."
+    )
+    print_duration_min_s: int | None = Field(
+        default=None,
+        ge=0,
+        le=2**31 - 1,
+        description="Inclusive actual PrintJob duration; null durations do not match.",
+    )
+    print_duration_max_s: int | None = Field(
+        default=None,
+        ge=1,
+        le=2**31 - 1,
+        description="Exclusive actual PrintJob duration: under three hours is 10800.",
+    )
+    has_similar_candidates: Optional[bool] = None
+
+    @field_validator("printed_after", "printed_before")
+    @classmethod
+    def normalize_printed_date(cls, value):
+        return ensure_utc(value) if value is not None else None
+
+    @model_validator(mode="after")
+    def validate_print_history_range(self):
+        if (
+            self.printed_after is not None
+            and self.printed_before is not None
+            and self.printed_after >= self.printed_before
+        ):
+            raise ValueError("print_date_range_invalid")
+        if (
+            self.print_duration_min_s is not None
+            and self.print_duration_max_s is not None
+            and self.print_duration_min_s >= self.print_duration_max_s
+        ):
+            raise ValueError("print_duration_range_invalid")
+        return self
+
+
+class FacetValueRead(BaseModel):
+    value: str
+    count: int
+
+
+class ModelFacetsRead(BaseModel):
+    file_type: list[FacetValueRead] = []
+    material_type: list[FacetValueRead] = []
+    slicer_name: list[FacetValueRead] = []
+    printer_model: list[FacetValueRead] = []
+    revision_status: list[FacetValueRead] = []
+    print_outcome: list[FacetValueRead] = []
+    storage: list[FacetValueRead] = []
+    printed: list[FacetValueRead] = []
+
+
+class TrashedModelRead(BaseModel):
+    id: int
+    name: str
+    slug: str
+    collection: Optional[str] = None
+    tags: List[str] = []
+    thumbnail_url: Optional[str] = None
+    file_count: int
+    size_bytes: int
+    deleted_at: datetime
+    expires_at: Optional[datetime] = None
+
+
+class TrashPurgeRead(BaseModel):
+    purged_model_ids: List[int] = []
+    purged_count: int = 0
+    storage_completed: int = 0
+    storage_pending: int = 0
+    storage_blocked: int = 0
+    storage_cleanup_status: Literal["completed", "pending", "blocked", "partial"] = (
+        "completed"
+    )
+    resources_blocked: int = 0
+
+
+class ModelBatchFailure(BaseModel):
+    model_id: int
+    reason: str
+
+
+class ModelBatchResult(BaseModel):
+    succeeded_ids: List[int] = []
+    failed: List[ModelBatchFailure] = []
+    succeeded_count: int = 0
+    failed_count: int = 0
+
+
+class ModelEditBatchResult(ModelBatchResult):
+    # Exact versions acknowledged by this mutation, captured before commit.
+    succeeded_versions: dict[str, EditingBase]
+
+
+class ModelBatchMove(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    model_ids: List[int] = Field(min_length=1, max_length=500)
+    expected_versions: dict[int, EditingBase] | None = Field(
+        default=None, max_length=500
+    )
+    # Same semantics as ModelUpdate.collection: "" (or missing) means root.
+    collection: str = Field(default="", max_length=1024)
+
+
+class ModelBatchTags(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    model_ids: List[int] = Field(min_length=1, max_length=500)
+    expected_versions: dict[int, EditingBase] | None = Field(
+        default=None, max_length=500
+    )
+    add: List[str] = Field(default_factory=list, max_length=100)
+    remove: List[str] = Field(default_factory=list, max_length=100)
+
+
+class RevisionBatchLabels(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    file_ids: List[int] = Field(min_length=1, max_length=500)
+    revision_label: Optional[str] = Field(default=None, max_length=128)
+
+
+class RevisionBatchResult(BaseModel):
+    succeeded_ids: List[int]
+    succeeded_count: int
+
+
+class ModelBatchDelete(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    model_ids: List[int] = Field(min_length=1, max_length=500)
+
+
+class StorageUsageRead(BaseModel):
+    backend: str
+    prefix: Optional[str] = None
+    bucket: Optional[str] = None
+    object_count: int = 0
+    total_size_bytes: int = 0
+    ok: bool = True
+    error: Optional[str] = None
+
+
+class VaultStatsRead(BaseModel):
+    model_count: int = 0
+    file_count: int = 0
+    source_file_count: int = 0
+    gcode_file_count: int = 0
+    collection_count: int = 0
+    tag_count: int = 0
+    printer_count: int = 0
+    indexed_size_bytes: int = 0
+    storage: StorageUsageRead
+
+
+class CollectionStatRead(BaseModel):
+    collection_id: Optional[int] = None
+    name: str
+    path: Optional[str] = None
+    print_count: int = 0
+    total_cost: Optional[float] = None
+
+
+class FilamentStatRead(BaseModel):
+    material_type: Optional[str] = None
+    material_brand: Optional[str] = None
+    print_count: int = 0
+    total_g: Optional[float] = None
+    total_cost: Optional[float] = None
+
+
+class TimeBucketRead(BaseModel):
+    bucket: str
+    cost: Optional[float] = None
+    filament_g: Optional[float] = None
+    print_count: int = 0
+
+
+class ModelStatRead(BaseModel):
+    model_id: int
+    name: str
+    print_count: int = 0
+    total_g: Optional[float] = None
+
+
+class PrinterStatRead(BaseModel):
+    printer_id: Optional[int] = None
+    name: str
+    print_count: int = 0
+    print_time_s: int = 0
+
+
+class PrintStatisticsRead(BaseModel):
+    period: str
+    start_at: Optional[datetime] = None
+    end_at: datetime
+    total_prints: int = 0
+    total_cost: Optional[float] = None
+    total_filament_g: Optional[float] = None
+    avg_filament_g: Optional[float] = None
+    total_print_time_s: int = 0
+    top_collections: List[CollectionStatRead] = []
+    top_filaments: List[FilamentStatRead] = []
+    top_models: List[ModelStatRead] = []
+    top_printers: List[PrinterStatRead] = []
+    cost_over_time: List[TimeBucketRead] = []
+
+
+class ModelUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    description: Optional[str] = Field(default=None, max_length=4096)
+    source_url: Optional[str] = Field(default=None, max_length=2048)
+    collection: Optional[str] = Field(default=None, max_length=1024)
+    tags: Optional[List[str]] = Field(default=None, max_length=100)
+
+    @field_validator("source_url")
+    @classmethod
+    def normalise_source_url(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        stripped = value.strip()
+        if not stripped:
+            return None
+        parsed = urlparse(stripped)
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            raise ValueError("source_url_must_be_http_url")
+        return stripped
+
+
+class ManualPrintJobCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    # Either reference a registered printer (`printer_id`) or pass a free-text
+    # `printer_name` for an ad-hoc printer that isn't in the vault.
+    printer_id: Optional[int] = None
+    printer_name: Optional[str] = Field(default=None, max_length=128)
+    file_id: int
+    state: PrintJobState = PrintJobState.COMPLETED
+    spool_id: Optional[int] = None
+    spool_name: Optional[str] = Field(default=None, max_length=256)
+    spool_filament_id: Optional[int] = None
+    started_at: Optional[datetime] = None
+    finished_at: Optional[datetime] = None
+    error: Optional[str] = Field(default=None, max_length=1024)
+
+    @field_validator("printer_name")
+    @classmethod
+    def _strip_printer_name(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        v = v.strip()
+        return v or None
+
+
+class ImportedPrintJobRead(BaseModel):
+    filename: str
+    status: str
+    print_duration: Optional[float] = None
+    start_time: Optional[float] = None
+    end_time: Optional[float] = None
+    matched_file_id: Optional[int] = None
+    imported: bool = False
+
+
+class CollectionRead(BaseModel):
+    id: int
+    name: str
+    slug: str
+    path: str
+    parent_id: Optional[int] = None
+    model_count: int = 0
+    effective_role: Optional[CollectionRole] = None
+    tags: List[str] = []
+    # Lets a folder view skip the readme request for the folders (most of them)
+    # that have none.
+    has_readme: bool = False
+
+
+class CollectionNodeRead(CollectionRead):
+    """One collection in the lazily loaded tree.
+
+    ``model_count`` covers the whole subtree, as ``descendant_count`` does for
+    collections. ``display_path`` joins the names of
+    the ancestors the caller can see, so a row can be labelled without the tree
+    above it having been loaded.
+    """
+
+    child_count: int
+    # Every collection below this one, at any depth.
+    descendant_count: int
+    display_path: str
+
+
+class CollectionPage(BaseModel):
+    """A page of collections; ``next_cursor`` is ``None`` on the last one."""
+
+    items: List[CollectionNodeRead]
+    next_cursor: Optional[str] = None
+
+
+class CollectionLookupRead(BaseModel):
+    """A collection found by path, with the visible ancestors above it, root first."""
+
+    collection: CollectionNodeRead
+    ancestors: List[CollectionNodeRead]
+
+
+class CollectionCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=255)
+    parent_id: Optional[int] = None
+
+
+class CollectionReadmeRead(BaseModel):
+    readme: Optional[str] = None
+
+
+class CollectionReadmeUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    readme: Optional[str] = Field(default=None, max_length=100_000)
+
+
+class CollectionImageUpload(BaseModel):
+    url: str
+
+
+class CollectionMove(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    parent_id: Optional[int] = None
+    name: Optional[str] = Field(default=None, min_length=1, max_length=100)
+
+
+class CollectionPermissionUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    role: CollectionRole
+
+
+class CollectionPermissionRead(BaseModel):
+    user_id: int
+    username: str
+    collection_id: int
+    role: CollectionRole
+    inherited: bool = False
+
+
+class TagCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=255)
+
+
+class TagSetUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    tags: List[str] = Field(default_factory=list, max_length=100)
+
+
+class TagRead(BaseModel):
+    id: int
+    name: str
+    slug: str
+    model_count: int = 0
+    multipart_model_count: int = 0
+
+
+class FilamentProfileBase(BaseModel):
+    name: str = Field(min_length=1, max_length=128)
+    material_type: Optional[str] = Field(default=None, max_length=64)
+    material_brand: Optional[str] = Field(default=None, max_length=128)
+    cost_per_kg: Optional[float] = Field(default=None, ge=0)
+    notes: Optional[str] = Field(default=None, max_length=4096)
+
+
+class FilamentProfileCreate(FilamentProfileBase):
+    model_config = ConfigDict(extra="forbid")
+
+
+class FilamentProfileUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: Optional[str] = Field(default=None, min_length=1, max_length=128)
+    material_type: Optional[str] = Field(default=None, max_length=64)
+    material_brand: Optional[str] = Field(default=None, max_length=128)
+    cost_per_kg: Optional[float] = Field(default=None, ge=0)
+    notes: Optional[str] = Field(default=None, max_length=4096)
+
+
+class FilamentProfileRead(FilamentProfileBase, EditingBase):
+    id: int
+    usage_count: int = 0
+    # Present when this preset mirrors a Spoolman filament — the UI shows a
+    # badge and makes the synced fields read-only.
+    spoolman_filament_id: Optional[int] = None
+    density_g_cm3: Optional[float] = None
+    diameter_mm: Optional[float] = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class PrinterProfileBase(BaseModel):
+    name: str = Field(min_length=1, max_length=128)
+    printer_model: Optional[str] = Field(default=None, max_length=128)
+    slicer_name: Optional[str] = Field(default=None, max_length=64)
+    nozzle_diameter_mm: Optional[float] = Field(default=None, ge=0)
+    notes: Optional[str] = Field(default=None, max_length=4096)
+
+
+class PrinterProfileCreate(PrinterProfileBase):
+    model_config = ConfigDict(extra="forbid")
+
+
+class PrinterProfileUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: Optional[str] = Field(default=None, min_length=1, max_length=128)
+    printer_model: Optional[str] = Field(default=None, max_length=128)
+    slicer_name: Optional[str] = Field(default=None, max_length=64)
+    nozzle_diameter_mm: Optional[float] = Field(default=None, ge=0)
+    notes: Optional[str] = Field(default=None, max_length=4096)
+
+
+class PrinterProfileRead(PrinterProfileBase, EditingBase):
+    id: int
+    usage_count: int = 0
+    created_at: datetime
+    updated_at: datetime

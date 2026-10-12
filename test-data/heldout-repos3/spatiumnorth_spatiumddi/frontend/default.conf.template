@@ -1,0 +1,448 @@
+# Rendered at container start by the official nginx image's
+# ``20-envsubst-on-templates.sh`` entrypoint drop-in (envsubst-style
+# variable substitution from /etc/nginx/templates/*.template to
+# /etc/nginx/conf.d/). Only the three variables below get substituted
+# — nginx's own ``$host`` / ``$remote_addr`` / etc are safe because the
+# entrypoint restricts envsubst to explicitly-named env vars.
+#
+# Issue #176: the previous baked-in ``api:8000`` upstream + ``127.0.0.11``
+# resolver assumed Docker Compose's embedded DNS and broke the moment
+# anyone deployed this image on Kubernetes (where the API Service is
+# ``{release}-api`` and cluster DNS lives on 10.96.x.x via CoreDNS, not
+# 127.0.0.11). The three knobs:
+#
+#   * API_UPSTREAM_HOST     — DNS name of the api Service. Defaults to
+#                             ``api`` (Compose). Helm chart overrides
+#                             to ``{{ fullname }}-api``.
+#   * API_UPSTREAM_PORT     — TCP port the api listens on. Defaults to
+#                             ``8000`` everywhere.
+#   * NGINX_LOCAL_RESOLVERS — Space-separated nameserver list for the
+#                             ``resolver`` directive. Auto-populated
+#                             from /etc/resolv.conf by the official
+#                             ``15-local-resolvers.envsh`` script when
+#                             NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1 (set
+#                             in the Dockerfile). Operators can pin a
+#                             specific IP by setting this env var
+#                             explicitly.
+
+server {
+    listen 80;
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # ── Security response headers (SECURITY #400, L2) ──────────────
+    # Applied at the server level so they cover the SPA, static
+    # assets, and proxied /api responses. NOTE: nginx ``add_header``
+    # does NOT inherit into a location that declares its own
+    # ``add_header`` — the @starting + static-asset locations below
+    # re-emit these via ``include`` of the same snippet.
+    #
+    # CSP rationale (verified against the Vite build):
+    #   * default-src 'self'    — lock everything to same origin.
+    #   * script-src 'self'     — Vite emits external module scripts
+    #                             only (no inline <script>, no eval /
+    #                             new Function in the bundle), so NO
+    #                             'unsafe-inline' / 'unsafe-eval'.
+    #   * style-src 'self' 'unsafe-inline'
+    #                           — Tailwind ships an external stylesheet,
+    #                             but recharts / transition deps inject
+    #                             <style> elements at runtime and React
+    #                             style props set inline styles. Those
+    #                             genuinely need 'unsafe-inline' for
+    #                             STYLES ONLY (style injection can't
+    #                             execute script, so the risk is low).
+    #   * img-src 'self' data:  — favicons / small logos are data URIs.
+    #   * connect-src 'self'    — all XHR/fetch/SSE go to same-origin
+    #                             /api (LLM providers are proxied through
+    #                             the backend, never called from the SPA).
+    #   * font-src 'self'       — fonts are self-hosted.
+    #   * frame-ancestors 'none'— clickjacking defence (pairs with
+    #                             X-Frame-Options: DENY for old browsers).
+    #   * base-uri / form-action / object-src locked down.
+    set $spatium_csp "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'";
+    # /api/redoc's policy (#1157): the one above plus the two things ReDoc
+    # needs on that page only. See ``location = /api/redoc``.
+    set $spatium_redoc_csp "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://cdn.redoc.ly; font-src 'self'; connect-src 'self'; worker-src blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'";
+    add_header Content-Security-Policy $spatium_csp always;
+    add_header X-Frame-Options "DENY" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer" always;
+    # HSTS is intentionally NOT set here: this image's server block is
+    # plain HTTP (TLS terminates upstream at an ingress / the appliance
+    # nginx). The appliance HTTPS server block sets HSTS itself.
+
+    # Re-resolve the upstream periodically so a container / Pod restart
+    # that hands out a new IP doesn't strand nginx on the old one. The
+    # nameserver list comes from /etc/resolv.conf at container start —
+    # 127.0.0.11 under Docker Compose, the kube-dns Service IP under
+    # Kubernetes, host /etc/resolv.conf under ``--network=host``.
+    resolver ${NGINX_LOCAL_RESOLVERS} valid=10s ipv6=off;
+
+    # Issue #299 phase 2 — when the api upstream isn't reachable
+    # (cold boot before the api passes /health/ready, mid-rolling-
+    # upgrade replica gap, mid-CNPG-failover blip) serve the
+    # friendly "still booting" page instead of bare nginx 502 HTML.
+    #
+    # Why 502 + 504 only:
+    # * 502 covers "upstream connect refused" (no ready pods in the
+    #   Service's endpoint slice; the schema-aware readiness probe
+    #   landed in phase 1 keeps api pods out of that slice until the
+    #   migrate Job lands the alembic head).
+    # * 504 covers "upstream timeout" (api responded slowly enough
+    #   to trip ``proxy_read_timeout``).
+    # * 503 is DELIBERATELY NOT intercepted — the api uses 503 for
+    #   real operator-actionable signals (demo-mode blocked write,
+    #   factory-reset cooldown, /health/ready when DB is up but
+    #   schema is behind). Replacing those with a generic page
+    #   would mask the cause.
+    # * 500 is also passed through — that's a real bug to fix, not
+    #   a "still booting" condition.
+    #
+    # Status is PRESERVED (no ``=`` after the status list) — the
+    # original 502/504 flows through to clients. The SPA's axios
+    # layer types every /api/* response as JSON; overriding to 200
+    # with an HTML body would make axios resolve "success" with a
+    # string payload and crash downstream (review polish from #301).
+    # Direct browser hits to ``/api/*`` URLs during a 502 window
+    # still get the friendly HTML body (status 502 with HTML is
+    # rendered by browsers identically to the body alone); the
+    # status-preservation only matters for programmatic clients.
+    error_page 502 504 @starting;
+
+    # The error_page is inherited into every location below that talks
+    # to an upstream — ``/api/*``, ``/health/*``, ``/metrics``. The SPA
+    # fallback at ``/`` serves a static file and so can never 502 on its
+    # own; it gets there via the ``auth_request`` boot gate further down
+    # (#767). Note that gate also covers a direct GET /_starting.html
+    # (it matches ``location /``): previewing the page against a live api
+    # still serves it 200, but with the api down it comes back 503 — the
+    # same body either way.
+
+    location @starting {
+        # Static file under root — Vite copies frontend/public/_starting.html
+        # to /usr/share/nginx/html/_starting.html on every build, so the
+        # page is part of the same image as the SPA. The ``internal``
+        # directive would let us hide /_starting.html from external
+        # requests, but leaving it externally accessible is useful for
+        # operators previewing the look without a real upstream failure.
+        default_type text/html;
+        # Aggressive no-store: an operator hitting this page during a
+        # boot window must NOT have it cached for the next visit.
+        add_header Cache-Control "no-store, no-cache, must-revalidate" always;
+        # Surface what the upstream said so a curl debugger can tell
+        # "upstream is unreachable" from "upstream timed out".
+        add_header X-Upstream-Status $upstream_status always;
+        # Re-emit security headers (SECURITY #400, L2) — a location
+        # with its own add_header does NOT inherit the server-level set.
+        add_header Content-Security-Policy $spatium_csp always;
+        add_header X-Frame-Options "DENY" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "no-referrer" always;
+        try_files /_starting.html =503;
+    }
+
+    # JSON for JSON routes (#1083). The ``/api/`` locations send their
+    # 502/504 here instead of to @starting: a client polling a JSON route
+    # while the api Service has no ready endpoint (a CNPG failover empties
+    # it -- /health/ready needs the database) gets a JSON body with the
+    # status it can retry on, never the initialising page's HTML. A
+    # ``return`` has no method to refuse, so a POST that trips the 60 s
+    # proxy_read_timeout gets this too instead of the 405 nginx answers
+    # when error_page redirects a POST to a static file (#1080). The
+    # upstream status is preserved (502 = no ready endpoint / connect
+    # refused, 504 = upstream timeout) the way @starting preserves it,
+    # so the SPA's per-status handling holds.
+    location @api_unavailable {
+        default_type application/json;
+        add_header Cache-Control "no-store, no-cache, must-revalidate" always;
+        add_header Retry-After 2 always;
+        add_header X-Upstream-Status $upstream_status always;
+        add_header X-Content-Type-Options "nosniff" always;
+        if ($upstream_status ~ "504") {
+            return 504 '{"detail":"The api did not answer in time; retry shortly."}';
+        }
+        return 502 '{"detail":"The api is not reachable right now; retry shortly."}';
+    }
+
+    # Nginx-local healthcheck — answers without hitting any upstream,
+    # so the frontend container's health reflects just nginx itself.
+    location = /nginx-health {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+
+    # Operator Copilot streaming endpoint (issue #90). SSE responses
+    # need three things nginx defaults get wrong:
+    #   1. ``proxy_buffering off`` — otherwise nginx holds the entire
+    #      response until upstream closes, defeating the point of SSE.
+    #   2. ``proxy_http_version 1.1`` + cleared ``Connection`` header
+    #      — nginx defaults to HTTP/1.0 to upstream, which doesn't
+    #      support chunked transfer-encoding well and forces buffering.
+    #   3. A long ``proxy_read_timeout`` — slow local LLMs (Ollama on a
+    #      cold start, llama.cpp with a big model) easily take >60 s
+    #      to first token. 10 minutes is plenty without being silly.
+    # Must come before the broader /api/ location since nginx picks
+    # the most specific prefix match.
+    location /api/v1/ai/chat {
+        error_page 502 504 @api_unavailable;
+        set $api_upstream http://${API_UPSTREAM_HOST}:${API_UPSTREAM_PORT};
+        proxy_pass            $api_upstream;
+        proxy_set_header      Host $http_host;
+        proxy_set_header      X-Real-IP $remote_addr;
+        proxy_set_header      X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header      X-Forwarded-Proto $scheme;
+        proxy_http_version    1.1;
+        proxy_set_header      Connection "";
+        proxy_buffering       off;
+        proxy_cache           off;
+        proxy_read_timeout    600s;
+        proxy_send_timeout    600s;
+        # Tell the X-Accel-Buffering: no header from upstream to win
+        # in case it sneaks back on through a different path.
+        proxy_set_header      X-Accel-Buffering no;
+    }
+
+    # Backup endpoints (issue #117). Three things nginx defaults
+    # get wrong for these:
+    #   1. ``client_max_body_size`` — backup archives can be
+    #      hundreds of MB on real installs. 2 GB matches the
+    #      backend's ``_MAX_UPLOAD_BYTES`` cap; anything past
+    #      that is rejected at the FastAPI layer with a clean
+    #      message instead of nginx's bare 413.
+    #   2. ``proxy_request_buffering off`` — without this nginx
+    #      buffers the entire upload to disk before forwarding,
+    #      doubling the I/O. Streaming straight through is fine
+    #      because FastAPI reads the body progressively.
+    #   3. ``proxy_read_timeout`` — pg_dump + pg_restore on a
+    #      hefty install can take several minutes. 30 minutes
+    #      matches the backend's ``_PG_DUMP_TIMEOUT_SECONDS``.
+    # Must come before the broader /api/ location since nginx
+    # picks the most specific prefix match.
+    location /api/v1/backup/ {
+        error_page 502 504 @api_unavailable;
+        set $api_upstream http://${API_UPSTREAM_HOST}:${API_UPSTREAM_PORT};
+        proxy_pass               $api_upstream;
+        proxy_set_header         Host $http_host;
+        proxy_set_header         X-Real-IP $remote_addr;
+        proxy_set_header         X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header         X-Forwarded-Proto $scheme;
+        proxy_http_version       1.1;
+        proxy_set_header         Connection "";
+        client_max_body_size     2g;
+        proxy_request_buffering  off;
+        proxy_read_timeout       1800s;
+        proxy_send_timeout       1800s;
+    }
+
+    # Appliance upgrade-image upload (air-gapped slot-image upload, e.g.
+    # dns-technitium / dns-bind9 / dhcp-kea A/B slot images). Same shape
+    # as the backup location above but sized to the backend's own
+    # ``MAX_UPLOAD_BYTES`` cap (4 GiB, app/api/v1/appliance/
+    # upgrade_images.py) — appliance slot images run ~1.8-2 GB, so the
+    # 2g backup limit isn't enough. Without this override the request
+    # falls through to the generic /api/ location below and nginx's
+    # ~1 MB default silently 413s the upload before it ever reaches
+    # FastAPI's own (more informative) size-check error.
+    location /api/v1/appliance/upgrade-images {
+        error_page 502 504 @api_unavailable;
+        set $api_upstream http://${API_UPSTREAM_HOST}:${API_UPSTREAM_PORT};
+        proxy_pass               $api_upstream;
+        proxy_set_header         Host $http_host;
+        proxy_set_header         X-Real-IP $remote_addr;
+        proxy_set_header         X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header         X-Forwarded-Proto $scheme;
+        proxy_http_version       1.1;
+        proxy_set_header         Connection "";
+        client_max_body_size     4g;
+        proxy_request_buffering  off;
+        proxy_read_timeout       1800s;
+        proxy_send_timeout       1800s;
+    }
+
+    # Storage management actions (#1080). Two budgets sit behind this
+    # route, both longer than the 60 s ``proxy_read_timeout`` the
+    # generic ``/api/`` block below carries: the api waits up to 90 s
+    # for the appliance's supervisor (appliance/supervisor.py, the
+    # storage channel's ``timeout=90.0``) before its own 504, and the
+    # supervisor waits 60 s for the host runner before reporting
+    # ``ok=false "the host storage runner did not answer within 60s"``
+    # -- a report that reaches the api a little AFTER nginx's 60 s
+    # clock, which started before the supervisor's. Either way the
+    # operator got nginx's generic did-not-answer JSON at 60.000 s and
+    # never the message written to send them to
+    # ``journalctl -u spatiumddi-storage-action``. An exact-path regex
+    # (any appliance id) so no other /api/ route waits longer; sized
+    # above the route's budget with margin, the way the backup and
+    # upgrade-image blocks are sized to theirs. Must not diverge from
+    # charts/spatiumddi/templates/frontend-tls-config.yaml.
+    location ~ ^/api/v1/appliance/appliances/[^/]+/storage/action$ {
+        error_page 502 504 @api_unavailable;
+        set $api_upstream http://${API_UPSTREAM_HOST}:${API_UPSTREAM_PORT};
+        proxy_pass         $api_upstream;
+        proxy_set_header   Host $http_host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_http_version 1.1;
+        proxy_set_header   Connection "";
+        proxy_read_timeout 120s;
+        proxy_send_timeout 120s;
+    }
+
+    # ReDoc (#1157) needs two things the server's policy refuses, on this
+    # page only. Its search index runs in a Worker built from a ``blob:``
+    # URL. Its "API docs by Redocly" footer loads a logo from cdn.redoc.ly,
+    # and ReDoc hides the logo if that fails, so an air-gapped install loses
+    # only the logo. Scripts stay ``'self'``: only a script already allowed
+    # to run can create a blob: worker, and an image runs no script.
+    # add_header here replaces the server-level set, so the rest of it is
+    # re-emitted. Must not diverge from
+    # charts/spatiumddi/templates/frontend-tls-config.yaml.
+    location = /api/redoc {
+        add_header Content-Security-Policy $spatium_redoc_csp always;
+        add_header X-Frame-Options "DENY" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "no-referrer" always;
+        error_page 502 504 @api_unavailable;
+        set $api_upstream http://${API_UPSTREAM_HOST}:${API_UPSTREAM_PORT};
+        proxy_pass         $api_upstream;
+        proxy_set_header   Host $http_host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_http_version 1.1;
+        proxy_set_header   Connection "";
+        proxy_read_timeout 60s;
+    }
+
+    # The API docs' own assets (#1157). /api/docs and /api/redoc load Swagger
+    # UI and ReDoc from here, served by the api, so the pages run under this
+    # server's ``script-src 'self'`` and need no CDN. ``^~`` is load-bearing:
+    # without it the static-asset regex location further down wins for any
+    # ``.js`` / ``.css`` path, looks for the file on this image's own disk,
+    # and returns 404. Must not diverge from
+    # charts/spatiumddi/templates/frontend-tls-config.yaml.
+    location ^~ /api/docs/static/ {
+        error_page 502 504 @api_unavailable;
+        set $api_upstream http://${API_UPSTREAM_HOST}:${API_UPSTREAM_PORT};
+        proxy_pass         $api_upstream;
+        proxy_set_header   Host $http_host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_http_version 1.1;
+        proxy_set_header   Connection "";
+        proxy_read_timeout 60s;
+    }
+
+
+    # Proxy API calls to the backend. Using a variable for proxy_pass
+    # forces nginx to re-resolve the upstream on each request via the
+    # resolver above (instead of binding at config-load time).
+    location /api/ {
+        error_page 502 504 @api_unavailable;
+        set $api_upstream http://${API_UPSTREAM_HOST}:${API_UPSTREAM_PORT};
+        proxy_pass         $api_upstream;
+        proxy_set_header   Host $http_host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_http_version 1.1;
+        proxy_set_header   Connection "";
+        proxy_read_timeout 60s;
+    }
+
+    # HELD (RFC 5985) — #972. Mounted at the application root rather than
+    # under /api/ because a HELD client is configured with a whole URL and
+    # the protocol names this path, so it needs its own location: without
+    # one it falls through to the SPA ``location /`` below and a PBX asking
+    # for a phone's location gets index.html with a 200.
+    #
+    # ``/held`` and ``/held/self`` both, via a prefix match.
+    location /held {
+        set $api_upstream http://${API_UPSTREAM_HOST}:${API_UPSTREAM_PORT};
+        proxy_pass         $api_upstream;
+        proxy_set_header   Host $http_host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+        proxy_http_version 1.1;
+        proxy_set_header   Connection "";
+        proxy_read_timeout 60s;
+    }
+
+    # Proxy health and metrics endpoints to api for admin probes.
+    location ~ ^/(health|metrics) {
+        set $api_upstream http://${API_UPSTREAM_HOST}:${API_UPSTREAM_PORT};
+        proxy_pass $api_upstream;
+        proxy_set_header Host $http_host;
+    }
+
+    # Boot gate for the SPA fallback (issue #767). ``location /``
+    # resolves index.html straight off local disk, so it has no upstream
+    # to fail on and the ``error_page`` above can never fire for it —
+    # which meant an operator browsing a cold-booting appliance got the
+    # SPA shell plus a wall of failing XHRs instead of the "still
+    # initialising" page. A cheap auth_request sub-request gives this
+    # location an upstream to fail on.
+    #
+    # Deliberately proxies to the api SERVICE, not a pod: an api that is
+    # up but not READY (migrations still landing) is not in the Service's
+    # endpoint set, so this reports "not serving yet" rather than the
+    # weaker "process alive" that /health/live means on its own.
+    location = /_api_up {
+        internal;
+        set $api_upstream http://${API_UPSTREAM_HOST}:${API_UPSTREAM_PORT};
+        proxy_pass              $api_upstream/health/live;
+        proxy_pass_request_body off;
+        proxy_set_header        Content-Length "";
+        proxy_set_header        Host $http_host;
+        # Short — this runs in front of every SPA page load, and a
+        # wedged api should fall back to the starting page fast rather
+        # than hang the browser for the default 60 s. resolver_timeout
+        # is NOT covered by the proxy_* timeouts and defaults to 30 s;
+        # without it an unreachable DNS server (rather than an
+        # unreachable api) would stall every page load for half a
+        # minute.
+        resolver_timeout        2s;
+        proxy_connect_timeout   2s;
+        proxy_read_timeout      2s;
+    }
+
+    # SPA fallback — all other paths serve index.html
+    location / {
+        auth_request /_api_up;
+        # auth_request collapses "upstream unreachable / timed out" into
+        # a 500, so 500 has to be in this list. Location-scoped, so it
+        # REPLACES the server-level error_page here only — a genuine 500
+        # from /api/ elsewhere is untouched. Re-coded to 503: the control
+        # plane isn't erroring, it just isn't up yet. Hashed assets match
+        # the regex location below, which wins over this prefix location,
+        # so they never pay for the sub-request.
+        error_page 500 502 504 =503 @starting;
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Cache static assets aggressively; let Vite's content hash bust them
+    location ~* \.(js|css|woff2?|png|svg|ico)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        # Re-emit security headers (SECURITY #400, L2) — a location
+        # with its own add_header does NOT inherit the server-level set.
+        add_header Content-Security-Policy $spatium_csp always;
+        add_header X-Frame-Options "DENY" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "no-referrer" always;
+    }
+
+    gzip on;
+    gzip_types text/plain text/css application/javascript application/json image/svg+xml;
+    # Issue #862 — without this a shared cache between the appliance and a
+    # client can serve a gzipped body to a client that never asked for one,
+    # because nothing in the response says the entity varies by encoding.
+    # It also matters for the agent /config long-poll, whose ETag is now a
+    # weak validator deliberately shared by both encodings.
+    gzip_vary on;
+}

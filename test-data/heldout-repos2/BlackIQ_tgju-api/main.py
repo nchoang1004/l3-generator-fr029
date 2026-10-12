@@ -1,0 +1,44 @@
+# Libs
+from fastapi import FastAPI  # FastAPI
+from fastapi.middleware.cors import CORSMiddleware  # FastAPI CORS
+
+# Application
+from middlewares.request import RequestMiddleware  # Middleware: Request
+from routers import price  # Routers: Price
+
+# FastAPI instance
+app: FastAPI = FastAPI(
+    title="TGJU Scrapper API",
+    version="2.0.0",
+    summary="An API to scrap TGJU website data and share it with you using FastAPI.",
+    contact={
+        "name": "Amirhossein Mohammadi",
+        "url": "https://amirhossein.info",
+        "email": "hi@amirhossein.info",
+    },
+    openapi_tags=[
+        {"name": "Price", "description": "TGJU scrapper endpoints for Gold & Currency"},
+    ],
+)
+
+# CORS Middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_credentials=True,
+    allow_origins=[
+        "https://tgju.amirhossein.info",
+        "http://localhost:3000",
+        "http://127.0.0.1:8000",
+        "http://localhost:8000",
+        "http://127.0.0.1:3000",
+    ],
+    allow_methods=["GET", "OPTIONS"],
+    allow_headers=["*"],
+)
+
+# Request Log Middleware
+app.add_middleware(RequestMiddleware)
+
+
+# Routers
+app.include_router(price.router, prefix="/api")

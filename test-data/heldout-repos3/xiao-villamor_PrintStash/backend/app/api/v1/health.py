@@ -1,0 +1,484 @@
+from __future__ import annotations
+
+import os
+from datetime import datetime, timedelta
+from importlib.util import find_spec
+from pathlib import Path
+
+from fastapi import APIRouter, Depends
+from sqlalchemy import func, text
+from sqlalchemy.engine.url import make_url
+from sqlmodel import select
+
+from app.core.config import settings
+from app.core.security import require_superuser
+from app.core.time import ensure_utc, utcnow
+from app.db.models import (
+    ArtifactUploadSession,
+    ArtifactUploadState,
+    CapacityAdmissionEvent,
+    CapacityReservation,
+    ExternalLibrary,
+    ExternalLibraryScanStatus,
+    File,
+    Model,
+    Printer,
+    PrinterProvider,
+    PrintJob,
+    StorageInventorySample,
+)
+from app.db.scopes import live
+from app.db.session import get_session_factory
+from app.modules.administration.release_check import get_release_status
+from app.modules.printing.printer_provider import provider_diagnostic_summary
+from app.modules.storage.materializer_runtime import cache_health
+from app.modules.storage.storage_backend.runtime import get_backend
+
+router = APIRouter(tags=["health"])
+
+
+def _runtime_capabilities() -> dict[str, bool | str]:
+    """Report optional image capabilities without importing heavy modules."""
+    return {
+        "image_variant": os.environ.get("PRINTSTASH_IMAGE_VARIANT", "source"),
+        "restart": bool(settings.restart_enabled),
+        "browser": find_spec("patchright") is not None,
+        "step": find_spec("cascadio") is not None,
+        "thumbnails": all(
+            find_spec(module) is not None for module in ("numpy", "PIL", "trimesh")
+        ),
+    }
+
+
+def _mark_degraded(out: dict) -> None:
+    out["status"] = "degraded"
+
+
+def _database_probe() -> dict:
+    try:
+        url = make_url(settings.db_url)
+        with get_session_factory().session() as session:
+            session.exec(text("SELECT 1"))
+            counts = {
+                "models": session.exec(select(func.count(Model.id))).one(),
+                "files": session.exec(select(func.count(File.id))).one(),
+                "printers": session.exec(select(func.count(Printer.id))).one(),
+                "print_jobs": session.exec(select(func.count(PrintJob.id))).one(),
+            }
+        return {
+            "ok": True,
+            "backend": url.get_backend_name(),
+            "database": url.database or "",
+            "counts": counts,
+        }
+    except Exception as exc:
+        return {
+            "ok": False,
+            "error": exc.__class__.__name__,
+        }
+
+
+def _artifact_uploads_probe() -> dict:
+    """Report bounded actionable upload findings without session identifiers."""
+
+    try:
+        stale_before = utcnow() - timedelta(minutes=30)
+        active_states = (
+            ArtifactUploadState.CREATED,
+            ArtifactUploadState.UPLOADING,
+            ArtifactUploadState.VERIFYING,
+            ArtifactUploadState.INGESTING,
+        )
+        with get_session_factory().session() as session:
+            stuck = session.exec(
+                select(func.count(ArtifactUploadSession.id)).where(
+                    ArtifactUploadSession.state.in_(active_states),
+                    ArtifactUploadSession.updated_at <= stale_before,
+                )
+            ).one()
+            cleanup_failures = session.exec(
+                select(func.count(ArtifactUploadSession.id)).where(
+                    ArtifactUploadSession.state == ArtifactUploadState.FAILED,
+                    ArtifactUploadSession.error_code
+                    == "artifact_upload_cleanup_unproven",
+                )
+            ).one()
+        findings = []
+        if int(stuck):
+            findings.append(
+                {"code": "artifact_upload_sessions_stuck", "count": int(stuck)}
+            )
+        if int(cleanup_failures):
+            findings.append(
+                {
+                    "code": "artifact_upload_cleanup_failed",
+                    "count": int(cleanup_failures),
+                }
+            )
+        return {
+            "ok": not findings,
+            "stuck_active": int(stuck),
+            "cleanup_failures": int(cleanup_failures),
+            "findings": findings,
+        }
+    except Exception as exc:
+        return {"ok": False, "error": exc.__class__.__name__}
+
+
+def _backup_probe() -> dict:
+    backup_dir = Path(settings.backup_dir)
+    try:
+        backups = sorted(
+            [
+                *backup_dir.glob("printstash-backup-*.tar.gz"),
+                *backup_dir.glob("nexus3d-backup-*.tar.gz"),
+            ]
+        )
+        from app.modules.backups.backup_runs import execution_health
+
+        execution = execution_health()
+        return {
+            "ok": backup_dir.exists() and backup_dir.is_dir() and execution["ok"],
+            "execution": execution,
+            "path": str(backup_dir),
+            "local_count": len(backups),
+            "latest": backups[-1].name if backups else None,
+            "s3_configured": bool(settings.backup_s3_bucket),
+        }
+    except OSError as exc:
+        return {
+            "ok": False,
+            "path": str(backup_dir),
+            "error": exc.__class__.__name__,
+            "s3_configured": bool(settings.backup_s3_bucket),
+        }
+
+
+def _storage_probe() -> dict:
+    try:
+        backend = get_backend()
+        result = backend.health_probe()
+        result["delivery"] = backend.delivery_diagnostics()
+        result["provider"] = settings.storage_provider or backend.backend_name
+        result["tier"] = backend.capabilities.tier.value
+        result["warnings"] = list(backend.capabilities.warnings)
+        result["unverified_acknowledged"] = bool(settings.storage_allow_unverified)
+        return result
+    except Exception as exc:
+        return {
+            "ok": False,
+            "backend": settings.storage_backend,
+            "error": exc.__class__.__name__,
+        }
+
+
+def _capacity_probe() -> dict:
+    """Detailed bounded evidence only; never performs a provider namespace walk."""
+    try:
+        from app.modules.storage.storage_inventory import (
+            StorageInventory,
+            growth_forecast,
+            history,
+        )
+
+        with get_session_factory().session() as session:
+            latest = session.exec(
+                select(StorageInventorySample)
+                .order_by(StorageInventorySample.sampled_at.desc())  # type: ignore[attr-defined]
+                .limit(1)
+            ).first()
+            active = int(
+                session.exec(select(func.count(CapacityReservation.operation_id))).one()
+            )
+            recent_denials = int(
+                session.exec(
+                    select(func.count(CapacityAdmissionEvent.id)).where(
+                        CapacityAdmissionEvent.occurred_at
+                        >= utcnow() - timedelta(days=1)
+                    )
+                ).one()
+            )
+            if latest is None:
+                return {
+                    "ok": True,
+                    "capacity_known": False,
+                    "capacity_stale": False,
+                    "inventory_age_seconds": None,
+                    "headroom_threshold_bytes": None,
+                    "forecast_available": False,
+                    "active_reservations": active,
+                    "recent_admission_failures": recent_denials,
+                }
+            current = StorageInventory.model_validate_json(latest.evidence_json)
+            samples = history(session, current.target_ref)
+        available = current.provider_capacity.available_bytes
+        vault_volumes = [v for v in current.volumes if "vault" in v.roles]
+        if available is None:
+            available = next(
+                (
+                    max(0, v.free_bytes - v.reserved_bytes - v.headroom_bytes)
+                    for v in vault_volumes
+                    if v.free_bytes is not None
+                ),
+                None,
+            )
+        forecast = growth_forecast(
+            [
+                (datetime.fromisoformat(row["sampled_at"]), row["owned_bytes"])
+                for row in samples
+            ],
+            available,
+        )
+        return {
+            "ok": True,
+            "capacity_known": available is not None,
+            "capacity_stale": current.provider_capacity.status in {"stale", "degraded"},
+            "inventory_age_seconds": max(
+                0, (utcnow() - ensure_utc(latest.sampled_at)).total_seconds()
+            ),
+            "headroom_threshold_bytes": max(
+                (v.headroom_bytes for v in vault_volumes), default=None
+            ),
+            "forecast_available": forecast["status"] == "estimated",
+            "active_reservations": active,
+            "recent_admission_failures": recent_denials,
+        }
+    except Exception as exc:
+        return {"ok": False, "error": exc.__class__.__name__}
+
+
+def _provider_probe() -> dict:
+    providers = [
+        provider_diagnostic_summary(PrinterProvider.MOONRAKER),
+        provider_diagnostic_summary(PrinterProvider.BAMBU_LAN),
+        provider_diagnostic_summary(PrinterProvider.PRUSALINK),
+        provider_diagnostic_summary(PrinterProvider.ELEGOO_CENTAURI),
+        provider_diagnostic_summary(PrinterProvider.OCTOPRINT),
+    ]
+    try:
+        with get_session_factory().session() as session:
+            rows = session.exec(
+                select(Printer.provider, Printer.status).where(live(Printer))
+            ).all()
+        provider_counts: dict[str, int] = {}
+        status_counts: dict[str, int] = {}
+        for provider, status in rows:
+            provider_counts[provider.value] = provider_counts.get(provider.value, 0) + 1
+            status_counts[status.value] = status_counts.get(status.value, 0) + 1
+        return {
+            "ok": True,
+            "configured": provider_counts,
+            "status_counts": status_counts,
+            "providers": providers,
+        }
+    except Exception as exc:
+        return {
+            "ok": False,
+            "error": exc.__class__.__name__,
+            "providers": providers,
+        }
+
+
+def _jobs_probe() -> dict:
+    """Background Jobs by state and whether any executor is alive to run them.
+
+    ``ok`` turns false when Jobs are waiting but no live executor listens
+    (every worker stopped heartbeating), which is the one state the
+    reconciler cannot repair by itself.
+    """
+    from app.modules.work import executors
+    from app.modules.work.jobs import jobs
+
+    try:
+        counts = jobs.snapshot_counts()
+        live = executors.live()
+        waiting = counts.get("queued", 0) + counts.get("interrupted", 0)
+        return {
+            "ok": bool(live) or waiting == 0,
+            "counts": counts,
+            "executors": len(live),
+        }
+    except Exception as exc:
+        return {"ok": False, "error": exc.__class__.__name__}
+
+
+def _fleet_scheduler_probe() -> dict:
+    from app.db.models import PrintJobState
+    from app.modules.printing.jobs import scheduler_snapshot
+
+    try:
+        with get_session_factory().session() as session:
+            rows = session.exec(
+                select(PrintJob.state, func.count(PrintJob.id)).group_by(PrintJob.state)
+            ).all()
+        counts = {state.value: count for state, count in rows}
+        for state in PrintJobState:
+            counts.setdefault(state.value, 0)
+        snapshot = scheduler_snapshot()
+        return {
+            # Informational like the generic jobs probe: detailed state exposes
+            # a stopped loop, but it does not make the whole API unhealthy.
+            "ok": True,
+            "counts": counts,
+            "running": snapshot["running"],
+            "last_tick_at": snapshot["last_tick_at"],
+            "last_dispatch_at": snapshot["last_dispatch_at"],
+            "last_error": snapshot["last_error"],
+        }
+    except Exception as exc:
+        return {"ok": False, "error": exc.__class__.__name__}
+
+
+def _external_libraries_probe() -> dict:
+    # Informational: RUNNING usually means a scan is genuinely in progress
+    # (orphans are reset at startup), so this never flips the overall status.
+    try:
+        with get_session_factory().session() as session:
+            rows = session.exec(
+                select(ExternalLibrary.enabled, ExternalLibrary.last_scan_status)
+            ).all()
+        enabled = 0
+        status_counts: dict[str, int] = {}
+        for is_enabled, status in rows:
+            if is_enabled:
+                enabled += 1
+            if status is not None:
+                status_counts[status.value] = status_counts.get(status.value, 0) + 1
+        return {
+            "ok": True,
+            "configured": len(rows),
+            "enabled": enabled,
+            "status_counts": status_counts,
+            "running": status_counts.get(ExternalLibraryScanStatus.RUNNING.value, 0),
+        }
+    except Exception as exc:
+        return {"ok": False, "error": exc.__class__.__name__}
+
+
+def _spoolman_probe() -> dict:
+    # Informational, mirroring _external_libraries_probe: while disabled (or
+    # unreachable) it returns ok=True so an optional, OFF-by-default integration
+    # never flips the overall service status to degraded.
+    try:
+        from app.modules.administration import runtime_config
+
+        with get_session_factory().session() as session:
+            if not runtime_config.spoolman_enabled(session):
+                return {"ok": True, "enabled": False}
+            config = runtime_config.spoolman_config(session)
+        base_url = config.get("base_url")
+        if not base_url:
+            return {"ok": True, "enabled": True, "configured": False}
+
+        import httpx
+
+        headers = {}
+        if config.get("api_key"):
+            headers["Authorization"] = f"Bearer {config['api_key']}"
+            headers["X-Api-Key"] = config["api_key"]
+        try:
+            resp = httpx.get(
+                f"{base_url.rstrip('/')}/api/v1/info", headers=headers, timeout=5.0
+            )
+            reachable = 200 <= resp.status_code < 300
+            version = resp.json().get("version") if reachable else None
+        except httpx.HTTPError as exc:
+            return {
+                "ok": True,
+                "enabled": True,
+                "configured": True,
+                "reachable": False,
+                "error": exc.__class__.__name__,
+            }
+        return {
+            "ok": True,
+            "enabled": True,
+            "configured": True,
+            "reachable": reachable,
+            "version": version,
+        }
+    except Exception as exc:
+        return {"ok": False, "error": exc.__class__.__name__}
+
+
+@router.get(
+    "/health/details",
+    dependencies=[Depends(require_superuser)],
+    summary="Operational health probe",
+    description=(
+        "Returns service identity, database/storage/backup readiness, and "
+        "provider capability diagnostics. Used by Docker healthcheck and "
+        "self-hosted release verification."
+    ),
+)
+def health_details() -> dict:
+    from app.modules.administration.vault_audit_policy import health as audit_health
+    from app.modules.storage.migration_progress import health as migration_health
+
+    try:
+        with get_session_factory().scoped_session() as session:
+            audits = audit_health(session)
+    except Exception:
+        audits = {"ok": False, "error": "audit_health_unavailable"}
+    try:
+        with get_session_factory().scoped_session() as session:
+            migrations = migration_health(session)
+    except Exception:
+        migrations = {"ok": False, "error": "migration_health_unavailable"}
+    out = {
+        "status": "ok",
+        "name": settings.app_name,
+        "version": settings.app_version,
+        "deployment": {
+            "mode": "single_process",
+            "processes": 1,
+            "distributed_coordination": False,
+        },
+        "capabilities": _runtime_capabilities(),
+    }
+    components = {
+        "vault_audits": audits,
+        "vault_migration": migrations,
+        "database": _database_probe(),
+        "storage": _storage_probe(),
+        "capacity": _capacity_probe(),
+        "artifact_cache": cache_health(),
+        "backup": _backup_probe(),
+        "printer_providers": _provider_probe(),
+        "jobs": _jobs_probe(),
+        "artifact_uploads": _artifact_uploads_probe(),
+        "fleet_scheduler": _fleet_scheduler_probe(),
+        "external_libraries": _external_libraries_probe(),
+        "spoolman": _spoolman_probe(),
+    }
+    out["components"] = components
+    out["metrics"] = components["database"].get("counts", {})
+    for component in components.values():
+        if not component.get("ok", False):
+            _mark_degraded(out)
+    return out
+
+
+@router.get("/health", summary="Minimal liveness probe")
+def health() -> dict:
+    storage = _storage_probe()
+    return {
+        "status": "ok",
+        "name": settings.app_name,
+        "storage": {
+            "provider": storage.get("provider"),
+            "capabilities": storage.get("capabilities", {}),
+            "tier": storage.get("tier"),
+            "diagnostics": storage.get("diagnostics", {}),
+            "warnings": storage.get("warnings", []),
+        },
+    }
+
+
+@router.get(
+    "/health/releases/latest",
+    dependencies=[Depends(require_superuser)],
+    summary="Check for a newer PrintStash release",
+)
+async def latest_release(refresh: bool = False) -> dict:
+    return await get_release_status(settings.app_version, force=refresh)

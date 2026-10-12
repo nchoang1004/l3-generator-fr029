@@ -1,0 +1,25 @@
+[Unit]
+Description=Apply pending SpatiumDDI firewall drop-in (issue #183 Phase 9)
+Documentation=https://github.com/spatiumnorth/spatiumddi/issues/183
+# The runner writes /etc/nftables.d/spatium-role.nft and reloads the
+# master config. Both paths need the /etc overlay (Phase 8a) mounted
+# so writes land on the /var-backed upper layer and persist across
+# A/B slot swaps. The trigger file itself lives under
+# /var/lib/spatiumddi which isn't available until local-fs.target.
+After=etc.mount local-fs.target
+Requires=etc.mount
+
+[Service]
+Type=oneshot
+# GHSA-h2j9-qrg7-grfw — act only on a trigger written by root, the
+# supervisor or the api; anything else is renamed aside and the unit
+# skips cleanly. See spatiumddi-trigger-guard.
+ExecCondition=/usr/local/bin/spatiumddi-trigger-guard /var/lib/spatiumddi/release-state/firewall-pending
+ExecStart=/usr/local/bin/spatium-firewall-reload
+# #779 — re-run the Web UI reachability self-check after every firewall
+# apply, so the console's verdict follows the ruleset immediately instead
+# of lagging up to one 5-min timer period (in both directions: a fix
+# clears the red banner now; a bad re-render raises it now). `-` prefix:
+# a self-check failure must never mark the firewall apply failed.
+ExecStartPost=-/usr/local/bin/spatiumddi-webui-selfcheck
+# No Install — only invoked by the matching .path unit.

@@ -1,0 +1,244 @@
+"""Capture light+dark screenshots of every docs embed, from fixtures only.
+
+The docs corpus + fixtures live in the primerhq.github.io repo, so the
+fixtures directory is sourced from PRIMER_DOCS_FIXTURES_DIR (default: a
+sibling ../primerhq.github.io/docs_source/_fixtures checkout). This harness
+stays in primer because it renders primer's live UI components.
+
+This is a BUILD-ONLY harness: there is no live primer backend. We
+
+  1. build the console JSX bundle offline (build_jsx_bundle) into the embed
+     harness dir as _app.js,
+  2. serve the worktree over a throwaway local http.server, with the external
+     fixtures directory mounted at /_fixtures/,
+  3. for each embed id in the fixtures registry.json, load the standalone
+     harness page (scripts/docs/embed_harness/index.html) for theme=light
+     then theme=dark, wait for data-embed-status="done" (NOT a fixed sleep),
+     and screenshot the rendered embed host iframe into
+     <out_dir>/_embeds/<id>-<theme>.png.
+
+The build later substitutes ```embed:<id>``` fences with a <picture> that
+references these PNGs.
+
+Usage:
+    uv run python -m scripts.docs.capture_embeds [out_dir]
+
+Default out_dir is dist/docs. Exit code is non-zero if any embed failed to
+reach "done" or produced no PNG; a per-id summary is printed either way.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import http.server
+import json
+import os
+import socketserver
+import sys
+import threading
+from pathlib import Path
+
+# Worktree root = parent of scripts/ = parent of this file's grandparent.
+ROOT = Path(__file__).resolve().parents[2]
+HARNESS_DIR = ROOT / "scripts" / "docs" / "embed_harness"
+APP_JS = HARNESS_DIR / "_app.js"
+# Docs fixtures live in the primerhq.github.io repo. Point
+# PRIMER_DOCS_FIXTURES_DIR at that checkout's docs_source/_fixtures; the
+# default assumes a sibling clone next to this repo.
+FIXTURES_DIR = Path(
+    os.environ.get(
+        "PRIMER_DOCS_FIXTURES_DIR",
+        str(ROOT.parent / "primerhq.github.io" / "docs_source" / "_fixtures"),
+    )
+).resolve()
+REGISTRY = FIXTURES_DIR / "registry.json"
+HARNESS_URL_PATH = "/scripts/docs/embed_harness/index.html"
+
+THEMES = ("light", "dark")
+PORT = 8899
+# Per (id, theme) wait budget for data-embed-status="done".
+DONE_TIMEOUT_MS = 30000
+
+
+def _build_bundle() -> None:
+    """Build the console JSX bundle offline into the harness dir as _app.js."""
+    from primer.api._jsx_bundle import build_jsx_bundle
+
+    print("building _app.js bundle (offline, no server)...", flush=True)
+    _etag, body = build_jsx_bundle(ROOT / "ui")
+    APP_JS.write_bytes(body)
+    print(f"  wrote {APP_JS} ({len(body)} bytes)", flush=True)
+
+
+def _start_server() -> tuple[socketserver.TCPServer, threading.Thread]:
+    """Start a quiet static http.server rooted at the worktree."""
+
+    class Handler(http.server.SimpleHTTPRequestHandler):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, directory=str(ROOT), **kwargs)
+
+        def translate_path(self, path):
+            # Fixtures live outside the worktree (in the primerhq.github.io
+            # checkout). Map the /_fixtures/ URL prefix onto FIXTURES_DIR so
+            # the harness page can fetch them over http.
+            clean = path.split("?", 1)[0].split("#", 1)[0]
+            if clean.startswith("/_fixtures/"):
+                rel = clean[len("/_fixtures/") :].lstrip("/")
+                return str(FIXTURES_DIR / rel)
+            return super().translate_path(path)
+
+        def log_message(self, *args):  # silence per-request logging
+            pass
+
+    socketserver.TCPServer.allow_reuse_address = True
+    httpd = socketserver.TCPServer(("127.0.0.1", PORT), Handler)
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+    print(f"static server on http://127.0.0.1:{PORT} (root={ROOT})", flush=True)
+    return httpd, thread
+
+
+async def _capture(out_dir: Path, ids: list[str]) -> dict[str, dict]:
+    from playwright.async_api import async_playwright
+
+    embeds_dir = out_dir / "_embeds"
+    embeds_dir.mkdir(parents=True, exist_ok=True)
+
+    base = f"http://127.0.0.1:{PORT}{HARNESS_URL_PATH}"
+    results: dict[str, dict] = {}
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch()
+        for eid in ids:
+            per_theme: dict[str, dict] = {}
+            for theme in THEMES:
+                page = await browser.new_page(viewport={"width": 1366, "height": 900})
+                url = f"{base}?embed={eid}&theme={theme}"
+                info: dict = {"ok": False}
+                try:
+                    await page.goto(url, wait_until="load", timeout=DONE_TIMEOUT_MS)
+                    # Wait deterministically for the harness completion signal.
+                    await page.wait_for_selector(
+                        'html[data-embed-status="done"]',
+                        timeout=DONE_TIMEOUT_MS,
+                        state="attached",
+                    )
+                    res = await page.evaluate("() => window.__HARNESS_RESULT || null")
+                    info["harness"] = res
+                    if res and res.get("error"):
+                        raise RuntimeError(res["error"])
+                    # The harness already decides whether the component put
+                    # anything on the page, and until now nobody asked. Reaching
+                    # "done" only means the harness finished, so an embed that
+                    # rendered nothing screenshotted an empty host and counted as
+                    # a success: every PNG in the set was blank and the summary
+                    # said 56/56 was within reach. A capture of nothing is a
+                    # failure, and it names what it saw so the cause is one read
+                    # away.
+                    if res is not None and not res.get("rendered"):
+                        raise RuntimeError(
+                            "component rendered nothing: "
+                            f"component={res.get('component')!r} "
+                            f"html_len={res.get('rootHtmlLen')} "
+                            f"text={res.get('textSample')!r}"
+                        )
+                    # Shrink the host to what actually rendered. The iframe is
+                    # 100vh so every capture would otherwise be 1366x900 with
+                    # the embed sitting in the top strip, which is most of them:
+                    # a two-row provider list published as two thirds blank.
+                    # Measured on #embed-root, since the iframe document's body
+                    # is the frame's viewport and never reports less than it.
+                    await page.evaluate(
+                        """() => {
+                            const f = document.getElementById('host');
+                            const d = f.contentDocument;
+                            const root = d && d.getElementById('embed-root');
+                            if (!root) return;
+                            const h = Math.ceil(
+                                root.getBoundingClientRect().height
+                            );
+                            if (h > 0) {
+                                f.style.height = Math.max(120, h + 16) + 'px';
+                            }
+                        }"""
+                    )
+                    await page.wait_for_timeout(120)
+
+                    # Screenshot the host iframe element (contains the rendered embed).
+                    el = await page.query_selector("#host")
+                    if el is None:
+                        raise RuntimeError("#host iframe not found")
+                    out_png = embeds_dir / f"{eid}-{theme}.png"
+                    await el.screenshot(path=str(out_png))
+                    info["ok"] = out_png.exists() and out_png.stat().st_size > 0
+                    info["png"] = str(out_png)
+                except Exception as e:  # noqa: BLE001 - record and continue
+                    # If we never reached "done", capture the current status for the report.
+                    try:
+                        status = await page.evaluate(
+                            "() => document.documentElement.getAttribute('data-embed-status')"
+                        )
+                    except Exception:  # noqa: BLE001
+                        status = None
+                    info["error"] = f"{type(e).__name__}: {e}"
+                    info["status_attr"] = status
+                finally:
+                    await page.close()
+                per_theme[theme] = info
+            results[eid] = per_theme
+        await browser.close()
+    return results
+
+
+def main() -> int:
+    out_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else (ROOT / "dist" / "docs")
+    out_dir = out_dir if out_dir.is_absolute() else (ROOT / out_dir)
+
+    if not REGISTRY.exists():
+        raise SystemExit(
+            f"fixtures registry not found at {REGISTRY}.\n"
+            "The docs corpus + fixtures live in the primerhq.github.io repo; "
+            "point PRIMER_DOCS_FIXTURES_DIR at that checkout's "
+            "docs_source/_fixtures directory."
+        )
+    ids = json.loads(REGISTRY.read_text())["embeds"]
+    print(f"{len(ids)} embed ids; {len(THEMES)} themes -> {len(ids) * len(THEMES)} PNGs expected", flush=True)
+
+    _build_bundle()
+    httpd, _thread = _start_server()
+    try:
+        results = asyncio.run(_capture(out_dir, ids))
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        print("static server stopped", flush=True)
+
+    # Per-id summary + failure accounting.
+    ok = 0
+    failures: list[str] = []
+    print("\n=== per-id summary ===", flush=True)
+    for eid in ids:
+        per = results.get(eid, {})
+        cells = []
+        for theme in THEMES:
+            info = per.get(theme, {})
+            if info.get("ok"):
+                ok += 1
+                cells.append(f"{theme}=OK")
+            else:
+                cells.append(f"{theme}=FAIL({info.get('error') or info.get('status_attr')})")
+                failures.append(f"{eid}/{theme}: {info.get('error') or info.get('status_attr')}")
+        print(f"  {eid:28s} {'  '.join(cells)}", flush=True)
+
+    expected = len(ids) * len(THEMES)
+    print(f"\n{ok}/{expected} PNGs captured -> {out_dir / '_embeds'}", flush=True)
+    if failures:
+        print(f"\n{len(failures)} FAILURE(S):", flush=True)
+        for f in failures:
+            print(f"  - {f}", flush=True)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

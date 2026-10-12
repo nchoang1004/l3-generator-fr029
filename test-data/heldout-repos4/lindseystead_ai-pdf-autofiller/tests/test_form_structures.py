@@ -1,0 +1,358 @@
+"""Regression tests for real-world AcroForm structures.
+
+Each test pins a failure found in an adversarial review: radio groups,
+hierarchical names, nested JSON, verbatim dates, partial fills, /MaxLen,
+flatten cleanup, and unfilled-field reporting.
+"""
+
+from __future__ import annotations
+
+import logging
+from pathlib import Path
+
+import pytest
+from pypdf import PdfReader
+
+from pdf_autofiller import fill, fill_detailed, preview
+from pdf_autofiller.field_utils import field_leaf_name
+from pdf_autofiller.pdf_writer import UnresolvedRequiredFieldsError
+from pdf_autofiller.user_data import UserDataTooDeepError, flatten_user_data
+
+from .form_factory import FormBuilder
+
+
+def _values(path: Path) -> dict[str, object]:
+    return {name: field.get("/V") for name, field in (PdfReader(path).get_fields() or {}).items()}
+
+
+@pytest.fixture
+def intake_pdf(tmp_path: Path) -> Path:
+    return (
+        FormBuilder(pages=2)
+        .text("firstName", parent="applicant")
+        .text("lastName", parent="applicant", required=True)
+        .text("DOB")
+        .text("ssn", max_len=9)
+        .radio("gender", ["Male", "Female"], required=True)
+        .checkbox("agree_terms")
+        .text("phone", page=1)
+        .save(tmp_path / "intake.pdf")
+    )
+
+
+def test_required_radio_group_accepts_option_name(intake_pdf: Path, tmp_path: Path) -> None:
+    out = tmp_path / "out.pdf"
+    report = fill(intake_pdf, {"last_name": "Doe", "gender": "Female"}, out)
+    assert "gender" in report.written_fields
+    assert _values(out)["gender"] == "/Female"
+
+
+def test_radio_unknown_option_is_reported_unwritable(intake_pdf: Path, tmp_path: Path) -> None:
+    out = tmp_path / "out.pdf"
+    with pytest.raises(UnresolvedRequiredFieldsError):
+        fill(intake_pdf, {"last_name": "Doe", "gender": "Other"}, out)
+    report = fill(intake_pdf, {"last_name": "Doe", "gender": "Other"}, out, allow_partial=True)
+    unwritable = report.skipped_unwritable_fields
+    assert any(item.startswith("gender (unresolved_button_state") for item in unwritable)
+    assert "gender" in report.missing_required_fields
+
+
+def test_hierarchical_names_match_by_leaf(intake_pdf: Path, tmp_path: Path) -> None:
+    out = tmp_path / "out.pdf"
+    fill(intake_pdf, {"first_name": "Jane", "last_name": "Doe", "gender": "Male"}, out)
+    values = _values(out)
+    assert values["applicant.firstName"] == "Jane"
+    assert values["applicant.lastName"] == "Doe"
+
+
+def test_nested_json_matches_full_path_and_unique_leaf(intake_pdf: Path) -> None:
+    result = preview(
+        intake_pdf,
+        {"applicant": {"firstName": "Jane", "lastName": "Doe"}, "contact": {"phone": "555"}},
+    )
+    selected = {d.field_name: d.selected_value for d in result.mapping.decisions}
+    assert selected["applicant.firstName"] == "Jane"
+    assert selected["applicant.lastName"] == "Doe"
+    assert selected["phone"] == "555"  # unique leaf of contact.phone
+    assert result.mapping.unmapped_user_keys == []
+
+
+def test_ambiguous_nested_leaf_is_not_guessed() -> None:
+    flat = flatten_user_data({"home": {"city": "A"}, "work": {"city": "B"}, "tags": ["x"]})
+    assert flat.values == {"home.city": "A", "work.city": "B", "tags.0": "x"}
+    assert "city" not in flat.leaf_aliases
+
+
+def test_flatten_rejects_excessive_depth() -> None:
+    deep: dict = {}
+    node = deep
+    for _ in range(40):
+        node["a"] = {}
+        node = node["a"]
+    with pytest.raises(UserDataTooDeepError):
+        flatten_user_data(deep)
+
+
+@pytest.mark.parametrize(
+    ("name", "leaf"),
+    [
+        ("applicant.firstName", "firstName"),
+        ("form1[0].Page1[0].LastName[0]", "LastName"),
+        ("txtFirstName", "txtFirstName"),
+    ],
+)
+def test_field_leaf_name(name: str, leaf: str) -> None:
+    assert field_leaf_name(name) == leaf
+
+
+def test_dates_are_written_verbatim(intake_pdf: Path, tmp_path: Path) -> None:
+    out = tmp_path / "out.pdf"
+    fill(intake_pdf, {"last_name": "Doe", "gender": "Male", "dob": "03/04/1990"}, out)
+    assert _values(out)["DOB"] == "03/04/1990"
+
+
+def test_value_over_max_length_is_not_written(intake_pdf: Path, tmp_path: Path) -> None:
+    out = tmp_path / "out.pdf"
+    report = fill(intake_pdf, {"last_name": "Doe", "gender": "Male", "ssn": "123-45-6789"}, out)
+    assert "ssn (exceeds_max_length:9)" in report.skipped_unwritable_fields
+    assert "ssn" not in report.written_fields
+
+
+def test_allow_partial_writes_pdf_and_lists_missing(intake_pdf: Path, tmp_path: Path) -> None:
+    out = tmp_path / "out.pdf"
+    report = fill(intake_pdf, {"first_name": "Jane"}, out, allow_partial=True)
+    assert out.exists()
+    assert report.missing_required_fields == ["applicant.lastName", "gender"]
+    assert _values(out)["applicant.firstName"] == "Jane"
+
+
+def test_report_lists_unfilled_fields(intake_pdf: Path, tmp_path: Path) -> None:
+    outcome = fill_detailed(intake_pdf, {"last_name": "Doe", "gender": "Male"}, tmp_path / "out.pdf")
+    assert set(outcome.report.unfilled_fields) == {
+        "applicant.firstName",
+        "DOB",
+        "ssn",
+        "agree_terms",
+        "phone",
+    }
+
+
+def test_flatten_removes_acroform_and_stays_readable(intake_pdf: Path, tmp_path: Path) -> None:
+    out = tmp_path / "flat.pdf"
+    fill(
+        intake_pdf,
+        {"first_name": "Jane", "last_name": "Doe", "gender": "Male", "phone": "555"},
+        out,
+        flatten=True,
+    )
+    reader = PdfReader(out)
+    assert "/AcroForm" not in reader.trailer["/Root"]
+    assert reader.get_fields() is None
+    assert "Jane" in reader.pages[0].extract_text()
+    assert "555" in reader.pages[1].extract_text()
+
+
+def test_value_addressed_to_one_field_is_not_reused_for_another_entity(tmp_path: Path) -> None:
+    form = (
+        FormBuilder()
+        .text("name", parent="applicant")
+        .text("name", parent="spouse")
+        .save(tmp_path / "household.pdf")
+    )
+    selected = {
+        d.field_name: d.selected_value for d in preview(form, {"applicant.name": "Alice"}).mapping.decisions
+    }
+    assert selected == {"applicant.name": "Alice"}
+
+
+def test_nested_leaf_match_names_its_source_path(tmp_path: Path) -> None:
+    form = FormBuilder().text("Name").save(tmp_path / "person.pdf")
+    (decision,) = preview(form, {"employer": {"name": "Acme Corp"}}).mapping.decisions
+    assert "employer.name" in decision.reason
+
+
+class _FakeSemanticClient:
+    """Stands in for the model: labels Text1 as an SSN with low confidence."""
+
+    def infer_semantics_batch(self, fields, *, page_context=None):
+        from pdf_autofiller.models import FieldSemantics
+
+        def semantics(meaning: str, confidence: float) -> FieldSemantics:
+            return FieldSemantics(
+                semantic_meaning=meaning, expected_data_type="string", confidence_score=confidence
+            )
+
+        return {"Text1": semantics("ssn", 0.1), "Text2": semantics("email", 0.9)}
+
+
+def test_ai_assisted_mappings_are_labelled_and_keep_model_confidence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from pdf_autofiller import pipeline
+
+    monkeypatch.setattr(pipeline, "SemanticClient", _FakeSemanticClient)
+    form = FormBuilder().text("Text1").text("Text2").text("phone").save(tmp_path / "opaque.pdf")
+    result = preview(
+        form,
+        {"ssn": "123-45-6789", "email": "a@b.co", "phone": "555"},
+        use_semantic_inference=True,
+    )
+    decisions = {d.field_name: d for d in result.mapping.decisions}
+
+    low = decisions["Text1"]
+    assert low.ai_assisted and low.reason.startswith("AI: ")
+    assert low.confidence == 0.1 and low.requires_review  # never written
+
+    assert decisions["Text2"].ai_assisted and not decisions["Text2"].requires_review
+    assert not decisions["phone"].ai_assisted  # matched by its own name
+
+
+@pytest.mark.parametrize("user_data", [{"a": "new"}, {}])
+def test_flatten_keeps_values_already_in_the_form(tmp_path: Path, user_data: dict) -> None:
+    form = FormBuilder().text("a").text("b", value="PREFILLED").save(tmp_path / "prefilled.pdf")
+    out = tmp_path / "flat.pdf"
+    report = fill(form, user_data, out, flatten=True, allow_partial=True)
+    text = PdfReader(out).pages[0].extract_text()
+    assert "PREFILLED" in text
+    assert "b" not in report.written_fields  # preserved, not reported as written by us
+
+
+def test_text_outside_the_standard_font_is_written_with_a_display_warning(tmp_path: Path) -> None:
+    form = FormBuilder().text("first").text("last").save(tmp_path / "names.pdf")
+    out = tmp_path / "out.pdf"
+    report = fill(form, {"first": "Zoë", "last": "Łukasz 王"}, out, allow_partial=True)
+    assert report.written_fields == ["first", "last"]
+    assert report.display_warnings == ["last (font_encoding)"]
+    assert _values(out)["last"] == "Łukasz 王"
+
+
+def test_flatten_refuses_text_the_standard_font_cannot_draw(tmp_path: Path) -> None:
+    form = FormBuilder().text("last").save(tmp_path / "names.pdf")
+    report = fill(form, {"last": "王"}, tmp_path / "flat.pdf", flatten=True, allow_partial=True)
+    assert report.written_fields == []
+    assert report.skipped_unwritable_fields == ["last (font_encoding)"]
+
+
+ENCRYPTION_ALGORITHMS = ["RC4-128", "AES-128", "AES-256"]
+
+
+def _encrypted_copy(source: Path, target: Path, user_password: str, algorithm: str = "AES-256") -> Path:
+    from pypdf import PdfWriter
+
+    writer = PdfWriter(clone_from=PdfReader(source))
+    writer.encrypt(user_password=user_password, owner_password="owner-secret", algorithm=algorithm)
+    writer.write(target)
+    return target
+
+
+@pytest.mark.parametrize("algorithm", ENCRYPTION_ALGORITHMS)
+@pytest.mark.parametrize("entry", ["inspect", "preview", "fill"])
+def test_password_protected_pdf_is_reported_as_such(tmp_path: Path, entry: str, algorithm: str) -> None:
+    from pdf_autofiller import inspect
+    from pdf_autofiller.pdf_reader import InvalidPdfError
+
+    locked = _encrypted_copy(
+        Path("samples/sample_form.pdf"), tmp_path / "locked.pdf", "open-sesame", algorithm
+    )
+    out = tmp_path / "out.pdf"
+    with pytest.raises(InvalidPdfError, match="password-protected"):
+        if entry == "inspect":
+            inspect(locked)
+        elif entry == "preview":
+            preview(locked, {"firstname": "Jane"})
+        else:
+            fill(locked, {"firstname": "Jane"}, out, allow_partial=True)
+    assert not out.exists()
+
+
+@pytest.mark.parametrize("algorithm", ENCRYPTION_ALGORITHMS)
+def test_pdf_with_only_owner_restrictions_is_filled(tmp_path: Path, algorithm: str) -> None:
+    restricted = _encrypted_copy(Path("samples/sample_form.pdf"), tmp_path / "restricted.pdf", "", algorithm)
+    out = tmp_path / "out.pdf"
+    report = fill(restricted, {"firstname": "Jane", "lastname": "Doe", "dob": "1990-01-01"}, out)
+    assert report.written_fields == ["txtDOB", "txtFirstName", "txtLastName"]
+    assert _values(out)["txtFirstName"] == "Jane"
+
+
+@pytest.mark.parametrize("empty", [[], {}, None, "", "   ", "\t\n"])
+def test_empty_values_are_never_written_as_text(tmp_path: Path, empty: object) -> None:
+    out = tmp_path / "out.pdf"
+    data = {"firstname": "Jane", "lastname": "Doe", "dob": "1990-01-01", "email": empty, "phone": empty}
+    report = fill(Path("samples/sample_form.pdf"), data, out)
+    values = _values(out)
+    assert values["txtEmail"] in (None, "")
+    assert values["txtPhone"] in (None, "")
+    assert "txtEmail" not in report.written_fields and "txtPhone" not in report.written_fields
+
+
+@pytest.mark.parametrize("empty", [[], {}, "", "  "])
+def test_empty_value_for_required_field_fails_strict_fill(tmp_path: Path, empty: object) -> None:
+    out = tmp_path / "out.pdf"
+    with pytest.raises(UnresolvedRequiredFieldsError, match="txtFirstName"):
+        fill(
+            Path("samples/sample_form.pdf"), {"firstname": empty, "lastname": "Doe", "dob": "1990-01-01"}, out
+        )
+    assert not out.exists()
+
+
+def _pdf_without_fields(path: Path) -> Path:
+    from pypdf import PdfWriter
+
+    writer = PdfWriter()
+    writer.add_blank_page(width=612, height=792)
+    writer.write(path)
+    return path
+
+
+def test_pdf_without_fields_says_so_in_every_result(tmp_path: Path) -> None:
+    from pdf_autofiller import inspect
+
+    flat = _pdf_without_fields(tmp_path / "flat.pdf")
+    inspected = inspect(flat)
+    previewed = preview(flat, {"firstname": "Jane"})
+    filled = fill_detailed(flat, {"firstname": "Jane"}, tmp_path / "out.pdf")
+
+    for hints in (inspected.mapping_hints, previewed.mapping.mapping_hints, filled.mapping.mapping_hints):
+        assert any("no fillable form fields" in hint for hint in hints), hints
+    assert filled.report.written_fields == []
+    assert filled.mapping.unmapped_user_keys == ["firstname"]
+
+
+SECRET = "SSN-987-65-4321-王"
+
+
+def test_user_values_never_reach_logs(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    form = (
+        FormBuilder()
+        .text("ssn")
+        .text("note", max_len=3)
+        .checkbox("agree")
+        .radio("gender", ["Male", "Female"])
+        .save(tmp_path / "secret.pdf")
+    )
+    data = {"ssn": SECRET, "note": SECRET, "agree": SECRET, "gender": SECRET, "unused": SECRET}
+    with caplog.at_level(logging.DEBUG):
+        preview(form, data)
+        fill(form, data, tmp_path / "out.pdf", allow_partial=True)
+        fill(form, data, tmp_path / "flat.pdf", allow_partial=True, flatten=True)
+    messages = [record.getMessage() for record in caplog.records]
+    assert [m for m in messages if SECRET in m] == []
+    assert any("'<redacted>' contains characters not supported" in m for m in messages)  # kept, not dropped
+
+
+def test_fill_report_names_every_written_field_the_ai_chose(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from pdf_autofiller import pipeline
+
+    monkeypatch.setattr(pipeline, "SemanticClient", _FakeSemanticClient)
+    form = FormBuilder().text("Text1").text("Text2").text("phone").save(tmp_path / "opaque.pdf")
+    report = fill(
+        form,
+        {"ssn": "123-45-6789", "email": "a@b.co", "phone": "555"},
+        tmp_path / "out.pdf",
+        use_semantic_inference=True,
+        allow_partial=True,
+    )
+    assert report.ai_assisted_fields == ["Text2"]  # Text1 was low-confidence, so not written
+    assert "phone" in report.written_fields and "phone" not in report.ai_assisted_fields

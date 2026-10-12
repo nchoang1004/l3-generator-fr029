@@ -1,0 +1,85 @@
+version: 2
+
+# Dependabot security updates were already on, but without this file there were no *version*
+# updates — so dependencies drifted until an advisory forced the bump. That is how react-router
+# ended up 1.5 majors behind and had to be moved under pressure (#21), and why the pinned actions
+# below fell 2-5 majors behind while CI warned about deprecated Node 20 runtimes.
+#
+# PRs target `dev` (the default branch), matching the branch model in .claude/CLAUDE.md.
+# Everything is grouped so routine maintenance arrives as a few reviewable PRs rather than a swarm:
+# minor/patch batched per ecosystem, majors split out individually because they need real review.
+
+updates:
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+    groups:
+      web-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+      # Majors normally arrive one PR per package, which is right for independent deps but breaks
+      # badly for packages that only work in lockstep: Dependabot raised react@19 and react-dom@19
+      # separately, and each crashed against the other's v18 sibling, so neither could ever go
+      # green. Same for vite/@vitejs — plugin-react@6 needs vite>=7 while vite@8 needs a config
+      # change, so the two PRs blocked each other. Grouping makes each arrive as one reviewable
+      # upgrade.
+      react-major:
+        patterns: ["react", "react-dom", "@types/react", "@types/react-dom"]
+        update-types: ["major"]
+      vite-major:
+        patterns: ["vite", "@vitejs/*"]
+        update-types: ["major"]
+      eslint-major:
+        patterns: ["eslint", "@eslint/*", "typescript-eslint", "eslint-plugin-*"]
+        update-types: ["major"]
+    ignore:
+      # @types/node must track the Node we actually run (22 — Dockerfile's node:22-alpine and
+      # ci.yml's node-version), not the newest release. A newer major types APIs that don't exist
+      # in our runtime, so tsc would accept code that throws in the container. Bump this
+      # deliberately, in the same change that moves the Dockerfile and CI to a new Node major.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+      # Tailwind 4 is a migration, not a bump: the PostCSS plugin moved to @tailwindcss/postcss,
+      # config becomes CSS-first, and tailwindcss-animate has to be swapped out. Crucially our CI
+      # cannot validate it — vitest runs with `css: false` and the e2e suite asserts behaviour, not
+      # appearance, so a fully green run would still tell us nothing about whether the UI renders
+      # correctly. Needs a human looking at the screen. Tracked in #53.
+      - dependency-name: "tailwindcss"
+        update-types: ["version-update:semver-major"]
+      # TypeScript 7 (the native port) is blocked upstream: typescript-eslint 8.65.0 still declares
+      # `typescript >=4.8.4 <6.1.0`, so `pnpm lint` fails outright. Re-raising it weekly just
+      # generates a PR that cannot pass. Lift this when typescript-eslint ships TS 7 support.
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      python-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci(deps)"
+    groups:
+      actions-minor-patch:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]

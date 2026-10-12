@@ -1,0 +1,170 @@
+# Dependabot — proactive dependency, base-image and Actions version bumps.
+#
+# Complements the scheduled Trivy scan (trivy-scheduled.yml, #640): Trivy flags
+# KNOWN CVEs in already-built images after the fact; Dependabot opens
+# (de-duplicated) PRs to move manifests, Docker base images and GitHub Actions
+# forward *before* they rot — security updates included. Between the two, a
+# vulnerable/outdated package surfaces either as a bump PR (Dependabot) or, if it
+# slips through, as the weekly tracking issue (Trivy).
+#
+# Cadence is weekly/Monday to line up with the Trivy scheduled scan. Minor +
+# patch bumps are grouped into one PR per ecosystem to keep the noise down.
+#
+# POLICY — deliberately low-noise (the first run opened ~30 PRs; #640 follow-up):
+#   * ALL majors are deferred (``semver-major`` ignored for every ecosystem).
+#     Major bumps are breaking and done as deliberate upgrade efforts. Security
+#     fixes still land via Dependabot *security* updates, which fire regardless
+#     of these ``ignore`` rules; base-image CVEs are also caught by the weekly
+#     Trivy scan (trivy-scheduled.yml).
+#   * ``pip`` is SECURITY-ONLY. The Python manifests use unpinned ``>=`` ranges
+#     with no lock file, so a routine version PR only raises a floor pip already
+#     satisfies (it installs the latest anyway) — pure noise. Ignoring every
+#     ``pip`` version-update leaves only security updates, the sole thing worth
+#     a PR here.
+#   * The backend Docker base is pinned to Python 3.12 (mypy target-version
+#     py312 / setup-python 3.12) — no 3.13/3.14 until a deliberate move.
+# Net effect: at most a couple of grouped minor/patch PRs a week (docker, npm,
+# actions) plus security updates.
+version: 2
+
+updates:
+  # GitHub Actions pinned across every workflow (actions/checkout@v4,
+  # setup-python@v5, github-script@v7, aquasecurity/trivy-action, …).
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    groups:
+      github-actions:
+        update-types: ["minor", "patch"]
+    ignore:
+      # Defer Action majors (setup-python 5→7, build-push 5→7, …): they can
+      # break release.yml / build-*.yml, which don't run on a workflow-only PR,
+      # so a green PR isn't proof. Do them deliberately. Minor/patch flow grouped.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
+  # ``FROM`` base images in every shipped Dockerfile — the exact rot the #640
+  # scheduled Trivy scan catches after the fact (e.g. #639's stale golang pin);
+  # Dependabot bumps them proactively instead.
+  - package-ecosystem: "docker"
+    directories:
+      - "/backend"
+      - "/frontend"
+      - "/agent/dhcp/images/kea"
+      - "/agent/dns/images/bind9"
+      - "/agent/dns/images/powerdns"
+      - "/agent/dns/images/technitium"
+      - "/agent/dns/images/dnsdist"
+      - "/agent/supervisor/images/supervisor"
+      - "/agent/looking-glass/images/gobgp"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    groups:
+      docker-base-images:
+        update-types: ["minor", "patch"]
+    ignore:
+      # The codebase + CI target Python 3.12 (mypy ``target-version = py312``,
+      # setup-python 3.12). Keep the backend runtime image on 3.12 so Dependabot
+      # doesn't push 3.13/3.14 ahead of a deliberate interpreter upgrade (a
+      # 3.12→3.14 bump lands as a Docker "minor", so it must be ignored by name
+      # here rather than by update-type).
+      - dependency-name: "python"
+        update-types:
+          ["version-update:semver-minor", "version-update:semver-major"]
+      # An Alpine MINOR carries the bundled Python with it, and the agent
+      # images are installed into /usr/local/lib/python<X.Y>/site-packages and
+      # found only via PYTHONPATH. A base bump alone therefore produces an
+      # image that builds clean and then CrashLoopBackOffs with
+      # "ModuleNotFoundError: No module named 'spatium_dns_agent'" — #672,
+      # caught by agent-e2e. It also drags pdns / dnsdist / bind along in the
+      # same step. So a minor stays a deliberate, verified change; patch bumps
+      # (3.24.x) still flow.
+      #
+      # #1037 did that move: 3.23 → 3.24, Python 3.12 → 3.14.7. Two things
+      # changed so the next one is bounded rather than archaeological —
+      # PYTHONPATH now interpolates the PYTHON_VERSION arg instead of
+      # hardcoding a version (that arg was referenced by NOTHING in four of
+      # the five images before #1037), and every agent image asserts
+      # `import <agent>` at build time, so a mismatched pair fails the build
+      # instead of the pod. The full reason lives in versions.json under
+      # `alpine` and `agent-python`.
+      #
+      # Historical note worth keeping: this comment claimed "3.12→3.13" for a
+      # year. The #975 sweep checked the package index — v3.24/main ships
+      # python3-3.14.7 — which made the task materially bigger than the wrong
+      # number implied, and is why it had sat untouched.
+      - dependency-name: "alpine"
+        update-types:
+          ["version-update:semver-minor", "version-update:semver-major"]
+      # Defer base-image majors (node 22→26, …); base-image CVEs are backstopped
+      # by the weekly Trivy scan. Minor/patch flow grouped.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
+  # Python — control plane (backend) plus the three standalone agents.
+  - package-ecosystem: "pip"
+    directories:
+      - "/backend"
+      - "/agent/dhcp"
+      - "/agent/dns"
+      - "/agent/supervisor"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    # SECURITY-ONLY: ignore ALL routine version updates. Unpinned ``>=`` ranges
+    # mean a version PR only raises a floor pip already satisfies (it installs
+    # the latest at build time) — the first run produced a dozen such no-op
+    # floor bumps (#662-679). Dependabot *security* updates ignore this block
+    # and still open when an advisory lands; the Trivy image scan is the other
+    # backstop. (No group here — there are no routine version updates to group.)
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"
+          - "version-update:semver-patch"
+
+  # Frontend — React / Vite / TypeScript (package-lock.json present).
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    groups:
+      npm:
+        update-types: ["minor", "patch"]
+    ignore:
+      # Major JS/TS framework upgrades (React, TypeScript, ESLint, Vite, …) are
+      # breaking and done as deliberate efforts, not weekly auto-PRs. Minor/patch
+      # (grouped) + Dependabot security updates still flow.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+      # The lint/format toolchain reformats or re-lints the WHOLE codebase on a
+      # bump — pure CI churn, not a code change (prettier 3.4→3.9 reflowed every
+      # file; an eslint-plugin-react-refresh bump added new warnings). Bump these
+      # deliberately together with the matching reformat/lint pass, never via a
+      # weekly auto-PR. (These are dev-only tools; security isn't a concern.)
+      - dependency-name: "prettier"
+      - dependency-name: "eslint*"
+      - dependency-name: "@eslint/*"
+      - dependency-name: "typescript-eslint"
+      - dependency-name: "@typescript-eslint/*"

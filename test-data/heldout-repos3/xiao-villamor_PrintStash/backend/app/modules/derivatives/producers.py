@@ -1,0 +1,813 @@
+"""Compute and publish derivatives for one Artifact.
+
+A producer reads the Artifact's bytes once, derives only the kinds that are
+still needed, and publishes each output with its row in one transaction per
+kind. Outputs stay with their owners: geometry and slicer facts in
+``metadata`` (plus material requirements and detected profiles), thumbnails as
+immutable objects behind ``File.thumbnail_path``, toolpaths as a stored blob
+referenced by the derivative row.
+"""
+
+from __future__ import annotations
+
+import tempfile
+import time
+from contextlib import ExitStack
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, cast
+
+from printstash_core.mesh.measurements import (
+    VolumeNotCalculated,
+    VolumeNotCalculatedCause,
+)
+from printstash_core.mesh.similarity.budgets import MAX_ANALYSIS_FACES
+from sqlmodel import Session, delete, select
+
+from app.core.cancellation import checkpoint
+from app.core.config import settings
+from app.core.errors import OperationError
+from app.core.logging import get_logger
+from app.core.time import utcnow
+from app.db.models import (
+    ArtifactMaterialRequirement,
+    DerivativeKind,
+    DerivativeState,
+    File,
+    JobKind,
+    Metadata,
+)
+from app.db.scopes import live
+from app.db.session import get_session_factory
+from app.modules.library.volume_metadata import apply_volume
+from app.modules.media import gcode_parser, mesh_isolation, stl_isolation, thumbnail
+from app.modules.media.mesh_contracts import (
+    GeometryReady,
+    MeshMeasurements,
+    PreviewCoverage,
+    ThumbnailFailureReason,
+    ThumbnailRequest,
+)
+from app.modules.media.mesh_isolation import MeshWorkerError
+from app.modules.media.source_preparation import reserve_sources
+from app.modules.media.thumbnail_publication import (
+    ThumbnailPublicationError,
+    adopt_thumbnail,
+    point_at,
+    prepare_thumbnail,
+)
+from app.modules.storage.artifact_content import ArtifactContentError, resolve
+from app.modules.storage.capacity import CapacityManager, CapacityResource
+from app.modules.storage.capacity_estimates import vault_allocation
+from app.modules.storage.storage_backend.contracts import StorageCollisionError
+from app.modules.storage.storage_backend.runtime import get_backend
+from app.modules.storage.storage_ownership import (
+    adopt_publication,
+    prepare_file,
+    prepare_stream,
+)
+from app.modules.work.contracts import JobExecution
+from app.runtime.native_admission import AdmissionTooLarge
+
+from . import records
+from .kinds import group
+
+logger = get_logger(__name__)
+
+_DETERMINISTIC = {
+    ThumbnailFailureReason.INVALID_SOURCE.value,
+    ThumbnailFailureReason.UNSUPPORTED_FORMAT.value,
+    ThumbnailFailureReason.UNSUPPORTED_CAPABILITY.value,
+    ThumbnailFailureReason.NO_GEOMETRY.value,
+    ThumbnailFailureReason.RESOURCE_LIMIT.value,
+    ThumbnailFailureReason.RENDERER_NO_OUTPUT.value,
+}
+
+
+class ArtifactGone(Exception):
+    """The Artifact was trashed or deleted; there is nothing to derive."""
+
+
+@dataclass
+class Outcome:
+    """What one producer run did, per kind, for the Job's result."""
+
+    kinds: dict[DerivativeKind, DerivativeState]
+
+    def as_result(self) -> dict[str, Any]:
+        return {"derivatives": dict(sorted(self.kinds.items()))}
+
+
+def _announce(file_row: File, outcome: Outcome) -> Outcome:
+    """Tell viewers of the Model that its Artifact's derivatives changed."""
+    from app.modules.work import events
+
+    assert file_row.id is not None
+    for kind, state in outcome.kinds.items():
+        events.derivative_changed(
+            model_id=file_row.model_id, file_id=file_row.id, kind=kind, state=state
+        )
+    return outcome
+
+
+def _live_file(session: Session, file_id: int) -> File:
+    file_row = session.exec(select(File).where(File.id == file_id, live(File))).first()
+    if file_row is None:
+        raise ArtifactGone(str(file_id))
+    return file_row
+
+
+def _begin(
+    file_id: int, definition: JobKind, *, execution: JobExecution | None = None
+) -> tuple[File, dict[DerivativeKind, records.DerivativeAttempt]] | None:
+    from . import policy
+
+    now = utcnow()
+    kinds = group(definition).kinds
+    with get_session_factory().scoped_session() as session:
+        if execution is not None:
+            records.require_execution(session, execution)
+        policy.lock(session)
+        policy.require_enabled(session, definition)
+        try:
+            file_row = _live_file(session, file_id)
+        except ArtifactGone:
+            return None
+        needed = records.needed(session, file_row, kinds, now=now)
+        attempts = {}
+        for kind in needed:
+            row = records.begin(session, file_row, kind, kinds[kind], now=now)
+            attempts[kind] = records.attempt(
+                session, file_row, row, execution=execution
+            )
+        session.commit()
+        session.refresh(file_row)
+        session.expunge(file_row)
+    return file_row, attempts
+
+
+def _metadata_row(session: Session, file_id: int) -> Metadata:
+    row = session.exec(select(Metadata).where(Metadata.file_id == file_id)).first()
+    if row is None:
+        row = Metadata(file_id=file_id)
+        session.add(row)
+    return row
+
+
+def _fail(
+    attempt: records.DerivativeAttempt,
+    reason: str,
+    *,
+    deterministic: bool,
+    duration_ms: int | None = None,
+    peak_rss_bytes: int | None = None,
+    withdraw_geometry: bool = False,
+) -> None:
+    with get_session_factory().scoped_session() as session:
+        records.mark_failed(
+            session,
+            attempt,
+            reason,
+            now=utcnow(),
+            deterministic=deterministic,
+            duration_ms=duration_ms,
+            peak_rss_bytes=peak_rss_bytes,
+        )
+        if withdraw_geometry:
+            # mark_failed claims the current attempt, source, recipe and execution
+            # before withdrawing facts from the previous parser in this transaction.
+            meta = _metadata_row(session, attempt.file_id)
+            _apply_measurements(meta, MeshMeasurements.unavailable())
+            session.add(meta)
+        session.commit()
+
+
+def _apply_measurements(meta: Metadata, measurements: MeshMeasurements) -> None:
+    meta.bbox_x_mm = measurements.geometry.get("bbox_x_mm")
+    meta.bbox_y_mm = measurements.geometry.get("bbox_y_mm")
+    meta.bbox_z_mm = measurements.geometry.get("bbox_z_mm")
+    count = measurements.geometry.get("triangle_count")
+    meta.triangle_count = cast(int | None, count)
+    apply_volume(meta, measurements.volume)
+
+
+def _publish_thumbnail(
+    file_row: File,
+    image: bytes,
+    *,
+    attempt: records.DerivativeAttempt,
+    normalize: bool,
+    strategy: str,
+    complete: bool,
+    duration_ms: int | None = None,
+    peak_rss_bytes: int | None = None,
+    abort_on_failure: bool = False,
+) -> DerivativeState:
+    assert file_row.id is not None
+    try:
+        encoded = thumbnail.to_webp(image, normalize=normalize)
+    except ValueError:
+        _fail(
+            attempt,
+            "invalid_source",
+            deterministic=True,
+        )
+        if abort_on_failure:
+            raise
+        return DerivativeState.FAILED
+    backend = get_backend()
+    with get_session_factory().scoped_session() as session:
+        try:
+            prepared = prepare_thumbnail(
+                session,
+                backend,
+                file_row,
+                encoded,
+                recipe_tag=f"{DerivativeKind.THUMBNAIL}:{attempt.recipe}:{attempt.token}:w{settings.model_thumbnail_width}",
+            )
+        except ThumbnailPublicationError, OperationError, OSError:
+            session.rollback()
+            logger.exception(
+                "thumbnail publication failed", extra={"file_id": file_row.id}
+            )
+            _fail(
+                attempt,
+                "storage",
+                deterministic=False,
+            )
+            if abort_on_failure:
+                raise
+            return DerivativeState.FAILED
+        published = prepared.published
+        fresh = records.mark_ready(
+            session,
+            attempt,
+            now=utcnow(),
+            storage_key=published.key,
+            output={
+                "sha256": published.sha256,
+                "size": published.size,
+                "etag": published.etag,
+                "width": int(settings.model_thumbnail_width),
+                "height": round(int(settings.model_thumbnail_width) * 3 / 4),
+                "strategy": strategy,
+                "complete": complete,
+            },
+            duration_ms=duration_ms,
+            peak_rss_bytes=peak_rss_bytes,
+        )
+        point_at(session, fresh, published.key)
+        session.flush()
+        adopt_thumbnail(session, prepared)
+        session.commit()
+    return DerivativeState.READY
+
+
+def _thumbnail_failure(
+    attempt: records.DerivativeAttempt, reason: str | None
+) -> DerivativeState:
+    value = reason or ThumbnailFailureReason.RENDERER_NO_OUTPUT.value
+    _fail(
+        attempt,
+        value,
+        deterministic=value in _DETERMINISTIC,
+    )
+    return DerivativeState.FAILED
+
+
+def _derive_mesh(file_id: int, *, execution: JobExecution | None = None) -> Outcome:
+    """Publish each fenced basic output before optional fingerprint completion."""
+    from app.modules.ingestion.extensions import extraction_options
+    from app.modules.media.fingerprints import ALGORITHM_VERSION
+    from app.modules.media.mesh_facts import FingerprintFailureCode
+    from app.modules.media.mesh_protocol import (
+        BasicOutput,
+        GeometryOutput,
+        ThumbnailOutput,
+    )
+
+    from . import mesh_continuations
+    from .mesh_continuation_values import FingerprintPlan
+
+    begun = _begin(file_id, JobKind.DERIVATIVES_MESH, execution=execution)
+    if begun is None:
+        return Outcome({})
+    file_row, attempts = begun
+    outcome: dict[DerivativeKind, DerivativeState] = {}
+    options = extraction_options(get_session_factory())
+    plan = (
+        FingerprintPlan(
+            ALGORITHM_VERSION, options.get("triangle_cap", MAX_ANALYSIS_FACES)
+        )
+        if options.get("include_fingerprint", False)
+        else None
+    )
+    with get_session_factory().scoped_session() as session:
+        pending = mesh_continuations.resume(
+            session, file_row, plan, execution=execution
+        )
+        session.commit()
+    if not attempts and pending is None:
+        return Outcome(outcome)
+
+    def published(kind: DerivativeKind, state: DerivativeState) -> None:
+        outcome[kind] = state
+        # Output ownership is already durable. Realtime delivery remains best effort.
+        try:
+            _announce(file_row, Outcome({kind: state}))
+        except Exception:  # noqa: BLE001 - a delivery failure cannot undo READY
+            logger.warning(
+                "mesh output notice failed", extra={"file_id": file_id, "kind": kind}
+            )
+
+    def publish(frame: BasicOutput) -> None:
+        nonlocal pending
+        if isinstance(frame, GeometryOutput):
+            kind = DerivativeKind.METADATA
+            if kind not in attempts or kind in outcome:
+                raise ValueError("unexpected_mesh_geometry_output")
+            authority = attempts[kind]
+            with get_session_factory().scoped_session() as session:
+                if plan is not None:
+                    pending = mesh_continuations.create(session, authority, plan)
+                if isinstance(frame.outcome, GeometryReady):
+                    records.mark_ready(
+                        session,
+                        authority,
+                        now=utcnow(),
+                        output={"triangle_count": frame.geometry["triangle_count"]},
+                        duration_ms=frame.duration_ms,
+                        peak_rss_bytes=frame.peak_rss_bytes,
+                    )
+                    meta = _metadata_row(session, file_id)
+                    _apply_measurements(
+                        meta, MeshMeasurements(frame.geometry, frame.volume)
+                    )
+                    session.add(meta)
+                    state = DerivativeState.READY
+                else:
+                    reason = frame.outcome.reason
+                    records.mark_failed(
+                        session,
+                        authority,
+                        reason.value,
+                        now=utcnow(),
+                        deterministic=reason.value in _DETERMINISTIC,
+                        duration_ms=frame.duration_ms,
+                        peak_rss_bytes=frame.peak_rss_bytes,
+                    )
+                    if reason is ThumbnailFailureReason.UNSUPPORTED_CAPABILITY:
+                        meta = _metadata_row(session, file_id)
+                        _apply_measurements(meta, MeshMeasurements.unavailable())
+                        session.add(meta)
+                    state = DerivativeState.FAILED
+                session.commit()
+            published(kind, state)
+        elif isinstance(frame, ThumbnailOutput):
+            kind = DerivativeKind.THUMBNAIL
+            if kind not in attempts or kind in outcome:
+                raise ValueError("unexpected_mesh_thumbnail_output")
+            state = (
+                _thumbnail_failure(
+                    attempts[kind],
+                    frame.failure_reason.value if frame.failure_reason else None,
+                )
+                if frame.image is None
+                else _publish_thumbnail(
+                    file_row,
+                    frame.image,
+                    attempt=attempts[kind],
+                    normalize=True,
+                    strategy=frame.strategy.value,
+                    complete=frame.coverage.preview
+                    in (PreviewCoverage.COMPLETE, PreviewCoverage.DOCUMENT_SUPPLIED),
+                    duration_ms=frame.duration_ms,
+                    peak_rss_bytes=frame.peak_rss_bytes,
+                    abort_on_failure=True,
+                )
+            )
+            published(kind, state)
+        else:
+            raise TypeError("unknown_mesh_basic_output")
+
+    try:
+        with ExitStack() as stack:
+            prepared = stack.enter_context(reserve_sources((resolve(file_row),)))
+            claim = CapacityManager(get_session_factory()).reserve(
+                f"derive:mesh:{file_id}:{time.monotonic_ns()}",
+                [
+                    CapacityResource.for_path(
+                        prepared.directory,
+                        file_row.size_bytes * 2,
+                        role="mesh source preparation",
+                    ),
+                    CapacityResource.for_path(
+                        Path(tempfile.gettempdir()),
+                        file_row.size_bytes * 3 + 16 * 1024**2,
+                        role="thumbnail rendering",
+                    ),
+                ],
+            )
+            stack.callback(claim.release)
+            (source,) = stack.enter_context(prepared.materialize(capacity_claimed=True))
+            result = mesh_isolation.generate(
+                ThumbnailRequest(
+                    path=source,
+                    file_type=file_row.file_type.value,
+                    include_geometry=DerivativeKind.METADATA in attempts,
+                    include_thumbnail=DerivativeKind.THUMBNAIL in attempts,
+                    reason="derivative",
+                    output_format="WEBP",
+                    include_fingerprint=plan is not None
+                    and (DerivativeKind.METADATA in attempts or pending is not None),
+                    triangle_cap=plan.triangle_cap
+                    if plan is not None
+                    else MAX_ANALYSIS_FACES,
+                ),
+                on_output=publish,
+            )
+            if result.fingerprint_result is not None:
+                if pending is None:
+                    raise RuntimeError("fingerprint_completion_without_pending_input")
+                try:
+                    with get_session_factory().scoped_session() as session:
+                        mesh_continuations.complete(
+                            session, pending, result.fingerprint_result
+                        )
+                        session.commit()
+                except records.AttemptSuperseded:
+                    raise
+                except Exception:  # noqa: BLE001 - basics are already durable
+                    logger.exception(
+                        "fingerprint publication failed", extra={"file_id": file_id}
+                    )
+                    with get_session_factory().scoped_session() as session:
+                        mesh_continuations.defer(
+                            session, pending, FingerprintFailureCode.WORKER_FAILED
+                        )
+                        session.commit()
+    except records.AttemptSuperseded:
+        return Outcome(outcome)
+    except (ArtifactContentError, MeshWorkerError, AdmissionTooLarge) as exc:
+        reason = (
+            ThumbnailFailureReason.RESOURCE_LIMIT.value
+            if isinstance(exc, AdmissionTooLarge)
+            else exc.reason.value
+            if isinstance(exc, MeshWorkerError)
+            else "invalid_source"
+        )
+        logger.warning(
+            "mesh derivation failed in its worker",
+            extra={"file_id": file_id, "reason": reason},
+        )
+        for kind, authority in attempts.items():
+            if kind in outcome:
+                continue
+            try:
+                _fail(
+                    authority,
+                    reason,
+                    deterministic=isinstance(exc, MeshWorkerError | AdmissionTooLarge)
+                    and reason in _DETERMINISTIC,
+                )
+            except records.AttemptSuperseded:
+                break
+            published(kind, DerivativeState.FAILED)
+        if pending is not None:
+            failure_code = (
+                FingerprintFailureCode.TIMEOUT
+                if reason == ThumbnailFailureReason.TIMEOUT.value
+                else FingerprintFailureCode.RESOURCE_LIMIT
+                if reason == ThumbnailFailureReason.RESOURCE_LIMIT.value
+                else FingerprintFailureCode.SOURCE_UNAVAILABLE
+                if isinstance(exc, ArtifactContentError)
+                else FingerprintFailureCode.WORKER_FAILED
+            )
+            try:
+                with get_session_factory().scoped_session() as session:
+                    mesh_continuations.defer(session, pending, failure_code)
+                    session.commit()
+            except records.AttemptSuperseded:
+                pass
+    return Outcome(outcome)
+
+
+def _replace_material_requirements(
+    session: Session, file_id: int, requirements: Any
+) -> None:
+    session.execute(
+        delete(ArtifactMaterialRequirement).where(
+            ArtifactMaterialRequirement.file_id == file_id  # type: ignore[arg-type]
+        )
+    )
+    if not isinstance(requirements, list):
+        return
+    for requirement in requirements:
+        if not isinstance(requirement, dict):
+            continue
+        material_type = requirement.get("material_type")
+        if not isinstance(material_type, str) or not material_type.strip():
+            continue
+        session.add(
+            ArtifactMaterialRequirement(
+                file_id=file_id,
+                tool_index=int(requirement.get("tool_index") or 0),
+                material_type=material_type.strip(),
+                color_hex=requirement.get("color_hex"),
+            )
+        )
+
+
+def _derive_gcode(file_id: int, *, execution: JobExecution | None = None) -> Outcome:
+    """Slicer metadata and the embedded thumbnail from one header read."""
+    begun = _begin(file_id, JobKind.DERIVATIVES_GCODE, execution=execution)
+    if begun is None:
+        return Outcome({})
+    file_row, attempts = begun
+    needed = attempts.keys()
+    outcome: dict[DerivativeKind, DerivativeState] = {}
+    if not needed:
+        return Outcome(outcome)
+    started = time.monotonic()
+    meta: dict[str, Any] = {}
+    image: bytes | None = None
+    try:
+        with resolve(file_row).materialize() as source:
+            if DerivativeKind.METADATA in needed:
+                meta = gcode_parser.parse(source)
+            if DerivativeKind.THUMBNAIL in needed:
+                image = thumbnail.extract(source)
+    except ArtifactContentError:
+        for kind in needed:
+            _fail(attempts[kind], "invalid_source", deterministic=False)
+            outcome[kind] = DerivativeState.FAILED
+        return Outcome(outcome)
+    duration_ms = int((time.monotonic() - started) * 1000)
+
+    if DerivativeKind.METADATA in needed:
+        from app.modules.printing.profile_detection import upsert_detected_profiles
+
+        with get_session_factory().scoped_session() as session:
+            records.mark_ready(
+                session,
+                attempts[DerivativeKind.METADATA],
+                now=utcnow(),
+                output={"slicer": meta.get("slicer_name")},
+                duration_ms=duration_ms,
+            )
+            row = _metadata_row(session, file_id)
+            apply_volume(
+                row, VolumeNotCalculated(VolumeNotCalculatedCause.NOT_APPLICABLE)
+            )
+            for name, value in meta.items():
+                if name in Metadata.model_fields and name not in {
+                    "id",
+                    "file_id",
+                    "created_at",
+                }:
+                    setattr(row, name, value)
+            session.add(row)
+            _replace_material_requirements(
+                session, file_id, meta.get("material_requirements")
+            )
+            session.commit()
+            try:
+                upsert_detected_profiles(session, meta)
+            except Exception:  # noqa: BLE001 - a detected profile is optional
+                session.rollback()
+                logger.exception("profile detection failed", extra={"file_id": file_id})
+        outcome[DerivativeKind.METADATA] = DerivativeState.READY
+
+    try:
+        if DerivativeKind.THUMBNAIL in needed:
+            if image is None:
+                with get_session_factory().scoped_session() as session:
+                    records.mark_skipped(
+                        session,
+                        attempts[DerivativeKind.THUMBNAIL],
+                        "no_embedded_thumbnail",
+                        now=utcnow(),
+                    )
+                    session.commit()
+                outcome[DerivativeKind.THUMBNAIL] = DerivativeState.SKIPPED
+            else:
+                outcome[DerivativeKind.THUMBNAIL] = _publish_thumbnail(
+                    file_row,
+                    image,
+                    attempt=attempts[DerivativeKind.THUMBNAIL],
+                    normalize=False,
+                    strategy="embedded",
+                    complete=True,
+                    duration_ms=duration_ms,
+                )
+    except records.AttemptSuperseded:
+        # Earlier kinds committed independently and still deserve their notice.
+        pass
+    return Outcome(outcome)
+
+
+def _derive_toolpath(file_id: int, *, execution: JobExecution | None = None) -> Outcome:
+    """A converted ASCII toolpath for a binary G-code Artifact."""
+    from app.modules.media import toolpath
+
+    begun = _begin(file_id, JobKind.DERIVATIVES_TOOLPATH, execution=execution)
+    if begun is None:
+        return Outcome({})
+    file_row, attempts = begun
+    needed = attempts.keys()
+    recipe = group(JobKind.DERIVATIVES_TOOLPATH).kinds[DerivativeKind.TOOLPATH]
+    if DerivativeKind.TOOLPATH not in needed:
+        return Outcome({})
+    started = time.monotonic()
+    with tempfile.TemporaryDirectory(prefix="printstash-toolpath-") as directory:
+        try:
+            output = toolpath.convert(file_row, Path(directory))
+        except OperationError as exc:
+            deterministic = exc.kind.value in {
+                "unprocessable",
+                "too_large",
+                "not_found",
+            }
+            _fail(
+                attempts[DerivativeKind.TOOLPATH],
+                exc.code,
+                deterministic=deterministic,
+            )
+            return Outcome({DerivativeKind.TOOLPATH: DerivativeState.FAILED})
+        except ArtifactContentError:
+            _fail(
+                attempts[DerivativeKind.TOOLPATH],
+                "invalid_source",
+                deterministic=False,
+            )
+            return Outcome({DerivativeKind.TOOLPATH: DerivativeState.FAILED})
+        backend = get_backend()
+        key = backend.blob_key(
+            "_derivatives",
+            0,
+            f"{file_row.sha256}-toolpath-r{recipe}-{attempts[DerivativeKind.TOOLPATH].token}.gcode",
+        )
+        with get_session_factory().scoped_session() as session:
+            candidate = prepare_file(
+                session,
+                backend,
+                key,
+                output,
+                object_kind="toolpath",
+                sha256=None,
+                move=True,
+            )
+            receipt = candidate.receipt
+            records.mark_ready(
+                session,
+                attempts[DerivativeKind.TOOLPATH],
+                now=utcnow(),
+                storage_key=receipt.key,
+                output={"size": receipt.size},
+                duration_ms=int((time.monotonic() - started) * 1000),
+            )
+            session.flush()
+            adopt_publication(session, candidate)
+            session.commit()
+    return Outcome({DerivativeKind.TOOLPATH: DerivativeState.READY})
+
+
+def _announced(produce):
+    def run(file_id: int, *, execution: JobExecution | None = None) -> Outcome:
+        try:
+            outcome = produce(file_id, execution=execution)
+        except records.AttemptSuperseded:
+            # A newer intent owns the row. The scoped session rolled back all
+            # output SQL, retaining durable byte receipts for reconciliation.
+            return Outcome({})
+        if outcome.kinds:
+            with get_session_factory().scoped_session() as session:
+                file_row = session.get(File, file_id)
+                if file_row is not None:
+                    session.expunge(file_row)
+            if file_row is not None:
+                _announce(file_row, outcome)
+        return outcome
+
+    run.__doc__ = produce.__doc__
+    return run
+
+
+def derive_mesh(file_id: int, *, execution: JobExecution | None = None) -> Outcome:
+    try:
+        return _derive_mesh(file_id, execution=execution)
+    except records.AttemptSuperseded:
+        return Outcome({})
+
+
+derive_gcode = _announced(_derive_gcode)
+derive_toolpath = _announced(_derive_toolpath)
+
+
+def _derive_viewer_stl(
+    file_id: int, *, execution: JobExecution | None = None
+) -> Outcome:
+    begun = _begin(file_id, JobKind.DERIVATIVES_VIEWER_STL, execution=execution)
+    if begun is None or DerivativeKind.VIEWER_STL not in begun[1]:
+        return Outcome({})
+    file, attempts = begun
+    attempt = attempts[DerivativeKind.VIEWER_STL]
+    started = time.monotonic()
+
+    def failed(reason: ThumbnailFailureReason, *, deterministic: bool) -> Outcome:
+        _fail(
+            attempt,
+            reason.value,
+            deterministic=deterministic,
+            duration_ms=int((time.monotonic() - started) * 1000),
+        )
+        return Outcome({DerivativeKind.VIEWER_STL: DerivativeState.FAILED})
+
+    def require_current_execution() -> None:
+        checkpoint(force=True)
+        if execution is not None:
+            with get_session_factory().scoped_session() as session:
+                records.require_execution(session, execution)
+
+    output_limit = stl_isolation.MAX_STL_BYTES
+    try:
+        with (
+            reserve_sources((resolve(file),), output_bytes=output_limit) as prepared,
+            CapacityManager(get_session_factory()).hold(
+                f"derive:viewer-stl:{file_id}:{time.monotonic_ns()}",
+                [
+                    CapacityResource.for_path(
+                        prepared.directory,
+                        file.size_bytes * 2 + output_limit,
+                        role="mesh source preparation and conversion",
+                    ),
+                    vault_allocation(output_limit, role="derived STL publication"),
+                ],
+            ),
+            prepared.materialize(capacity_claimed=True) as sources,
+        ):
+            (source,) = sources
+            require_current_execution()
+            with stl_isolation.prepare_stl(
+                source,
+                file_type=file.file_type.value,
+                expected_sha256=file.sha256,
+                workspace=prepared.directory,
+            ) as output:
+                require_current_execution()
+                backend = get_backend()
+                key = backend.blob_key(
+                    "_derivatives",
+                    0,
+                    f"{file.sha256}-viewer-stl-r{attempt.recipe}-{attempt.token}.stl",
+                )
+                with get_session_factory().scoped_session() as session:
+                    candidate = prepare_stream(
+                        session,
+                        backend,
+                        key,
+                        output.stream,
+                        expected_size=output.size,
+                        sha256=output.sha256,
+                        object_kind="viewer_stl",
+                    )
+                    receipt = candidate.receipt
+                    output.verify()
+                    if receipt.size != output.size:
+                        raise MeshWorkerError(ThumbnailFailureReason.STORAGE)
+                    records.mark_ready(
+                        session,
+                        attempt,
+                        now=utcnow(),
+                        storage_key=receipt.key,
+                        output={"size": receipt.size},
+                        duration_ms=int((time.monotonic() - started) * 1000),
+                    )
+                    session.flush()
+                    adopt_publication(session, candidate)
+                    session.commit()
+    except (MeshWorkerError, AdmissionTooLarge) as exc:
+        reason = (
+            ThumbnailFailureReason.RESOURCE_LIMIT
+            if isinstance(exc, AdmissionTooLarge)
+            else exc.reason
+        )
+        return failed(
+            reason,
+            deterministic=reason
+            in {
+                ThumbnailFailureReason.RESOURCE_LIMIT,
+                ThumbnailFailureReason.INVALID_SOURCE,
+                ThumbnailFailureReason.UNSUPPORTED_FORMAT,
+                ThumbnailFailureReason.UNSUPPORTED_CAPABILITY,
+                ThumbnailFailureReason.NO_GEOMETRY,
+            },
+        )
+    except ArtifactContentError:
+        return failed(ThumbnailFailureReason.INVALID_SOURCE, deterministic=True)
+    except OSError, StorageCollisionError:
+        return failed(ThumbnailFailureReason.STORAGE, deterministic=False)
+    return Outcome({DerivativeKind.VIEWER_STL: DerivativeState.READY})
+
+
+derive_viewer_stl = _announced(_derive_viewer_stl)

@@ -1,0 +1,582 @@
+"""
+AI Critique router — rule-based and VLM-powered score explanations.
+
+Provides per-photo analysis: score breakdown, strengths, weaknesses, suggestions.
+"""
+
+import asyncio
+import json
+import logging
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+
+from api.auth import CurrentUser, get_optional_user, is_edition_authenticated
+from api.config import VIEWER_CONFIG, _FULL_CONFIG
+from api.database import get_async_db
+from api.db_helpers import get_existing_columns, get_visibility_clause
+from api.models.media import MediaCritiqueResponse
+from api.model_cache import (
+    get_or_load_vlm_tagger,
+    resolve_vlm_config,
+    translate_text,
+    translation_target,
+    vlm_generate_lock,
+)
+
+router = APIRouter(tags=["critique"])
+logger = logging.getLogger(__name__)
+
+# Score thresholds for strength/weakness classification
+_STRENGTH_THRESHOLD = 7.5
+_WEAKNESS_THRESHOLD = 5.0
+# Noise thresholds
+_NOISE_CLEAN_THRESHOLD = 3.0
+_NOISE_HIGH_THRESHOLD = 8.0
+_NOISE_PENALTY_THRESHOLD = 4.0
+
+# Metric labels for human-readable output
+METRIC_LABELS = {
+    'aesthetic': 'Aesthetic Quality',
+    'tech_sharpness': 'Technical Sharpness',
+    'face_quality': 'Face Quality',
+    'eye_sharpness': 'Eye Sharpness',
+    'face_sharpness': 'Face Sharpness',
+    'comp_score': 'Composition',
+    'exposure_score': 'Exposure',
+    'color_score': 'Color',
+    'contrast_score': 'Contrast',
+    'isolation_bonus': 'Subject Isolation',
+    'noise_sigma': 'Noise Level',
+    'dynamic_range_stops': 'Dynamic Range',
+    'leading_lines_score': 'Leading Lines',
+    'power_point_score': 'Power Points',
+    'aesthetic_iaa': 'Aesthetic (IAA)',
+    'face_quality_iqa': 'Face Quality (IQA)',
+    'liqe_score': 'LIQE Quality',
+    'subject_sharpness': 'Subject Sharpness',
+    'subject_prominence': 'Subject Prominence',
+    'subject_placement': 'Subject Placement',
+    'bg_separation': 'Background Separation',
+    'mean_saturation': 'Saturation',
+    'mean_luminance': 'Luminance',
+    'form_symmetry': 'Symmetry',
+    'form_balance': 'Visual Balance',
+    'form_edge_entropy': 'Edge Entropy',
+    'form_fractal': 'Fractal Complexity',
+    'color_harmony': 'Color Harmony',
+}
+
+# Map config weight keys to DB column names
+WEIGHT_TO_COLUMN = {
+    'aesthetic': 'aesthetic',
+    'quality': 'quality_score',
+    'face_quality': 'face_quality',
+    'face_sharpness': 'face_sharpness',
+    'eye_sharpness': 'eye_sharpness',
+    'tech_sharpness': 'tech_sharpness',
+    'composition': 'comp_score',
+    'exposure': 'exposure_score',
+    'color': 'color_score',
+    'contrast': 'contrast_score',
+    'isolation': 'isolation_bonus',
+    'dynamic_range': 'dynamic_range_stops',
+    'leading_lines': 'leading_lines_score',
+    'power_point': 'power_point_score',
+    'aesthetic_iaa': 'aesthetic_iaa',
+    'face_quality_iqa': 'face_quality_iqa',
+    'liqe': 'liqe_score',
+    'subject_sharpness': 'subject_sharpness',
+    'subject_prominence': 'subject_prominence',
+    'subject_placement': 'subject_placement',
+    'bg_separation': 'bg_separation',
+    'noise': 'noise_sigma',
+    'saturation': 'mean_saturation',
+    'symmetry': 'form_symmetry',
+    'balance': 'form_balance',
+    'edge_entropy': 'form_edge_entropy',
+    'fractal': 'form_fractal',
+    'color_harmony': 'color_harmony',
+}
+
+# Suggestions keyed by metric name (low score triggers these)
+SUGGESTIONS = {
+    'aesthetic': 'Consider stronger visual impact through better lighting or subject matter',
+    'tech_sharpness': 'Use a faster shutter speed or tripod to improve sharpness',
+    'face_quality': 'Ensure the face is well-lit and in focus',
+    'eye_sharpness': 'Focus precisely on the eyes for portraits',
+    'face_sharpness': 'Ensure the face region is sharp — avoid motion blur',
+    'comp_score': 'Try applying compositional rules like rule of thirds or leading lines',
+    'exposure_score': 'Adjust exposure to avoid clipping highlights or crushing shadows',
+    'color_score': 'Consider white balance correction or more vibrant color grading',
+    'contrast_score': 'Increase tonal contrast for more visual depth',
+    'noise_sigma': 'Use a lower ISO or apply noise reduction',
+    'dynamic_range_stops': 'Bracket exposures or use graduated filters for better dynamic range',
+    'leading_lines_score': 'Look for natural lines that draw the eye into the frame',
+    'subject_sharpness': 'Ensure your main subject is the sharpest element in the frame',
+    'subject_prominence': 'Give the subject more frame space or use a shallower depth of field',
+    'bg_separation': 'Use wider aperture or greater distance to separate subject from background',
+    'liqe_score': 'Improve overall image quality — check for distortions or artifacts',
+    'isolation_bonus': 'Use wider aperture to better isolate the subject from background',
+    'form_symmetry': 'Center the subject or align strong shapes to balance the left and right halves of the frame',
+    'form_balance': 'Recompose so the visual weight sits closer to the frame center or a balanced thirds position',
+    'form_edge_entropy': 'Add more varied lines and textures — the dominant edges all run in the same direction',
+    'form_fractal': 'Include richer detail or texture — the frame reads as visually sparse',
+    'color_harmony': 'Adjust the palette toward a harmonic hue scheme such as complementary or analogous colors',
+}
+
+
+def _build_category_trail(photo, matched_category, sc):
+    """Build list of interesting rejected categories evaluated before the match.
+
+    Only includes categories where the rejection is non-trivial (not just
+    'no matching tags for a tag-only category').
+    """
+    from config.category_filter import CategoryFilter
+
+    rejected = []
+    for cat in sc.get_categories():
+        name = cat.get('name')
+        if name == matched_category:
+            break
+
+        filters = cat.get('filters', {})
+        if not filters:
+            continue
+
+        cf = CategoryFilter(filters)
+        mismatch = cf.explain_mismatch(photo)
+        if mismatch is None:
+            continue
+
+        # Skip trivially irrelevant tag-only categories: if the only filters
+        # are tag-related and none of the required tags appear in the photo
+        filter_keys = set(filters.keys()) - {'tag_match_mode'}
+        is_tag_only = filter_keys <= {'required_tags', 'excluded_tags'}
+        if is_tag_only and mismatch['key'] == 'required_tags' and not mismatch.get('actual'):
+            continue
+
+        rejected.append({'category': name, 'mismatch': mismatch})
+        if len(rejected) >= 5:
+            break
+
+    return rejected
+
+
+def _build_category_reason(photo, category, sc):
+    """Build structured category reason for i18n on the frontend."""
+    cat_config = sc.get_category_config(category)
+    if not cat_config:
+        return {'reason_key': 'default', 'category': category or 'default', 'details': [], 'rejected': []}
+
+    filters = cat_config.get('filters', {})
+    details = []
+
+    if 'face_ratio_min' in filters and photo.get('face_ratio'):
+        details.append({
+            'key': 'face_ratio',
+            'value': round(photo['face_ratio'], 2),
+            'threshold': filters['face_ratio_min'],
+        })
+    if 'face_count_min' in filters and photo.get('face_count'):
+        details.append({
+            'key': 'face_count',
+            'value': photo['face_count'],
+            'threshold': filters['face_count_min'],
+        })
+    if filters.get('is_monochrome') and photo.get('is_monochrome'):
+        details.append({'key': 'monochrome'})
+    if filters.get('is_silhouette') and photo.get('is_silhouette'):
+        details.append({'key': 'silhouette'})
+    if filters.get('required_tags'):
+        tags = photo.get('tags', '') or ''
+        matched = [t for t in filters['required_tags'] if t in tags]
+        if matched:
+            details.append({'key': 'tags', 'tags': matched})
+    if 'luminance_max' in filters and photo.get('mean_luminance') is not None:
+        details.append({
+            'key': 'luminance',
+            'value': round(photo['mean_luminance'], 2),
+            'threshold': filters['luminance_max'],
+        })
+    if 'shutter_speed_min' in filters and photo.get('shutter_speed'):
+        details.append({'key': 'long_exposure'})
+
+    rejected = _build_category_trail(photo, category, sc)
+
+    return {
+        'reason_key': 'matched' if details else 'matched_generic',
+        'category': category,
+        'details': details,
+        'rejected': rejected,
+    }
+
+
+def _calculate_breakdown(photo, sc, category):
+    """Calculate score breakdown from photo metrics and category weights.
+
+    Returns a sorted list of score contributions with metric details.
+    """
+    weights = sc.get_weights(category)
+    if not weights:
+        weights = sc.get_weights('')
+
+    breakdown = []
+
+    for weight_key, weight_val in weights.items():
+        if weight_key in ('bonus', 'blink_penalty', 'noise_tolerance_multiplier',
+                          'noise_penalty_max', 'noise_threshold', 'score_min', 'score_max',
+                          'bimodality_threshold', 'bimodality_penalty',
+                          'oversaturation_threshold', 'oversaturation_penalty',
+                          'clipping_multiplier', 'noise_penalty_rate'):
+            continue
+
+        col = WEIGHT_TO_COLUMN.get(weight_key)
+        if not col or weight_val <= 0:
+            continue
+
+        value = photo.get(col)
+        if value is None:
+            continue
+
+        display_value = float(value)
+        contribution = display_value * weight_val
+
+        breakdown.append({
+            'metric': METRIC_LABELS.get(col, weight_key),
+            'metric_key': col,
+            'value': round(display_value, 2),
+            'weight': round(weight_val, 3),
+            'contribution': round(contribution, 2),
+        })
+
+    breakdown.sort(key=lambda x: x['contribution'], reverse=True)
+    return breakdown
+
+
+def _identify_strengths_weaknesses(breakdown):
+    """Identify strengths and weaknesses from a score breakdown.
+
+    Returns a (strengths, weaknesses, suggestions) tuple. Strengths and weaknesses
+    are lists of dicts with metric_key and value; suggestions is a list of metric keys.
+    """
+    strengths = []
+    weaknesses = []
+    suggestions = []
+
+    for item in breakdown:
+        val = item['value']
+        metric_key = item['metric_key']
+
+        # Noise is inverted -- high noise_sigma is bad
+        if metric_key == 'noise_sigma':
+            if val < _NOISE_CLEAN_THRESHOLD:
+                strengths.append({'metric_key': metric_key, 'value': round(val, 1)})
+            elif val > _NOISE_HIGH_THRESHOLD:
+                weaknesses.append({'metric_key': metric_key, 'value': round(val, 1)})
+                if metric_key in SUGGESTIONS:
+                    suggestions.append(metric_key)
+        elif metric_key in ('mean_saturation', 'mean_luminance'):
+            continue  # Not meaningful as strengths/weaknesses
+        else:
+            if val >= _STRENGTH_THRESHOLD:
+                strengths.append({'metric_key': metric_key, 'value': round(val, 1)})
+            elif val < _WEAKNESS_THRESHOLD and item['weight'] > 0.05:
+                weaknesses.append({'metric_key': metric_key, 'value': round(val, 1)})
+                if metric_key in SUGGESTIONS:
+                    suggestions.append(metric_key)
+
+    return strengths, weaknesses, suggestions
+
+
+def _check_penalties(photo):
+    """Check for scoring penalties (blink, noise, clipping, skin-tone cast).
+
+    Returns a dict of penalty names to values. The skin-tone entry is advisory
+    (it never enters the aggregate) and surfaces whenever the stored worst-face
+    cast is present: ``compute_photo_skin_tone`` already applied the configured
+    ``cast_delta_threshold`` once at recompute time (``skin_tone_cast`` is NULL
+    below it), so the stored decision is trusted here rather than re-gated.
+    """
+    penalties = {}
+    if photo.get('is_blink'):
+        penalties['blink'] = True
+    if photo.get('noise_sigma') and photo['noise_sigma'] > _NOISE_PENALTY_THRESHOLD:
+        noise_penalty = min(1.5, max(0, (photo['noise_sigma'] - _NOISE_PENALTY_THRESHOLD) * 0.3))
+        if noise_penalty > 0:
+            penalties['noise'] = round(-noise_penalty, 2)
+    if photo.get('highlight_clipped') and photo['highlight_clipped'] > 0:
+        penalties['highlight_clipping'] = round(-photo['highlight_clipped'] * 1.0, 2)
+    if photo.get('shadow_clipped') and photo['shadow_clipped'] > 0:
+        penalties['shadow_clipping'] = round(-photo['shadow_clipped'] * 0.5, 2)
+    skin_delta = photo.get('skin_tone_delta')
+    if skin_delta is not None and photo.get('skin_tone_cast'):
+        penalties['skin_tone'] = {
+            'cast': photo['skin_tone_cast'],
+            'delta': round(float(skin_delta), 1),
+        }
+    return penalties
+
+
+def _parse_distortions(raw):
+    """Attribute keys from the stored distortion_attributes JSON column."""
+    if not raw:
+        return []
+    try:
+        entries = json.loads(raw)
+    except (ValueError, TypeError):
+        return []
+    if not isinstance(entries, list):
+        return []
+    return [e['attribute'] for e in entries if isinstance(e, dict) and e.get('attribute')]
+
+
+def _build_rule_critique(photo):
+    """Build a rule-based critique from stored metrics."""
+    from api.config import server_scoring_config
+
+    sc = server_scoring_config()
+    category = photo.get('category', '')
+
+    breakdown = _calculate_breakdown(photo, sc, category)
+    strengths, weaknesses, suggestions = _identify_strengths_weaknesses(breakdown)
+    penalties = _check_penalties(photo)
+    category_reason = _build_category_reason(photo, category, sc)
+
+    return {
+        'category': category or 'default',
+        'category_reason': category_reason,
+        'aggregate': photo.get('aggregate'),
+        'breakdown': breakdown,
+        'strengths': sorted(strengths, key=lambda x: x['value'], reverse=True)[:5],
+        'weaknesses': sorted(weaknesses, key=lambda x: x['value'])[:5],
+        'suggestions': suggestions[:3],
+        'penalties': penalties,
+        'distortions': _parse_distortions(photo.get('distortion_attributes')),
+    }
+
+
+@router.get("/api/critique", response_model=MediaCritiqueResponse, response_model_exclude_unset=True)
+async def api_critique(
+    path: str = Query(...),
+    mode: str = Query("rule"),
+    lang: Optional[str] = Query(None),
+    refresh: bool = Query(False),
+    user: Optional[CurrentUser] = Depends(get_optional_user),
+):
+    """Get AI critique for a photo's score.
+
+    Modes:
+      - rule: Fast rule-based analysis (always available)
+      - vlm: VLM-powered natural language critique (requires GPU + a profile
+        with a VLM tagging model). The generated text is cached per photo;
+        ``refresh=true`` regenerates it. When ``lang`` matches the configured
+        ``translation.target_language``, the critique is translated.
+    """
+    if not VIEWER_CONFIG.get('features', {}).get('show_critique', True):
+        raise HTTPException(status_code=403, detail="Critique feature is disabled")
+
+    async with get_async_db() as conn:
+        user_id = user.user_id if user else None
+        vis_sql, vis_params = get_visibility_clause(user_id)
+
+        # Select only columns needed for critique (avoid loading BLOB fields)
+        critique_cols = [
+            'path', 'category', 'aggregate', 'aesthetic', 'tech_sharpness',
+            'face_quality', 'eye_sharpness', 'face_sharpness', 'comp_score',
+            'exposure_score', 'color_score', 'contrast_score', 'isolation_bonus',
+            'noise_sigma', 'dynamic_range_stops', 'leading_lines_score',
+            'power_point_score', 'aesthetic_iaa', 'face_quality_iqa', 'liqe_score',
+            'subject_sharpness', 'subject_prominence', 'subject_placement',
+            'bg_separation', 'mean_saturation', 'mean_luminance',
+            'form_symmetry', 'form_balance', 'form_edge_entropy',
+            'form_fractal', 'color_harmony',
+            'distortion_attributes', 'skin_tone_delta', 'skin_tone_cast',
+            'face_ratio', 'face_count', 'is_monochrome', 'is_blink',
+            'is_silhouette', 'is_group_portrait',
+            'highlight_clipped', 'shadow_clipped', 'tags', 'shutter_speed',
+            'focal_length', 'f_stop', 'iso',
+        ]
+        col_str = ', '.join(critique_cols)
+        cur = await conn.execute(
+            f"SELECT {col_str} FROM photos WHERE path = ? AND {vis_sql}",
+            [path] + vis_params
+        )
+        photo = await cur.fetchone()
+        await cur.close()
+
+        if not photo:
+            raise HTTPException(status_code=404, detail="Photo not found")
+
+        photo = dict(photo)
+        result = _build_rule_critique(photo)
+
+        if mode == 'vlm':
+            await _attach_vlm_critique(conn, photo, result, lang, refresh, user)
+
+        return result
+
+
+async def _attach_vlm_critique(conn, photo, result, lang, refresh, user):
+    """Attach a cached or freshly generated VLM critique to the rule result."""
+    path = photo['path']
+    existing_cols = get_existing_columns()
+    can_cache = 'vlm_critique' in existing_cols
+    text = None
+    translated = None
+    source = 'cached'
+
+    if can_cache and not refresh:
+        cur = await conn.execute(
+            "SELECT vlm_critique, vlm_critique_translated FROM photos WHERE path = ?", [path]
+        )
+        row = await cur.fetchone()
+        await cur.close()
+        if row:
+            text = row['vlm_critique']
+            translated = row['vlm_critique_translated']
+
+    if not text:
+        if not is_edition_authenticated(user):
+            result['vlm_available'] = False
+            return
+
+        cur = await conn.execute("SELECT thumbnail FROM photos WHERE path = ?", [path])
+        row = await cur.fetchone()
+        await cur.close()
+        thumbnail = row['thumbnail'] if row else None
+        # VLM inference is GPU/CPU-bound and blocking — run it off the
+        # event loop so it never stalls other async requests.
+        text = await asyncio.to_thread(_get_vlm_critique, photo, result, thumbnail)
+        translated = None
+        source = 'generated'
+        if text and can_cache:
+            await conn.execute(
+                "UPDATE photos SET vlm_critique = ?, vlm_critique_translated = NULL WHERE path = ?",
+                [text, path],
+            )
+            await conn.commit()
+
+    if not text:
+        result['vlm_available'] = False
+        return
+
+    target_lang = translation_target(lang)
+    if target_lang:
+        if not translated:
+            translated = await asyncio.to_thread(translate_text, text, target_lang)
+            if translated and can_cache and is_edition_authenticated(user):
+                await conn.execute(
+                    "UPDATE photos SET vlm_critique_translated = ? WHERE path = ?",
+                    [translated, path],
+                )
+                await conn.commit()
+        if translated:
+            text = translated
+
+    result['vlm_critique'] = text
+    result['vlm_source'] = source
+
+
+_DEFAULT_VLM_PROMPT = (
+    "You are an expert photography critic reviewing a {category} photograph "
+    "that Facet's metrics scored {aggregate}/10 overall.\n"
+    "Measured metrics (0-10):\n{breakdown}\n"
+    "{penalties}"
+    "Camera settings: {exif}.\n\n"
+    "Judge the picture from what you actually see. Treat the metrics as context "
+    "to confirm or contradict from the pixels, never restate the numbers. First "
+    "perceive the scene, then register the feeling it evokes, then judge it, then "
+    "advise. Write exactly three titled sections in compact prose, no bullet "
+    "lists:\n"
+    "Observation: one or two sentences naming the subject, the moment and the "
+    "framing you see.\n"
+    "Assessment: three to four sentences giving a short verdict on each of "
+    "composition, color & light, focus/depth-of-field & technical execution, and "
+    "subject & moment; say where the pixels back the metrics or contradict them, "
+    "and what the image makes a viewer feel.\n"
+    "Suggestions: at most three concrete fixes for the weakest dimensions above, "
+    "mixing shooting and editing advice."
+)
+
+
+def _build_vlm_prompt(rule_critique, photo):
+    """Fill the configured critique prompt template with the rule breakdown and EXIF."""
+    vlm_cfg = _FULL_CONFIG.get('critique', {}).get('vlm', {})
+    template = vlm_cfg.get('prompt_template') or _DEFAULT_VLM_PROMPT
+
+    lines = []
+    for item in rule_critique.get('breakdown', [])[:12]:
+        suffix = ', lower is better' if item['metric_key'] == 'noise_sigma' else ''
+        lines.append(f"- {item['metric']}: {item['value']} (weight {item['weight']:.0%}{suffix})")
+    breakdown = '\n'.join(lines) or '- no per-metric data available'
+
+    penalty_keys = list(rule_critique.get('penalties', {}))
+    penalties = f"Penalties applied: {', '.join(penalty_keys)}.\n" if penalty_keys else ''
+
+    exif_parts = []
+    if photo.get('f_stop'):
+        exif_parts.append(f"f/{photo['f_stop']}")
+    if photo.get('shutter_speed'):
+        exif_parts.append(f"{photo['shutter_speed']}s")
+    if photo.get('iso'):
+        exif_parts.append(f"ISO {photo['iso']}")
+    if photo.get('focal_length'):
+        exif_parts.append(f"{photo['focal_length']}mm")
+    exif = ', '.join(exif_parts) or 'unknown'
+
+    aggregate = rule_critique.get('aggregate')
+    return template.format(
+        category=rule_critique.get('category', 'photo'),
+        aggregate=f"{aggregate:.1f}" if aggregate is not None else 'unscored',
+        breakdown=breakdown,
+        penalties=penalties,
+        exif=exif,
+    )
+
+
+def _load_critique_image(path, thumbnail_bytes):
+    """Build the PIL image fed to the VLM: stored thumbnail, else decoded original.
+
+    The stored 640px thumbnail is preferred — it exists for every scored photo
+    including RAW files, which PIL cannot decode from disk.
+    """
+    from io import BytesIO
+
+    from PIL import Image
+
+    if thumbnail_bytes:
+        return Image.open(BytesIO(thumbnail_bytes)).convert('RGB')
+
+    from api.path_validation import resolve_photo_disk_path
+    from utils.image_loading import open_nonraw_image
+
+    disk_path = resolve_photo_disk_path(path)
+    img = open_nonraw_image(disk_path)
+    img.thumbnail((640, 640))
+    return img
+
+
+def _get_vlm_critique(photo, rule_critique, thumbnail_bytes):
+    """Generate a VLM critique; None when the VLM is unavailable or fails."""
+    try:
+        if not VIEWER_CONFIG.get('features', {}).get('show_vlm_critique', False):
+            return None
+
+        vlm_config = resolve_vlm_config()
+        if not vlm_config:
+            return None
+
+        tagger = get_or_load_vlm_tagger(vlm_config)
+        prompt = _build_vlm_prompt(rule_critique, photo)
+        img = _load_critique_image(photo['path'], thumbnail_bytes)
+
+        max_new_tokens = int(_FULL_CONFIG.get('critique', {}).get('vlm', {}).get('max_new_tokens', 320))
+        with vlm_generate_lock:
+            response = tagger.generate(img, prompt, max_new_tokens=max_new_tokens)
+        response = (response or '').strip()
+        return response or None
+
+    except Exception:
+        logger.exception("VLM critique failed")
+        return None

@@ -1,0 +1,1304 @@
+import { Component, inject, signal, computed, effect, OnInit, HostListener, DestroyRef, ElementRef, viewChild } from '@angular/core';
+import { Location } from '@angular/common';
+import { ActivatedRoute, Router } from '@angular/router';
+import { MatIconModule } from '@angular/material/icon';
+import { MatButtonModule } from '@angular/material/button';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatMenuModule } from '@angular/material/menu';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatSelectModule } from '@angular/material/select';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { firstValueFrom } from 'rxjs';
+import { Photo, KeeperHint, PhotoSet, normalisePhotoFlags } from '../../shared/models/photo.model';
+import { AuthService } from '../../core/services/auth.service';
+import { PhotoActionsService } from '../../core/services/photo-actions.service';
+import { PhotoDetailBase } from '../../shared/directives/photo-detail-base.directive';
+import { FixedPipe } from '../../shared/pipes/fixed.pipe';
+import { ShutterSpeedPipe } from '../../shared/pipes/shutter-speed.pipe';
+import { TranslatePipe } from '../../shared/pipes/translate.pipe';
+import { ThumbnailUrlPipe } from '../../shared/pipes/thumbnail-url.pipe';
+import { PersonThumbnailUrlPipe } from '../../shared/pipes/thumbnail-url.pipe';
+import { CategoryLabelPipe } from '../gallery/photo-tooltip.component';
+import { IsLensNamePipe } from '../../shared/pipes/is-lens-name.pipe';
+import { DownloadIconPipe } from '../../shared/pipes/download-icon.pipe';
+import { PhotoSetKindIconPipe, PhotoSetKindLabelPipe } from '../../shared/pipes/photo-set-kind.pipe';
+import { SEQUENCE_KINDS_KEPT_WHOLE } from '../../shared/pipes/sequence-kind.pipe';
+import { EvOffsetPipe } from '../gallery/burst-culling.pipes';
+import {
+  HISTOGRAM_PANEL_HEIGHT, HistogramComponent,
+} from '../../shared/components/histogram/histogram.component';
+import { HistogramMode, isHistogramMode } from '../../shared/utils/histogram';
+import { ComparisonCategoryExplainerComponent } from '../comparison/comparison-category-explainer.component';
+import { DownloadOption } from '../../core/api/types';
+import { downloadAll } from '../../shared/utils/download';
+import { GalleryStore } from '../gallery/gallery.store';
+import { GalleryFilters } from '../gallery/gallery-filters.util';
+import * as L from 'leaflet';
+import { createLeafletMap } from '../../shared/leaflet';
+import { I18N, I18N_KEYS } from '../../core/i18n/keys';
+import { isTypingContext } from '../../shared/utils/keyboard';
+import type { CategoryOverrideResult } from './category-override-dialog.component';
+
+const SOCIAL_SOURCE_KEYS: Record<string, string> = {
+  saliency: I18N.social_export.source.saliency,
+  faces: I18N.social_export.source.faces,
+  center: I18N.social_export.source.center,
+};
+
+@Component({
+  selector: 'app-photo-detail',
+  imports: [
+    MatIconModule,
+    MatButtonModule,
+    MatTooltipModule,
+    MatMenuModule,
+    MatDialogModule,
+    MatFormFieldModule,
+    MatSelectModule,
+    MatProgressSpinnerModule,
+    MatSnackBarModule,
+    FixedPipe,
+    ShutterSpeedPipe,
+    TranslatePipe,
+    ThumbnailUrlPipe,
+    PersonThumbnailUrlPipe,
+    CategoryLabelPipe,
+    IsLensNamePipe,
+    DownloadIconPipe,
+    PhotoSetKindIconPipe,
+    PhotoSetKindLabelPipe,
+    EvOffsetPipe,
+    HistogramComponent,
+    ComparisonCategoryExplainerComponent,
+  ],
+  template: `
+    @if (photo(); as p) {
+      <!-- Header bar -->
+      <div class="flex items-center gap-2 px-1 py-1 border-b border-[var(--mat-sys-outline-variant)] bg-[var(--mat-sys-surface-container)]">
+        <button mat-icon-button (click)="goBack()" [matTooltip]="I18N.photo_detail.back | translate" [attr.aria-label]="I18N.photo_detail.back | translate">
+          <mat-icon>arrow_back</mat-icon>
+        </button>
+        <span class="flex-1 truncate font-medium">{{ p.filename }}</span>
+
+        @if (store.config()?.features?.show_similar_button) {
+          <button mat-icon-button [matMenuTriggerFor]="similarMenu"
+            [matTooltip]="I18N.similar.find_similar | translate" [attr.aria-label]="I18N.similar.find_similar | translate">
+            <mat-icon>image_search</mat-icon>
+          </button>
+          <mat-menu #similarMenu="matMenu">
+            <button mat-menu-item (click)="openSimilar(p, 'visual')">
+              <mat-icon>image_search</mat-icon> {{ I18N.similar.mode_visual | translate }}
+            </button>
+            <button mat-menu-item (click)="openSimilar(p, 'color')">
+              <mat-icon>palette</mat-icon> {{ I18N.similar.mode_color | translate }}
+            </button>
+            <button mat-menu-item (click)="openSimilar(p, 'person')">
+              <mat-icon>person_search</mat-icon> {{ I18N.similar.mode_person | translate }}
+            </button>
+          </mat-menu>
+        }
+
+        @if (store.config()?.features?.show_critique) {
+          <button mat-icon-button (click)="openCritique(p)"
+            [matTooltip]="I18N.critique.title | translate" [attr.aria-label]="I18N.critique.title | translate">
+            <mat-icon>analytics</mat-icon>
+          </button>
+        }
+
+        @if (auth.isEdition() && store.config()?.cull?.trash_available) {
+          <button mat-icon-button (click)="deletePhoto()"
+            [matTooltip]="I18N.photo_detail.delete.button_label | translate" [attr.aria-label]="I18N.photo_detail.delete.button_label | translate">
+            <mat-icon>delete</mat-icon>
+          </button>
+        }
+
+        @if (auth.isEdition()) {
+          <button mat-icon-button [matMenuTriggerFor]="categoryOverrideMenu"
+            [matTooltip]="I18N.photo.category_override.menu_tooltip | translate" [attr.aria-label]="I18N.photo.category_override.menu_tooltip | translate">
+            <mat-icon>category</mat-icon>
+          </button>
+          <mat-menu #categoryOverrideMenu="matMenu">
+            <button mat-menu-item (click)="openCategoryOverride(p)">
+              <mat-icon>edit</mat-icon> {{ I18N.photo.category_override.set_action | translate }}
+            </button>
+            <button mat-menu-item (click)="clearCategoryOverride(p)">
+              <mat-icon>restart_alt</mat-icon> {{ I18N.photo.category_override.clear_action | translate }}
+            </button>
+          </mat-menu>
+        }
+
+        @if (auth.isEdition() && p.unassigned_faces > 0) {
+          <button mat-icon-button (click)="openAddPerson(p)"
+            [matTooltip]="I18N.manage_persons.assign_face | translate" [attr.aria-label]="I18N.manage_persons.assign_face | translate">
+            <mat-icon>person_add</mat-icon>
+          </button>
+        }
+
+        @if (downloadOptions().length > 1) {
+          <button mat-button [matMenuTriggerFor]="downloadMenu" [disabled]="downloading()" [matTooltip]="I18N.photo_detail.download | translate">
+            @if (downloading()) { <mat-spinner diameter="18" class="!inline-block !align-baseline" [attr.aria-label]="I18N.ui.labels.loading | translate" /> } @else { <mat-icon>download</mat-icon> }
+            {{ downloading() ? (I18N.photo_detail.downloading | translate) : (I18N.photo_detail.download | translate) }}
+          </button>
+          <mat-menu #downloadMenu="matMenu">
+            @for (opt of downloadOptions(); track opt.type + (opt.profile ?? '')) {
+              <button mat-menu-item (click)="download(p.path, opt.type, opt.profile ?? undefined)">
+                <mat-icon>{{ opt.type | downloadIcon }}</mat-icon>
+                @if (opt.type === 'darktable') {
+                  {{ opt.profile }}
+                } @else {
+                  {{ ('download.type_' + opt.type) | translate }}
+                }
+              </button>
+            }
+          </mat-menu>
+        } @else {
+          <button mat-button (click)="download(p.path)" [disabled]="downloading()" [matTooltip]="I18N.photo_detail.download | translate">
+            @if (downloading()) { <mat-spinner diameter="18" class="!inline-block !align-baseline" [attr.aria-label]="I18N.ui.labels.loading | translate" /> } @else { <mat-icon>download</mat-icon> }
+            {{ downloading() ? (I18N.photo_detail.downloading | translate) : (I18N.photo_detail.download | translate) }}
+          </button>
+        }
+
+        @if (socialExportEnabled()) {
+          <button mat-button class="!h-auto !min-h-9" [matMenuTriggerFor]="socialMenu" [disabled]="downloading()"
+            [matTooltip]="(socialCropTooltipKey() | translate)">
+            <mat-icon>crop</mat-icon>
+            {{ I18N.photo_detail.social_crop | translate }}
+          </button>
+          <mat-menu #socialMenu="matMenu">
+            @for (preset of socialPresets(); track preset.key) {
+              <button mat-menu-item (click)="downloadSocialCrop(p.path, preset.key)">
+                <mat-icon>crop</mat-icon>
+                {{ preset.label_key | translate }}
+              </button>
+            }
+          </mat-menu>
+        }
+      </div>
+
+      <!-- Main content: image + info -->
+      <div class="flex flex-col lg:flex-row lg:h-[calc(100%-49px)] lg:overflow-hidden">
+        <!-- Image panel -->
+        <div #imagePanel class="shrink-0 lg:h-auto lg:flex-1 flex items-center justify-center bg-black lg:min-h-0 relative overflow-hidden cursor-grab"
+          [class.cursor-grabbing]="isPanning()"
+          (dblclick)="resetZoom()"
+          (pointerdown)="onPanStart($event)"
+          (pointermove)="onPanMove($event)"
+          (pointerup)="onPanEnd($event)"
+          (pointercancel)="onPanEnd($event)"
+          (touchstart)="onTouchStart($event)"
+          (touchend)="onTouchEnd()">
+          <img
+            [src]="p.path | thumbnailUrl:640"
+            [alt]="p.filename"
+            class="w-full lg:max-w-full lg:max-h-full object-contain transition-opacity duration-300 pointer-events-none select-none"
+            [class.opacity-0]="fullImageLoaded()"
+            [style.transform]="zoomTransform()"
+          />
+          <img
+            [src]="fullImageUrl()"
+            [alt]="p.filename"
+            class="absolute inset-0 w-full h-full object-contain transition-opacity duration-300 pointer-events-none select-none"
+            [class.opacity-0]="!fullImageLoaded()"
+            (load)="onFullImageLoad()"
+            [style.transform]="zoomTransform()"
+          />
+        </div>
+
+        <!-- Info panel -->
+        <div class="lg:w-[380px] lg:shrink-0 lg:overflow-y-auto p-4 space-y-4 text-sm text-[var(--mat-sys-on-surface)]">
+          <!-- Filename + Date + Category + Aggregate -->
+          <div>
+            <div class="font-semibold text-lg">{{ p.filename }}</div>
+            @if (p.date_taken) {
+              <div class="text-[var(--mat-sys-on-surface-variant)] text-xs">{{ p.date_taken }}</div>
+            }
+            <div class="flex items-center gap-2 mt-1">
+              @if (p.category) {
+                <span class="px-2 py-0.5 bg-[var(--mat-sys-primary-container)] text-[var(--mat-sys-on-primary-container)] rounded-full text-xs font-medium">{{ p.category | categoryLabel }}</span>
+              }
+              @if (keeperHint()?.has_better) {
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-black/60 text-amber-300 rounded-full text-xs font-medium"
+                      [attr.aria-label]="I18N.culling.reason.better_shot | translate">
+                  <mat-icon class="!text-sm !w-4 !h-4 !leading-4" aria-hidden="true">arrow_circle_up</mat-icon>
+                  {{ I18N.culling.reason.better_shot | translate }}
+                </span>
+              }
+              <span class="text-[var(--mat-sys-primary)] font-semibold ml-auto">{{ p.aggregate | fixed:1 }}</span>
+            </div>
+          </div>
+
+          <!-- Category explainer: "why isn't this photo classified as X?" -->
+          @if (auth.isEdition()) {
+            <div class="border-t border-[var(--mat-sys-outline-variant)] pt-3">
+              <button mat-button class="!px-0 !min-w-0" (click)="toggleExplainer()">
+                <mat-icon>{{ explainerOpen() ? 'expand_less' : 'expand_more' }}</mat-icon>
+                {{ I18N.photo.category_override.explainer_toggle | translate }}
+              </button>
+              @if (explainerOpen()) {
+                <mat-form-field class="w-full !-mt-1">
+                  <mat-label>{{ I18N.photo.category_override.target_category_label | translate }}</mat-label>
+                  <mat-select [value]="explainerTargetCategory()" (selectionChange)="explainerTargetCategory.set($event.value)">
+                    @for (name of explainerCategories(); track name) {
+                      <mat-option [value]="name">{{ name | categoryLabel }}</mat-option>
+                    }
+                  </mat-select>
+                </mat-form-field>
+                @if (explainerTargetCategory(); as target) {
+                  <app-category-explainer [path]="p.path" [targetCategory]="target" />
+                }
+              }
+            </div>
+          }
+
+          <!-- Rating controls (edition only) -->
+          @if (auth.isEdition()) {
+            <div class="flex items-center border-t border-[var(--mat-sys-outline-variant)] pt-3">
+              <!-- Star rating -->
+              @for (star of stars; track star) {
+                <button class="w-8 h-8 rounded-full inline-flex items-center justify-center hover:bg-[var(--mat-sys-surface-container-high)] transition-colors cursor-pointer" (click)="setRating(p.path, star)">
+                  <mat-icon class="!text-xl !w-5 !h-5 !leading-5 !text-yellow-400">{{ p.star_rating !== null && star <= p.star_rating! ? 'star' : 'star_border' }}</mat-icon>
+                </button>
+              }
+              <div class="flex-1"></div>
+              <!-- Favorite -->
+              <button mat-icon-button (click)="toggleFavorite(p.path)"
+                [matTooltip]="(p.is_favorite ? I18N.rating.remove_favorite : I18N.rating.add_favorite) | translate"
+                [attr.aria-label]="(p.is_favorite ? I18N.rating.remove_favorite : I18N.rating.add_favorite) | translate"
+                [attr.aria-pressed]="!!p.is_favorite">
+                <mat-icon class="!text-red-400">{{ p.is_favorite ? 'favorite' : 'favorite_border' }}</mat-icon>
+              </button>
+              <!-- Reject -->
+              <button mat-icon-button (click)="toggleRejected(p.path)" [class.text-orange-400]="p.is_rejected"
+                [matTooltip]="(p.is_rejected ? I18N.rating.unmark_rejected : I18N.rating.mark_rejected) | translate"
+                [attr.aria-label]="(p.is_rejected ? I18N.rating.unmark_rejected : I18N.rating.mark_rejected) | translate"
+                [attr.aria-pressed]="!!p.is_rejected">
+                <mat-icon>{{ p.is_rejected ? 'thumb_down' : 'thumb_down_off_alt' }}</mat-icon>
+              </button>
+            </div>
+          }
+
+          <!-- Caption -->
+          <div class="border-t border-[var(--mat-sys-outline-variant)] pt-3">
+            <div class="flex items-center justify-between mb-2">
+              <div class="text-[0.625rem] uppercase tracking-wider text-[var(--mat-sys-on-surface-variant)]">{{ I18N.photo_detail.caption | translate }}</div>
+              @if (auth.isEdition()) {
+                <div class="flex gap-1">
+                  @if (!p.caption && store.config()?.features?.show_captions) {
+                    <button mat-icon-button class="!w-7 !h-7 !p-0" (click)="generateCaption(p.path)" [disabled]="generatingCaption()" [matTooltip]="I18N.photo_detail.generate_caption | translate" [attr.aria-label]="I18N.photo_detail.generate_caption | translate">
+                      @if (generatingCaption()) {
+                        <mat-spinner diameter="16" [attr.aria-label]="I18N.ui.labels.loading | translate" />
+                      } @else {
+                        <mat-icon class="!text-base !w-4 !h-4 !leading-4">auto_fix_high</mat-icon>
+                      }
+                    </button>
+                  }
+                  <button mat-icon-button class="!w-7 !h-7 !p-0" (click)="editCaption(p)" [matTooltip]="I18N.photo_detail.edit_caption | translate" [attr.aria-label]="I18N.photo_detail.edit_caption | translate">
+                    <mat-icon class="!text-base !w-4 !h-4 !leading-4">edit</mat-icon>
+                  </button>
+                </div>
+              }
+            </div>
+            @if (translatingCaption()) {
+              <p class="text-[var(--mat-sys-on-surface-variant)] opacity-60 italic text-xs">{{ I18N.photo_detail.translating_caption | translate }}</p>
+            } @else if (displayCaption()) {
+              <p class="text-[var(--mat-sys-on-surface-variant)]">{{ displayCaption() }}</p>
+            } @else {
+              <p class="text-[var(--mat-sys-on-surface-variant)] opacity-40 italic text-xs">&mdash;</p>
+            }
+          </div>
+
+          <!-- Quality section -->
+          <div class="border-t border-[var(--mat-sys-outline-variant)] pt-3">
+            <div class="text-[0.625rem] uppercase tracking-wider text-[var(--mat-sys-on-surface-variant)] mb-2">{{ I18N.photo_detail.quality | translate }}</div>
+            <div class="flex flex-col gap-0.5">
+              <div class="flex justify-between items-baseline gap-2"><span class="text-[var(--mat-sys-on-surface-variant)]">{{ I18N.tooltip.aesthetic | translate }}</span><span class="text-[var(--mat-sys-primary)] font-medium">{{ p.aesthetic | fixed:1 }}</span></div>
+              @if (p.quality_score !== null) {
+                <div class="flex justify-between items-baseline gap-2"><span class="text-[var(--mat-sys-on-surface-variant)]">{{ I18N.tooltip.quality_score | translate }}</span><span class="text-[var(--mat-sys-primary)] font-medium">{{ p.quality_score | fixed:1 }}</span></div>
+              }
+              @if (p.topiq_score !== null) {
+                <div class="flex justify-between items-baseline gap-2"><span class="text-[var(--mat-sys-on-surface-variant)]">{{ I18N.tooltip.topiq_score | translate }}</span><span class="text-[var(--mat-sys-primary)] font-medium">{{ p.topiq_score | fixed:1 }}</span></div>
+              }
+              @if (p.tech_sharpness !== null) {
+                <div class="flex justify-between items-baseline gap-2"><span class="text-[var(--mat-sys-on-surface-variant)]">{{ I18N.tooltip.tech_sharpness | translate }}</span><span class="text-[var(--mat-sys-primary)] font-medium">{{ p.tech_sharpness | fixed:1 }}</span></div>
+              }
+              @if (p.face_count > 0 && p.face_quality !== null) {
+                <div class="flex justify-between items-baseline gap-2"><span class="text-[var(--mat-sys-on-surface-variant)]">{{ I18N.tooltip.face_quality | translate }}</span><span class="text-[var(--mat-sys-primary)] font-medium">{{ p.face_quality | fixed:1 }}</span></div>
+                <div class="flex justify-between items-baseline gap-2"><span class="text-[var(--mat-sys-on-surface-variant)]">{{ I18N.tooltip.faces | translate }}</span><span class="text-[var(--mat-sys-primary)] font-medium">{{ p.face_count }}</span></div>
+                @if (p.face_ratio) {
+                  <div class="flex justify-between items-baseline gap-2"><span class="text-[var(--mat-sys-on-surface-variant)]">{{ I18N.tooltip.face_ratio | translate }}</span><span class="text-[var(--mat-sys-primary)] font-medium">{{ p.face_ratio * 100 | fixed:0 }}%</span></div>
+                }
+                @if (p.face_sharpness !== null) {
+                  <div class="flex justify-between items-baseline gap-2"><span class="text-[var(--mat-sys-on-surface-variant)]">{{ I18N.tooltip.face_sharpness | translate }}</span><span class="text-[var(--mat-sys-primary)] font-medium">{{ p.face_sharpness | fixed:1 }}</span></div>
+                }
+                @if (p.eye_sharpness !== null) {
+                  <div class="flex justify-between items-baseline gap-2"><span class="text-[var(--mat-sys-on-surface-variant)]">{{ I18N.tooltip.eye_sharpness | translate }}</span><span class="text-[var(--mat-sys-primary)] font-medium">{{ p.eye_sharpness | fixed:1 }}</span></div>
+                }
+                @if (p.face_confidence !== null && p.face_confidence !== undefined) {
+                  <div class="flex justify-between items-baseline gap-2"><span class="text-[var(--mat-sys-on-surface-variant)]">{{ I18N.tooltip.face_confidence | translate }}</span><span class="text-[var(--mat-sys-primary)] font-medium">{{ p.face_confidence * 100 | fixed:0 }}%</span></div>
+                }
+              }
+              @if (p.aesthetic_iaa !== null) {
+                <div class="flex justify-between items-baseline gap-2"><span class="text-[var(--mat-sys-on-surface-variant)]">{{ I18N.tooltip.aesthetic_iaa | translate }}</span><span class="text-[var(--mat-sys-primary)] font-medium">{{ p.aesthetic_iaa | fixed:1 }}</span></div>
+              }
+              @if (p.face_quality_iqa !== null) {
+                <div class="flex justify-between items-baseline gap-2"><span class="text-[var(--mat-sys-on-surface-variant)]">{{ I18N.tooltip.face_quality_iqa | translate }}</span><span class="text-[var(--mat-sys-primary)] font-medium">{{ p.face_quality_iqa | fixed:1 }}</span></div>
+              }
+              @if (p.liqe_score !== null) {
+                <div class="flex justify-between items-baseline gap-2"><span class="text-[var(--mat-sys-on-surface-variant)]">{{ I18N.tooltip.liqe_score | translate }}</span><span class="text-[var(--mat-sys-primary)] font-medium">{{ p.liqe_score | fixed:1 }}</span></div>
+              }
+              @if (p.qrealign_score !== undefined && p.qrealign_score !== null) {
+                <div class="flex justify-between items-baseline gap-2"><span class="text-[var(--mat-sys-on-surface-variant)]">{{ I18N.tooltip.qrealign_score | translate }}</span><span class="text-[var(--mat-sys-primary)] font-medium">{{ p.qrealign_score | fixed:1 }}</span></div>
+              }
+              @if (p.aesthetic_v25 !== undefined && p.aesthetic_v25 !== null) {
+                <div class="flex justify-between items-baseline gap-2"><span class="text-[var(--mat-sys-on-surface-variant)]">{{ I18N.tooltip.aesthetic_v25 | translate }}</span><span class="text-[var(--mat-sys-primary)] font-medium">{{ p.aesthetic_v25 | fixed:1 }}</span></div>
+              }
+              @if (p.deqa_score !== undefined && p.deqa_score !== null) {
+                <div class="flex justify-between items-baseline gap-2"><span class="text-[var(--mat-sys-on-surface-variant)]">{{ I18N.tooltip.deqa_score | translate }}</span><span class="text-[var(--mat-sys-primary)] font-medium">{{ p.deqa_score | fixed:1 }}</span></div>
+              }
+            </div>
+          </div>
+
+          <!-- Composition section -->
+          <div class="border-t border-[var(--mat-sys-outline-variant)] pt-3">
+            <div class="text-[0.625rem] uppercase tracking-wider text-[var(--mat-sys-on-surface-variant)] mb-2">{{ I18N.photo_detail.composition | translate }}</div>
+            <div class="flex flex-col gap-0.5">
+              @if (p.comp_score !== null) {
+                <div class="flex justify-between items-baseline gap-2"><span class="text-[var(--mat-sys-on-surface-variant)]">{{ I18N.tooltip.composition | translate }}</span><span class="text-[var(--mat-sys-primary)] font-medium">{{ p.comp_score | fixed:1 }}</span></div>
+              }
+              @if (p.composition_pattern) {
+                <div class="flex justify-between items-baseline gap-2"><span class="text-[var(--mat-sys-on-surface-variant)]">{{ I18N.tooltip.pattern | translate }}</span><span class="text-[var(--mat-sys-primary)] font-medium">{{ ('composition_patterns.' + p.composition_pattern) | translate }}</span></div>
+              }
+              @if (p.power_point_score !== null) {
+                <div class="flex justify-between items-baseline gap-2"><span class="text-[var(--mat-sys-on-surface-variant)]">{{ I18N.tooltip.power_points | translate }}</span><span class="text-[var(--mat-sys-primary)] font-medium">{{ p.power_point_score | fixed:1 }}</span></div>
+              }
+              @if (p.leading_lines_score !== null) {
+                <div class="flex justify-between items-baseline gap-2"><span class="text-[var(--mat-sys-on-surface-variant)]">{{ I18N.tooltip.leading_lines | translate }}</span><span class="text-[var(--mat-sys-primary)] font-medium">{{ p.leading_lines_score | fixed:1 }}</span></div>
+              }
+              @if (p.isolation_bonus !== null) {
+                <div class="flex justify-between items-baseline gap-2"><span class="text-[var(--mat-sys-on-surface-variant)]">{{ I18N.tooltip.isolation | translate }}</span><span class="text-[var(--mat-sys-primary)] font-medium">{{ p.isolation_bonus | fixed:1 }}</span></div>
+              }
+            </div>
+          </div>
+
+          <!-- Subject Saliency section -->
+          @if (p.subject_sharpness !== null || p.subject_prominence !== null || p.subject_placement !== null || p.bg_separation !== null) {
+            <div class="border-t border-[var(--mat-sys-outline-variant)] pt-3">
+              <div class="text-[0.625rem] uppercase tracking-wider text-[var(--mat-sys-on-surface-variant)] mb-2">{{ I18N.photo_detail.saliency | translate }}</div>
+              <div class="flex flex-col gap-0.5">
+                @if (p.subject_sharpness !== null) {
+                  <div class="flex justify-between items-baseline gap-2"><span class="text-[var(--mat-sys-on-surface-variant)]">{{ I18N.tooltip.subject_sharpness | translate }}</span><span class="text-[var(--mat-sys-primary)] font-medium">{{ p.subject_sharpness | fixed:1 }}</span></div>
+                }
+                @if (p.subject_prominence !== null) {
+                  <div class="flex justify-between items-baseline gap-2"><span class="text-[var(--mat-sys-on-surface-variant)]">{{ I18N.tooltip.subject_prominence | translate }}</span><span class="text-[var(--mat-sys-primary)] font-medium">{{ p.subject_prominence | fixed:1 }}</span></div>
+                }
+                @if (p.subject_placement !== null) {
+                  <div class="flex justify-between items-baseline gap-2"><span class="text-[var(--mat-sys-on-surface-variant)]">{{ I18N.tooltip.subject_placement | translate }}</span><span class="text-[var(--mat-sys-primary)] font-medium">{{ p.subject_placement | fixed:1 }}</span></div>
+                }
+                @if (p.bg_separation !== null) {
+                  <div class="flex justify-between items-baseline gap-2"><span class="text-[var(--mat-sys-on-surface-variant)]">{{ I18N.tooltip.bg_separation | translate }}</span><span class="text-[var(--mat-sys-primary)] font-medium">{{ p.bg_separation | fixed:1 }}</span></div>
+                }
+              </div>
+            </div>
+          }
+
+          <!-- Technical section -->
+          <div class="border-t border-[var(--mat-sys-outline-variant)] pt-3">
+            <div class="text-[0.625rem] uppercase tracking-wider text-[var(--mat-sys-on-surface-variant)] mb-2">{{ I18N.photo_detail.technical | translate }}</div>
+            <div class="flex flex-col gap-0.5">
+              @if (p.exposure_score !== null) {
+                <div class="flex justify-between items-baseline gap-2"><span class="text-[var(--mat-sys-on-surface-variant)]">{{ I18N.tooltip.exposure | translate }}</span><span class="text-[var(--mat-sys-primary)] font-medium">{{ p.exposure_score | fixed:1 }}</span></div>
+              }
+              @if (p.color_score !== null) {
+                <div class="flex justify-between items-baseline gap-2"><span class="text-[var(--mat-sys-on-surface-variant)]">{{ I18N.tooltip.color | translate }}</span><span class="text-[var(--mat-sys-primary)] font-medium">{{ p.color_score | fixed:1 }}</span></div>
+              }
+              @if (p.contrast_score !== null) {
+                <div class="flex justify-between items-baseline gap-2"><span class="text-[var(--mat-sys-on-surface-variant)]">{{ I18N.tooltip.contrast | translate }}</span><span class="text-[var(--mat-sys-primary)] font-medium">{{ p.contrast_score | fixed:1 }}</span></div>
+              }
+              @if (p.dynamic_range_stops !== null) {
+                <div class="flex justify-between items-baseline gap-2"><span class="text-[var(--mat-sys-on-surface-variant)]">{{ I18N.tooltip.dynamic_range | translate }}</span><span class="text-[var(--mat-sys-primary)] font-medium">{{ p.dynamic_range_stops | fixed:1 }}</span></div>
+              }
+              @if (p.mean_saturation !== null && p.mean_saturation !== undefined) {
+                <div class="flex justify-between items-baseline gap-2"><span class="text-[var(--mat-sys-on-surface-variant)]">{{ I18N.tooltip.saturation | translate }}</span><span class="text-[var(--mat-sys-primary)] font-medium">{{ (p.mean_saturation * 100) | fixed:0 }}%</span></div>
+              }
+              @if (p.noise_sigma !== null) {
+                <div class="flex justify-between items-baseline gap-2"><span class="text-[var(--mat-sys-on-surface-variant)]">{{ I18N.tooltip.noise | translate }}</span><span class="text-[var(--mat-sys-primary)] font-medium">{{ p.noise_sigma | fixed:1 }}</span></div>
+              }
+              @if (p.mean_luminance !== null && p.mean_luminance !== undefined) {
+                <div class="flex justify-between items-baseline gap-2"><span class="text-[var(--mat-sys-on-surface-variant)]">{{ I18N.tooltip.luminance | translate }}</span><span class="text-[var(--mat-sys-primary)] font-medium">{{ p.mean_luminance * 100 | fixed:0 }}%</span></div>
+              }
+              @if (p.histogram_spread !== null) {
+                <div class="flex justify-between items-baseline gap-2"><span class="text-[var(--mat-sys-on-surface-variant)]">{{ I18N.tooltip.histogram_spread | translate }}</span><span class="text-[var(--mat-sys-primary)] font-medium">{{ p.histogram_spread | fixed:1 }}</span></div>
+              }
+            </div>
+          </div>
+
+          <!-- EXIF section -->
+          @if (hasExif()) {
+            <div class="border-t border-[var(--mat-sys-outline-variant)] pt-3">
+              <div class="text-[0.625rem] uppercase tracking-wider text-[var(--mat-sys-on-surface-variant)] mb-2">{{ I18N.photo_detail.exif | translate }}</div>
+              <div class="flex flex-col gap-0.5">
+                @if (p.camera_model) {
+                  <div class="flex justify-between items-baseline gap-2"><span class="text-[var(--mat-sys-on-surface-variant)]">{{ I18N.tooltip.camera | translate }}</span><span class="val truncate">{{ p.camera_model }}</span></div>
+                }
+                @if (p.lens_model && (p.lens_model | isLensName)) {
+                  <div class="flex justify-between items-baseline gap-2"><span class="text-[var(--mat-sys-on-surface-variant)]">{{ I18N.tooltip.lens | translate }}</span><span class="val truncate">{{ p.lens_model }}</span></div>
+                }
+                @if (p.focal_length) {
+                  <div class="flex justify-between items-baseline gap-2"><span class="text-[var(--mat-sys-on-surface-variant)]">{{ I18N.tooltip.focal | translate }}</span><span class="text-[var(--mat-sys-primary)] font-medium">{{ p.focal_length }}mm</span></div>
+                }
+                @if (p.f_stop) {
+                  <div class="flex justify-between items-baseline gap-2"><span class="text-[var(--mat-sys-on-surface-variant)]">{{ I18N.tooltip.aperture | translate }}</span><span class="text-[var(--mat-sys-primary)] font-medium">f/{{ p.f_stop }}</span></div>
+                }
+                @if (p.shutter_speed) {
+                  <div class="flex justify-between items-baseline gap-2"><span class="text-[var(--mat-sys-on-surface-variant)]">{{ I18N.tooltip.shutter | translate }}</span><span class="text-[var(--mat-sys-primary)] font-medium">{{ p.shutter_speed | shutterSpeed }}</span></div>
+                }
+                @if (p.iso) {
+                  <div class="flex justify-between items-baseline gap-2"><span class="text-[var(--mat-sys-on-surface-variant)]">{{ I18N.tooltip.iso | translate }}</span><span class="text-[var(--mat-sys-primary)] font-medium">{{ p.iso }}</span></div>
+                }
+              </div>
+            </div>
+          }
+
+          <!-- Histogram: the graph runs edge to edge (the panel's only full-width
+               block), so the negative margin cancelling the panel's own p-4
+               goes on this section's container. The label gets its own
+               horizontal padding back so it still lines up with every other
+               section's label above it. -->
+          <div class="border-t border-[var(--mat-sys-outline-variant)] pt-3 -mx-4">
+            <div class="text-[0.625rem] uppercase tracking-wider text-[var(--mat-sys-on-surface-variant)] mb-2 px-4">{{ I18N.tooltip.histogram | translate }}</div>
+            <app-histogram [path]="p.path" [src]="p.path | thumbnailUrl:640" [monochrome]="!!p.is_monochrome"
+                           [height]="HISTOGRAM_PANEL_HEIGHT" [showModeToggle]="true"
+                           [surface]="'detail'"
+                           [defaultMode]="histogramDefaultMode()"
+                           [indicatorPercent]="clippingIndicatorPercent()" />
+          </div>
+
+          <!-- Location -->
+          @if (p.gps_latitude !== null && p.gps_longitude !== null) {
+            <div class="border-t border-[var(--mat-sys-outline-variant)] pt-3">
+              <div class="flex items-center justify-between mb-2">
+                <div class="text-[0.625rem] uppercase tracking-wider text-[var(--mat-sys-on-surface-variant)]">{{ I18N.photo_detail.location | translate }}</div>
+                @if (auth.isEdition()) {
+                  <button mat-icon-button class="!w-7 !h-7 !p-0" (click)="editGps(p)" [matTooltip]="I18N.photo_detail.edit_location | translate" [attr.aria-label]="I18N.photo_detail.edit_location | translate">
+                    <mat-icon class="!text-base !w-4 !h-4 !leading-4">edit_location</mat-icon>
+                  </button>
+                }
+              </div>
+              @if (locationName()) {
+                <div class="text-sm font-medium mb-1">{{ locationName() }}</div>
+              }
+              <div class="text-xs text-[var(--mat-sys-on-surface-variant)] mb-2">{{ p.gps_latitude | fixed:6 }}, {{ p.gps_longitude | fixed:6 }}</div>
+              <div #locationMapContainer class="w-full h-40 rounded-lg overflow-hidden"></div>
+            </div>
+          } @else if (auth.isEdition()) {
+            <div class="border-t border-[var(--mat-sys-outline-variant)] pt-3">
+              <div class="flex items-center justify-between">
+                <div class="text-[0.625rem] uppercase tracking-wider text-[var(--mat-sys-on-surface-variant)]">{{ I18N.photo_detail.location | translate }}</div>
+                <button mat-icon-button class="!w-7 !h-7 !p-0" (click)="editGps(p)" [matTooltip]="I18N.photo_detail.add_location | translate" [attr.aria-label]="I18N.photo_detail.add_location | translate">
+                  <mat-icon class="!text-base !w-4 !h-4 !leading-4">add_location</mat-icon>
+                </button>
+              </div>
+              <p class="text-[var(--mat-sys-on-surface-variant)] opacity-40 italic text-xs">&mdash;</p>
+            </div>
+          }
+
+          <!-- Tags section: AI chips, then manual chips (marked, removable for editors) -->
+          @if (p.tags_list.length || p.manual_tags.length || auth.isEdition()) {
+            <div class="border-t border-[var(--mat-sys-outline-variant)] pt-3" data-testid="tags-section">
+              <div class="text-[0.625rem] uppercase tracking-wider text-[var(--mat-sys-on-surface-variant)] mb-2">{{ I18N.photo_detail.tags | translate }}</div>
+              <div class="flex gap-1.5 flex-wrap items-center">
+                @for (tag of p.tags_list; track tag) {
+                  <span data-testid="ai-tag-chip" class="inline-flex">
+                    <button class="px-2 py-0.5 bg-[var(--facet-accent-badge)] text-[var(--facet-accent-text)] rounded-full text-xs cursor-pointer hover:opacity-80 transition-opacity"
+                            (click)="navigateToGallery('tag', tag)">{{ tag }}</button>
+                  </span>
+                }
+                @for (tag of p.manual_tags; track tag) {
+                  <span data-testid="manual-tag-chip"
+                        class="inline-flex items-center rounded-full border border-dashed border-[var(--facet-accent-text)] text-[var(--facet-accent-text)] text-xs">
+                    <button class="inline-flex items-center gap-1 pl-2 pr-2 py-0.5 cursor-pointer hover:opacity-80 transition-opacity"
+                            [attr.title]="I18N.manual_tags.manual | translate"
+                            (click)="navigateToGallery('tag', tag)">
+                      <mat-icon class="!text-xs !w-3 !h-3 !leading-3" aria-hidden="true">sell</mat-icon>
+                      <span class="sr-only">{{ I18N.manual_tags.manual | translate }}:</span>
+                      {{ tag }}
+                    </button>
+                    @if (auth.isEdition()) {
+                      <button data-testid="manual-tag-remove"
+                              class="inline-flex items-center justify-center min-w-6 min-h-6 -my-1.5 -ml-1 cursor-pointer hover:opacity-80"
+                              [attr.aria-label]="I18N.manual_tags.remove_tag | translate:{ tag: tag }"
+                              (click)="removeManualTag(p, tag)">
+                        <mat-icon class="!text-xs !w-3 !h-3 !leading-3" aria-hidden="true">close</mat-icon>
+                      </button>
+                    }
+                  </span>
+                }
+              </div>
+              @if (auth.isEdition()) {
+                <div class="flex items-center gap-1 mt-2" data-testid="manual-tag-add">
+                  <input type="text" maxlength="64"
+                         class="min-w-0 flex-1 px-2 py-1 text-xs rounded border border-[var(--mat-sys-outline-variant)] bg-transparent"
+                         [value]="newTag()"
+                         [attr.aria-label]="I18N.manual_tags.add | translate"
+                         [placeholder]="I18N.manual_tags.add | translate"
+                         (input)="onNewTagInput($event)"
+                         (keydown.enter)="addManualTag(p, newTag())" />
+                  <button mat-icon-button class="!w-7 !h-7 !p-0" (click)="addManualTag(p, newTag())"
+                          [disabled]="!newTag().trim()"
+                          [matTooltip]="I18N.manual_tags.add | translate" [attr.aria-label]="I18N.manual_tags.add | translate">
+                    <mat-icon class="!text-base !w-4 !h-4 !leading-4">add</mat-icon>
+                  </button>
+                </div>
+              }
+            </div>
+          }
+
+          <!-- Persons section -->
+          @if (p.persons.length) {
+            <div class="border-t border-[var(--mat-sys-outline-variant)] pt-3">
+              <div class="text-[0.625rem] uppercase tracking-wider text-[var(--mat-sys-on-surface-variant)] mb-2">{{ I18N.photo_detail.persons | translate }}</div>
+              <div class="flex gap-3 flex-wrap">
+                @for (person of p.persons; track person.id) {
+                  <button class="flex flex-col items-center gap-1 cursor-pointer hover:opacity-80 transition-opacity"
+                          (click)="navigateToGallery('person_id', person.id)">
+                    <img
+                      [src]="person.id | personThumbnailUrl"
+                      [alt]="person.name"
+                      class="w-10 h-10 rounded-full object-cover bg-[var(--mat-sys-surface-container)]"
+                    />
+                    <span class="text-xs text-[var(--mat-sys-on-surface-variant)]">{{ person.name }}</span>
+                  </button>
+                }
+              </div>
+            </div>
+          }
+
+          <!-- Set section (bracket/panorama/hdr_panorama/burst/duplicate) -->
+          @if (photoSet(); as set) {
+            @if (set.kind) {
+              <div class="border-t border-[var(--mat-sys-outline-variant)] pt-3">
+                <div class="flex items-center justify-between mb-2">
+                  <div class="text-[0.625rem] uppercase tracking-wider text-[var(--mat-sys-on-surface-variant)]">{{ I18N.photo_detail.set.title | translate }}</div>
+                  <button mat-button class="!min-w-0" (click)="openSetInGallery()">
+                    <mat-icon>photo_library</mat-icon> {{ I18N.photo_detail.set.open_in_gallery | translate }}
+                  </button>
+                </div>
+                <div class="flex items-center gap-2 flex-wrap mb-2 text-sm">
+                  <mat-icon class="!text-base !w-4 !h-4 !leading-4 opacity-70">{{ set.kind | photoSetKindIcon }}</mat-icon>
+                  <span class="font-medium">{{ set.kind | photoSetKindLabel | translate }}</span>
+                  <span class="text-xs text-[var(--mat-sys-on-surface-variant)]">{{ I18N.capsules.photos_count | translate:{ count: set.count } }}</span>
+                  @if (set.ev_span !== null) {
+                    <span class="text-xs text-[var(--mat-sys-on-surface-variant)]">{{ I18N.photo_detail.set.ev_span | translate }}: {{ set.ev_span | fixed:1 }} EV</span>
+                  }
+                </div>
+                <div class="flex gap-2 flex-wrap">
+                  @for (member of set.members; track member.path) {
+                    <button class="relative rounded-lg overflow-hidden w-16 h-16 shrink-0 cursor-pointer hover:opacity-80 transition-opacity ring-[var(--mat-sys-primary)]"
+                            [class.ring-2]="member.path === p.path"
+                            [attr.aria-label]="(I18N.photo_detail.set.member_position | translate:{ position: $index + 1, count: set.members.length }) + (member.ev_offset !== null ? ', ' + (member.ev_offset | evOffset) : '')"
+                            (click)="openSetMember(member.path)">
+                      <img [src]="member.path | thumbnailUrl:96" alt="" class="w-full h-full object-cover" />
+                      @if (member.ev_offset !== null) {
+                        <span class="absolute bottom-0 inset-x-0 text-center text-[0.625rem] leading-4 bg-black/60 text-white">{{ member.ev_offset | evOffset }}</span>
+                      }
+                    </button>
+                  }
+                </div>
+              </div>
+            }
+          }
+        </div>
+      </div>
+    } @else {
+      <div class="flex items-center justify-center h-full">
+        <mat-icon class="!text-4xl text-[var(--mat-sys-on-surface-variant)]">hourglass_empty</mat-icon>
+      </div>
+    }
+  `,
+  host: { class: 'block h-full overflow-y-auto lg:overflow-y-hidden' },
+})
+export class PhotoDetailComponent extends PhotoDetailBase implements OnInit {
+  protected readonly I18N = I18N_KEYS;
+  private readonly location = inject(Location);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
+  protected readonly auth = inject(AuthService);
+  protected readonly store = inject(GalleryStore);
+  private readonly dialog = inject(MatDialog);
+  private readonly snackBar = inject(MatSnackBar);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly photoActions = inject(PhotoActionsService);
+
+  readonly photo = signal<Photo | null>(null);
+  protected readonly downloading = signal(false);
+  protected readonly downloadOptions = signal<DownloadOption[]>([]);
+  protected readonly generatingCaption = signal(false);
+  protected readonly stars: readonly number[] = [1, 2, 3, 4, 5];
+
+  // Category explainer ("why isn't this photo classified as X?")
+  protected readonly explainerOpen = signal(false);
+  protected readonly explainerCategories = signal<string[]>([]);
+  protected readonly explainerTargetCategory = signal<string | null>(null);
+
+  // Zoom & pan state
+  private readonly imagePanel = viewChild<ElementRef<HTMLDivElement>>('imagePanel');
+  protected readonly zoomScale = signal(1);
+  protected readonly panX = signal(0);
+  protected readonly panY = signal(0);
+  protected readonly isPanning = signal(false);
+  protected readonly zoomTransform = computed(() => {
+    const s = this.zoomScale();
+    const x = this.panX();
+    const y = this.panY();
+    return s === 1 && x === 0 && y === 0 ? '' : `scale(${s}) translate(${x}px, ${y}px)`;
+  });
+  private panStartX = 0;
+  private panStartY = 0;
+  private panOriginX = 0;
+  private panOriginY = 0;
+  private lastPinchDist = 0;
+
+  // Download options
+  private downloadOptionsEffect = effect(() => {
+    const p = this.photo();
+    if (!p) { this.downloadOptions.set([]); return; }
+    if (!this.auth.downloadProfiles().length) {
+      this.downloadOptions.set([{ type: 'original', label: 'original' }]);
+      return;
+    }
+    const requestedPath = p.path;
+    firstValueFrom(this.api.get<{ options: DownloadOption[] }>('/download/options', { path: requestedPath }))
+      .then(res => { if (this.photo()?.path === requestedPath) this.downloadOptions.set(res.options); })
+      .catch(() => { if (this.photo()?.path === requestedPath) this.downloadOptions.set([{ type: 'original', label: 'original' }]); });
+  });
+
+  // Social-export crop presets (from viewer config) + which signal frames the crop
+  protected readonly HISTOGRAM_PANEL_HEIGHT = HISTOGRAM_PANEL_HEIGHT;
+  /** House default for the histogram's channels, until the user picks one.
+   *  A stale/unrecognised config value degrades to 'rgb' rather than the
+   *  widget rendering nothing. */
+  protected readonly histogramDefaultMode = computed<HistogramMode>(() => {
+    const configured = this.store.config()?.clipping?.histogram_mode;
+    return isHistogramMode(configured) ? configured : 'rgb';
+  });
+  protected readonly clippingIndicatorPercent = computed(
+    () => this.store.config()?.clipping?.indicator_percent ?? 1);
+
+  protected readonly socialPresets = computed(() => this.store.config()?.social_export?.presets ?? []);
+  protected readonly socialExportEnabled = computed(() =>
+    this.auth.isEdition() && !!this.store.config()?.features?.show_social_export && this.socialPresets().length > 0,
+  );
+  protected readonly socialCropSource = signal<string | null>(null);
+  protected readonly socialCropTooltipKey = computed(() => {
+    const source = this.socialCropSource();
+    const key = source ? (SOCIAL_SOURCE_KEYS[source] ?? null) : null;
+    return key ?? I18N.photo_detail.social_crop;
+  });
+  private socialCropSourceEffect = effect(() => {
+    const p = this.photo();
+    const presets = this.socialPresets();
+    if (!p || !this.socialExportEnabled()) {
+      this.socialCropSource.set(null);
+      return;
+    }
+    const requestedPath = p.path;
+    firstValueFrom(this.api.get<{ source: string }>('/photo/social_crop/preview', { path: requestedPath, preset: presets[0].key }))
+      .then(res => { if (this.photo()?.path === requestedPath) this.socialCropSource.set(res.source); })
+      .catch(() => { if (this.photo()?.path === requestedPath) this.socialCropSource.set(null); });
+  });
+
+  protected readonly keeperHint = signal<KeeperHint | null>(null);
+  private keeperHintEffect = effect(() => {
+    const p = this.photo();
+    this.keeperHint.set(null);
+    if (!p) return;
+    const requestedPath = p.path;
+    firstValueFrom(this.api.post<Record<string, KeeperHint>>('/photos/keeper_hints', { paths: [requestedPath] }))
+      .then(hints => { if (this.photo()?.path === requestedPath) this.keeperHint.set(hints[requestedPath] ?? null); })
+      .catch(() => { if (this.photo()?.path === requestedPath) this.keeperHint.set(null); });
+  });
+
+  // Set membership (bracket/panorama/hdr_panorama/burst/duplicate)
+  protected readonly photoSet = signal<PhotoSet | null>(null);
+  private photoSetEffect = effect(() => {
+    const p = this.photo();
+    this.photoSet.set(null);
+    if (!p) return;
+    const requestedPath = p.path;
+    firstValueFrom(this.api.get<PhotoSet>('/photo/set', { path: requestedPath }))
+      .then(res => { if (this.photo()?.path === requestedPath) this.photoSet.set(res); })
+      .catch(() => { if (this.photo()?.path === requestedPath) this.photoSet.set(null); });
+  });
+
+  // Location
+  protected readonly locationName = signal('');
+  private locationNameEffect = effect(() => {
+    const p = this.photo();
+    if (!p || p.gps_latitude == null || p.gps_longitude == null) {
+      this.locationName.set('');
+      return;
+    }
+    const requestedPath = p.path;
+    firstValueFrom(this.api.get<{ display_name: string }>('/filter_options/location_name', {
+      lat: String(p.gps_latitude), lng: String(p.gps_longitude),
+    }))
+      .then(res => { if (this.photo()?.path === requestedPath) this.locationName.set(res.display_name || ''); })
+      .catch(() => { if (this.photo()?.path === requestedPath) this.locationName.set(''); });
+  });
+
+  private readonly locationMapContainer = viewChild<ElementRef<HTMLDivElement>>('locationMapContainer');
+  private locationMap: L.Map | null = null;
+  private locationMapTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  // Register wheel and touchmove as non-passive so preventDefault() works. Keyed
+  // on imagePanel() (not afterNextRender()) so the async query-param load path
+  // -- where photo() is still null on first paint and #imagePanel doesn't exist
+  // yet -- re-attaches once the @if-gated element actually appears, instead of
+  // permanently missing the listeners.
+  private zoomListenersEffect = effect((onCleanup) => {
+    const el = this.imagePanel()?.nativeElement;
+    if (!el) return;
+    const wheelHandler = (e: WheelEvent) => this.onWheel(e);
+    const touchMoveHandler = (e: TouchEvent) => this.onTouchMove(e);
+    el.addEventListener('wheel', wheelHandler, { passive: false });
+    el.addEventListener('touchmove', touchMoveHandler, { passive: false });
+    onCleanup(() => {
+      el.removeEventListener('wheel', wheelHandler);
+      el.removeEventListener('touchmove', touchMoveHandler);
+    });
+  });
+
+  private locationMapEffect = effect(() => {
+    const container = this.locationMapContainer();
+    const p = this.photo();
+    if (!container || !p || p.gps_latitude == null || p.gps_longitude == null) return;
+
+    if (this.locationMapTimeout !== null) {
+      clearTimeout(this.locationMapTimeout);
+      this.locationMapTimeout = null;
+    }
+    if (this.locationMap) {
+      this.locationMap.remove();
+      this.locationMap = null;
+    }
+
+    this.locationMapTimeout = setTimeout(() => {
+      this.locationMapTimeout = null;
+      const map = createLeafletMap(container.nativeElement, {
+        zoomControl: false,
+        attributionControl: false,
+        dragging: false,
+        scrollWheelZoom: false,
+        doubleClickZoom: false,
+        touchZoom: false,
+      }).setView([p.gps_latitude!, p.gps_longitude!], 13);
+
+      L.marker([p.gps_latitude!, p.gps_longitude!]).addTo(map);
+      this.locationMap = map;
+    }, 0);
+  });
+
+  constructor() {
+    super();
+    this.destroyRef.onDestroy(() => {
+      if (this.locationMapTimeout !== null) clearTimeout(this.locationMapTimeout);
+      if (this.locationMap) { this.locationMap.remove(); this.locationMap = null; }
+    });
+  }
+
+  async ngOnInit(): Promise<void> {
+    // Try router state (passed from gallery via navigate(..., { state }))
+    const statePhoto = history.state?.['photo'] as Photo | undefined;
+
+    if (statePhoto) {
+      this.photo.set(statePhoto);
+    } else {
+      // Fallback: load from API using query param
+      const path = this.route.snapshot.queryParamMap.get('path');
+      if (path) {
+        try {
+          this.photo.set(await this.fetchPhoto(path));
+        } catch {
+          this.router.navigate(['/']);
+        }
+      } else {
+        this.router.navigate(['/']);
+      }
+    }
+  }
+
+  private async fetchPhoto(path: string): Promise<Photo> {
+    const photo = normalisePhotoFlags(
+      await firstValueFrom(this.api.get<Photo>('/photo', { path })));
+    if (!photo.tags_list) {
+      photo.tags_list = photo.tags ? photo.tags.split(',').map(t => t.trim()) : [];
+    }
+    if (!photo.manual_tags) {
+      photo.manual_tags = [];
+    }
+    if (!photo.persons) {
+      photo.persons = [];
+    }
+    return photo;
+  }
+
+  protected async openSetMember(path: string): Promise<void> {
+    if (this.photo()?.path === path) return;
+    try {
+      const photo = await this.fetchPhoto(path);
+      this.router.navigate(['/photo'], { queryParams: { path }, state: { photo } });
+      this.photo.set(photo);
+      this.fullImageLoaded.set(false);
+    } catch {
+      this.snackBar.open(this.i18n.t(I18N.errors.action_failed), '', { duration: 3000 });
+    }
+  }
+
+  protected openSetInGallery(): void {
+    const set = this.photoSet();
+    if (!set?.kind || set.group_id == null) return;
+    const groupId = String(set.group_id);
+    const updates: Partial<GalleryFilters> = {
+      sequence_group_id: '', sequence_kind: '', burst_group_id: '', duplicate_group_id: '',
+    };
+    if (set.kind === 'burst') {
+      updates.burst_group_id = groupId;
+      updates.hide_bursts = false;
+    } else if (set.kind === 'duplicate') {
+      updates.duplicate_group_id = groupId;
+      updates.hide_duplicates = false;
+    } else if (set.kind === 'bracket') {
+      updates.sequence_kind = set.kind;
+      updates.sequence_group_id = groupId;
+      updates.hide_brackets = false;
+    } else {
+      updates.sequence_kind = set.kind;
+      updates.sequence_group_id = groupId;
+      updates.hide_panoramas = false;
+    }
+    // Carried via router navigation state, never the URL or a post-navigate
+    // updateFilters() call: the gallery route re-initialises its filters from
+    // config + localStorage + URL on activation, which either overwrites a
+    // post-navigate update or discards it as arriving too late. `state` is
+    // read by GalleryComponent.ngOnInit before its first load. See
+    // GalleryComponent.consumeSetScopeState for why it is also never
+    // bookmarkable: sequence_group_id is renumbered on every detection pass.
+    this.router.navigate(['/'], { state: { setScope: updates } });
+  }
+
+  @HostListener('document:keydown.escape')
+  protected goBack(): void {
+    this.location.back();
+  }
+
+  @HostListener('document:keydown.arrowleft', ['$event'])
+  protected prevPhoto(event: Event): void {
+    if (isTypingContext(event)) return;
+    this.navigateAdjacentPhoto(-1);
+  }
+
+  @HostListener('document:keydown.arrowright', ['$event'])
+  protected nextPhoto(event: Event): void {
+    if (isTypingContext(event)) return;
+    this.navigateAdjacentPhoto(1);
+  }
+
+  private navigateAdjacentPhoto(delta: number): void {
+    const current = this.photo();
+    if (!current) return;
+    const photos = this.store.photos();
+    if (photos.length === 0) return;
+    const idx = photos.findIndex(p => p.path === current.path);
+    if (idx === -1) return;
+    const nextIdx = idx + delta;
+    if (nextIdx < 0 || nextIdx >= photos.length) return;
+    const next = photos[nextIdx];
+    this.router.navigate(['/photo'], {
+      queryParams: { path: next.path },
+      state: { photo: next },
+    });
+    this.photo.set(next);
+    this.fullImageLoaded.set(false);
+  }
+
+  protected async download(path: string, type = 'original', profile?: string): Promise<void> {
+    this.downloading.set(true);
+    try {
+      await downloadAll(
+        [path],
+        p => this.api.downloadUrl(p, type, profile),
+        url => this.api.getRaw(url),
+      );
+    } finally {
+      this.downloading.set(false);
+    }
+  }
+
+  protected async downloadSocialCrop(path: string, preset: string): Promise<void> {
+    this.downloading.set(true);
+    try {
+      await downloadAll(
+        [path],
+        p => `/api/photo/social_crop?path=${encodeURIComponent(p)}&preset=${encodeURIComponent(preset)}`,
+        url => this.api.getRaw(url),
+      );
+    } finally {
+      this.downloading.set(false);
+    }
+  }
+
+  /**
+   * Apply the fields the server has confirmed to the open photo and to the
+   * gallery's copy of it.
+   *
+   * The store write is what makes an edit outlive the lightbox: the grid
+   * renders from `GalleryStore.photos()`, so a mutation that only reached
+   * this component's own signal was shown back at its pre-edit value the
+   * moment the user returned, and looked discarded even though the server
+   * had accepted it.
+   *
+   * One partial feeds both, so the two views cannot be given different
+   * fields — which matters most where the server couples them: a reject that
+   * also clears the stars and the favorite flag has to carry all three, and
+   * the store used to receive none of them.
+   *
+   * Only ever called with state the server has already acknowledged, so a
+   * failed call leaves both the signal and the store untouched — the same
+   * pessimistic shape every handler here already had, and one that needs no
+   * revert path.
+   */
+  private applyConfirmed(p: Photo, confirmed: Partial<Photo>): void {
+    this.photo.set({ ...p, ...confirmed });
+    this.store.patchPhoto(p.path, confirmed);
+  }
+
+  protected async setRating(path: string, rating: number): Promise<void> {
+    const p = this.photo();
+    if (!p) return;
+    const newRating = p.star_rating === rating ? 0 : rating;
+    try {
+      await firstValueFrom(this.api.post('/photo/set_rating', { photo_path: path, rating: newRating }));
+      this.applyConfirmed(p, { star_rating: newRating });
+    } catch {
+      this.snackBar.open(this.i18n.t(I18N.errors.action_failed), '', { duration: 3000 });
+    }
+  }
+
+  protected async toggleFavorite(path: string): Promise<void> {
+    const p = this.photo();
+    if (!p) return;
+    try {
+      const res = await firstValueFrom(this.api.post<{ is_favorite: boolean; is_rejected: boolean | null }>('/photo/toggle_favorite', { photo_path: path }));
+      const confirmed: Partial<Photo> = { is_favorite: res.is_favorite };
+      // null means "the server did not touch this one": leave both readers on
+      // the value they hold rather than writing this view's belief over the
+      // store's, which may be the fresher of the two.
+      if (res.is_rejected !== null) confirmed.is_rejected = res.is_rejected;
+      this.applyConfirmed(p, confirmed);
+    } catch {
+      this.snackBar.open(this.i18n.t(I18N.errors.action_failed), '', { duration: 3000 });
+    }
+  }
+
+  protected async toggleRejected(path: string): Promise<void> {
+    const p = this.photo();
+    if (!p) return;
+    try {
+      const res = await firstValueFrom(this.api.post<{ is_rejected: boolean; is_favorite: boolean | null; star_rating: number | null }>('/photo/toggle_rejected', { photo_path: path }));
+      const confirmed: Partial<Photo> = { is_rejected: res.is_rejected };
+      if (res.is_favorite !== null) confirmed.is_favorite = res.is_favorite;
+      if (res.star_rating !== null) confirmed.star_rating = res.star_rating;
+      this.applyConfirmed(p, confirmed);
+    } catch {
+      this.snackBar.open(this.i18n.t(I18N.errors.action_failed), '', { duration: 3000 });
+    }
+  }
+
+  protected async generateCaption(path: string): Promise<void> {
+    this.generatingCaption.set(true);
+    try {
+      const res = await firstValueFrom(this.api.get<{ caption: string }>('/caption', { path }));
+      const p = this.photo();
+      // Generation is slow enough to outlive the photo that started it, and the
+      // store write now carries a mis-targeted apply out to the grid as well --
+      // so confirm the open photo is still the one this call asked about.
+      if (p?.path === path) {
+        this.translatedCaption.set(null);
+        this.applyConfirmed(p, { caption: res.caption, caption_translated: undefined });
+      }
+    } catch {
+      this.snackBar.open(this.i18n.t(I18N.photo_detail.caption_error), '', { duration: 3000 });
+    } finally {
+      this.generatingCaption.set(false);
+    }
+  }
+
+  protected navigateToGallery(filter: string, value: string | number): void {
+    this.router.navigate(['/'], { queryParams: { [filter]: String(value) } });
+  }
+
+  protected readonly newTag = signal('');
+
+  protected onNewTagInput(event: Event): void {
+    this.newTag.set((event.target as HTMLInputElement).value);
+  }
+
+  /**
+   * Pessimistic: the signal and the store change only once the server accepted the tag.
+   * The merge reads the CURRENT photo when the response lands, so overlapping edits compose.
+   */
+  protected async addManualTag(p: Photo, raw: string): Promise<void> {
+    const tag = raw.trim();
+    if (!tag) return;
+    try {
+      const res = await firstValueFrom(
+        this.api.put<{ tag: string; skipped_existing: boolean }>('/photo/manual_tags', { path: p.path, tag }));
+      this.newTag.set('');
+      if (res.skipped_existing) {
+        // Nothing was stored: the tag already exists, as a manual tag or as an AI tag.
+        this.snackBar.open(this.i18n.t(I18N.manual_tags.already_present), '', { duration: 3000 });
+        return;
+      }
+      this.updateManualTags(p, tags => (tags.includes(res.tag) ? tags : [...tags, res.tag].sort()));
+    } catch {
+      this.snackBar.open(this.i18n.t(I18N.errors.action_failed), '', { duration: 3000 });
+    }
+  }
+
+  protected async removeManualTag(p: Photo, tag: string): Promise<void> {
+    try {
+      await firstValueFrom(this.api.delete('/photo/manual_tags', { path: p.path, tag }));
+      this.updateManualTags(p, tags => tags.filter(t => t !== tag));
+    } catch {
+      this.snackBar.open(this.i18n.t(I18N.errors.action_failed), '', { duration: 3000 });
+    }
+  }
+
+  /** Applies `change` to the photo's manual tags as they are NOW, not as the caller captured them. */
+  private updateManualTags(p: Photo, change: (tags: string[]) => string[]): void {
+    const current = this.photo();
+    if (current?.path === p.path) {
+      this.applyConfirmed(current, { manual_tags: change(current.manual_tags) });
+      return;
+    }
+    // The view moved on to another photo: keep the grid's row right without touching the signal.
+    const row = this.store.photos().find(r => r.path === p.path);
+    this.store.patchPhoto(p.path, { manual_tags: change(row?.manual_tags ?? p.manual_tags) });
+  }
+
+  protected editCaption(p: Photo): void {
+    import('./caption-edit-dialog.component').then(m => {
+      const ref = this.dialog.open(m.CaptionEditDialogComponent, {
+        width: '95vw',
+        maxWidth: '500px',
+        data: { path: p.path, filename: p.filename, caption: p.caption || '' },
+      });
+      ref.afterClosed().subscribe(result => {
+        if (result !== undefined) {
+          this.translatedCaption.set(null);
+          this.applyConfirmed(p, { caption: result || null, caption_translated: undefined });
+        }
+      });
+    });
+  }
+
+  protected openSimilar(photo: Photo, mode: 'visual' | 'color' | 'person'): void {
+    this.router.navigate(['/'], {
+      queryParams: { similar_to: photo.path, similarity_mode: mode, min_similarity: '70' },
+    });
+  }
+
+  protected openCritique(photo: Photo): void {
+    this.photoActions.openCritique(photo);
+  }
+
+  /**
+   * Open the delete confirm dialog and, on confirm, call
+   * `PhotoActionsService.deletePhotos` for the single open photo.
+   *
+   * `hasSiblings`/`hasBracketLead` are read off the already-fetched
+   * `photoSet()` rather than a fresh request: a bracket/panorama/hdr_panorama
+   * set with more than one member offers the sibling checkbox, and this
+   * photo being that set's own bracket-kind lead frame is exactly the
+   * condition the endpoint refuses without `includeSequenceSiblings`
+   * (decision 7) -- known precisely here, unlike the gallery's bulk
+   * selection, which has no per-path lead signal client-side.
+   */
+  protected deletePhoto(): void {
+    const p = this.photo();
+    if (!p) return;
+    const set = this.photoSet();
+    const hasSiblings = !!set?.kind && SEQUENCE_KINDS_KEPT_WHOLE.includes(set.kind) && set.count > 1;
+    const hasBracketLead = set?.kind === 'bracket'
+      && (set.members.find(m => m.path === p.path)?.is_lead ?? false);
+    import('../../shared/components/photo-delete-dialog/photo-delete-dialog.component').then(m => {
+      const ref = this.dialog.open(m.PhotoDeleteDialogComponent, {
+        width: '95vw',
+        maxWidth: '28rem',
+        data: {
+          surface: 'photo_detail',
+          paths: [p.path],
+          count: 1,
+          hasCompanion: true,
+          hasSiblings,
+          hasBracketLead,
+        },
+      });
+      ref.afterClosed().subscribe(async result => {
+        if (!result) return;
+        const res = await this.photoActions.deletePhotos([p.path], result);
+        if (!res) return;
+        if (res.deleted.includes(p.path)) {
+          this.store.removePhotos([p.path]);
+          this.snackBar.open(this.i18n.t(I18N.photo_detail.delete.success), '', { duration: 2000 });
+          this.goBack();
+        } else {
+          this.snackBar.open(this.i18n.t(I18N.photo_detail.delete.error), '', { duration: 3000 });
+        }
+      });
+    });
+  }
+
+  protected openCategoryOverride(p: Photo): void {
+    import('./category-override-dialog.component').then(m => {
+      const ref = this.dialog.open(m.CategoryOverrideDialogComponent, {
+        width: '95vw',
+        maxWidth: '24rem',
+        data: { path: p.path, currentCategory: p.category },
+      });
+      ref.afterClosed().subscribe((result: CategoryOverrideResult | undefined) => {
+        if (result) this.applyConfirmed(p, { category: result.category, aggregate: result.aggregate });
+      });
+    });
+  }
+
+  protected async clearCategoryOverride(p: Photo): Promise<void> {
+    try {
+      const res = await firstValueFrom(
+        this.api.post<{ new_category: string; aggregate: number }>('/comparison/clear_category_override', { path: p.path }),
+      );
+      this.applyConfirmed(p, { category: res.new_category, aggregate: res.aggregate });
+      this.snackBar.open(this.i18n.t(I18N.photo.category_override.cleared), '', { duration: 3000 });
+    } catch {
+      this.snackBar.open(this.i18n.t(I18N.errors.action_failed), '', { duration: 3000 });
+    }
+  }
+
+  protected toggleExplainer(): void {
+    const next = !this.explainerOpen();
+    this.explainerOpen.set(next);
+    if (next && this.explainerCategories().length === 0) {
+      firstValueFrom(this.api.get<{ categories: { name: string }[] }>('/config/category_priorities'))
+        .then(res => this.explainerCategories.set(res.categories.map(c => c.name)))
+        .catch(() => this.explainerCategories.set([]));
+    }
+  }
+
+  protected openAddPerson(photo: Photo): void {
+    this.photoActions.openAddPerson(photo, () => {
+      this.photo.update(p => p ? { ...p, unassigned_faces: Math.max(0, p.unassigned_faces - 1) } : p);
+    });
+  }
+
+  protected editGps(p: Photo): void {
+    import('./gps-edit-dialog.component').then(m => {
+      const ref = this.dialog.open(m.GpsEditDialogComponent, {
+        width: '95vw',
+        maxWidth: '500px',
+        data: {
+          path: p.path,
+          filename: p.filename,
+          lat: p.gps_latitude ?? null,
+          lng: p.gps_longitude ?? null,
+        },
+      });
+      ref.afterClosed().subscribe((result: { gps_latitude: number | null; gps_longitude: number | null } | undefined) => {
+        if (result !== undefined) {
+          this.photo.set({ ...p, gps_latitude: result.gps_latitude ?? undefined, gps_longitude: result.gps_longitude ?? undefined });
+          this.locationName.set('');
+        }
+      });
+    });
+  }
+
+  // Zoom & pan
+
+  private applyZoom(raw: number): void {
+    const clamped = Math.min(5, Math.max(0.5, raw));
+    if (clamped === 1) { this.panX.set(0); this.panY.set(0); }
+    this.zoomScale.set(clamped);
+  }
+
+  protected onWheel(e: WheelEvent): void {
+    e.preventDefault();
+    this.applyZoom(this.zoomScale() + (e.deltaY > 0 ? -0.15 : 0.15));
+  }
+
+  protected resetZoom(): void {
+    this.zoomScale.set(1);
+    this.panX.set(0);
+    this.panY.set(0);
+  }
+
+  protected onPanStart(e: PointerEvent): void {
+    if (this.zoomScale() <= 1) return;
+    this.isPanning.set(true);
+    this.panStartX = e.clientX;
+    this.panStartY = e.clientY;
+    this.panOriginX = this.panX();
+    this.panOriginY = this.panY();
+    (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
+  }
+
+  protected onPanMove(e: PointerEvent): void {
+    if (!this.isPanning()) return;
+    const scale = this.zoomScale();
+    const rawX = this.panOriginX + (e.clientX - this.panStartX) / scale;
+    const rawY = this.panOriginY + (e.clientY - this.panStartY) / scale;
+    // Clamp pan so the image can't be dragged entirely off-screen
+    const el = this.imagePanel()?.nativeElement;
+    if (el) {
+      const limit = Math.max(el.clientWidth, el.clientHeight) / (2 * scale);
+      this.panX.set(Math.max(-limit, Math.min(limit, rawX)));
+      this.panY.set(Math.max(-limit, Math.min(limit, rawY)));
+    } else {
+      this.panX.set(rawX);
+      this.panY.set(rawY);
+    }
+  }
+
+  protected onPanEnd(e: PointerEvent): void {
+    if (!this.isPanning()) return;
+    this.isPanning.set(false);
+    (e.target as HTMLElement).releasePointerCapture?.(e.pointerId);
+  }
+
+  protected onTouchStart(e: TouchEvent): void {
+    if (e.touches.length === 2) {
+      this.lastPinchDist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY,
+      );
+    }
+  }
+
+  protected onTouchMove(e: TouchEvent): void {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY,
+      );
+      if (this.lastPinchDist > 0) {
+        this.applyZoom(this.zoomScale() * (dist / this.lastPinchDist));
+      }
+      this.lastPinchDist = dist;
+    }
+  }
+
+  protected onTouchEnd(): void {
+    this.lastPinchDist = 0;
+  }
+}

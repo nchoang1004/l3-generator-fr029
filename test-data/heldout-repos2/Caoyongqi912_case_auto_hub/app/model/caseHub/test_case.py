@@ -1,0 +1,52 @@
+#!/usr/bin/env python
+# -*- coding:utf-8 -*-
+# @Time : 2025/8/25
+# @Author : cyq
+# @File : test_case
+# @Software: PyCharm
+from sqlalchemy import Column, ForeignKey, String, Boolean, Integer
+
+from sqlalchemy.orm import relationship
+from app.model.base import User
+from app.model.basic import BaseModel
+
+
+class TestCase(BaseModel):
+    __tablename__ = "test_case"
+
+    case_name = Column(String(500), nullable=False, comment="用例步骤名称")
+    case_tag = Column(String(100), nullable=True, comment="用例步骤标签")
+    case_setup = Column(String(500), nullable=True, comment="用例步骤前置条件")
+    case_mark = Column(String(500), nullable=True, comment="用例步骤备注")
+
+    case_level = Column(String(255), index=True, comment="用例等级")
+    case_type = Column(String(255), nullable=True, index=True, comment="用例类型 1 冒烟 2功能 3回归")
+    case_platform = Column(String(255), nullable=True, index=True, comment="用例平台")
+
+    is_common = Column(Boolean, default=False, index=True, comment="用例库")
+    module_id = Column(Integer, ForeignKey('module.id', ondelete='set null'), nullable=True, comment="所属模块")
+    project_id = Column(Integer, ForeignKey('project.id'), nullable=False, comment="所属项目")
+    # 用例在所属 module 内的排序序号, 默认 0 让新增用例自然落到末尾
+    order = Column(Integer, default=0, index=True, comment="排序序号")
+
+    from app.model.caseHub.test_case_step import TestCaseStep
+    # ⚠ 两套级联机制并存, 改 TestCase 务必同步:
+    # 1) ORM 级 (cascade="all, delete-orphan"): 仅对 session.delete(case_obj) 路径生效
+    # 2) DDL 级 (ON DELETE CASCADE): 子表 FK 声明里, 走 bulk delete 路径
+    #    (delete_batch_cases) 必需依赖它. 声明位置:
+    #    - TestCaseStep.test_case_id  ondelete="cascade"    test_case_step.py:16
+    #    - CaseStepDynamic.test_case_id  ondelete="cascade"  case_step_dynamic.py:15
+    #    - RequirementCaseAssociation.case_id  ondelete="CASCADE"  association.py:17
+    #    - PlanCaseAssociation.case_id  ondelete="CASCADE"  association.py:50
+    case_sub_steps = relationship(TestCaseStep, back_populates="case", lazy="select", order_by=TestCaseStep.order, cascade="all, delete-orphan")
+
+    @classmethod
+    def new_default(cls, user: User) -> "TestCase":
+        obj = cls()
+        obj.case_name = "测试用例"
+        obj.creator = user.id
+        obj.creatorName = user.username
+        return obj
+
+    def __repr__(self):
+        return f"<TestCase(id={self.id},case_name={self.case_name}) >"

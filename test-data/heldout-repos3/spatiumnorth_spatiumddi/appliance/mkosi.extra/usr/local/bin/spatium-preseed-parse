@@ -1,0 +1,1248 @@
+#!/usr/bin/env python3
+# spatium-preseed-parse — validate a headless-install answer file and
+# emit resolved values for the spatium-install bash wizard to consume
+# (issue #549).
+#
+# The interactive installer (spatium-install) drives a whiptail wizard.
+# For fleet rollouts / PXE / CI boot-tests there's no console operator,
+# so this helper lets spatium-install run non-interactively from a
+# preseed answer file. It reuses the SAME validation rules the wizard
+# enforces (hostname RFC 1123, k3s CIDR disjoint + <= /22 + no LAN
+# overlap, pairing code = 8 digits, control-plane URL required for the
+# appliance role) so a headless install can't slip past a guard the
+# interactive path would have caught.
+#
+# Contract with spatium-install:
+#   argv: <preseed.yaml> <out-env> <out-secret-env>
+#   exit 0 — parsed OK (possibly PARTIAL — missing fields fall through
+#            to the interactive prompt in the wizard).
+#   exit 2 — a field that WAS supplied failed validation. The install
+#            must halt loudly rather than silently pick a default on
+#            an unattended run (acceptance criterion in #549).
+#   exit 3 — the file could not be read / parsed as YAML at all
+#            (malformed — a loud failure since a preseed was expected).
+#   exit 4 — the file parsed but carries NO spatium preseed content
+#            (e.g. a plain cloud-init user-data with no spatium_preseed
+#            block). Safe to ignore — the wizard falls through to a
+#            fully interactive install.
+#
+# <out-env> is a shell-sourceable file of non-secret KEY=value lines
+# plus PRESEED_HAS_<field>=1 markers telling the wizard which prompts
+# to skip. <out-secret-env> (mode 0600) carries the admin password /
+# hash and the pairing code — never echoed to the console dashboard,
+# the install log, or the non-secret env.
+#
+# Dependency-light: PyYAML (python3-yaml) + stdlib only. python3-yaml
+# is in the appliance package set (mkosi.conf).
+
+import ipaddress
+import os
+import re
+import shlex
+import stat
+import sys
+
+# ── Shared field validators (issue #995 items 3 + 4) ──────────────────
+#
+# Defined ABOVE the YAML import and the straight-line parse below,
+# because ``--check-field`` is answered before either runs. The
+# interactive wizard calls this script purely as a validator, and a
+# username or timezone prompt has no business failing because
+# python3-yaml is missing from the image.
+#
+# Both rules already existed here for the preseed path and the
+# INTERACTIVE path had neither: ``admin_user`` was defaulted-if-empty and
+# handed straight to ``useradd`` (a name with a space, or ``root``, left
+# the box with no sudo account while PermitRootLogin=no locked root out
+# of SSH), and ``timezone`` was a free-text box whose typos silently
+# became UTC at install time. So the fix is to let the wizard call these,
+# not to write a second copy in bash — the two-copies-that-drift shape.
+#
+# Rules are the POSIX-portable useradd shape Debian's adduser enforces
+# (NAME_REGEX in /etc/adduser.conf): start with a lowercase letter or
+# underscore, then lowercase / digits / underscore / hyphen, with an
+# optional trailing '$' for Samba machine accounts. 32-char limit is
+# useradd's own (utmp).
+# Matched with .fullmatch() below, not .match(): Python's ``$`` also
+# matches immediately BEFORE a trailing newline, so "netops\n" satisfied
+# this pattern — and a newline splits the ``user:password`` line piped to
+# chpasswd exactly the way the blocked ``:`` would.
+_ADMIN_USER_RE = re.compile(r"^[a-z_][a-z0-9_-]*\$?$")
+# Accounts the base image already ships. Handing one of these to
+# `useradd -m` fails ("user already exists") mid-install; `root` is
+# doubly wrong because do_install sets the root password separately
+# from the same secret, so a root admin_user silently means "the
+# useradd step fails and the install aborts after the wipe".
+_RESERVED_USERS = {
+    "root", "daemon", "bin", "sys", "sync", "games", "man", "lp", "mail",
+    "news", "uucp", "proxy", "www-data", "backup", "list", "irc", "nobody",
+    "systemd-network", "systemd-resolve", "messagebus", "sshd",
+}
+
+ZONEINFO_DIR = "/usr/share/zoneinfo"
+# IANA zone names are ASCII letters / digits / '+' / '-' / '_' joined by
+# '/'  (``Etc/GMT+5``, ``America/Argentina/Buenos_Aires``). No dots — and
+# that exclusion is load-bearing rather than cosmetic: the value is
+# interpolated into ``ln -sf /usr/share/zoneinfo/$TIMEZONE
+# /etc/localtime``, so ``../../etc/passwd`` passes a bare existence check
+# and points the installed system's localtime at an arbitrary file.
+_TIMEZONE_RE = re.compile(r"^[A-Za-z0-9+_-]+(?:/[A-Za-z0-9+_-]+)*$")
+
+
+def validate_admin_user(name: str) -> str:
+    """Return "" when the username is usable, else the reason it is not."""
+    if not name:
+        return "admin_user is empty"
+    if len(name) > 32:
+        return f"admin_user {name!r} is longer than 32 characters (useradd's limit)"
+    if not _ADMIN_USER_RE.fullmatch(name):
+        return (
+            f"admin_user {name!r} is not a valid Linux username — must "
+            "start with a lowercase letter or underscore and contain only "
+            "lowercase letters, digits, underscore or hyphen (optionally "
+            "ending in '$')"
+        )
+    if name in _RESERVED_USERS:
+        return (
+            f"admin_user {name!r} is a reserved system account that "
+            "already exists in the image — pick a different name (the root "
+            "password is set from admin_password separately)"
+        )
+    return ""
+
+
+def validate_timezone(tz: str) -> str:
+    """Return "" when the IANA zone name is usable, else the reason.
+
+    Three tests, and the order matters. The shape rule runs FIRST so a
+    traversal never reaches the filesystem at all. ``isfile`` then
+    rejects the directory names that are also real paths under
+    ``/usr/share/zoneinfo`` (``America`` exists; symlinking
+    /etc/localtime at a directory breaks every timestamp on the box).
+    The TZif magic finally rules out the non-zone regular files that live
+    in the same tree — ``leapseconds``, ``tzdata.zi`` — which are paths,
+    are files, and are not zones. It does NOT rule out ``posixrules``,
+    which on the distributions that still ship it is a byte copy of
+    America/New_York and therefore a perfectly valid TZif; naming it is a
+    strange way to ask for US Eastern, not a broken install.
+    """
+    if not tz:
+        return "timezone is empty"
+    if not _TIMEZONE_RE.fullmatch(tz):
+        return (
+            f"timezone {tz!r} is not a valid IANA zone name — expected "
+            "something like 'UTC', 'Europe/Berlin' or "
+            "'America/Argentina/Buenos_Aires'"
+        )
+    path = os.path.join(ZONEINFO_DIR, tz)
+    if not os.path.isfile(path):
+        return f"timezone {tz!r} is not a known IANA zone ({ZONEINFO_DIR})"
+    try:
+        with open(path, "rb") as fh:
+            magic = fh.read(4)
+    except OSError as exc:
+        return f"timezone {tz!r} could not be read from {ZONEINFO_DIR}: {exc}"
+    if magic != b"TZif":
+        return (
+            f"timezone {tz!r} exists under {ZONEINFO_DIR} but is not a "
+            "compiled zone file"
+        )
+    return ""
+
+
+# #995 item 11 — the OS account had no password policy at all: any
+# non-empty string passed, and (before item 12) it became root's password
+# too. The web UI has had one since #70; the account that owns the
+# console and sudo had none.
+#
+# The floor is deliberately low and the judgement deliberately split.
+# Eight characters, and not the username or the hostname, are REFUSALS:
+# each is a password guessed without trying, and each is a mistake rather
+# than a choice. Everything past that is a WARNING the operator can
+# accept, because this is a console prompt on a box being installed by
+# the person who owns it, and an installer that refuses to proceed is one
+# an operator works around with a weaker password they can retype — or
+# abandons for the night with the disk half-wiped.
+_MIN_PASSWORD_LEN = 8
+
+# Not a dictionary — a dictionary belongs in the web UI's policy, which
+# has a database and a login rate limiter behind it. This is the handful
+# that appear in every breach corpus, spelled the way people type them at
+# a console.
+_COMMON_PASSWORDS = {
+    "password", "password1", "passw0rd", "p@ssw0rd", "12345678",
+    "123456789", "1234567890", "qwertyui", "qwerty123", "letmein1",
+    "iloveyou", "admin123", "root1234", "welcome1", "changeme",
+    "spatium1", "abcd1234", "1qaz2wsx", "zaq12wsx", "trustno1",
+}
+
+
+def validate_admin_password(pw: str, username: str = "", hostname: str = "") -> str:
+    """Return "" when the password is allowed, else why it is refused."""
+    if not pw:
+        return "admin_password is empty"
+    if len(pw) < _MIN_PASSWORD_LEN:
+        return (
+            f"admin_password is {len(pw)} characters — the minimum is "
+            f"{_MIN_PASSWORD_LEN}. This password owns sudo on the appliance "
+            "console."
+        )
+    low = pw.lower()
+    if username and low == username.lower():
+        return "admin_password is the same as the username."
+    if hostname and low == hostname.lower():
+        return "admin_password is the same as the hostname."
+    return ""
+
+
+def warn_admin_password(pw: str) -> str:
+    """Return "" when nothing is worth saying, else an advisory.
+
+    Never a refusal — see the note on _MIN_PASSWORD_LEN. The caller shows
+    this and lets the operator decide.
+    """
+    if not pw:
+        return ""
+    if pw.lower() in _COMMON_PASSWORDS:
+        return (
+            "That password appears in every published breach list. Anyone "
+            "who reaches the console will guess it."
+        )
+    if len(set(pw)) < 5:
+        return (
+            f"That password uses only {len(set(pw))} distinct characters. "
+            "Length does not help much when the alphabet is that small."
+        )
+    classes = sum(
+        1 for test in (str.islower, str.isupper, str.isdigit)
+        if any(test(c) for c in pw)
+    )
+    if not pw.isalnum():
+        classes += 1
+    if classes < 2 and len(pw) < 16:
+        return (
+            "That password is a single character class (all lowercase, all "
+            "digits, …). One more class, or more length, is worth more than "
+            "either alone."
+        )
+    return ""
+
+
+def validate_mtu(
+    value: str, v6_mode: str = "auto", v6_ip: str = "", mode: str = "", iface: str = ""
+) -> str:
+    """#1017 — the ONE interface-MTU rule. Returns a reason, or "".
+
+    Registered for ``--check-field`` so the interactive wizard calls this
+    rather than transcribing the rule into bash. That is the #995
+    decision, in this file's own words: the validators are shared, not
+    copied. The first cut of #1017 did transcribe it, and the copies had
+    already drifted at birth — one accepted ``+1400`` (which ``int()``
+    takes) where the other refused it.
+
+    576 is the IPv4 minimum reassembly buffer (RFC 791) and 9000 the
+    conventional jumbo ceiling. Below 1280 IPv6 cannot run on the link at
+    all (RFC 8200), so a static v6 address there is refused outright
+    rather than warned about — that appliance is broken by
+    specification. With v6 left on its RA / SLAAC default nothing is
+    configured to break, so a 1200-byte tunnel (the case the setting
+    exists for) is allowed.
+
+    ``isascii()`` as well as ``isdigit()``, because their domains differ
+    in BOTH directions and each gap is a real failure: ``'٤'`` and
+    ``'１'`` are ``isdigit()`` and convert, so they would be stored and
+    then dropped by the renderer's ASCII ``case`` test; ``'²'`` and
+    ``'⅕'`` are ``isdigit()`` and raise ``ValueError``, which on the
+    parse path is an uncaught traceback instead of a reason. One
+    predicate closes both, and it is exactly what the shell tests.
+    """
+    if not value:
+        return ""
+    if not (value.isascii() and value.isdigit()):
+        return f"MTU {value!r} must be a whole number."
+    mtu = int(value)
+    if not 576 <= mtu <= 9000:
+        return (
+            f"MTU {mtu} must be between 576 and 9000. 1500 is the Ethernet "
+            "default; smaller values are for tunnelled or reduced-MTU links."
+        )
+    if mtu < 1280 and v6_mode == "static" and v6_ip:
+        return (
+            f"MTU {mtu} is below 1280, the IPv6 minimum link MTU (RFC 8200), "
+            f"and this install pins the static IPv6 address {v6_ip}. IPv6 "
+            "cannot run on that link — raise the MTU to 1280 or more, or set "
+            "IPv6 back to automatic."
+        )
+    # etc-render writes a keyfile for a DHCP install only when a port is
+    # named; with none, NetworkManager uses its own auto profile and there
+    # is no [ethernet] section for the MTU to live in. Checked here so
+    # BOTH doors enforce it — the wizard gates its prompt on a pinned
+    # interface, but a rootfs-baked answer file reaches the wizard's
+    # preseed branch without ever passing the parser.
+    if mode == "dhcp" and not iface:
+        return (
+            "An MTU on a DHCP install needs a pinned interface — with none, "
+            "the appliance uses NetworkManager's own profile, which carries "
+            "no MTU from SpatiumDDI, so the value would be stored and never "
+            "applied."
+        )
+    return ""
+
+
+_FIELD_VALIDATORS = {
+    "admin_user": validate_admin_user,
+    "timezone": validate_timezone,
+    "admin_password": validate_admin_password,
+    "mtu": validate_mtu,
+}
+#: Fields whose ACCEPT path can still carry advice, keyed the same way so
+#: a caller cannot ask for a warning on a field that has none.
+_FIELD_WARNERS = {
+    "admin_password": warn_admin_password,
+}
+#: Fields whose value must never travel in argv — argv is readable
+#: through /proc and lands in shell history. The caller passes ``-`` and
+#: pipes the value on stdin instead.
+_STDIN_FIELDS = {"admin_password"}
+
+# Shape rules for the #995 Phase 3 keys. All three values are
+# interpolated into files on the target (a chrony sources line, an
+# XKBLAYOUT= assignment, an authorized_keys line), so the point of these
+# is to keep a newline or a quote out of somewhere it would change the
+# meaning of the file — not to second-guess the real validator, which
+# runs on the live system where the answer is actually knowable.
+_NTP_HOST_RE = re.compile(r"^[A-Za-z0-9._:\[\]-]{1,253}$")
+_KEYMAP_RE = re.compile(r"^[A-Za-z0-9._-]{1,32}$")
+# "<type> <base64> [comment]" — the shape sshd parses. Deliberately not a
+# type allowlist: sshd gains key types faster than this file will.
+_SSH_KEY_RE = re.compile(r"^(sk-)?(ssh|ecdsa)-[A-Za-z0-9@.-]+\s+[A-Za-z0-9+/]{32,}={0,3}(\s|$)")
+
+# ``--check-field <kind> <value>`` — the interactive wizard's entry
+# point. Exit 0 (silent) = usable; exit 2 = rejected, reason on stdout
+# for the caller to put in a whiptail box; exit 3 = the caller asked for
+# a field this script does not know how to check, which is a bug in the
+# caller rather than a verdict about the value.
+if len(sys.argv) >= 2 and sys.argv[1] == "--check-field":
+    # 4 args minimum; extras are context the validator takes (admin_password
+    # wants the username + hostname so it can refuse a password equal to
+    # either).
+    if len(sys.argv) < 4:
+        sys.stderr.write(
+            "usage: spatium-preseed-parse --check-field <field> <value|-> "
+            "[context...]\n"
+        )
+        sys.exit(3)
+    _kind, _value = sys.argv[2], sys.argv[3]
+    _validator = _FIELD_VALIDATORS.get(_kind)
+    if _validator is None:
+        sys.stderr.write(
+            f"spatium-preseed-parse: no validator for field {_kind!r} "
+            f"(known: {', '.join(sorted(_FIELD_VALIDATORS))})\n"
+        )
+        sys.exit(3)
+    # ``-`` means "the value is on stdin", which is how a password reaches
+    # here without passing through argv. One trailing newline is stripped
+    # (a here-string adds one); nothing else is touched, because a leading
+    # or trailing space is legitimate content in a password.
+    # Gated on _STDIN_FIELDS: honoured for every kind, a literal `-` typed
+    # at the username or timezone prompt made python block reading the
+    # installer's console to EOF — a frozen wizard with no dialog and no
+    # way forward, the same dead end the `--` fix removed in Phase 1.
+    if _value == "-" and _kind in _STDIN_FIELDS:
+        _value = sys.stdin.read()
+        if _value.endswith("\n"):
+            _value = _value[:-1]
+    elif _kind not in _STDIN_FIELDS:
+        # .strip() so the two doors agree: the preseed path normalises
+        # through as_str() before validating, and without this " netops "
+        # would be accepted headlessly and rejected interactively. NOT
+        # applied to a password, where whitespace is content.
+        _value = _value.strip()
+    # A TypeError here is a CALLER bug (wrong number of context args), and
+    # the wizard's degrade path treats an unexpected exit code as "accept
+    # unvalidated" — so an uncaught one would silently turn the password
+    # policy into a no-op. Exit 3 says "this is about the call, not the
+    # value", which the caller refuses for security-relevant fields.
+    try:
+        _reason = _validator(_value, *sys.argv[4:])
+    except TypeError as exc:
+        sys.stderr.write(
+            f"spatium-preseed-parse: --check-field {_kind} called wrongly: {exc}\n"
+        )
+        sys.exit(3)
+    if _reason:
+        sys.stdout.write(_reason + "\n")
+        sys.exit(2)
+    # Exit 0 with text on stdout means "allowed, but here is the caveat".
+    # The wizard shows it and lets the operator decide; the preseed path
+    # files it as a NOTE.
+    _warner = _FIELD_WARNERS.get(_kind)
+    if _warner is not None:
+        _advice = _warner(_value)
+        if _advice:
+            sys.stdout.write(_advice + "\n")
+    sys.exit(0)
+
+
+try:
+    import yaml
+except ImportError:  # pragma: no cover - image always ships python3-yaml
+    sys.stderr.write(
+        "spatium-preseed-parse: PyYAML not available — cannot parse preseed\n"
+    )
+    sys.exit(3)
+
+# Hard disk-size floor for the A/B partition layout — mirror
+# spatium-install's MIN_DISK_GIB pick_disk guard. Keep in sync; a
+# preseeded target_disk below this halts loudly (the interactive picker
+# would have refused + re-prompted, but a headless run has no operator).
+MIN_DISK_GIB = 32
+
+
+# Accumulated resolved values (non-secret) and secrets, written out at
+# the end only if no validation error fired.
+env: dict[str, str] = {}
+secret: dict[str, str] = {}
+# Fatal validation errors on SUPPLIED fields. Any entry here => exit 2.
+errors: list[str] = []
+# Non-fatal notes surfaced to the install log (e.g. "disk unresolved,
+# falling through to interactive").
+notes: list[str] = []
+
+
+def fail(msg: str) -> None:
+    errors.append(msg)
+
+
+def note(msg: str) -> None:
+    notes.append(msg)
+
+
+def as_bool(val, field: str):
+    """Coerce a YAML scalar to a strict bool, or record an error."""
+    if isinstance(val, bool):
+        return val
+    if isinstance(val, str) and val.strip().lower() in {
+        "true", "false", "yes", "no", "1", "0",
+    }:
+        return val.strip().lower() in {"true", "yes", "1"}
+    fail(f"{field} must be a boolean (true/false); got {val!r}")
+    return None
+
+
+def as_str(val) -> str:
+    """YAML may parse a bare value as int/None; normalise to a string."""
+    if val is None:
+        return ""
+    return str(val).strip()
+
+
+# ── Load ──────────────────────────────────────────────────────────────
+
+if len(sys.argv) != 4:
+    sys.stderr.write(
+        "usage: spatium-preseed-parse <preseed.yaml> <out-env> <out-secret-env>\n"
+    )
+    sys.exit(3)
+
+preseed_path, out_env, out_secret = sys.argv[1], sys.argv[2], sys.argv[3]
+
+try:
+    with open(preseed_path, encoding="utf-8") as fh:
+        doc = yaml.safe_load(fh)
+except (OSError, yaml.YAMLError) as exc:
+    sys.stderr.write(f"spatium-preseed-parse: cannot parse {preseed_path}: {exc}\n")
+    sys.exit(3)
+
+if doc is None:
+    sys.stderr.write(f"spatium-preseed-parse: {preseed_path} is empty\n")
+    sys.exit(3)
+if not isinstance(doc, dict):
+    sys.stderr.write(
+        f"spatium-preseed-parse: {preseed_path} top level must be a mapping\n"
+    )
+    sys.exit(3)
+
+# Accept the preseed either as a top-level `spatium_preseed:` block
+# (so it can be embedded in a cloud-init user-data document alongside
+# other keys, which cloud-init ignores) or as the whole document. The
+# hyphen spelling `spatium-preseed:` is accepted as an alias.
+ps = None
+for key in ("spatium_preseed", "spatium-preseed"):
+    if isinstance(doc.get(key), dict):
+        ps = doc[key]
+        break
+if ps is None:
+    # No wrapper block — treat the document itself as the preseed, but
+    # only if it carries at least one field we recognise (guards against
+    # pointing the installer at an unrelated YAML file).
+    known = {
+        "role", "target_disk", "confirm_wipe", "hostname", "admin_user",
+        "admin_password", "admin_password_hash", "timezone", "network",
+        "k3s", "control_plane_url", "pairing_code", "set_root_password",
+        "ntp_servers", "keymap", "ssh_authorized_keys", "ssh_disable_password",
+    }
+    if known & set(doc.keys()):
+        ps = doc
+    else:
+        # Parsed fine but this isn't a preseed (e.g. a plain cloud-init
+        # user-data document). Not an error — let the installer fall
+        # through to interactive.
+        sys.stderr.write(
+            f"spatium-preseed-parse: {preseed_path} has no spatium_preseed "
+            "block and no recognised preseed fields — ignoring\n"
+        )
+        sys.exit(4)
+
+# ── Role ──────────────────────────────────────────────────────────────
+# Friendly aliases map onto the two internal role values the wizard +
+# supervisor consume (control-plane / appliance).
+ROLE_ALIASES = {
+    "control-plane": "control-plane",
+    "control_plane": "control-plane",
+    "control": "control-plane",
+    "first-node": "control-plane",
+    "first": "control-plane",
+    "appliance": "appliance",
+    "add-node": "appliance",
+    "additional": "appliance",
+    "agent": "appliance",
+    "application": "appliance",
+}
+role = None
+if "role" in ps and as_str(ps.get("role")):
+    raw = as_str(ps["role"]).lower()
+    role = ROLE_ALIASES.get(raw)
+    if role is None:
+        fail(
+            f"role {raw!r} is not valid — use 'control-plane' (first node) "
+            "or 'appliance' (additional / agent node)"
+        )
+    else:
+        env["ROLE"] = role
+        env["PRESEED_HAS_ROLE"] = "1"
+
+# ── confirm_wipe ──────────────────────────────────────────────────────
+confirm_wipe = False
+if "confirm_wipe" in ps:
+    cw = as_bool(ps["confirm_wipe"], "confirm_wipe")
+    if cw is not None:
+        confirm_wipe = cw
+
+
+# ── Target disk ───────────────────────────────────────────────────────
+# Destructive-disk safety (#549 open-question 3): an unattended wipe of
+# a disk with no human in the loop is only performed when BOTH
+#   * confirm_wipe: true, AND
+#   * target_disk resolves to exactly one existing WHOLE-disk block dev.
+# Prefer a stable id (/dev/disk/by-id/... or /dev/disk/by-path/...) that
+# survives re-enumeration; a bare sdX name is accepted but noted, since
+# it can renumber between boots. A supplied-but-unresolvable disk drops
+# to the interactive picker rather than guessing (never a silent wipe).
+# Test-only seam (issue #581): the `spatium-install --check-preseed`
+# linter + its host-portable pytest suite have no spare 32 GiB block
+# device to point the size-floor gate at, so when SPATIUM_FAKE_DISK_BYTES
+# is set we treat target_disk as a present whole disk of exactly that
+# many bytes. Inert on a real install (the env var is never set there).
+#
+# #999 Part C4 widened it to a PER-DISK map, because the mirror's two
+# load-bearing refusals — a member smaller than the target, and a member
+# that does not exist — are unreachable when every disk resolves at one
+# size. Both forms are accepted:
+#
+#   SPATIUM_FAKE_DISK_BYTES=68719476736                 every disk
+#   SPATIUM_FAKE_DISK_BYTES=/dev/sda=68719476736,/dev/sdb=34359738368
+#
+# In the map form a path that is NOT listed is treated as absent, which
+# is what makes "the mirror does not exist" testable.
+_FAKE_DISK_BYTES = os.environ.get("SPATIUM_FAKE_DISK_BYTES")
+_FAKE_DISK_MAP: dict[str, int] | None = None
+if _FAKE_DISK_BYTES and "=" in _FAKE_DISK_BYTES:
+    _FAKE_DISK_MAP = {}
+    for _entry in _FAKE_DISK_BYTES.split(","):
+        _k, _, _v = _entry.partition("=")
+        try:
+            _FAKE_DISK_MAP[_k.strip()] = int(_v)
+        except ValueError:
+            # Test-only seam: a malformed entry is simply not a known
+            # disk, which is the same thing the map already expresses by
+            # omission. Nothing to report — this variable is never set on
+            # a real install.
+            continue
+
+
+def resolve_disk(spec: str):
+    if _FAKE_DISK_MAP is not None:
+        if spec in _FAKE_DISK_MAP:
+            return spec, None
+        return None, f"target_disk {spec!r} does not exist"
+    if _FAKE_DISK_BYTES is not None:
+        return spec, None
+    real = os.path.realpath(spec)
+    try:
+        st = os.stat(real)
+    except OSError:
+        return None, f"target_disk {spec!r} does not exist"
+    if not stat.S_ISBLK(st.st_mode):
+        return None, f"target_disk {spec!r} is not a block device"
+    name = os.path.basename(real)
+    # Whole disks appear under /sys/block/<name>; partitions do not.
+    if not os.path.isdir(f"/sys/block/{name}"):
+        return None, (
+            f"target_disk {spec!r} resolves to {real} which is not a whole "
+            "disk (looks like a partition)"
+        )
+    return real, None
+
+
+def disk_size_bytes(real: str):
+    """Capacity of a whole-disk /dev node via /sys/block/<name>/size
+    (512-byte sectors). Returns None if unreadable."""
+    if _FAKE_DISK_MAP is not None:
+        return _FAKE_DISK_MAP.get(real)
+    if _FAKE_DISK_BYTES is not None:
+        try:
+            return int(_FAKE_DISK_BYTES)
+        except ValueError:
+            return None
+    name = os.path.basename(real)
+    try:
+        with open(f"/sys/block/{name}/size", encoding="ascii") as fh:
+            return int(fh.read().strip()) * 512
+    except (OSError, ValueError):
+        return None
+
+
+target_spec = as_str(ps.get("target_disk"))
+if target_spec:
+    real, why = resolve_disk(target_spec)
+    if real is None:
+        # Absent / ambiguous named disk — fall through to interactive
+        # (issue #549: "Refuse and drop to interactive"). Not fatal.
+        note(f"{why}; falling through to interactive disk selection")
+    elif not confirm_wipe:
+        note(
+            f"target_disk {target_spec!r} supplied but confirm_wipe is not "
+            "true — refusing unattended wipe; disk selection is interactive"
+        )
+    else:
+        # Hard size floor — the interactive picker refuses + re-prompts
+        # below MIN_DISK_GIB; a headless run has no operator, so halt
+        # loudly instead of partitioning an undersized disk (#312).
+        nbytes = disk_size_bytes(real)
+        if nbytes is not None and nbytes < MIN_DISK_GIB * 1024**3:
+            fail(
+                f"target_disk {target_spec!r} is {nbytes // 1024**3} GiB — "
+                f"below the {MIN_DISK_GIB} GiB minimum for the A/B partition "
+                "layout; pick a larger disk"
+            )
+        else:
+            env["TARGET_DISK"] = real
+            env["PRESEED_HAS_DISK"] = "1"
+            if not target_spec.startswith("/dev/disk/by-"):
+                note(
+                    f"target_disk {target_spec!r} is not a stable "
+                    f"/dev/disk/by-id or by-path id (resolved to {real}); it "
+                    "may renumber across boots — prefer a by-id path for "
+                    "fleet rollouts"
+                )
+
+            # ── #999 Part C2 — optional RAID1 mirror member ──────────
+            #
+            # Only considered once the target itself is accepted: a
+            # mirror of a disk we are not installing to is meaningless,
+            # and validating it against a target that was refused would
+            # produce a second, confusing error about the wrong disk.
+            mirror_spec = as_str(ps.get("mirror_disk"))
+            if mirror_spec:
+                mreal, mwhy = resolve_disk(mirror_spec)
+                if mreal is None:
+                    # A headless run has no operator to fall back to, and
+                    # silently installing single-disk when a mirror was
+                    # asked for would hand back an appliance the operator
+                    # believes is redundant and is not.
+                    # resolve_disk phrases its reasons as "target_disk";
+                    # relabel so the operator is told which key is wrong.
+                    fail(
+                        (mwhy or f"mirror_disk {mirror_spec!r} does not exist").replace(
+                            "target_disk", "mirror_disk", 1
+                        )
+                        + " — refusing rather than installing without the "
+                        "mirror that was asked for"
+                    )
+                elif mreal == real:
+                    fail(
+                        f"mirror_disk {mirror_spec!r} resolves to the same "
+                        f"device as target_disk ({real}) — a disk cannot "
+                        "mirror itself"
+                    )
+                else:
+                    mbytes = disk_size_bytes(mreal)
+                    # raid1 is the size of its SMALLEST member, so a
+                    # smaller mirror does not fail — it silently shrinks
+                    # /var below the size the layout was sized for.
+                    if (
+                        mbytes is not None
+                        and nbytes is not None
+                        and mbytes < nbytes
+                    ):
+                        fail(
+                            f"mirror_disk {mirror_spec!r} is "
+                            f"{mbytes // 1024**3} GiB, smaller than target_disk "
+                            f"({nbytes // 1024**3} GiB). A RAID1 is the size of "
+                            "its smallest member, so this would silently shrink "
+                            "/var"
+                        )
+                    else:
+                        env["TARGET_DISK2"] = mreal
+                        env["MIRROR_MODE"] = "yes"
+                        env["PRESEED_HAS_MIRROR_DISK"] = "1"
+                        if not mirror_spec.startswith("/dev/disk/by-"):
+                            note(
+                                f"mirror_disk {mirror_spec!r} is not a stable "
+                                "/dev/disk/by-id or by-path id; prefer one for "
+                                "fleet rollouts"
+                            )
+
+# ── Hostname (RFC 1123, matching the wizard's ask_hostname) ───────────
+hostname = as_str(ps.get("hostname"))
+if hostname:
+    ok = True
+    if len(hostname) > 63:
+        fail("hostname must be 63 characters or fewer")
+        ok = False
+    elif (
+        hostname.startswith("-")
+        or hostname.endswith("-")
+        or any(c not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-"
+               for c in hostname)
+    ):
+        fail(
+            "hostname must be alphanumeric + hyphen, not start/end with a "
+            "hyphen, and contain no spaces or dots"
+        )
+        ok = False
+    if ok:
+        env["HOSTNAME"] = hostname
+        env["PRESEED_HAS_HOSTNAME"] = "1"
+
+# ── Admin user + password ─────────────────────────────────────────────
+# ── Admin OS user (issue #581) ────────────────────────────────────────
+# The value flows unquoted-in-spirit into `chroot useradd -m -G sudo -s
+# /bin/bash "$ADMIN_USER"` and into the `user:password` line piped to
+# `chpasswd`. A preseed is applied with no human watching, so an
+# unvalidated value either fails the install halfway through — after the
+# disk is already wiped — or, with a colon in it, splits the chpasswd
+# line and sets a password for the wrong account.
+#
+# #995 item 4 — the rules moved to ``validate_admin_user`` above so the
+# interactive wizard can call them too, via ``--check-field``. The
+# comment here used to say the interactive path "can only produce
+# something sane"; it could not, which is what item 4 was filed about.
+admin_user = as_str(ps.get("admin_user"))
+if admin_user:
+    reason = validate_admin_user(admin_user)
+    if reason:
+        fail(reason)
+    else:
+        env["ADMIN_USER"] = admin_user
+        env["PRESEED_HAS_ADMIN_USER"] = "1"
+
+pw = as_str(ps.get("admin_password"))
+pw_hash = as_str(ps.get("admin_password_hash"))
+if pw and pw_hash:
+    fail("supply only one of admin_password or admin_password_hash")
+elif pw_hash:
+    # crypt(3) hashes start with $id$ (e.g. $6$ for SHA-512, $y$ for
+    # yescrypt). Reject anything that clearly isn't one so a truncated /
+    # mis-pasted hash fails loudly instead of locking the operator out.
+    if not (pw_hash.startswith("$") and pw_hash.count("$") >= 2):
+        fail(
+            "admin_password_hash does not look like a crypt(3) hash "
+            "(expected $id$salt$hash, e.g. from `openssl passwd -6`)"
+        )
+    else:
+        secret["ADMIN_PASSWORD_HASH"] = pw_hash
+        env["PRESEED_HAS_PASSWORD"] = "1"
+elif pw:
+    # #995 item 11 — the same floor the wizard applies. A hash cannot be
+    # checked (that is the point of a hash), so admin_password_hash above
+    # is exempt and the operator owns the strength of what they hashed.
+    pw_reason = validate_admin_password(
+        pw, admin_user or "admin", as_str(ps.get("hostname"))
+    )
+    if pw_reason:
+        fail(pw_reason)
+    else:
+        pw_advice = warn_admin_password(pw)
+        if pw_advice:
+            # A NOTE, not a failure: an unattended fleet install must not
+            # halt on a judgement call, but --check-preseed shows it and
+            # the install log records it.
+            note(f"admin_password: {pw_advice}")
+        secret["ADMIN_PASSWORD"] = pw
+        env["PRESEED_HAS_PASSWORD"] = "1"
+
+# ── Root account (issue #995 item 12) ─────────────────────────────────
+# Default FALSE, which changes the previous behaviour: root used to get
+# the admin password unconditionally. sshd refuses root either way
+# (mkosi.postinst), so this only ever affected the physical / IPMI
+# console, and a locked root with sudo in front of it is both safer and
+# Debian's own default. An answer file that wants the old behaviour says
+# so explicitly.
+set_root_pw = ps.get("set_root_password")
+if set_root_pw is not None:
+    val = as_bool(set_root_pw, "set_root_password")
+    if val is not None:
+        env["SET_ROOT_PASSWORD"] = "yes" if val else "no"
+        env["PRESEED_HAS_SET_ROOT_PASSWORD"] = "1"
+
+# ── Timezone ──────────────────────────────────────────────────────────
+# #995 item 3 — was a bare ``os.path.exists`` on the interpolated name,
+# which accepts a traversal (``../../etc/passwd``) and a directory
+# (``America``). Shared with the wizard's prompt loop now.
+tz = as_str(ps.get("timezone"))
+if tz:
+    reason = validate_timezone(tz)
+    if reason:
+        fail(reason)
+    else:
+        env["TIMEZONE"] = tz
+        env["PRESEED_HAS_TIMEZONE"] = "1"
+
+# ── NTP (issue #995 item 16) ──────────────────────────────────────────
+# A string or a list; empty is a legitimate answer (air-gapped site with
+# a trusted RTC) and is recorded as one rather than falling back to the
+# Debian pool the operator declined.
+ntp = ps.get("ntp_servers")
+if ntp is not None:
+    if isinstance(ntp, list):
+        ntp_list = [as_str(x) for x in ntp if as_str(x)]
+    else:
+        ntp_list = as_str(ntp).split()
+    bad_ntp = [x for x in ntp_list if not _NTP_HOST_RE.fullmatch(x)]
+    if bad_ntp:
+        fail(
+            "ntp_servers entries must be hostnames or IP addresses; "
+            f"rejected: {', '.join(repr(x) for x in bad_ntp)}"
+        )
+    else:
+        env["NTP_SERVERS"] = " ".join(ntp_list)
+        env["PRESEED_HAS_NTP"] = "1"
+
+# ── Console keymap (issue #995 item 17) ───────────────────────────────
+# Not validated against the system's keymap list: this parser is
+# host-portable and `--check-preseed` runs on a workstation whose
+# /usr/share/keymaps says nothing about the appliance's. The shape check
+# catches a typo'd path or an injected argument; a name loadkeys cannot
+# load is caught on the live system, where the answer is knowable.
+keymap = as_str(ps.get("keymap"))
+if keymap:
+    if not _KEYMAP_RE.fullmatch(keymap):
+        fail(
+            f"keymap {keymap!r} is not a plausible console keymap name "
+            "(letters, digits, hyphen, underscore, dot; e.g. 'de', 'br-abnt2')"
+        )
+    else:
+        env["KEYMAP"] = keymap
+        env["PRESEED_HAS_KEYMAP"] = "1"
+
+# ── SSH authorized keys (issue #995 item 18) ──────────────────────────
+# Public keys, so not secret — they go in the ordinary env file. A list
+# or a single newline-separated string.
+ssh_keys = ps.get("ssh_authorized_keys")
+if ssh_keys is not None:
+    if isinstance(ssh_keys, list):
+        key_lines = [as_str(x) for x in ssh_keys]
+    else:
+        key_lines = as_str(ssh_keys).splitlines()
+    key_lines = [k.strip() for k in key_lines if k.strip() and not k.strip().startswith("#")]
+    bad_keys = [k for k in key_lines if not _SSH_KEY_RE.match(k)]
+    if bad_keys:
+        # Shape only — the full check is ssh-keygen on the live system,
+        # which this parser cannot assume is installed. A truncated paste
+        # is what this catches, and it is the common failure.
+        fail(
+            "ssh_authorized_keys entries must look like an OpenSSH public "
+            f"key (type, base64 blob, optional comment); rejected: "
+            f"{', '.join(repr(k[:32]) for k in bad_keys)}"
+        )
+    elif key_lines:
+        env["SSH_AUTHORIZED_KEYS"] = "\n".join(key_lines)
+        env["PRESEED_HAS_SSH_KEYS"] = "1"
+
+ssh_nopw = ps.get("ssh_disable_password")
+if ssh_nopw is not None:
+    val = as_bool(ssh_nopw, "ssh_disable_password")
+    if val is None:
+        pass
+    elif val and not env.get("SSH_AUTHORIZED_KEYS"):
+        # Refused, not warned. An unattended install that turns off
+        # password SSH with no key authorised produces a headless box
+        # nobody can reach, and there is no operator at the console to
+        # notice.
+        fail(
+            "ssh_disable_password: true requires at least one "
+            "ssh_authorized_keys entry — otherwise the installed system "
+            "has no way in over SSH at all"
+        )
+    else:
+        env["SSH_DISABLE_PASSWORD"] = "yes" if val else "no"
+
+# ── Network ───────────────────────────────────────────────────────────
+
+
+def _check_mtu(raw: object, *, ip6: str = "", mode: str = "", iface: str = "") -> str:
+    """Validate ``network.mtu`` and return it as a string ("" when unset).
+
+    #1017. A thin adapter over :func:`validate_mtu`, which is the single
+    definition of the rule and is also what ``--check-field`` hands the
+    interactive wizard — so the two doors cannot drift. This one adds the
+    canonical form: ``int()`` then ``str()`` so a value that reaches STATE
+    is one the renderer's ASCII digit test will accept.
+    """
+    mtu_s = as_str(raw if raw is not None else "")
+    if not mtu_s:
+        return ""
+    reason = validate_mtu(
+        mtu_s, "static" if ip6 else "auto", ip6, mode, iface
+    )
+    if reason:
+        fail(f"network.mtu: {reason}")
+        return ""
+    return str(int(mtu_s))
+
+
+static_subnet = ""  # feeds the k3s LAN-overlap check below
+net = ps.get("network")
+if net is not None:
+    if not isinstance(net, dict):
+        fail("network must be a mapping (mode/interface/ip/prefix/gateway/dns)")
+    else:
+        mode = as_str(net.get("mode")).lower()
+        if not mode:
+            fail("network.mode is required when a network block is present")
+        elif mode not in {"dhcp", "static"}:
+            fail(f"network.mode {mode!r} must be 'dhcp' or 'static'")
+        elif mode == "dhcp":
+            # Refused, not ignored. The static branch already fails a
+            # half-configured v6 for saying that silently dropping keys is
+            # the "written, never read" shape; dropping the whole v6 block
+            # here would be the same shape, and an operator writing a
+            # dual-stack answer file (DHCPv4 + a pinned v6) would get an
+            # install that reports success with no IPv6 address.
+            if any(as_str(net.get(k)) for k in ("ip6", "prefix6", "gateway6")):
+                fail(
+                    "network.ip6 / prefix6 / gateway6 require network.mode: "
+                    "static — a static IPv6 address cannot be pinned on a "
+                    "DHCP install (the renderer writes one keyfile, and its "
+                    "v4 half would be method=auto while the v6 half is "
+                    "manual)"
+                )
+            env["NET_MODE"] = "dhcp"
+            # #995 item 19 — a DHCP install can pin ONE port. Absent keeps
+            # the old behaviour (NetworkManager DHCPs every ethernet
+            # interface, and the appliance answers on whichever replied
+            # first, which on a multi-NIC server is a coin toss).
+            dhcp_iface = as_str(net.get("interface"))
+            if dhcp_iface:
+                env["NET_INTERFACE"] = dhcp_iface
+            # #1017 — an MTU on DHCP needs a pinned interface, and this is
+            # a REFUSAL rather than a note.
+            #
+            # etc-render writes a keyfile for a DHCP install only when one
+            # is named; with no interface NetworkManager uses its own auto
+            # profile and there is no [ethernet] section for the MTU to
+            # live in. Accepting the key would store it in STATE, show it
+            # on every surface, and have it reach nothing — the "written,
+            # never read" shape, on the one setting whose absence presents
+            # as large transfers hanging days later rather than as an
+            # error. No v6 to weigh here: this branch has already refused
+            # ip6 outright.
+            dhcp_mtu = _check_mtu(net.get("mtu"), mode="dhcp", iface=dhcp_iface)
+            if dhcp_mtu:
+                env["NET_MTU"] = dhcp_mtu
+            env["PRESEED_HAS_NETWORK"] = "1"
+        else:  # static
+            ip = as_str(net.get("ip"))
+            prefix = as_str(net.get("prefix") if net.get("prefix") is not None else "")
+            gateway = as_str(net.get("gateway"))
+            dns = as_str(net.get("dns")) or "1.1.1.1 1.0.0.1"
+            iface = as_str(net.get("interface"))
+            static_ok = True
+            if not ip:
+                fail("network.ip is required for a static network")
+                static_ok = False
+            if not prefix:
+                fail("network.prefix is required for a static network")
+                static_ok = False
+            if not gateway:
+                fail("network.gateway is required for a static network")
+                static_ok = False
+            # The interactive wizard forces an interface pick for static;
+            # spatium-etc-render only writes the keyfile when the
+            # interface is set, else it silently falls back to DHCP. So a
+            # static preseed MUST name an interface — require it here.
+            if not iface:
+                fail(
+                    "network.interface is required for a static network "
+                    "(the NIC name, e.g. eth0 / enp1s0)"
+                )
+                static_ok = False
+            # network.ip is the IPv4 address specifically. A static v6
+            # address goes in network.ip6 (#995 item 21), which is
+            # optional and independent — putting a v6 address here would
+            # produce an [ipv4] section NetworkManager refuses.
+            if static_ok:
+                try:
+                    if ipaddress.ip_address(ip).version != 4:
+                        fail(f"network.ip {ip!r} must be an IPv4 address")
+                        static_ok = False
+                except ValueError:
+                    fail(f"network.ip {ip!r} is not a valid IPv4 address")
+                    static_ok = False
+                try:
+                    if not (0 <= int(prefix) <= 32):
+                        raise ValueError
+                except ValueError:
+                    fail(f"network.prefix {prefix!r} must be an integer 0-32")
+                    static_ok = False
+                try:
+                    if ipaddress.ip_address(gateway).version != 4:
+                        fail(f"network.gateway {gateway!r} must be IPv4")
+                        static_ok = False
+                except ValueError:
+                    fail(f"network.gateway {gateway!r} is not a valid address")
+                    static_ok = False
+            # ── Optional static IPv6 (#995 item 21) ───────────────
+            # Same rules the wizard's _validate_static_net applies, with
+            # the two differences that matter for v6: any prefix 1..128 is
+            # legal (SLAAC needs /64, a manual address does not), and the
+            # gateway is very often LINK-LOCAL and outside the prefix,
+            # which is the normal case for a router advertising a /64 —
+            # so only a global gateway is range-checked.
+            ip6 = as_str(net.get("ip6"))
+            if ip6:
+                prefix6 = as_str(
+                    net.get("prefix6") if net.get("prefix6") is not None else ""
+                ) or "64"
+                gateway6 = as_str(net.get("gateway6"))
+                v6_ok = True
+                try:
+                    ip6_obj = ipaddress.IPv6Address(ip6)
+                except ValueError:
+                    fail(f"network.ip6 {ip6!r} is not a valid IPv6 address")
+                    v6_ok = False
+                else:
+                    if ip6_obj.is_link_local:
+                        fail(
+                            f"network.ip6 {ip6!r} is link-local (fe80::/10) — "
+                            "the kernel assigns those itself; give a routable "
+                            "address"
+                        )
+                        v6_ok = False
+                    elif ip6_obj.is_loopback or ip6_obj.is_multicast:
+                        fail(f"network.ip6 {ip6!r} is not a host address")
+                        v6_ok = False
+                # int() tolerates a leading '+' and PEP-515 underscores;
+                # ipaddress and NetworkManager do not. Parse ONCE and use
+                # the parsed value everywhere, or "+64" passes this guard,
+                # makes the ip_network() call below raise UNCAUGHT, and —
+                # with gateway6 absent, where that call never runs — is
+                # stored verbatim and reaches the keyfile as
+                # `address1=…/+64`, which NM refuses outright.
+                prefix6_n = None
+                if prefix6.isdigit():
+                    prefix6_n = int(prefix6)
+                if prefix6_n is None or not (0 < prefix6_n <= 128):
+                    fail(f"network.prefix6 {prefix6!r} must be an integer 1-128")
+                    v6_ok = False
+                else:
+                    prefix6 = str(prefix6_n)
+                if gateway6:
+                    try:
+                        gw6_obj = ipaddress.IPv6Address(gateway6)
+                    except ValueError:
+                        fail(f"network.gateway6 {gateway6!r} is not a valid IPv6 address")
+                        v6_ok = False
+                    else:
+                        if (
+                            v6_ok
+                            and not gw6_obj.is_link_local
+                            and prefix6_n is not None
+                            and prefix6_n < 128
+                            and gw6_obj
+                            not in ipaddress.ip_network(f"{ip6}/{prefix6}", strict=False)
+                        ):
+                            fail(
+                                f"network.gateway6 {gateway6} is not inside the "
+                                f"{ip6}/{prefix6} prefix and is not link-local"
+                            )
+                            v6_ok = False
+                if v6_ok:
+                    env["NET6_MODE"] = "static"
+                    env["NET6_IP"] = ip6
+                    env["NET6_PREFIX"] = prefix6
+                    env["NET6_GATEWAY"] = gateway6
+                else:
+                    static_ok = False
+            elif as_str(net.get("prefix6")) or as_str(net.get("gateway6")):
+                # Half a v6 config is a mistake, not a default: prefix6 /
+                # gateway6 do nothing without an address, and silently
+                # ignoring them is the "written, never read" shape.
+                fail(
+                    "network.prefix6 / network.gateway6 require network.ip6 "
+                    "— without an address they configure nothing"
+                )
+
+            # #1017 — after the v6 block, so the 1280 refusal can see the
+            # address it is refused against. A static install always names
+            # an interface (required above), so the DHCP branch's
+            # "nowhere to put it" case cannot arise here.
+            static_mtu = _check_mtu(net.get("mtu"), ip6=ip6, mode="static", iface=iface)
+
+            if static_ok:
+                env["NET_MODE"] = "static"
+                env["NET_INTERFACE"] = iface
+                if static_mtu:
+                    env["NET_MTU"] = static_mtu
+                env["NET_IP"] = ip
+                env["NET_PREFIX"] = prefix
+                env["NET_GATEWAY"] = gateway
+                env["NET_DNS"] = dns
+                env["PRESEED_HAS_NETWORK"] = "1"
+                static_subnet = f"{ip}/{prefix}"
+
+# ── k3s pod + service CIDRs (mirrors _validate_k3s_cidrs) ─────────────
+k3s = ps.get("k3s")
+if role == "appliance":
+    # #995 item 14 — an Additional node pins no CIDRs, so there is nothing
+    # to answer and the marker is the truth. Set OUTSIDE the "a k3s block
+    # was supplied" branch: the first cut only set it when the operator
+    # wrote a block that then got discarded, so an appliance answer file
+    # that simply omits k3s — which is exactly what item 29's exporter
+    # writes for this role — could never be fully unattended, and the
+    # headless install it produced stopped at the welcome screen.
+    env["PRESEED_HAS_K3S"] = "1"
+if k3s is not None and role == "appliance":
+    # #995 item 14 — an Additional node must not pin CIDRs: k3s compares
+    # cluster-cidr / service-cidr / cluster-dns against the datastore when
+    # it joins, a mismatch is fatal, and spatium-cluster-join does not
+    # remove the drop-in. Pinning them here would produce a node that
+    # pairs, is approved, serves DNS and DHCP — and can never be promoted.
+    #
+    # A NOTE rather than a hard error, so an answer file shared between
+    # both roles still installs; the values are dropped either way, and
+    # --check-preseed says so rather than letting the operator believe
+    # they took effect.
+    note(
+        "k3s pod_cidr / service_cidr are ignored for role=appliance — an "
+        "Additional node inherits the cluster's CIDRs when it is promoted, "
+        "and pinning different ones here would make that promotion fail"
+    )
+    k3s = None
+if k3s is not None:
+    if not isinstance(k3s, dict):
+        fail("k3s must be a mapping (pod_cidr / service_cidr)")
+    else:
+        pod_s = as_str(k3s.get("pod_cidr")) or "10.42.0.0/16"
+        svc_s = as_str(k3s.get("service_cidr")) or "10.43.0.0/16"
+        k_ok = True
+        try:
+            pod = ipaddress.ip_network(pod_s, strict=False)
+        except ValueError as exc:
+            fail(f"k3s.pod_cidr is not a valid IPv4 network: {exc}")
+            k_ok = False
+        try:
+            svc = ipaddress.ip_network(svc_s, strict=False)
+        except ValueError as exc:
+            fail(f"k3s.service_cidr is not a valid IPv4 network: {exc}")
+            k_ok = False
+        if k_ok:
+            if pod.version != 4 or svc.version != 4:
+                fail("k3s CIDRs must be IPv4")
+                k_ok = False
+            elif pod.prefixlen > 22:
+                fail(f"k3s.pod_cidr prefix /{pod.prefixlen} too small — use /22 or wider")
+                k_ok = False
+            elif svc.prefixlen > 22:
+                fail(f"k3s.service_cidr prefix /{svc.prefixlen} too small — use /22 or wider")
+                k_ok = False
+            elif pod.overlaps(svc):
+                fail(f"k3s.pod_cidr {pod} overlaps service_cidr {svc}; must be disjoint")
+                k_ok = False
+        if k_ok and static_subnet:
+            try:
+                lan = ipaddress.ip_interface(static_subnet).network
+            except ValueError:
+                lan = None
+            if lan is not None:
+                if pod.overlaps(lan):
+                    fail(f"k3s.pod_cidr {pod} overlaps the LAN {lan}; Flannel host-gw would mask it")
+                    k_ok = False
+                elif svc.overlaps(lan):
+                    fail(f"k3s.service_cidr {svc} overlaps the LAN {lan}")
+                    k_ok = False
+        if k_ok:
+            env["K3S_POD_CIDR"] = str(pod)
+            env["K3S_SERVICE_CIDR"] = str(svc)
+            env["PRESEED_HAS_K3S"] = "1"
+
+# ── Control-plane URL + pairing code (appliance role) ─────────────────
+cp_url = as_str(ps.get("control_plane_url"))
+if cp_url and cp_url != "https://":
+    env["CONTROL_PLANE_URL"] = cp_url
+    env["PRESEED_HAS_CONTROL_URL"] = "1"
+elif cp_url == "https://":
+    fail("control_plane_url is a bare scheme with no host")
+
+code = as_str(ps.get("pairing_code"))
+if code:
+    stripped = "".join(c for c in code if c.isdigit())
+    if len(stripped) != 8 or not stripped.isdigit():
+        # Never echo the code itself — it's a secret and this message is
+        # surfaced to the install log + console on a halt.
+        fail(
+            "pairing_code must be 8 decimal digits (dashes / spaces are "
+            f"accepted as separators); got {len(stripped)} digit(s)"
+        )
+    else:
+        secret["BOOTSTRAP_PAIRING_CODE"] = stripped
+        env["PRESEED_HAS_PAIRING_CODE"] = "1"
+
+# Cross-field: the appliance role needs BOTH a control-plane URL and a
+# pairing code. If the role is explicitly appliance AND one of them was
+# supplied but the other is a supplied-and-invalid value we've already
+# failed above. A simply-absent url/code is NOT fatal here — the wizard
+# falls through to ask_application_config interactively for whatever's
+# missing. We only surface a note so a part-preseeded appliance install
+# is understandable in the log.
+if role == "appliance":
+    if "PRESEED_HAS_CONTROL_URL" not in env:
+        note("role=appliance but no control_plane_url — will prompt interactively")
+    if "PRESEED_HAS_PAIRING_CODE" not in env:
+        note("role=appliance but no pairing_code — will prompt interactively")
+
+# ── Emit ──────────────────────────────────────────────────────────────
+if errors:
+    sys.stderr.write("spatium-preseed-parse: preseed validation failed:\n")
+    for e in errors:
+        sys.stderr.write(f"  - {e}\n")
+    sys.exit(2)
+
+# Notes go to stdout so the wizard can log them; they're advisory.
+for n in notes:
+    sys.stdout.write(f"NOTE: {n}\n")
+
+
+def write_env(path: str, data: dict[str, str], mode: int) -> None:
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, mode)
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        for k, v in data.items():
+            fh.write(f"{k}={shlex.quote(v)}\n")
+    os.chmod(path, mode)
+
+
+write_env(out_env, env, 0o644)
+write_env(out_secret, secret, 0o600)
+sys.exit(0)

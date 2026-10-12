@@ -1,0 +1,1968 @@
+"""Tests for the /v1/workspaces/{wid}/sessions REST surface.
+
+Mirrors the conventions in ``tests/api/conftest.py`` (in-memory
+``StorageProvider``) and ``tests/api/test_workers.py`` (in-memory
+``Scheduler`` already attached by ``create_test_app``).
+
+This module overrides the shared ``app`` fixture with one that wires
+a fake :class:`WorkspaceRegistry` -- the create-session handler now
+calls ``workspace.start_session(...)`` to allocate the on-disk slot,
+and that requires a live backend.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from typing import Any
+
+import pytest
+from fastapi import FastAPI
+from httpx import ASGITransport, AsyncClient
+from pydantic import SecretStr
+
+from primer.api.app import create_test_app
+from primer.api.registries import (
+    ProviderRegistry,
+    WorkspaceRegistry,
+)
+
+
+def _runtime_meta():
+    """Build a minimal valid WorkspaceRuntimeMeta for test rows."""
+    from primer.model.workspace import WorkspaceRuntimeMeta
+    return WorkspaceRuntimeMeta(
+        url="ws://127.0.0.1:5959/",
+        token=SecretStr("t"),
+    )
+
+
+# ===========================================================================
+# Fake workspace backend — auto-creates a _FakeWorkspace on first lookup
+# ===========================================================================
+
+
+class _FakeAgentSessionForSessions:
+    """Minimal AgentSession stand-in exposing the on-disk-name surface.
+
+    Backs ``get_session`` so the rename PATCH route (which calls
+    ``ws.get_session(sid).set_name(...)``) works against the fake backend,
+    round-tripping the friendly name through a real :class:`SessionInfo`.
+    """
+
+    def __init__(self, workspace_id: str, session_id: str, name=None) -> None:
+        now = datetime.now(timezone.utc)
+        from primer.model.workspace_session import SessionInfo, SessionStatus
+
+        self._info = SessionInfo(
+            session_id=session_id,
+            agent_id="ag1",
+            workspace_id=workspace_id,
+            name=name,
+            status=SessionStatus.RUNNING,
+            started_at=now,
+            last_activity_at=now,
+        )
+
+    async def set_name(self, name):
+        normalised = (name or "").strip() or None
+        self._info = self._info.model_copy(update={"name": normalised})
+        return self._info
+
+    async def info(self):
+        return self._info
+
+    async def status(self):
+        return self._info.status
+
+
+class _FakeWorkspaceForSessions:
+    """Just enough of the :class:`Workspace` surface for session tests.
+
+    Tracks ``start_session`` calls so tests can assert the on-disk slot
+    was allocated with the expected id.
+    """
+
+    def __init__(self, workspace_id: str) -> None:
+        self.workspace_id = workspace_id
+        self.id = workspace_id
+        self.started_sessions: dict[str, dict] = {}
+        self._handles: dict[str, _FakeAgentSessionForSessions] = {}
+        self.message_lines: dict[str, bytes] = {}
+
+    async def append_message_line(self, session_id: str, line: bytes) -> None:
+        """01a04dde-b331: start_workspace_session now also writes the
+        modern USER_INPUT SessionMessageRecord via WorkspaceMessageWriter
+        right after start_session's legacy write, so this fake must
+        satisfy the WorkspaceIO surface too."""
+        self.message_lines[session_id] = (
+            self.message_lines.get(session_id, b"") + line
+        )
+
+    async def start_session(
+        self,
+        agent_binding,
+        *,
+        id=None,
+        instructions=None,
+        parent_session_id=None,
+        name=None,
+    ):
+        if id is None:
+            raise AssertionError(
+                "REST API must always supply an explicit id to start_session"
+            )
+        if id in self.started_sessions:
+            from primer.model.except_ import ConflictError
+
+            raise ConflictError(f"session {id!r} already exists")
+        self.started_sessions[id] = {
+            "agent_binding": agent_binding,
+            "instructions": instructions,
+            "parent_session_id": parent_session_id,
+            "name": name,
+        }
+        self._handles[id] = _FakeAgentSessionForSessions(
+            self.workspace_id, id, name=name
+        )
+        return self._handles[id]
+
+    async def get_session(self, session_id):
+        return self._handles.get(session_id)
+
+    async def list_sessions(self, *, agent_id=None, status=None):
+        out = []
+        for handle in self._handles.values():
+            out.append(await handle.info())
+        return out
+
+    async def remove_session(self, session_id):
+        self._handles.pop(session_id, None)
+        return self.started_sessions.pop(session_id, None) is not None
+
+    async def aclose(self):
+        return
+
+
+class _FakeBackendForSessions:
+    """Auto-instantiates a fake workspace handle on first ``get(wid)``.
+
+    Mirrors what a real backend would do after a ``Workspace`` row is
+    seeded directly via Storage but no ``materialise(...)`` ran.
+    """
+
+    def __init__(self, _provider) -> None:
+        self._workspaces: dict[str, _FakeWorkspaceForSessions] = {}
+
+    async def initialize(self):
+        return
+
+    async def aclose(self):
+        for ws in self._workspaces.values():
+            await ws.aclose()
+        self._workspaces.clear()
+
+    async def get(self, workspace_id, *, template=None):
+        if workspace_id not in self._workspaces:
+            self._workspaces[workspace_id] = _FakeWorkspaceForSessions(
+                workspace_id
+            )
+        return self._workspaces[workspace_id]
+
+    async def list(self):
+        return list(self._workspaces.keys())
+
+
+@pytest.fixture
+def app(
+    fake_storage_provider,
+    fake_provider_registry,
+) -> FastAPI:
+    """Override the conftest ``app`` fixture with a fake WorkspaceRegistry.
+
+    The session create handler now calls ``workspace.start_session(...)``
+    via the registry; the default registry uses the real
+    ``WorkspaceBackendFactory`` which would try to spin up a
+    ``LocalWorkspaceBackend``. Inject an in-memory backend instead.
+    """
+    workspace_registry = WorkspaceRegistry(
+        fake_storage_provider,  # type: ignore[arg-type]
+        factory=_FakeBackendForSessions,
+    )
+    _app = create_test_app(
+        storage_provider=fake_storage_provider,  # type: ignore[arg-type]
+        provider_registry=fake_provider_registry,
+        workspace_registry=workspace_registry,
+    )
+    # create_session(auto_start=True) now raises ConfigError -> 503 when no
+    # ClaimEngine is wired (a RUNNING row with no lease would hang forever).
+    # The test factory leaves app.state.claim_engine unset, so attach a passive
+    # spy engine here (mirrors the app_with_engine fixture). It only records
+    # upsert/delete_lease calls, so it does not alter the behaviour of the
+    # auto_start=False / resume / cancel / delete tests that also use `app`.
+    _app.state.claim_engine = _FakeClaimEngine()
+    return _app
+
+
+@pytest.fixture
+async def sessions_client(app):
+    async with AsyncClient(
+        transport=ASGITransport(app=app), base_url="http://t",
+    ) as c:
+        try:
+            await c.post(
+                "/v1/auth/register",
+                json={"username": "testuser", "password": "testpassword"},
+            )
+        except Exception:
+            pass
+        yield c
+
+
+@pytest.fixture
+async def seeded_workspace(app):
+    """Insert a synthetic Workspace row + a matching WorkspaceProvider row.
+
+    The provider row is required because the create-session handler
+    resolves the live workspace via :class:`WorkspaceRegistry`, which
+    looks up the backend by ``provider_id``.
+    """
+    from primer.model.workspace import (
+        LocalWorkspaceConfig,
+        Workspace,
+        WorkspaceProvider,
+        WorkspaceProviderType,
+    )
+
+    sp = app.state.storage_provider
+    provider_storage = sp.get_storage(WorkspaceProvider)
+    await provider_storage.create(
+        WorkspaceProvider(
+            id="p-1",
+            provider=WorkspaceProviderType.LOCAL,
+            config=LocalWorkspaceConfig(root_path="/tmp/primer-ws-tests"),
+        )
+    )
+
+    storage = sp.get_storage(Workspace)
+    ws = Workspace(
+        id="ws-test",
+        template_id="t-1",
+        provider_id="p-1",
+        created_at=datetime.now(timezone.utc),
+        runtime_meta=_runtime_meta(),
+    )
+    await storage.create(ws)
+    yield ws
+    try:
+        await storage.delete(ws.id)
+    except Exception:
+        pass
+    try:
+        await provider_storage.delete("p-1")
+    except Exception:
+        pass
+
+
+@pytest.fixture
+async def seeded_agent(app):
+    """Insert a synthetic Agent row directly via Storage[Agent]."""
+    from primer.model.agent import Agent, AgentModel
+
+    storage = app.state.storage_provider.get_storage(Agent)
+    agent = Agent(
+        id="ag-test",
+        description="test agent",
+        model=AgentModel(profile_id="llm-p--m"),
+        tools=[],
+        system_prompt=[],
+    )
+    await storage.create(agent)
+    yield agent
+    try:
+        await storage.delete(agent.id)
+    except Exception:
+        pass
+
+
+@pytest.fixture
+async def seeded_graph(app):
+    """Insert a minimal Begin → End Graph row directly via Storage[Graph].
+
+    The fixture exposes a factory so Task 5.2 tests can mount a Begin
+    node with an ``input_schema`` while Task 5.1's test can use the
+    plain no-schema shape. Calling ``await seeded_graph()`` with no
+    arguments returns a graph with id ``gr-seed`` and no input_schema;
+    callers that want a schema pass ``input_schema=...`` and optionally
+    override the ``id``.
+    """
+    from primer.model.graph import (
+        Graph,
+        _BeginNode,
+        _EndNode,
+        _StaticEdge,
+    )
+
+    storage = app.state.storage_provider.get_storage(Graph)
+    created_ids: list[str] = []
+
+    async def _make(
+        *,
+        id: str = "gr-seed",
+        input_schema: dict | None = None,
+    ) -> Graph:
+        g = Graph(
+            id=id,
+            description="seeded graph fixture",
+            nodes=[
+                _BeginNode(id="start", input_schema=input_schema),
+                _EndNode(id="end"),
+            ],
+            edges=[_StaticEdge(from_node="start", to_node="end")],
+        )
+        await storage.create(g)
+        created_ids.append(g.id)
+        return g
+
+    # Pre-create a default graph so tests that don't need a schema can
+    # use ``seeded_graph.id`` / ``seeded_graph.default`` directly.
+    default_graph = await _make()
+
+    class _Handle:
+        """Callable + attribute access for the seeded_graph fixture."""
+
+        def __init__(self, default, factory):
+            self._default = default
+            self._factory = factory
+            self.id = default.id
+
+        def __call__(self, **kwargs):
+            return self._factory(**kwargs)
+
+        @property
+        def default(self):
+            return self._default
+
+    yield _Handle(default_graph, _make)
+
+    for gid in created_ids:
+        try:
+            await storage.delete(gid)
+        except Exception:
+            pass
+
+
+async def test_create_session_default_status_is_created(
+    sessions_client, seeded_workspace, seeded_agent,
+):
+    resp = await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions",
+        json={
+            "binding": {"kind": "agent", "agent_id": seeded_agent.id},
+            "auto_start": False,
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    body = resp.json()
+    assert body["status"] == "created"
+    assert body["workspace_id"] == seeded_workspace.id
+    assert body["binding"]["kind"] == "agent"
+    assert body["turn_no"] == 0
+
+
+async def test_create_session_with_auto_start_enqueues(
+    sessions_client, seeded_workspace, seeded_agent, app,
+):
+    resp = await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions",
+        json={
+            "binding": {"kind": "agent", "agent_id": seeded_agent.id},
+            "auto_start": True,
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    body = resp.json()
+    assert body["status"] == "running"
+    assert body["started_at"] is not None
+
+
+async def test_create_session_persists_autonomous_flag(
+    sessions_client, seeded_workspace, seeded_agent,
+):
+    resp = await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions",
+        json={
+            "binding": {"kind": "agent", "agent_id": seeded_agent.id},
+            "autonomous": True,
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["autonomous"] is True
+
+
+async def test_create_session_unknown_workspace_404(
+    sessions_client, seeded_agent,
+):
+    resp = await sessions_client.post(
+        "/v1/workspaces/does-not-exist/sessions",
+        json={"binding": {"kind": "agent", "agent_id": seeded_agent.id}},
+    )
+    assert resp.status_code == 404
+
+
+async def test_create_session_unknown_agent_422(
+    sessions_client, seeded_workspace,
+):
+    resp = await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions",
+        json={"binding": {"kind": "agent", "agent_id": "does-not-exist"}},
+    )
+    # Spec §11.4 step 2: binding-level validation failure → 422.
+    assert resp.status_code == 422, resp.text
+
+
+async def test_create_session_with_graph_binding(
+    sessions_client, seeded_workspace, app,
+):
+    """Smoke test for the graph binding kind. Insert a synthetic Graph row."""
+    from primer.model.graph import Graph, _BeginNode, _EndNode, _StaticEdge
+
+    storage = app.state.storage_provider.get_storage(Graph)
+    graph = Graph(
+        id="gr-test",
+        description="g",
+        nodes=[_BeginNode(id="begin"), _EndNode(id="end")],
+        edges=[_StaticEdge(from_node="begin", to_node="end")],
+    )
+    await storage.create(graph)
+    try:
+        resp = await sessions_client.post(
+            f"/v1/workspaces/{seeded_workspace.id}/sessions",
+            json={
+                "binding": {"kind": "graph", "graph_id": "gr-test"},
+            },
+        )
+        assert resp.status_code == 201, resp.text
+        assert resp.json()["binding"]["kind"] == "graph"
+    finally:
+        try:
+            await storage.delete(graph.id)
+        except Exception:
+            pass
+
+
+async def test_create_session_accepts_graph_input_field(
+    sessions_client, seeded_workspace, seeded_graph,
+):
+    """The session create body accepts an optional ``graph_input: Any``
+    field. For graphs without an ``input_schema``, it's just stored on
+    metadata for the worker to read."""
+    resp = await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions",
+        json={
+            "binding": {"kind": "graph", "graph_id": seeded_graph.id},
+            "graph_input": {"q": "hello"},
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    body = resp.json()
+    assert body["metadata"].get("graph_input") == {"q": "hello"}
+
+
+async def test_create_session_validates_graph_input_against_begin_schema(
+    sessions_client, seeded_workspace, seeded_graph,
+):
+    """When the graph's Begin node has ``input_schema``, the create
+    handler validates ``graph_input`` against it. Mismatch returns 422
+    carrying the JSON Schema instance path."""
+    g = await seeded_graph(
+        id="g-schema",
+        input_schema={
+            "type": "object",
+            "required": ["q"],
+            "properties": {"q": {"type": "string"}},
+        },
+    )
+
+    resp = await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions",
+        json={
+            "binding": {"kind": "graph", "graph_id": g.id},
+            "graph_input": {"wrong": 1},  # missing required `q`
+        },
+    )
+    assert resp.status_code == 422, resp.text
+    body = resp.json()
+    # The error message references `q` (the missing required property)
+    # somewhere in the structured payload. Some shapes carry it on
+    # ``detail.message``, others on ``detail`` directly — accept either.
+    assert "q" in str(body), (
+        f"expected JSON Schema violation reference to 'q' in {body!r}"
+    )
+
+
+async def test_create_session_falls_back_to_initial_instructions_as_json(
+    sessions_client, seeded_workspace, seeded_graph, app,
+):
+    """Legacy fallback: when ``graph_input`` is missing but
+    ``initial_instructions`` is set, the handler parses it as JSON and
+    validates against the Begin schema. On success the resolved value
+    is persisted to ``metadata['graph_input']``."""
+    from primer.model.workspace_session import WorkspaceSession
+
+    g = await seeded_graph(
+        id="g-fb",
+        input_schema={
+            "type": "object",
+            "properties": {"q": {"type": "string"}},
+        },
+    )
+
+    resp = await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions",
+        json={
+            "binding": {"kind": "graph", "graph_id": g.id},
+            "initial_instructions": '{"q": "hi"}',  # legacy fallback
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    sid = resp.json()["id"]
+
+    # The resolved value must be persisted on metadata so the executor
+    # picks it up (the workspace executor only reads metadata, not
+    # initial_instructions).
+    storage = app.state.storage_provider.get_storage(WorkspaceSession)
+    s = await storage.get(sid)
+    assert s.metadata.get("graph_input") == {"q": "hi"}
+
+
+async def test_create_session_no_schema_accepts_string(
+    sessions_client, seeded_workspace, seeded_graph,
+):
+    """Graphs whose Begin node has no ``input_schema`` accept any
+    ``graph_input`` value — including a plain string — without
+    validation (back-compat)."""
+    g = await seeded_graph(id="g-noschema")  # default fixture: no schema
+    resp = await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions",
+        json={
+            "binding": {"kind": "graph", "graph_id": g.id},
+            "graph_input": "plain string input",
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["metadata"].get("graph_input") == "plain string input"
+
+
+# ===========================================================================
+# Task 20 — resume / pause / cancel + top-level list / get / find
+# ===========================================================================
+
+
+async def test_resume_from_created_transitions_to_running(
+    sessions_client, seeded_workspace, seeded_agent,
+):
+    create = await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions",
+        json={"binding": {"kind": "agent", "agent_id": seeded_agent.id}},
+    )
+    sid = create.json()["id"]
+    resp = await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions/{sid}/resume"
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["status"] == "running"
+    assert body["started_at"] is not None
+
+
+async def test_resume_already_running_is_idempotent_200(
+    sessions_client, seeded_workspace, seeded_agent,
+):
+    create = await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions",
+        json={
+            "binding": {"kind": "agent", "agent_id": seeded_agent.id},
+            "auto_start": True,
+        },
+    )
+    sid = create.json()["id"]
+    resp = await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions/{sid}/resume"
+    )
+    assert resp.status_code == 200
+
+
+async def test_resume_clears_the_refusal_a_paused_session_carried(
+    sessions_client, seeded_workspace, seeded_agent, app,
+):
+    """A session paused because its workspace was refused shows why on its row; resuming it drops the reason at once
+    (the console must not show a refusal banner on a RUNNING session while the worker is still to claim it)."""
+    from primer.model.workspace_session import SessionStatus, WorkspaceSession
+
+    create = await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions",
+        json={"binding": {"kind": "agent", "agent_id": seeded_agent.id}},
+    )
+    sid = create.json()["id"]
+    storage = app.state.storage_provider.get_storage(WorkspaceSession)
+    row = await storage.get(sid)
+    await storage.update(row.model_copy(update={
+        "status": SessionStatus.PAUSED, "workspace_refusal": "provider 'local' is refused here",
+    }))
+
+    shown = await sessions_client.get(f"/v1/sessions/{sid}")
+    assert shown.json()["workspace_refusal"] == "provider 'local' is refused here"
+
+    resumed = await sessions_client.post(f"/v1/workspaces/{seeded_workspace.id}/sessions/{sid}/resume")
+    assert resumed.status_code == 200, resumed.text
+    assert resumed.json()["status"] == "running"
+    assert resumed.json()["workspace_refusal"] is None
+    assert (await storage.get(sid)).workspace_refusal is None
+
+
+async def test_resume_ended_session_is_409(
+    sessions_client, seeded_workspace, seeded_agent, app,
+):
+    from primer.model.workspace_session import WorkspaceSession
+    create = await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions",
+        json={"binding": {"kind": "agent", "agent_id": seeded_agent.id}},
+    )
+    sid = create.json()["id"]
+    storage = app.state.storage_provider.get_storage(WorkspaceSession)
+    s = await storage.get(sid)
+    s.status = "ended"
+    await storage.update(s)
+    resp = await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions/{sid}/resume"
+    )
+    assert resp.status_code == 409
+
+
+async def test_cancel_from_created_ends_immediately(
+    sessions_client, seeded_workspace, seeded_agent,
+):
+    create = await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions",
+        json={"binding": {"kind": "agent", "agent_id": seeded_agent.id}},
+    )
+    sid = create.json()["id"]
+    resp = await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions/{sid}/cancel"
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["status"] == "ended"
+    assert body["ended_reason"] == "cancelled"
+
+
+async def test_cancel_running_publishes_cancel_bus_event(
+    sessions_client, seeded_workspace, seeded_agent, app,
+):
+    """REST cancel on a RUNNING session MUST publish session:{sid}:cancel.
+
+    The engine-path worker (primer/session/dispatch.py::_cancel_watcher)
+    subscribes to this exact event-bus key — without this publish, the
+    REST cancel cannot preempt the running turn and the session stays
+    stuck.
+    """
+    import asyncio
+
+    from primer.model.workspace_session import WorkspaceSession
+
+    create = await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions",
+        json={
+            "binding": {"kind": "agent", "agent_id": seeded_agent.id},
+            "auto_start": True,
+        },
+    )
+    sid = create.json()["id"]
+
+    # Subscribe to the bus BEFORE issuing cancel so the publish lands
+    # while a live subscriber is reading.
+    received: list[str] = []
+    sub = app.state.event_bus.subscribe()
+
+    async def _drain() -> None:
+        async for event in sub:
+            received.append(event.event_key)
+            if event.event_key == f"session:{sid}:cancel":
+                return
+
+    drain_task = asyncio.create_task(_drain())
+    try:
+        resp = await sessions_client.post(
+            f"/v1/workspaces/{seeded_workspace.id}/sessions/{sid}/cancel"
+        )
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        # RUNNING stays RUNNING until the worker observes the cancel and
+        # finishes its turn — but cancel_requested_at MUST be stamped.
+        assert body["status"] == "running"
+        assert body["cancel_requested"] is True
+        assert body["cancel_requested_at"] is not None
+
+        # Bus publish lands within a couple of event-loop ticks.
+        await asyncio.wait_for(drain_task, timeout=2.0)
+        assert f"session:{sid}:cancel" in received, (
+            f"expected session:{sid}:cancel in {received!r}"
+        )
+    finally:
+        if not drain_task.done():
+            drain_task.cancel()
+        await sub.aclose()
+
+    # Sanity: row carries cancel_requested* fields.
+    storage = app.state.storage_provider.get_storage(WorkspaceSession)
+    s = await storage.get(sid)
+    assert s.cancel_requested is True
+    assert s.cancel_requested_at is not None
+
+
+async def test_delete_ended_session_removes_row(
+    sessions_client, seeded_workspace, seeded_agent, app,
+):
+    from primer.model.workspace_session import WorkspaceSession
+    create = await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions",
+        json={"binding": {"kind": "agent", "agent_id": seeded_agent.id}},
+    )
+    sid = create.json()["id"]
+    await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions/{sid}/cancel"
+    )
+    resp = await sessions_client.delete(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions/{sid}"
+    )
+    assert resp.status_code == 204, resp.text
+    storage = app.state.storage_provider.get_storage(WorkspaceSession)
+    assert await storage.get(sid) is None
+
+
+async def test_delete_session_survives_on_disk_cleanup_failure(
+    sessions_client, seeded_workspace, seeded_agent, app, monkeypatch,
+):
+    """DELETE must still remove the row (and return 204) when the
+    best-effort on-disk cleanup raises -- e.g. the workspace was deleted
+    before its session, so get_workspace() 404s.
+
+    Regression: the cleanup except-branch logged the caught exception
+    with extra={"message": str(exc)}. "message" is a reserved
+    LogRecord attribute, so logging.Logger.makeRecord raised KeyError
+    before the warning was emitted; that KeyError propagated out of the
+    handler as a 500 and the final sessions.delete() never ran. The row
+    was orphaned with no API path to remove it (the only delete route is
+    nested under the now-missing workspace)."""
+    from primer.model.workspace_session import WorkspaceSession
+
+    create = await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions",
+        json={"binding": {"kind": "agent", "agent_id": seeded_agent.id}},
+    )
+    sid = create.json()["id"]
+    await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions/{sid}/cancel"
+    )
+
+    # Force the best-effort cleanup to fail, mirroring a workspace that
+    # was deleted before its session.
+    async def _raise_workspace_gone(_workspace_id):
+        raise RuntimeError("workspace gone")
+
+    monkeypatch.setattr(
+        app.state.workspace_registry, "get_workspace", _raise_workspace_gone
+    )
+
+    resp = await sessions_client.delete(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions/{sid}"
+    )
+    assert resp.status_code == 204, resp.text
+    storage = app.state.storage_provider.get_storage(WorkspaceSession)
+    assert await storage.get(sid) is None
+
+
+async def test_delete_created_session_auto_cancels_and_removes_row(
+    sessions_client, seeded_workspace, seeded_agent, app,
+):
+    """A freshly-created (CREATED) session — no worker holds a lease,
+    so DELETE auto-cancels it inline and removes the row in one call."""
+    from primer.model.workspace_session import WorkspaceSession
+    create = await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions",
+        json={"binding": {"kind": "agent", "agent_id": seeded_agent.id}},
+    )
+    sid = create.json()["id"]
+    resp = await sessions_client.delete(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions/{sid}"
+    )
+    assert resp.status_code == 204, resp.text
+    storage = app.state.storage_provider.get_storage(WorkspaceSession)
+    assert await storage.get(sid) is None
+
+
+async def test_delete_running_session_conflict(
+    sessions_client, seeded_workspace, seeded_agent,
+):
+    """A RUNNING session is refused — its worker holds the lease and
+    would write back to a deleted row."""
+    create = await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions",
+        json={
+            "binding": {"kind": "agent", "agent_id": seeded_agent.id},
+            "auto_start": True,
+        },
+    )
+    sid = create.json()["id"]
+    resp = await sessions_client.delete(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions/{sid}"
+    )
+    assert resp.status_code == 409, resp.text
+
+
+async def test_delete_unknown_session_404(
+    sessions_client, seeded_workspace,
+):
+    resp = await sessions_client.delete(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions/does-not-exist"
+    )
+    assert resp.status_code == 404
+
+
+async def test_delete_drops_workspace_in_memory_session_handle(
+    sessions_client, seeded_workspace, seeded_agent, app,
+):
+    """DELETE must remove the session from the workspace's in-memory
+    handle so /v1/workspaces/{wid}/sessions stops returning it.
+
+    Pre-fix the session row was deleted from the scheduler-visible
+    storage but the workspace cached the live handle in
+    LocalWorkspace._sessions; the workspace-detail page's sessions
+    tab kept showing the deleted entry forever."""
+    create = await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions",
+        json={"binding": {"kind": "agent", "agent_id": seeded_agent.id}},
+    )
+    sid = create.json()["id"]
+    # Verify the workspace registers the session in its in-memory map.
+    registry = app.state.workspace_registry
+    ws = await registry.get_workspace(seeded_workspace.id)
+    sessions_before = await ws.list_sessions()
+    assert any(s.session_id == sid for s in sessions_before)
+    # Delete it.
+    resp = await sessions_client.delete(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions/{sid}"
+    )
+    assert resp.status_code == 204, resp.text
+    # Workspace's in-memory list MUST no longer report it.
+    sessions_after = await ws.list_sessions()
+    assert not any(s.session_id == sid for s in sessions_after), (
+        f"workspace.list_sessions still returns deleted session {sid!r}"
+    )
+
+
+async def test_force_delete_running_session_evicts_orphan(
+    sessions_client, seeded_workspace, seeded_agent, app,
+):
+    """force=true bypasses the RUNNING-409 gate so users can evict
+    orphaned rows whose worker is provably dead (e.g. left over from
+    a previous api process). Without this escape hatch the only way
+    to clean up was editing the DB by hand."""
+    from primer.model.workspace_session import WorkspaceSession
+
+    create = await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions",
+        json={
+            "binding": {"kind": "agent", "agent_id": seeded_agent.id},
+            "auto_start": True,
+        },
+    )
+    sid = create.json()["id"]
+
+    # Plain DELETE without force → 409.
+    resp1 = await sessions_client.delete(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions/{sid}"
+    )
+    assert resp1.status_code == 409, resp1.text
+
+    # ?force=true → 204 and row is gone.
+    resp2 = await sessions_client.delete(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions/{sid}?force=true"
+    )
+    assert resp2.status_code == 204, resp2.text
+
+    storage = app.state.storage_provider.get_storage(WorkspaceSession)
+    assert await storage.get(sid) is None
+
+
+async def test_force_delete_sets_cancel_requested_before_it_publishes_the_cancel_key(
+    sessions_client, seeded_workspace, seeded_agent, app, monkeypatch,
+):
+    """The worker's cancel arm decides Stop-vs-Cancel from ``cancel_requested`` alone ("not set" means a Stop,
+    which lands the row WAITING). Force-delete published the cancel key without setting it, so the turn it was
+    preempting read it as a Stop and wrote WAITING over ENDED/force_deleted until the row delete landed. The
+    flag must already be on the row when the key goes out, because the worker re-reads the row on the signal."""
+    from primer.model.workspace_session import WorkspaceSession
+
+    create = await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions",
+        json={"binding": {"kind": "agent", "agent_id": seeded_agent.id}, "auto_start": True},
+    )
+    sid = create.json()["id"]
+    storage = app.state.storage_provider.get_storage(WorkspaceSession)
+    # The fake storage hands back the same object it stores, so an in-memory flag would look persisted: record
+    # the ORDER of the writes and of the publish instead, each with the flag as it was at that call.
+    order: list[tuple[str, bool]] = []
+    update, publish = storage.update, app.state.event_bus.publish
+
+    async def spy_update(row):
+        order.append(("update", bool(row.cancel_requested)))
+        return await update(row)
+
+    async def spy_publish(key: str, payload: dict) -> None:
+        if key == f"session:{sid}:cancel":
+            order.append(("publish", True))
+        await publish(key, payload)
+
+    monkeypatch.setattr(storage, "update", spy_update)
+    monkeypatch.setattr(app.state.event_bus, "publish", spy_publish)
+
+    resp = await sessions_client.delete(f"/v1/workspaces/{seeded_workspace.id}/sessions/{sid}?force=true")
+
+    assert resp.status_code == 204, resp.text
+    assert ("publish", True) in order
+    before_publish = order[: order.index(("publish", True))]
+    assert ("update", True) in before_publish, (
+        "force-delete published the cancel key before it wrote cancel_requested=True to the row "
+        f"(order {order}): the worker re-reads the row on the signal and would read it as a Stop"
+    )
+
+
+class _HeldLock:
+    """Stands in for ``session_lifecycle_lock()``: delegates to the real one and says whether it is held NOW."""
+
+    def __init__(self, real) -> None:
+        self._real = real
+        self.depth = 0
+
+    @property
+    def held(self) -> bool:
+        return self.depth > 0
+
+    def acquire(self, key: str):
+        outer = self
+
+        class _Ctx:
+            async def __aenter__(self_inner):
+                inner = outer._real.acquire(key)
+                self_inner._inner = inner
+                await inner.__aenter__()
+                outer.depth += 1
+
+            async def __aexit__(self_inner, *exc):
+                outer.depth -= 1
+                return await self_inner._inner.__aexit__(*exc)
+
+        return _Ctx()
+
+
+async def _spied_force_delete(sessions_client, seeded_workspace, seeded_agent, app, monkeypatch, *, reread=None):
+    """Create a RUNNING session and force-delete it, recording (kind, lock held, row) for every write and the
+    cancel publish. ``reread(row)`` may return a different row for the SECOND read (what a worker's concurrent
+    write would produce: the fake storage hands back one shared object, so a stale snapshot cannot otherwise be
+    told from a fresh one)."""
+    import primer.api.routers.sessions as sessions_router
+    from primer.model.workspace_session import WorkspaceSession
+    from primer.session.mutation_lock import session_lifecycle_lock
+
+    create = await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions",
+        json={"binding": {"kind": "agent", "agent_id": seeded_agent.id}, "auto_start": True},
+    )
+    sid = create.json()["id"]
+    storage = app.state.storage_provider.get_storage(WorkspaceSession)
+    lock = _HeldLock(session_lifecycle_lock())
+    monkeypatch.setattr(sessions_router, "session_lifecycle_lock", lambda: lock)
+    events: list[tuple[str, bool, Any]] = []
+    update, get, publish = storage.update, storage.get, app.state.event_bus.publish
+    reads = {"n": 0}
+
+    async def spy_update(row):
+        events.append(("update", lock.held, row))
+        return await update(row)
+
+    async def spy_get(entity_id, **kwargs):
+        row = await get(entity_id, **kwargs)
+        if entity_id == sid:
+            reads["n"] += 1
+            if reread is not None and reads["n"] >= 2 and row is not None:
+                return reread(row)
+        return row
+
+    async def spy_publish(key: str, payload: dict) -> None:
+        if key == f"session:{sid}:cancel":
+            events.append(("publish", lock.held, None))
+        await publish(key, payload)
+
+    monkeypatch.setattr(storage, "update", spy_update)
+    monkeypatch.setattr(storage, "get", spy_get)
+    monkeypatch.setattr(app.state.event_bus, "publish", spy_publish)
+    resp = await sessions_client.delete(f"/v1/workspaces/{seeded_workspace.id}/sessions/{sid}?force=true")
+    return resp, events
+
+
+async def test_force_delete_flags_publishes_and_ends_the_row_under_the_lifecycle_lock(
+    sessions_client, seeded_workspace, seeded_agent, app, monkeypatch,
+):
+    """The Cancel route reads and writes under the per-session lifecycle lock; force-delete read the row outside it
+    and wrote that stale snapshot back (twice), so a worker's concurrent write to the same row could be lost."""
+    resp, events = await _spied_force_delete(sessions_client, seeded_workspace, seeded_agent, app, monkeypatch)
+
+    assert resp.status_code == 204, resp.text
+    forced = [e for e in events if e[0] == "publish" or (e[0] == "update" and (e[2].cancel_requested or e[2].ended_reason == "force_deleted"))]
+    assert [e[0] for e in forced].count("publish") == 1 and len(forced) >= 3, events
+    assert all(held for _, held, _ in forced), (
+        "a force-delete write or its cancel publish happened outside the session's lifecycle lock: "
+        f"{[(kind, held) for kind, held, _ in forced]}"
+    )
+
+
+async def test_force_delete_works_on_the_row_it_reads_inside_the_lock(
+    sessions_client, seeded_workspace, seeded_agent, app, monkeypatch,
+):
+    """Every write carries the FRESH row: a field a worker changed since the route's first read (here last_seq)
+    survives, instead of being overwritten by the stale snapshot."""
+    resp, events = await _spied_force_delete(
+        sessions_client, seeded_workspace, seeded_agent, app, monkeypatch,
+        reread=lambda row: row.model_copy(update={"last_seq": 99}),
+    )
+
+    assert resp.status_code == 204, resp.text
+    written = [row for kind, _, row in events if kind == "update"]
+    assert written and all(row.last_seq == 99 for row in written), (
+        f"a write carried the stale snapshot: {[row.last_seq for row in written]}"
+    )
+
+
+async def test_a_session_that_stopped_running_before_the_lock_is_not_marked_force_deleted(
+    sessions_client, seeded_workspace, seeded_agent, app, monkeypatch,
+):
+    """The route saw RUNNING, but by the time it holds the lock the worker has rested the row WAITING. Forcing it
+    would write ENDED/force_deleted over a session no worker holds and signal a cancel nobody is running: it takes
+    the ordinary path for a WAITING row instead."""
+    from primer.model.workspace_session import SessionStatus
+
+    resp, events = await _spied_force_delete(
+        sessions_client, seeded_workspace, seeded_agent, app, monkeypatch,
+        reread=lambda row: row.model_copy(update={"status": SessionStatus.WAITING}),
+    )
+
+    assert resp.status_code == 204, resp.text
+    assert not [e for e in events if e[0] == "publish"], "a cancel was published for a session that was not running"
+    reasons = [row.ended_reason for kind, _, row in events if kind == "update"]
+    assert "force_deleted" not in reasons and "cancelled" in reasons, reasons
+
+
+async def test_a_session_that_vanished_before_the_lock_is_a_404_and_the_stale_snapshot_is_not_written(
+    sessions_client, seeded_workspace, seeded_agent, app, monkeypatch,
+):
+    """Someone else deleted the row while this request waited for the lifecycle lock. The row read inside the lock is
+    gone, so there is nothing to force: writing the snapshot read before the wait back would re-create a deleted
+    session. It is the same 404 the route gives for a session that does not exist."""
+    resp, events = await _spied_force_delete(
+        sessions_client, seeded_workspace, seeded_agent, app, monkeypatch, reread=lambda row: None,
+    )
+
+    assert resp.status_code == 404, resp.text
+    assert events == [], f"a write or a cancel publish happened for a session that was already gone: {events}"
+
+
+async def test_pause_running_sets_pause_requested_flag(
+    sessions_client, seeded_workspace, seeded_agent, app,
+):
+    from primer.model.workspace_session import WorkspaceSession
+    create = await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions",
+        json={
+            "binding": {"kind": "agent", "agent_id": seeded_agent.id},
+            "auto_start": True,
+        },
+    )
+    sid = create.json()["id"]
+    resp = await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions/{sid}/pause"
+    )
+    assert resp.status_code == 204
+    storage = app.state.storage_provider.get_storage(WorkspaceSession)
+    s = await storage.get(sid)
+    assert s.pause_requested is True
+
+
+async def test_top_level_list_sessions(
+    sessions_client, seeded_workspace, seeded_agent,
+):
+    await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions",
+        json={"binding": {"kind": "agent", "agent_id": seeded_agent.id}},
+    )
+    resp = await sessions_client.get("/v1/sessions")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert "items" in body
+    assert any(s["workspace_id"] == seeded_workspace.id for s in body["items"])
+
+
+async def test_top_level_get_session_by_id(
+    sessions_client, seeded_workspace, seeded_agent,
+):
+    create = await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions",
+        json={"binding": {"kind": "agent", "agent_id": seeded_agent.id}},
+    )
+    sid = create.json()["id"]
+    resp = await sessions_client.get(f"/v1/sessions/{sid}")
+    assert resp.status_code == 200
+    assert resp.json()["id"] == sid
+
+
+async def test_top_level_get_unknown_session_404(sessions_client):
+    resp = await sessions_client.get("/v1/sessions/does-not-exist")
+    assert resp.status_code == 404
+
+
+async def test_create_session_allocates_on_disk_slot(
+    sessions_client, seeded_workspace, seeded_agent, app,
+):
+    """The create handler must call ``Workspace.start_session(..., id=sid)``
+    so the persisted WorkspaceSession row and the on-disk slot share the same id
+    (spec §11.4 step 5).
+    """
+    resp = await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions",
+        json={"binding": {"kind": "agent", "agent_id": seeded_agent.id}},
+    )
+    assert resp.status_code == 201, resp.text
+    sid = resp.json()["id"]
+
+    registry = app.state.workspace_registry
+    live_workspace = await registry.get_workspace(seeded_workspace.id)
+    assert sid in live_workspace.started_sessions
+    on_disk = live_workspace.started_sessions[sid]
+    assert on_disk["agent_binding"].agent_id == seeded_agent.id
+
+
+async def test_create_session_graph_binding_allocates_holder_slot(
+    sessions_client, seeded_workspace, app,
+):
+    """Graph bindings get a holder slot with a synthetic ``graph:<id>`` agent_id.
+
+    DO NOT flip this back to ``skips_on_disk_slot``. The holder slot is
+    load-bearing: the graph executor in ``primer/worker/pool.py`` calls
+    ``workspace.get_session(session.id)`` on this slot and uses the
+    returned AgentSession to build a ``ToolExecutionManager.for_workspace``
+    for every per-node agent — that's how graph nodes inherit the
+    workspace's tools (ls/read/write/exec/...). Without the holder,
+    ``workspace_session`` is ``None`` and per-node agents fall back to
+    the tool-less path. See the inline comment in the create-session
+    handler at primer/api/routers/sessions.py (search ``graph:<graph_id>``).
+    """
+    from primer.model.graph import Graph, _BeginNode, _EndNode, _StaticEdge
+
+    storage = app.state.storage_provider.get_storage(Graph)
+    graph = Graph(
+        id="gr-skip",
+        description="g",
+        nodes=[_BeginNode(id="begin"), _EndNode(id="end")],
+        edges=[_StaticEdge(from_node="begin", to_node="end")],
+    )
+    await storage.create(graph)
+    try:
+        resp = await sessions_client.post(
+            f"/v1/workspaces/{seeded_workspace.id}/sessions",
+            json={"binding": {"kind": "graph", "graph_id": "gr-skip"}},
+        )
+        assert resp.status_code == 201, resp.text
+        sid = resp.json()["id"]
+
+        registry = app.state.workspace_registry
+        live_workspace = await registry.get_workspace(seeded_workspace.id)
+        # Graph bindings allocate a holder slot whose synthetic agent_id
+        # is ``graph:<graph_id>`` (see sessions router).
+        assert sid in live_workspace.started_sessions
+        binding = live_workspace.started_sessions[sid]["agent_binding"]
+        assert binding.agent_id == "graph:gr-skip"
+    finally:
+        try:
+            await storage.delete(graph.id)
+        except Exception:
+            pass
+
+
+async def test_top_level_list_sessions_filtered_by_status(
+    sessions_client, seeded_workspace, seeded_agent, app,
+):
+    """Top-level GET /v1/sessions must honour ``?status=`` from §11.2."""
+    from primer.model.workspace_session import WorkspaceSession, SessionStatus
+
+    # Two sessions: one CREATED (default), one auto-started → RUNNING.
+    r1 = await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions",
+        json={"binding": {"kind": "agent", "agent_id": seeded_agent.id}},
+    )
+    r2 = await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions",
+        json={
+            "binding": {"kind": "agent", "agent_id": seeded_agent.id},
+            "auto_start": True,
+        },
+    )
+    assert r1.status_code == 201
+    assert r2.status_code == 201
+    sid_created = r1.json()["id"]
+    sid_running = r2.json()["id"]
+
+    resp = await sessions_client.get("/v1/sessions?status=running")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    ids = {s["id"] for s in body["items"]}
+    assert sid_running in ids
+    assert sid_created not in ids
+
+    # Sanity: the unfiltered list returns both.
+    resp_all = await sessions_client.get("/v1/sessions")
+    assert resp_all.status_code == 200
+    all_ids = {s["id"] for s in resp_all.json()["items"]}
+    assert {sid_created, sid_running}.issubset(all_ids)
+
+    # Make sure storage.find() is what's responding to the filter — verify
+    # the session row's status is what the API claimed.
+    storage = app.state.storage_provider.get_storage(WorkspaceSession)
+    s = await storage.get(sid_running)
+    assert s.status == SessionStatus.RUNNING
+
+
+async def test_top_level_list_sessions_filtered_by_agent_id(
+    sessions_client, seeded_workspace, seeded_agent, app,
+):
+    """``?agent_id=`` filters by ``binding.agent_id`` (nested-JSON path)."""
+    from primer.model.agent import Agent, AgentModel
+
+    # Insert a second agent so we have two distinct agent_id values.
+    storage = app.state.storage_provider.get_storage(Agent)
+    other = Agent(
+        id="ag-other",
+        description="other",
+        model=AgentModel(profile_id="llm-p--m"),
+        tools=[],
+        system_prompt=[],
+    )
+    await storage.create(other)
+    try:
+        r1 = await sessions_client.post(
+            f"/v1/workspaces/{seeded_workspace.id}/sessions",
+            json={"binding": {"kind": "agent", "agent_id": seeded_agent.id}},
+        )
+        r2 = await sessions_client.post(
+            f"/v1/workspaces/{seeded_workspace.id}/sessions",
+            json={"binding": {"kind": "agent", "agent_id": "ag-other"}},
+        )
+        assert r1.status_code == 201
+        assert r2.status_code == 201
+        sid_a = r1.json()["id"]
+        sid_b = r2.json()["id"]
+
+        resp = await sessions_client.get(
+            f"/v1/sessions?agent_id={seeded_agent.id}"
+        )
+        assert resp.status_code == 200, resp.text
+        ids = {s["id"] for s in resp.json()["items"]}
+        assert sid_a in ids
+        assert sid_b not in ids
+    finally:
+        try:
+            await storage.delete("ag-other")
+        except Exception:
+            pass
+
+
+# ===========================================================================
+# ClaimEngine integration
+# ===========================================================================
+
+
+class _FakeClaimEngine:
+    """Minimal spy for upsert / delete_lease calls."""
+
+    def __init__(self) -> None:
+        self.upserted: list[tuple] = []
+        self.deleted: list[tuple] = []
+
+    async def upsert(self, kind, entity_id, *, priority=100, next_attempt_at=None):
+        self.upserted.append((kind, entity_id))
+
+    async def delete_lease(self, kind, entity_id):
+        self.deleted.append((kind, entity_id))
+
+
+@pytest.fixture
+def app_with_engine(fake_storage_provider, fake_provider_registry):
+    workspace_registry = WorkspaceRegistry(
+        fake_storage_provider,  # type: ignore[arg-type]
+        factory=_FakeBackendForSessions,
+    )
+    _app = create_test_app(
+        storage_provider=fake_storage_provider,  # type: ignore[arg-type]
+        provider_registry=fake_provider_registry,
+        workspace_registry=workspace_registry,
+    )
+    _engine = _FakeClaimEngine()
+    _app.state.claim_engine = _engine
+    return _app, _engine
+
+
+async def test_claim_engine_upsert_on_create(
+    app_with_engine, seeded_workspace, seeded_agent,
+):
+    """create_session calls engine.upsert(SESSION, sid) after persisting."""
+    from primer.int.claim import ClaimKind
+
+    _app, engine = app_with_engine
+    # seeded_workspace/seeded_agent fixtures are bound to the `app` fixture;
+    # reuse their workspace_id but insert the agent into *this* app's storage.
+    from primer.model.agent import Agent, AgentModel
+    agent_storage = _app.state.storage_provider.get_storage(Agent)
+    try:
+        await agent_storage.create(Agent(
+            id="ag-eng",
+            description="d",
+            model=AgentModel(profile_id="x--m"),
+            tools=[],
+            system_prompt=[],
+        ))
+    except Exception:
+        pass
+    from primer.model.workspace import Workspace, WorkspaceProvider, WorkspaceProviderType, LocalWorkspaceConfig
+    from datetime import datetime, timezone
+    sp = _app.state.storage_provider
+    try:
+        await sp.get_storage(WorkspaceProvider).create(
+            WorkspaceProvider(
+                id="p-eng",
+                provider=WorkspaceProviderType.LOCAL,
+                config=LocalWorkspaceConfig(root_path="/tmp/primer-eng"),
+            )
+        )
+        await sp.get_storage(Workspace).create(Workspace(
+            id="ws-eng",
+            template_id="t-1",
+            provider_id="p-eng",
+            created_at=datetime.now(timezone.utc),
+            runtime_meta=_runtime_meta(),
+        ))
+    except Exception:
+        pass
+
+    async with AsyncClient(
+        transport=ASGITransport(app=_app), base_url="http://t",
+    ) as c:
+        try:
+            await c.post("/v1/auth/register", json={"username": "testuser", "password": "testpassword"})
+        except Exception:
+            pass
+        # auto_start defaults to False (sessions are created inert and started
+        # explicitly); the claim-engine upsert is gated on auto_start=True, so
+        # request an auto-starting session to exercise the upsert wiring.
+        resp = await c.post(
+            "/v1/workspaces/ws-eng/sessions",
+            json={
+                "binding": {"kind": "agent", "agent_id": "ag-eng"},
+                "auto_start": True,
+            },
+        )
+        assert resp.status_code == 201, resp.text
+        sid = resp.json()["id"]
+
+    assert (ClaimKind.SESSION, sid) in engine.upserted, (
+        f"Expected engine.upsert(SESSION, {sid!r}) but got: {engine.upserted!r}"
+    )
+
+
+async def test_claim_engine_delete_lease_on_cancel(
+    app_with_engine, seeded_workspace, seeded_agent,
+):
+    """cancel_session (when session ends immediately) calls engine.delete_lease."""
+    from primer.int.claim import ClaimKind
+    from primer.model.agent import Agent, AgentModel
+    from primer.model.workspace import Workspace, WorkspaceProvider, WorkspaceProviderType, LocalWorkspaceConfig
+    from datetime import datetime, timezone
+
+    _app, engine = app_with_engine
+    sp = _app.state.storage_provider
+    try:
+        await sp.get_storage(WorkspaceProvider).create(
+            WorkspaceProvider(
+                id="p-can",
+                provider=WorkspaceProviderType.LOCAL,
+                config=LocalWorkspaceConfig(root_path="/tmp/primer-can"),
+            )
+        )
+        await sp.get_storage(Workspace).create(Workspace(
+            id="ws-can",
+            template_id="t-1",
+            provider_id="p-can",
+            created_at=datetime.now(timezone.utc),
+            runtime_meta=_runtime_meta(),
+        ))
+    except Exception:
+        pass
+    agent_storage = sp.get_storage(Agent)
+    try:
+        await agent_storage.create(Agent(
+            id="ag-can",
+            description="c",
+            model=AgentModel(profile_id="x--m"),
+            tools=[],
+            system_prompt=[],
+        ))
+    except Exception:
+        pass
+
+    async with AsyncClient(
+        transport=ASGITransport(app=_app), base_url="http://t",
+    ) as c:
+        try:
+            await c.post("/v1/auth/register", json={"username": "testuser", "password": "testpassword"})
+        except Exception:
+            pass
+        r = await c.post(
+            "/v1/workspaces/ws-can/sessions",
+            json={"binding": {"kind": "agent", "agent_id": "ag-can"}},
+        )
+        assert r.status_code == 201, r.text
+        sid = r.json()["id"]
+
+        resp = await c.post(f"/v1/workspaces/ws-can/sessions/{sid}/cancel")
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["status"] == "ended"
+
+    assert (ClaimKind.SESSION, sid) in engine.deleted, (
+        f"Expected engine.delete_lease(SESSION, {sid!r}) but got: {engine.deleted!r}"
+    )
+
+
+# ===========================================================================
+# Task 11 — turn_status + last_seq + cancel_requested_at + pause_requested_at
+#            on detail GET
+# ===========================================================================
+
+
+async def test_detail_get_exposes_streaming_fields(
+    sessions_client, seeded_workspace, seeded_agent,
+):
+    """GET /v1/sessions/{sid} must return turn_status, last_seq,
+    cancel_requested_at, and pause_requested_at so the UI can render
+    the 'Thinking...' indicator without a separate WS connection.
+    """
+    create = await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions",
+        json={"binding": {"kind": "agent", "agent_id": seeded_agent.id}},
+    )
+    assert create.status_code == 201, create.text
+    sid = create.json()["id"]
+
+    resp = await sessions_client.get(f"/v1/sessions/{sid}")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+
+    # All four streaming lifecycle fields must be present.
+    assert "turn_status" in body, "turn_status missing from session detail GET"
+    assert "last_seq" in body, "last_seq missing from session detail GET"
+    assert "cancel_requested_at" in body, (
+        "cancel_requested_at missing from session detail GET"
+    )
+    assert "pause_requested_at" in body, (
+        "pause_requested_at missing from session detail GET"
+    )
+
+    # Freshly-created session: defaults are idle / 0 / null / null.
+    assert body["turn_status"] == "idle"
+    assert body["last_seq"] == 0
+    assert body["cancel_requested_at"] is None
+    assert body["pause_requested_at"] is None
+
+
+async def test_claim_engine_upsert_on_resume(
+    app_with_engine,
+):
+    """resume_session calls engine.upsert(SESSION, sid) when transitioning to RUNNING."""
+    from primer.int.claim import ClaimKind
+    from primer.model.agent import Agent, AgentModel
+    from primer.model.workspace import Workspace, WorkspaceProvider, WorkspaceProviderType, LocalWorkspaceConfig
+    from datetime import datetime, timezone
+
+    _app, engine = app_with_engine
+    sp = _app.state.storage_provider
+    try:
+        await sp.get_storage(WorkspaceProvider).create(
+            WorkspaceProvider(
+                id="p-res",
+                provider=WorkspaceProviderType.LOCAL,
+                config=LocalWorkspaceConfig(root_path="/tmp/primer-res"),
+            )
+        )
+        await sp.get_storage(Workspace).create(Workspace(
+            id="ws-res",
+            template_id="t-1",
+            provider_id="p-res",
+            created_at=datetime.now(timezone.utc),
+            runtime_meta=_runtime_meta(),
+        ))
+    except Exception:
+        pass
+    agent_storage = sp.get_storage(Agent)
+    try:
+        await agent_storage.create(Agent(
+            id="ag-res",
+            description="r",
+            model=AgentModel(profile_id="x--m"),
+            tools=[],
+            system_prompt=[],
+        ))
+    except Exception:
+        pass
+
+    async with AsyncClient(
+        transport=ASGITransport(app=_app), base_url="http://t",
+    ) as c:
+        try:
+            await c.post("/v1/auth/register", json={"username": "testuser", "password": "testpassword"})
+        except Exception:
+            pass
+        r = await c.post(
+            "/v1/workspaces/ws-res/sessions",
+            json={"binding": {"kind": "agent", "agent_id": "ag-res"}},
+        )
+        assert r.status_code == 201, r.text
+        sid = r.json()["id"]
+        engine.upserted.clear()  # reset after create
+
+        resp = await c.post(f"/v1/workspaces/ws-res/sessions/{sid}/resume")
+        assert resp.status_code == 200, resp.text
+
+    assert (ClaimKind.SESSION, sid) in engine.upserted, (
+        f"Expected engine.upsert(SESSION, {sid!r}) on resume but got: {engine.upserted!r}"
+    )
+
+
+# ===========================================================================
+# graph_id filter - GET /v1/sessions?graph_id=<id>
+# ===========================================================================
+
+
+async def test_top_level_list_sessions_filtered_by_graph_id(
+    sessions_client, seeded_workspace, seeded_graph, app,
+):
+    """``?graph_id=`` filters sessions by ``binding.graph_id`` (nested-JSON path).
+
+    Only graph-bound sessions with the matching graph_id are returned;
+    sessions bound to a different graph or to an agent are excluded.
+    """
+    # A second graph so we can confirm cross-graph exclusion.
+    second_graph = await seeded_graph(id="gr-other")
+
+    r1 = await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions",
+        json={"binding": {"kind": "graph", "graph_id": seeded_graph.id}},
+    )
+    r2 = await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions",
+        json={"binding": {"kind": "graph", "graph_id": second_graph.id}},
+    )
+    assert r1.status_code == 201, r1.text
+    assert r2.status_code == 201, r2.text
+    sid_target = r1.json()["id"]
+    sid_other = r2.json()["id"]
+
+    resp = await sessions_client.get(
+        f"/v1/sessions?graph_id={seeded_graph.id}"
+    )
+    assert resp.status_code == 200, resp.text
+    ids = {s["id"] for s in resp.json()["items"]}
+    assert sid_target in ids, (
+        f"session bound to graph {seeded_graph.id!r} missing from filter result"
+    )
+    assert sid_other not in ids, (
+        f"session bound to graph {second_graph.id!r} should be excluded"
+    )
+
+
+async def test_top_level_list_sessions_graph_id_missing_returns_empty(
+    sessions_client,
+):
+    """``?graph_id=`` with a non-existent id returns 200 with empty items list.
+
+    Narrowing semantics: no match is not an error.
+    """
+    resp = await sessions_client.get("/v1/sessions?graph_id=no-such-graph-xyz")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert "items" in body
+    assert body["items"] == [], (
+        f"filter by missing graph_id should yield empty list, got: {body['items']!r}"
+    )
+
+
+async def test_top_level_list_sessions_graph_id_excludes_agent_sessions(
+    sessions_client, seeded_workspace, seeded_agent, seeded_graph,
+):
+    """``?graph_id=`` does not match agent-bound sessions."""
+    agent_sess = await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions",
+        json={"binding": {"kind": "agent", "agent_id": seeded_agent.id}},
+    )
+    graph_sess = await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions",
+        json={"binding": {"kind": "graph", "graph_id": seeded_graph.id}},
+    )
+    assert agent_sess.status_code == 201, agent_sess.text
+    assert graph_sess.status_code == 201, graph_sess.text
+    sid_agent = agent_sess.json()["id"]
+    sid_graph = graph_sess.json()["id"]
+
+    resp = await sessions_client.get(
+        f"/v1/sessions?graph_id={seeded_graph.id}"
+    )
+    assert resp.status_code == 200, resp.text
+    ids = {s["id"] for s in resp.json()["items"]}
+    assert sid_graph in ids
+    assert sid_agent not in ids, (
+        "agent-bound session must not appear in graph_id-filtered results"
+    )
+
+
+# ===========================================================================
+# Cursor pagination - POST /v1/sessions/find with kind=cursor
+# ===========================================================================
+
+
+async def test_find_sessions_cursor_pagination_covers_all_once(
+    sessions_client, seeded_workspace, seeded_graph,
+):
+    """Cursor walk over POST /v1/sessions/find visits every session exactly once.
+
+    Seeds 5 graph-bound sessions then walks with page length 2 (3 pages:
+    2+2+1). Verifies complete coverage with no duplicates.
+    """
+    seeded_ids: list[str] = []
+    for _i in range(5):
+        r = await sessions_client.post(
+            f"/v1/workspaces/{seeded_workspace.id}/sessions",
+            json={"binding": {"kind": "graph", "graph_id": seeded_graph.id}},
+        )
+        assert r.status_code == 201, r.text
+        seeded_ids.append(r.json()["id"])
+
+    predicate = {
+        "kind": "predicate",
+        "op": "=",
+        "left": {"kind": "field", "name": "binding.graph_id"},
+        "right": {"kind": "value", "value": seeded_graph.id},
+    }
+
+    seen_ids: list[str] = []
+    cursor: str | None = None
+    for _ in range(10):  # safety bound
+        body = {
+            "predicate": predicate,
+            "page": {"kind": "cursor", "cursor": cursor, "length": 2},
+        }
+        resp = await sessions_client.post("/v1/sessions/find", json=body)
+        assert resp.status_code == 200, resp.text
+        page = resp.json()
+        items = page.get("items", [])
+        seen_ids.extend(item["id"] for item in items)
+        cursor = page.get("next_cursor")
+        if not cursor:
+            break
+
+    assert sorted(seen_ids) == sorted(seeded_ids), (
+        f"cursor walk did not cover each session exactly once. "
+        f"seeded={sorted(seeded_ids)!r}, seen={sorted(seen_ids)!r}"
+    )
+    assert len(seen_ids) == len(set(seen_ids)), (
+        f"duplicates in cursor walk: {seen_ids!r}"
+    )
+
+
+# ===========================================================================
+# Session naming — create-with-name + PATCH rename (bug #22)
+# ===========================================================================
+
+
+async def test_create_session_with_name_persists_and_round_trips(
+    sessions_client, seeded_workspace, seeded_agent,
+):
+    resp = await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions",
+        json={
+            "binding": {"kind": "agent", "agent_id": seeded_agent.id},
+            "name": "My friendly run",
+            "auto_start": False,
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    created = resp.json()
+    sid = created["id"]
+    # Name lands on the created scheduler row (the create response).
+    assert created["name"] == "My friendly run"
+
+    # ... and round-trips through the top-level GET /sessions/{id} row.
+    got = await sessions_client.get(f"/v1/sessions/{sid}")
+    assert got.status_code == 200, got.text
+    assert got.json()["name"] == "My friendly run"
+
+    # ... and shows on the on-disk SessionInfo via the workspace list.
+    listed = await sessions_client.get(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions"
+    )
+    assert listed.status_code == 200, listed.text
+    items = listed.json()["items"]
+    match = [i for i in items if i["session_id"] == sid]
+    assert match and match[0]["name"] == "My friendly run"
+
+
+async def test_create_session_without_name_defaults_none(
+    sessions_client, seeded_workspace, seeded_agent,
+):
+    resp = await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions",
+        json={
+            "binding": {"kind": "agent", "agent_id": seeded_agent.id},
+            "auto_start": False,
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["name"] is None
+
+
+async def test_create_session_blank_name_defaults_none(
+    sessions_client, seeded_workspace, seeded_agent,
+):
+    resp = await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions",
+        json={
+            "binding": {"kind": "agent", "agent_id": seeded_agent.id},
+            "name": "   ",
+            "auto_start": False,
+        },
+    )
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["name"] is None
+
+
+async def test_rename_session_updates_name(
+    sessions_client, seeded_workspace, seeded_agent,
+):
+    create = await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions",
+        json={
+            "binding": {"kind": "agent", "agent_id": seeded_agent.id},
+            "auto_start": False,
+        },
+    )
+    assert create.status_code == 201, create.text
+    sid = create.json()["id"]
+    assert create.json()["name"] is None
+
+    patched = await sessions_client.patch(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions/{sid}",
+        json={"name": "Renamed run"},
+    )
+    assert patched.status_code == 200, patched.text
+    # The PATCH returns the updated on-disk SessionInfo.
+    body = patched.json()
+    assert body["name"] == "Renamed run"
+    assert body["session_id"] == sid
+
+    # ... and the new name is mirrored onto the scheduler row too.
+    got = await sessions_client.get(f"/v1/sessions/{sid}")
+    assert got.status_code == 200, got.text
+    assert got.json()["name"] == "Renamed run"
+
+
+async def test_rename_session_clear_name(
+    sessions_client, seeded_workspace, seeded_agent,
+):
+    create = await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions",
+        json={
+            "binding": {"kind": "agent", "agent_id": seeded_agent.id},
+            "name": "Temp name",
+            "auto_start": False,
+        },
+    )
+    assert create.status_code == 201, create.text
+    sid = create.json()["id"]
+
+    patched = await sessions_client.patch(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions/{sid}",
+        json={"name": None},
+    )
+    assert patched.status_code == 200, patched.text
+    assert patched.json()["name"] is None
+
+
+async def test_rename_session_not_found(sessions_client, seeded_workspace):
+    resp = await sessions_client.patch(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions/sess-nope",
+        json={"name": "x"},
+    )
+    assert resp.status_code == 404, resp.text
+
+
+# ===========================================================================
+# GET /v1/sessions/recent (01a06431 c-1) - cross-workspace recents feed
+# ===========================================================================
+
+
+async def test_recent_sessions_excludes_orphaned_workspaces(
+    app, sessions_client, seeded_workspace, seeded_agent,
+):
+    """01a06431 c-1: a session whose workspace was destroyed (or never
+    registered) is a real, permanent tombstone row (ended_reason
+    "workspace_lost"/"failed") - correct for the generic /sessions/find
+    finder, wrong for the palette/rail "recent sessions" feed, which
+    surfaced these with no context ("triplicate 'main' rows", uiv2
+    Phase-2 finding). /sessions/recent scopes to live workspaces only."""
+    live = await sessions_client.post(
+        f"/v1/workspaces/{seeded_workspace.id}/sessions",
+        json={
+            "binding": {"kind": "agent", "agent_id": seeded_agent.id},
+            "name": "live session",
+            "auto_start": False,
+        },
+    )
+    assert live.status_code == 201, live.text
+    live_sid = live.json()["id"]
+
+    from primer.model.workspace_session import (
+        AgentSessionBinding, SessionStatus, WorkspaceSession,
+    )
+
+    sess_storage = app.state.storage_provider.get_storage(WorkspaceSession)
+    await sess_storage.create(WorkspaceSession(
+        id="sess-orphan-1",
+        workspace_id="ws-does-not-exist",
+        binding=AgentSessionBinding(agent_id="agt-orphan"),
+        status=SessionStatus.ENDED,
+        name="main",
+        created_at=datetime.now(timezone.utc),
+        ended_reason="workspace_lost",
+    ))
+
+    resp = await sessions_client.get("/v1/sessions/recent")
+    assert resp.status_code == 200, resp.text
+    items = resp.json()["items"]
+    ids = {row["session_id"] for row in items}
+    assert live_sid in ids
+    assert "sess-orphan-1" not in ids
+
+    live_row = next(r for r in items if r["session_id"] == live_sid)
+    assert live_row["workspace_id"] == seeded_workspace.id
+    assert live_row["workspace_name"]
+    assert live_row["agent_id"] == seeded_agent.id
+    assert live_row["agent_name"] == seeded_agent.id
+    assert live_row["graph_ref"] is None
+
+
+async def test_recent_sessions_orders_by_last_activity_desc(
+    app, seeded_workspace, sessions_client,
+):
+    """Ordering follows last_turn_at when set, else created_at - not
+    creation order alone (an old session that just ran a turn is more
+    "recent" than a newer session that never started)."""
+    from primer.model.workspace_session import (
+        AgentSessionBinding, SessionStatus, WorkspaceSession,
+    )
+
+    sess_storage = app.state.storage_provider.get_storage(WorkspaceSession)
+    base = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    # Created LAST but never ran a turn -> oldest activity.
+    await sess_storage.create(WorkspaceSession(
+        id="sess-stale",
+        workspace_id=seeded_workspace.id,
+        binding=AgentSessionBinding(agent_id="agt-1"),
+        status=SessionStatus.ENDED,
+        created_at=base,
+    ))
+    # Created FIRST but ran a turn recently -> most recent activity.
+    await sess_storage.create(WorkspaceSession(
+        id="sess-active",
+        workspace_id=seeded_workspace.id,
+        binding=AgentSessionBinding(agent_id="agt-1"),
+        status=SessionStatus.RUNNING,
+        created_at=base.replace(year=2025),
+        last_turn_at=base.replace(month=6),
+    ))
+
+    resp = await sessions_client.get("/v1/sessions/recent")
+    assert resp.status_code == 200, resp.text
+    order = [r["session_id"] for r in resp.json()["items"]]
+    assert order.index("sess-active") < order.index("sess-stale")
+
+
+async def test_recent_sessions_respects_limit(
+    app, seeded_workspace, sessions_client,
+):
+    from primer.model.workspace_session import (
+        AgentSessionBinding, SessionStatus, WorkspaceSession,
+    )
+
+    sess_storage = app.state.storage_provider.get_storage(WorkspaceSession)
+    for i in range(5):
+        await sess_storage.create(WorkspaceSession(
+            id=f"sess-lim-{i}",
+            workspace_id=seeded_workspace.id,
+            binding=AgentSessionBinding(agent_id="agt-1"),
+            status=SessionStatus.ENDED,
+            created_at=datetime.now(timezone.utc),
+        ))
+
+    resp = await sessions_client.get("/v1/sessions/recent?limit=2")
+    assert resp.status_code == 200, resp.text
+    assert len(resp.json()["items"]) == 2
+
+    too_big = await sessions_client.get("/v1/sessions/recent?limit=101")
+    assert too_big.status_code == 422, too_big.text
+
+
+async def test_recent_sessions_serves_graph_bound_qualifier(
+    app, seeded_workspace, seeded_graph, sessions_client,
+):
+    """A graph-bound row's qualifier is graph_ref, not agent_id/agent_name
+    - the console needs to know which shape it got to render the right
+    glyph. graph_ref is a pinned field name (Dev-Prime's palette
+    consumer reads it directly), not an internal detail."""
+    from primer.model.workspace_session import (
+        GraphSessionBinding, SessionStatus, WorkspaceSession,
+    )
+
+    # seeded_graph pre-creates its default graph on fixture setup;
+    # seeded_graph.id names it, calling seeded_graph() again would
+    # conflict on the same default id.
+    graph_id = seeded_graph.id
+    sess_storage = app.state.storage_provider.get_storage(WorkspaceSession)
+    await sess_storage.create(WorkspaceSession(
+        id="sess-graph-1",
+        workspace_id=seeded_workspace.id,
+        binding=GraphSessionBinding(graph_id=graph_id),
+        status=SessionStatus.RUNNING,
+        created_at=datetime.now(timezone.utc),
+    ))
+
+    resp = await sessions_client.get("/v1/sessions/recent")
+    assert resp.status_code == 200, resp.text
+    row = next(r for r in resp.json()["items"] if r["session_id"] == "sess-graph-1")
+    assert row["graph_ref"] == graph_id
+    assert row["agent_id"] is None
+    assert row["agent_name"] is None

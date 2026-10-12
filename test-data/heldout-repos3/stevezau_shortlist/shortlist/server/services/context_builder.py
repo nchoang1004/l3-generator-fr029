@@ -1,0 +1,1653 @@
+"""Assemble an EngineContext (and the user profiles a run processes) from DB settings.
+
+This is the server's translation layer: DB rows and typed settings in, engine dataclasses and
+clients out. It holds no run state and writes no run rows — that is the run service's job. Kept
+separate so the run service is only about orchestration (gate, execute, persist).
+"""
+
+from __future__ import annotations
+
+import asyncio
+from collections.abc import Callable
+from contextlib import nullcontext
+from datetime import UTC, datetime
+
+from loguru import logger
+from sqlalchemy import and_, case, func, or_
+from sqlalchemy.orm import Session, sessionmaker
+
+from shortlist.engine import seasons as seasons_mod
+from shortlist.engine.clients.mdblist import MdbListClient
+from shortlist.engine.clients.plex_pms import PlexClient
+from shortlist.engine.clients.plextv import PlexTvClient
+from shortlist.engine.clients.search import (
+    DEFAULT_EXA_SEARCH_TYPE,
+    ExaClient,
+    SearxngClient,
+    WebSearchProvider,
+)
+from shortlist.engine.clients.tmdb import TmdbClient
+from shortlist.engine.clients.trakt import TraktClient
+from shortlist.engine.context import EngineContext
+from shortlist.engine.curator import make_curator
+from shortlist.engine.delivery import render_row_name
+from shortlist.engine.history import ShareTokenWatchSource, distinct_recent, ratings_are_trustworthy
+from shortlist.engine.models import (
+    ArrTarget,
+    EngineConfig,
+    HubAnchor,
+    MediaType,
+    OverTime,
+    Pick,
+    PosterSpec,
+    RequestConfig,
+    RequestOverrides,
+    RequestSources,
+    RowOverride,
+    RowSpec,
+    SeerrTarget,
+    UserProfile,
+    UserType,
+    WrittenDetails,
+    is_human_rating,
+    normalise_languages,
+    row_language_mode_or_inherit,
+    row_languages_or_inherit,
+    row_monitor_or_inherit,
+)
+from shortlist.engine.provider_calls import ProviderCallControls
+from shortlist.engine.requests import AcquisitionGuard
+from shortlist.engine.rows import row_shown_today
+from shortlist.engine.themes import ThemeSpec
+from shortlist.engine.web_guidance import AiInstructions
+from shortlist.server.db.adapters import DbCache, DbSnapshotStore
+from shortlist.server.db.models import (
+    DEFAULT_SLUG,
+    Collection,
+    CollectionAudience,
+    CollectionUserOverride,
+    Delivery,
+    PickRow,
+    RequestCandidate,
+    Server,
+    Theme,
+    ThemeHistory,
+    User,
+    WatchedTitle,
+    WatchSyncState,
+    iso_utc,
+    utcnow,
+)
+from shortlist.server.prefs import blocked_ids
+from shortlist.server.services.pick_history import DbPickHistory
+from shortlist.server.services.plex_reachability import explained
+from shortlist.server.services.poster_service import load_upload, make_studio
+from shortlist.server.services.request_actions import AutomaticRequestGuard, durable_handled_requests
+from shortlist.server.services.season_catalogue import load_catalogue
+from shortlist.server.services.sse import EventBus
+from shortlist.server.services.theme_store import spec_from_row
+from shortlist.server.settings_store import SettingsStore
+
+#: The season editor's PMS reads (#137). A page waits on them, so a stalled server fails in seconds rather
+#: than holding the tab for a run's `plex.timeout_s` — `connection_choices._INTERACTIVE_TIMEOUT_S`'s reasoning.
+#: A library scan pages through the PMS, so no single read in it is long.
+EDITOR_PLEX_TIMEOUT_S = 8
+
+
+def curator_kwargs(get: Callable[[str], object], *, provider_controls: ProviderCallControls | None = None) -> dict:
+    """Assemble ``make_curator`` kwargs from settings. A local/OpenAI-compatible server takes a
+    base_url and an OPTIONAL key; every other provider takes an api_key; an optional model applies
+    to all.
+
+    The single source of truth the runtime context and the settings 'Test' probe both build from —
+    so a change to how a provider is configured can't drift between them."""
+    kwargs: dict = {}
+    provider = get("curator.provider")
+    if provider in ("openai_compatible", "ollama"):
+        # A local server usually wants no key at all, but a hosted gateway (OpenRouter) does — so
+        # the key is passed when set and the curator substitutes a placeholder when it isn't.
+        # `curator.ollama_url` is read as a fallback for instances configured before the two
+        # providers were merged, whose URL still lives under the old key.
+        kwargs["base_url"] = get("curator.openai_base_url") or get("curator.ollama_url")
+        if get("curator.api_key"):
+            kwargs["api_key"] = get("curator.api_key")
+    elif get("curator.api_key"):
+        kwargs["api_key"] = get("curator.api_key")
+    if get("curator.model"):
+        kwargs["model"] = get("curator.model")
+    if provider_controls is not None:
+        kwargs.update(provider_controls=provider_controls, max_retries=0, follow_redirects=False)
+        endpoints = {
+            "openai": "https://api.openai.com/v1",
+            "anthropic": "https://api.anthropic.com",
+            "google": "https://generativelanguage.googleapis.com",
+        }
+        if provider in endpoints:
+            kwargs["base_url"] = endpoints[provider]
+        elif provider in ("openai_compatible", "ollama"):
+            # Bounded runs use the reviewed model, never a later model-list discovery.
+            kwargs["model"] = str(get("curator.model") or "")
+    return kwargs
+
+
+def make_search_client(
+    get: Callable[[str], object], *, provider_controls: ProviderCallControls | None = None
+) -> WebSearchProvider | None:
+    """The external web-search backend for the ``llm_web`` source, or None when there isn't one.
+
+    Deciding WHICH provider belongs here rather than in the engine: the engine only knows "an
+    external backend" (``candidates.EXTERNAL_SEARCH_MODES``), so adding a provider never touches it.
+
+    The backend is whatever the owner chose, and ONLY that: an unconfigured ``exa``/``searxng``
+    yields None rather than falling through to the other. A fallback would be actively harmful in
+    both directions — it would send a self-hoster's watch history to a paid vendor they didn't pick,
+    or quietly downgrade a paying owner to a box that may be switched off.
+
+    Args:
+        get: A settings reader (``store.get``).
+
+    Returns:
+        A configured provider, or None when the backend is ``native`` or its own setup is missing.
+    """
+    mode = get("llm_web.search_provider") or "native"
+    kwargs = {"provider_controls": provider_controls} if provider_controls is not None else {}
+    if mode == "exa":
+        key = get("exa.apikey")
+        return (
+            ExaClient(key, search_type=str(get("exa.search_type") or DEFAULT_EXA_SEARCH_TYPE), **kwargs)
+            if key
+            else None
+        )
+    if mode == "searxng":
+        url = (str(get("searxng.url") or "")).strip()
+        if not url:
+            return None
+        return SearxngClient(
+            url,
+            username=str(get("searxng.username") or ""),
+            password=str(get("searxng.password") or ""),
+            **kwargs,
+        )
+    return None  # native: the provider searches for itself, so there is no external client
+
+
+def local_now() -> datetime:
+    """The wall clock a row's day schedule is judged against (issue #102).
+
+    Naive local time on purpose — the container's zone is what every other Shortlist schedule already
+    runs on (APScheduler resolves an unset timezone to the local one), so "Fridays" means the same
+    thing here as it does in a row's rebuild cron.
+
+    Indirected through a function so a test can freeze it; nothing else reads the clock for this.
+    """
+    return datetime.now()
+
+
+def _dislike_threshold(store: SettingsStore) -> float:
+    """The 0..10 rating at or below which a title stops seeding.
+
+    `or 2.0` would be wrong here and was: 0.0 is a legal, documented, validator-accepted value — it
+    means "only a rating of exactly zero counts as dislike" — and it is falsy, so the owner's stored
+    0 was silently replaced by the default. The settings screen read back 0 while every run used 2,
+    which is the worst kind of disagreement: both screens are self-consistent and neither is right.
+    """
+    raw = store.get("recommendations.dislike_threshold")
+    return 2.0 if raw is None else float(raw)
+
+
+def _refuse_a_different_server(session, machine_id: str) -> None:
+    """Abort before touching a Plex server that is not the one this instance is linked to.
+
+    Every record Shortlist holds is scoped to one machine: the delivery ledger says which collection is
+    whose, `restriction_snapshots` holds each account's filters as they were before we touched them,
+    and the user table says who the owner is. Run any of that against a different server and the
+    bookkeeping describes a machine nobody is talking to.
+
+    The concrete danger is the privacy sync: a stranger's PMS enumerates ZERO Shortlist collections,
+    which reads as "every row is gone" — and the merge would then rewrite share filters on plex.tv
+    from that. Settings already refuses a repoint (`api/settings._reject_a_different_server`), but only
+    when the new server ANSWERS at save time; a box that is down then, and up later, slips past. This
+    is the check at the point of use, where it cannot be skipped.
+    """
+    server = session.query(Server).first()
+    if server is None or not server.machine_id or server.machine_id == machine_id:
+        return
+    raise RuntimeError(
+        f"Plex at this URL reports machine {machine_id}, but Shortlist is linked to {server.machine_id}. "
+        "Refusing to run against a different server — re-link from setup if the move is intentional."
+    )
+
+
+def _optional_float(raw: object) -> float | None:
+    """A stored number, or None when the setting is unset — never a silent 0.0.
+
+    Used for the settings whose None is a MEANING ("derive this") rather than an absence, where the
+    usual ``float(store.get(...) or default)`` would erase a deliberate 0.0.
+    """
+    if raw is None or raw == "":
+        return None
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+def row_request_overrides(collection: Collection) -> RequestOverrides | None:
+    """This row's own request floors and target, or None when it overrides nothing.
+
+    None rather than an all-None ``RequestOverrides`` so the engine can skip the resolve entirely
+    for the overwhelmingly common case of a row that inherits everything.
+
+    Shared rows never get one: a shared row is built from titles people have already WATCHED,
+    which are by definition already on the server, so it surfaces nothing missing to request
+    (`_shared_row` is passed no demand map at all). Handing it request settings would put controls
+    in the editor that could not do anything.
+    """
+    if collection.build == "shared":
+        return None
+    overrides = RequestOverrides(
+        min_rating=collection.req_min_rating,
+        min_votes=collection.req_min_votes,
+        min_demand=collection.req_min_demand,
+        min_year=collection.req_min_year,
+        max_year=collection.req_max_year,
+        auto_send=collection.req_auto_send,
+        auto_min_demand=collection.req_auto_min_demand,
+        auto_min_rating=collection.req_auto_min_rating,
+        max_per_row=collection.req_max_per_row,
+        radarr_quality_profile_id=collection.req_radarr_quality_profile_id,
+        radarr_root_folder=collection.req_radarr_root_folder or None,
+        sonarr_quality_profile_id=collection.req_sonarr_quality_profile_id,
+        sonarr_root_folder=collection.req_sonarr_root_folder or None,
+        sonarr_monitor=row_monitor_or_inherit(collection.req_sonarr_monitor),
+        language_mode=row_language_mode_or_inherit(collection.req_language_mode),
+        preferred_languages=row_languages_or_inherit(collection.req_preferred_languages),
+        min_rating_other=collection.req_min_rating_other,
+    )
+    return overrides if overrides != RequestOverrides() else None
+
+
+def _utc(value: datetime | None) -> datetime | None:
+    """SQLite hands a ``DateTime(timezone=True)`` column back naive; the engine compares it against
+    the run's own aware clock, and mixing the two raises. Normalised here, at the boundary, for the
+    same reason `watch_cache._aware` normalises the watched-title columns. The DB stores UTC.
+    """
+    if value is None:
+        return None
+    return value if value.tzinfo else value.replace(tzinfo=UTC)
+
+
+#: How the watched page identifies ONE TITLE across the library copies of it (issue #111).
+#:
+#: ``(tmdb_id, media_type)`` is the identity every other module uses — never the id alone, because
+#: TMDB numbers movies and shows in separate namespaces (see `history.disliked_seed_keys`). A row
+#: with no ``tmdb://`` GUID has no id to group on, so it falls back to its own lowercased title;
+#: without that fallback SQL would group every unidentified title in the set into a single line,
+#: since `GROUP BY` treats all NULLs as equal.
+_WatchedKey = tuple[int | None, str, str]
+
+
+def _watched_group_columns() -> tuple:
+    """The GROUP BY columns behind `_WatchedKey`, in the order the key tuple carries them."""
+    no_id_title = case((WatchedTitle.tmdb_id.is_(None), func.lower(WatchedTitle.title)), else_="")
+    return (WatchedTitle.tmdb_id, no_id_title, WatchedTitle.media_type)
+
+
+def _watched_page_keys(query, true_date, *, limit: int, offset: int) -> tuple[list[_WatchedKey], int]:
+    """One page of watched TITLES, newest first, and how many titles the filters match in total.
+
+    Both come off a grouped query rather than the row list, so "Showing 25 of 412" counts the same
+    things the list does. Ordered by the group's most recent watch — a title watched last night in
+    one library and two years ago in another belongs at the top.
+    """
+    tmdb_id, no_id_title, media = _watched_group_columns()
+    last_watched = func.max(true_date).label("last_watched")
+    grouped = query.with_entities(tmdb_id, no_id_title.label("no_id_title"), media, last_watched).group_by(
+        tmdb_id, no_id_title, media
+    )
+    total = grouped.count()  # wraps the grouped SELECT, so this counts GROUPS, not rows
+    page = grouped.order_by(last_watched.desc()).limit(limit).offset(offset).all()
+    return [(row[0], row[1], row[2]) for row in page], total
+
+
+def _watched_copies(session: Session, user_id: int, keys: list[_WatchedKey]) -> dict[_WatchedKey, list[WatchedTitle]]:
+    """Every stored copy of the titles on this page, bucketed by key.
+
+    Deliberately NOT expressed as a row-value ``IN`` over the key tuples: a NULL `tmdb_id` compared
+    inside a tuple yields NULL, never true, so every title with no GUID would silently vanish from
+    the page. Matched on the two halves separately instead, then bucketed here.
+
+    The bucketing key is SELECTED from SQL rather than rebuilt in Python, because the two disagree.
+    SQLite's `lower()` is ASCII-only, so it leaves "ÉLITE" as "Élite" where `str.lower()` gives
+    "élite" — a GUID-less title with any uppercase non-ASCII letter would then never match the key
+    the page was built from, and would be dropped from `items` while still being counted in `total`.
+    One implementation of `lower()` decides both sides.
+
+    `q` is not re-applied here either. Two copies of one title can carry slightly different names, and
+    re-filtering would drop the copy that does not contain the search term — losing its library from
+    the row that the search DID match.
+    """
+    ids = {key[0] for key in keys if key[0] is not None}
+    titles = {key[1] for key in keys if key[0] is None}
+    if not ids and not titles:
+        return {}
+    rows = (
+        session.query(WatchedTitle, *_watched_group_columns())
+        .filter(
+            WatchedTitle.user_id == user_id,
+            or_(
+                WatchedTitle.tmdb_id.in_(ids),
+                and_(WatchedTitle.tmdb_id.is_(None), func.lower(WatchedTitle.title).in_(titles)),
+            ),
+        )
+        .all()
+    )
+    wanted = set(keys)
+    out: dict[_WatchedKey, list[WatchedTitle]] = {}
+    for row, tmdb_id, no_id_title, media in rows:
+        key = (tmdb_id, no_id_title, media)
+        if key in wanted:
+            out.setdefault(key, []).append(row)
+    return out
+
+
+def _merge_watched_copies(rows: list[WatchedTitle]) -> dict:
+    """Collapse one title's library copies into the single row the page renders.
+
+    Every field is merged to the claim the ENGINE would act on, so the page can never disagree with
+    the recommender about a title it is explaining:
+
+    * date, title, year — from the most recent copy; that is the watch the person remembers.
+    * `watch_count` — SUMMED: two plays of the HD file and one of the 4K file is three plays of the
+      film. The same sum `history.derive_seeds` makes for copies sharing a title, which is the normal
+      case — it groups on the title where this groups on the TMDB id, so two copies whose titles have
+      drifted are one row here and two seeds there.
+    * progress — taken as a PAIR from the copy furthest through, never as two independent maxima:
+      `max(viewed)` from a 10-episode copy beside `max(total)` from a 28-episode one would render
+      a "10 of 28" that no copy on the server supports.
+    * `user_rating` — the LOWEST any copy carries, preferring one a PERSON could have typed.
+      `disliked_seed_keys` drops a title when any of its rows is at or below the threshold, so
+      showing the highest would hide the two stars that are the reason it stopped seeding. It also
+      ignores fractional values (Kometa writes IMDb scores into the same field), so a tool-written
+      4.7 beside a typed 9 must not be shown as the acting rating either — the page would say the
+      rating is being disbelieved while the engine was blocking on the 9's copy. A fractional value
+      is still shown when NO copy carries a typed one, so the account-level warning has something
+      to point at.
+    """
+    newest = max(rows, key=lambda row: row.source_viewed_at or row.viewed_at)
+    deepest = max(rows, key=lambda row: row.viewed_leaf_count if row.viewed_leaf_count is not None else -1)
+    rated = [row.user_rating for row in rows if row.user_rating is not None]
+    ratings = [value for value in rated if is_human_rating(value)] or rated
+    return {
+        "title": newest.title,
+        # The newest copy's key, chosen with the title and year rather than independently: the poster
+        # the page draws has to be the artwork of the copy it is naming, and a title held in an HD and
+        # a 4K library can carry different art in each.
+        "rating_key": newest.rating_key,
+        "tmdb_id": newest.tmdb_id,
+        "media_type": newest.media_type,
+        "watched_at": (newest.source_viewed_at or newest.viewed_at).isoformat(),
+        "year": newest.year,
+        "watch_count": sum(row.watch_count or 0 for row in rows),
+        "viewed_leaf_count": deepest.viewed_leaf_count,
+        "leaf_count": deepest.leaf_count,
+        "user_rating": min(ratings) if ratings else None,
+        # Sorted so the line is stable between renders whatever order the rows came back in. Blanks
+        # dropped: a row from before 0087 knows no name, and "" would render as a stray separator.
+        "libraries": sorted({row.library for row in rows if row.library}),
+    }
+
+
+class ContextBuilder:
+    """Builds an EngineContext and user profiles from DB settings — the engine's server adapter."""
+
+    def __init__(self, session_factory: sessionmaker[Session], secrets, bus: EventBus):
+        self._sessions = session_factory
+        self._secrets = secrets
+        self._bus = bus
+
+    def build(
+        self,
+        *,
+        dry_run: bool,
+        loop: asyncio.AbstractEventLoop | None = None,
+        run_id: int | None = None,
+        log_sink: Callable[[dict], None] | None = None,
+        collection_ids: list[int] | None = None,
+        session: Session | None = None,
+        provider_controls: ProviderCallControls | None = None,
+        acquisition_guard: AcquisitionGuard | None = None,
+    ) -> EngineContext:
+        with self._sessions() if session is None else nullcontext(session) as session:
+            store = SettingsStore(session, self._secrets)
+            plex_url = store.get("plex.url")
+            plex_token = store.get("plex.token")
+            if not plex_url or not plex_token:
+                raise RuntimeError("Plex connection is not configured yet — finish setup first")
+            plex_timeout = int(store.get("plex.timeout_s") or 45)
+            # A large TV library's collection rebuild legitimately takes 15-20s+; the configured
+            # per-call timeout (default 45s) gives those headroom instead of timing out + retrying.
+            # The run page is where this lands, so say where the address is changed.
+            with explained(plex_url, fix_hint=" Change the address under Settings → Connections."):
+                plex = PlexClient(plex_url, plex_token, timeout=plex_timeout)
+            _refuse_a_different_server(session, plex.machine_id)
+            plextv = PlexTvClient(plex_token, plex.machine_id, min_write_interval=float(store.get("plextv.throttle_s")))
+            tmdb = TmdbClient(store.get("tmdb.apikey"), cache=DbCache(self._sessions))
+            trakt = (
+                TraktClient(store.get("trakt.client_id"), cache=DbCache(self._sessions, kind="trakt"))
+                if store.get("trakt.client_id")
+                else None
+            )
+            # External web-search backend for the llm_web source; None when none is configured (the
+            # native provider tools still work without it — only Ollama depends on it).
+            provider_kwargs = {"provider_controls": provider_controls} if provider_controls is not None else {}
+            search = make_search_client(store.get, **provider_kwargs)
+            history = ShareTokenWatchSource(plex, plextv, owner_token=plex_token)
+
+            def _pms_for_user(profile, _history=history, _url=plex_url):
+                """The server as ONE user sees it, for the privacy check on accounts Plex refuses a
+                hide-list for.
+
+                Reuses `ShareTokenWatchSource._token_for` rather than reading the shared-server list
+                directly, for two reasons. It has the CANARY fallback: a managed Home profile that was
+                never separately shared is absent from `shared_server_tokens()` — and that is exactly
+                the archetype this check exists for, so a bare lookup returned None and the account was
+                recorded as seeing nothing, which is the false all-clear the whole feature was written
+                to stop. It also memoises the roster behind a lock, so this does not re-fetch plex.tv
+                once per profiled account per run (rule 6).
+                """
+                token = _history._token_for(profile)
+                return PlexClient(_url, token, timeout=plex_timeout) if token else None
+
+            provider = store.get("curator.provider")
+            curator = make_curator(provider, **curator_kwargs(store.get, **provider_kwargs))
+            # Build the poster studio only if a row actually renders a poster from text (built-in or
+            # AI) — a server that never uses posters never touches Pillow or the image SDK. The studio
+            # always provides the text engine; its AI engine is None when the provider can't make images.
+            render_modes = {"text", "ai", "generate"}
+            wants_studio = any((c.poster or {}).get("mode") in render_modes for c in session.query(Collection).all())
+            poster_artist = make_studio(store, self._sessions, **provider_kwargs) if wants_studio else None
+            config = self._engine_config(session, store, dry_run=dry_run, collection_ids=collection_ids)
+            previous = self._previous_picks(session)
+            previous_recipes = self._previous_recipes(previous)
+            delivered_keys = self._delivered_keys(session)
+            delivered_details = self._delivered_details(session)
+            delivered_seasons = self._delivered_seasons(session)
+            # Opted-out accounts: with hide_shared_from_disabled, even public shared rows are hidden
+            # from them, so disabling a user removes them from Shortlist entirely.
+            disabled_account_ids = {u.plex_account_id for u in session.query(User).filter_by(enabled=False).all()}
+            # Accounts the owner has told Shortlist to leave alone: no excludes merged into their share
+            # filters, and any we already added taken back out. Independent of `enabled` above — the
+            # two answer different questions (does this person get a row / may we edit their sharing).
+            unmanaged_account_ids = {
+                u.plex_account_id for u in session.query(User).filter_by(manage_sharing=False).all()
+            }
+            concurrency = int(store.get("run.concurrency") or 1)
+            # Every user Shortlist knows, enabled or not: the engine answers "whose row is this?"
+            # by account id, because a name can change and two names can slugify alike.
+            known_slugs = {u.plex_account_id: u.slug for u in session.query(User).all()}
+            # People our records say are GONE — plex.tv stopped listing them (`departed_at`, set and
+            # cleared by the roster sweep) or the owner filed them away (`removed_at`). This is the
+            # ONLY thing that lets a private-row exclude be pruned, so it has to be an assertion we
+            # made, not an inference from who happens to be in tonight's run.
+            departed_slugs = {
+                u.slug
+                for u in session.query(User).filter((User.departed_at.isnot(None)) | (User.removed_at.isnot(None)))
+            }
+            # Whose rows are allowed on the owner's Home. Read from the DB rather than this run's
+            # profiles, because the owner may be paused, disabled, or simply not in a scoped run —
+            # and converge still has to know which single label is legitimately there.
+            owner = session.query(User).filter_by(user_type=UserType.OWNER.value).first()
+            owner_slug = owner.slug if owner else ""
+            # Paused users never appear in a run, so converge is the only pass that can take their
+            # rows down. Read from the DB rather than this run's profiles for exactly that reason.
+            paused_slugs = {u.slug for u in session.query(User).all() if (u.prefs or {}).get("paused")}
+
+            # INSIDE the `with`, deliberately. Two of the arguments below still touch `session`
+            # (`_handled_requests`, and `_build_mdblist` via `SettingsStore.get`). Built after the
+            # block closed, SQLAlchemy silently re-opened a transaction that nothing ever closed, so
+            # every `build_context()` checked a connection out of the pool and kept it until GC —
+            # and `build_context` is on the path of every run, job and reconcile. The pool is 5 + 10,
+            # so the eleventh build blocked for 30s and surfaced as "Plex is unreachable".
+            def progress(slug: str, stage: str, counts: dict, reason: str | None = None) -> None:
+                # Runs in the engine's executor thread. One entry both STREAMS (SSE, live) and, via
+                # log_sink, lands in the run's in-memory activity log so a page reload can replay it.
+                # `reason` is kept OUT of `counts`, which is a map of numbers the UI renders as a
+                # "113 history · 40 seeds" tally — a sentence in there would render as garbage.
+                entry = {"ts": iso_utc(utcnow()), "run_id": run_id, "user": slug, "stage": stage, "counts": counts}
+                if reason:
+                    entry["reason"] = reason
+                if log_sink is not None:
+                    log_sink(entry)
+                if loop is not None:
+                    loop.call_soon_threadsafe(self._bus.publish, "run.user.stage", entry)
+
+            return EngineContext(
+                config=config,
+                plex=plex,
+                plextv=plextv,
+                tmdb=tmdb,
+                trakt=trakt,
+                search=search,
+                poster_artist=poster_artist,
+                # The engine reads each user's COMPLETE watched set by reading the PMS AS them, with the
+                # per-user server token plex.tv mints for every share. That set carries their own
+                # viewCount/viewedLeafCount — so a mark-as-watched (which the playback-history API never
+                # returns, and which capped at ~200 plays) is seen, with no PMS database mount.
+                history_source=history,
+                curator=curator,
+                snapshots=DbSnapshotStore(self._sessions),
+                index_cache=DbCache(self._sessions, kind="library_index"),
+                # The factory, not a session: the engine reads it from worker threads for the whole run.
+                pick_history=DbPickHistory(self._sessions),
+                web_search_cache=DbCache(self._sessions, kind="websearch"),
+                mdblist=self._build_mdblist(store),
+                concurrency=concurrency,
+                previous_picks=previous,
+                previous_recipes=previous_recipes,
+                delivered_keys=delivered_keys,
+                delivered_details=delivered_details,
+                delivered_seasons=delivered_seasons,
+                pms_for_user=_pms_for_user,
+                # Same token `_pms_for_user` builds its client from — including the canary fallback
+                # for a Home profile that was never separately shared.
+                token_for_user=lambda profile, _history=history: _history._token_for(profile),
+                disabled_account_ids=disabled_account_ids,
+                unmanaged_account_ids=unmanaged_account_ids,
+                known_slugs=known_slugs,
+                departed_slugs=departed_slugs,
+                owner_slug=owner_slug,
+                paused_slugs=paused_slugs,
+                # The DB read above succeeded, so `known_slugs` lists every user Shortlist has — the
+                # complete picture converge needs before it may DELETE an unattributable collection.
+                may_delete_orphans=True,
+                handled_requests=self._handled_requests(session),
+                acquisition_guard=(
+                    acquisition_guard if acquisition_guard is not None else AutomaticRequestGuard(self._sessions)
+                ),
+                progress=progress,
+                # Everyone who could own a tag, not the run's scope and not only the enabled: the
+                # request ledger must see that a tag two people share is ambiguous even when one of
+                # them is disabled, paused or simply not in tonight's run.
+                roster=self.all_profiles(session),
+            )
+
+    def _build_mdblist(self, store: SettingsStore) -> MdbListClient | None:
+        """A cache-backed MDBList client when any feature needs a non-TMDB rating, else None. Shares
+        the persistent DB cache so ratings are looked up at most once per title per week — the whole
+        point of caching against MDBList's daily request cap.
+
+        TWO settings can ask for one, and either alone is enough: `requests.rating_source` gates which
+        missing titles are worth requesting, and `recommendations.rating_source` decides what a row
+        ordered by "Highest rated" sorts on. Checking only the requests one left row ordering silently
+        inert on every default install — the engine no-opped while the row editor said "Highest IMDb
+        score first", which is the worst of both (nothing happens, and the UI says otherwise)."""
+        wants = {
+            store.get("requests.rating_source") or "tmdb",
+            store.get("recommendations.rating_source") or "tmdb",
+        }
+        if wants == {"tmdb"}:
+            return None
+        key = store.get("requests.mdblist.apikey")
+        if not key:
+            return None
+        return MdbListClient(key, cache=DbCache(self._sessions, kind="mdblist"))
+
+    @staticmethod
+    def _handled_requests(session: Session) -> set[tuple[int, str]]:
+        """Titles the owner already sent or rejected in the inbox — the engine must not re-request them.
+
+        Without this, a title still downloading was still "missing", so it out-ranked everything by
+        demand and re-consumed a `max_per_run` slot every single night — the queue starved on the
+        same five titles forever. And a rejected title could be auto-sent by a later run, so a "no"
+        wasn't a no.
+        """
+        rows = session.query(RequestCandidate).filter(RequestCandidate.status.in_(("sent", "rejected"))).all()
+        return {(row.tmdb_id, row.media_type) for row in rows} | durable_handled_requests(session)
+
+    def build_plex_only(self, *, dry_run: bool) -> EngineContext:
+        """A context with the PMS, plex.tv and the watch-history source — and nothing else.
+
+        For the handlers that only ever walk collections under a label: removing a disabled user's
+        rows, hiding a paused user's, the row reconciles, the poster reset, the rename, and the
+        read-only watch-history sync. `build()` opens TMDB, Trakt, Exa and MDBList clients, constructs
+        the LLM curator, and scans the whole `Collection` table to decide whether to build the poster
+        studio — none of which any of those touch, and all of which couple them to the availability of
+        services they never call. A watch sync failing because an LLM key is wrong is not a failure
+        anyone can act on.
+
+        The curator is the NullCurator and TMDB is unkeyed-but-real, because `EngineContext` requires
+        both; nothing on these paths calls either. `_refuse_a_different_server` still runs — it is what
+        stops a reconcile enumerating a stranger's PMS and concluding every row is gone.
+        """
+        with self._sessions() as session:
+            store = SettingsStore(session, self._secrets)
+            plex_url = store.get("plex.url")
+            plex_token = store.get("plex.token")
+            if not plex_url or not plex_token:
+                raise RuntimeError("Plex connection is not configured yet — finish setup first")
+            plex = PlexClient(plex_url, plex_token, timeout=int(store.get("plex.timeout_s") or 45))
+            _refuse_a_different_server(session, plex.machine_id)
+            plextv = PlexTvClient(plex_token, plex.machine_id, min_write_interval=float(store.get("plextv.throttle_s")))
+            return EngineContext(
+                config=EngineConfig(dry_run=dry_run),
+                plex=plex,
+                plextv=plextv,
+                tmdb=TmdbClient(store.get("tmdb.apikey"), cache=DbCache(self._sessions)),
+                history_source=ShareTokenWatchSource(plex, plextv, owner_token=plex_token),
+                curator=make_curator(""),
+                snapshots=DbSnapshotStore(self._sessions),
+                pick_history=DbPickHistory(self._sessions),
+                # The watch sync reads people this many at a time. Only `engine_run` and the watch
+                # sync consult it, and every plex-only caller of `engine_run` passes no users.
+                concurrency=int(store.get("run.concurrency") or 1),
+            )
+
+    def build_requests_only(self) -> tuple[RequestConfig | None, TmdbClient]:
+        """Just the pieces the approval inbox's manual send needs: the request config and a TMDB client.
+
+        A request asks Sonarr/Radarr for a file — it touches no Plex object — so this deliberately does
+        NOT build a full EngineContext, which would connect to the PMS and construct the LLM curator and
+        thereby couple a manual send to Plex/LLM availability the send never uses.
+        """
+        with self._sessions() as session:
+            store = SettingsStore(session, self._secrets)
+            tmdb = TmdbClient(store.get("tmdb.apikey"), cache=DbCache(self._sessions))
+            return self._build_requests(store), tmdb
+
+    def build_tmdb_only(self) -> TmdbClient | None:
+        """A TMDB client on the shared cache, or None when no API key is set. Touches no network."""
+        with self._sessions() as session:
+            api_key = SettingsStore(session, self._secrets).get("tmdb.apikey")
+        return TmdbClient(api_key, cache=DbCache(self._sessions)) if api_key else None
+
+    def build_plex_reader(self) -> PlexClient | None:
+        """The owner's PMS for the season editor's reads, or None before setup has connected one.
+
+        Connects to the server, so call it off the event loop. Read-only by use, not by type: nothing that
+        holds this client writes (plex-safety rule 4 — a collection a season reads is never touched).
+        """
+        with self._sessions() as session:
+            store = SettingsStore(session, self._secrets)
+            url, token = store.get("plex.url"), store.get("plex.token")
+        if not url or not token:
+            return None
+        return PlexClient(url, token, timeout=EDITOR_PLEX_TIMEOUT_S)
+
+    def build_request_sources_only(self) -> tuple[RequestSources | None, list[UserProfile], dict[int, int]]:
+        """What the requests-row setup check reads: the sources, the roster, and each person's DB id.
+
+        The third item maps ``plex_account_id`` -> ``users.id``, because a `UserProfile` carries only
+        the Plex id the engine keys on while the API answers in DB ids. No Plex/LLM/TMDB client is built:
+        the check reads Overseerr and the Arrs and nothing else.
+        """
+        with self._sessions() as session:
+            store = SettingsStore(session, self._secrets)
+            # The same roster the run resolves tags against, so the preview cannot show a tag as
+            # one person's that the run will read as ambiguous. A disabled person is still on the
+            # Users page, and their cell should not read "No account" because they are off.
+            profiles = self.all_profiles(session)
+            db_ids = {
+                u.plex_account_id: u.id
+                for u in session.query(User).filter(User.departed_at.is_(None), User.removed_at.is_(None)).all()
+            }
+            return self._build_request_sources(store), profiles, db_ids
+
+    def profile_with_history(self, session: Session, user_id: int) -> UserProfile:
+        """One person's profile with their watch history read the way a run reads it — for authoring a theme.
+
+        Raises RuntimeError if Plex isn't configured yet, LookupError if the person is gone.
+        """
+        user = session.get(User, user_id)
+        if user is None:
+            raise LookupError("user not found")
+        store = SettingsStore(session, self._secrets)
+        plex_url, plex_token = store.get("plex.url"), store.get("plex.token")
+        if not plex_url or not plex_token:
+            raise RuntimeError("Plex connection is not configured yet")
+        profile = self._profile(user, {})
+        plex = PlexClient(plex_url, plex_token)
+        plextv = PlexTvClient(plex_token, plex.machine_id)
+        history = ShareTokenWatchSource(plex, plextv, owner_token=plex_token)
+        profile.history = history.fetch(profile, min_completion=EngineConfig().min_completion)
+        return profile
+
+    def user_history(self, user_id: int, *, limit: int = 25) -> list[dict] | None:
+        """Recent watches for one user, newest first — the same source that feeds recommendations.
+
+        Returns None if the user doesn't exist. Raises RuntimeError if Plex isn't configured yet.
+        """
+        with self._sessions() as session:
+            store = SettingsStore(session, self._secrets)
+            user = session.get(User, user_id)
+            if user is None:
+                return None
+            plex_url, plex_token = store.get("plex.url"), store.get("plex.token")
+            if not plex_url or not plex_token:
+                raise RuntimeError("Plex connection is not configured yet")
+            profile = UserProfile(
+                username=user.username,
+                plex_account_id=user.plex_account_id,
+                user_type=UserType(user.user_type),
+                slug=user.slug,
+            )
+            plex = PlexClient(plex_url, plex_token)
+            plextv = PlexTvClient(plex_token, plex.machine_id)
+            history = ShareTokenWatchSource(plex, plextv, owner_token=plex_token)
+        # A lower completion bar than a run uses: this is "what they've been watching", not seeds.
+        # Distinct titles, newest first: a show's episodes collapse to the one show (keeping its most
+        # recent episode's detail), so a binge shows as one entry and the list reflects real variety —
+        # looking back through the whole history to fill `limit` distinct titles.
+        items = history.fetch(profile, min_completion=0.5)
+        return [
+            {
+                "title": w.title,
+                # Carried so the UI can block a seed straight from a watch. It is the ONLY identifier
+                # a block can key on, and it is None for anything with no tmdb:// GUID — the caller
+                # must treat "no id" as "not blockable from here" rather than inventing one.
+                "tmdb_id": w.tmdb_id,
+                "media_type": w.media_type.value,
+                "watched_at": w.watched_at.isoformat(),
+                "year": w.year,
+                "season": w.season,
+                "episode": w.episode,
+                "episode_title": w.episode_title,
+            }
+            for w in distinct_recent(items, limit)
+        ]
+
+    def user_watched(
+        self,
+        user_id: int,
+        *,
+        q: str = "",
+        media_type: str = "",
+        library: str = "",
+        limit: int = 25,
+        offset: int = 0,
+    ) -> dict | None:
+        """One person's watched set, searchable — read from the `watched_titles` CACHE, not from Plex.
+
+        This is deliberately a different source from `user_history`, which reads the PMS live. The
+        cache is what every recommendation is filtered against, so showing it here means the page
+        answers "why was this recommended when I've seen it?" instead of showing a second, unrelated
+        list. The cost is honesty about staleness, which is why `last_full_sync_at` and
+        `synced_titles` come back with the page and the UI states them.
+
+        ONE ROW PER TITLE, not per stored row (issue #111). `watched_titles` is unique on
+        `(user, section_key, rating_key)` — one row per library COPY — so a title held in two
+        libraries was listed twice, with two Block buttons that both send the same TMDB id. The
+        grouping happens in SQL rather than over the fetched page: merging after `LIMIT` would make
+        `total` count copies while the list counted titles, and a page of 25 rows would render as 23.
+
+        Args:
+            user_id: The person to read.
+            q: Case-insensitive substring of the title. Empty matches everything.
+            media_type: "movie" or "show" to filter; empty for both.
+            library: Display name of a Plex library; only titles held there. Empty for all. It
+                SELECTS which titles appear — each one still names every library it lives in, so
+                filtering to "4K Movies" and seeing "Movies · 4K Movies" is the duplicate you were
+                looking for, not a bug.
+            limit: Page size, in titles.
+            offset: Titles to skip, for paging.
+
+        Returns:
+            ``{items, total, libraries, last_full_sync_at, synced_titles, ...}``, or None if the user
+            doesn't exist.
+        """
+        with self._sessions() as session:
+            if session.get(User, user_id) is None:
+                return None
+            query = session.query(WatchedTitle).filter(WatchedTitle.user_id == user_id)
+            if q.strip():
+                # `ilike` over one person's rows only — the (user_id, viewed_at) index keeps the scan
+                # inside their few thousand, so no separate title index is needed. `%`/`_` are escaped
+                # so a title containing them searches literally rather than as a wildcard.
+                pattern = q.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+                query = query.filter(WatchedTitle.title.ilike(f"%{pattern}%", escape="\\"))
+            if media_type in ("movie", "show"):
+                query = query.filter(WatchedTitle.media_type == media_type)
+            if library:
+                query = query.filter(WatchedTitle.library == library)
+            # The TRUE watch date, same as `WatchCache.watched_set` — a transferred history is dated
+            # by when the person actually watched, not by the day the scrobbles were written.
+            true_date = func.coalesce(WatchedTitle.source_viewed_at, WatchedTitle.viewed_at)
+            keys, total = _watched_page_keys(query, true_date, limit=limit, offset=offset)
+            # Read the copies back WITHOUT the library filter: the filter chose which titles are on
+            # the page, but a row that names only the library you filtered to would hide the very
+            # duplication this page exists to show.
+            rows = _watched_copies(session, user_id, keys)
+            # Across ALL libraries: `watch_sync_state` is per (person, library), and the page's claim
+            # is "your history is complete as of X". The OLDEST full read is the only honest X — one
+            # library synced an hour ago says nothing about the one that hasn't synced since Tuesday.
+            states = session.query(WatchSyncState).filter(WatchSyncState.user_id == user_id).all()
+            fulls = [s.last_full_at for s in states if s.last_full_at is not None]
+            oldest_full = min(fulls) if fulls and len(fulls) == len(states) else None
+            return {
+                "items": [_merge_watched_copies(rows[key]) for key in keys if key in rows],
+                "total": total,
+                # Every library this person has a cached watch in, for the page's filter — NOT
+                # filtered by `library`, or choosing one would empty the control that chose it.
+                # Blank names (rows written before 0087, or by a sync that didn't know) are dropped
+                # rather than offered as an unnamed option.
+                #
+                # The media type travels with each name because the page needs it to decide whether
+                # to offer the filter AT ALL. On a server with one Movies library and one TV Shows
+                # library, a library dropdown says exactly what the Movies/Shows buttons beside it
+                # already say — the control only earns its place when one TYPE holds more than one
+                # library ("Movies" + "4K Movies"), which is the shape issue #111 is about.
+                "libraries": [
+                    {"name": name, "media_type": media}
+                    for (name, media) in session.query(WatchedTitle.library, WatchedTitle.media_type)
+                    .filter(WatchedTitle.user_id == user_id, WatchedTitle.library != "")
+                    .distinct()
+                    .order_by(WatchedTitle.library)
+                ],
+                # None when ANY library has never had a full read — "synced 4h ago" would be a false
+                # claim of completeness while a whole library is still missing from the set.
+                "last_full_sync_at": oldest_full.isoformat() if oldest_full else None,
+                "synced_titles": sum(s.item_count for s in states),
+                # The two facts the page needs to say WHY a rating is or isn't acting, without
+                # reimplementing the rule client-side. Both are properties of the whole set rather
+                # than of a row: the threshold is a server setting, and trust is judged across all of
+                # this person's ratings at once. Deciding it here also means the page can never
+                # disagree with the engine about which titles are seeding.
+                **self._rating_state(session, user_id),
+            }
+
+    def _rating_state(self, session: Session, user_id: int) -> dict:
+        """Whether this person's Plex ratings are being acted on, and from what threshold.
+
+        `trusted` is False when their ratings look tool-written rather than typed — the same
+        account-level judgement `history.ratings_are_trustworthy` makes, over the same values, so the
+        page and the run agree. Judged over EVERY rating they have, not just the page on screen: a
+        page-sized sample would flip the verdict as the user paged around.
+        """
+        store = SettingsStore(session)
+        threshold = _dislike_threshold(store)
+        enabled = bool(store.get("recommendations.use_plex_ratings"))
+        ratings = [
+            r
+            for (r,) in session.query(WatchedTitle.user_rating).filter(
+                WatchedTitle.user_id == user_id, WatchedTitle.user_rating.isnot(None)
+            )
+        ]
+        return {
+            "dislike_threshold": threshold if enabled else None,
+            # Judged over the raw per-copy values, deliberately: that is the same multiset
+            # `ratings_are_trustworthy` sees inside a run, so the page and the engine reach the same
+            # verdict about the account.
+            "ratings_trusted": ratings_are_trustworthy(ratings),
+            # Counted over TITLES, though — it is rendered as "they've rated N titles", one line under
+            # a footer that now says "N titles · M library copies". A title rated on both its copies
+            # would otherwise be counted twice by the sentence claiming to count titles, and the
+            # population that hits it is exactly the one the distrust warning is about: a tool
+            # syncing scores across a Movies/4K Movies pair.
+            "rated_count": (
+                session.query(*_watched_group_columns())
+                .filter(WatchedTitle.user_id == user_id, WatchedTitle.user_rating.isnot(None))
+                .distinct()
+                .count()
+            ),
+        }
+
+    def _delivered_keys(self, session: Session) -> dict[tuple[str, str, str], int]:
+        """The delivery ledger as the engine wants it: (user_slug, row_slug, section_key) -> ratingKey.
+
+        Delivery uses it to answer "is this collection mine, under a title I no longer render?" by
+        IDENTITY rather than by counting rows — see `_deliver_one`. Same key shape as
+        `_previous_picks`, so the two read alike at the call site.
+
+        An ambiguous key (two rows naming one collection — reachable if a run died between the delete
+        and the persist of a repair that recreates a row) is dropped rather than arbitrated: delivery then
+        falls back to the title, which is where it was before the ledger.
+        """
+        rows = list(session.query(Delivery).filter(Delivery.rating_key != 0))
+        claims: dict[int, int] = {}
+        for row in rows:
+            claims[row.rating_key] = claims.get(row.rating_key, 0) + 1
+        keys = {
+            (row.user_slug, row.collection_slug, row.library_key): row.rating_key
+            for row in rows
+            if claims[row.rating_key] == 1
+        }
+        if len(keys) != len(rows):
+            logger.warning(
+                "delivery ledger: {} entr(ies) name a collection another row also claims — those fall "
+                "back to matching by title",
+                len(rows) - len(keys),
+            )
+        return keys
+
+    def _delivered_details(self, session: Session) -> dict[tuple[str, str, str], WrittenDetails]:
+        """What Shortlist last wrote to each collection's summary and sort title, keyed like
+        `_delivered_keys`. Only collections carrying a record: the rest have nothing to hand back."""
+        rows = session.query(Delivery).filter(
+            (Delivery.summary_written.isnot(None)) | (Delivery.title_sort_written.isnot(None))
+        )
+        return {
+            (row.user_slug, row.collection_slug, row.library_key): WrittenDetails(
+                summary=row.summary_written, title_sort=row.title_sort_written
+            )
+            for row in rows
+        }
+
+    def _delivered_seasons(self, session: Session) -> dict[tuple[str, str, str], str]:
+        """The season each collection was last built for, keyed like `_delivered_keys`. Only collections
+        carrying a record: one delivered before seasons were recorded is judged by its picks' recipe."""
+        rows = session.query(Delivery).filter(Delivery.season.isnot(None))
+        return {(row.user_slug, row.collection_slug, row.library_key): row.season for row in rows}
+
+    def _previous_picks(self, session: Session) -> dict[tuple[str, str, str], list[Pick]]:
+        """Each row+library's delivered picks, keyed (user_slug, row_slug, section_key).
+
+        Carried into the engine so a row is REUSED unchanged on non-refresh nights instead of being
+        re-curated (and re-written to Plex) from scratch every night — the fix for the nightly full-row
+        churn. Independent current delivery records preserve that state when run logs are cleared.
+        Rows without confirmed delivery evidence bootstrap by curating fresh.
+        """
+        from shortlist.server.services.delivery_snapshots import current_pick_ids
+
+        ids = {pick_id for picks in current_pick_ids(session).values() for pick_id in picks}
+        rows = session.query(PickRow).filter(PickRow.id.in_(ids)).order_by(PickRow.rank).all() if ids else []
+        slug_by_id = {u.id: u.slug for u in session.query(User).all()}
+        out: dict[tuple[str, str, str], list[Pick]] = {}
+        for r in rows:
+            slug = slug_by_id.get(r.user_id)
+            if slug is None:
+                continue
+            out.setdefault((slug, r.collection_slug, r.section_key), []).append(
+                Pick(
+                    tmdb_id=r.tmdb_id,
+                    rating_key=0,  # remapped to THIS library's ratingKey at delivery, via section_index
+                    title=r.title,
+                    rank=r.rank,
+                    reason=r.reason,
+                    media_type=MediaType(r.media_type),
+                    # Carried, or provenance would survive exactly one night: on a non-refresh night
+                    # the pick comes back through here, and rebuilding it without these would blank
+                    # the UI's "suggested by …" line and re-persist it as "not recorded".
+                    sources=[part for part in (r.sources or "").split(",") if part],
+                    affinity=r.affinity,
+                    seed_tmdb_id=r.seed_tmdb_id,
+                    seed_title=r.seed_title,
+                    # Same reason as the provenance above: a row ordered by rating or year re-sorts
+                    # its carried-forward picks every run, so these have to survive the round trip.
+                    rating=r.rating or 0.0,
+                    year=r.year,
+                    # The settings fingerprint this pick was built under. Carried so the engine can
+                    # tell "the owner changed the recipe" from "nothing changed" and rebuild rather
+                    # than wait out the refresh cadence.
+                    recipe=r.recipe or "",
+                    # When the row's contents were last DECIDED — the only input the idle hold has.
+                    # Dropped here and the engine sees every carried row as unstamped, which reads as
+                    # "unknown" and silently falls back to the plain cadence: the feature goes inert
+                    # on a live server with nothing failing.
+                    built_at=_utc(r.built_at),
+                    # The watch a `{top_seed}` row was built from. `_seed_moved` compares it with tonight's
+                    # for a row whose picks carried no seed; dropped here, such a row never sees its watch
+                    # move on and carries the old watch's picks forward under the new name (issue #133).
+                    lead_seed_tmdb_id=r.lead_seed_tmdb_id,
+                    lead_seed_title=r.lead_seed_title or "",
+                    collection_slug=r.collection_slug,
+                    section_key=r.section_key,
+                    library=r.library,
+                )
+            )
+        return out
+
+    def _previous_recipes(self, previous: dict[tuple[str, str, str], list[Pick]]) -> dict[tuple[str, str, str], str]:
+        """The recipe each stored row was built under, keyed like ``_previous_picks``.
+
+        Read from the picks themselves rather than queried again — they are the same rows. A row
+        whose picks disagree (a half-written run, or a mix of recipes after an upgrade) is reported
+        as its FIRST pick's recipe, which is the one the row's leading titles were chosen under.
+        """
+        return {key: picks[0].recipe for key, picks in previous.items() if picks and picks[0].recipe}
+
+    def enabled_profiles(self, session: Session, user_ids: list[int] | None = None) -> list[UserProfile]:
+        """Enabled users, optionally narrowed to user_ids — never widened past enabled=True.
+
+        The Danger Zone's "pause all" switch stops every run without disabling anyone, so the
+        user list survives a pause/unpause round trip.
+        """
+        store = SettingsStore(session, self._secrets)
+        if store.get("paused_all"):
+            logger.info("all runs are paused (Settings → Danger Zone) — no users will be processed")
+            return []
+        query = session.query(User).filter_by(enabled=True)
+        if user_ids is not None:
+            if not user_ids:
+                return []
+            query = query.filter(User.id.in_(user_ids))
+        overrides = self._row_overrides(session)
+        profiles = []
+        for user in query.all():
+            # A parental PROFILE, not the `restricted` flag: plex.tv sets that for every Plex Home
+            # account. Keying on it dropped ordinary managed users from every run — while the Users
+            # page now lets you enable them and the docs promise they get a row. An account with a
+            # profile still gets none: Plex usually hides collections from it, so a row is invisible.
+            #
+            # `restriction_profile` is "" until the next user sync backfills it, so immediately after
+            # an upgrade a profiled account is briefly eligible. Harmless — Plex refuses its filter
+            # either way, and the next sync settles it.
+            #
+            # BOTH flags, matching `privacy.py`'s skip exactly. They come from different endpoints
+            # and nothing enforces a relationship between them, so a `restricted=False` account that
+            # somehow reports a profile is a real cell — and privacy.py deliberately keeps writing
+            # its excludes. Keying on the profile alone here denied that same account a row, so it
+            # held excludes for rows it was never given: two modules disagreeing about whether one
+            # person can see anything.
+            if user.restricted and user.restriction_profile:
+                continue
+            if (user.prefs or {}).get("paused"):
+                continue
+            profiles.append(self._profile(user, overrides))
+        return profiles
+
+    def all_profiles(self, session: Session) -> list[UserProfile]:
+        """Everyone who could own a requester tag: every user still on the server, enabled or not.
+
+        The request ledger resolves tags against this list. Disabling or pausing someone takes them
+        out of the run, not off their tag — so a tag two people share has to stay ambiguous while
+        one of them is switched off, or the other's private row fills with the disabled person's
+        requests. Only a person plex.tv stopped listing (`departed_at`) or the owner filed away
+        (`removed_at`) is off it. Someone here who is not in the run is harmless: the pipeline only
+        asks the ledger for the people it builds for.
+        """
+        overrides = self._row_overrides(session)
+        query = session.query(User).filter(User.departed_at.is_(None), User.removed_at.is_(None))
+        return [self._profile(user, overrides) for user in query.all()]
+
+    @staticmethod
+    def _profile(user: User, overrides: dict[int, dict[str, RowOverride]]) -> UserProfile:
+        prefs = user.prefs or {}
+        # The tag the owner typed on this person, if any. The AUTOMATIC alternative — their slug,
+        # under `requests.auto_user_tag` — is applied in the engine, not here: it is overridable
+        # per row, so it cannot be baked into one value that every row then shares.
+        request_tag = (user.request_tag or "").strip()
+        return UserProfile(
+            username=user.username,
+            plex_account_id=user.plex_account_id,
+            user_type=UserType(user.user_type),
+            slug=user.slug,
+            nickname=user.nickname or user.friendly_name,
+            excluded_genres=set(prefs.get("excluded_genres") or []),
+            # Through the reader, not straight off prefs: the list holds bare ints on an
+            # older install and records on a newer one, and the engine only wants ids.
+            blocked_seeds=blocked_ids(prefs),
+            row_name_template=prefs.get("row_name_tpl"),
+            request_tag=request_tag,
+            requested_by_tag=(user.requested_by_tag or "").strip(),
+            row_overrides=overrides.get(user.id, {}),
+        )
+
+    @staticmethod
+    def _row_overrides(session: Session) -> dict[int, dict[str, RowOverride]]:
+        """user id -> {collection slug -> RowOverride}, from the collection_user_overrides table."""
+        slug_by_id = {c.id: c.slug for c in session.query(Collection).all()}
+        out: dict[int, dict[str, RowOverride]] = {}
+        for row in session.query(CollectionUserOverride).all():
+            slug = slug_by_id.get(row.collection_id)
+            if slug is None:
+                continue
+            out.setdefault(row.user_id, {})[slug] = RowOverride(
+                muted=row.muted, size=row.row_size, recent_count=row.recent_count
+            )
+        return out
+
+    @staticmethod
+    def _audience_maps(session: Session) -> tuple[dict[int, int], dict[int, set[int]]]:
+        """(user_id → plex_account_id, collection_id → {user_id}) — the two lookups both the build and
+        retire passes need to resolve a 'subset' row's audience to the plex account ids the engine matches on."""
+        account_by_user = {u.id: u.plex_account_id for u in session.query(User).all()}
+        audience_by_collection: dict[int, set[int]] = {}
+        for row in session.query(CollectionAudience).all():
+            audience_by_collection.setdefault(row.collection_id, set()).add(row.user_id)
+        return account_by_user, audience_by_collection
+
+    @staticmethod
+    def _subset_audience(collection, account_by_user: dict, audience_by_collection: dict) -> set[int] | None:
+        """The plex account ids a 'subset' row is limited to; None for any other audience (= everyone)."""
+        if collection.audience != "subset":
+            return None
+        return {
+            account_by_user[uid] for uid in audience_by_collection.get(collection.id, set()) if uid in account_by_user
+        }
+
+    @staticmethod
+    def _build_only_slugs(
+        session: Session, collection_ids: list[int] | None, *, dry_run: bool = False
+    ) -> frozenset[str] | None:
+        """The row slugs a scoped (per-row scheduled) run rebuilds; None = a full run builds every row.
+        Intersected with ``enabled=True`` so a stale schedule for a since-disabled row rebuilds nothing.
+        A DRY run is the exception: a row it names is tried even while switched off (`_dry_run_rows`)."""
+        if collection_ids is None:
+            return None
+        enabled = Collection.enabled | Collection.id.in_(collection_ids) if dry_run else Collection.enabled
+        rows = session.query(Collection).filter(Collection.id.in_(collection_ids), enabled).all()
+        return frozenset(row.slug for row in rows)
+
+    @staticmethod
+    def _dry_run_rows(collection_ids: list[int] | None, dry_run: bool) -> frozenset[int]:
+        """The switched-off rows a run may build anyway: those a DRY run names (an AI row's "Try it" before it goes
+        live). A real run never builds a disabled row, and an unscoped run names none."""
+        return frozenset(collection_ids) if dry_run and collection_ids else frozenset()
+
+    def _engine_config(
+        self,
+        session: Session,
+        store: SettingsStore,
+        *,
+        dry_run: bool = False,
+        collection_ids: list[int] | None = None,
+    ) -> EngineConfig:
+        """Every stored setting, as the engine's config dataclass.
+
+        Its own method rather than inline in ``build`` so the settings -> engine seam can be asserted
+        without a live Plex server. Every line here is "read one setting, hand it to the engine", and
+        a field forgotten here is invisible: the setting saves, the UI shows it, and the engine simply
+        never sees it.
+        """
+        # One catalogue for the whole run: the rows' specs resolve tonight's season from it, and the engine
+        # reads each season's titles from the same one.
+        catalogue = load_catalogue(session)
+        return EngineConfig(
+            row_size=int(store.get("row.size")),
+            row_name_template=store.get("row.name_template"),
+            # Fallback matches the seeded default and the UI's, so a never-saved setting behaves
+            # the same everywhere (gather_candidates still floors an explicit [] at tmdb_similar).
+            candidate_sources=list(store.get("candidates.sources") or ["tmdb_similar", "tmdb_discover"]),
+            blocked_shared_seeds={
+                tid for tid in (store.get("recommendations.blocked_shared_seeds") or []) if isinstance(tid, int)
+            },
+            web_search_provider=store.get("llm_web.search_provider") or "native",
+            web_instructions=str(store.get("llm_web.instructions") or ""),
+            manage_shelf_order=bool(store.get("rows.manage_shelf_order")),
+            # The `or` fallbacks below are safe only because the validators exclude the falsy
+            # value: `min_history` is bounded 1-100, `recent_count` 1-25, `max_seeds` 5-100
+            # (api/settings.py). Where 0 IS a legal value — the two fractions, and `refresh_days`,
+            # where it means "frozen, never rebuilt" — the fallback is that same 0, so the owner's
+            # zero survives. Correct by coincidence of the bounds rather than by construction —
+            # lower any of those floors to 0 and several settings start silently reading as their
+            # default instead of as the zero the owner chose.
+            watched_pct=float(store.get("recommendations.watched_pct") or 0.0),
+            refresh_days=int(store.get("recommendations.refresh_days") or 0),
+            idle_hold_days=int(store.get("recommendations.idle_hold_days") or 0),
+            recency=float(store.get("recommendations.recency") or 0.0),
+            genre_avoidance=float(store.get("recommendations.genre_avoidance") or 0.0),
+            franchise=float(store.get("recommendations.franchise") or 0.0),
+            cast=float(store.get("recommendations.cast") or 0.0),
+            # No `or` fallback: 0 is a legitimate choice ("confirm twice, back to back") and `or`
+            # would silently turn it into the product default. `store.get` already returns the
+            # DEFAULTS value when the key is unset, so the zero survives.
+            orphan_confirm_delay_s=float(store.get("plex.orphan_confirm_delay_s")),
+            recent_count=int(store.get("recommendations.recent_count") or 10),
+            max_seeds=int(store.get("recommendations.max_seeds") or 30),
+            rating_source=store.get("recommendations.rating_source") or "tmdb",
+            min_history=int(store.get("recommendations.min_history") or 10),
+            cold_start=store.get("recommendations.cold_start") or "popular",
+            # The switch collapses into the threshold rather than travelling beside it: the
+            # engine's one question is "at or below what?", and None answers "never". Two fields
+            # would let the config express "off, but with a threshold of 2", which is not a state
+            # and would only ever be a bug waiting for someone to read the wrong one.
+            dislike_threshold=(_dislike_threshold(store) if store.get("recommendations.use_plex_ratings") else None),
+            hide_shared_from_disabled=bool(store.get("privacy.hide_shared_from_disabled")),
+            dry_run=dry_run,
+            rows=self._build_rows(
+                session, store, catalogue=catalogue, include_ids=self._dry_run_rows(collection_ids, dry_run)
+            ),
+            # The server owns the row list: an empty one means every row is DISABLED, not
+            # 'unconfigured' — so nothing new is delivered, rather than the legacy default row
+            # being resurrected behind a Rows page that shows it switched off.
+            rows_defined=True,
+            # ...and a row switched off has its already-built collection removed from its owner's
+            # Home on this run, so "off" means gone, not merely "not refreshed". Runs stay full
+            # here even when scoped: retiring a DISABLED row on any run is always correct.
+            retired_rows=self._retired_rows(session, store, keep_ids=self._dry_run_rows(collection_ids, dry_run)),
+            # A per-row scheduled run rebuilds ONLY these rows (by slug); None = every row. Scopes
+            # delivery only — classification/sync/sweep/promotion above still see the full list.
+            build_only=self._build_only_slugs(session, collection_ids, dry_run=dry_run),
+            requests=self._build_requests(store),
+            request_sources=self._build_request_sources(store),
+            seasons=catalogue,
+        )
+
+    def _build_rows(
+        self,
+        session: Session,
+        store: SettingsStore,
+        *,
+        catalogue: seasons_mod.Catalogue,
+        include_ids: frozenset[int] = frozenset(),
+    ) -> list[RowSpec]:
+        """Build the engine's row specs from the enabled collections.
+
+        The default 'picked' row keeps an empty name_template here, so the per-user row-name on the
+        profile still applies to it; other rows carry their own name. A subset audience is resolved
+        from user ids to plex account ids (what the engine matches on).
+
+        Always ALL enabled rows — never scoped. A per-row scheduled run limits which rows actually
+        rebuild via ``EngineConfig.build_only``, not by hiding rows from this list, so privacy
+        classification, the share-filter sync, the sweep, and promotion all still see every row.
+
+        ``include_ids`` are switched-off rows built anyway, for a dry run that names them; a dry run writes
+        nothing, so nothing reaches Plex for a row the owner has not switched on.
+        """
+        account_by_user, audience_by_collection = self._audience_maps(session)
+
+        muted_by_collection: dict[int, set[int]] = {}
+        for collection_id, user_id in session.query(
+            CollectionUserOverride.collection_id, CollectionUserOverride.user_id
+        ).filter(CollectionUserOverride.muted.is_(True)):
+            if user_id in account_by_user:
+                muted_by_collection.setdefault(collection_id, set()).add(account_by_user[user_id])
+
+        specs: list[RowSpec] = []
+        collections = (
+            session.query(Collection)
+            .filter(Collection.enabled | Collection.id.in_(include_ids))
+            .order_by(Collection.sort_order, Collection.id)
+            .all()
+        )
+        # ONE clock read for the whole context, not one per row: built a millisecond either side of
+        # midnight, two rows would otherwise disagree about what day it is.
+        now = local_now()
+        for collection in collections:
+            shared = collection.build == "shared"
+            audience = self._subset_audience(collection, account_by_user, audience_by_collection)
+            is_default = collection.slug == DEFAULT_SLUG
+            # "When it appears" (issue #102) resolved into the placement the engine already
+            # understands. `off` is Shortlist's existing "show this row nowhere" state, so a
+            # scheduled row rides the tested promote path instead of a hiding mechanism of its own —
+            # and the engine never has to look at a clock.
+            #
+            # Seasons (discussion #124) resolve the same way: a seasonal row is `off` outside its seasons,
+            # and its spec carries the season it builds for tonight — the one it shows, or on the night
+            # before a season opens, that season, so it is built while still hidden. None between
+            # seasons is what makes the row dormant.
+            shown = row_shown_today(
+                collection.show_days,
+                collection.seasons,
+                collection.season_lead_days,
+                collection.season_after_days,
+                now,
+                catalogue=catalogue,
+            )
+            season = (
+                seasons_mod.row_season_on(
+                    list(collection.seasons),
+                    collection.season_lead_days,
+                    collection.season_after_days,
+                    now.date(),
+                    catalogue=catalogue,
+                )
+                if collection.seasons
+                else None
+            )
+            specs.append(
+                RowSpec(
+                    slug=collection.slug,
+                    # The default row's name and size follow the global Settings > Defaults values
+                    # (row.name_template / row.size) — that's what the wizard and Settings edit — so
+                    # they stay in sync; other rows use their own.
+                    name_template="" if is_default else (collection.name_template or collection.name),
+                    size=int(store.get("row.size")) if is_default else collection.size,
+                    media=collection.media,
+                    shared=shared,
+                    audience=audience,
+                    muted_accounts=muted_by_collection.get(collection.id, set()),
+                    min_watchers=collection.min_watchers,
+                    request_tag=(collection.request_tag or "").strip(),
+                    auto_user_tag=collection.req_auto_user_tag,  # None -> inherit the global switch
+                    candidate_sources=list(collection.candidate_sources or []),
+                    watched_pct=collection.watched_pct,  # None -> inherit the global watched cap
+                    rewatch=bool(collection.rewatch),
+                    rewatch_cooldown_days=collection.rewatch_cooldown_days,
+                    unstarted_only=bool(collection.unstarted_only),
+                    refresh_days=collection.refresh_days,  # None -> inherit the global cadence
+                    idle_hold_days=collection.idle_hold_days,  # None -> inherit the global idle ceiling
+                    recency=collection.recency,  # None -> inherit the global recency
+                    recent_count=collection.recent_count,  # None -> inherit the global recent_count
+                    max_seeds=collection.max_seeds,  # None -> inherit the global recommendations.max_seeds
+                    max_runtime=collection.max_runtime,  # the four limits: None = no limit
+                    min_year=collection.min_year,
+                    max_year=collection.max_year,
+                    # float(): RowLimits.fingerprint formats it as given, and 7 vs 7.0 must not change the recipe.
+                    min_rating=None if collection.min_rating is None else float(collection.min_rating),
+                    cold_start=collection.cold_start,  # None -> inherit the global recommendations.cold_start
+                    # "" means this row has no name for someone who cannot be named, and is therefore
+                    # not built for them — the engine never invents one (issue #84).
+                    fallback_name=collection.fallback_name or "",
+                    seed_window=int(collection.seed_window or 1),  # 1 -> always their most recent watch
+                    pick_order=collection.pick_order or "best",
+                    placement=(collection.placement or "both") if shown else "off",
+                    placement_friends=(collection.placement_friends or "both") if shown else "off",
+                    hidden_by_schedule=not shown,
+                    pin_top=bool(collection.pin_top),
+                    hub_anchors=self._row_hub_anchors(collection),
+                    library_keys=[str(k) for k in (collection.library_keys or [])],
+                    poster=self._build_poster(session, collection),
+                    ai_instructions=AiInstructions.from_stored(collection.prompt),
+                    request_overrides=row_request_overrides(collection),
+                    description=collection.description or "",
+                    sort_title_prefix=collection.sort_title_prefix or "",
+                    seasons=list(collection.seasons or []),
+                    season=season,
+                    theme=self._theme_spec(session, collection),
+                    over_time=OverTime(
+                        refresh_share=collection.refresh_share,
+                        repeat_cooldown_days=collection.repeat_cooldown_days,
+                        avoid_rows=tuple(collection.avoid_rows or ()),
+                    ),
+                    person_themes=self._person_themes(session, collection, audience_by_collection),
+                    requests_row=bool(collection.requests_row),
+                    requests_window_days=int(
+                        collection.requests_window_days if collection.requests_window_days is not None else 90
+                    ),
+                    requests_tag_pattern=(collection.requests_tag_pattern or "").strip(),
+                )
+            )
+        return specs
+
+    @staticmethod
+    def _person_themes(
+        session: Session, collection: Collection, audience_by_collection: dict[int, set[int]]
+    ) -> tuple[tuple[str, ThemeSpec], ...]:
+        """Each person's own current theme on an explore row (#138); empty for any other row.
+
+        Read from the DB, never from a clock: the rotation job decides when a theme changes, and a row
+        built before it runs simply builds with the theme the person still has. Someone with no current
+        theme is left out, and the engine gives them the row's own theme.
+        """
+        if collection.theme_id is None or collection.theme_mode != "explore":
+            return ()
+        query = (
+            session.query(User.slug, Theme)
+            .join(ThemeHistory, ThemeHistory.user_id == User.id)
+            .join(Theme, Theme.id == ThemeHistory.theme_id)
+            .filter(ThemeHistory.collection_id == collection.id, ThemeHistory.state == "current")
+            # Someone the run no longer builds for must not cost it a TMDB read of their theme.
+            .filter(User.enabled.is_(True), User.departed_at.is_(None), User.removed_at.is_(None))
+            .order_by(User.id, ThemeHistory.started_at.desc(), ThemeHistory.id.desc())
+        )
+        if collection.audience == "subset":
+            query = query.filter(User.id.in_(audience_by_collection.get(collection.id, set())))
+        themes: dict[str, ThemeSpec] = {}
+        for slug, theme in query:
+            themes.setdefault(slug, spec_from_row(theme))
+        return tuple(themes.items())
+
+    @staticmethod
+    def _theme_spec(session: Session, collection: Collection) -> ThemeSpec | None:
+        """The theme an AI row (#138) is filled from, or None for an ordinary row."""
+        theme = session.get(Theme, collection.theme_id) if collection.theme_id is not None else None
+        return None if theme is None else spec_from_row(theme)
+
+    @staticmethod
+    def _build_poster(session: Session, collection) -> PosterSpec | None:
+        """This row's custom-poster spec, or None to leave Plex's own artwork alone.
+
+        Upload mode carries the stored image bytes so the engine (which must not touch the DB or
+        filesystem) can hand them straight to ``uploadPoster``; a configured-but-not-yet-uploaded row
+        yields None. Generate mode carries only the text/style — the injected artist renders it.
+        """
+        cfg = collection.poster or {}
+        mode = (cfg.get("mode") or "").strip()
+        if mode == "upload":
+            stored = load_upload(session, collection.id)
+            return PosterSpec(mode="upload", image=stored[0]) if stored else None
+        # "text" (built-in Pillow) and "ai" (image provider) both render from title/subtitle/style;
+        # "generate" is the pre-rename name for "ai". apply_poster maps the mode to a render engine.
+        # (Bug 2026-07-21: only "generate" was handled here, so the renamed "text"/"ai" modes silently
+        # yielded None and no poster was ever applied.)
+        if mode in ("text", "ai", "generate"):
+            return PosterSpec(
+                mode=mode,
+                title=cfg.get("title") or "",
+                subtitle=cfg.get("subtitle") or "",
+                style=cfg.get("style") or "",
+            )
+        return None
+
+    @classmethod
+    def _row_hub_anchors(cls, collection) -> dict[str, HubAnchor]:
+        """This row's per-library Recommended-shelf placement (`collection.hub_anchor`).
+
+        A library with no entry here means "top of the shelf", which is the shipped default — not
+        "leave it alone", and no longer a global default read from Settings (`rows.hub_anchor` was
+        retired: it was a second place to set the same thing). Legacy `pin_top` is not read by the
+        engine at all any more; the editor migrates it into a per-library "Top" when the row is saved.
+        """
+        return cls._parse_hub_anchors(collection.hub_anchor or {})
+
+    def _retired_rows(
+        self, session: Session, store: SettingsStore, *, keep_ids: frozenset[int] = frozenset()
+    ) -> list[RowSpec]:
+        """Per-person rows that are DISABLED, and every enabled SHARED row's per-person copies — all to be removed.
+
+        Only enough of each spec to find and delete the collection (its rendered title, media and
+        libraries); the recipe/size/sources are irrelevant to removal. A row DELETED from the DB
+        can't be rebuilt here, so this covers disabling; a mute already covers per-user removal.
+
+        A DISABLED row is retired only if its title renders without picks. Per-person rows share one label and
+        are told apart solely by title, so one that renders to nothing (``{top_seed}``, blank) is skipped and
+        left for a full rebuild.
+
+        A row switched to shared has its per-person copies removed at save, but that removal can miss one
+        (the job gives up), and nothing else looked for it again. So every enabled shared row is retired as a
+        per-person row too: for everyone the run processes, since whoever holds a copy was in the row's
+        audience THEN, not necessarily now. It skips the render gate on purpose, because a switched
+        `{top_seed}` row is the case most likely to be missed: `remove_row` matches an unrenderable title by
+        its ledger key ONLY and leaves a copy the ledger does not name alone. Not a DISABLED shared row:
+        retired specs are indexed where they live (`pipeline._build_indexes`), so one would keep a library
+        that nothing else targets in every run's index, and its watches seeding everyone's picks.
+        """
+        account_by_user, audience_by_collection = self._audience_maps(session)
+
+        global_name = store.get("row.name_template") or ""
+        # A stub whose only job is to let render_row_name resolve {user}; a non-empty username keeps a
+        # "{user}" template from collapsing to empty.
+        probe = UserProfile(username="_probe_", plex_account_id=0, user_type=UserType.SHARED)
+        retired: list[RowSpec] = []
+        disabled = session.query(Collection).filter_by(enabled=False, build="per_person").all()
+        for collection in disabled:
+            if collection.id in keep_ids:  # a dry run is building this row, not retiring it
+                continue
+            is_default = collection.slug == DEFAULT_SLUG
+            # The template this row's title actually renders from — the global one for the default
+            # row, its own for a custom row. Skip any that RENDERS to the default title with no picks:
+            # per-person rows share one label and are told apart by title, so removing such a row would
+            # match and DELETE the user's live default row. That's {top_seed} (no seed) AND anything
+            # blank/whitespace — so test the rendered result, not a substring, or a "   " template slips
+            # through and re-opens the collision.
+            effective_template = global_name if is_default else (collection.name_template or collection.name)
+            if not render_row_name(effective_template, probe, [], fallback_name=collection.fallback_name or ""):
+                logger.debug("retired row '{}' would render to the default title — left for a rebuild", collection.slug)
+                continue
+            audience = self._subset_audience(collection, account_by_user, audience_by_collection)
+            retired.append(_retired_spec(collection, audience))
+        for collection in session.query(Collection).filter_by(enabled=True, build="shared").all():
+            retired.append(_retired_spec(collection, None))
+        return retired
+
+    @staticmethod
+    def _parse_hub_anchors(raw: object) -> dict[str, HubAnchor]:
+        """`{sectionKey: {"top": true} | {"row": slug, "before": bool} | {"anchor": title, "before": bool}}`
+        -> section key -> HubAnchor.
+
+        A `top` entry moves the row to the very top; a `row` entry places it relative to another
+        Shortlist ROW (by slug — a per-person row is one collection per person, so no single title
+        names it); otherwise a non-empty `anchor` places it relative to that foreign collection.
+        `row` is read before `anchor` so a saved foreign title left behind by an earlier setting can
+        never override the row the owner actually chose. Blank/invalid entries are dropped, so the
+        engine only moves real placements."""
+        anchors: dict[str, HubAnchor] = {}
+        if isinstance(raw, dict):
+            for key, entry in raw.items():
+                if not isinstance(entry, dict):
+                    continue
+                # OFF is a real placement choice, not an absent one: it means "never position this
+                # row". Read FIRST so it cannot be overridden by a stale anchor left in the row's JSON.
+                if entry.get("enabled") is False:
+                    anchors[str(key)] = HubAnchor(enabled=False)
+                elif entry.get("top"):
+                    anchors[str(key)] = HubAnchor(to_top=True)
+                elif str(entry.get("row") or "").strip():
+                    anchors[str(key)] = HubAnchor(
+                        anchor_row=str(entry["row"]).strip(),
+                        before=bool(entry.get("before", False)),
+                    )
+                elif str(entry.get("anchor") or "").strip():
+                    anchors[str(key)] = HubAnchor(
+                        anchor_title=str(entry["anchor"]).strip(),
+                        before=bool(entry.get("before", False)),
+                    )
+        return anchors
+
+    @staticmethod
+    def _build_request_sources(store: SettingsStore) -> RequestSources | None:
+        """Where a requests row reads from — every app with a URL and key, whatever `requests.*` says.
+
+        Independent of `_build_requests`: the owner may send nothing through Shortlist and still want
+        the row. Only the Overseerr account Shortlist FILES AS is excluded, and only while it actually
+        files there — otherwise that account's requests are somebody's own.
+        """
+
+        def seerr() -> SeerrTarget | None:
+            url = (store.get("requests.overseerr.url") or "").strip()
+            key = store.get("requests.overseerr.apikey") or ""
+            if not (url and key):
+                return None
+            request_as = int(store.get("requests.overseerr.request_as_user_id") or 0)
+            return SeerrTarget(url=url, api_key=key, request_as_user_id=request_as)
+
+        def arr(prefix: str) -> ArrTarget | None:
+            url = (store.get(f"{prefix}.url") or "").strip()
+            key = store.get(f"{prefix}.apikey") or ""
+            if not (url and key):
+                return None
+            # Reading needs no profile, folder or tag — those say where a NEW request is filed.
+            return ArrTarget(url=url, api_key=key, quality_profile_id=0, root_folder="", tag="")
+
+        overseerr, radarr, sonarr = seerr(), arr("requests.radarr"), arr("requests.sonarr")
+        if not (overseerr or radarr or sonarr):
+            return None
+        sends_via_seerr = bool(store.get("requests.enabled")) and store.get("requests.target") == "overseerr"
+        return RequestSources(
+            overseerr=overseerr,
+            radarr=radarr,
+            sonarr=sonarr,
+            exclude_seerr_user_id=overseerr.request_as_user_id if overseerr and sends_via_seerr else 0,
+            shortlist_tag=(store.get("requests.tag") or "").strip(),
+        )
+
+    @staticmethod
+    def _build_requests(store: SettingsStore) -> RequestConfig | None:
+        """Build the Sonarr/Radarr request config, or None when the feature is off.
+
+        A target (Radarr for movies, Sonarr for shows) is only built when BOTH its URL and its API
+        key are set; a half-configured app is left as None so that media type is simply skipped
+        rather than erroring mid-run.
+        """
+        if not store.get("requests.enabled"):
+            return None
+
+        incomplete: list[str] = []
+
+        def seerr_target() -> SeerrTarget | None:
+            """The Overseerr/Jellyseerr target, or None when it isn't fully connected.
+
+            Simpler than an Arr target because there is less to get right: a *seerr needs only a URL
+            and a key, since the quality profile and root folder are its own business.
+            """
+            url = (store.get("requests.overseerr.url") or "").strip()
+            api_key = store.get("requests.overseerr.apikey") or ""
+            if not url or not api_key:
+                msg = "Overseerr is the chosen request target but has no address or API key"
+                logger.warning("{} — nothing will be requested", msg)
+                incomplete.append(msg)
+                return None
+            return SeerrTarget(
+                url=url,
+                api_key=api_key,
+                request_as_user_id=int(store.get("requests.overseerr.request_as_user_id") or 0),
+            )
+
+        def target(prefix: str) -> ArrTarget | None:
+            url = (store.get(f"{prefix}.url") or "").strip()
+            api_key = store.get(f"{prefix}.apikey") or ""
+            if not url or not api_key:
+                return None
+            quality_profile_id = int(store.get(f"{prefix}.quality_profile_id") or 0)
+            root_folder = (store.get(f"{prefix}.root_folder") or "").strip()
+            if not quality_profile_id or not root_folder:
+                app = prefix.split(".")[-1].title()  # "requests.radarr" -> "Radarr"
+                missing = []
+                if not quality_profile_id:
+                    missing.append("quality profile")
+                if not root_folder:
+                    missing.append("root folder")
+                msg = f"{app} connected but {' and '.join(missing)} not selected"
+                logger.warning("{} — requests for that media type will be skipped", msg)
+                incomplete.append(msg)
+                return None
+            return ArrTarget(
+                url=url,
+                api_key=api_key,
+                quality_profile_id=quality_profile_id,
+                root_folder=root_folder,
+                tag=(store.get("requests.tag") or "").strip(),
+            )
+
+        # Branch on the target the owner CHOSE, never on which one happened to build. Deciding it by
+        # "did Overseerr resolve?" meant a half-configured Overseerr fell through to a Radarr left
+        # over from before the switch — silently sending to an app the owner had chosen to stop
+        # using. An unfinished choice must request nothing and say so, not route somewhere else.
+        #
+        # One target or the other, never both: the *seerr owns the download apps, so the Arr targets
+        # (and every per-row profile/folder override that acts on them) must not also be live.
+        via_seerr = store.get("requests.target") == "overseerr"
+        seerr = seerr_target() if via_seerr else None
+        return RequestConfig(
+            enabled=True,
+            target="overseerr" if via_seerr else "arr",
+            overseerr=seerr,
+            radarr=None if via_seerr else target("requests.radarr"),
+            sonarr=None if via_seerr else target("requests.sonarr"),
+            incomplete_targets=incomplete,
+            rating_source=store.get("requests.rating_source") or "tmdb",
+            mdblist_api_key=store.get("requests.mdblist.apikey") or "",
+            min_rating=float(store.get("requests.min_rating")),
+            min_votes=int(store.get("requests.min_votes")),
+            min_demand=int(store.get("requests.min_demand")),
+            min_year=int(store.get("requests.min_year")),
+            max_year=int(store.get("requests.max_year")),
+            max_per_run=int(store.get("requests.max_per_run")),
+            auto_send=bool(store.get("requests.auto_send")),
+            auto_min_demand=int(store.get("requests.auto_min_demand")),
+            auto_min_rating=float(store.get("requests.auto_min_rating")),
+            auto_user_tag=bool(store.get("requests.auto_user_tag")),
+            sonarr_monitor=store.get("requests.sonarr.monitor") or "all",
+            language_mode=store.get("requests.language_mode") or "any",
+            preferred_languages=normalise_languages(store.get("requests.preferred_languages")),
+            # Read WITHOUT `or`: None means "follow min_rating + the gap" and 0.0 is a real bar, so
+            # `x or default` would turn an owner's deliberate 0.0 into the derived 8.5.
+            min_rating_other=_optional_float(store.get("requests.min_rating_other")),
+        )
+
+
+def _retired_spec(collection: Collection, audience: set[int] | None) -> RowSpec:
+    """Just enough of a per-person row to find and delete its copies: rendered title, media and libraries."""
+    return RowSpec(
+        # A disabled row is gated on a render WITH the fallback, so the spec must carry it too — or removal
+        # renders a different title from the one that decided the row was safe to retire.
+        fallback_name=collection.fallback_name or "",
+        slug=collection.slug,
+        name_template="" if collection.slug == DEFAULT_SLUG else (collection.name_template or collection.name),
+        size=collection.size,
+        media=collection.media,
+        shared=False,
+        audience=audience,
+        library_keys=[str(k) for k in (collection.library_keys or [])],
+    )

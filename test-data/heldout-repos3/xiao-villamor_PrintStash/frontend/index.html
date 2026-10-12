@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#2563eb" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/icon-light.svg" />
+    <title>PrintStash</title>
+    <meta
+      name="description"
+      data-message="shell.description"
+      content="Self-hosted asset management for 3D printing workflows"
+    />
+    <script defer src="/locale-shell.js"></script>
+    <!-- Blocking pre-paint bootstrap: external so the production CSP permits it. -->
+    <script src="/theme-bootstrap.js"></script>
+  </head>
+  <body class="min-h-screen">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,12 @@
+flowchart LR
+  n0["(root)"]
+  n1["app"]
+  n2["tests"]
+  n3["celery_task"]
+  n4["migrations"]
+  n5["core"]
+  n2 -->|calls| n5
+  n5 -->|calls| n1
+  n1 -->|calls| n5
+  n2 -->|depends_on| n1
+  n2 -->|calls| n1

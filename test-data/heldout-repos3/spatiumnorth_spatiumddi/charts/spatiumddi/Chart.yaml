@@ -1,0 +1,41 @@
+apiVersion: v2
+name: spatiumddi
+description: SpatiumDDI — all-in-one DDI (DNS, DHCP, IPAM) control plane + optional managed service agents
+type: application
+# version + appVersion are placeholders for local `helm lint` / `helm template`
+# runs. The release workflow overrides both via `helm package --version
+# --app-version` using the release tag.
+version: 0.1.0
+appVersion: "0.0.0-dev"
+# #983 — 1.26 was a claim, not a tested floor: nobody has run this chart on
+# it. The oldest behaviour the charts actually depend on is the >= 1.31
+# EndpointSlice loopback validation the appliance's k3s config comments
+# describe, so that is the floor. Raise it when a template starts using an
+# API only a later version serves — not speculatively, because the check is
+# enforced by the apiserver's reported version and a floor above what an
+# operator runs refuses the install outright.
+kubeVersion: ">=1.31.0-0"
+home: https://www.spatiumddi.com/
+sources:
+  - https://github.com/spatiumnorth
+icon: https://www.spatiumddi.com/assets/logo-icon.svg
+keywords:
+  - ipam
+  - dns
+  - dhcp
+  - ddi
+  - networking
+maintainers:
+  - name: SpatiumDDI Contributors
+# No subchart dependencies. Postgres + Redis ship as plain
+# StatefulSet + Service templates owned by this chart, using the
+# official ``postgres:16-alpine`` and ``redis:8.10.2-alpine`` images
+# (the same ones docker-compose.yml uses). The bundled subcharts
+# previously came from the Bitnami chart family, but Bitnami pruned
+# the ``bitnami/*`` Docker Hub namespace in late 2025 in favour of
+# their paid "Bitnami Secure Images", so the pinned image tags
+# stopped resolving and we'd have had to either pay or shim the
+# install around their parallel ``bitnamilegacy/*`` namespace.
+# Operators wanting a real HA Postgres should disable
+# ``postgresql.enabled`` and bring their own (CloudNativePG / Patroni
+# under k8s/ha/) via ``externalDatabase``.

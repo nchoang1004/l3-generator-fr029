@@ -1,0 +1,80 @@
+# Environment
+.env
+*.env.local
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+.venv-*/
+venv/
+dist/
+*.egg-info/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node / Frontend
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Alembic — migrations MUST be tracked (CI needs them for the test DB).
+# Only ignore Alembic's auto-generated __pycache__.
+backend/alembic/versions/__pycache__/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker
+.docker/
+
+# Helm — `helm dependency update` pulls subchart tarballs into charts/
+# and writes a Chart.lock. CI pulls fresh on every release, so there's
+# no value to tracking either.
+charts/**/charts/
+charts/**/Chart.lock
+
+# OS
+.DS_Store
+Thumbs.db
+.claude/
+scripts/take_screenshots.py
+
+# Appliance — mkosi build outputs + locally-baked image tarballs.
+# The tarballs are large (~300 MB compressed for api+frontend) and
+# only meaningful as build inputs to the next mkosi run, so they
+# don't belong in git history.
+appliance/build/
+# Pre-E1 tarball layout (gitignored; legacy, removed by
+# ``make appliance-clean-baked-images`` if any operator's tree
+# still has it).
+appliance/mkosi.extra/usr/local/share/spatiumddi/images/
+# #170 Phase E1 — per-slot baked docker overlay (gitignored; built
+# by appliance/scripts/bake-images.sh, copied verbatim into the
+# rootfs by ``make appliance``).
+appliance/mkosi.extra/usr/lib/spatiumddi/docker-overlay.img
+appliance/mkosi.extra/usr/lib/spatiumddi/docker-overlay.manifest
+appliance/mkosi.extra/usr/lib/spatiumddi/docker-overlay.version
+
+# Ad-hoc agent working notes (should never be committed)
+scratchpad-*.md
+
+# Trivy vulnerability-DB cache (make trivy)
+.trivy-cache/
+
+# Jekyll local docs preview (make docs writes inside the container, but a
+# bare `jekyll build` in docs/ would drop these into the tree).
+docs/_site/
+docs/.jekyll-cache/
+docs/.jekyll-metadata
+/openapi.json
+
+# Local `make charts-lint` renders (#966)
+.charts-render/

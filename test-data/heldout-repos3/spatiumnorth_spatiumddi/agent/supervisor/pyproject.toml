@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spatium-supervisor"
+# Package metadata only. The version the supervisor reports is stamped into
+# the image at build time (spatium_supervisor/__init__.py).
+version = "0.0.0"
+description = "SpatiumDDI appliance supervisor — holds host-side concerns (identity, docker compose, nftables) for a generic 'Application' appliance"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "Apache-2.0" }
+authors = [{ name = "SpatiumDDI Contributors" }]
+dependencies = [
+  "httpx>=0.27",
+  "structlog>=24.1",
+  "cryptography>=42",
+  "pydantic>=2.6",
+  # Issue #183 Phase 3 — supervisor talks to k3s via the kubeapi
+  # using a minimal stdlib http client (k8s_api.py). PyYAML is the
+  # one external lib we need for the chart values rendering +
+  # kubeconfig fallback parse. No kubernetes client lib — too large
+  # for the supervisor image + we only need ~3 verbs.
+  "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.4", "mypy>=1.10", "types-PyYAML>=6.0"]
+
+[project.scripts]
+spatium-supervisor = "spatium_supervisor.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["spatium_supervisor*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"

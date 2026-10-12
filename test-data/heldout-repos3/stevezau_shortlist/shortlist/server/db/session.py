@@ -1,0 +1,202 @@
+"""Engine/session factory and migration bootstrap for the SQLite DB at /config/shortlist.db."""
+
+from __future__ import annotations
+
+import sqlite3
+from contextlib import closing
+from pathlib import Path
+
+from alembic import command
+from alembic.config import Config as AlembicConfig
+from loguru import logger
+from sqlalchemy import create_engine, event
+from sqlalchemy.orm import Session, sessionmaker
+
+ALEMBIC_DIR = Path(__file__).parent / "alembic"
+
+
+class MigrationBackupError(RuntimeError):
+    """A migration is pending and the backup that must come before it could not be written."""
+
+
+def db_url(config_dir: Path) -> str:
+    return f"sqlite:///{config_dir / 'shortlist.db'}"
+
+
+def make_engine(config_dir: Path):
+    engine = create_engine(db_url(config_dir), connect_args={"check_same_thread": False})
+
+    @event.listens_for(engine, "connect")
+    def _pragmas(dbapi_conn, _record):
+        cursor = dbapi_conn.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA foreign_keys=ON")
+        # A run's parallel candidate fetches write cache rows concurrently; WAL allows one writer at
+        # a time, so without a busy timeout a second writer would fail with "database is locked".
+        # 5s lets it wait out the brief write lock instead.
+        cursor.execute("PRAGMA busy_timeout=5000")
+        cursor.close()
+
+    return engine
+
+
+def make_session_factory(engine) -> sessionmaker[Session]:
+    return sessionmaker(bind=engine, expire_on_commit=False)
+
+
+# The exact pre-release revisions collapsed into 0001_initial. Healing is gated on THIS frozen set —
+# never "any unknown revision" — so it can only ever fire for this one squash transition. Gating on
+# "unknown" would also (wrongly) fire on a post-release image rollback, where the DB is stamped NEWER
+# than the running code; that must take the normal upgrade path, not be re-stamped backward.
+# NOTE: this reserves 0002-0028 forever. A post-baseline migration numbered inside the range would
+# be treated as a squashed revision and re-stamped BACKWARD to 0001 on every boot, replaying it each
+# time — so new migrations start at 0029.
+_SQUASHED_REVISIONS = frozenset(f"{i:04d}" for i in range(2, 29))  # 0002..0028
+
+
+def _heal_squashed_revision(cfg: AlembicConfig, config_dir: Path) -> None:
+    """Re-stamp a DB stamped at one of the now-squashed revisions to the ``0001`` baseline.
+
+    The 28 pre-release migrations were collapsed into ``0001_initial``. A DB stamped at one of those
+    removed revisions can't ``upgrade`` (alembic can't find the revision). Its schema already matches the
+    baseline, so stamp it forward to ``0001`` — but ONLY when every expected table is present, so an
+    unexpectedly-incomplete DB fails loudly instead of being silently marked up-to-date. Fresh DBs and
+    DBs already on a live revision are left alone.
+    """
+    from sqlalchemy import inspect
+
+    from shortlist.server.db.models import Base
+
+    engine = create_engine(db_url(config_dir))
+    try:
+        with engine.connect() as conn:
+            # Read the stamp with raw SQL — alembic's own get_current_revision() resolves it against the
+            # scripts and would itself raise on a squashed-away revision. No table = fresh DB.
+            if not inspect(conn).has_table("alembic_version"):
+                return
+            current = conn.exec_driver_sql("select version_num from alembic_version").scalar()
+            if current not in _SQUASHED_REVISIONS:
+                return  # fresh DB, already on 0001, or a real post-release revision — nothing to heal
+            existing = set(inspect(conn).get_table_names())
+            missing = set(Base.metadata.tables) - existing
+            if missing:
+                logger.error(
+                    "DB at unknown revision {} and MISSING tables {} — not auto-stamping; upgrade will report it",
+                    current,
+                    sorted(missing),
+                )
+                return
+            # Rewrite the stamp with raw SQL — alembic's stamp() would try to compute a path FROM the
+            # squashed-away revision and raise. The schema already matches the baseline, so this is safe.
+            logger.warning("DB at squashed revision {}; schema already complete → stamping to baseline 0001", current)
+            conn.exec_driver_sql("update alembic_version set version_num = '0001'")
+            conn.commit()
+    finally:
+        engine.dispose()
+
+
+def _migration_pending(cfg: AlembicConfig, config_dir: Path) -> bool:
+    """Is the DB stamped at anything other than the migration head?
+
+    An unstamped DB counts as pending (``upgrade`` will run the whole chain), and so does a DB
+    stamped NEWER than head — an image rollback is exactly when a copy of the current file is worth
+    having.
+    """
+    from alembic.script import ScriptDirectory
+    from sqlalchemy import inspect
+
+    engine = create_engine(db_url(config_dir))
+    try:
+        with engine.connect() as conn:
+            # Raw SQL, as in _heal_squashed_revision: alembic's own current-revision read resolves the
+            # stamp against the scripts and raises on a squashed-away revision — which is precisely a
+            # case where a migration IS about to run.
+            if not inspect(conn).has_table("alembic_version"):
+                return True
+            current = conn.exec_driver_sql("select version_num from alembic_version").scalar()
+    finally:
+        engine.dispose()
+    return current != ScriptDirectory.from_config(cfg).get_current_head()
+
+
+def _sweep_batch_leftovers(config_dir: Path) -> None:
+    """Drop any `_alembic_tmp_*` table a previous crashed migration left behind.
+
+    SQLite cannot ALTER a constraint, so Alembic's `batch_alter_table` rebuilds: CREATE
+    `_alembic_tmp_X`, copy, DROP, RENAME. Under pysqlite the CREATE runs before any DML has opened a
+    transaction, so it AUTOCOMMITS while the copy/drop/rename roll back together. A crash or a power
+    cut in that window therefore leaves the temp table committed and the migration unapplied — and
+    every later boot then dies on "table _alembic_tmp_X already exists", for ever, until someone runs
+    SQL by hand. The data is safe (the rebuild rolls back, and a pre-migration backup exists); the
+    container simply cannot start.
+
+    Swept before `upgrade` rather than inside any one migration so it also covers 0040, which used
+    batch mode long before this. A leftover is by definition an artifact of a rebuild that did NOT
+    complete — the real table is untouched — so dropping it is always safe.
+    """
+    db_path = config_dir / "shortlist.db"
+    if not db_path.exists():
+        return
+    with closing(sqlite3.connect(db_path)) as conn, conn:
+        leftovers = [
+            row[0]
+            for row in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE '_alembic_tmp_%'"
+            )
+        ]
+        for table in leftovers:
+            logger.warning("dropping {} left by an interrupted migration — retrying the rebuild", table)
+            conn.execute(f'DROP TABLE "{table}"')
+
+
+def _refuse_without_backup(config_dir: Path) -> MigrationBackupError:
+    """Log, and return for raising, the startup error for a pending migration whose backup failed."""
+    from shortlist.server.services.backup import BACKUP_SUBDIR
+
+    message = (
+        f"refusing to upgrade the database: could not write the pre-upgrade backup to "
+        f"{config_dir / BACKUP_SUBDIR}, so the upgrade would run with no copy to go back to. The "
+        "database was not changed. The 'backup failed' line above has the exact error; it is "
+        "usually a full disk, or a config folder the user Shortlist runs as (PUID/PGID) cannot "
+        "write to. Free some space or fix that folder's permissions, then restart Shortlist."
+    )
+    logger.error("{}", message)
+    return MigrationBackupError(message)
+
+
+def run_migrations(config_dir: Path) -> None:
+    """Apply Alembic migrations to head (every schema change ships one — project rule).
+
+    Takes a pre-migration backup first, but ONLY when a migration is actually pending. Taking one on
+    every boot meant ten restarts — a crash loop, or a week of `docker restart` — evicted all ten
+    retained backups (`backup.py` rotation) and replaced them with ten copies of the already-broken
+    state, destroying the scheduled backups exactly when they were needed.
+
+    Raises:
+        MigrationBackupError: a migration is pending and its backup could not be written. Nothing
+            has been migrated; the database is exactly as it was.
+    """
+    from shortlist.server.services.backup import take_backup
+
+    cfg = AlembicConfig()
+    cfg.set_main_option("script_location", str(ALEMBIC_DIR))
+    cfg.set_main_option("sqlalchemy.url", db_url(config_dir))
+
+    db_path = config_dir / "shortlist.db"
+    # The backup is the only way back from a migration that goes wrong. Same rule as a restore that
+    # cannot take its pre-restore copy: refuse, rather than change the schema with no way back.
+    if db_path.exists() and db_path.stat().st_size > 0 and _migration_pending(cfg, config_dir):
+        try:
+            backup = take_backup(config_dir, label="pre-migration")
+        except OSError as exc:
+            # `take_backup` answers None for a failed copy, but creating `backups/` sits outside its
+            # handler, so a first upgrade into a config folder that cannot be written raises instead.
+            logger.error("backup failed: {}", exc)
+            raise _refuse_without_backup(config_dir) from exc
+        if backup is None:
+            raise _refuse_without_backup(config_dir)
+
+    _heal_squashed_revision(cfg, config_dir)
+    _sweep_batch_leftovers(config_dir)
+    command.upgrade(cfg, "head")
+    logger.info("database migrated to head at {}", config_dir / "shortlist.db")

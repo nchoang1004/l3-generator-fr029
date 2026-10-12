@@ -1,0 +1,462 @@
+#!/usr/bin/env python
+# -*- coding:utf-8 -*-
+# @Time : 2026/1/21
+# @Author : cyq
+# @File : runner
+# @Software: PyCharm
+# @Desc: 接口执行器
+
+import asyncio
+from typing import Union, Optional, Tuple, Any, Dict, List
+
+from app.mapper.interfaceApi.interfaceGlobalMapper import InterfaceGlobalHeaderMapper
+from app.mapper.interfaceApi.interfaceMapper import InterfaceMapper
+from app.mapper.interfaceApi.interfaceCaseMapper import InterfaceCaseMapper
+from app.mapper.interfaceApi.interfaceGroupMapper import InterfaceGroupMapper
+from app.mapper.interfaceApi.interfaceVarsMapper import InterfaceVarsMapper
+from app.mapper.project.env import EnvMapper
+from app.model.base.env import EnvModel
+from app.model.interfaceAPIModel.interfaceGlobalModel import InterfaceGlobalHeader
+
+from croe.interface.executor.context import CaseStepContext, ExecutionContext
+from croe.interface.executor.interface_executor import InterfaceExecutor
+from croe.interface.executor.step_content import get_step_strategy
+from croe.a_manager import VariableManager
+from croe.interface.starter import APIStarter
+from croe.play.starter import UIStarter
+from utils._myLoguru import (
+    set_trace_id,
+    clear_trace_id,
+)
+from utils import log
+
+class InterfaceRunner:
+    """接口执行入口类"""
+
+    __slots__ = ("starter", "variable_manager", "interface_executor", "result_writer")
+
+    def __init__(
+        self,
+        starter: Union[UIStarter, APIStarter],
+        variable_manager: Optional[VariableManager] = None,
+    ) -> None:
+        """
+        初始化接口执行器
+
+        Args:
+            starter: 启动器实例（UI或API）
+            variable_manager: 可选外部 VariableManager。None 时新建。
+        """
+        self.starter = starter
+        self.variable_manager = variable_manager or VariableManager()
+        from croe.interface.writer import ResultWriter
+        self.result_writer = ResultWriter()
+        self.interface_executor = InterfaceExecutor(
+            starter=self.starter,
+            variable_manager=self.variable_manager,
+            global_headers=[],  # init_global_headers 时注入
+        )
+
+    async def try_interface(
+            self,
+            interface_id: int,
+            env_id: int
+    ) -> Dict[str, Any]:
+        """
+        执行单个接口请求调试
+
+        Args:
+            interface_id: 接口id
+            env_id: 环境id
+
+        Returns:
+            接口执行结果
+        """
+        interface = await InterfaceMapper.get_by_id(ident=interface_id)
+        env = await self._get_running_env(env=env_id)
+        await self.variable_manager.load_global_vars()
+        await self.init_global_headers()
+        try:
+            return await self.interface_executor.execute(
+                interface=interface, env=env
+            )
+        finally:
+            # 清理执行器、结果缓存和变量；不清 trace_id/starter.over，避免影响外层
+            try:
+                await self.interface_executor.aclose()
+            except Exception:
+                pass
+            self.result_writer.clear_cache()
+            try:
+                self.variable_manager.clear()
+            except Exception:
+                pass
+
+    async def try_group(
+            self,
+            group_id: int,
+            env_id: int
+    ) -> list:
+        """
+        执行接口组
+
+        Args:
+            group_id: 组ID
+            env_id: 环境ID
+
+        Returns:
+            接口执行结果列表
+        """
+        interfaces = await InterfaceGroupMapper.query_association_interfaces(
+            group_id=group_id
+        )
+
+        await self.variable_manager.load_global_vars()
+        await self.init_global_headers()
+        env = await self._get_running_env(env=env_id)
+        try:
+            results = []
+            for interface in interfaces:
+                await self.starter.send(f"✍️✍️  Execute    {interface}")
+                result = await self.interface_executor.execute(
+                    interface=interface, env=env
+                )
+                results.append(result)
+            return results
+        finally:
+            # 清理执行器、结果缓存和变量
+            try:
+                await self.interface_executor.aclose()
+            except Exception:
+                pass
+            self.result_writer.clear_cache()
+            try:
+                self.variable_manager.clear()
+            except Exception:
+                pass
+
+    async def run_interface_case(
+            self,
+            interface_case_id: int,
+            env: Union[int, Any],
+            error_stop: bool,
+            task_result: Optional[Any] = None
+    ) -> Tuple[bool, Optional[Any]]:
+        """
+        执行接口业务流用例
+
+        Args:
+            interface_case_id: 接口用例id
+            env: 环境id或者对象
+            error_stop: 是否遇到错误停止执行
+            task_result: 在任务中执行时，需要传递任务执行结果
+
+        Returns:
+            Tuple[是否成功, 用例结果对象]
+        """
+        # [OBS-2] 生成 trace_id 注入 ContextVar, 跨 async/log/DB/WS 一致
+        # 8 字符够区分并发 (1M 量级), 短, 日志不抢眼
+        trace_id = set_trace_id()
+        interface_case = await InterfaceCaseMapper.get_by_id(
+            ident=interface_case_id
+        )
+        log.info(f"[trace={trace_id}] 查询到业务流用例  {interface_case}")
+
+        if not interface_case:
+            await self.starter.send(
+                f"未通过{interface_case_id} 找到 相关业务流用例"
+            )
+            # 显式 await 并返回 (False, None)
+            await self.starter.over()
+            return False, None
+
+        case_content_steps = await InterfaceCaseMapper.query_steps(
+            case_id=interface_case.id
+        )
+        await self.starter.send(
+            f"用例 {interface_case.case_title} 执行开始。"
+            f"执行人 {self.starter.username}"
+        )
+        await self.starter.send(
+            f"查询到关联Step x {len(case_content_steps)} ..."
+        )
+
+        if not case_content_steps:
+            await self.starter.send("无可执行业务流步骤，结束执行")
+            await self.starter.over()
+            return False, None
+
+        await self.variable_manager.load_global_vars()
+        await self.init_interface_case_vars(interface_case_id)
+        await self.init_global_headers()
+
+        target_env = await self._get_running_env(env=env)
+        case_success = True
+
+        case_result = await self.result_writer.init_case_result(
+            interface_case=interface_case,
+            starter=self.starter,
+            env=target_env,
+            task_result=task_result
+        )
+        # 排查单 case 时 case_result_id 比 trace_id 更直接
+        log.debug(
+            f"case_result 初始化完成: "
+            f"case_id={interface_case_id} "
+            f"case_result_id={getattr(case_result, 'id', None)} "
+            f"task_result_id={getattr(task_result, 'id', None) if task_result else None}"
+        )
+
+        # 将步骤循环拆分到独立方法，单步异常不中断整个用例
+        execution_context = ExecutionContext(
+            interface_case=interface_case,
+            env=target_env,
+            case_result=case_result,
+            result_writer=self.result_writer,
+            task_result=task_result
+        )
+
+        try:
+            case_success = await self._execute_steps(
+                case_content_steps=case_content_steps,
+                case_result=case_result,
+                execution_context=execution_context,
+                error_stop=error_stop,
+                case_success=case_success,
+                task_result=task_result,
+            )
+
+            await self.starter.send(
+                f"用例 {interface_case.case_title} 执行结束"
+            )
+            await self.starter.send(f"{'====' * 20}")
+            # 日志通过 finalize_case_result(logs=...) 写入 interface_log 列
+            await self.result_writer.finalize_case_result(
+                case_result=case_result,
+                logs="".join(self.starter.logs)
+            )
+
+            return case_success, case_result
+
+        except Exception as e:
+            # 主 except 仅捕获 init/finalize 阶段异常
+            log.exception(f"执行业务流用例异常 (init/finalize 阶段): {e}")
+            return False, case_result
+
+        finally:
+            # [OBS-2] 清掉 trace_id, 下次 case 重新设
+            clear_trace_id()
+            self.variable_manager.clear()
+            self.result_writer.clear_cache()
+            try:
+                await self.interface_executor.aclose()
+            except Exception:
+                pass
+            if case_result is not None:
+                await self.starter.over(case_result.id)
+            else:
+                await self.starter.over()
+
+    async def _execute_steps(
+        self,
+        case_content_steps,
+        case_result,
+        execution_context,
+        error_stop: bool,
+        case_success: bool,
+        task_result,
+    ) -> bool:
+        """
+        顺序执行用例步骤。
+
+        每个 step 单独 try/except，单步异常只标该 step 失败并继续下一步；
+        配合 error_stop 在失败时中断执行。
+        """
+        total_steps = len(case_content_steps)
+        for index, step_content in enumerate(case_content_steps, start=1):
+            await self.starter.send(
+                f"✍️✍️ {'=' * 20} EXECUTE_STEP {index} ： "
+                f"{step_content} {'=' * 20}"
+            )
+
+            # enable 仅在调试模式下生效
+            if step_content.enable == 0 and not task_result:
+                await self.starter.send(
+                    f"✍️✍️  EXECUTE_STEP {index} ： 调试禁用 跳过执行"
+                )
+                case_result.progress = round(index / total_steps * 100, 2)
+                await self.result_writer.update_case_progress(case_result)
+                continue
+
+            # 执行步骤 - 单步独立 try/except
+            step_context = CaseStepContext(
+                index=index,
+                content=step_content,
+                execution_context=execution_context,
+                starter=self.starter,
+                variable_manager=self.variable_manager,
+            )
+
+            try:
+                strategy = get_step_strategy(
+                    step_content.content_type,
+                    self.interface_executor
+                )
+                step_success = await strategy.execute(step_context)
+            except Exception as e:
+                # 单步失败仅记录日志并标记失败，不抛回主流程
+                log.exception(
+                    f"单步执行异常 (step_index={index}, "
+                    f"type={step_content.content_type}): {e}"
+                )
+                try:
+                    await self.starter.send(
+                        f"❌ STEP {index} 异常: {e} (继续下一步)"
+                    )
+                except Exception:
+                    pass
+                step_success = False
+
+            case_success = case_success and step_success
+            case_result.progress = round(index / total_steps * 100, 2)
+
+            if not case_success and error_stop:
+                await self.starter.send(
+                    f"⏭️⏭️  SKIP_STEP {index} ： 遇到错误已停止 "
+                    f"(progress={case_result.progress}%)"
+                )
+                break
+
+            await self.starter.send(
+                f"✍️✍️  EXECUTE_STEP {index} ： FINISH"
+            )
+
+        return case_success
+
+    async def run_interface_by_task(
+            self,
+            interface: Any,
+            task_result_id: int,
+            retry: int = 0,
+            retry_interval: int = 0,
+            env: Optional[Any] = None
+    ) -> bool:
+        """
+        执行接口任务
+
+        Args:
+            interface: 接口对象
+            task_result_id: 接口任务结果 ID
+            retry: 重试次数
+            retry_interval: 重试间隔
+            env: 环境对象
+
+        Returns:
+            是否执行成功
+        """
+        await self.variable_manager.load_global_vars()
+        await self.init_global_headers()
+
+        # task 结束后释放 httpx 连接 + 清空 variable + 清空 result_writer 缓存 + clear trace_id
+        try:
+            for attempt in range(retry + 1):
+                interface_result = await self.interface_executor.execute(
+                    interface=interface,
+                    env=env
+                )
+                success = interface_result.result
+
+                if success:
+                    interface_result.task_result_id = task_result_id
+                    await self.result_writer.write_interface_result(
+                        interface_result=interface_result
+                    )
+                    return True
+
+                if attempt == retry:
+                    interface_result.task_result_id = task_result_id
+                    await self.result_writer.write_interface_result(
+                        interface_result=interface_result
+                    )
+                    await self.starter.send(
+                        f"接口 {interface} 执行结果 FALSE"
+                    )
+                    return False
+
+                await self.starter.send(
+                    f"接口 {interface} 执行结果 FALSE 第 {attempt + 1} 次重试"
+                )
+                if retry_interval:
+                    await asyncio.sleep(retry_interval)
+
+            return False
+        finally:
+            # 清理顺序: aclose → rw clear → vm clear
+            try:
+                await self.interface_executor.aclose()
+            except Exception:
+                pass
+            self.result_writer.clear_cache()
+            self.variable_manager.clear()
+
+    async def init_interface_case_vars(self, interface_case_id: int) -> None:
+        """
+        初始化业务流用例变量
+
+        Args:
+            interface_case_id: 业务流用例id
+        """
+        try:
+            interface_case_vars = await InterfaceVarsMapper.query_by(
+                case_id=interface_case_id
+            )
+            if interface_case_vars:
+                var_dict = {}
+                for var in interface_case_vars:
+                    var_dict[var.key] = self.variable_manager.trans(
+                        var.value
+                    )
+                self.variable_manager.add_vars(var_dict)
+                await self.starter.send(
+                    f"🫳🫳 初始化业务用例变量 = "
+                    f"{self.variable_manager.variables}"
+                )
+        except Exception:
+            log.exception(f"初始化业务流用例变量失败 (case_id={interface_case_id})")
+            try:
+                await self.starter.send(
+                    f"⚠️ 初始化业务用例变量失败,后续步骤将使用空变量 "
+                    f"(case_id={interface_case_id})"
+                )
+            except Exception:
+                # starter.send 自身异常直接放过
+                pass
+
+    async def init_global_headers(self) -> List[InterfaceGlobalHeader]:
+        """
+        加载全局请求头并应用到 executor。
+
+        Returns:
+            加载到的全局 header 列表(可能为空)
+        """
+        global_headers = await InterfaceGlobalHeaderMapper.query_all()
+        if not global_headers:
+            log.info("未配置全局 header")
+            return []
+
+        await self.starter.send(
+            f"🫳🫳 全局Headers已加载: {len(global_headers)} 条"
+        )
+        self.interface_executor.g_headers = list(global_headers)
+        return global_headers
+
+    async def _get_running_env(self, env: Union[int, EnvModel]) -> Optional[EnvModel]:
+        """
+        获取当前环境
+        """
+        if isinstance(env, int):
+            target_env = await EnvMapper.get_by_id(ident=env)
+        else:
+            target_env = env
+        await self.starter.send(f"✍️✍️ 使用环境 {target_env}")
+        return target_env

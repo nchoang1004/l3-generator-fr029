@@ -1,0 +1,514 @@
+name: CI
+
+on:
+  push:
+    # NOT master. It used to be here "so the stable branch gets its own CI signal after a
+    # promotion", which sounds right and buys nothing: master only ever advances by merging a PR
+    # that just ran this whole workflow on the same content, and a master push publishes nothing
+    # (see the docker job's `if:`). Worse, the release tag points AT the merge commit, so master
+    # and the tag were running the identical SHA twice — v1.7.0 ran the full suite four times over
+    # one tree. The two runs that matter are kept: the PR (what protection gates the merge on) and
+    # the tag (the last gate before an image reaches other people's servers).
+    branches: [dev]
+    tags: ["v*"]
+  pull_request:
+    branches: [master, dev]
+  workflow_dispatch:
+
+# PRs supersede their own older runs. Pushes deliberately DON'T share a group: they used
+# to serialise on `ci-<ref>`, so merging several PRs in a row queued each full run (tests
+# AND publish) behind the previous one — minutes of dead waiting for no safety benefit,
+# since the test jobs are independent. Only the publish must not overlap, and that is
+# enforced by a job-level concurrency group on `docker` instead.
+concurrency:
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: pip install ruff
+      - run: ruff check .
+      - run: ruff format --check .
+      # A migration already applied to a database is never replayed there, so an edit to one reaches
+      # FRESH installs only — the machine it was developed against keeps the old behaviour for ever.
+      # Four occurrences in this repo's history (0070 twice, 0078, 0081); see
+      # .claude/docs/migration-ci-design.md. Standard library only, and it needs no git history, so
+      # it runs as a step in THIS job at the default fetch-depth rather than as a new status context
+      # — master's required contexts are lint/test-python/test-web/e2e and adding to that list is
+      # what blocked the v1.7.0 release PR with every check green.
+      - name: No merged migration's content has changed
+        run: python scripts/check_migration_freeze.py
+      # Catches "added a dependency to pyproject.toml but forgot to regenerate the lock" — which
+      # would otherwise only surface as an ImportError inside the built image. Deliberately checks
+      # COVERAGE, not equality with a fresh resolution: re-resolving would report drift every time
+      # any upstream package publishes, which would be noise rather than signal.
+      - name: requirements.lock covers pyproject dependencies
+        run: |
+          python - <<'PY'
+          import re, sys, tomllib
+
+          project = tomllib.load(open("pyproject.toml", "rb"))["project"]
+          # The extras the Dockerfile bundles into the image; `dev` is intentionally not locked.
+          shipped = ("anthropic", "openai", "google", "posters")
+          declared = list(project["dependencies"])
+          for extra in shipped:
+              declared += project.get("optional-dependencies", {}).get(extra, [])
+
+          def norm(name: str) -> str:
+              return re.split(r"[<>=!~\[; ]", name, maxsplit=1)[0].strip().lower().replace("_", "-")
+
+          want = {norm(d) for d in declared}
+          have = {
+              norm(line)
+              for line in open("requirements.lock")
+              if "==" in line and not line.lstrip().startswith("#")
+          }
+
+          missing = sorted(want - have)
+          if missing:
+              sys.exit(
+                  "requirements.lock is stale — missing: "
+                  + ", ".join(missing)
+                  + "\nRegenerate it with the command in .claude/CLAUDE.md"
+              )
+          print(f"lock covers all {len(want)} declared runtime dependencies")
+          PY
+
+  docs:
+    name: Website
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+        env:
+          BUNDLE_GEMFILE: docs/Gemfile
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: pip install playwright
+      - run: python -m playwright install --with-deps chromium
+      - name: Build the published website
+        run: bundle exec jekyll build --source docs --destination /tmp/shortlist-docs
+        env:
+          BUNDLE_GEMFILE: docs/Gemfile
+      - name: Check rendered links and responsive navigation
+        run: python scripts/check_docs_site.py /tmp/shortlist-docs --browser
+
+  test-python-shard:
+    # SHARDED, reversing the note that used to sit here. That note was right when it was written
+    # and its premise has since expired: it measured this job at 2m52 and off the critical path
+    # ("the critical path is e2e + docker"). The suite has since gone from 15k to 52k lines, this
+    # job to ~411s, and it is now the longest thing on the board by 165s — e2e is 246s. Three
+    # duration-balanced shards put it at ~185s, which hands the critical path back to e2e.
+    strategy:
+      # Every shard reports. fail-fast would hide failures in shards 2 and 3 behind shard 1,
+      # turning one red run into three re-runs.
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # 3.12 only, deliberately: the shipped artifact is a single Docker image built
+      # FROM python:3.12-slim, so 3.12 is the only interpreter this runs on in
+      # production. Bump this in the same change as the Dockerfile base image.
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: requirements.lock
+      # Runtime deps from the lock FIRST, so tests run against the exact versions the image ships;
+      # dev tooling goes on top. Installing straight from pyproject's floors would let CI pass on
+      # different dependency versions than production actually runs.
+      - run: uv pip install --system -r requirements.lock
+      - run: uv pip install --system -e ".[dev]"
+      # Shards write coverage DATA, not a report: the report (and its fail_under gate) belongs to
+      # the `coverage` job below, which combines all three. --cov-fail-under=0 is what stops a
+      # shard failing on its own partial ~35%.
+      # least_duration bin-packs by recorded cost; the default contiguous-chunk algorithm put
+      # 52% of the work in one shard (measured), which is no better than not sharding by much.
+      # .test_durations only affects BALANCE — a stale entry makes a shard uneven, never skips a
+      # test. Refresh it with: pytest --store-durations
+      # --durations=25 costs nothing and makes every run self-diagnosing: when this job creeps up
+      # again, the log already says which tests did it. A laptop cannot measure this — local
+      # wall-clock here varied 106s-218s for the SAME code — so CI is the only honest instrument.
+      - run: >-
+          pytest --splits 3 --group ${{ matrix.shard }}
+          --splitting-algorithm least_duration --cov-fail-under=0 --durations=25
+        env:
+          # PEP 669 sys.monitoring instead of sys.settrace for coverage — 3.12+ and coverage>=7.4,
+          # both of which this job pins. Verified locally to report the SAME 94.38%; it changes how
+          # coverage observes the interpreter, not what it records. (Local wall-clock here is too
+          # noisy to size the win — the same code timed 106s-218s — so this run is the measurement.)
+          COVERAGE_CORE: sysmon
+      # Renamed off the dotfile so upload-artifact keeps it — v4 silently drops hidden files, and
+      # a missing shard here would combine into a QUIETLY LOWER coverage number, not an error.
+      - run: mv .coverage coverage-data-${{ matrix.shard }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: coverage-data-${{ matrix.shard }}
+          path: coverage-data-${{ matrix.shard }}
+          if-no-files-found: error
+          retention-days: 1
+
+  # The coverage gate the shards can no longer apply individually. Runs off the critical path —
+  # it starts when the shards finish (~185s) and lands well inside e2e's ~246s, so it costs the
+  # workflow nothing while keeping fail_under real.
+  coverage:
+    needs: [test-python-shard]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: pip install coverage
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: coverage-data-*
+          merge-multiple: true
+      # `coverage combine` only picks up files named `.coverage.*`; the shards uploaded them under
+      # a visible name to survive the artifact step, so rename them back first.
+      - name: Combine the shards and apply the coverage gate
+        run: |
+          set -euo pipefail
+          n=0
+          for f in coverage-data-*; do
+            mv "$f" ".coverage.$(basename "$f" | sed 's/coverage-data-//')"
+            n=$((n + 1))
+          done
+          # A shard whose data went missing would lower the combined number silently. Three shards
+          # in, three data files out — anything else is a broken pipeline, not a coverage drop.
+          [ "$n" -eq 3 ] || { echo "expected 3 shard coverage files, found $n"; exit 1; }
+          coverage combine
+          coverage report --show-missing
+          coverage xml
+      - uses: codecov/codecov-action@v7
+        continue-on-error: true
+        with:
+          files: ./coverage.xml
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+  test-web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # No `version:` — the action reads `packageManager` from web/package.json, the same field
+      # corepack honours in the Dockerfile. Keeping one source of truth is deliberate: CI used to
+      # pin pnpm 10 while the image build floated to latest, so pnpm 11's minimumReleaseAge default
+      # (1440min, 0 before v11) rejected fresh transitive deps in the publish job that all four PR
+      # checks had passed. Green CI must mean the image builds.
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: web/package.json
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - run: pnpm -C web install --frozen-lockfile
+      - run: pnpm -C web lint
+      - run: pnpm -C web test --run
+      - run: pnpm -C web build
+
+  # Deliberately NOT `needs: [test-web]`. It only ever needed that job's `web-dist` artifact, so the
+  # dependency put a ~1m30 wait in front of the longest job on the board for a build that takes
+  # seconds. Building the SPA here instead lets e2e start at t=0 and run alongside test-web, which
+  # takes that wait off the critical path. The cost is one extra `vite build` (and its install) —
+  # more CI minutes, less wall-clock, which is the trade asked for.
+  e2e-shard:
+    # Two shards, not three. Setup here is 58s of fixed cost per job (pnpm + vite build + the
+    # chromium apt deps), so shards stop paying quickly: measured 110s of pytest splits to 56s at
+    # two and 38s at three, i.e. 114s vs 96s per job. Two already puts e2e under test-web, which
+    # becomes the critical path, so a third shard would buy CI minutes and no wall-clock.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      # uv, matching test-python. This job used pip with setup-python's cache and spent 16s on the
+      # two installs where test-python spends 3s for the same dependencies — a straight 13s off the
+      # longest job on the board, for no behaviour change.
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: requirements.lock
+      # Same pnpm setup as test-web — version comes from web/package.json's `packageManager`, so the
+      # two jobs and the Dockerfile cannot drift apart.
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: web/package.json
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - run: pnpm -C web install --frozen-lockfile
+      - run: pnpm -C web build
+      # Same ordering as test-python: pinned runtime deps first, dev tooling on top.
+      - run: uv pip install --system -r requirements.lock
+      - run: uv pip install --system -e ".[dev]"
+      # Cache the downloaded browser. Keyed on the resolved playwright version rather than
+      # on pyproject, because the pin is a floor (">=1.45") — keying on the manifest would
+      # keep serving a stale browser after pip resolved a newer playwright.
+      - id: pw
+        run: |
+          echo "version=$(python -c 'import importlib.metadata as m; print(m.version("playwright"))')" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}-chromium
+      # install-deps is the apt half and must run every time (system libs aren't cached);
+      # the browser download itself is skipped when the cache above hits.
+      - run: playwright install-deps chromium
+      - run: playwright install chromium
+      # Its own durations file: .test_durations covers the unit suite, which is collected under
+      # `-m 'not e2e'` and so has no entry for any of these.
+      - run: >-
+          pytest -m e2e --no-cov --reruns 2 --reruns-delay 5
+          --splits 2 --group ${{ matrix.shard }}
+          --splitting-algorithm least_duration --durations-path .test_durations_e2e
+          --durations=15
+
+  # A status context whose NAME does not change when the shard count does. `master` requires
+  # `test-python` and `e2e`; sharding renamed those jobs to `test-python (1..3)` / `e2e (1..2)`, so
+  # the required contexts stopped existing and the v1.7.0 release PR could not merge with all 11
+  # checks green — protection was waiting on two checks that could never report again. Nothing
+  # caught it earlier because `dev` requires no checks on purpose, so a release PR is the first
+  # thing to notice. Keep these two jobs whatever the matrix does.
+  #
+  # `always()` so a failed shard produces a FAILING gate rather than a skipped one: GitHub can treat
+  # a skipped required check as satisfied, which would turn this from protection into decoration.
+  test-python:
+    needs: [test-python-shard]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every python shard passed
+        run: |
+          echo "shards: ${{ needs.test-python-shard.result }}"
+          [[ "${{ needs.test-python-shard.result }}" == "success" ]] || exit 1
+
+  e2e:
+    needs: [e2e-shard]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every e2e shard passed
+        run: |
+          echo "shards: ${{ needs.e2e-shard.result }}"
+          [[ "${{ needs.e2e-shard.result }}" == "success" ]] || exit 1
+
+  docker-smoke:
+    # The ONLY thing that runs the actual image. Every other job tests the source: e2e boots
+    # uvicorn in-process, so nothing else would notice the PUID/PGID drop failing, web/dist
+    # landing somewhere the app doesn't look, or a missing runtime package — all of which are
+    # invisible until a user pulls the tag. Single-arch and load-only on purpose: this exists to
+    # boot the thing, not to publish it, and it primes the layer cache the publish job reuses.
+    # Runs on PRs too, where the publish job deliberately never does.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          tags: shortlist:smoke
+          # SCOPED, and separate from the publish job's. Both used to share the default `type=gha`
+          # key, so this amd64-only build wrote `mode=max` over a cache holding amd64 AND arm64 —
+          # and the publish job then rebuilt arm64 from scratch under QEMU. Measured: publish went
+          # 1m04s to 4m51s the moment this job was added. Sharing a cache with a build of a
+          # different platform set costs far more than it saves.
+          cache-from: type=gha,scope=smoke
+          cache-to: type=gha,mode=max,scope=smoke
+      - name: Boot the image and wait for it to report healthy
+        run: |
+          set -euo pipefail
+          # A named volume, not a bind mount: /config must be writable by the dropped-to UID, and
+          # a bind mount would be root-owned and mask exactly the permission bug this job exists
+          # to catch.
+          docker run -d --name smoke -e PUID=1000 -e PGID=1000 -p 5959:5959 \
+            -v shortlist-smoke:/config shortlist:smoke
+          for _ in $(seq 1 60); do
+            state=$(docker inspect smoke --format '{{.State.Health.Status}}' 2>/dev/null || echo gone)
+            [ "$state" = healthy ] && echo "healthy" && exit 0
+            [ "$state" = gone ] && break
+            sleep 2
+          done
+          echo "::error::the image never reported healthy"
+          docker inspect smoke --format 'state={{.State.Status}} exit={{.State.ExitCode}}' || true
+          docker logs smoke 2>&1 | tail -50
+          exit 1
+      - name: Serve the built SPA, not just the API
+        run: |
+          set -euo pipefail
+          # The health endpoint lives in Python and answers even if the web build never made it
+          # into the image, so it cannot catch a missing SPA on its own.
+          curl -fsS http://localhost:5959/ | grep -qi '<div id="root"' \
+            || { echo "::error::/ did not serve the built SPA"; exit 1; }
+
+      - name: Every provider the wizard offers can actually be imported
+        run: |
+          set -euo pipefail
+          # Guards the exact bug in 549631f: the image installed a bare `pip install .`, so none of
+          # the LLM SDKs were present and picking any provider in setup dead-ended on an ImportError
+          # the owner could not fix — the container IS the product, they cannot pip install into it.
+          # Booting proves nothing here, because every provider is imported LAZILY at first use, so
+          # this has to import them on purpose. Extras are declared in pyproject's
+          # [project.optional-dependencies]; keep this list in step with what the wizard offers.
+          docker exec smoke python -c "
+          import importlib.util, sys
+          missing = [m for m in ('anthropic', 'openai', 'google.genai', 'PIL') if not importlib.util.find_spec(m)]
+          if missing:
+              sys.exit('::error::the image is missing provider SDK(s): ' + ', '.join(missing))
+          print('all provider SDKs present')
+          "
+      - if: always()
+        run: docker rm -f smoke >/dev/null 2>&1 || true
+
+  docker:
+    # Publish gate: build + push the image ONLY after lint, test-python (3.12 only — see that
+    # job's comment for why there's no version matrix), web tests, e2e, and the image
+    # actually booting are all green.
+    # Restricted to pushes on dev + v* tags —
+    # never on pull_request (a PR must not publish), never on workflow_dispatch, and
+    # never on master. The ref test is load-bearing, not belt-and-braces: master is a
+    # push trigger so the stable branch gets CI, but every `type=raw`/`type=semver`
+    # rule below is gated on dev-or-tag, so a master push would reach build-push-action
+    # with `push: true` and an EMPTY tag list.
+    # dev push -> :dev; tag push -> :latest + :<version> + :dev.
+    needs: [lint, test-python, coverage, test-web, e2e, docker-smoke]
+    if: >-
+      github.event_name == 'push'
+      && (github.ref == 'refs/heads/dev' || startsWith(github.ref, 'refs/tags/v'))
+    runs-on: ubuntu-latest
+    # Publishes must not overlap: two in-flight builds pushing the same tag can
+    # interleave a partial manifest. This is the ONLY thing that needs serialising,
+    # which is why the workflow-level group no longer queues pushes.
+    concurrency:
+      group: publish-${{ github.ref }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # Docker Hub is what the docs tell people to pull from (owner decision 2026-08-12): its
+      # repository pages get indexed by Google where ghcr.io pages don't, and it reports a pull
+      # count, which GHCR doesn't expose. GHCR keeps publishing the identical manifest and is
+      # documented as the alternative for anyone avoiding Docker Hub's anonymous pull limits.
+      # The namespace is `stevezzau` (two z's) — it is NOT the GitHub username, which is stevezau.
+      # The old single-z account was lost; do not "correct" this to match GitHub.
+      - uses: docker/login-action@v4
+        with:
+          username: stevezzau
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v6
+        with:
+          # Both registries in one metadata block, so the single build-push-action below
+          # pushes the SAME manifest to both. Building twice would risk the two registries
+          # holding different bytes for the same tag.
+          images: |
+            ghcr.io/${{ github.repository }}
+            docker.io/stevezzau/shortlist
+          tags: |
+            # `dev` on a dev push AND on a release tag. Tags are cut from master after a
+            # dev -> master promotion PR, at which point the two branches are identical, so
+            # :dev must move too — otherwise the newest code sits on :latest but not on the
+            # tag pre-release testers are actually pulling.
+            type=raw,value=dev,enable=${{ github.ref == 'refs/heads/dev' || startsWith(github.ref, 'refs/tags/v') }}
+            type=semver,pattern={{version}}
+            # During 0.x beta, :latest intentionally follows EVERY release tag
+            # (including -beta.N) so testers pulling :latest get the newest beta.
+            # When the first STABLE (v0.1.0) ships, switch this to metadata-action's
+            # `flavor: latest=auto` so a later -beta tag can't clobber stable's :latest.
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # The same facts the OCI labels carry, but as env vars the app can actually read at
+          # runtime — nothing inside a container can inspect its own labels. `ref_name` is the
+          # branch on a dev push and the tag (`v1.4.1`) on a release, which is exactly what
+          # `_install_type` splits `dev_docker` from `docker` on.
+          build-args: |
+            GIT_SHA=${{ github.sha }}
+            GIT_BRANCH=${{ github.ref_name }}
+          # Its own scope — see docker-smoke's note. This one holds both platforms.
+          cache-from: type=gha,scope=publish
+          cache-to: type=gha,mode=max,scope=publish
+      # The Docker Hub overview page is NOT synced here. It lives in .github/workflows/dockerhub.yml
+      # so that editing the prose doesn't require cutting a release, and so a description failure
+      # can never mark a successful image publish as failed.
+
+  # A tag published the image but never announced it: v1.0.0 through v1.2.1 all exist as tags with
+  # no GitHub Release, because the beta ones were created by hand and nothing replaced that habit.
+  # The changelog already carries the notes, so the release is cut from the section for this version
+  # rather than from the commit log — which is what a reader of the Releases page actually wants.
+  release:
+    name: release
+    needs: [docker]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - name: Extract this version's changelog section
+        id: notes
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          # From this version's heading to the next one, dropping the heading itself.
+          awk -v v="$version" '
+            $0 ~ "^## \\[" v "\\]" { found = 1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md > notes.md
+          if [ ! -s notes.md ]; then
+            echo "::error::CHANGELOG.md has no section for $version — add one before tagging."
+            exit 1
+          fi
+          echo "wrote $(wc -l < notes.md) lines of notes"
+      - name: Publish the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file notes.md \
+            --verify-tag

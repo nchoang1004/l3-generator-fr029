@@ -1,0 +1,937 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# SpatiumDDI Helm values
+#
+# Layout:
+#   image                 Shared image defaults (repository prefix, tag, policy)
+#   auth                  SECRET_KEY for app; generated on first install if empty
+#   api / frontend /      Control-plane workloads
+#     worker / beat
+#   migrate               One-shot Alembic Job (regular, gated on Postgres)
+#   ingress               Frontend ingress
+#   postgresql            In-chart Postgres StatefulSet using postgres:16-alpine
+#                         (matches docker-compose.yml). BYO via externalDatabase.
+#   redis                 In-chart Redis StatefulSet using redis:8.10.2-alpine.
+#                         BYO via externalRedis.
+#   dnsAgents             Optional BIND9 agent StatefulSets (one per DNSServer row)
+#   dhcpAgents            Optional Kea agent StatefulSets (one per DHCPServer row)
+# ─────────────────────────────────────────────────────────────────────────────
+
+image:
+  registry: ghcr.io
+  repository: spatiumnorth       # images are ghcr.io/spatiumnorth/<name>
+  # Image tag applied to every control-plane workload. Empty → use Chart.appVersion.
+  tag: ""
+  pullPolicy: IfNotPresent
+  pullSecrets: []
+
+# Chart-wide settings the appliance + multi-node HA work consume.
+# Plain K8s / docker-compose installs leave these at defaults.
+global:
+  # #272 Phase 1 — every control-plane workload (api / frontend /
+  # worker / beat / postgres / redis) merges this map into its
+  # nodeSelector block on top of any per-component override. The
+  # appliance chart's firstboot flips it to
+  # ``{spatium.io/role-control-plane: "true"}`` so control-plane
+  # pods only schedule on nodes carrying the per-role label.
+  # Leaving it empty (the default) lets plain K8s clusters schedule
+  # control-plane workloads anywhere; multi-node HA (#272 later
+  # phases) configures the gate from the umbrella valuesContent.
+  controlPlaneNodeSelector: {}
+
+  # #983 — pod-level seccomp profile for every workload this chart renders.
+  # Kubernetes leaves a container ``Unconfined`` unless asked; docker-compose
+  # applies the runtime's default profile to every service. So the default
+  # here restores parity — without it the same images run with FEWER syscall
+  # restrictions under Kubernetes than under Compose.
+  # ``RuntimeDefault`` | ``Unconfined`` | ``""`` (omit the block entirely).
+  seccompProfile: RuntimeDefault
+
+  # #983 — PriorityClass applied to every CONTROL-PLANE workload (api,
+  # worker, beat, frontend, migrate, postgres, redis, sentinel, the slot-image
+  # mirror). Per-workload ``<component>.priorityClassName`` overrides it.
+  #
+  # Empty by default and it must stay that way for a bring-your-own cluster:
+  # the apiserver REJECTS a pod naming a PriorityClass that does not exist, so
+  # setting this without creating the class first takes the whole release
+  # down. The appliance overlay sets it to ``spatium-control-plane``, which
+  # the spatiumddi-appliance chart renders.
+  priorityClassName: ""
+
+  # #983 — same, for the SERVICE workloads (the optional DNS / DHCP agent
+  # StatefulSets). Split from the control-plane knob because a DNS agent
+  # answering the LAN should outrank the API that configures it when a node
+  # runs out of memory.
+  servicePriorityClassName: ""
+
+# Cluster-wide app name override. Leave empty to use `.Release.Name`.
+fullnameOverride: ""
+nameOverride: ""
+
+# Application secret — Fernet key for at-rest encryption of auth provider
+# secrets, session tokens, etc. If empty, a 32-byte hex string is generated
+# the first time the chart is installed and persisted via `lookup` across
+# upgrades. Override only if you're consolidating secret management.
+auth:
+  secretKey: ""
+  existingSecret: ""             # must carry key `secret-key`; `metrics-token` optional
+  # #1159 — bearer token /metrics accepts (any API token works too). Empty =
+  # generated on first install and kept across upgrades, like secretKey.
+  metricsToken: ""
+
+# ── API ──────────────────────────────────────────────────────────────────────
+api:
+  replicas: 2
+  priorityClassName:  # #983 — unset inherits ``global.priorityClassName``; "" means no class
+  # #983 Phase 2 — user namespaces (Kubernetes 1.36 GA). UNSET by default.
+  # REFUSED at render time while ``api.applianceHostMounts.enabled`` is on:
+  # the host directories this pod writes are chowned to the image's uid, and
+  # a user namespace remaps exactly that. Usable on a plain Kubernetes
+  # install, which is also where it is worth most — this pod runs tcpdump,
+  # nmap and operator-typed argv.
+  hostUsers:
+  # #983 — extra placement push in ``soft`` anti-affinity mode, where
+  # preferred anti-affinity can still stack every replica on one node.
+  # Rendered only at replicas > 1 in ``soft`` mode; supply your own list
+  # here to replace the default entirely.
+  topologySpreadConstraints: []
+  service:
+    type: ClusterIP
+    port: 8000
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits:   { cpu: 1000m, memory: 512Mi }
+  # #1051 — probe budgets sized for a BUSY event loop, not an idle one.
+  #
+  # The api is one uvicorn worker, so the kubelet's probes are answered by
+  # the same event loop that serves every request. Measured live on a
+  # 4-vCPU appliance under a sustained API load (2026-09-10, build
+  # d494b2a0): ``/health/live`` — a handler that touches nothing — went
+  # unanswered for its 5 s budget 57 times in 49 minutes, ``/health/ready``
+  # 107 times in 51 minutes, on a node with idle CPU. Every readiness miss
+  # pulled the only api pod out of the Service (the frontend answered 502
+  # to everyone; the DNS/DHCP agents got connection refused), and the
+  # fourth liveness miss in a row killed a process that was busy, not
+  # wedged.
+  #
+  #   * liveness answers "is the process alive". Four misses at a 30 s
+  #     budget restart a process that has said nothing for two minutes —
+  #     a wedged loop, not a loaded one.
+  #   * readiness's timeout must exceed the handler's OWN worst case:
+  #     ``/health/ready`` bounds its checks at 4 s (database) + 4 s
+  #     (schema) + 2 s (redis) = 10 s. Under a 5 s probe budget a slow
+  #     dependency and a dead process were indistinguishable to the
+  #     kubelet — both read "context deadline exceeded" — and the 503 that
+  #     names the failing check never arrived.
+  probes:
+    liveness:
+      initialDelaySeconds: 10
+      periodSeconds: 30
+      timeoutSeconds: 30
+      failureThreshold: 4
+    readiness:
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 15
+      failureThreshold: 3
+  env: []                        # extra env entries appended to container
+  nodeSelector: {}
+  # Fast-eviction tolerations are NOT a chart default: setting both taint
+  # keys explicitly suppresses Kubernetes' DefaultTolerationSeconds
+  # admission plugin (300 s), so a BYO-Kubernetes install would evict this
+  # pod after a 20 s NotReady blip it previously served straight through.
+  # The appliance — where the control-plane node count is fixed and a dead
+  # node must free its replica fast (#590) — sets them from firstboot and
+  # from the supervisor's apply_control_plane_overrides.
+  tolerations: []
+  # One of hard | soft | none — see the ``spatiumddi.podAntiAffinity``
+  # helper. ``soft`` is the safe chart default (a BYO-k8s install may run
+  # more replicas than nodes); the appliance renders ``hard``, where
+  # replicas tracks the control-plane node count exactly.
+  podAntiAffinity: soft
+  # Extra affinity rules (nodeAffinity, podAffinity, …). MERGED with the
+  # anti-affinity spread above, so setting e.g. a nodeAffinity here does
+  # not silently cost you cross-node spreading. Declare your own
+  # ``podAntiAffinity`` key to opt out of the default spread entirely.
+  affinity: {}
+  podAnnotations: {}
+  # Phase 11 wave 4 (#183) — api ServiceAccount + Role for kubeapi
+  # access. Needed for:
+  #   * /appliance/containers (post-rename: pods) — list + tail
+  #     logs from in-cluster pods instead of docker.
+  #   * Operator cert upload — PATCH the spatium-appliance-tls
+  #     Secret in-place instead of writing to a docker volume +
+  #     SIGHUP via the docker socket.
+  # Off-appliance docker-compose installs leave this off; the
+  # /appliance/* endpoints no-op there anyway via the
+  # ``settings.appliance_mode`` gate.
+  serviceAccount:
+    enabled: false
+  # #296 Phase C/D/E — opt-in cluster-scoped + kube-system RBAC for
+  # the rolling-upgrade orchestrator. When ``enabled: true`` the api
+  # SA can: cordon/uncordon Nodes (cluster-scoped); list+evict pods
+  # cluster-wide (drain); GET+PATCH the CNPG Cluster CR
+  # (nodeMaintenanceWindow); manage the orchestrator's Lease in the
+  # api's own namespace; GET+PATCH HelmChartConfigs in kube-system
+  # (chart image-tag bump after every node is on the new slot).
+  # Plain docker/k8s deploys that don't run the rolling upgrade flow
+  # leave this off — the api stays scoped to namespace-only Pod /
+  # Secret / Deployment grants and can't touch cluster-scoped
+  # resources at all.
+  upgradeOrchestratorRBAC:
+    enabled: false
+    # #983 Phase 2 item 6 — keep granting the broad ``nodes/proxy`` read as
+    # a fallback transport for the kubelet Summary API.
+    #
+    # ``get`` on nodes/proxy authorizes read GETs to EVERY kubelet endpoint
+    # (/pods, /logs/…, /configz, /debug/…), where ``nodes/stats`` — granted
+    # unconditionally alongside it — authorizes only the one page the Cluster
+    # screen reads. Set this to false to drop the broad grant.
+    #
+    # Default true because the direct transport depends on the ServiceAccount
+    # CA validating the kubelet's serving cert, which is a fact about the
+    # cluster (k3s signs kubelet serving certs with its own server-ca) that
+    # the chart cannot assert. Check Cluster → Overview: once it reports the
+    # transport as ``direct``, this can go false.
+    kubeletProxyFallback: true
+  # #890 — service lifecycle control (Settings → Services). Two
+  # independent switches, because they fail differently:
+  #
+  #   * ``serviceControl.enabled`` sets SERVICE_CONTROL_ENABLED on the api
+  #     and is what the capability probe reports to the UI. Without it the
+  #     Services screen renders read-only and says why.
+  #   * ``serviceControlRBAC.enabled`` grants the api SA ``list`` on
+  #     Deployments / StatefulSets / DaemonSets and ``patch`` on all three
+  #     (a rollout restart is a pod-template annotation bump). Without it
+  #     the api can list nothing and kubeapi answers 403 — which the code
+  #     surfaces as "enable api.serviceControlRBAC" rather than as an
+  #     empty inventory.
+  #
+  # Turn on both to get a working Services screen; either alone is a
+  # deliberate half-state that reports itself. Both default off: a
+  # restart interrupts live DNS / DHCP / API traffic, so it is opt-in.
+  # Requires ``serviceAccount.enabled`` for the SA to exist at all.
+  serviceControl:
+    enabled: false
+  serviceControlRBAC:
+    enabled: false
+  # Appliance host bind mounts. The api writes the setup-complete
+  # flag, slot-upgrade trigger files, rollback triggers, and the
+  # maintenance flag into ``/var/lib/spatiumddi-host/release-state/``
+  # — host-side ``spatiumddi-*.path`` systemd units watch that
+  # directory + dispatch the matching ``.service``. Also reads the
+  # host's slot-upgrade log + host env from
+  # ``/var/log/spatiumddi-host`` + ``/etc/spatiumddi-host`` for the
+  # ``/appliance`` UI surfaces. Leave off for non-appliance K8s
+  # installs; the host paths don't exist there and the ``/appliance``
+  # endpoints already 404 via the ``settings.appliance_mode`` gate.
+  # #983 Phase 2 item 6 — mount the CA that signs kubelet SERVING certs, so
+  # the direct kubelet transport can verify the connection.
+  #
+  # Needed because k3s signs kubelet serving certs with its own ``server-ca``,
+  # which is NOT the CA in the ServiceAccount token mount. Without this the
+  # direct path fails verification on every node and silently falls back to
+  # the broad ``nodes/proxy`` grant — and the fix the logs name would be
+  # unreachable, since nothing would mount the file.
+  #
+  # Turn it on only after Cluster → Overview reports a CA failure: if the
+  # ServiceAccount CA already validates the kubelet (it does on some
+  # distributions), this mount buys nothing and adds a hostPath.
+  kubeletCA:
+    enabled: false
+    # Host path to the CA bundle. The k3s default; ``type: File`` means the
+    # pod fails to start rather than silently mounting an empty directory if
+    # the path is wrong.
+    hostPath: /var/lib/rancher/k3s/server/tls/server-ca.crt
+    # Where it lands in the container. Also the value of the
+    # SPATIUM_KUBELET_CA_PATH env var the chart sets from it, so the two can
+    # never disagree.
+    mountPath: /etc/spatiumddi/kubelet-ca.crt
+  applianceHostMounts:
+    enabled: false
+    # Host paths (created by spatiumddi-firstboot). The ``-host`` suffix
+    # appears only inside the container as the bind-mount target —
+    # backend code reads ``/var/lib/spatiumddi-host/release-state/...``
+    # which actually lives at ``/var/lib/spatiumddi/release-state/...``
+    # on the appliance's filesystem.
+    releaseStateDir: /var/lib/spatiumddi/release-state
+    # GHSA-h2j9-qrg7-grfw — the gid that owns releaseStateDir (mode 1770,
+    # set by spatiumddi-firstboot + a tmpfiles.d entry). Added to the api
+    # pod's supplementalGroups so it can write triggers there. Must match
+    # SPATIUM_HOST_GID in appliance/…/spatiumddi-firstboot.
+    hostGroupGid: 2770
+    hostLogDir: /var/log/spatiumddi
+    hostEtcDir: /etc/spatiumddi
+    # #386 — host dir backing the api's upgrade-image store
+    # (SPATIUM_SLOT_IMAGE_DIR, default /var/lib/spatiumddi/slot-images).
+    # Persists uploaded / GitHub-imported images across api restarts so
+    # they don't 404 with "bytes missing on disk" on the next upgrade.
+    # Mounted even when the mirror is on (#787): the mirror is enabled at
+    # promote, so an image staged while the box was single-node is still
+    # here when the mirror's PVC comes up empty, and the download handler
+    # falls back to it.
+    slotImagesDir: /var/lib/spatiumddi/slot-images
+    # #989 item 3 — host dir the removable-disk mount plane mounts USB
+    # filesystems under (<dir>/<name>, archives in <dir>/<name>/spatiumddi).
+    # Mounted into api AND worker with mountPropagation: HostToContainer,
+    # which is load-bearing rather than a detail: a hostPath defaults to
+    # PRIVATE propagation, under which a mount the host makes after the
+    # pod started is invisible inside it — the pod sees the empty
+    # underlying directory, backups land on the appliance's own /var, and
+    # every surface reports success. The backup driver additionally
+    # refuses any path under here that is not a live mountpoint.
+    removableDir: /var/lib/spatiumddi/removable
+    # #59 — host dir backing packet-capture .pcap artifacts
+    # (SPATIUM_PCAP_DIR). Shared by api (reads on download) + worker
+    # (writes the capture) on a single node. Multi-node server-vantage
+    # capture needs the mirror-proxy (a tracked follow-up); appliance is
+    # single-node so the shared hostPath is correct.
+    pcapsDir: /var/lib/spatiumddi/pcaps
+    # #1160 — host dir backing a ``local_volume`` backup target at its
+    # default path (/var/lib/spatiumddi/backups; also where restore puts
+    # its pre-restore safety dump). Mounted on api (manual runs, listing,
+    # download, restore) AND worker (every scheduled run): without it
+    # each pod writes into its own container layer, so scheduled archives
+    # are never listed and every archive is lost when the pod goes.
+    # hostPath like pcapsDir, and for the same reason: the appliance's
+    # storage class is local-path (ReadWriteOnce, node-pinned), and a PVC
+    # shared by api + worker would leave every replica on another node
+    # unschedulable under their hard anti-affinity. On a multi-node
+    # cluster this dir is therefore per node — an archive is kept on the
+    # node whose pod wrote it and listed by the api replica on that node.
+    # A cluster-wide view needs a byte-proxy store like the slot-image
+    # mirror (#296); until then a network destination (NFS, SMB, S3, …)
+    # is the multi-node choice.
+    backupsDir: /var/lib/spatiumddi/backups
+    # Slot detection — the api's slot-status/rollback handlers resolve the
+    # ACTIVE slot from /proc/cmdline + udev's /run/udev/data records and
+    # read the durable default from grubenv (mounted at /boot/efi-host in
+    # the container, like the supervisor). Without these the api reports
+    # current_slot/durable_default as null and refuses rollback (409) on
+    # every appliance, even though the host-side rollback path works.
+    # Both mounts are read-only.
+    runUdevDir: /run/udev
+    bootEfiDir: /boot/efi
+
+# ── Slot-image mirror (#296 Phase B) ────────────────────────────────────────
+# A single-replica Deployment + node-pinned local-path PVC + ClusterIP
+# Service that holds the slot-image bytes for air-gapped appliance
+# upgrades. Without this, the upload endpoint writes to the api pod's
+# ephemeral local FS and every other api replica 404s on the serve
+# side. The api Deployment proxies byte ops to the mirror Service when
+# ``SLOT_IMAGE_MIRROR_URL`` is set on the api (via env wiring below).
+#
+# Disabled by default — only useful for multi-replica api deployments
+# that also use the slot-image upload feature (= multi-node appliance
+# installs). Single-instance docker-compose / plain k8s installs that
+# just helm-upgrade through standard rolling updates don't need it.
+#
+# REQUIRED whenever api.replicas > 1 AND you upgrade from UPLOADED images.
+# With it off, uploaded bytes live on whichever api replica served the
+# upload and the host's download 404s from every other one (#787). It
+# stays off by DEFAULT because the PVC is real storage the single-node
+# appliance (whose /var is the remainder of a 32 GiB minimum disk) should
+# not be asked to reserve. Upgrading from an external image URL needs no
+# mirror at all.
+#
+# ON THE APPLIANCE THIS IS AUTOMATIC and you should not set it here: the
+# seed supervisor derives it from the control-plane size and writes it to
+# the spatium-control HelmChartConfig, so a multi-node appliance turns the
+# mirror on by itself (agent/supervisor/spatium_supervisor/k8s_api.py,
+# _slot_image_mirror_enabled). It LATCHES — a later demote leaves it on,
+# because switching back would reclaim nothing (the PVC + Secret below
+# carry helm.sh/resource-policy: keep, so Helm never deletes them) while
+# stranding every image that exists only on the mirror. This knob is for
+# BYO-Kubernetes installs, where nothing tracks the replica count for you.
+slotImageMirror:
+  enabled: false
+  priorityClassName:  # #983 — unset inherits ``global.priorityClassName``; "" means no class
+  storage:
+    # 32 GiB default — fits ~7-8 typical slot images (4 GiB cap each,
+    # but real images today are ~800 MiB-1.2 GiB compressed). Bump
+    # via ``kubectl patch pvc`` if you keep more historical
+    # versions; the chart never resizes in place (helm.sh/resource-
+    # policy: keep on the PVC).
+    size: 32Gi
+    # Empty => uses the cluster's default StorageClass. The
+    # appliance uses ``local-path`` (k3s default), which is RWO +
+    # node-pinned — exactly the property we want here.
+    storageClass: ""
+  resources:
+    # Mostly idle process serving multipart streams. Resources match
+    # the api defaults so we can reuse the image without surprise
+    # OOM behaviour during a large upload.
+    requests: { cpu: 50m, memory: 128Mi }
+    limits:   { cpu: 500m, memory: 256Mi }
+  nodeSelector: {}
+  tolerations: []
+  auth:
+    # Optional operator-provided shared secret used in the
+    # ``X-Mirror-Auth`` header the api adds when proxying byte ops
+    # to the mirror. Empty => the chart generates a 64-char hex
+    # string on first install + persists it via the
+    # ``helm.sh/resource-policy: keep`` annotation on the Secret.
+    # Set only if you're consolidating secret management against
+    # an external vault.
+    secret: ""
+
+# ── Frontend (nginx + Vite build) ────────────────────────────────────────────
+frontend:
+  replicas: 2
+  priorityClassName:  # #983 — unset inherits ``global.priorityClassName``; "" means no class
+  service:
+    type: ClusterIP
+    port: 80
+  # #272 Phase 5 — control-plane VIP. When set (multi-node HA), the
+  # frontend Service becomes type=LoadBalancer requesting this exact IP
+  # from MetalLB's ``spatium-control-plane`` pool, so the operator's
+  # browser + every agent heartbeat hit one stable address regardless
+  # of which control-plane node is up. The frontend nginx proxies /api,
+  # so this single VIP fronts both the UI and the API. The supervisor
+  # threads this in (matching ``metallb.controlPlaneVIP`` on the
+  # appliance chart) on promote, and the VIP seeds the host cert SANs.
+  # When set, a MetalLB LoadBalancer VIP is added (address-pool /
+  # loadBalancerIPs annotations, externalTrafficPolicy: Local). The
+  # frontend KEEPS hostNetwork, so each node's IP stays a direct backup
+  # path while the VIP is the primary floating address — both front the
+  # same per-node frontend pods + the same cert (#272).
+  # Empty on single-node installs → behaves exactly as before.
+  controlPlaneVIP: ""
+  # MetalLB pool name the VIP is drawn from. Matches the IPAddressPool
+  # rendered by the appliance chart (charts/spatiumddi-appliance/
+  # templates/metallb-pool.yaml). Only used when controlPlaneVIP is set.
+  controlPlaneVIPPool: spatium-control-plane
+  # #285 Phase 6 — source-scope the Web UI VIP. List of CIDRs allowed to
+  # reach the LoadBalancer VIP; empty = open to all (the field is omitted
+  # from the Service so MetalLB does not restrict). Only applied when
+  # controlPlaneVIP is set (the VIP Service exists). Driven at runtime from
+  # platform_settings.web_ui_allowed_cidrs via the supervisor's
+  # apply_control_plane_overrides overlay; set it here only for static /
+  # non-supervised deployments. The per-node hostPort :80/:443 door is
+  # scoped separately by the nftables drop-in from the same setting.
+  loadBalancerSourceRanges: []
+  # Appliance use (#183 Phase 11) — flip to true to make the frontend
+  # pod bind on the node's :80 directly via hostNetwork + hostPort.
+  # Pair with ``replicas: 1`` (the single :80 host port is exclusive).
+  # ``dnsPolicy: ClusterFirstWithHostNet`` gets added automatically so
+  # cluster DNS still resolves; the pod talks to api via the existing
+  # in-cluster ClusterIP Service through kube-proxy iptables.
+  # Off-appliance K8s deployments leave this false + run an Ingress
+  # in front instead.
+  hostNetwork: false
+  # Phase 11 wave 3 (#183) — TLS termination at the frontend nginx.
+  # When enabled, the frontend pod mounts a ConfigMap with a
+  # TLS-aware nginx template (templates/frontend-tls-config.yaml)
+  # at /etc/nginx/templates/default.conf.template + a Secret with
+  # the cert/key at /etc/nginx/tls/. Port 80 → 443 redirect; 443
+  # serves the SpatiumDDI UI. ``secretName`` is the
+  # kubernetes.io/tls Secret firstboot creates with the self-
+  # signed cert (operator-uploaded cert later replaces the Secret
+  # contents via the Cert Manager UI).
+  tls:
+    enabled: false
+    secretName: spatium-appliance-tls
+  # Issue #176: the frontend nginx proxies ``/api/`` to the api Service
+  # using a runtime-substituted upstream. The Docker image defaults to
+  # ``api:8000`` (the Compose service name) which doesn't resolve on
+  # Kubernetes. By default we point at this release's api Service —
+  # ``{{ fullname }}-api`` — and inherit the api port from
+  # ``api.service.port``. Override if the api lives in a different
+  # Service / namespace (``my-api.shared-ns.svc.cluster.local``) or on
+  # a non-standard port.
+  apiUpstream:
+    host: ""    # default: "{{ fullname }}-api"
+    port: 0     # default: .Values.api.service.port (8000)
+  # Optional explicit DNS resolver(s) for the frontend nginx. Leave
+  # empty to auto-detect from /etc/resolv.conf at container start
+  # (``NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1`` is set in the image), which
+  # works on every standard Kubernetes cluster — Pods get cluster DNS
+  # injected automatically. Set explicitly only if your cluster has a
+  # custom DNS topology (e.g. ``10.96.0.10`` for a pinned CoreDNS IP,
+  # or ``"1.1.1.1 8.8.8.8"`` for upstream-only resolution).
+  nginxLocalResolvers: ""
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits:   { cpu: 200m, memory: 128Mi }
+  nodeSelector: {}
+  # See api.tolerations — fast eviction is an appliance-only override.
+  tolerations: []
+  # One of hard | soft | none — see api.podAntiAffinity.
+  podAntiAffinity: soft
+  affinity: {}
+  podAnnotations: {}
+
+# ── Worker (Celery queues: ipam, dns, dhcp, default, bundles) ─────────────────────────
+worker:
+  replicas: 2
+  priorityClassName:  # #983 — unset inherits ``global.priorityClassName``; "" means no class
+  # #983 Phase 2 — mount a ServiceAccount on the worker so it can read the
+  # kubelet Summary API. Alert evaluation runs in the WORKER, so without this
+  # the ``node_pressure`` PSI rule can never fire — it would sit enabled in
+  # the Alerts UI and evaluate to nothing forever.
+  #
+  # Narrow by design: nodes read + nodes/stats, and nothing the api's
+  # orchestrator role carries (no eviction, no node patch, no Secret write).
+  # Off by default like every other cluster-touching switch; the appliance
+  # overlay turns it on.
+  serviceAccount:
+    enabled: false
+  # #983 Phase 2 — user namespaces (Kubernetes 1.36 GA). UNSET by default.
+  # REFUSED at render time while ``api.applianceHostMounts.enabled`` is on:
+  # the host directories this pod writes are chowned to the image's uid, and
+  # a user namespace remaps exactly that. Usable on a plain Kubernetes
+  # install, which is also where it is worth most — this pod runs tcpdump,
+  # nmap and operator-typed argv.
+  hostUsers:
+  # #983 — extra placement push in ``soft`` anti-affinity mode, where
+  # preferred anti-affinity can still stack every replica on one node.
+  # Rendered only at replicas > 1 in ``soft`` mode; supply your own list
+  # here to replace the default entirely.
+  topologySpreadConstraints: []
+  concurrency: 4
+  # #1111 — ``bundles`` carries the DNS agent bundle renders; give it its
+  # own worker (concurrency 1, its own memory cap) on large-record estates.
+  queues: "ipam,dns,dhcp,default,bundles"
+  resources:
+    requests: { cpu: 200m, memory: 256Mi }
+    limits:   { cpu: 2000m, memory: 1Gi }
+  # Add CAP_NET_RAW to the worker pod so nmap can do SYN scans + ``-O``
+  # OS detection from the device-profiling auto-nmap path. NET_RAW is
+  # in containerd's default cap set so this is a no-op on permissive
+  # clusters; on restricted PSA / OpenShift-SCC it's required.
+  # Set to false if you've turned off device profiling cluster-wide
+  # and want a tighter security posture.
+  netRawCapability: true
+  nodeSelector: {}
+  # See api.tolerations — fast eviction is an appliance-only override.
+  tolerations: []
+  # One of hard | soft | none — see api.podAntiAffinity.
+  podAntiAffinity: soft
+  affinity: {}
+  podAnnotations: {}
+
+# ── Beat (singleton scheduler — always 1 replica) ────────────────────────────
+beat:
+  priorityClassName:  # #983 — unset inherits ``global.priorityClassName``; "" means no class
+  # #983 Phase 2 — user namespaces (Kubernetes 1.36 GA). ``false`` maps
+  # container root to an unprivileged host uid, so a container escape is not
+  # root on the node. UNSET by default: a runtime without idmapped-mount
+  # support refuses the pod outright, which is the right failure but is
+  # still a failure, so it has to be opted into.
+  hostUsers:
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits:   { cpu: 200m, memory: 256Mi }
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podAnnotations: {}
+  # Beat is a singleton (see beat.yaml DECISION block). On a hard node
+  # loss it must reschedule onto a surviving control-plane node quickly;
+  # the chart emits unreachable/not-ready NoExecute tolerations with this
+  # tolerationSeconds so the gap is ~30s instead of the ~300s default.
+  fastRescheduleSeconds: 30
+
+# ── Migrate (Alembic upgrade head) ───────────────────────────────────────────
+# Regular Job (named per Helm revision so each install/upgrade creates
+# a fresh one). The Job's pod has a wait-for-postgres init container; the
+# api / worker / beat pods carry a matching wait-for-migrate init that
+# blocks rollout until the schema is in place. Disable if you're driving
+# migrations from CI/CD instead of Helm.
+migrate:
+  enabled: true
+  priorityClassName:  # #983 — unset inherits ``global.priorityClassName``; "" means no class
+  backoffLimit: 3
+  # Garbage-collect each migrate Job this many seconds after completion.
+  # Without a TTL the cluster would slowly accumulate one completed Job
+  # per Helm revision.
+  ttlSecondsAfterFinished: 600
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits:   { cpu: 200m, memory: 256Mi }
+
+# ── Ingress (for the frontend; API is routed through the frontend nginx) ─────
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+    # nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: spatiumddi.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+    # - secretName: spatiumddi-tls
+    #   hosts:
+    #     - spatiumddi.example.com
+
+# ── Postgres ─────────────────────────────────────────────────────────────────
+# Two in-chart shapes, picked via ``postgresql.kind``:
+#
+# * ``standalone`` (default) — single-node StatefulSet using the
+#   official ``postgres:16-alpine`` image (matches docker-compose.yml).
+#   Sized for small lab / single-VM deployments. No HA, no failover.
+# * ``cnpg`` (#272 Phase 2) — CloudNativePG ``Cluster`` CR.
+#   Operator-managed primary + sync replicas + async replicas, with
+#   automatic failover. Requires the CloudNativePG operator already
+#   installed in the cluster (bundled in
+#   ``charts/spatiumddi-appliance/`` for appliance installs; for
+#   plain k8s installs apply the operator separately via:
+#   ``kubectl apply --server-side -f
+#    https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.30/releases/cnpg-1.30.0.yaml``
+#   ).
+#   Pick the operator line your cluster is in CNPG's support matrix
+#   for, not simply the newest: 1.30.x covers Kubernetes 1.34-1.36
+#   (what the appliance ships), while an older cluster wants the
+#   matching older line. The appliance pin lives in
+#   ``charts/spatiumddi-appliance/Chart.yaml``.
+#
+# For an externally-managed database, set ``postgresql.enabled=false``
+# and fill in the ``externalDatabase`` block below.
+postgresql:
+  enabled: true
+  priorityClassName:  # #983 — unset inherits ``global.priorityClassName``; "" means no class
+  kind: standalone
+  image:
+    repository: postgres
+    tag: "16-alpine"
+    pullPolicy: IfNotPresent
+  auth:
+    username: spatiumddi
+    database: spatiumddi
+    # Password for the chart-managed user. If empty we generate a
+    # random password on first install (persisted on the chart-owned
+    # secret via lookup() across upgrades). Set ``existingSecret`` to
+    # BYO.
+    password: ""
+    existingSecret: ""           # external secret with key `password`
+  persistence:
+    enabled: true
+    size: 8Gi
+    storageClass: ""             # empty → cluster default StorageClass
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits:   { cpu: 1000m, memory: 1Gi }
+  nodeSelector: {}
+  # #272 — fast failover on a hard node loss. k8s auto-injects a 300 s
+  # NoExecute tolerationSeconds (DefaultTolerationSeconds), so a CNPG
+  # primary on a powered-off node sits ~5 min before eviction → CNPG
+  # can't promote a replica → the -rw service has no endpoint → all
+  # writes (including login) stall. Override with 20 s so a dead primary
+  # node fails over in ~node-grace(40 s)+20 s ≈ 1 min. CNPG threads
+  # these into the instance pods via the Cluster CR's affinity block.
+  # Not lower than ~15 s: too-tight turns a transient blip (NIC hiccup,
+  # GC pause on a 1-CPU appliance) into a needless failover + re-sync.
+  tolerations:
+    - key: node.kubernetes.io/unreachable
+      operator: Exists
+      effect: NoExecute
+      tolerationSeconds: 20
+    - key: node.kubernetes.io/not-ready
+      operator: Exists
+      effect: NoExecute
+      tolerationSeconds: 20
+  affinity: {}
+  # CNPG-specific topology (only used when ``kind: cnpg``).
+  cnpg:
+    # Grant CREATEDB to the application role (#702). Restore-verification
+    # drills create a throwaway database, replay the newest backup archive
+    # into it, assert against the result, and drop it. The role initdb
+    # creates has no CREATEDB and superuser access is off, so drills cannot
+    # run at all without this. Applied via ``managed.roles`` so it also
+    # reaches clusters created before #702. Set false to withhold the
+    # privilege — drills then report a clear "role lacks CREATEDB" error.
+    appRoleCreateDb: true
+    # Replica count. 3 is the smallest etcd-quorum-friendly default
+    # (primary + sync replica + async replica). 5 / 7 for larger
+    # clusters. CNPG enforces odd counts implicitly via its leader-
+    # election layer.
+    instances: 3
+    # #590 — instance spreading. CNPG defaults to anti-affinity ON but
+    # ``preferred`` (best effort), which on a 1→3 promote let two of three
+    # instances land on the seed: losing that node would have taken the
+    # primary AND a replica together.
+    #
+    # ``required`` forces one instance per node. It cannot deadlock an
+    # update the way a Deployment's surge pod can — CNPG replaces an
+    # instance in place (same pod name, same PVC) rather than scheduling a
+    # second copy beside it.
+    #
+    # Chart default is ``preferred`` because a BYO-Kubernetes install may
+    # run more instances than nodes, where a Pending replica is worse than
+    # a co-located one. The appliance renders ``required``, where instance
+    # count tracks the control-plane node count exactly.
+    #
+    # ⚠ Flipping an EXISTING cluster to ``required`` can strand an instance
+    # whose PVC is already bound to an occupied node — see the upgrade note
+    # in charts/spatiumddi/README.md. Repair a REPLICA only; never delete
+    # the primary's PVC.
+    enablePodAntiAffinity: true
+    podAntiAffinityType: preferred     # preferred | required
+    topologyKey: kubernetes.io/hostname
+    # Postgres image used by CNPG-managed pods. Must be a CNPG-built
+    # image (regular ``postgres:16`` images are missing the WAL-G /
+    # barman wrappers CNPG relies on for backups + failover).
+    imageName: "ghcr.io/cloudnative-pg/postgresql:16"
+    # Server-side parameters. Tune for your workload; defaults match
+    # the prototype at ``k8s/ha/postgres-cluster.yaml``.
+    parameters:
+      max_connections: "200"
+      shared_buffers: "256MB"
+      work_mem: "16MB"
+    # PodMonitor for Prometheus Operator. Default false because most
+    # installs don't have Prometheus Operator + ServiceMonitor CRDs.
+    monitoring:
+      enablePodMonitor: false
+    # PodDisruptionBudget for the primary (#296 Phase A). CNPG default
+    # is true; we set it explicitly so the contract is visible. During
+    # a rolling upgrade the orchestrator sets
+    # ``spec.nodeMaintenanceWindow.{inProgress: true, reusePVC: true}``
+    # which suspends this PDB for the node under maintenance — the
+    # CNPG-blessed pattern. Outside the upgrade window the PDB
+    # prevents accidental simultaneous evictions taking the primary
+    # offline (e.g. an operator running ``kubectl drain`` by hand).
+    enablePDB: true
+    # Continuous WAL archiving to an object store. Defer beyond #272
+    # Phase 2 — the existing pg_dump-based backup workflow already
+    # covers the disaster-recovery story for v1. See CNPG docs for
+    # ``barmanObjectStore`` shape.
+    backup:
+      enabled: false
+      retentionPolicy: "30d"
+
+# Used when postgresql.enabled=false.
+externalDatabase:
+  host: ""
+  port: 5432
+  username: spatiumddi
+  database: spatiumddi
+  password: ""
+  existingSecret: ""             # external secret; key defaults to `password`
+  existingSecretPasswordKey: "password"
+
+# ── Redis ────────────────────────────────────────────────────────────────────
+# Two in-chart shapes, picked via ``redis.kind``:
+#
+# * ``standalone`` (default) — single-node StatefulSet using the
+#   official ``redis:8.10.2-alpine`` image (matches docker-compose.yml).
+#   No HA, no failover.
+# * ``sentinel`` (#272 Phase 3) — a 3-replica StatefulSet where each
+#   pod runs a redis-server + a redis-sentinel sidecar. The sentinels
+#   elect a master + fail over automatically. The api / worker / beat
+#   pick up a ``sentinel://`` URL (see spatiumddi.commonEnv) and
+#   resolve the live master through the sentinels — no static master
+#   Service needed. ``master_name`` is fixed to ``mymaster``.
+#
+# For an externally-managed Redis, set ``redis.enabled=false`` and
+# fill in ``externalRedis``.
+redis:
+  enabled: true
+  priorityClassName:  # #983 — unset inherits ``global.priorityClassName``; "" means no class
+  # #983 Phase 2 — user namespaces (Kubernetes 1.36 GA). UNSET by default,
+  # and think before setting it here: this workload owns a PVC, and on the
+  # appliance the StorageClass is local-path, i.e. a host directory. If the
+  # runtime does not idmap that mount, the remapped uid cannot read the data
+  # it wrote before the change. Not refused (a runtime that idmaps correctly
+  # makes it safe) — but verify on one node before the fleet.
+  hostUsers:
+  kind: standalone
+  image:
+    repository: redis
+    tag: "8.10.2-alpine"
+    pullPolicy: IfNotPresent
+  # Cap and eviction policy match docker-compose.yml's redis-server
+  # CLI flags. Bump if your install needs a larger cache.
+  maxmemory: "256mb"
+  # #590 — how much of a CORRUPT AOF tail redis will discard at load rather
+  # than refusing to start. Redis defaults this to 0, i.e. any corruption
+  # is fatal, so a replica killed mid-write by a power cut crashloops on
+  # "Bad file format reading the append only file" forever.
+  #
+  # NOT the same thing as ``aof-load-truncated`` (which defaults to yes and
+  # is left alone). A power cut leaves the AOF tail in one of two states:
+  #
+  #   * SHORT (the file simply ends mid-record) → ``aof-load-truncated``
+  #     already handles it: redis logs "Truncating the AOF … loaded anyway"
+  #     and starts. This knob is not involved.
+  #   * CORRUPT (the tail is present but garbage — typically zero-filled,
+  #     because ext4 delayed allocation records the new file size before
+  #     the data reaches disk) → "Bad file format", and redis REFUSES to
+  #     start until you set this. This is what #590 hit.
+  #
+  # So don't remove this on the grounds that aof-load-truncated covers it.
+  # It doesn't. And a torn tail is expected on power loss, not exceptional:
+  # this is cache + Celery broker data with Postgres as the store of
+  # record, so discarding the tail always beats never booting. Set 0 to
+  # restore upstream behaviour.
+  #
+  # PLAIN BYTE COUNT, not a "16mb"-style memory string — redis parses this
+  # one as an integer and dies at startup ("argument couldn't be parsed
+  # into an integer") on a suffixed value, in both the redis.conf and the
+  # --flag form. 16 MiB.
+  aofLoadCorruptTailMaxBytes: 16777216
+  auth:
+    enabled: false               # internal cluster traffic; flip to true if shared
+    password: ""                 # empty → generated on first install when auth.enabled=true
+    existingSecret: ""           # external secret with key `redis-password`
+  persistence:
+    enabled: true
+    size: 2Gi
+    storageClass: ""
+  resources:
+    requests: { cpu: 50m, memory: 64Mi }
+    limits:   { cpu: 500m, memory: 512Mi }
+  nodeSelector: {}
+  # #272 — fast failover on a hard node loss (same rationale as
+  # postgresql.tolerations above). Sentinel elects a new master in
+  # seconds on its own, but the redis pod on a dead node otherwise sits
+  # ~5 min before eviction; 20 s keeps the StatefulSet membership fresh.
+  tolerations:
+    - key: node.kubernetes.io/unreachable
+      operator: Exists
+      effect: NoExecute
+      tolerationSeconds: 20
+    - key: node.kubernetes.io/not-ready
+      operator: Exists
+      effect: NoExecute
+      tolerationSeconds: 20
+  affinity: {}
+  # Sentinel topology (only used when ``kind: sentinel``).
+  sentinel:
+    # Replica count — 3 is the smallest quorum (1 master + 2 replicas,
+    # 3 sentinels). The sentinel quorum to declare a master down is
+    # floor(replicas/2)+1 = 2 at 3 replicas.
+    replicas: 3
+    # The Sentinel-monitored master name. Must match the app's
+    # ``redis_sentinel_master`` setting (default ``mymaster``); the
+    # chart wires the env var to this value.
+    masterName: mymaster
+    # down-after / failover tuning (ms).
+    downAfterMs: 5000
+    failoverTimeoutMs: 60000
+
+# Used when redis.enabled=false.
+externalRedis:
+  # Full URL form, e.g. redis://:password@host:6379. If empty, composed from
+  # host/port/password fields below.
+  url: ""
+  host: ""
+  port: 6379
+  password: ""
+  existingSecret: ""
+  existingSecretPasswordKey: "password"
+
+# ── DNS agents (optional — managed BIND9 / PowerDNS StatefulSets) ────────────
+# One StatefulSet + Services pair per entry. `enabled: false` skips the
+# whole block; typical deployments run DNS agents in a separate cluster
+# closer to the network edge.
+dnsAgents:
+  enabled: false
+  priorityClassName:  # #983 — unset inherits ``global.servicePriorityClassName``; "" means no class
+  # Default image — used when a server entry doesn't override.
+  # Configures the BIND9 driver (the historical default flavor).
+  image:
+    repository: ghcr.io/spatiumnorth/dns-bind9
+    tag: ""                      # empty → use Chart.appVersion
+    pullPolicy: IfNotPresent
+  # Per-driver image overrides (issue #127). Each key matches a
+  # ``servers[].flavor`` value; missing keys fall back to
+  # ``dnsAgents.image``. Add a ``powerdns`` server entry to enable
+  # PowerDNS-driver groups alongside BIND9.
+  flavors:
+    powerdns:
+      repository: ghcr.io/spatiumnorth/dns-powerdns
+      tag: ""                    # empty → use Chart.appVersion
+    technitium:
+      repository: ghcr.io/spatiumnorth/dns-technitium
+      tag: ""                    # empty → use Chart.appVersion
+  # PSK carrying DNS_AGENT_KEY. Prefer `existingSecret`; `value` lives here
+  # only to make lab walk-throughs runnable in one command.
+  agentKey:
+    existingSecret: ""           # external secret with key DNS_AGENT_KEY
+    value: ""
+  servers: []
+    # - name: ns1
+    #   flavor: bind9            # bind9 (default) | powerdns | technitium
+    #   role: primary            # primary | secondary
+    #   group: internal-resolvers
+    #   storage: { agentState: 1Gi, dnsState: 2Gi }
+    #   service: { type: LoadBalancer }
+    #   # LoadBalancer Services keep the client address by default
+    #   # (externalTrafficPolicy: Local — each server is a single-replica
+    #   # StatefulSet, so the announcing node is the pod's node anyway);
+    #   # set externalTrafficPolicy: Cluster to opt out. The remaining
+    #   # fields are rendered when set (#1548):
+    #   # service:
+    #   #   annotations:
+    #   #     metallb.universe.tf/address-pool: default
+    #   #     metallb.universe.tf/loadBalancerIPs: 10.0.0.53
+    #   #   loadBalancerIP: 10.0.0.53
+    #   #   loadBalancerSourceRanges: [192.0.2.0/24]
+    #   #   ipFamilyPolicy: PreferDualStack  # + ipFamilies: [IPv4, IPv6]
+    #   resources:
+    #     requests: { cpu: 100m, memory: 128Mi }
+    #     limits:   { cpu: 500m, memory: 512Mi }
+    #   # Encrypted transports — DoT / DoH / DoQ (issues #50, #741, #799).
+    #   # All OFF by default. The listener ports are configured in the
+    #   # DATABASE (DNS → Server Groups → Options → Encrypted transports) —
+    #   # the agent renders the daemon config from the config bundle, not
+    #   # from these values. Set these to MATCH the ports you chose there;
+    #   # they only declare the containerPort + Service port so the listener
+    #   # is routable through the Service and visible to NetworkPolicy.
+    #   # Omit = not declared.
+    #   dotPort: 853
+    #   dohPort: 8443            # 443 usually collides with an Ingress
+    #   # doqPort is flavor: technitium ONLY — BIND has no QUIC transport,
+    #   # and the API refuses doq_enabled on a group with any non-Technitium
+    #   # member. It renders protocol: UDP, so it may carry the SAME number
+    #   # as dotPort: 853 is the RFC default for both.
+    #   doqPort: 853
+    # - name: ns1-pdns
+    #   flavor: powerdns         # PowerDNS group; LMDB-backed zone storage
+    #   role: primary
+    #   group: powerdns-internal
+    #   storage: { agentState: 1Gi, dnsState: 2Gi }   # dnsState → /var/lib/powerdns
+
+# ── DHCP agents (optional — managed Kea StatefulSets) ────────────────────────
+dhcpAgents:
+  enabled: false
+  priorityClassName:  # #983 — unset inherits ``global.servicePriorityClassName``; "" means no class
+  image:
+    repository: ghcr.io/spatiumnorth/dhcp-kea
+    tag: ""
+    pullPolicy: IfNotPresent
+  agentKey:
+    existingSecret: ""           # external secret with key SPATIUM_AGENT_KEY
+    value: ""
+  servers: []
+    # - name: dhcp1
+    #   role: primary
+    #   group: default
+    #   storage: { agentState: 1Gi, keaState: 2Gi }
+    #   hostNetwork: false       # true binds the node's UDP/67 directly:
+    #                            # broadcast clients work with no relay,
+    #                            # and a relay reaches the node on 67
+    #   service: { type: LoadBalancer }
+    #                            # the default. A DHCP relay (ip
+    #                            # helper-address) can only forward to
+    #                            # UDP/67, so without hostNetwork point it
+    #                            # at the LoadBalancer address. A pinned
+    #                            # NodePort (service: { type: NodePort,
+    #                            # nodePort: 30067 }) only helps a relay
+    #                            # that can forward to a non-standard
+    #                            # port. On a NodePort Service the
+    #                            # `port: 67` is in-cluster only; the
+    #                            # node-facing port is the nodePort, which
+    #                            # Kubernetes picks at random (30000–32767)
+    #                            # when it is not pinned.
+    #   resources:
+    #     requests: { cpu: 100m, memory: 128Mi }
+    #     limits:   { cpu: 500m, memory: 512Mi }

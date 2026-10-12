@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spatium-dns-agent"
+# Package metadata only. The version the agent reports is stamped into the
+# image at build time (its package __init__.py).
+version = "0.0.0"
+description = "SpatiumDDI sidecar agent for managed BIND9 containers"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "Apache-2.0" }
+authors = [{ name = "SpatiumDDI Contributors" }]
+dependencies = [
+  "httpx>=0.27",
+  "structlog>=24.1",
+  "dnspython>=2.6",
+  "cryptography>=42",
+  "pydantic>=2.6",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-asyncio>=0.23", "ruff>=0.4", "mypy>=1.10"]
+
+[project.scripts]
+spatium-dns-agent = "spatium_dns_agent.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["spatium_dns_agent*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"

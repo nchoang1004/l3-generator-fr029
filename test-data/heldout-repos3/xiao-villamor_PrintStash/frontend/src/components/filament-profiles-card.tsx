@@ -1,0 +1,1384 @@
+"use client";
+
+import { uiText } from "@/lib/locale";
+import { useUiLocale } from "@/lib/i18n";
+
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import {
+  filamentProfilesOptions,
+  printerProfilesOptions,
+  useProfileCommands,
+} from "@/lib/queries/profiles";
+import { getSessionVersion } from "@/lib/session-transport";
+import { ApiError, parseApiError, userMessage } from "@/lib/errors";
+import { captureEditingBase } from "@/lib/api/editing";
+import {
+  FilamentProfileRead,
+  PrinterProfileRead,
+  FilamentProfileUpdate,
+  PrinterProfileUpdate,
+} from "@/types";
+
+import { useSpoolmanStatus } from "@/lib/queries";
+import { toast } from "@/lib/toast";
+import { useRequireAuth } from "@/lib/use-require-auth";
+import {
+  Check,
+  Layers,
+  Loader2,
+  Plus,
+  Printer,
+  RefreshCw,
+  Trash2,
+  X,
+  ChevronDown,
+} from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import { TabBar } from "@/components/ui/tabs";
+import { Localized } from "@/components/ui/localized";
+import { useI18n } from "@/lib/i18n";
+import { translateUiText } from "@/lib/locale";
+
+type FilamentEdit = {
+  name: string;
+  materialType: string;
+  materialBrand: string;
+  cost: string;
+  notes: string;
+};
+
+type FilamentDraft = FilamentEdit & { base: FilamentProfileRead };
+
+type PrinterEdit = {
+  name: string;
+  model: string;
+  nozzle: string;
+  notes: string;
+};
+
+type PrinterDraft = PrinterEdit & { base: PrinterProfileRead };
+
+type PresetReview<Row> = { phase: "required" | "loading" } | { phase: "ready"; snapshot: Row };
+
+function needsPresetReview(parsed: ApiError): boolean {
+  return (
+    parsed.status === 412 ||
+    parsed.status === 428 ||
+    parsed.status === 0 ||
+    parsed.status >= 500 ||
+    parsed.code === "filament_profile_linked"
+  );
+}
+
+type DeletePresetTarget = {
+  kind: "filament" | "printer";
+  id: number;
+  name: string;
+};
+
+const compactInputClass = "h-9 text-sm";
+
+function parseOptionalNumber(value: string): number | null {
+  if (!value.trim()) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : Number.NaN;
+}
+
+function formatCost(value: number | null): string {
+  return value == null ? "" : String(Number(value.toFixed(2)));
+}
+
+function formatNozzle(value: number | null): string {
+  return value == null ? "" : String(value);
+}
+
+function filamentEdit(profile: FilamentProfileRead): FilamentEdit {
+  return {
+    name: profile.name,
+    materialType: profile.material_type ?? "",
+    materialBrand: profile.material_brand ?? "",
+    cost: formatCost(profile.cost_per_kg),
+    notes: profile.notes ?? "",
+  };
+}
+
+function printerEdit(profile: PrinterProfileRead): PrinterEdit {
+  return {
+    name: profile.name,
+    model: profile.printer_model ?? "",
+    nozzle: formatNozzle(profile.nozzle_diameter_mm),
+    notes: profile.notes ?? "",
+  };
+}
+
+function filamentDirty(profile: FilamentProfileRead, edit: FilamentEdit): boolean {
+  const base = filamentEdit(profile);
+  return (
+    base.name !== edit.name ||
+    base.materialType !== edit.materialType ||
+    base.materialBrand !== edit.materialBrand ||
+    base.cost !== edit.cost ||
+    base.notes !== edit.notes
+  );
+}
+
+function printerDirty(profile: PrinterProfileRead, edit: PrinterEdit): boolean {
+  const base = printerEdit(profile);
+  return (
+    base.name !== edit.name ||
+    base.model !== edit.model ||
+    base.nozzle !== edit.nozzle ||
+    base.notes !== edit.notes
+  );
+}
+
+// Material type is free-form user text, so the swatch lookup is a Map: an
+// unrecognised material reads back as `undefined` and takes the neutral swatch.
+const MATERIAL_COLORS = new Map([
+  ["pla", "bg-emerald-500"],
+  ["petg", "bg-primary"],
+  ["abs", "bg-primary"],
+  ["asa", "bg-teal-500"],
+  ["tpu", "bg-purple-500"],
+  ["flex", "bg-purple-400"],
+  ["nylon", "bg-yellow-500"],
+  ["pa", "bg-yellow-500"],
+  ["resin", "bg-red-500"],
+  ["pc", "bg-sky-500"],
+  ["hips", "bg-amber-400"],
+]);
+
+function materialColor(type: string): string {
+  const key = type.toLowerCase().trim();
+  return MATERIAL_COLORS.get(key) ?? "bg-slate-400";
+}
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  useUiLocale();
+  return (
+    <span className="mb-1.5 block text-3xs font-semibold uppercase tracking-wider text-muted-foreground">
+      {children}
+    </span>
+  );
+}
+
+function RowLabel({ children }: { children: React.ReactNode }) {
+  useUiLocale();
+  return (
+    <span className="mb-1.5 block text-3xs font-semibold uppercase tracking-wider text-muted-foreground md:sr-only">
+      {children}
+    </span>
+  );
+}
+
+function RowStatus({ state }: { state?: "saving" | "saved" }) {
+  useUiLocale();
+  if (state === "saving")
+    return <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />;
+  if (state === "saved") return <Check className="h-3.5 w-3.5 text-emerald-500" />;
+  return null;
+}
+
+function PresetReviewPanel({
+  review,
+  busy,
+  canSave,
+  replaced,
+  onReview,
+  onAdopt,
+  onSave,
+}: {
+  review: PresetReview<FilamentProfileRead | PrinterProfileRead>;
+  busy: boolean;
+  canSave: boolean;
+  replaced: boolean;
+  onReview: () => void;
+  onAdopt: () => void;
+  onSave: () => void;
+}) {
+  useUiLocale();
+  const row = review.phase === "ready" ? review.snapshot : null;
+  return (
+    <div
+      role="status"
+      aria-label={uiText("Current preset values")}
+      className="col-span-full space-y-2 rounded-md border p-3 text-sm"
+    >
+      <p>{uiText("This preset needs review before another save. Your draft is preserved.")}</p>
+      {replaced && (
+        <p>{uiText("Preset history changed. Use current values before starting another edit.")}</p>
+      )}
+      {row && (
+        <dl className="grid grid-cols-2 gap-2">
+          <dt>{uiText("Name")}</dt>
+          <dd>{row.name}</dd>
+          {"material_type" in row ? (
+            <>
+              <dt>{uiText("Material")}</dt>
+              <dd>{row.material_type}</dd>
+              <dt>{uiText("Brand")}</dt>
+              <dd>{row.material_brand}</dd>
+              <dt>{uiText("Cost per kg")}</dt>
+              <dd>{row.cost_per_kg}</dd>
+              {row.spoolman_filament_id !== null && (
+                <>
+                  <dt>{uiText("Spoolman")}</dt>
+                  <dd>{uiText("Synced")}</dd>
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              <dt>{uiText("Printer model")}</dt>
+              <dd>{row.printer_model}</dd>
+              <dt>{uiText("Nozzle")}</dt>
+              <dd>{row.nozzle_diameter_mm}</dd>
+            </>
+          )}
+          <dt>{uiText("Notes")}</dt>
+          <dd>{row.notes}</dd>
+        </dl>
+      )}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          size="xs"
+          variant="outline"
+          onClick={onReview}
+          disabled={busy || review.phase === "loading"}
+        >
+          {uiText("Review current values")}
+        </Button>
+        {row && (
+          <>
+            <Button size="xs" variant="outline" onClick={onAdopt} disabled={busy}>
+              {uiText("Use current values")}
+            </Button>
+            <Button size="xs" onClick={onSave} disabled={busy || !canSave}>
+              {uiText("Save revised changes")}
+            </Button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function FilamentProfilesCard() {
+  useUiLocale();
+  const auth = useRequireAuth();
+  const { locale } = useI18n();
+  const [activeTab, setActiveTab] = useState<"filaments" | "printers">("filaments");
+  const filamentQuery = useQuery({ ...filamentProfilesOptions(), enabled: auth.isAuthenticated });
+  const printerQuery = useQuery({ ...printerProfilesOptions(), enabled: auth.isAuthenticated });
+  const commands = useProfileCommands();
+  const filamentDenied =
+    filamentQuery.error instanceof ApiError && [401, 403, 404].includes(filamentQuery.error.status);
+  const printerDenied =
+    printerQuery.error instanceof ApiError && [401, 403, 404].includes(printerQuery.error.status);
+  const filaments = filamentDenied ? [] : (filamentQuery.data ?? []);
+  const printers = printerDenied ? [] : (printerQuery.data ?? []);
+  const activeDenied = activeTab === "filaments" ? filamentDenied : printerDenied;
+  const activeQuery = activeTab === "filaments" ? filamentQuery : printerQuery;
+  const loading = activeQuery.isPending;
+  const [filamentEdits, setFilamentEdits] = useState<Record<number, FilamentDraft>>({});
+  const [printerEdits, setPrinterEdits] = useState<Record<number, PrinterDraft>>({});
+  const [filamentReviews, setFilamentReviews] = useState<
+    Record<number, PresetReview<FilamentProfileRead>>
+  >({});
+  const [printerReviews, setPrinterReviews] = useState<
+    Record<number, PresetReview<PrinterProfileRead>>
+  >({});
+  const [error, setError] = useState<string | null>(null);
+  // Per-row auto-save indicator, keyed "f{id}" / "p{id}".
+  const [rowStatus, setRowStatus] = useState<Record<string, "saving" | "saved">>({});
+  const [filamentValidationErrors, setFilamentValidationErrors] = useState<Record<number, string>>(
+    {},
+  );
+  const [deleteTarget, setDeleteTarget] = useState<DeletePresetTarget | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+
+  // Spoolman sync: when enabled, presets can be imported/refreshed from Spoolman
+  // (the source of truth). Synced presets are read-only here.
+  const spoolmanEnabled = useSpoolmanStatus().data?.enabled ?? false;
+  const [syncing, setSyncing] = useState(false);
+
+  // add form state — filament
+  const [showAddFilament, setShowAddFilament] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newType, setNewType] = useState("");
+  const [newBrand, setNewBrand] = useState("");
+  const [newCost, setNewCost] = useState("");
+  const [newNotes, setNewNotes] = useState("");
+
+  // add form state — printer
+  const [showAddPrinter, setShowAddPrinter] = useState(false);
+  const [newPrinterName, setNewPrinterName] = useState("");
+  const [newPrinterModel, setNewPrinterModel] = useState("");
+  const [newPrinterNozzle, setNewPrinterNozzle] = useState("");
+  const [newPrinterNotes, setNewPrinterNotes] = useState("");
+
+  function updateFilamentEdit(id: number, patch: Partial<FilamentEdit>) {
+    const profile = filaments.find((row) => row.id === id);
+    if (!profile) throw new Error("Filament draft requires a loaded profile");
+    setFilamentEdits((cur) => ({
+      ...cur,
+      [id]: {
+        ...(cur[id] ?? { ...filamentEdit(profile), base: profile }),
+        ...patch,
+      },
+    }));
+    setFilamentValidationErrors((current) => {
+      if (!(id in current)) return current;
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
+  }
+
+  function updatePrinterEdit(id: number, patch: Partial<PrinterEdit>) {
+    const profile = printers.find((row) => row.id === id);
+    if (!profile) throw new Error("Printer draft requires a loaded profile");
+    setPrinterEdits((cur) => ({
+      ...cur,
+      [id]: { ...(cur[id] ?? { ...printerEdit(profile), base: profile }), ...patch },
+    }));
+  }
+
+  async function handleCreateFilament() {
+    const trimmedName = newName.trim();
+    if (!trimmedName) return;
+    if (!auth.isAuthenticated) {
+      auth.showAuthRequiredToast();
+      return;
+    }
+    const parsedCost = parseOptionalNumber(newCost);
+    if (parsedCost !== null && Number.isNaN(parsedCost)) {
+      toast.error(uiText("Invalid filament cost"));
+      return;
+    }
+    const session = getSessionVersion();
+    try {
+      await commands.createFilament.mutateAsync({
+        session,
+        payload: {
+          name: trimmedName,
+          material_type: newType.trim() || null,
+          material_brand: newBrand.trim() || null,
+          cost_per_kg: parsedCost,
+          notes: newNotes.trim() || null,
+        },
+      });
+      if (getSessionVersion() !== session) return;
+      setError(null);
+      setNewName("");
+      setNewType("");
+      setNewBrand("");
+      setNewCost("");
+      setNewNotes("");
+      setShowAddFilament(false);
+      toast.success(uiText('Filament preset "{value1}" saved', { value1: String(trimmedName) }));
+    } catch (e) {
+      if (getSessionVersion() !== session) return;
+      setError(userMessage(e));
+      toast.error(e);
+    }
+  }
+
+  function flashSaved(key: string) {
+    setRowStatus((s) => ({ ...s, [key]: "saved" }));
+    setTimeout(
+      () =>
+        setRowStatus((s) => {
+          // An earlier success indicator must not unlock a later pending save.
+          if (s[key] !== "saved") return s;
+          const n = { ...s };
+          delete n[key];
+          return n;
+        }),
+      1500,
+    );
+  }
+
+  function clearStatus(key: string) {
+    setRowStatus((s) => {
+      const n = { ...s };
+      delete n[key];
+      return n;
+    });
+  }
+
+  // Save when focus leaves the row entirely (not when tabbing between its fields).
+  function handleRowBlur(e: React.FocusEvent<HTMLDivElement>, save: () => void) {
+    if (!e.currentTarget.contains(e.relatedTarget)) save();
+  }
+
+  async function handleSyncSpoolman() {
+    if (!auth.isAuthenticated) {
+      auth.showAuthRequiredToast();
+      return;
+    }
+    setSyncing(true);
+    const session = getSessionVersion();
+    try {
+      const r = await commands.syncSpoolman.mutateAsync(session);
+      if (getSessionVersion() !== session) return;
+      setError(null);
+      toast.success(
+        uiText("Synced from Spoolman — {value1} added, {value2} updated", {
+          value1: String(r.created),
+          value2: String(r.updated + r.adopted),
+        }),
+      );
+    } catch (e) {
+      if (getSessionVersion() !== session) return;
+      setError(userMessage(e));
+      toast.error(e);
+    } finally {
+      if (getSessionVersion() === session) setSyncing(false);
+    }
+  }
+
+  async function reviewFilament(id: number) {
+    const session = getSessionVersion();
+    setFilamentReviews((current) => ({ ...current, [id]: { phase: "loading" } }));
+    try {
+      const snapshot = await commands.reviewFilament(id, session);
+      if (getSessionVersion() !== session) return;
+      setFilamentReviews((current) => ({ ...current, [id]: { phase: "ready", snapshot } }));
+      setError(null);
+    } catch (error) {
+      if (getSessionVersion() !== session) return;
+      setFilamentReviews((current) => ({ ...current, [id]: { phase: "required" } }));
+      setError(userMessage(error));
+    }
+  }
+
+  function adoptFilament(id: number) {
+    const review = filamentReviews[id];
+    if (review?.phase !== "ready") throw new Error("Review current preset values first");
+    setFilamentEdits((current) => {
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
+    setFilamentValidationErrors((current) => {
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
+    setFilamentReviews((current) => {
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
+    setError(null);
+  }
+
+  async function autoSaveFilament(profile: FilamentProfileRead, revised = false) {
+    if (!auth.isAuthenticated || filamentDenied) return;
+    // Synced presets mirror Spoolman and are read-only here.
+    if (profile.spoolman_filament_id != null) return;
+    const review = filamentReviews[profile.id];
+    if (revised ? review?.phase !== "ready" : Boolean(review)) return;
+    const original = filamentEdits[profile.id]?.base ?? profile;
+    const target = revised && review?.phase === "ready" ? review.snapshot : original;
+    if (target.edit_epoch !== original.edit_epoch) return;
+    const edit = filamentEdits[profile.id] ?? filamentEdit(profile);
+    const initial = filamentEdit(original);
+    if (
+      rowStatus[`f${profile.id}`] === "saving" ||
+      !filamentDirty(filamentEdits[profile.id]?.base ?? profile, edit) ||
+      !edit.name.trim()
+    )
+      return;
+    const parsedCost = parseOptionalNumber(edit.cost);
+    if (parsedCost !== null && Number.isNaN(parsedCost)) {
+      setFilamentValidationErrors((current) => ({
+        ...current,
+        [profile.id]: uiText("Cost must be 0 or more."),
+      }));
+      toast.error(uiText("Invalid filament cost"));
+      return;
+    }
+    setFilamentValidationErrors((current) => {
+      if (!(profile.id in current)) return current;
+      const next = { ...current };
+      delete next[profile.id];
+      return next;
+    });
+    const key = `f${profile.id}`;
+    setRowStatus((s) => ({ ...s, [key]: "saving" }));
+    const payload: FilamentProfileUpdate = {};
+    if (edit.name !== initial.name) payload.name = edit.name.trim();
+    if (edit.materialType !== initial.materialType)
+      payload.material_type = edit.materialType.trim() || null;
+    if (edit.materialBrand !== initial.materialBrand)
+      payload.material_brand = edit.materialBrand.trim() || null;
+    if (edit.cost !== initial.cost) payload.cost_per_kg = parsedCost;
+    if (edit.notes !== initial.notes) payload.notes = edit.notes.trim() || null;
+    const session = getSessionVersion();
+    try {
+      await commands.updateFilament.mutateAsync({
+        id: profile.id,
+        payload,
+        session,
+        base: captureEditingBase(target),
+      });
+      if (getSessionVersion() !== session) return;
+      setError(null);
+      setFilamentEdits((cur) => {
+        const next = { ...cur };
+        delete next[profile.id];
+        return next;
+      });
+      setFilamentReviews((current) => {
+        const next = { ...current };
+        delete next[profile.id];
+        return next;
+      });
+      flashSaved(key);
+    } catch (e) {
+      if (getSessionVersion() !== session) return;
+      if (needsPresetReview(parseApiError(e)))
+        setFilamentReviews((current) => ({ ...current, [profile.id]: { phase: "required" } }));
+      setError(userMessage(e));
+      toast.error(e);
+      clearStatus(key);
+    }
+  }
+
+  async function confirmDeletePreset() {
+    if (!deleteTarget) return;
+    if (!auth.isAuthenticated) {
+      auth.showAuthRequiredToast();
+      return;
+    }
+    setDeleteBusy(true);
+    const session = getSessionVersion();
+    try {
+      if (deleteTarget.kind === "filament") {
+        await commands.removeFilament.mutateAsync({ id: deleteTarget.id, session });
+        if (getSessionVersion() !== session) return;
+        toast.success(uiText("Filament preset removed"));
+      } else {
+        await commands.removePrinter.mutateAsync({ id: deleteTarget.id, session });
+        if (getSessionVersion() !== session) return;
+        toast.success(uiText("Printer preset removed"));
+      }
+      if (getSessionVersion() !== session) return;
+      setError(null);
+      setDeleteTarget(null);
+    } catch (e) {
+      if (getSessionVersion() !== session) return;
+      setError(userMessage(e));
+      toast.error(e);
+    } finally {
+      if (getSessionVersion() === session) setDeleteBusy(false);
+    }
+  }
+
+  async function handleCreatePrinter() {
+    const trimmedName = newPrinterName.trim();
+    if (!trimmedName) return;
+    if (!auth.isAuthenticated) {
+      auth.showAuthRequiredToast();
+      return;
+    }
+    const parsedNozzle = parseOptionalNumber(newPrinterNozzle);
+    if (parsedNozzle !== null && Number.isNaN(parsedNozzle)) {
+      toast.error(uiText("Invalid nozzle diameter"));
+      return;
+    }
+    const session = getSessionVersion();
+    try {
+      await commands.createPrinter.mutateAsync({
+        session,
+        payload: {
+          name: trimmedName,
+          printer_model: newPrinterModel.trim() || null,
+          nozzle_diameter_mm: parsedNozzle,
+          notes: newPrinterNotes.trim() || null,
+        },
+      });
+      if (getSessionVersion() !== session) return;
+      setError(null);
+      setNewPrinterName("");
+      setNewPrinterModel("");
+      setNewPrinterNozzle("");
+      setNewPrinterNotes("");
+      setShowAddPrinter(false);
+      toast.success(uiText('Printer preset "{value1}" saved', { value1: String(trimmedName) }));
+    } catch (e) {
+      if (getSessionVersion() !== session) return;
+      setError(userMessage(e));
+      toast.error(e);
+    }
+  }
+
+  async function reviewPrinter(id: number) {
+    const session = getSessionVersion();
+    setPrinterReviews((current) => ({ ...current, [id]: { phase: "loading" } }));
+    try {
+      const snapshot = await commands.reviewPrinter(id, session);
+      if (getSessionVersion() !== session) return;
+      setPrinterReviews((current) => ({ ...current, [id]: { phase: "ready", snapshot } }));
+      setError(null);
+    } catch (error) {
+      if (getSessionVersion() !== session) return;
+      setPrinterReviews((current) => ({ ...current, [id]: { phase: "required" } }));
+      setError(userMessage(error));
+    }
+  }
+
+  function adoptPrinter(id: number) {
+    const review = printerReviews[id];
+    if (review?.phase !== "ready") throw new Error("Review current preset values first");
+    setPrinterEdits((current) => {
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
+    setPrinterReviews((current) => {
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
+    setError(null);
+  }
+
+  async function autoSavePrinter(profile: PrinterProfileRead, revised = false) {
+    if (!auth.isAuthenticated || printerDenied) return;
+    const review = printerReviews[profile.id];
+    if (revised ? review?.phase !== "ready" : Boolean(review)) return;
+    const original = printerEdits[profile.id]?.base ?? profile;
+    const target = revised && review?.phase === "ready" ? review.snapshot : original;
+    if (target.edit_epoch !== original.edit_epoch) return;
+    const edit = printerEdits[profile.id] ?? printerEdit(profile);
+    const initial = printerEdit(original);
+    if (
+      rowStatus[`p${profile.id}`] === "saving" ||
+      !printerDirty(printerEdits[profile.id]?.base ?? profile, edit) ||
+      !edit.name.trim()
+    )
+      return;
+    const parsedNozzle = parseOptionalNumber(edit.nozzle);
+    if (parsedNozzle !== null && Number.isNaN(parsedNozzle)) {
+      toast.error(uiText("Invalid nozzle diameter"));
+      return;
+    }
+    const key = `p${profile.id}`;
+    setRowStatus((s) => ({ ...s, [key]: "saving" }));
+    const payload: PrinterProfileUpdate = {};
+    if (edit.name !== initial.name) payload.name = edit.name.trim();
+    if (edit.model !== initial.model) payload.printer_model = edit.model.trim() || null;
+    if (edit.nozzle !== initial.nozzle) payload.nozzle_diameter_mm = parsedNozzle;
+    if (edit.notes !== initial.notes) payload.notes = edit.notes.trim() || null;
+    const session = getSessionVersion();
+    try {
+      await commands.updatePrinter.mutateAsync({
+        id: profile.id,
+        payload,
+        session,
+        base: captureEditingBase(target),
+      });
+      if (getSessionVersion() !== session) return;
+      setError(null);
+      setPrinterEdits((cur) => {
+        const next = { ...cur };
+        delete next[profile.id];
+        return next;
+      });
+      setPrinterReviews((current) => {
+        const next = { ...current };
+        delete next[profile.id];
+        return next;
+      });
+      flashSaved(key);
+    } catch (e) {
+      if (getSessionVersion() !== session) return;
+      if (needsPresetReview(parseApiError(e)))
+        setPrinterReviews((current) => ({ ...current, [profile.id]: { phase: "required" } }));
+      setError(userMessage(e));
+      toast.error(e);
+      clearStatus(key);
+    }
+  }
+
+  const tabClass =
+    "flex min-w-32 items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium text-muted-foreground transition-[background-color,color,transform] duration-press active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+
+  return (
+    <Localized>
+      <div className="animate-panel-in space-y-4">
+        <ConfirmModal
+          open={
+            deleteTarget !== null &&
+            !(deleteTarget.kind === "filament" ? filamentDenied : printerDenied)
+          }
+          onClose={() => {
+            if (!deleteBusy) setDeleteTarget(null);
+          }}
+          onConfirm={confirmDeletePreset}
+          busy={deleteBusy}
+          title={
+            deleteTarget?.kind === "printer"
+              ? uiText("Delete printer preset?")
+              : uiText("Delete filament preset?")
+          }
+          description={
+            deleteTarget
+              ? uiText("“{value1}” will be permanently deleted. This action cannot be undone.", {
+                  value1: String(deleteTarget.name),
+                })
+              : uiText("This preset will be permanently deleted.")
+          }
+          confirmLabel={uiText("Delete preset")}
+        />
+        {(error || activeQuery.isError) && (
+          <div
+            role="alert"
+            className="rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive"
+          >
+            <p>{error ?? userMessage(activeQuery.error)}</p>
+            {activeQuery.isError && (
+              <Button variant="outline" onClick={() => void activeQuery.refetch()}>
+                {uiText("Retry")}
+              </Button>
+            )}
+          </div>
+        )}
+
+        <Card className="overflow-hidden">
+          <div className="flex flex-col gap-3 border-b bg-muted/30 p-3 sm:flex-row sm:items-center sm:justify-between">
+            <TabBar
+              tabs={[
+                {
+                  key: "filaments",
+                  label: (
+                    <>
+                      <Layers className="h-4 w-4" aria-hidden />
+                      {translateUiText(locale, "Filaments")}{" "}
+                      <Badge variant="secondary">{filaments.length}</Badge>
+                    </>
+                  ),
+                },
+                {
+                  key: "printers",
+                  label: (
+                    <>
+                      <Printer className="h-4 w-4" aria-hidden />
+                      {translateUiText(locale, "Printers")}{" "}
+                      <Badge variant="secondary">{printers.length}</Badge>
+                    </>
+                  ),
+                },
+              ]}
+              active={activeTab}
+              onChange={setActiveTab}
+              showIndicator={false}
+              className="gap-1 rounded-lg bg-background p-1 shadow-sm ring-1 ring-border"
+              tabClassName={tabClass}
+              activeTabClassName="bg-accent text-accent-foreground"
+            />
+
+            <div className="flex items-center justify-end gap-2">
+              {activeTab === "filaments" && spoolmanEnabled && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="xs"
+                  onClick={handleSyncSpoolman}
+                  loading={syncing}
+                  disabled={!auth.isAuthenticated || activeDenied}
+                >
+                  {!syncing && <RefreshCw className="h-3.5 w-3.5" />}
+                  {translateUiText(locale, "Sync Spoolman")}
+                </Button>
+              )}
+              <Button
+                type="button"
+                size="xs"
+                disabled={!auth.isAuthenticated || activeDenied}
+                aria-expanded={activeTab === "filaments" ? showAddFilament : showAddPrinter}
+                onClick={() => {
+                  if (!auth.isAuthenticated) {
+                    auth.showAuthRequiredToast();
+                    return;
+                  }
+                  if (activeTab === "filaments") setShowAddFilament((value) => !value);
+                  else setShowAddPrinter((value) => !value);
+                }}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                {translateUiText(
+                  locale,
+                  activeTab === "filaments" ? uiText("New filament") : uiText("New printer"),
+                )}
+                <ChevronDown
+                  className={`h-3.5 w-3.5 transition-transform duration-press ${(activeTab === "filaments" ? showAddFilament : showAddPrinter) ? "rotate-180" : ""}`}
+                />
+              </Button>
+            </div>
+          </div>
+
+          {activeDenied ? null : activeTab === "filaments" ? (
+            <section aria-labelledby="filament-presets-heading">
+              <div className="flex items-center justify-between border-b px-5 py-3">
+                <div>
+                  <h2 id="filament-presets-heading" className="text-sm font-semibold">
+                    {uiText("Filament presets")}
+                  </h2>
+                  <p className="text-xs text-muted-foreground">
+                    {uiText("Changes save automatically when leaving a row.")}
+                  </p>
+                </div>
+              </div>
+
+              {showAddFilament && (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleCreateFilament();
+                  }}
+                  aria-label={uiText("Create filament preset")}
+                  className="border-b bg-accent/30 p-5"
+                >
+                  <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                    <label>
+                      <FieldLabel>{uiText("Name")}</FieldLabel>
+                      <Input
+                        value={newName}
+                        onChange={(e) => setNewName(e.target.value)}
+                        placeholder={uiText("Everyday PLA")}
+                        className={compactInputClass}
+                        autoFocus
+                        required
+                      />
+                    </label>
+                    <label>
+                      <FieldLabel>{uiText("Material")}</FieldLabel>
+                      <Input
+                        value={newType}
+                        onChange={(e) => setNewType(e.target.value)}
+                        placeholder={uiText("PLA, PETG…")}
+                        className={compactInputClass}
+                      />
+                    </label>
+                    <label>
+                      <FieldLabel>{uiText("Brand")}</FieldLabel>
+                      <Input
+                        value={newBrand}
+                        onChange={(e) => setNewBrand(e.target.value)}
+                        placeholder={uiText("Manufacturer")}
+                        className={compactInputClass}
+                      />
+                    </label>
+                    <label>
+                      <FieldLabel>{uiText("Cost per kg")}</FieldLabel>
+                      <Input
+                        value={newCost}
+                        onChange={(e) => setNewCost(e.target.value)}
+                        inputMode="decimal"
+                        placeholder="0.00"
+                        className={compactInputClass}
+                      />
+                    </label>
+                    <label>
+                      <FieldLabel>{uiText("Notes")}</FieldLabel>
+                      <Input
+                        value={newNotes}
+                        onChange={(e) => setNewNotes(e.target.value)}
+                        placeholder={uiText("Optional")}
+                        className={compactInputClass}
+                      />
+                    </label>
+                  </div>
+                  <div className="mt-4 flex justify-end gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="xs"
+                      onClick={() => setShowAddFilament(false)}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                      {uiText("Cancel")}
+                    </Button>
+                    <Button
+                      type="submit"
+                      size="xs"
+                      loading={commands.createFilament.isPending}
+                      disabled={!newName.trim()}
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      {uiText("Add preset")}
+                    </Button>
+                  </div>
+                </form>
+              )}
+
+              {loading ? (
+                <div className="space-y-2 p-5">
+                  {[1, 2, 3].map((i) => (
+                    <Skeleton key={i} className="h-12" />
+                  ))}
+                </div>
+              ) : filamentQuery.isError && !filamentQuery.data ? null : filaments.length === 0 ? (
+                <EmptyState
+                  icon={Layers}
+                  title={uiText("No filament presets")}
+                  description={uiText("Create one to track materials, brands, and costs.")}
+                  className="py-12"
+                />
+              ) : (
+                <div>
+                  <div className="hidden grid-cols-[minmax(10rem,1.3fr)_7rem_minmax(8rem,1fr)_7rem_minmax(8rem,1fr)_3.5rem] gap-2 border-b bg-muted/20 px-5 py-2 md:grid">
+                    {["Name", "Material", "Brand", "Cost / kg", "Notes", ""].map((label) => (
+                      <span
+                        key={label || "actions"}
+                        className="text-3xs font-semibold uppercase tracking-wider text-muted-foreground"
+                      >
+                        {label}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="divide-y">
+                    {filaments.map((profile) => {
+                      const review = filamentReviews[profile.id];
+                      const edit = filamentEdits[profile.id] ?? filamentEdit(profile);
+                      const linked = profile.spoolman_filament_id != null;
+                      const locked =
+                        !auth.isAuthenticated || linked || rowStatus[`f${profile.id}`] === "saving";
+                      return (
+                        <div
+                          key={profile.id}
+                          onBlur={(e) => handleRowBlur(e, () => autoSaveFilament(profile))}
+                          className="group grid gap-3 px-5 py-4 transition-colors duration-press hover:bg-muted/20 md:grid-cols-[minmax(10rem,1.3fr)_7rem_minmax(8rem,1fr)_7rem_minmax(8rem,1fr)_3.5rem] md:items-start md:gap-2"
+                        >
+                          <label>
+                            <RowLabel>{uiText("Name")}</RowLabel>
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`h-2.5 w-2.5 shrink-0 rounded-full ${edit.materialType ? materialColor(edit.materialType) : "bg-muted-foreground/30"}`}
+                              />
+                              <Input
+                                value={edit.name}
+                                onChange={(e) =>
+                                  updateFilamentEdit(profile.id, { name: e.target.value })
+                                }
+                                disabled={locked}
+                                aria-label={uiText("Filament preset name {value1}", {
+                                  value1: String(profile.id),
+                                })}
+                                className={compactInputClass}
+                              />
+                            </div>
+                            {profile.usage_count > 0 && (
+                              <span className="mt-1 block pl-[1.125rem] text-3xs text-muted-foreground">
+                                {uiText("counts.usedByFiles", { count: profile.usage_count })}
+                              </span>
+                            )}
+                          </label>
+                          <label>
+                            <RowLabel>{uiText("Material")}</RowLabel>
+                            <Input
+                              value={edit.materialType}
+                              onChange={(e) =>
+                                updateFilamentEdit(profile.id, { materialType: e.target.value })
+                              }
+                              disabled={locked}
+                              aria-label={uiText("Filament type {value1}", {
+                                value1: String(profile.id),
+                              })}
+                              placeholder="PLA"
+                              className={compactInputClass}
+                            />
+                          </label>
+                          <label>
+                            <RowLabel>{uiText("Brand")}</RowLabel>
+                            <Input
+                              value={edit.materialBrand}
+                              onChange={(e) =>
+                                updateFilamentEdit(profile.id, { materialBrand: e.target.value })
+                              }
+                              disabled={locked}
+                              aria-label={uiText("Filament brand {value1}", {
+                                value1: String(profile.id),
+                              })}
+                              placeholder={uiText("Brand")}
+                              className={compactInputClass}
+                            />
+                          </label>
+                          <label>
+                            <RowLabel>{uiText("Cost / kg")}</RowLabel>
+                            <Input
+                              value={edit.cost}
+                              onChange={(e) =>
+                                updateFilamentEdit(profile.id, { cost: e.target.value })
+                              }
+                              disabled={locked}
+                              inputMode="decimal"
+                              aria-label={uiText("Filament cost per kg {value1}", {
+                                value1: String(profile.id),
+                              })}
+                              aria-invalid={Boolean(filamentValidationErrors[profile.id])}
+                              aria-describedby={
+                                filamentValidationErrors[profile.id]
+                                  ? `filament-cost-error-${profile.id}`
+                                  : undefined
+                              }
+                              placeholder="0.00"
+                              className={compactInputClass}
+                            />
+                            {filamentValidationErrors[profile.id] && (
+                              <span
+                                id={`filament-cost-error-${profile.id}`}
+                                role="alert"
+                                className="mt-1 block text-xs text-destructive"
+                              >
+                                {filamentValidationErrors[profile.id]}
+                              </span>
+                            )}
+                          </label>
+                          <label>
+                            <RowLabel>{uiText("Notes")}</RowLabel>
+                            <Input
+                              value={edit.notes}
+                              onChange={(e) =>
+                                updateFilamentEdit(profile.id, { notes: e.target.value })
+                              }
+                              disabled={locked}
+                              aria-label={uiText("Filament notes {value1}", {
+                                value1: String(profile.id),
+                              })}
+                              placeholder={uiText("Optional")}
+                              className={compactInputClass}
+                            />
+                          </label>
+                          <div className="flex h-9 items-center justify-end gap-1 md:mt-5">
+                            {linked ? (
+                              <Badge variant="success">{uiText("Synced")}</Badge>
+                            ) : (
+                              <>
+                                <RowStatus state={rowStatus[`f${profile.id}`]} />
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  onClick={() =>
+                                    setDeleteTarget({
+                                      kind: "filament",
+                                      id: profile.id,
+                                      name: edit.name,
+                                    })
+                                  }
+                                  disabled={
+                                    !auth.isAuthenticated ||
+                                    rowStatus[`f${profile.id}`] === "saving"
+                                  }
+                                  aria-label={uiText("Delete filament preset {value1}", {
+                                    value1: String(edit.name),
+                                  })}
+                                  title={uiText("Delete")}
+                                  className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                          {review && (
+                            <PresetReviewPanel
+                              review={review}
+                              replaced={
+                                review.phase === "ready" &&
+                                review.snapshot.edit_epoch !==
+                                  (filamentEdits[profile.id]?.base ?? profile).edit_epoch
+                              }
+                              busy={rowStatus[`f${profile.id}`] === "saving"}
+                              canSave={
+                                !linked &&
+                                Boolean(edit.name.trim()) &&
+                                review.phase === "ready" &&
+                                review.snapshot.edit_epoch ===
+                                  (filamentEdits[profile.id]?.base ?? profile).edit_epoch
+                              }
+                              onReview={() => void reviewFilament(profile.id)}
+                              onAdopt={() => adoptFilament(profile.id)}
+                              onSave={() => void autoSaveFilament(profile, true)}
+                            />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </section>
+          ) : (
+            <section aria-labelledby="printer-presets-heading">
+              <div className="border-b px-5 py-3">
+                <h2 id="printer-presets-heading" className="text-sm font-semibold">
+                  {uiText("Printer presets")}
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  {uiText("Changes save automatically when leaving a row.")}
+                </p>
+              </div>
+
+              {showAddPrinter && (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    handleCreatePrinter();
+                  }}
+                  aria-label={uiText("Create printer preset")}
+                  className="border-b bg-accent/30 p-5"
+                >
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    <label>
+                      <FieldLabel>{uiText("Name")}</FieldLabel>
+                      <Input
+                        value={newPrinterName}
+                        onChange={(e) => setNewPrinterName(e.target.value)}
+                        placeholder={uiText("Voron 2.4 — 0.4 mm")}
+                        className={compactInputClass}
+                        autoFocus
+                        required
+                      />
+                    </label>
+                    <label>
+                      <FieldLabel>{uiText("Printer model")}</FieldLabel>
+                      <Input
+                        value={newPrinterModel}
+                        onChange={(e) => setNewPrinterModel(e.target.value)}
+                        placeholder={uiText("Machine model")}
+                        className={compactInputClass}
+                      />
+                    </label>
+                    <label>
+                      <FieldLabel>{uiText("Nozzle diameter")}</FieldLabel>
+                      <Input
+                        value={newPrinterNozzle}
+                        onChange={(e) => setNewPrinterNozzle(e.target.value)}
+                        inputMode="decimal"
+                        placeholder="0.4"
+                        className={compactInputClass}
+                      />
+                    </label>
+                    <label>
+                      <FieldLabel>{uiText("Notes")}</FieldLabel>
+                      <Input
+                        value={newPrinterNotes}
+                        onChange={(e) => setNewPrinterNotes(e.target.value)}
+                        placeholder={uiText("Optional")}
+                        className={compactInputClass}
+                      />
+                    </label>
+                  </div>
+                  <div className="mt-4 flex justify-end gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="xs"
+                      onClick={() => setShowAddPrinter(false)}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                      {uiText("Cancel")}
+                    </Button>
+                    <Button
+                      type="submit"
+                      size="xs"
+                      loading={commands.createPrinter.isPending}
+                      disabled={!newPrinterName.trim()}
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      {uiText("Add preset")}
+                    </Button>
+                  </div>
+                </form>
+              )}
+
+              {loading ? (
+                <div className="space-y-2 p-5">
+                  {[1, 2, 3].map((i) => (
+                    <Skeleton key={i} className="h-12" />
+                  ))}
+                </div>
+              ) : printerQuery.isError && !printerQuery.data ? null : printers.length === 0 ? (
+                <EmptyState
+                  icon={Printer}
+                  title={uiText("No printer presets")}
+                  description={uiText("Create one to reuse machine and nozzle settings.")}
+                  className="py-12"
+                />
+              ) : (
+                <div>
+                  <div className="hidden grid-cols-[minmax(11rem,1.3fr)_minmax(10rem,1fr)_7rem_minmax(10rem,1fr)_3.5rem] gap-2 border-b bg-muted/20 px-5 py-2 md:grid">
+                    {["Name", "Printer model", "Nozzle", "Notes", ""].map((label) => (
+                      <span
+                        key={label || "actions"}
+                        className="text-3xs font-semibold uppercase tracking-wider text-muted-foreground"
+                      >
+                        {label}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="divide-y">
+                    {printers.map((profile) => {
+                      const review = printerReviews[profile.id];
+                      const edit = printerEdits[profile.id] ?? printerEdit(profile);
+                      return (
+                        <div
+                          key={profile.id}
+                          onBlur={(e) => handleRowBlur(e, () => autoSavePrinter(profile))}
+                          className="group grid gap-3 px-5 py-4 transition-colors duration-press hover:bg-muted/20 md:grid-cols-[minmax(11rem,1.3fr)_minmax(10rem,1fr)_7rem_minmax(10rem,1fr)_3.5rem] md:items-start md:gap-2"
+                        >
+                          <label>
+                            <RowLabel>{uiText("Name")}</RowLabel>
+                            <Input
+                              value={edit.name}
+                              onChange={(e) =>
+                                updatePrinterEdit(profile.id, { name: e.target.value })
+                              }
+                              disabled={
+                                !auth.isAuthenticated || rowStatus[`p${profile.id}`] === "saving"
+                              }
+                              aria-label={uiText("Printer preset name {value1}", {
+                                value1: String(profile.id),
+                              })}
+                              className={compactInputClass}
+                            />
+                            {(profile.slicer_name || profile.usage_count > 0) && (
+                              <span className="mt-1 block text-3xs text-muted-foreground">
+                                {[
+                                  profile.slicer_name
+                                    ? uiText("Detected from {value1}", {
+                                        value1: String(profile.slicer_name),
+                                      })
+                                    : null,
+                                  profile.usage_count > 0
+                                    ? uiText("counts.usedByFiles", { count: profile.usage_count })
+                                    : null,
+                                ]
+                                  .filter(Boolean)
+                                  .join(" · ")}
+                              </span>
+                            )}
+                          </label>
+                          <label>
+                            <RowLabel>{uiText("Printer model")}</RowLabel>
+                            <Input
+                              value={edit.model}
+                              onChange={(e) =>
+                                updatePrinterEdit(profile.id, { model: e.target.value })
+                              }
+                              disabled={
+                                !auth.isAuthenticated || rowStatus[`p${profile.id}`] === "saving"
+                              }
+                              aria-label={uiText("Printer model {value1}", {
+                                value1: String(profile.id),
+                              })}
+                              placeholder={uiText("Machine model")}
+                              className={compactInputClass}
+                            />
+                          </label>
+                          <label>
+                            <RowLabel>{uiText("Nozzle")}</RowLabel>
+                            <Input
+                              value={edit.nozzle}
+                              onChange={(e) =>
+                                updatePrinterEdit(profile.id, { nozzle: e.target.value })
+                              }
+                              disabled={
+                                !auth.isAuthenticated || rowStatus[`p${profile.id}`] === "saving"
+                              }
+                              inputMode="decimal"
+                              aria-label={uiText("Printer nozzle diameter {value1}", {
+                                value1: String(profile.id),
+                              })}
+                              placeholder="0.4"
+                              className={compactInputClass}
+                            />
+                          </label>
+                          <label>
+                            <RowLabel>{uiText("Notes")}</RowLabel>
+                            <Input
+                              value={edit.notes}
+                              onChange={(e) =>
+                                updatePrinterEdit(profile.id, { notes: e.target.value })
+                              }
+                              disabled={
+                                !auth.isAuthenticated || rowStatus[`p${profile.id}`] === "saving"
+                              }
+                              aria-label={uiText("Printer notes {value1}", {
+                                value1: String(profile.id),
+                              })}
+                              placeholder={uiText("Optional")}
+                              className={compactInputClass}
+                            />
+                          </label>
+                          <div className="flex h-9 items-center justify-end gap-1 md:mt-5">
+                            <RowStatus state={rowStatus[`p${profile.id}`]} />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() =>
+                                setDeleteTarget({
+                                  kind: "printer",
+                                  id: profile.id,
+                                  name: edit.name,
+                                })
+                              }
+                              disabled={
+                                !auth.isAuthenticated || rowStatus[`p${profile.id}`] === "saving"
+                              }
+                              aria-label={uiText("Delete printer preset {value1}", {
+                                value1: String(edit.name),
+                              })}
+                              title={uiText("Delete")}
+                              className="text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                          {review && (
+                            <PresetReviewPanel
+                              review={review}
+                              replaced={
+                                review.phase === "ready" &&
+                                review.snapshot.edit_epoch !==
+                                  (printerEdits[profile.id]?.base ?? profile).edit_epoch
+                              }
+                              busy={rowStatus[`p${profile.id}`] === "saving"}
+                              canSave={
+                                Boolean(edit.name.trim()) &&
+                                review.phase === "ready" &&
+                                review.snapshot.edit_epoch ===
+                                  (printerEdits[profile.id]?.base ?? profile).edit_epoch
+                              }
+                              onReview={() => void reviewPrinter(profile.id)}
+                              onAdopt={() => adoptPrinter(profile.id)}
+                              onSave={() => void autoSavePrinter(profile, true)}
+                            />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
+        </Card>
+      </div>
+    </Localized>
+  );
+}

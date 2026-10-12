@@ -1,0 +1,562 @@
+{
+  "schema": "fr029-gold-v1",
+  "fixture": "zolderio_token-proxy-8e64148",
+  "repository": "zolderio/token-proxy",
+  "commit": "8e64148f3077e553676c927f9d47624963b82595",
+  "root": ".",
+  "pydantic_major": 2,
+  "fastapi_version": "unknown",
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/health",
+      "handler": "token_proxy/main.py::health",
+      "declared_at": "token_proxy/main.py:119",
+      "params": [],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "GET",
+      "path": "/session/{session_id}/{path}",
+      "handler": "token_proxy/main.py::proxy",
+      "declared_at": "token_proxy/main.py:129",
+      "params": [
+        {
+          "name": "session_id",
+          "in": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "path",
+          "in": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "POST",
+      "path": "/session/{session_id}/{path}",
+      "handler": "token_proxy/main.py::proxy",
+      "declared_at": "token_proxy/main.py:129",
+      "params": [
+        {
+          "name": "session_id",
+          "in": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "path",
+          "in": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "PUT",
+      "path": "/session/{session_id}/{path}",
+      "handler": "token_proxy/main.py::proxy",
+      "declared_at": "token_proxy/main.py:129",
+      "params": [
+        {
+          "name": "session_id",
+          "in": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "path",
+          "in": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "DELETE",
+      "path": "/session/{session_id}/{path}",
+      "handler": "token_proxy/main.py::proxy",
+      "declared_at": "token_proxy/main.py:129",
+      "params": [
+        {
+          "name": "session_id",
+          "in": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "path",
+          "in": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "PATCH",
+      "path": "/session/{session_id}/{path}",
+      "handler": "token_proxy/main.py::proxy",
+      "declared_at": "token_proxy/main.py:129",
+      "params": [
+        {
+          "name": "session_id",
+          "in": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "path",
+          "in": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "GET",
+      "path": "/token-proxy/sessions",
+      "handler": "token_proxy/audit.py::list_sessions",
+      "declared_at": "token_proxy/audit.py:164",
+      "params": [],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "GET",
+      "path": "/token-proxy/sessions/{session_id}/mappings",
+      "handler": "token_proxy/audit.py::get_mappings",
+      "declared_at": "token_proxy/audit.py:189",
+      "params": [
+        {
+          "name": "session_id",
+          "in": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "GET",
+      "path": "/token-proxy/sessions/{session_id}/search",
+      "handler": "token_proxy/audit.py::search_mappings",
+      "declared_at": "token_proxy/audit.py:213",
+      "params": [
+        {
+          "name": "session_id",
+          "in": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "q",
+          "in": "query",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "GET",
+      "path": "/token-proxy/sessions/{session_id}/log",
+      "handler": "token_proxy/audit.py::get_session_log",
+      "declared_at": "token_proxy/audit.py:238",
+      "params": [
+        {
+          "name": "session_id",
+          "in": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "GET",
+      "path": "/token-proxy/sessions/{session_id}/usage",
+      "handler": "token_proxy/audit.py::get_session_usage",
+      "declared_at": "token_proxy/audit.py:244",
+      "params": [
+        {
+          "name": "session_id",
+          "in": "path",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "GET",
+      "path": "/token-proxy/sessions/{session_id}/payloads",
+      "handler": "token_proxy/audit.py::get_payloads",
+      "declared_at": "token_proxy/audit.py:250",
+      "params": [
+        {
+          "name": "session_id",
+          "in": "path",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "direction",
+          "in": "query",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "index",
+          "in": "query",
+          "type": "integer",
+          "required": false
+        }
+      ],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "GET",
+      "path": "/token-proxy/stats",
+      "handler": "token_proxy/audit.py::get_stats",
+      "declared_at": "token_proxy/audit.py:265",
+      "params": [],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "GET",
+      "path": "/token-proxy/config",
+      "handler": "token_proxy/config_api.py::get_config",
+      "declared_at": "token_proxy/config_api.py:76",
+      "params": [],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "GET",
+      "path": "/token-proxy/config/whitelist",
+      "handler": "token_proxy/config_api.py::get_whitelists",
+      "declared_at": "token_proxy/config_api.py:88",
+      "params": [],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "POST",
+      "path": "/token-proxy/config/whitelist",
+      "handler": "token_proxy/config_api.py::add_to_whitelist",
+      "declared_at": "token_proxy/config_api.py:101",
+      "params": [],
+      "request_body": {
+        "models": [
+          "WhitelistRequest"
+        ],
+        "model_files": [
+          "token_proxy/config_api.py"
+        ],
+        "required": true,
+        "media_type": "application/json",
+        "embedded": false
+      },
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "DELETE",
+      "path": "/token-proxy/config/whitelist",
+      "handler": "token_proxy/config_api.py::remove_from_whitelist",
+      "declared_at": "token_proxy/config_api.py:142",
+      "params": [],
+      "request_body": {
+        "models": [
+          "WhitelistRequest"
+        ],
+        "model_files": [
+          "token_proxy/config_api.py"
+        ],
+        "required": true,
+        "media_type": "application/json",
+        "embedded": false
+      },
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "GET",
+      "path": "/token-proxy/config/status",
+      "handler": "token_proxy/config_api.py::get_status",
+      "declared_at": "token_proxy/config_api.py:180",
+      "params": [],
+      "request_body": null,
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "POST",
+      "path": "/token-proxy/config/status",
+      "handler": "token_proxy/config_api.py::set_status",
+      "declared_at": "token_proxy/config_api.py:189",
+      "params": [],
+      "request_body": {
+        "models": [
+          "RedactionToggle"
+        ],
+        "model_files": [
+          "token_proxy/config_api.py"
+        ],
+        "required": true,
+        "media_type": "application/json",
+        "embedded": false
+      },
+      "response": null,
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    }
+  ],
+  "models": [
+    {
+      "name": "WhitelistRequest",
+      "file": "token_proxy/config_api.py",
+      "line": 61,
+      "fields": [
+        {
+          "name": "category",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "values",
+          "alias": null,
+          "type": "array[string]",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    },
+    {
+      "name": "RedactionToggle",
+      "file": "token_proxy/config_api.py",
+      "line": 66,
+      "fields": [
+        {
+          "name": "redaction_enabled",
+          "alias": null,
+          "type": "boolean",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "pseudonymize_domains",
+          "alias": null,
+          "type": "boolean",
+          "required": false,
+          "nullable": true
+        }
+      ]
+    }
+  ],
+  "excluded_routes": [],
+  "limitations": [],
+  "http_calls": [
+    {
+      "where": "token_proxy/proxy.py:156",
+      "alt_where": [
+        "token_proxy/proxy.py:157",
+        "token_proxy/proxy.py:158"
+      ],
+      "library": "httpx",
+      "method": "unknown",
+      "method_reason": "method=method là tham số hàm forward_request (proxy.py:111); main.py:184 truyền request.method, chỉ biết lúc chạy",
+      "target": {
+        "kind": "unknown",
+        "reason": "URL ghép lúc chạy: f\"{adapter.upstream_base_url()}{path}\" (proxy.py:153), phần đầu lấy từ os.environ ANTHROPIC_API_BASE hoặc https://api.anthropic.com (providers/anthropic.py:315), phần sau là path của request"
+      },
+      "accept_alt_target": {
+        "kind": "config",
+        "value": "ANTHROPIC_API_BASE"
+      }
+    },
+    {
+      "where": "token_proxy/proxy.py:241",
+      "alt_where": [
+        "token_proxy/proxy.py:242",
+        "token_proxy/proxy.py:243"
+      ],
+      "library": "httpx",
+      "method": "unknown",
+      "alt_methods": [
+        "POST"
+      ],
+      "method_reason": "method=method là tham số hàm forward_request_streaming (proxy.py:207); nơi gọi main.py:248 truyền chuỗi \"POST\"",
+      "target": {
+        "kind": "unknown",
+        "reason": "URL ghép lúc chạy: f\"{adapter.upstream_base_url()}{path}\" (proxy.py:153), phần đầu lấy từ os.environ ANTHROPIC_API_BASE hoặc https://api.anthropic.com (providers/anthropic.py:315), phần sau là path của request"
+      },
+      "accept_alt_target": {
+        "kind": "config",
+        "value": "ANTHROPIC_API_BASE"
+      }
+    }
+  ],
+  "non_http_calls": [
+    {
+      "where": "token_proxy/scanner.py:296",
+      "detail": "ref.get() là TextRef.get (providers/base.py) lấy chuỗi văn bản, không phải HTTP"
+    },
+    {
+      "where": "token_proxy/proxy.py:333",
+      "detail": "restorers.get(delta_info.index) là dict.get"
+    },
+    {
+      "where": "token_proxy/audit.py:195",
+      "detail": "sessions.get(session_id) là dict.get"
+    },
+    {
+      "where": "token_proxy/audit.py:86",
+      "detail": "self._entries.get(session_id, []) là dict.get"
+    },
+    {
+      "where": "token_proxy/config_api.py:95",
+      "detail": "_config.get(\"known_persons\", []) là dict.get"
+    },
+    {
+      "where": "token_proxy/main.py:59",
+      "detail": "config.get(\"geoip_asn_db_path\") là dict.get"
+    },
+    {
+      "where": "token_proxy/main.py:43",
+      "detail": "os.environ.get(\"LOG_LEVEL\", \"info\") là đọc biến môi trường"
+    },
+    {
+      "where": "token_proxy/providers/anthropic.py:315",
+      "detail": "os.environ.get(\"ANTHROPIC_API_BASE\", ...) là đọc biến môi trường, không phải lời gọi HTTP"
+    },
+    {
+      "where": "token_proxy/geoip.py:77",
+      "detail": "result.get(\"autonomous_system_number\") là dict.get trên kết quả tra cứu GeoIP cục bộ"
+    },
+    {
+      "where": "token_proxy/main.py:76",
+      "detail": "httpx.AsyncClient() chỉ tạo client, chưa gửi request"
+    },
+    {
+      "where": "token_proxy/main.py:98",
+      "detail": "http_client.aclose() đóng client, không gửi request"
+    }
+  ],
+  "notes": [
+    "root = \".\": package token_proxy nằm ở gốc repository, không có thư mục con chứa code (pyproject.toml, Dockerfile ở gốc).",
+    "fastapi_version \"unknown\": requirements.txt:1 chỉ ghi fastapi>=0.110,<1, không có lock.",
+    "pydantic_major = 2: pydantic không được ghim (requirements.txt không liệt kê); fastapi>=0.110,<1 cài bản mới sẽ kéo Pydantic 2; requires-python >=3.11 (pyproject.toml:7). Nếu là Pydantic 1, `bool | None = None` (config_api.py:67) vẫn không bắt buộc và nullable, nên kết quả model không đổi.",
+    "Prefix: audit.router APIRouter(prefix=\"/token-proxy\") (audit.py:14), gắn bởi app.include_router(audit_router) không prefix thêm (main.py:110). config_api.router APIRouter(prefix=\"/token-proxy/config\") (config_api.py:32), gắn bởi main.py:111 không prefix. Không có mount.",
+    "config_api.py:76 @router.get(\"\"): path đầy đủ \"/token-proxy/config\" (prefix + chuỗi rỗng, không có dấu / cuối).",
+    "main.py:129-132 @app.api_route(\"/session/{session_id}/{path:path}\", methods=[5 method]): tách thành 5 route cùng declared_at main.py:129. Path ghi \"/session/{session_id}/{path}\" theo dạng OpenAPI/path_format của FastAPI (bỏ bộ chuyển đổi :path); source ghi \"{path:path}\" (main.py:130). Tên tham số vẫn là \"path\", kiểu string, bắt buộc. Alternative: \"/session/{session_id}/{path:path}\".",
+    "main.py:133 proxy(session_id: str, path: str, request: Request): Request là đối tượng Starlette, không phải tham số HTTP. Body đọc trong thân hàm (request.json(), main.py:142), không khai qua tham số, nên request_body = null cho cả POST/PUT/PATCH.",
+    "Response: không route nào có response_model= hoặc return annotation; handler trả dict/JSONResponse/Response trong thân hàm. Theo FastAPI không có response_model và không có annotation thì response = null. Status trả trong thân hàm (503 main.py:136, 400 main.py:145) không phải status khai, nên chỉ ghi 200 mặc định.",
+    "audit.py:197 và 221 `return {...}, 404`: trả tuple, FastAPI vẫn trả 200 với body mảng; status khai vẫn 200 mặc định.",
+    "audit.py:253-254: `direction: str | None = Query(None, ...)` và `index: int | None = Query(None, ...)`: query, không bắt buộc, type string/integer (nullable không ghi ở params). audit.py:214: `q: str = Query(..., min_length=1)` bắt buộc; ràng buộc min_length không ghi.",
+    "POST và DELETE /token-proxy/config/whitelist dùng chung model WhitelistRequest làm body (config_api.py:102, 143). DELETE có body: FastAPI vẫn coi là body tham số.",
+    "Body tham số đơn (req: Model): embedded false, media_type application/json, required true (không default).",
+    "Models: chỉ WhitelistRequest và RedactionToggle (config_api.py:61, 66). AuditEntry/AuditLog/StreamResult là dataclass, không phải Pydantic và không được route dùng, nên không có trong models.",
+    "RedactionToggle (config_api.py:66-68): `bool | None = None` -> required false, nullable true.",
+    "http_calls: httpx.AsyncClient tạo ở main.py:76, truyền vào forward_request (main.py:190) và forward_request_streaming (main.py:254); client.request (proxy.py:156) và client.stream (proxy.py:241) là hai lời gọi HTTP ra ngoài. Không có requests/aiohttp/urllib trong repository.",
+    "http_calls method: trong hàm, `method=method` là biến nên ghi \"unknown\" kèm lý do. Với proxy.py:241 nơi gọi (main.py:248) truyền \"POST\" nên ghi alt_methods [\"POST\"]. Với proxy.py:156 nơi gọi truyền request.method (main.py:184) nên chỉ unknown.",
+    "http_calls target: `url=upstream_url`, upstream_url = f\"{adapter.upstream_base_url()}{path}\" (proxy.py:153, 238) ghép lúc chạy nên unknown. Phần đầu đọc từ ANTHROPIC_API_BASE (providers/anthropic.py:315, mặc định https://api.anthropic.com): chấp nhận thêm đích config ANTHROPIC_API_BASE (accept_alt_target), nhưng chọn unknown vì URL cuối còn ghép path.",
+    "http_calls where: dòng chứa `.request(` (proxy.py:156) và `.stream(` (proxy.py:241); các dòng đối số 157-158, 242-243 là alt_where.",
+    "limitations rỗng: không có add_api_route/add_route/add_websocket_route (grep toàn bộ token_proxy/) và không có thư viện HTTP khác (urllib, urllib3, http.client). app.add_middleware (main.py:104) không phải route.",
+    "excluded_routes rỗng: tests/ không khai route (chỉ gọi client test); không có thư mục examples. Route tài liệu tự sinh (/docs, /redoc, /openapi.json) bị bỏ theo quy ước.",
+    "lifespan (main.py:38) không phải route; _stream_proxy (main.py:233) là generator, không phải handler."
+  ]
+}

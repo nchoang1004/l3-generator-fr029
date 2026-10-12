@@ -1,0 +1,97 @@
+"""E2E: publish an artifact through the real API into loopback WebDAV."""
+
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+from sqlmodel import select
+
+from app.db.models import File, OwnedStorageObject, StorageObjectState
+from tests.e2e._jobs import settle
+
+pytestmark = pytest.mark.e2e
+
+FIXTURE = (
+    Path(__file__).resolve().parents[1] / "fixtures" / "real_orca_ender3_benchy.gcode"
+)
+
+
+async def _await_job(api, headers: dict[str, str], job_id: str) -> dict:
+    settle()
+    response = await api.get(f"/api/v1/jobs/{job_id}", headers=headers)
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+@pytest.mark.asyncio
+class TestArtifactUpload:
+    @pytest.mark.critical
+    async def test_artifact_upload_is_committed_through_webdav(
+        self, api, tmp_path: Path, e2e_db, webdav_endpoint: str
+    ) -> None:
+        setup = await api.post(
+            "/api/v1/setup",
+            json={
+                "username": "owner",
+                "password": "Password123",
+                "storage_provider": "webdav",
+                "storage_provider_config": {
+                    "provider": "webdav",
+                    "endpoint_url": webdav_endpoint,
+                    "username": "webdav-user",
+                    "password": "webdav-password",
+                    "root": "vault-data",
+                },
+            },
+        )
+        assert setup.status_code == 201, setup.text
+        headers = {"Authorization": f"Bearer {setup.json()['access_token']}"}
+
+        # Use the production composition root to activate the persisted
+        # provider; the E2E must not bypass configuration with bind_backend.
+        from app.bootstrap.lifecycle import _compose_storage_backend
+        from app.modules.administration import runtime_config
+
+        runtime_config.apply_overlay(e2e_db)
+        backend = _compose_storage_backend(recover_publications=False)
+
+        health = await api.get("/api/v1/health")
+        assert health.status_code == 200, health.text
+        assert health.json()["storage"]["provider"] == "webdav"
+        assert health.json()["storage"]["tier"] == "guarded"
+
+        upload = await api.post(
+            "/api/v1/ingest/orca",
+            files={"file": (FIXTURE.name, FIXTURE.read_bytes(), "text/plain")},
+            data={"model_name": "WebDAV Benchy"},
+            headers=headers,
+        )
+        assert upload.status_code == 202, upload.text
+        job = await _await_job(api, headers, upload.json()["job_id"])
+        assert job["state"] == "completed", job
+
+        artifact = e2e_db.exec(select(File)).one()
+        assert backend.read_bytes(artifact.path) == FIXTURE.read_bytes()
+        ownership = e2e_db.exec(
+            select(OwnedStorageObject).where(OwnedStorageObject.key == artifact.path)
+        ).one()
+        assert ownership.state == StorageObjectState.COMMITTED
+
+        trashed = await api.delete(
+            f"/api/v1/models/{artifact.model_id}", headers=headers
+        )
+        assert trashed.status_code == 204, trashed.text
+        rejected = await api.delete(
+            f"/api/v1/models/{artifact.model_id}/purge", headers=headers
+        )
+        assert rejected.status_code == 409, rejected.text
+        assert rejected.json()["detail"] == {
+            "code": "storage_risk_confirmation_required",
+            "tier": "guarded",
+            "operation": "purge_model",
+            "required_confirmation": "confirm_storage_risk=true",
+        }, rejected.text
+        e2e_db.expire_all()
+        assert e2e_db.get(File, artifact.id) is not None
+        assert backend.exists(artifact.path)

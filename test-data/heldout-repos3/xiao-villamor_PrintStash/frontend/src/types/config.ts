@@ -1,0 +1,393 @@
+import type { EditingBase } from "./editing";
+
+export interface SetupStatus {
+  configured: boolean;
+  setup_available?: boolean;
+  recovery_required?: boolean;
+  /** An owner was provisioned from VAULT_SETUP_ADMIN_* and must still choose storage. */
+  storage_choice_required?: boolean;
+  /** Why browser registration is refused on an unconfigured installation. */
+  unavailable_reason?:
+    | "disabled"
+    | "untrusted_host"
+    | "environment"
+    | "admin_credentials_missing"
+    | "admin_credentials_invalid"
+    | "admin_credentials_without_environment_mode";
+  /** Variables to fix when the first-run settings contradict each other (names only). */
+  unavailable_variables?: string[];
+  /** The host PrintStash saw, echoed so the explainer can name it. */
+  observed_host?: string;
+  user_count: number;
+  default_data_dir?: string;
+  default_thumb_dir?: string;
+  current_data_dir?: string;
+  current_thumb_dir?: string;
+  current_storage_backend?: string;
+  current_storage_provider?: string;
+  current_storage_provider_config?: StorageProviderConfigValues;
+  current_s3_bucket?: string;
+  current_s3_endpoint_url?: string;
+  current_s3_region?: string;
+  current_backup_retention_days?: number;
+  current_backup_s3_bucket?: string;
+  current_backup_s3_endpoint_url?: string;
+  current_backup_s3_region?: string;
+  configured_at?: string | null;
+}
+
+export interface SetupRequest {
+  username: string;
+  password: string;
+  email?: string;
+  storage_backend?: string;
+  storage_provider?: string;
+  storage_provider_config?: StorageProviderConfigValues;
+  data_dir?: string;
+  thumb_dir?: string;
+  s3_bucket?: string;
+  s3_endpoint_url?: string;
+  s3_region?: string;
+  s3_access_key?: string;
+  s3_secret_key?: string;
+  backup_retention_days?: number;
+  backup_s3_bucket?: string;
+  backup_s3_endpoint_url?: string;
+  backup_s3_region?: string;
+  backup_s3_access_key?: string;
+  backup_s3_secret_key?: string;
+}
+
+export type SetupStorageRequest = Omit<SetupRequest, "username" | "password" | "email">;
+
+export interface SetupStorageCheck {
+  ready: boolean;
+  storage_provider: string;
+  checks: { code: string; free_bytes: number | null }[];
+}
+
+export interface SetupResponse {
+  storage_ready: boolean;
+  configured: boolean;
+  user_id: number;
+  username: string;
+  storage_backend: string;
+  storage_provider: string;
+  data_dir: string;
+  thumb_dir: string;
+  access_token: string;
+  token_type: string;
+}
+
+export interface VaultConfigRead extends EditingBase {
+  derivatives_mesh_enabled: boolean;
+  derivatives_gcode_enabled: boolean;
+  derivatives_toolpath_enabled: boolean;
+
+  storage_backend: string;
+  storage_provider: string;
+  storage_provider_config: StorageProviderConfigValues;
+  storage_tier: StorageTier;
+  storage_operations?: StorageOperations;
+  storage_warnings: string[];
+  storage_unverified_acknowledged: boolean;
+  data_dir: string;
+  thumb_dir: string;
+  s3_bucket: string;
+  s3_endpoint_url: string;
+  s3_region: string;
+  s3_access_key: string;
+  s3_secret_key: string;
+  has_s3_access_key: boolean;
+  has_s3_secret_key: boolean;
+  backup_retention_days: number;
+  automatic_backups_enabled: boolean;
+  automatic_backup_time_utc: string;
+  automatic_backup_last_attempt_at: string | null;
+  manual_local_backup_enabled: boolean;
+  automatic_local_backup_enabled: boolean;
+  trash_retention_days: number;
+  backup_s3_bucket: string;
+  backup_s3_endpoint_url: string;
+  backup_s3_region: string;
+  backup_s3_access_key: string;
+  backup_s3_secret_key: string;
+  has_backup_s3_access_key: boolean;
+  has_backup_s3_secret_key: boolean;
+  has_backup_s3: boolean;
+  auto_mark_known_good: boolean;
+  external_libraries_enabled: boolean;
+  currency: string;
+  model_thumbnail_width: number;
+  oidc_enabled: boolean;
+  oidc_issuer_url: string;
+  oidc_client_id: string;
+  has_oidc_client_secret: boolean;
+  oidc_scopes: string;
+  oidc_username_claim: string;
+  oidc_groups_claim: string;
+  oidc_admin_groups: string;
+  oidc_display_name: string;
+  oidc_redirect_uri: string;
+  oidc_allow_insecure_http: boolean;
+}
+
+export interface VaultConfigUpdate {
+  derivatives_mesh_enabled?: boolean | null;
+  derivatives_gcode_enabled?: boolean | null;
+  derivatives_toolpath_enabled?: boolean | null;
+
+  storage_backend?: string;
+  storage_provider?: string;
+  storage_provider_config?: StorageProviderConfigValues;
+  data_dir?: string;
+  thumb_dir?: string;
+  s3_bucket?: string;
+  s3_endpoint_url?: string;
+  s3_region?: string;
+  s3_access_key?: string;
+  s3_secret_key?: string;
+  backup_retention_days?: number;
+  automatic_backups_enabled?: boolean;
+  automatic_backup_time_utc?: string;
+  manual_local_backup_enabled?: boolean;
+  automatic_local_backup_enabled?: boolean;
+  trash_retention_days?: number;
+  backup_s3_bucket?: string;
+  backup_s3_endpoint_url?: string;
+  backup_s3_region?: string;
+  backup_s3_access_key?: string;
+  backup_s3_secret_key?: string;
+  auto_mark_known_good?: boolean;
+  external_libraries_enabled?: boolean;
+  currency?: string;
+  model_thumbnail_width?: 320 | 640 | 1280;
+  oidc_enabled?: boolean;
+  oidc_issuer_url?: string;
+  oidc_client_id?: string;
+  oidc_client_secret?: string;
+  oidc_scopes?: string;
+  oidc_username_claim?: string;
+  oidc_groups_claim?: string;
+  oidc_admin_groups?: string;
+  oidc_display_name?: string;
+  oidc_redirect_uri?: string;
+  oidc_allow_insecure_http?: boolean;
+}
+
+export type StorageTier = "verified" | "guarded" | "unguarded";
+
+export interface StorageHealthRead {
+  ok: boolean;
+  backend?: string | null;
+  provider?: string | null;
+  data_dir?: string | null;
+  thumb_dir?: string | null;
+  tier?: StorageTier | string | null;
+  warnings?: string[];
+  diagnostics?: {
+    root_bindings?: Record<string, string>;
+    roots_ready?: boolean;
+    probed?: boolean;
+    /** Local storage only: whether staged imports reach the library by hard link. */
+    staged_hardlink?: boolean;
+    staging?: {
+      role: "staging";
+      path: string;
+      fs_kind: string;
+      hardlink: boolean;
+      exclusive_create: boolean;
+      directory_fsync: boolean;
+    };
+  };
+}
+
+export type StorageRootRole = "data" | "thumb";
+
+export interface StorageRootEnrollmentRead {
+  enrolled: boolean;
+  role: StorageRootRole;
+  restart_required: boolean;
+}
+
+export interface HealthResponse {
+  status: string;
+  name: string;
+  version: string;
+  capabilities?: {
+    restart?: boolean;
+  };
+  storage?: StorageHealthRead;
+  components?: {
+    database?: { ok: boolean };
+    storage?: StorageHealthRead;
+  };
+}
+
+export type StorageProviderConfigValue = string | number | string[];
+export type StorageProviderConfigValues = Record<string, StorageProviderConfigValue>;
+
+export type ProviderCategory =
+  | "this_machine"
+  | "s3_compatible"
+  | "nextcloud_webdav"
+  | "nas_sftp"
+  | "consumer_cloud";
+
+export interface StorageProviderField {
+  name: string;
+  label: string;
+  help: string;
+  input_type: "text" | "password" | "url" | "number" | "path";
+  required: boolean;
+  secret: boolean;
+  default?: string | number | null;
+  options?: string[];
+}
+
+export interface StorageProvider {
+  id: string;
+  label: string;
+  category: ProviderCategory;
+  description: string;
+  expected_tier: StorageTier;
+  expected_tier_note: string;
+  consequences: string[];
+  documentation_url: string;
+  available: boolean;
+  selectable: boolean;
+  /** Product maturity, independent from the measured storage safety tier. */
+  support_level?: "stable" | "beta" | string;
+  disabled_reason?: string | null;
+  fields: StorageProviderField[];
+  fields_by_use?: Record<string, StorageProviderField[]>;
+  transport?: string;
+  setup_guidance?: string;
+  provider_documentation_url?: string;
+  evidence?: "transport_tested" | "endpoint_required";
+  delivery?: {
+    signed_get: boolean;
+    requires_endpoint_proof: boolean;
+    requires_cors_proof: boolean;
+    same_origin_fallback: boolean;
+  };
+  requirements?: Array<{ kind: string; fields: string[]; value?: string; message: string }>;
+  uses?: Record<string, StorageUseAvailability>;
+}
+
+export interface StorageOperationResult {
+  allowed: boolean;
+  reason: string;
+  confirmation_required: boolean;
+}
+
+export type StorageOperations = Record<
+  "catalog_purge" | "physical_delete" | "automatic_retention" | "gc_witness",
+  StorageOperationResult
+>;
+
+export interface StorageUseAvailability {
+  dependency_installed: boolean;
+  service_compiled: boolean;
+  supported: boolean;
+  available: boolean;
+  endpoint_proven: boolean;
+  reason: string;
+}
+
+export type ExternalLibraryCollectionMode = "mirror" | "single";
+
+// auto: watch only on local filesystems; events: always watch; off: never watch.
+export type ExternalLibraryWatchMode = "auto" | "events" | "off";
+export type LibrarySourceKind = "mounted" | "s3" | "webdav" | "sftp" | "gdrive";
+export type StorageConnectionPurpose = "library" | "backup" | "both";
+export type StorageConnectionConfigurationValue = string | number | boolean | null;
+export type StorageConnectionConfiguration = Record<string, StorageConnectionConfigurationValue>;
+
+export interface StorageConnection extends EditingBase {
+  id: number;
+  name: string;
+  kind: Exclude<LibrarySourceKind, "mounted">;
+  purpose: StorageConnectionPurpose;
+  configuration: StorageConnectionConfiguration;
+  secret_fields_set: string[];
+  enabled: boolean;
+  manual_backup_enabled: boolean;
+  automatic_backup_enabled: boolean;
+  uses?: Record<string, StorageUseAvailability>;
+  source_operations?: StorageOperations;
+}
+
+// Detected filesystem class backing the root path.
+export type ExternalLibraryFsKind = "local" | "network" | "unknown";
+
+export type ExternalLibraryBindingState =
+  | "bound"
+  | "unbound"
+  | "missing"
+  | "unreadable"
+  | "invalid"
+  | "mismatch";
+
+export interface ExternalLibraryScanSummary {
+  added: number;
+  updated: number;
+  removed: number;
+  skipped: number;
+  errors: string[];
+  error: string | null;
+  aborted: boolean;
+}
+
+export interface ExternalLibrary extends EditingBase {
+  id: number;
+  name: string;
+  root_path: string;
+  source_kind?: LibrarySourceKind;
+  connection_id?: number | null;
+  source_prefix?: string;
+  writeback_enabled?: boolean;
+  enabled: boolean;
+  scan_interval_minutes: number;
+  scan_schedule: string;
+  watch_mode: ExternalLibraryWatchMode;
+  fs_kind: ExternalLibraryFsKind | null;
+  watch_active: boolean;
+  binding_state: ExternalLibraryBindingState;
+  binding_reason: string | null;
+  root_enrollable: boolean;
+  collection_mode: ExternalLibraryCollectionMode;
+  target_collection_id: number | null;
+  last_scanned_at: string | null;
+  // "partial" = scan completed but one or more files failed to index (terminal,
+  // like "ok"); the backend uses it so a green status never hides a per-file error.
+  last_scan_status: "ok" | "error" | "running" | "partial" | null;
+  last_scan_summary: ExternalLibraryScanSummary | null;
+}
+
+export interface ExternalLibraryRootEnrollment {
+  confirm_root_path: string;
+}
+
+export interface ExternalLibraryCreate {
+  name: string;
+  root_path?: string;
+  source_kind?: LibrarySourceKind;
+  connection_id?: number | null;
+  source_prefix?: string;
+  enabled?: boolean;
+  scan_schedule?: string;
+  watch_mode?: ExternalLibraryWatchMode;
+  collection_mode?: ExternalLibraryCollectionMode;
+  target_collection_id?: number | null;
+}
+
+export interface ExternalLibraryUpdate {
+  name?: string;
+  root_path?: string;
+  enabled?: boolean;
+  scan_schedule?: string;
+  watch_mode?: ExternalLibraryWatchMode;
+  collection_mode?: ExternalLibraryCollectionMode;
+  target_collection_id?: number | null;
+}

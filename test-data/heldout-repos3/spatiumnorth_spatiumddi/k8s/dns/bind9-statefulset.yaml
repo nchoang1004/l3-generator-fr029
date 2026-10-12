@@ -1,0 +1,103 @@
+# One StatefulSet per DNSServer row (docs/deployment/DNS_AGENT.md §8).
+# Duplicate & rename for each server (ns1, ns2, ...); scale stays at replicas=1.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: dns-bind9-ns1
+  namespace: spatiumddi
+  labels:
+    app.kubernetes.io/name: spatium-dns
+    app.kubernetes.io/instance: ns1
+    spatiumddi.org/dns-flavor: bind9
+    spatiumddi.org/dns-role: primary
+spec:
+  serviceName: dns-bind9-ns1-headless
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: spatium-dns
+      app.kubernetes.io/instance: ns1
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: spatium-dns
+        app.kubernetes.io/instance: ns1
+        spatiumddi.org/dns-flavor: bind9
+    spec:
+      # #983 — Kubernetes runs a container ``Unconfined`` unless a profile is
+      # asked for, while docker-compose applies the runtime's default profile
+      # to every service. Without this the same image runs with FEWER syscall
+      # restrictions here than under Compose.
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/name: spatium-dns
+                topologyKey: kubernetes.io/hostname
+      containers:
+        - name: dns
+          image: ghcr.io/spatiumnorth/dns-bind9:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: CONTROL_PLANE_URL
+              value: http://spatiumddi-api.spatiumddi.svc.cluster.local:8000
+            - name: SERVER_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: AGENT_GROUP
+              value: internal-resolvers
+            - name: AGENT_ROLES
+              value: authoritative
+            - name: DNS_AGENT_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: spatium-dns-agent-key
+                  key: DNS_AGENT_KEY
+          ports:
+            - name: dns-udp
+              containerPort: 53
+              protocol: UDP
+            - name: dns-tcp
+              containerPort: 53
+              protocol: TCP
+            # Encrypted transports — DoT / DoH (issue #50). Commented out
+            # because both listeners ship OFF; the ports are configured in
+            # the database (DNS → Server Groups → Options → Encrypted
+            # transports) and the agent renders named.conf from the config
+            # bundle, not from this manifest. Uncomment once a listener is
+            # enabled, matching the ports you chose there, and add the same
+            # entries to service-dns.yaml so they're routable.
+            # - name: dns-dot
+            #   containerPort: 853
+            #   protocol: TCP
+            # - name: dns-doh
+            #   containerPort: 8443
+            #   protocol: TCP
+          resources:
+            requests: { cpu: 100m, memory: 128Mi }
+            limits:   { cpu: 500m, memory: 512Mi }
+          volumeMounts:
+            - name: agent-state
+              mountPath: /var/lib/spatium-dns-agent
+            - name: bind-cache
+              mountPath: /var/cache/bind
+          readinessProbe:
+            tcpSocket: { port: 53 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+  volumeClaimTemplates:
+    - metadata: { name: agent-state }
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources: { requests: { storage: 1Gi } }
+    - metadata: { name: bind-cache }
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources: { requests: { storage: 2Gi } }

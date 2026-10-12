@@ -1,0 +1,656 @@
+"""Authorization matrix regressions for high-risk API boundaries."""
+
+import glob
+import time
+
+import reply_server
+import auto_updater
+
+
+def _insert_sales_order(db, *, order_id, cookie_id, amount, status, paid_at):
+    ok = db.insert_or_update_order(
+        order_id=order_id,
+        cookie_id=cookie_id,
+        item_id=f"item-{order_id}",
+        buyer_id=f"buyer-{order_id}",
+        sid=f"chat-{order_id}@goofish",
+        quantity=1,
+        amount=amount,
+        order_status=status,
+        platform_paid_at=paid_at,
+    )
+    assert ok is True
+
+
+def test_admin_only_file_upload_rejects_anonymous(client):
+    resp = client.post(
+        "/api/files",
+        data={"description": "anonymous upload"},
+        files={"file": ("anon.txt", b"nope", "text/plain")},
+    )
+
+    assert resp.status_code in (401, 403)
+
+
+def test_admin_only_file_upload_rejects_regular_user(client, user_auth):
+    resp = client.post(
+        "/api/files",
+        headers=user_auth,
+        data={"description": "regular user upload"},
+        files={"file": ("user.txt", b"nope", "text/plain")},
+    )
+
+    assert resp.status_code == 403
+
+
+def test_admin_only_group_management_rejects_regular_user(client, user_auth):
+    resp = client.get("/api/groups", headers=user_auth)
+
+    assert resp.status_code == 403
+
+
+def test_admin_only_system_settings_rejects_regular_user(client, user_auth):
+    resp = client.get("/system-settings", headers=user_auth)
+
+    assert resp.status_code == 403
+
+
+def test_admin_only_system_settings_update_rejects_regular_user(client, user_auth):
+    resp = client.put(
+        "/system-settings/registration_enabled",
+        headers=user_auth,
+        json={"value": "false", "description": "should not be allowed"},
+    )
+
+    assert resp.status_code == 403
+
+
+def test_realtime_log_endpoints_are_admin_only(client, auth, user_auth):
+    denied = [
+        client.get("/logs", headers=user_auth),
+        client.get("/logs/stats", headers=user_auth),
+        client.post("/logs/clear", headers=user_auth),
+    ]
+    allowed = [
+        client.get("/logs", headers=auth),
+        client.get("/logs/stats", headers=auth),
+        client.post("/logs/clear", headers=auth),
+    ]
+
+    assert [resp.status_code for resp in denied] == [403, 403, 403]
+    assert [resp.status_code for resp in allowed] == [200, 200, 200]
+    assert all(resp.json()["success"] is True for resp in allowed)
+
+
+def test_cookie_check_counts_are_scoped_to_current_user(client, auth, user_auth):
+    db_manager = reply_server.db_manager
+    assert db_manager.save_cookie("admin_valid_cookie", "x" * 64, user_id=1)
+    assert db_manager.save_cookie("user_valid_cookie", "y" * 64, user_id=2)
+    assert db_manager.save_cookie("user_short_cookie", "short", user_id=2)
+    reply_server.cookie_manager.manager.cookie_status["admin_valid_cookie"] = True
+    reply_server.cookie_manager.manager.cookie_status["user_valid_cookie"] = True
+    reply_server.cookie_manager.manager.cookie_status["user_short_cookie"] = False
+
+    anonymous = client.get("/cookies/check")
+    admin_resp = client.get("/cookies/check", headers=auth)
+    user_resp = client.get("/cookies/check", headers=user_auth)
+
+    assert anonymous.status_code == 200
+    assert anonymous.json() == {
+        "success": True,
+        "hasValidCookies": False,
+        "validCount": 0,
+        "enabledCount": 0,
+        "totalCount": 0,
+    }
+    assert admin_resp.status_code == 200
+    assert admin_resp.json()["totalCount"] == 1
+    assert admin_resp.json()["enabledCount"] == 1
+    assert admin_resp.json()["validCount"] == 1
+    assert admin_resp.json()["hasValidCookies"] is True
+    assert user_resp.status_code == 200
+    assert user_resp.json()["totalCount"] == 2
+    assert user_resp.json()["enabledCount"] == 1
+    assert user_resp.json()["validCount"] == 1
+    assert user_resp.json()["hasValidCookies"] is True
+
+
+def test_system_reload_cache_is_admin_only(client, auth, user_auth):
+    class _ReloadManager:
+        def __init__(self):
+            self.calls = 0
+
+        def reload_from_db(self):
+            self.calls += 1
+            return True
+
+    original_manager = reply_server.cookie_manager.manager
+    manager = _ReloadManager()
+    reply_server.cookie_manager.manager = manager
+    try:
+        denied = client.post("/system/reload-cache", headers=user_auth)
+        allowed = client.post("/system/reload-cache", headers=auth)
+    finally:
+        reply_server.cookie_manager.manager = original_manager
+
+    assert denied.status_code == 403
+    assert allowed.status_code == 200
+    assert allowed.json()["success"] is True
+    assert manager.calls == 1
+
+
+def test_keywords_table_debug_metadata_is_admin_only(client, auth, user_auth):
+    denied = client.get("/debug/keywords-table-info", headers=user_auth)
+    allowed = client.get("/debug/keywords-table-info", headers=auth)
+
+    assert denied.status_code == 403
+    assert allowed.status_code == 200
+    body = allowed.json()
+    assert "db_version" in body
+    assert any(column["name"] == "cookie_id" for column in body["table_columns"])
+
+
+def test_sales_statistics_are_scoped_to_current_user(client, auth, user_auth):
+    db_manager = reply_server.db_manager
+    today = reply_server.get_local_now().strftime("%Y-%m-%d")
+    paid_at = f"{today} 10:00:00"
+
+    assert db_manager.save_cookie("admin_sales_cookie", "unb=admin-sales", user_id=1)
+    assert db_manager.save_cookie("user_sales_cookie", "unb=user-sales", user_id=2)
+    _insert_sales_order(
+        db_manager,
+        order_id="admin-sales-owned",
+        cookie_id="admin_sales_cookie",
+        amount="100.50",
+        status="completed",
+        paid_at=paid_at,
+    )
+    _insert_sales_order(
+        db_manager,
+        order_id="admin-sales-ineligible",
+        cookie_id="admin_sales_cookie",
+        amount="999.99",
+        status="cancelled",
+        paid_at=paid_at,
+    )
+    _insert_sales_order(
+        db_manager,
+        order_id="admin-sales-invalid-amount",
+        cookie_id="admin_sales_cookie",
+        amount="not-money",
+        status="completed",
+        paid_at=paid_at,
+    )
+    _insert_sales_order(
+        db_manager,
+        order_id="user-sales-foreign",
+        cookie_id="user_sales_cookie",
+        amount="250.00",
+        status="completed",
+        paid_at=paid_at,
+    )
+
+    anonymous_sales = client.get(f"/api/sales?start_date={today}&end_date={today}")
+    admin_sales = client.get(f"/api/sales?start_date={today}&end_date={today}", headers=auth)
+    user_sales = client.get(f"/api/sales?start_date={today}&end_date={today}", headers=user_auth)
+    admin_summary = client.get("/api/sales/summary", headers=auth)
+    user_summary = client.get("/api/sales/summary", headers=user_auth)
+
+    assert anonymous_sales.status_code == 401
+    assert admin_sales.status_code == 200
+    assert admin_sales.json()["data"] == {
+        "sales": [{"date": today, "amount": 100.5}],
+        "total": 100.5,
+        "count": 1,
+    }
+    assert user_sales.status_code == 200
+    assert user_sales.json()["data"] == {
+        "sales": [{"date": today, "amount": 250.0}],
+        "total": 250.0,
+        "count": 1,
+    }
+    assert admin_summary.status_code == 200
+    assert admin_summary.json()["data"]["today_sales"] == 100.5
+    assert admin_summary.json()["data"]["week_sales"] == 100.5
+    assert admin_summary.json()["data"]["month_sales"] == 100.5
+    assert user_summary.status_code == 200
+    assert user_summary.json()["data"]["today_sales"] == 250.0
+    assert user_summary.json()["data"]["week_sales"] == 250.0
+    assert user_summary.json()["data"]["month_sales"] == 250.0
+
+
+def test_user_settings_are_scoped_to_current_user(client, auth, user_auth):
+    anonymous = client.get("/user-settings")
+    admin_update = client.put(
+        "/user-settings/dashboard_theme",
+        headers=auth,
+        json={"value": "admin-dark", "description": "admin preference"},
+    )
+    user_update = client.put(
+        "/user-settings/dashboard_theme",
+        headers=user_auth,
+        json={"value": "user-light", "description": "user preference"},
+    )
+    admin_list = client.get("/user-settings", headers=auth)
+    user_list = client.get("/user-settings", headers=user_auth)
+    admin_read = client.get("/user-settings/dashboard_theme", headers=auth)
+    user_read = client.get("/user-settings/dashboard_theme", headers=user_auth)
+    missing = client.get("/user-settings/not_set_for_user", headers=user_auth)
+
+    assert anonymous.status_code == 401
+    assert admin_update.status_code == 200
+    assert admin_update.json()["value"] == "admin-dark"
+    assert user_update.status_code == 200
+    assert user_update.json()["value"] == "user-light"
+    assert admin_list.status_code == 200
+    assert admin_list.json()["dashboard_theme"]["value"] == "admin-dark"
+    assert user_list.status_code == 200
+    assert user_list.json()["dashboard_theme"]["value"] == "user-light"
+    assert admin_read.status_code == 200
+    assert admin_read.json()["value"] == "admin-dark"
+    assert user_read.status_code == 200
+    assert user_read.json()["value"] == "user-light"
+    assert missing.status_code == 404
+
+
+def test_admin_cookies_are_admin_only_and_do_not_expose_raw_values(client, auth, user_auth):
+    class _StatusManager:
+        def __init__(self):
+            self.cookie_status = {
+                "admin_ops_cookie": True,
+                "user_ops_cookie": False,
+            }
+
+        def get_cookie_status(self, cookie_id):
+            return self.cookie_status.get(cookie_id, False)
+
+    db_manager = reply_server.db_manager
+    assert db_manager.save_cookie("admin_ops_cookie", "raw-admin-secret", user_id=1)
+    assert db_manager.save_cookie("user_ops_cookie", "raw-user-secret", user_id=2)
+    assert db_manager.update_cookie_remark("admin_ops_cookie", "admin account")
+    assert db_manager.update_cookie_remark("user_ops_cookie", "user account")
+
+    original_manager = reply_server.cookie_manager.manager
+    reply_server.cookie_manager.manager = _StatusManager()
+    try:
+        denied = client.get("/admin/cookies", headers=user_auth)
+        allowed = client.get("/admin/cookies", headers=auth)
+    finally:
+        reply_server.cookie_manager.manager = original_manager
+
+    assert denied.status_code == 403
+    assert allowed.status_code == 200
+    body = allowed.json()
+    assert body["success"] is True
+    assert body["total"] == 2
+    cookies_by_id = {cookie["cookie_id"]: cookie for cookie in body["cookies"]}
+    assert cookies_by_id["admin_ops_cookie"] == {
+        "cookie_id": "admin_ops_cookie",
+        "user_id": 1,
+        "username": "admin",
+        "nickname": "admin account",
+        "enabled": True,
+    }
+    assert cookies_by_id["user_ops_cookie"] == {
+        "cookie_id": "user_ops_cookie",
+        "user_id": 2,
+        "username": "testuser",
+        "nickname": "user account",
+        "enabled": False,
+    }
+    assert "raw-admin-secret" not in str(body)
+    assert "raw-user-secret" not in str(body)
+
+
+def test_admin_user_management_is_admin_only_and_self_protected(client, auth, user_auth):
+    denied_list = client.get("/admin/users", headers=user_auth)
+    denied_delete = client.delete("/admin/users/1", headers=user_auth)
+    denied_admin_status = client.put("/admin/users/1/admin-status?is_admin=false", headers=user_auth)
+    allowed_list = client.get("/admin/users", headers=auth)
+    self_delete = client.delete("/admin/users/1", headers=auth)
+    self_admin_status = client.put("/admin/users/1/admin-status?is_admin=false", headers=auth)
+
+    assert denied_list.status_code == 403
+    assert denied_delete.status_code == 403
+    assert denied_admin_status.status_code == 403
+    assert allowed_list.status_code == 200
+    users = allowed_list.json()["users"]
+    assert any(user["id"] == 1 and user["username"] == "admin" for user in users)
+    assert any(user["id"] == 2 and user["username"] == "testuser" for user in users)
+    assert all("password_hash" not in user for user in users)
+    assert all("cookie_count" in user and "card_count" in user for user in users)
+    assert self_delete.status_code == 400
+    assert self_admin_status.status_code == 400
+
+
+def test_admin_status_revocation_invalidates_existing_admin_token(client, auth):
+    import secrets
+    import time
+
+    db_manager = reply_server.db_manager
+    assert db_manager.create_user("tempadmin", "tempadmin@test.local", "test123")
+    temp_admin = db_manager.get_user_by_username("tempadmin")
+    assert db_manager.update_user_admin_status(temp_admin["id"], True)
+
+    stale_token = secrets.token_urlsafe(32)
+    reply_server.SESSION_TOKENS[stale_token] = {
+        "user_id": temp_admin["id"],
+        "username": "tempadmin",
+        "is_admin": True,
+        "timestamp": time.time(),
+    }
+    stale_auth = {"Authorization": f"Bearer {stale_token}"}
+
+    assert client.get("/admin/users", headers=stale_auth).status_code == 200
+
+    revoke = client.put(
+        f"/admin/users/{temp_admin['id']}/admin-status?is_admin=false",
+        headers=auth,
+    )
+    assert revoke.status_code == 200
+    assert stale_token not in reply_server.SESSION_TOKENS
+    assert client.get("/admin/users", headers=stale_auth).status_code == 401
+
+
+def test_admin_user_delete_immediately_revokes_memory_sessions(client, auth):
+    import secrets
+    import time
+
+    db_manager = reply_server.db_manager
+    assert db_manager.create_user("tempuser", "tempuser@test.local", "test123")
+    temp_user = db_manager.get_user_by_username("tempuser")
+
+    stale_token = secrets.token_urlsafe(32)
+    reply_server.SESSION_TOKENS[stale_token] = {
+        "user_id": temp_user["id"],
+        "username": "tempuser",
+        "is_admin": False,
+        "timestamp": time.time(),
+        "expires_at": time.time() + 3600,
+    }
+    stale_auth = {"Authorization": f"Bearer {stale_token}"}
+
+    assert client.get("/verify", headers=stale_auth).json()["authenticated"] is True
+
+    deleted = client.delete(f"/admin/users/{temp_user['id']}", headers=auth)
+    assert deleted.status_code == 200
+    assert stale_token not in reply_server.SESSION_TOKENS
+    assert db_manager.get_user_session(stale_token) is None
+    assert client.get("/verify", headers=stale_auth).json()["authenticated"] is False
+    assert client.get("/api/orders", headers=stale_auth).status_code == 401
+
+
+def test_admin_log_access_is_admin_only_and_missing_exports_are_safe(
+    client, auth, user_auth, monkeypatch
+):
+    monkeypatch.setattr(glob, "glob", lambda pattern: [])
+
+    denied_logs = client.get("/admin/logs", headers=user_auth)
+    denied_files = client.get("/admin/log-files", headers=user_auth)
+    denied_export = client.get("/admin/logs/export?file=xianyu_missing.log", headers=user_auth)
+    admin_logs = client.get("/admin/logs", headers=auth)
+    admin_files = client.get("/admin/log-files", headers=auth)
+    missing_export = client.get("/admin/logs/export?file=xianyu_missing.log", headers=auth)
+
+    assert denied_logs.status_code == 403
+    assert denied_files.status_code == 403
+    assert denied_export.status_code == 403
+    assert admin_logs.status_code == 200
+    assert admin_logs.json()["success"] is False
+    assert admin_files.status_code == 200
+    assert admin_files.json()["success"] is True
+    assert missing_export.status_code == 404
+
+
+def test_admin_system_stats_are_admin_only_and_global(client, auth, user_auth):
+    db_manager = reply_server.db_manager
+    assert db_manager.save_cookie("admin_stats_cookie", "unb=admin-stats", user_id=1)
+    assert db_manager.save_cookie("user_stats_cookie", "unb=user-stats", user_id=2)
+    admin_card_id = db_manager.create_card(
+        name="admin stats card",
+        card_type="text",
+        text_content="admin",
+        user_id=1,
+    )
+    user_card_id = db_manager.create_card(
+        name="user stats card",
+        card_type="text",
+        text_content="user",
+        user_id=2,
+        enabled=False,
+    )
+    assert admin_card_id is not None
+    assert user_card_id is not None
+
+    denied = client.get("/admin/stats", headers=user_auth)
+    allowed = client.get("/admin/stats", headers=auth)
+
+    assert denied.status_code == 403
+    assert allowed.status_code == 200
+    body = allowed.json()
+    assert body["users"]["total"] >= 2
+    assert body["cookies"]["total"] >= 2
+    assert body["cards"]["total"] >= 2
+    assert body["cards"]["enabled"] >= 1
+    assert body["system"]["version"] == "1.0.0"
+
+
+class _FakeUpdateProgress:
+    status = "idle"
+    current_file = ""
+    current_index = 0
+    total_files = 0
+    downloaded_bytes = 0
+    total_bytes = 0
+    message = ""
+    error = ""
+
+
+class _FakeUpdater:
+    current_version = "1.2.3"
+
+    def __init__(self):
+        self.progress = _FakeUpdateProgress()
+        self.cleaned_days = None
+        self.saved_version = None
+
+    async def perform_update(self):
+        return {
+            "success": True,
+            "message": "updated",
+            "updated_files": [],
+            "deleted_files": [],
+            "needs_restart": False,
+            "new_version": self.current_version,
+        }
+
+    def get_local_file_hashes(self):
+        return {"reply_server.py": "hash"}
+
+    def cleanup_old_backups(self, keep_days=7):
+        self.cleaned_days = keep_days
+
+    def compare_file_hashes(self):
+        return {"modified": [], "added": [], "deleted": []}
+
+    def save_file_hashes(self, version):
+        self.saved_version = version
+
+    def load_file_hashes(self):
+        return {
+            "version": self.current_version,
+            "updated_at": "2026-06-18T00:00:00",
+            "total_files": 1,
+            "last_updated_files": [],
+            "last_updated_count": 0,
+        }
+
+
+def _make_auth_header(user_id, username, is_admin):
+    token = f"phase76-{username}-{user_id}"
+    reply_server.SESSION_TOKENS[token] = {
+        "user_id": user_id,
+        "username": username,
+        "is_admin": is_admin,
+        "timestamp": time.time(),
+    }
+    return {"Authorization": f"Bearer {token}"}
+
+
+def test_update_management_endpoints_reject_regular_users(client, user_auth):
+    endpoints = [
+        ("post", "/api/update/apply"),
+        ("get", "/api/update/local-hashes"),
+        ("post", "/api/update/cleanup-backups"),
+        ("get", "/api/update/file-changes"),
+        ("post", "/api/update/save-hashes"),
+        ("get", "/api/update/saved-hashes"),
+        ("post", "/api/update/restart"),
+    ]
+
+    for method, path in endpoints:
+        resp = getattr(client, method)(path, headers=user_auth)
+        assert resp.status_code == 403, path
+
+
+def test_update_management_accepts_is_admin_user_without_admin_username(client, mocker):
+    db_manager = reply_server.db_manager
+    assert db_manager.create_user("ops_manager", "ops-manager@test.local", "ops123")
+    ops_manager = db_manager.get_user_by_username("ops_manager")
+    assert db_manager.update_user_admin_status(ops_manager["id"], True)
+    assert db_manager.update_user_admin_status(1, False)
+
+    fake_updater = _FakeUpdater()
+    mocker.patch.object(auto_updater, "get_updater", return_value=fake_updater)
+    scheduled = []
+    mocker.patch.object(reply_server.asyncio, "create_task", side_effect=lambda task: scheduled.append(task))
+    owner_auth = _make_auth_header(ops_manager["id"], "ops_manager", True)
+
+    apply_resp = client.post("/api/update/apply", headers=owner_auth)
+    local_hashes = client.get("/api/update/local-hashes", headers=owner_auth)
+    cleanup = client.post("/api/update/cleanup-backups?days=3", headers=owner_auth)
+    file_changes = client.get("/api/update/file-changes", headers=owner_auth)
+    save_hashes = client.post("/api/update/save-hashes", headers=owner_auth)
+    saved_hashes = client.get("/api/update/saved-hashes", headers=owner_auth)
+    restart = client.post("/api/update/restart", headers=owner_auth)
+    legacy_admin = client.get(
+        "/api/update/local-hashes",
+        headers=_make_auth_header(1, "admin", False),
+    )
+
+    assert apply_resp.status_code == 200
+    assert apply_resp.json()["success"] is True
+    assert local_hashes.status_code == 200
+    assert local_hashes.json()["data"]["version"] == "1.2.3"
+    assert cleanup.status_code == 200
+    assert fake_updater.cleaned_days == 3
+    assert file_changes.status_code == 200
+    assert file_changes.json()["data"]["modified"] == []
+    assert save_hashes.status_code == 200
+    assert fake_updater.saved_version == "1.2.3"
+    assert saved_hashes.status_code == 200
+    assert saved_hashes.json()["data"]["version"] == "1.2.3"
+    assert restart.status_code == 200
+    assert restart.json()["success"] is True
+    assert len(scheduled) == 1
+    assert legacy_admin.status_code == 200
+    scheduled[0].close()
+
+
+def test_slider_verification_stats_are_scoped_to_admin_owned_cookies(client, user_auth):
+    from db_manager import db_manager
+
+    db_manager.create_user("ops_admin", "ops-admin@test.local", "ops123")
+    assert db_manager.update_user_admin_status(3, True)
+    assert db_manager.save_cookie("ops_slider_cookie", "unb=ops", user_id=3)
+    assert db_manager.save_cookie("foreign_slider_cookie", "unb=foreign", user_id=2)
+    db_manager.add_risk_control_log(
+        "ops_slider_cookie",
+        event_type="slider_captcha",
+        processing_status="success",
+        session_id="ops-success",
+    )
+    db_manager.add_risk_control_log(
+        "foreign_slider_cookie",
+        event_type="slider_captcha",
+        processing_status="failed",
+        session_id="foreign-failure",
+    )
+
+    ops_auth = _make_auth_header(3, "ops_admin", True)
+
+    regular = client.get("/admin/slider-verification-stats", headers=user_auth)
+    aggregate = client.get("/admin/slider-verification-stats", headers=ops_auth)
+    own_cookie = client.get(
+        "/admin/slider-verification-stats?cookie_id=ops_slider_cookie",
+        headers=ops_auth,
+    )
+    foreign_cookie = client.get(
+        "/admin/slider-verification-stats?cookie_id=foreign_slider_cookie",
+        headers=ops_auth,
+    )
+
+    assert regular.status_code == 403
+    assert aggregate.status_code == 200
+    assert aggregate.json()["success"] is True
+    aggregate_data = aggregate.json()["data"]
+    assert aggregate_data["total_sessions"] == 1
+    assert aggregate_data["success_count"] == 1
+    assert aggregate_data["failure_count"] == 0
+    assert aggregate_data["accounts_with_sessions"] == 1
+    assert own_cookie.status_code == 200
+    assert own_cookie.json()["data"]["total_sessions"] == 1
+    assert foreign_cookie.status_code == 200
+    foreign_data = foreign_cookie.json()["data"]
+    assert foreign_data["total_sessions"] == 0
+    assert foreign_data["success_count"] == 0
+    assert foreign_data["failure_count"] == 0
+    assert foreign_data["selected_cookie_id"] == "foreign_slider_cookie"
+
+
+def test_ai_config_presets_are_scoped_to_user(client, auth, user_auth):
+    admin_create = client.post(
+        "/ai-config-presets",
+        headers=auth,
+        json={
+            "preset_name": "shared-preset",
+            "model_name": "admin-model",
+            "api_key": "admin-secret-key",
+            "base_url": "https://admin.example/v1",
+            "api_type": "openai",
+        },
+    )
+    user_create = client.post(
+        "/ai-config-presets",
+        headers=user_auth,
+        json={
+            "preset_name": "shared-preset",
+            "model_name": "user-model",
+            "api_key": "user-secret-key",
+            "base_url": "https://user.example/v1",
+            "api_type": "compatible",
+        },
+    )
+
+    assert admin_create.status_code == 200
+    assert user_create.status_code == 200
+
+    admin_preset_id = admin_create.json()["preset_id"]
+    user_preset_id = user_create.json()["preset_id"]
+    foreign_delete = client.delete(f"/ai-config-presets/{admin_preset_id}", headers=user_auth)
+    admin_list = client.get("/ai-config-presets", headers=auth)
+    user_list = client.get("/ai-config-presets", headers=user_auth)
+    owner_delete = client.delete(f"/ai-config-presets/{admin_preset_id}", headers=auth)
+    admin_after_delete = client.get("/ai-config-presets", headers=auth)
+    user_after_admin_delete = client.get("/ai-config-presets", headers=user_auth)
+
+    assert foreign_delete.status_code == 404
+    assert admin_list.status_code == 200
+    assert user_list.status_code == 200
+    assert [preset["id"] for preset in admin_list.json()] == [admin_preset_id]
+    assert admin_list.json()[0]["api_key"] == "admin-secret-key"
+    assert [preset["id"] for preset in user_list.json()] == [user_preset_id]
+    assert user_list.json()[0]["api_key"] == "user-secret-key"
+    assert owner_delete.status_code == 200
+    assert admin_after_delete.json() == []
+    assert [preset["id"] for preset in user_after_admin_delete.json()] == [user_preset_id]

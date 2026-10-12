@@ -1,0 +1,255 @@
+{
+  "partition_version": "fixture-membership-v1",
+  "components": [
+    {
+      "name": "API",
+      "kind": "normal",
+      "files": [
+        "app/api/v1/appointments/__init__.py",
+        "app/api/v1/appointments/router.py",
+        "app/api/v1/auth/__init__.py",
+        "app/api/v1/auth/router.py",
+        "app/api/v1/clients/__init__.py",
+        "app/api/v1/clients/router.py",
+        "app/api/v1/services/__init__.py",
+        "app/api/v1/services/router.py",
+        "app/api/v1/super_admin/__init__.py",
+        "app/api/v1/super_admin/router.py",
+        "app/api/v1/tenant/__init__.py",
+        "app/api/v1/tenant/payments_router.py",
+        "app/api/v1/tenant/router.py",
+        "app/api/v1/test.py",
+        "app/api/v1/users/__init__.py",
+        "app/api/v1/users/router.py",
+        "app/api/v1/waitlists/__init__.py",
+        "app/api/v1/waitlists/router.py",
+        "app/api/v1/whatsapp/__init__.py",
+        "app/api/v1/whatsapp/router.py"
+      ]
+    },
+    {
+      "name": "Cơ sở dữ liệu",
+      "kind": "normal",
+      "files": [
+        "app/db/base.py",
+        "app/db/schemas.py",
+        "app/db/session.py"
+      ]
+    },
+    {
+      "name": "Dữ liệu mẫu",
+      "kind": "normal",
+      "files": [
+        "app/seeds/create_frontend_test_users.py"
+      ]
+    },
+    {
+      "name": "Khởi động",
+      "kind": "normal",
+      "files": [
+        "app/main.py"
+      ]
+    },
+    {
+      "name": "Lõi",
+      "kind": "normal",
+      "files": [
+        "app/core/config.py",
+        "app/core/dependencies.py",
+        "app/core/email.py",
+        "app/core/security.py",
+        "app/core/timezone.py"
+      ]
+    },
+    {
+      "name": "Model bảng",
+      "kind": "normal",
+      "files": [
+        "app/models/__init__.py",
+        "app/models/appointments/__init__.py",
+        "app/models/appointments/appointment.py",
+        "app/models/auth/__init__.py",
+        "app/models/auth/user.py",
+        "app/models/clients/__init__.py",
+        "app/models/clients/client.py",
+        "app/models/conversation_contexts/__init__.py",
+        "app/models/conversation_contexts/conversation_context.py",
+        "app/models/services/__init__.py",
+        "app/models/services/service.py",
+        "app/models/super_admin/__init__.py",
+        "app/models/super_admin/super_admin.py",
+        "app/models/tenant/__init__.py",
+        "app/models/tenant/tenant.py",
+        "app/models/tenant/tenant_config.py",
+        "app/models/tenant/tenant_payment.py",
+        "app/models/waitlists/__init__.py",
+        "app/models/waitlists/waitlist.py",
+        "app/models/whatsapp_events/__init__.py",
+        "app/models/whatsapp_events/processed_webhook.py",
+        "app/models/whatsapp_outbox/__init__.py",
+        "app/models/whatsapp_outbox/whatsapp_outbox.py",
+        "app/models/whatsapp_sessions/__init__.py",
+        "app/models/whatsapp_sessions/whatsapp_session.py"
+      ]
+    },
+    {
+      "name": "Schema API",
+      "kind": "normal",
+      "files": [
+        "app/schemas/appointments/__init__.py",
+        "app/schemas/appointments/appointment.py",
+        "app/schemas/auth/__init__.py",
+        "app/schemas/auth/auth.py",
+        "app/schemas/clients/__init__.py",
+        "app/schemas/clients/client.py",
+        "app/schemas/services/__init__.py",
+        "app/schemas/services/service.py",
+        "app/schemas/super_admin/__init__.py",
+        "app/schemas/super_admin/super_admin.py",
+        "app/schemas/tenant/__init__.py",
+        "app/schemas/tenant/tenant.py",
+        "app/schemas/tenant/tenant_payment.py",
+        "app/schemas/users/__init__.py",
+        "app/schemas/users/user.py",
+        "app/schemas/waitlists/__init__.py",
+        "app/schemas/waitlists/waitlist.py",
+        "app/schemas/whatsapp/__init__.py",
+        "app/schemas/whatsapp/whatsapp.py"
+      ]
+    },
+    {
+      "name": "Script",
+      "kind": "normal",
+      "files": [
+        "app/scripts/send_tomorrow_reminders.py"
+      ]
+    },
+    {
+      "name": "Service",
+      "kind": "normal",
+      "files": [
+        "app/services/appointments/__init__.py",
+        "app/services/appointments/appointment_service.py",
+        "app/services/auth/__init__.py",
+        "app/services/auth/auth_service.py",
+        "app/services/clients/__init__.py",
+        "app/services/clients/client_service.py",
+        "app/services/scheduler/reminder_scheduler.py",
+        "app/services/scheduler/worker.py",
+        "app/services/services/__init__.py",
+        "app/services/services/service_service.py",
+        "app/services/super_admin/__init__.py",
+        "app/services/super_admin/super_admin_service.py",
+        "app/services/tenant/__init__.py",
+        "app/services/tenant/tenant_payment_service.py",
+        "app/services/tenant/tenant_service.py",
+        "app/services/users/__init__.py",
+        "app/services/users/user_service.py",
+        "app/services/waitlists/__init__.py",
+        "app/services/waitlists/waitlist_service.py",
+        "app/services/whatsapp/__init__.py",
+        "app/services/whatsapp/connection_service.py",
+        "app/services/whatsapp/evolution_client.py",
+        "app/services/whatsapp/outbox_service.py",
+        "app/services/whatsapp/template_engine.py",
+        "app/services/whatsapp/variable_resolver.py",
+        "app/services/whatsapp/webhook_service.py",
+        "app/services/whatsapp/worker.py"
+      ]
+    },
+    {
+      "name": "Truy cập dữ liệu",
+      "kind": "normal",
+      "files": [
+        "app/repositories/appointments/__init__.py",
+        "app/repositories/appointments/appointment_repository.py",
+        "app/repositories/auth/__init__.py",
+        "app/repositories/auth/auth_repository.py",
+        "app/repositories/clients/__init__.py",
+        "app/repositories/clients/client_repository.py",
+        "app/repositories/services/__init__.py",
+        "app/repositories/services/service_repository.py",
+        "app/repositories/super_admin/__init__.py",
+        "app/repositories/super_admin/super_admin_repository.py",
+        "app/repositories/tenant/__init__.py",
+        "app/repositories/tenant/tenant_config_repository.py",
+        "app/repositories/tenant/tenant_payment_repository.py",
+        "app/repositories/tenant/tenant_repository.py",
+        "app/repositories/users/__init__.py",
+        "app/repositories/users/user_repository.py",
+        "app/repositories/waitlists/__init__.py",
+        "app/repositories/waitlists/waitlist_repository.py",
+        "app/repositories/whatsapp_events/__init__.py",
+        "app/repositories/whatsapp_events/processed_webhook_repository.py",
+        "app/repositories/whatsapp_outbox/__init__.py",
+        "app/repositories/whatsapp_outbox/whatsapp_outbox_repository.py",
+        "app/repositories/whatsapp_sessions/__init__.py",
+        "app/repositories/whatsapp_sessions/whatsapp_session_repository.py"
+      ]
+    },
+    {
+      "name": "Kiểm thử",
+      "kind": "test",
+      "files": [
+        "app/scripts/test_whatsapp_connection.py",
+        "tests/__init__.py",
+        "tests/api/__init__.py",
+        "tests/api/v1/__init__.py",
+        "tests/api/v1/test_http_integration.py",
+        "tests/api/v1/test_staff_activation_and_schedule.py",
+        "tests/conftest.py",
+        "tests/services/__init__.py",
+        "tests/services/tenant/__init__.py",
+        "tests/services/tenant/test_tenant_module.py",
+        "tests/services/whatsapp/__init__.py",
+        "tests/services/whatsapp/test_webhook_scheduler.py",
+        "tests/test_config.py"
+      ]
+    },
+    {
+      "name": "Migration",
+      "kind": "migration",
+      "files": [
+        "alembic/env.py",
+        "alembic/versions/20260318_01_auth_super_admin.py",
+        "alembic/versions/20260318_02_tenants_payments.py",
+        "alembic/versions/20260318_03_clients_services_appointments.py",
+        "alembic/versions/20260318_04_clients_phone_nullable.py",
+        "alembic/versions/20260318_05_tenant_plan_and_business_hours.py",
+        "alembic/versions/20260319_06_waitlists.py",
+        "alembic/versions/20260320_07_tenant_trial_ends_at.py",
+        "alembic/versions/20260321_08_whatsapp_confirmation_schema.py",
+        "alembic/versions/20260322_09_timezone_templates_optout.py",
+        "alembic/versions/20260322_10_whatsapp_outbox.py",
+        "alembic/versions/20260322_11_plan_tier_feature_gating.py",
+        "alembic/versions/20260326_12_webhook_idempotency_and_status.py",
+        "alembic/versions/20260411_13_split_whatsapp_schema.py",
+        "alembic/versions/20260411_14_move_evolution_tables_to_whatsapp.py",
+        "alembic/versions/20260411_15_move_evolution_enums_to_whatsapp.py",
+        "alembic/versions/20260413_16_tenant_whatsapp_apikey.py",
+        "alembic/versions/20260414_17_add_whatsapp_lid_to_clients.py",
+        "alembic/versions/20260414_18_scope_processed_webhook_message_id.py",
+        "alembic/versions/a9fdbd1d5b46_whatsapp_remote_id_fields.py"
+      ]
+    },
+    {
+      "name": "Khác",
+      "kind": "other",
+      "files": [
+        "app/__init__.py",
+        "app/api/__init__.py",
+        "app/api/v1/__init__.py",
+        "app/core/__init__.py",
+        "app/db/__init__.py",
+        "app/models/users/__init__.py",
+        "app/repositories/__init__.py",
+        "app/schemas/__init__.py",
+        "app/seeds/__init__.py",
+        "app/services/__init__.py",
+        "app/services/scheduler/__init__.py",
+        "pyproject.toml",
+        "requirements.txt"
+      ]
+    }
+  ]
+}

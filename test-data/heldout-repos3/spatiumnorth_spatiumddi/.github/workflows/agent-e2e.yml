@@ -1,0 +1,566 @@
+name: Agent E2E (kind)
+
+# Spins up a kind cluster, installs the umbrella Helm chart with all three
+# DNS-agent flavors (BIND9 + PowerDNS + Technitium) enabled side by side,
+# and verifies:
+#   1. Every deployment + statefulset reaches Ready.
+#   2. The API's /health/live returns 200 via a port-forward.
+#   3. The BIND9 agent answers ``dig version.bind CH TXT`` — cheap
+#      "daemon is alive" probe that doesn't need pre-seeded zone data.
+#   4. The PowerDNS agent answers ``dig id.server CH TXT`` — pdns's
+#      CHAOS-class equivalent.
+#   5. The Technitium agent answers a query for the RFC 6761 reserved
+#      "invalid." TLD — Technitium REFUSES CHAOS-class queries entirely
+#      (confirmed empirically), so it has no id.server/version.bind
+#      equivalent; querying "invalid." is answered locally and instantly
+#      (NXDOMAIN, no recursion) regardless of zone state instead.
+#   6. All three pods register and stay stable (low restart count).
+#
+# Tag selection — control-plane vs agent images publish on different
+# cadences, so they need different tags:
+#
+# * ``ghcr.io/spatiumnorth/spatiumddi-{api,frontend}`` — built only by
+#   ``release.yml`` on a release tag push. ``:latest`` exists; ``:main``
+#   does not. So control-plane workloads pin ``:latest``.
+# * ``ghcr.io/spatiumnorth/{dns-bind9,dns-powerdns,dhcp-kea}`` — built
+#   by ``build-dns-images.yml`` / ``build-dhcp-images.yml`` on every
+#   push to main, so ``:main`` is fresh. We use ``:main`` here so PR
+#   smokes exercise the actually-current agent image, and to dodge
+#   the ``dns-powerdns:latest`` gap (Phase 4b landed after the most
+#   recent CalVer release, so the latest tag isn't stamped yet).
+
+on:
+  pull_request:
+    # Frontend-only and backend-only PRs are deliberately *not* listed:
+    # this workflow installs the CONTROL PLANE (api / frontend / worker /
+    # beat) from the pre-built ``:latest`` release images in the registry
+    # and builds only the DNS agent images from PR source. A change under
+    # ``frontend/`` or ``backend/`` therefore cannot reach the cluster
+    # under test until the image rebuild + retag happens on release, and
+    # listing either would attach a 4-20 minute helm install to every such
+    # PR for no signal. ``backend/**`` WAS listed until #1021 and did
+    # exactly that on every backend PR. Building the api image from PR
+    # source and loading it into kind would turn this into a real backend
+    # e2e — a separate decision, not a reason to keep a no-signal run.
+    paths:
+      - "agent/**"
+      - "charts/spatiumddi/**"
+      - ".github/workflows/agent-e2e.yml"
+  workflow_dispatch:
+    inputs:
+      control_tag:
+        description: "Control-plane image tag (api / frontend / worker / beat)"
+        required: false
+        default: "latest"
+      agent_tag:
+        description: "Agent image tag — defaults to 'pr-test' (built from this branch)"
+        required: false
+        default: "pr-test"
+
+# Least-privilege default — this workflow only needs to read the repo
+# to pull the chart + manifests. No contents/packages/issues/PR
+# writes. Keeps CodeQL's actions/missing-workflow-permissions rule
+# happy and survives a repo default that's stricter than read-all.
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install Helm
+        uses: azure/setup-helm@v5
+        with:
+          version: v4.3.0
+
+      - name: Create kind cluster
+        # #983 — kind and the node image are BOTH pinned, and the node image
+        # is what matters: without it the Kubernetes version this job tests
+        # against is whatever kind's default happened to be on the day the
+        # action version was written (v0.22.0, Feb 2024, defaulted to 1.29),
+        # so the number was real but written down nowhere.
+        #
+        # v1.36.4 matches the k3s the appliance ISO bakes (Makefile
+        # K3S_VERSION, #974), so a chart change that only breaks on the
+        # appliance's Kubernetes minor fails here first. The digest pins the
+        # exact image kind v0.33.0 publishes for that tag — a floating tag
+        # would silently drift the thing being pinned.
+        uses: helm/kind-action@v1
+        with:
+          version: v0.33.0
+          node_image: kindest/node:v1.36.4@sha256:099e049362a1526b2db71494e1947aae99bd16290d7c895f2b7ea312e3cbfaed
+          cluster_name: spatium-e2e
+          wait: 120s
+
+      - name: Pull chart subcharts
+        # No-op today (the chart has no subchart deps after the
+        # Bitnami → in-chart Postgres + Redis migration), kept around
+        # so adding a future dep doesn't need a workflow edit.
+        run: helm dependency update charts/spatiumddi
+
+      - name: Build agent images from PR source + load into kind
+        # Agent code changes (under ``agent/dns/**``) don't reach
+        # ``ghcr.io/spatiumnorth/dns-{bind9,powerdns}:main`` until the
+        # PR merges — ``build-dns-images.yml`` only pushes on push to
+        # main. Without this step, agent-e2e on a PR perpetually tests
+        # the pre-PR image instead of the PR's actual code.
+        #
+        # Build each flavor for linux/amd64 only (the runner arch),
+        # tag as ``:pr-test``, and ``kind load`` so containerd serves
+        # from the loaded set when the chart asks for that tag.
+        # ``--load`` keeps the image in the host's docker daemon
+        # without pushing anywhere.
+        run: |
+          set -euxo pipefail
+          docker buildx create --use --name e2e-builder >/dev/null 2>&1 || docker buildx use e2e-builder
+          for flavor in bind9 powerdns technitium; do
+            docker buildx build \
+              --platform linux/amd64 \
+              --file "agent/dns/images/${flavor}/Dockerfile" \
+              --tag "ghcr.io/spatiumnorth/dns-${flavor}:pr-test" \
+              --load \
+              .
+            kind load docker-image "ghcr.io/spatiumnorth/dns-${flavor}:pr-test" --name spatium-e2e
+          done
+
+      - name: Preload official postgres + redis images into kind
+        # Sidesteps Docker Hub anonymous-pull rate limits (100/6h/IP)
+        # on shared GH runners. ``library/postgres`` and
+        # ``library/redis`` (the official images) aren't subject to
+        # the namespace pruning that hit ``bitnami/*`` in late 2025,
+        # but the rate limit still applies. Pulling once on the host
+        # and side-loading into kind means the cluster never talks
+        # to docker.io. Tags come from ``helm template`` so they stay
+        # in lockstep with the chart's image pins in values.yaml
+        # automatically.
+        run: |
+          PG_IMAGE=$(helm template ddi charts/spatiumddi 2>/dev/null \
+            | grep -E "image: \"?postgres:" -m1 \
+            | sed -E 's/.*image: "?([^" ]+)"?.*/\1/')
+          RD_IMAGE=$(helm template ddi charts/spatiumddi 2>/dev/null \
+            | grep -E "image: \"?redis:" -m1 \
+            | sed -E 's/.*image: "?([^" ]+)"?.*/\1/')
+          echo "preloading $PG_IMAGE + $RD_IMAGE into kind"
+          for img in "$PG_IMAGE" "$RD_IMAGE"; do
+            for attempt in 1 2 3; do
+              if docker pull "$img"; then break; fi
+              echo "pull attempt $attempt failed; retrying after 10s..."
+              sleep 10
+            done
+            kind load docker-image "$img" --name spatium-e2e
+          done
+
+      - name: Install chart
+        id: install
+        run: |
+          CONTROL_TAG="${{ github.event.inputs.control_tag || 'latest' }}"
+          # Default to ``pr-test`` so the chart pulls the just-built
+          # local images side-loaded into kind in the previous step.
+          # On workflow_dispatch the operator can override to ``main``
+          # / ``latest`` / a release tag for a registry-image smoke test.
+          AGENT_TAG="${{ github.event.inputs.agent_tag || 'pr-test' }}"
+          echo "Installing chart with control-plane tag=${CONTROL_TAG}, agent tag=${AGENT_TAG}"
+          # The agent PSK has to be pre-shared with the control plane
+          # before the agent first connects — we set it explicitly so
+          # the auto-registration path can authenticate. For a real
+          # deployment operators pre-create an external secret; the
+          # inline value here is only safe because the cluster dies
+          # with the workflow run.
+          # All three flavors get pinned to the same TAG so the test
+          # exercises a coherent build cohort. Mixed flavor list
+          # makes the chart render three StatefulSets that live in
+          # different DNSServerGroups (e2e-bind9 + e2e-powerdns +
+          # e2e-technitium) — mirrors the production "split groups by
+          # driver" model the control plane gates rely on.
+          helm install ddi charts/spatiumddi \
+            --namespace spatiumddi --create-namespace \
+            --wait --timeout 10m \
+            --set image.tag="${CONTROL_TAG}" \
+            --set postgresql.persistence.size=1Gi \
+            --set postgresql.resources.requests.cpu=100m \
+            --set postgresql.resources.requests.memory=128Mi \
+            --set redis.persistence.size=512Mi \
+            --set redis.resources.requests.cpu=50m \
+            --set redis.resources.requests.memory=64Mi \
+            --set dnsAgents.enabled=true \
+            --set dnsAgents.agentKey.value=e2e-dns-key \
+            --set dnsAgents.image.tag="${AGENT_TAG}" \
+            --set dnsAgents.flavors.powerdns.tag="${AGENT_TAG}" \
+            --set dnsAgents.flavors.technitium.tag="${AGENT_TAG}" \
+            --set-json 'dnsAgents.servers=[{"name":"ns1","flavor":"bind9","role":"primary","group":"e2e-bind9","service":{"type":"ClusterIP"}},{"name":"pdns1","flavor":"powerdns","role":"primary","group":"e2e-powerdns","service":{"type":"ClusterIP"}},{"name":"tdx1","flavor":"technitium","role":"primary","group":"e2e-technitium","service":{"type":"ClusterIP"}}]'
+
+      - name: Dump pod state
+        if: always()
+        run: |
+          kubectl -n spatiumddi get pods -o wide
+          kubectl -n spatiumddi get svc
+          kubectl -n spatiumddi get pvc
+          # Surface readiness/liveness probe failures + crash events.
+          # Without this, ``0/1 Running`` pods look identical between
+          # "probe failing on a healthy daemon" and "container crashed
+          # post-start" — describe disambiguates.
+          echo "─── DNS pod describe (events + probe state) ───"
+          for pod in $(kubectl -n spatiumddi get pods \
+              -l app.kubernetes.io/component=dns-agent \
+              -o jsonpath='{.items[*].metadata.name}'); do
+            echo "··· $pod ···"
+            kubectl -n spatiumddi describe pod "$pod" | tail -40
+          done
+          # Quick sanity: is the daemon actually listening on :53
+          # inside the agent pod? The chart's tcpSocket readiness
+          # probe relies on this. ``ss`` ships in busybox-style
+          # alpine so it's reliably available in both flavors.
+          echo "─── DNS pod listening sockets ───"
+          for pod in $(kubectl -n spatiumddi get pods \
+              -l app.kubernetes.io/component=dns-agent \
+              -o jsonpath='{.items[*].metadata.name}'); do
+            echo "··· $pod ···"
+            kubectl -n spatiumddi exec "$pod" -- ss -tlnp 2>/dev/null \
+              || kubectl -n spatiumddi exec "$pod" -- netstat -tlnp 2>/dev/null \
+              || echo "(no ss / netstat available)"
+          done
+
+      - name: API health check
+        run: |
+          # Port-forward the API in the background; the subshell dies
+          # when the step ends. Give it 3s to establish.
+          kubectl -n spatiumddi port-forward svc/ddi-spatiumddi-api 18000:8000 &
+          PF_PID=$!
+          trap "kill $PF_PID || true" EXIT
+          sleep 3
+          for i in 1 2 3 4 5; do
+            if curl -fsS "http://127.0.0.1:18000/health/live"; then
+              echo
+              echo "API /health/live OK on attempt $i"
+              exit 0
+            fi
+            echo "attempt $i: API not ready yet; sleeping…"
+            sleep 5
+          done
+          echo "API never became healthy"
+          kubectl -n spatiumddi logs deploy/ddi-spatiumddi-api --tail=100 || true
+          exit 1
+
+      - name: BIND9 daemon smoke (dig version.bind CH TXT)
+        run: |
+          POD=$(kubectl -n spatiumddi get pod \
+            -l app.kubernetes.io/component=dns-agent,spatiumddi.org/dns-flavor=bind9 \
+            -o jsonpath='{.items[0].metadata.name}')
+          if [ -z "$POD" ]; then
+            echo "no BIND9 agent pod found"
+            kubectl -n spatiumddi get pods --show-labels
+            exit 1
+          fi
+          echo "→ probing named in pod $POD"
+          # version.bind CH TXT is answered by BIND regardless of zone
+          # configuration — smoke-tests that the daemon loaded and is
+          # listening on :53. The agent image ships dig in its debug
+          # toolbox (confirm in agent/dns/images/bind9/Dockerfile).
+          kubectl -n spatiumddi exec "$POD" -- dig +time=5 +tries=1 +short version.bind CH TXT @127.0.0.1 || {
+            echo "dig failed — dumping logs:"
+            kubectl -n spatiumddi logs "$POD" --tail=80
+            exit 1
+          }
+
+      - name: PowerDNS daemon smoke (dig id.server CH TXT)
+        run: |
+          POD=$(kubectl -n spatiumddi get pod \
+            -l app.kubernetes.io/component=dns-agent,spatiumddi.org/dns-flavor=powerdns \
+            -o jsonpath='{.items[0].metadata.name}')
+          if [ -z "$POD" ]; then
+            echo "no PowerDNS agent pod found"
+            kubectl -n spatiumddi get pods --show-labels
+            exit 1
+          fi
+          echo "→ probing pdns_server in pod $POD"
+          # id.server CH TXT is the PowerDNS analogue of BIND's
+          # version.bind — answered by pdns regardless of zone state,
+          # so this smoke-tests that pdns_server loaded and is
+          # listening on :53. The dns-powerdns image ships dig in its
+          # debug toolbox (confirm in agent/dns/images/powerdns/
+          # Dockerfile). Allow up to ~30s for first-boot LMDB seed
+          # before the answer lands — kind kicks pods harder than a
+          # warm prod cluster, and the entrypoint's lmdb create-bind-db
+          # is one-shot but slow on initial cold start.
+          for i in 1 2 3 4 5 6; do
+            if kubectl -n spatiumddi exec "$POD" -- dig +time=5 +tries=1 +short id.server CH TXT @127.0.0.1; then
+              echo "pdns answered on attempt $i"
+              exit 0
+            fi
+            echo "attempt $i: pdns not ready yet; sleeping…"
+            sleep 5
+          done
+          echo "pdns dig never succeeded — dumping logs:"
+          kubectl -n spatiumddi logs "$POD" --tail=120
+          exit 1
+
+      - name: Technitium daemon smoke (dig healthcheck.invalid A)
+        run: |
+          POD=$(kubectl -n spatiumddi get pod \
+            -l app.kubernetes.io/component=dns-agent,spatiumddi.org/dns-flavor=technitium \
+            -o jsonpath='{.items[0].metadata.name}')
+          if [ -z "$POD" ]; then
+            echo "no Technitium agent pod found"
+            kubectl -n spatiumddi get pods --show-labels
+            exit 1
+          fi
+          echo "→ probing DnsServerApp.dll in pod $POD"
+          # Technitium REFUSES CHAOS-class queries entirely (confirmed
+          # empirically — id.server/version.bind both come back REFUSED,
+          # not answered), so there's no BIND/PowerDNS-style CHAOS probe
+          # here. Query the RFC 6761 reserved "invalid." TLD instead —
+          # answered locally and instantly (NXDOMAIN, no recursion)
+          # regardless of zone state, which is exactly the "daemon loaded
+          # and listening on :53" signal this smoke needs. Allow a few
+          # retries for first-boot admin-account + API-token provisioning
+          # (the agent's first apply_config waits on the daemon's web
+          # server before it can even start the config reconcile).
+          for i in 1 2 3 4 5 6; do
+            if kubectl -n spatiumddi exec "$POD" -- dig +time=5 +tries=1 healthcheck.invalid A @127.0.0.1 | grep -q "status: NXDOMAIN"; then
+              echo "Technitium answered on attempt $i"
+              exit 0
+            fi
+            echo "attempt $i: Technitium not ready yet; sleeping…"
+            sleep 5
+          done
+          echo "Technitium dig never succeeded — dumping logs:"
+          kubectl -n spatiumddi logs "$POD" --tail=120
+          exit 1
+
+      - name: PowerDNS DNSSEC online signing smoke (Phase 5 / #127)
+        # Phase 5 extension of the Phase 4c smoke: prove the daemon signs a
+        # zone end-to-end and serves RRSIG-bearing answers.
+        #
+        # #132 — this step was ``continue-on-error: true`` from the day it
+        # was added and had never once passed, so the only PowerDNS
+        # regression gate had a permanent hole in it. Root cause: it drove
+        # ``pdnsutil``, which writes straight to LMDB and bypasses the
+        # running daemon. ``pdns_server`` caches the set of zones it is
+        # authoritative for (``zone-cache-refresh-interval``, default 300 s),
+        # so a zone created after startup by pdnsutil is absent from that
+        # cache and the daemon answers as non-authoritative — the record is
+        # genuinely in the database and ``dig`` still returns nothing.
+        # ``pdns_control purge`` never helped because it flushes the
+        # query/packet cache, not the zone cache.
+        #
+        # Reproduced locally against both majors (4.9.5 and 5.0.5) — the
+        # pdnsutil path fails identically on each, so the #638 image bump
+        # was never going to fix it.
+        #
+        # The fix is to drive the REST API, which is what the agent's driver
+        # actually does (``_reconcile_zones`` / ``_dnssec_sign`` in
+        # agent/dns/spatium_dns_agent/drivers/powerdns.py). Writes through
+        # the API go through ``pdns_server`` itself, so the zone cache is
+        # updated as a side effect and the zone is served immediately — no
+        # purge, no rediscover, no restart. That also makes this a gate on
+        # the path operators exercise (control plane → agent → API → daemon)
+        # rather than a synthetic one nothing uses, which is the whole point
+        # of having it green before the next pdns major bump.
+        #
+        # Verified end-to-end on 4.9.5 and 5.0.5 before re-enabling the
+        # gate: A answer + RRSIG + DNSKEY present, and the script is
+        # idempotent across re-runs on a surviving pod.
+        run: |
+          POD=$(kubectl -n spatiumddi get pod \
+            -l app.kubernetes.io/component=dns-agent,spatiumddi.org/dns-flavor=powerdns \
+            -o jsonpath='{.items[0].metadata.name}')
+          if [ -z "$POD" ]; then
+            echo "no PowerDNS agent pod found"
+            exit 1
+          fi
+          ZONE="dnssec-smoke.test."
+          echo "→ creating + signing $ZONE via the PowerDNS REST API inside $POD"
+          # python3 + httpx are both in the image (the agent runs on them);
+          # curl is NOT, which is why this drives the API from Python. The
+          # API only listens on 127.0.0.1 (webserver-allow-from), so this
+          # has to run inside the pod.
+          if ! kubectl -n spatiumddi exec -i "$POD" -- python3 - "$ZONE" <<'PYEOF'
+          import json
+          import sys
+
+          import httpx
+
+          API = "http://127.0.0.1:8081/api/v1/servers/localhost"
+          KEY_PATH = "/var/lib/spatium-dns-agent/pdns-api.key"
+          # Zone comes from the shell's $ZONE via argv — the heredoc is
+          # quoted (so the shell can't expand into it), and duplicating the
+          # literal here would let a rename drift between the signing half
+          # and the dig assertions: the run would go green through signing
+          # and then fail with a misleading "no A answer", leaking a zone.
+          ZONE = sys.argv[1]
+
+          try:
+              api_key = open(KEY_PATH).read().strip()
+          except OSError as exc:
+              sys.exit(f"FAIL: cannot read the agent's API key at {KEY_PATH}: {exc}")
+
+          H = {"X-API-Key": api_key, "Content-Type": "application/json"}
+          c = httpx.Client(timeout=15)
+
+
+          def check(resp, ok, what):
+              if resp.status_code not in ok:
+                  sys.exit(f"FAIL: {what} -> HTTP {resp.status_code}: {resp.text[:300]}")
+              print(f"  ok: {what} -> {resp.status_code}")
+              return resp
+
+
+          # Clean slate first so a re-run on a surviving pod can't trip on 409.
+          c.delete(f"{API}/zones/{ZONE}", headers=H)
+
+          check(
+              c.post(
+                  f"{API}/zones",
+                  headers=H,
+                  json={
+                      "name": ZONE,
+                      "kind": "Native",
+                      "rrsets": [
+                          {
+                              "name": f"www.{ZONE}",
+                              "type": "A",
+                              "ttl": 3600,
+                              "records": [{"content": "192.0.2.42", "disabled": False}],
+                          }
+                      ],
+                  },
+              ),
+              (201,),
+              "create zone + A rrset",
+          )
+
+          # KSK + ZSK pinned to ECDSAP256SHA256 exactly as _dnssec_sign does:
+          # the ZSK default-picker resolves to algorithm -1 and is rejected.
+          for keytype in ("ksk", "zsk"):
+              check(
+                  c.post(
+                      f"{API}/zones/{ZONE}/cryptokeys",
+                      headers=H,
+                      json={
+                          "keytype": keytype,
+                          "active": True,
+                          "published": True,
+                          "algorithm": "ecdsa256",
+                      },
+                  ),
+                  (201,),
+                  f"create {keytype.upper()}",
+              )
+
+          check(c.put(f"{API}/zones/{ZONE}/rectify", headers=H), (200,), "rectify zone")
+
+          keys = check(
+              c.get(f"{API}/zones/{ZONE}/cryptokeys", headers=H), (200,), "list cryptokeys"
+          ).json()
+          kinds = sorted(k.get("keytype") for k in keys)
+          if kinds != ["ksk", "zsk"]:
+              sys.exit(f"FAIL: expected a KSK and a ZSK, got {kinds}: {json.dumps(keys)[:300]}")
+
+          # The DS is the agent's actual return value from _dnssec_sign — what
+          # the operator pastes at their registrar. Count varies by pdns version
+          # (3 digests on 4.9.5, 2 on 5.0.5), so assert presence, not a number.
+          ds = [d for k in keys if k.get("keytype") == "ksk" for d in (k.get("ds") or [])]
+          if not ds:
+              sys.exit(f"FAIL: KSK carries no DS records: {json.dumps(keys)[:300]}")
+          print(f"  ok: KSK exposes {len(ds)} DS record(s)")
+          print("API signing sequence OK")
+          PYEOF
+          then
+            echo "API signing sequence failed; dumping logs:"
+            kubectl -n spatiumddi logs "$POD" --tail=120
+            exit 1
+          fi
+          # Independent verification over the DNS protocol — the API
+          # reporting success is not the same as the daemon serving it.
+          # No AD flag expected: pdns_server is authoritative, not a
+          # validating resolver. RRSIG presence is what proves signing.
+          OUT=$(kubectl -n spatiumddi exec "$POD" -- dig +dnssec +short www.${ZONE} @127.0.0.1)
+          echo "$OUT"
+          if echo "$OUT" | grep -q "192.0.2.42"; then
+            echo "DNSSEC signing smoke OK — A answer present"
+          else
+            echo "expected A answer for www.${ZONE} not found; dumping logs:"
+            kubectl -n spatiumddi logs "$POD" --tail=120
+            exit 1
+          fi
+          # +short strips RRSIG by design, so re-issue without it.
+          if kubectl -n spatiumddi exec "$POD" -- dig +dnssec www.${ZONE} @127.0.0.1 | grep -q "RRSIG"; then
+            echo "RRSIG present in answer — signing pipeline confirmed"
+          else
+            echo "no RRSIG in dig output — signing didn't take effect"
+            kubectl -n spatiumddi exec "$POD" -- pdnsutil --config-dir=/var/lib/spatium-dns-agent/rendered show-zone "$ZONE" || true
+            kubectl -n spatiumddi logs "$POD" --tail=120
+            exit 1
+          fi
+          # The apex DNSKEY rrset is what a validating resolver fetches to
+          # verify the RRSIGs above — its absence would mean the keys exist
+          # in the database but are not being published.
+          if kubectl -n spatiumddi exec "$POD" -- dig +short DNSKEY ${ZONE} @127.0.0.1 | grep -q "."; then
+            echo "DNSKEY published at the apex"
+          else
+            echo "no DNSKEY at the zone apex — keys not published"
+            kubectl -n spatiumddi logs "$POD" --tail=120
+            exit 1
+          fi
+          # Cleanup via the API for the same reason the test uses it: a
+          # ``pdnsutil delete-zone`` drops the row from LMDB but leaves the
+          # running daemon's zone cache pointing at it, so the zone would
+          # keep being served to any later step. (The script above also
+          # deletes first, so a re-run is safe even if this is skipped.)
+          kubectl -n spatiumddi exec -i "$POD" -- python3 - "$ZONE" <<'PYEOF' || true
+          import sys
+
+          import httpx
+
+          key = open("/var/lib/spatium-dns-agent/pdns-api.key").read().strip()
+          httpx.Client(timeout=15).delete(
+              f"http://127.0.0.1:8081/api/v1/servers/localhost/zones/{sys.argv[1]}",
+              headers={"X-API-Key": key},
+          )
+          PYEOF
+
+      - name: DNS agents registered with control plane
+        run: |
+          kubectl -n spatiumddi port-forward svc/ddi-spatiumddi-api 18001:8000 &
+          PF_PID=$!
+          trap "kill $PF_PID || true" EXIT
+          sleep 3
+          # Without an admin token we can only hit unauthenticated
+          # endpoints; the agent register endpoint is open (trusts the
+          # PSK). A "server registered" signal is that each agent pod
+          # isn't restarting — crude but useful, and we now check all
+          # three flavors so a driver-side regression doesn't slip past
+          # because the other pods look fine.
+          set -u
+          fail=0
+          for flavor in bind9 powerdns technitium; do
+            RESTARTS=$(kubectl -n spatiumddi get pod \
+              -l app.kubernetes.io/component=dns-agent,spatiumddi.org/dns-flavor=${flavor} \
+              -o jsonpath='{.items[0].status.containerStatuses[0].restartCount}')
+            if [ "${RESTARTS:-0}" -gt "2" ]; then
+              echo "${flavor} agent pod restarted ${RESTARTS} times — registration likely failing"
+              kubectl -n spatiumddi logs \
+                -l app.kubernetes.io/component=dns-agent,spatiumddi.org/dns-flavor=${flavor} --tail=200
+              fail=1
+            else
+              echo "${flavor} agent pod stable (restarts=${RESTARTS:-0})"
+            fi
+          done
+          exit $fail
+
+      - name: Collect logs on failure
+        if: failure()
+        run: |
+          echo "─── API logs ───"
+          kubectl -n spatiumddi logs deploy/ddi-spatiumddi-api --tail=200 || true
+          echo "─── Worker logs ───"
+          kubectl -n spatiumddi logs deploy/ddi-spatiumddi-worker --tail=100 || true
+          echo "─── Beat logs ───"
+          kubectl -n spatiumddi logs deploy/ddi-spatiumddi-beat --tail=100 || true
+          echo "─── DNS agent logs ───"
+          kubectl -n spatiumddi logs -l app.kubernetes.io/component=dns-agent --tail=200 || true
+          echo "─── Postgres logs ───"
+          kubectl -n spatiumddi logs statefulset/ddi-spatiumddi-postgresql --tail=80 || true

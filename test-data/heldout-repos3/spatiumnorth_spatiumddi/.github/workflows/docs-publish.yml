@@ -1,0 +1,173 @@
+# Publish docs/ to the org-root Pages site on every push to main.
+#
+# The documentation is served from TWO GitHub Pages sites:
+#
+#   * https://www.spatiumddi.com/            — served from the
+#     `spatiumnorth/spatiumddi.github.io` repo, which holds no source of its
+#     own; this workflow mirrors `docs/` into it. NOTE: that repo was named
+#     for the OLD org. GitHub serves an *organization* site only from a repo
+#     named `<org>.github.io`, so after the spatiumddi→spatiumnorth rename it
+#     is no longer one — the custom domain is what keeps this URL working.
+#     Renaming it to `spatiumnorth.github.io` would restore a true org-root
+#     site, but an org rename does NOT rename the repo: it must be done by
+#     hand, and TARGET_REPO below has to change in the same step or this
+#     workflow fails at the clone.
+#   * https://www.spatiumddi.com/spatiumddi/  — project site, built by
+#     GitHub directly from this repo's `main` branch, `/docs` path. Needs no
+#     workflow.
+#
+# Both track `main`. The root site was originally release-pinned so users saw
+# released documentation, but that meant a docs fix could sit unpublished for
+# weeks behind the release cadence, which is the wrong trade for a docs site:
+# a correction nobody can read is worse than documentation slightly ahead of
+# the release. The two sites now serve the same content, and the root is the
+# canonical one — it is what the README badge, sitemap.xml and robots.txt
+# advertise.
+#
+# Auth: GITHUB_TOKEN is scoped to the repo running the workflow and cannot
+# push to another repo, so this uses an SSH deploy key registered on the
+# spatiumddi.github.io repo with write access. The private half lives in the
+# DOCS_DEPLOY_KEY secret. To rotate: generate a new ed25519 pair, replace the
+# deploy key on the target repo, then update the secret here.
+name: Publish docs site
+
+on:
+  push:
+    # Every main push, so the published site is never staler than the branch.
+    branches:
+      - main
+    # NOT on release tags (#1226). A tag push was a redundant republish when
+    # the tag was main's head, and harmful otherwise: a tag on an older main
+    # commit rolled the site back behind main, and a tag on an unmerged
+    # branch (which release.yml refuses) published unreviewed docs to
+    # www.spatiumddi.com. Nothing here gates a tag the way release.yml does,
+    # and main already publishes every commit.
+    #
+    # NOTE: deliberately no `paths:` filter. The job exits early and green
+    # when docs/ produced no diff, so filtering buys nothing.
+  # Manual re-run, e.g. after fixing the site repo by hand or rotating the key.
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Tag or ref to publish docs from (default: current ref)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+# Never let two publishes race each other into the site repo.
+concurrency:
+  group: docs-publish
+  cancel-in-progress: false
+
+env:
+  # Kept at the old repo NAME on purpose: renaming the org moved this repo to
+  # the spatiumnorth owner but left it called `spatiumddi.github.io`, and that
+  # is the only site repo that exists. Pointing at `spatiumnorth.github.io`
+  # before creating/renaming it fails the clone on every main push.
+  TARGET_REPO: git@github.com:spatiumnorth/spatiumddi.github.io.git
+  # The branch GitHub Pages is configured to serve on the site repo.
+  TARGET_BRANCH: main
+
+jobs:
+  publish:
+    name: Mirror docs/ to the site repo
+    # Forks inherit this workflow (#830); never run the publisher outside
+    # the canonical repo. (Single-job workflow.)
+    if: github.repository_owner == 'spatiumnorth'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source ref
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - name: Resolve version label
+        id: meta
+        # Values reach the shell as env vars, never as ${{ }} interpolated into
+        # the script text: a workflow_dispatch input is attacker-supplied, and
+        # inlining it would let `$(...)` execute inside the job that holds
+        # DOCS_DEPLOY_KEY.
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          INPUT_REF: ${{ inputs.ref }}
+        run: |
+          if [ "$REF_TYPE" = "tag" ]; then
+            echo "version=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          elif [ -n "$INPUT_REF" ]; then
+            echo "version=${INPUT_REF}" >> "$GITHUB_OUTPUT"
+          else
+            # Branch push: label with branch@short-sha so the site history says
+            # which commit produced it rather than a bare 40-char sha.
+            echo "version=${GITHUB_REF_NAME}@$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Configure deploy key
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DOCS_DEPLOY_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -t rsa,ecdsa,ed25519 github.com >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Clone site repo
+        # --branch is explicit rather than relying on the remote's default, so
+        # this cannot quietly commit onto one branch and push to another.
+        run: git clone --depth 1 --branch "$TARGET_BRANCH" "$TARGET_REPO" site
+
+      - name: Mirror docs/ into the site tree
+        run: |
+          # --delete so files removed from docs/ disappear from the site too;
+          # the site repo holds no sources of its own, only generated content.
+          # Excluded paths are also protected from --delete on the receiving
+          # side, which is the point for all three:
+          #   .git    — the clone itself
+          #   .github — the "generated, do not edit" notice, rewritten below
+          #             and invisible to Jekyll (it ignores dot-directories)
+          #   CNAME   — written by GitHub when a custom domain is configured on
+          #             the site repo. It has no counterpart in docs/, so
+          #             without this the first release after setting a custom
+          #             domain would delete it and silently unset the domain.
+          rsync -a --delete \
+            --exclude '.git' \
+            --exclude '.github' \
+            --exclude 'CNAME' \
+            docs/ site/
+
+          mkdir -p site/.github
+          cat > site/.github/README.md <<'EOF'
+          # spatiumddi.github.io
+
+          **Generated — do not edit this repository directly.**
+
+          This repo serves the SpatiumDDI documentation site at
+          <https://www.spatiumddi.com>.
+
+          Its entire contents are mirrored from the `docs/` directory of
+          [spatiumnorth/spatiumddi](https://github.com/spatiumnorth/spatiumddi) by
+          the `docs-publish` workflow, which runs on every push to main. Any
+          commit made here by hand will be overwritten by the next one.
+
+          To change the documentation, edit `docs/` in the main repository.
+          EOF
+
+      - name: Commit and push
+        working-directory: site
+        # As above: VERSION derives from a tag name / dispatch input, so it
+        # goes through the environment rather than into the script text.
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          git config user.name "spatiumddi-ci"
+          git config user.email "ci@spatiumddi.invalid"
+          git add -A
+          # A release with no docs changes is normal, not a failure.
+          if git diff --cached --quiet; then
+            echo "No documentation changes for ${VERSION} — nothing to publish."
+            exit 0
+          fi
+          git commit -m "docs: publish ${VERSION}" -m \
+            "Mirrored from spatiumnorth/spatiumddi@${SOURCE_SHA} by the docs-publish workflow. Do not edit this repository directly."
+          git push origin "HEAD:refs/heads/${TARGET_BRANCH}"
+          echo "Published ${VERSION} to https://www.spatiumddi.com/"

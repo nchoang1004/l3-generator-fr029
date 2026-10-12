@@ -1,0 +1,239 @@
+"""UI E2E: New-policy modal LLM-judge create + Policies-tab lifecycle journey.
+
+Multi-page operator-journey that walks the §2 ToolApprovalPolicy
+authoring surface end-to-end:
+
+  /providers/llm (verify seeded provider listed) →
+  /approvals?tab=policies (Policies tab empty state) →
+  New policy modal → LLM-judge form (provider dropdown enumerates
+  the seeded provider, model dropdown auto-populates from the
+  provider row's `models` field) → submit → "Policy created" toast →
+  new policies-table row visible with type=llm pill → toggle
+  enabled checkbox → "Policy updated" toast → click row's delete
+  button → confirmation modal → "Policy deleted" toast → row gone.
+
+Pages traversed:
+  /console/#/providers/llm → /console/#/approvals → row delete +
+  confirmation modal (same page) → /providers/llm (cleanup probe).
+
+Multi-subsystem exercised:
+
+  1. LLMProvider list (the policy modal's provider dropdown is fed
+     by GET /v1/llm_providers).
+  2. ToolApprovalPolicy CRUD via UI — create modal (POST), policies
+     tab toggle (PUT), delete confirmation modal (DELETE).
+  3. Cross-modal reference integrity — the seeded LLMProvider must
+     appear in the modal's dropdown before the LLM-judge form is
+     valid; model auto-fill from provider.models pins the
+     ProviderItems → ModelOptions effect.
+  4. Mutation feedback loop — create + update + delete each surface
+     a kind=success / kind=warning toast and the policies table
+     refetches via mutation.invalidates.
+
+Covers backlog item U0110. Does NOT require LM Studio — the LLM
+provider row is configured with a placeholder api_key so the
+provider+model identity validates against the row (primer-side
+_validate_approval_config) without any upstream call.
+"""
+
+from __future__ import annotations
+
+import httpx
+import pytest
+from playwright.sync_api import expect
+
+
+from tests._support.smk import smk  # noqa: E402
+from tests._support.model_profiles import seed_llm_provider_with
+from tests.ui_e2e._shell_helpers import open_legacy_route
+pytestmark = smk("SMK-UI-10")
+
+
+def _seed_llm_provider(base_url: str, pid: str, model_name: str) -> None:
+    """Create an LLMProvider with one named model via the API."""
+    with httpx.Client(base_url=base_url, timeout=30.0) as c:
+        r = seed_llm_provider_with(c, {
+            "id": pid,
+            "provider": "anthropic",
+            "models": [
+                {"name": model_name, "context_length": 200_000},
+            ],
+            "config": {"api_key": "sk-test-placeholder"},
+            "limits": {"max_concurrency": 1},
+        })
+        assert r.status_code == 201, f"seed llm: {r.text}"
+
+
+def _cleanup(base_url: str, pid: str, policy_ids: list[str]) -> None:
+    """Best-effort delete every policy and the LLMProvider."""
+    with httpx.Client(base_url=base_url, timeout=30.0) as c:
+        for ppid in policy_ids:
+            try:
+                c.delete(f"/v1/tool_approval_policies/{ppid}")
+            except Exception:  # noqa: BLE001
+                pass
+        try:
+            c.delete(f"/v1/llm_providers/{pid}")
+        except Exception:  # noqa: BLE001
+            pass
+
+
+# ===========================================================================
+# U0110 — New-policy modal LLM-judge end-to-end lifecycle journey
+# ===========================================================================
+
+
+def test_u0110_policy_modal_llm_judge_journey(
+    page,
+    base_url: str,
+    console_url: str,
+    unique_suffix: str,
+) -> None:
+    """U0110 — Multi-page operator-journey walking the §2 policy
+    authoring surface from an API-seeded LLMProvider all the way to
+    a deleted policy.
+
+    Steps:
+
+      1. Seed LLMProvider with a named judge model via API.
+      2. Navigate /providers/llm → assert the seeded row is listed
+         (proves the cross-page dropdown source is populated).
+      3. Navigate /approvals, open the New-policy modal via the
+         config hint.
+      4. Fill id, pick a real tool via the shared picker (uiv2 Wave 3),
+         then click "LLM judge" chip.
+      5. Provider dropdown shows the seeded provider; select it.
+      6. Model dropdown auto-enables + populates with the provider's
+         model; select it. Fill the judge prompt.
+      7. Click "Create policy" → "Policy created" toast, modal closes.
+      8. Verify the persisted policy via API (no more inline policies
+         table with toggle/delete on this page - see _cleanup for
+         teardown).
+
+    Pinned invariants:
+      * LLM-type form dropdowns are fed by live /v1/llm_providers
+        — the seeded provider must appear within the modal open.
+      * Provider→model effect: picking a provider unblocks the model
+        select and prefills the first available model.
+      * The create mutation surfaces the documented toast title via
+        approvals.jsx + the console shell toaster wiring.
+    """
+    judge_model = "judge-m1"
+    pid = f"u0110-llm-{unique_suffix}"
+    policy_id = f"u0110-pol-{unique_suffix}"
+
+    _seed_llm_provider(base_url, pid, judge_model)
+
+    try:
+        # --- 1. Verify seeded provider is listed on /providers/llm --
+        open_legacy_route(page, console_url, "providers/llm")
+        # The catalog renders provider rows as cards, not a table, so
+        # there is no tbody to filter - and this surface (provider-
+        # catalog.jsx's PC_InstanceList) has no search field at all, just
+        # a 25-per-page pager. The shared stack legitimately accumulates
+        # fixture residue across rounds (by design, not a bug to clean
+        # up), which can push a freshly seeded row past page 1. Page
+        # forward until it's found or there's nowhere left to go, rather
+        # than assuming page 1.
+        provider_row = page.get_by_test_id("provider-instances-llm").get_by_text(
+            pid, exact=True,
+        )
+        next_btn = page.get_by_test_id("pager-next")
+        for _ in range(50):  # generous bound: 50 pages * 25/page = 1250 rows
+            if provider_row.count() > 0 or next_btn.is_disabled():
+                break
+            next_btn.click()
+            page.wait_for_timeout(300)
+        expect(provider_row.first).to_be_visible(timeout=15_000)
+
+        # --- 2. Open the policy modal from the Tools page ----------
+        # uiv2 cutover: the standalone Tools catalog page retired; the
+        # Approvals page's config hint now opens the same
+        # AP_NewPolicyModal directly (uiv2 Wave 3: Tool is now the
+        # shared picker, not free-form toolset/tool text inputs).
+        open_legacy_route(page, console_url, "approvals")
+
+        # --- 3. Open the New-policy modal via the config hint -------
+        add_btn = page.get_by_test_id("approvals-config-link")
+        expect(add_btn).to_be_visible(timeout=15_000)
+        add_btn.click()
+
+        modal = page.locator(".modal").first
+        expect(modal).to_be_visible(timeout=5_000)
+
+        # --- 4. Fill core identity fields --------------------------
+        modal.locator("[data-testid='approval-policy-id']").fill(policy_id)
+        # uiv2 Wave 3: Tool is now the shared window.ToolPicker in
+        # single-select mode - no more free-text toolset/tool-name
+        # override, so pick a real, always-available built-in tool
+        # (primer/toolset/misc.py) instead of a synthetic unique pair.
+        # The policy id above is what makes this test's row unique;
+        # this test's own `finally` cleanup deletes the policy, freeing
+        # the (toolset, tool) pair for the next run.
+        modal.get_by_test_id("tool-picker-filter").fill("uuid_v4")
+        modal.get_by_test_id("tool-picker-row-misc__uuid_v4").click()
+
+        # --- 5. Switch to LLM-judge type ---------------------------
+        modal.locator("[data-testid='approval-policy-type-llm']").click()
+
+        # --- 6. Provider dropdown enumerates the seeded provider ---
+        provider_select = modal.locator(
+            "[data-testid='approval-policy-provider']",
+        )
+        expect(provider_select).to_be_visible(timeout=10_000)
+        # Wait for the option to appear (provider list is async-loaded).
+        expect(provider_select.locator(f"option[value='{pid}']")).to_be_attached(
+            timeout=10_000,
+        )
+        provider_select.select_option(pid)
+
+        # --- 7. Model dropdown auto-enables + populates ------------
+        model_select = modal.locator(
+            "[data-testid='approval-policy-model']",
+        )
+        expect(model_select).to_be_enabled(timeout=5_000)
+        expect(
+            model_select.locator(f"option[value='{judge_model}']"),
+        ).to_be_attached(timeout=5_000)
+        model_select.select_option(judge_model)
+
+        modal.locator("[data-testid='approval-policy-prompt']").fill(
+            "Decide whether this tool call is safe to proceed.",
+        )
+
+        # --- 8. Submit → "Policy created" toast --------------------
+        create_btn = modal.locator(
+            "[data-testid='approval-policy-create']",
+        )
+        expect(create_btn).to_be_enabled(timeout=5_000)
+        create_btn.click()
+
+        create_toast = page.locator(".toast", has_text="Policy created")
+        expect(create_toast).to_be_visible(timeout=10_000)
+
+        # Modal closes on success.
+        expect(modal).not_to_be_visible(timeout=5_000)
+
+        # --- 9. The policy persisted with the LLM-judge config -----
+        # The Approvals-page policies table (with inline toggle/delete)
+        # was removed; verify the created policy via the API instead.
+        # This still pins the provider/model selection threading through
+        # the modal into the stored ToolApprovalPolicy.
+        with httpx.Client(base_url=base_url, timeout=30.0) as c:
+            r = c.get(f"/v1/tool_approval_policies/{policy_id}")
+            assert r.status_code == 200, (
+                f"policy {policy_id!r} not persisted after create: {r.text}"
+            )
+            row = r.json()
+            approval = row.get("approval") or {}
+            assert approval.get("type") == "llm", (
+                f"expected an llm-judge policy, got {approval!r}"
+            )
+            assert approval.get("provider_id") == pid, (
+                f"policy provider_id mismatch: {approval!r}"
+            )
+            assert approval.get("model") == judge_model, (
+                f"policy model mismatch: {approval!r}"
+            )
+    finally:
+        _cleanup(base_url, pid, [policy_id])

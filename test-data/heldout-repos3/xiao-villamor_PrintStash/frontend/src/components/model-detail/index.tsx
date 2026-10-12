@@ -1,0 +1,1222 @@
+"use client";
+
+import { useQueryClient } from "@tanstack/react-query";
+import { refreshLibraryMetadata } from "@/features/library/metadata";
+import { useTaxonomyCommands } from "@/features/library/taxonomy";
+
+import { captureEditingBase } from "@/lib/api/editing";
+
+import { LibraryBackLink } from "@/features/library/navigation";
+import { useQuery } from "@tanstack/react-query";
+import {
+  useModelDetail,
+  modelPrinterFilesOptions,
+  useModelPrintJobs,
+  type PublishModel,
+} from "@/features/library/model-detail";
+import { useLibraryStar } from "@/features/library/mutations";
+import { ApiError } from "@/lib/errors";
+import { getSessionVersion, requireSessionVersion } from "@/lib/session-transport";
+import { Modal } from "@/components/ui/modal";
+import { SubjectCaption } from "@/components/subject-caption";
+import { ModelSearchAction } from "@/components/model-search-action";
+
+import { currentLocale } from "@/lib/locale";
+import { uiText } from "@/lib/locale";
+import { useUiLocale } from "@/lib/i18n";
+
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
+import type { PointerEvent as ReactPointerEvent } from "react";
+import { useRouter } from "@/lib/navigation";
+import {
+  ArrowLeft,
+  Check,
+  FileText,
+  Link2,
+  Loader2,
+  MoreHorizontal,
+  Minus,
+  Pencil,
+  Plus,
+  Printer as PrinterIcon,
+  RotateCcw,
+  Star,
+  Tags,
+  Trash2,
+  Wifi,
+} from "lucide-react";
+
+import type { STLViewerControls, ViewerDisplayMode } from "@/components/stl-viewer";
+import type { ViewerMode } from "@/components/model-detail/viewer-toolbar";
+import { deleteModel, getAssetUrl, getModel, updateModel } from "@/lib/api";
+import { useTags } from "@/lib/queries";
+import { timeAgo } from "@/lib/format";
+import { readMetadataPreferences } from "@/lib/metadata-preferences";
+import { toast } from "@/lib/toast";
+import { useAuth } from "@/lib/auth-context";
+import { useAuthenticatedAssetUrl } from "@/lib/use-authenticated-asset-url";
+import { useRequireAuth } from "@/lib/use-require-auth";
+import { ModelPrinterFileRead, ModelRead, TagRead } from "@/types";
+
+import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { Button } from "@/components/ui/button";
+import { DropdownMenu } from "@/components/ui/dropdown-menu";
+import { TabBar } from "@/components/ui/tabs";
+import { AddGcodeRevisionModal } from "./add-revision-modal";
+import { SimilarityQueue } from "@/components/similarity-queue";
+import { FilesTab } from "./files-tab";
+import { OverviewTab } from "./overview-tab";
+import {
+  TABS,
+  TabKey,
+  buildPrintSettingRows,
+  headerStatusLabel,
+  normalizeRecommendedGcodeFiles,
+  revisionStatusClass,
+} from "./presentation";
+import { PrintHistorySection } from "./print-history-section";
+import { RevisionsTab } from "./revisions-tab";
+import { SendToButtons } from "./send-to-buttons";
+import { ShareDialog } from "./share-dialog";
+import { SettingsTab } from "./settings-tab";
+import { SourceTab } from "./source-tab";
+import { useDerivativeRefresh } from "./use-derivative-refresh";
+import { useRevisionUpdater } from "./use-revision-updater";
+import { ViewerToolbar } from "./viewer-toolbar";
+import { Localized } from "@/components/ui/localized";
+import { ModelTagsDialog } from "@/components/model-tags-dialog";
+
+const STLViewer = lazy(() =>
+  import("@/components/stl-viewer").then((m) => ({ default: m.STLViewer })),
+);
+
+const GcodeViewer = lazy(() =>
+  import("@/components/gcode-viewer").then((m) => ({ default: m.GcodeViewer })),
+);
+
+const ViewerFallback = <Loader2 className="h-8 w-8 animate-spin text-on-surface-variant" />;
+
+// The resizable sidebar publishes its width as a custom property so the
+// `md:[width:var(--detail-sidebar-width)]` class can pick it up on desktop only.
+// Custom properties aren't part of React's CSSProperties, so augment it the way
+// upload-modal augments InputHTMLAttributes rather than asserting at the callsite.
+declare module "react" {
+  interface CSSProperties {
+    "--detail-sidebar-width"?: string;
+  }
+}
+
+/** A printer's usable bed footprint in millimetres. */
+interface BedSize {
+  x: number;
+  y: number;
+}
+
+const DEFAULT_BED_SIZE: BedSize = { x: 235, y: 235 };
+
+const DETAIL_SIDEBAR_STORAGE_KEY = "ps-model-detail-sidebar-width";
+const DETAIL_SIDEBAR_DEFAULT_WIDTH = 480;
+const DETAIL_SIDEBAR_MIN_WIDTH = 400;
+const DETAIL_SIDEBAR_MAX_WIDTH = 800;
+
+const isBrowser = (): boolean => "window" in globalThis;
+
+function clampDetailSidebarWidth(width: number): number {
+  const viewportMax = isBrowser()
+    ? Math.max(DETAIL_SIDEBAR_MIN_WIDTH, window.innerWidth - 320)
+    : DETAIL_SIDEBAR_MAX_WIDTH;
+  return Math.round(
+    Math.min(DETAIL_SIDEBAR_MAX_WIDTH, viewportMax, Math.max(DETAIL_SIDEBAR_MIN_WIDTH, width)),
+  );
+}
+
+function getBedSize(printerModel: string | null | undefined): BedSize {
+  if (!printerModel) return DEFAULT_BED_SIZE;
+  const m = printerModel.toLowerCase();
+  if (m.includes("a1 mini") || (m.includes("bambu") && m.includes("mini")))
+    return { x: 180, y: 180 };
+  if (m.includes("bambu") || m.includes("x1") || m.includes("p1s") || m.includes("a1"))
+    return { x: 256, y: 256 };
+  if (m.includes("prusa") && m.includes("mini")) return { x: 180, y: 180 };
+  if (m.includes("prusa") || m.includes("mk3") || m.includes("mk4")) return { x: 250, y: 210 };
+  if (m.includes("voron") || m.includes("v2.4")) {
+    if (m.includes("350")) return { x: 350, y: 350 };
+    if (m.includes("300")) return { x: 300, y: 300 };
+    return { x: 250, y: 250 };
+  }
+  if (m.includes("cr-10") || m.includes("cr10")) return { x: 300, y: 300 };
+  if (m.includes("ender") || m.includes("k1")) return { x: 220, y: 220 };
+  return DEFAULT_BED_SIZE;
+}
+
+export function ModelDetail({ model: initialModel }: { model: ModelRead }) {
+  const resource = useModelDetail(initialModel.id, initialModel);
+  const denied =
+    resource.error instanceof ApiError && [401, 403, 404].includes(resource.error.status);
+  if (!resource.data || denied) return null;
+  return (
+    <ModelDetailPresentation
+      key={resource.data.id}
+      model={resource.data}
+      setModel={resource.publish}
+      readError={resource.isError}
+      retryRead={() => void resource.refetch()}
+    />
+  );
+}
+
+function ModelDetailPresentation({
+  model,
+  setModel,
+  readError,
+  retryRead,
+}: {
+  model: ModelRead;
+  setModel: PublishModel;
+  readError: boolean;
+  retryRead: () => void;
+}) {
+  useUiLocale();
+  const router = useRouter();
+  const auth = useRequireAuth();
+  const { user } = useAuth();
+  const [deleting, setDeleting] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editBase, setEditBase] = useState(() => captureEditingBase(model));
+  const [editProblem, setEditProblem] = useState<"conflict" | "unconfirmed" | null>(null);
+  const reviewPublication = useRef<typeof setModel | null>(null);
+  const [reviewedModel, setReviewedModel] = useState<ModelRead | null>(null);
+  const [reviewing, setReviewing] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [tagDialogOpen, setTagDialogOpen] = useState(false);
+  const [tagDialogSession, setTagDialogSession] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const star = useLibraryStar();
+  const starBusy = star.isPending;
+  const [editName, setEditName] = useState(model.name);
+  const [editDescription, setEditDescription] = useState(model.description || "");
+  const [editSourceUrl, setEditSourceUrl] = useState(model.source_url || "");
+  const [editCollection, setEditCollection] = useState(model.collection || "");
+  const [editCollectionLabel, setEditCollectionLabel] = useState(model.collection_label);
+  const [editTags, setEditTags] = useState<string[]>([...model.tags]);
+  const [catOpen, setCatOpen] = useState(false);
+  const [tagInput, setTagInput] = useState("");
+  const { data: tags = [] } = useTags();
+  // Read once at mount; the panel that edits these lives on another route, so
+  // there is nothing to re-sync while this view is open.
+  const [metadataPreferences] = useState(readMetadataPreferences);
+  const [addRevisionOpen, setAddRevisionOpen] = useState(false);
+  const [requestedTab, setRequestedTab] = useState<TabKey>("overview");
+  const [displayMode, setDisplayMode] = useState<ViewerDisplayMode>("solid");
+  const [detailSidebarWidth, setDetailSidebarWidth] = useState(() => {
+    try {
+      const stored = Number(localStorage.getItem(DETAIL_SIDEBAR_STORAGE_KEY));
+      return Number.isFinite(stored) && stored > 0
+        ? clampDetailSidebarWidth(stored)
+        : DETAIL_SIDEBAR_DEFAULT_WIDTH;
+    } catch {
+      return DETAIL_SIDEBAR_DEFAULT_WIDTH;
+    }
+  });
+
+  const [showGrid, setShowGrid] = useState(true);
+  const [sendOpen, setSendOpen] = useState(false);
+  const [sendFileId, setSendFileId] = useState<number | undefined>(undefined);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const { createTag, deleteTag } = useTaxonomyCommands();
+  const metadataClient = useQueryClient();
+  const [deleteTagTarget, setDeleteTagTarget] = useState<TagRead | null>(null);
+  const [deleteTagBusy, setDeleteTagBusy] = useState(false);
+  const [viewerMode, setViewerMode] = useState<ViewerMode>("model");
+  const [viewerReady, setViewerReady] = useState(false);
+  const viewerControls = useRef<STLViewerControls | null>(null);
+  const canEditModel = model.effective_role === "edit" || model.effective_role === "admin";
+  const canViewPrinters = !!user?.is_superuser;
+  const printerFileQuery = useQuery({
+    ...modelPrinterFilesOptions(model.id),
+    enabled: canViewPrinters,
+  });
+  const printJobQuery = useModelPrintJobs(model.id, canViewPrinters);
+  const printerFiles = useMemo(
+    () => (canViewPrinters ? (printerFileQuery.data ?? []) : []),
+    [canViewPrinters, printerFileQuery.data],
+  );
+  const printJobs = canViewPrinters ? (printJobQuery.data ?? []) : [];
+  const activeTab =
+    (!canViewPrinters && requestedTab === "history") ||
+    (!canEditModel && requestedTab === "similar")
+      ? "overview"
+      : requestedTab;
+  const visibleTabs = useMemo(
+    () =>
+      TABS.filter(
+        (tab) =>
+          (tab.key !== "history" || canViewPrinters) && (tab.key !== "similar" || canEditModel),
+      ),
+    [canViewPrinters, canEditModel],
+  );
+
+  // Quick actions on the Overview card (mark failed / recommend).
+  const revisionUpdater = useRevisionUpdater(model.id, setModel);
+  // Thumbnails and metadata arrive after upload, derived in the background.
+  useDerivativeRefresh(model.id);
+
+  async function toggleFavorite() {
+    if (!auth.isAuthenticated || starBusy) {
+      auth.showAuthRequiredToast();
+      return;
+    }
+    const session = getSessionVersion();
+    try {
+      await star.mutateAsync({ kind: "model", id: model.id, starred: !model.starred });
+    } catch (error) {
+      if (session === getSessionVersion()) toast.error(error);
+    }
+  }
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(DETAIL_SIDEBAR_STORAGE_KEY, String(detailSidebarWidth));
+    } catch {
+      /* Storage can be unavailable in hardened browser contexts. */
+    }
+  }, [detailSidebarWidth]);
+
+  useEffect(() => {
+    const onResize = () => setDetailSidebarWidth((width) => clampDetailSidebarWidth(width));
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  function startDetailSidebarResize(event: ReactPointerEvent<HTMLDivElement>) {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = detailSidebarWidth;
+    const previousCursor = document.body.style.cursor;
+    const previousUserSelect = document.body.style.userSelect;
+
+    const onMove = (moveEvent: PointerEvent) => {
+      setDetailSidebarWidth(clampDetailSidebarWidth(startWidth + startX - moveEvent.clientX));
+    };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+      document.body.style.cursor = previousCursor;
+      document.body.style.userSelect = previousUserSelect;
+    };
+
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+  }
+
+  async function doDelete() {
+    setDeleting(true);
+    try {
+      const deletionSession = getSessionVersion();
+      await deleteModel(model.id);
+      refreshLibraryMetadata(metadataClient, deletionSession);
+      toast.success(uiText("Model deleted"));
+      // Return to the folder the model lived in, not the root — deleting one
+      // model shouldn't kick the user out of the collection they were browsing.
+      router.push(model.collection ? `/?c=${encodeURIComponent(model.collection)}` : "/");
+    } catch (e) {
+      toast.error(e);
+      setDeleting(false);
+    }
+  }
+
+  function enterEdit() {
+    setEditBase(captureEditingBase(model));
+    setEditProblem(null);
+    setReviewedModel(null);
+    setEditName(model.name);
+    setEditDescription(model.description || "");
+    setEditSourceUrl(model.source_url || "");
+    setEditCollection(model.collection || "");
+    setEditCollectionLabel(model.collection_label);
+    setEditTags([...model.tags]);
+    setTagInput("");
+    setCatOpen(false);
+    setRequestedTab("overview");
+    setEditing(true);
+  }
+
+  function cancelEdit() {
+    setEditProblem(null);
+    setReviewedModel(null);
+    setEditing(false);
+  }
+
+  async function saveEdit(version = editBase) {
+    if (!editName.trim() || saving || !canEditModel || reviewedModel?.effective_role === "view")
+      return;
+    const session = getSessionVersion();
+    setSaving(true);
+    try {
+      const updated = await updateModel(
+        model.id,
+        {
+          name: editName.trim() || undefined,
+          description: editDescription.trim() || null,
+          source_url: editSourceUrl.trim() || null,
+          collection: editCollection,
+          tags: editTags,
+        },
+        version,
+      );
+      requireSessionVersion(session);
+      if (!(await setModel(updated))) return;
+      setEditProblem(null);
+      setReviewedModel(null);
+      setEditing(false);
+      toast.success(uiText("Model updated"));
+    } catch (e) {
+      if (session !== getSessionVersion()) return;
+      if (e instanceof ApiError && e.status === 412) {
+        setEditProblem("conflict");
+        setReviewedModel(null);
+      } else if (
+        !(e instanceof ApiError) ||
+        e.status === 0 ||
+        e.status === 408 ||
+        e.status >= 500
+      ) {
+        setEditProblem("unconfirmed");
+        setReviewedModel(null);
+      } else toast.error(e);
+    } finally {
+      if (session === getSessionVersion()) setSaving(false);
+    }
+  }
+
+  async function reviewLatest() {
+    const session = getSessionVersion();
+    setReviewing(true);
+    try {
+      reviewPublication.current = setModel;
+      const latest = await getModel(model.id);
+      requireSessionVersion(session);
+      setReviewedModel(latest);
+    } catch (error) {
+      if (session === getSessionVersion()) toast.error(error);
+    } finally {
+      if (session === getSessionVersion()) setReviewing(false);
+    }
+  }
+
+  async function useReviewedVersion() {
+    if (
+      !reviewedModel ||
+      !reviewPublication.current ||
+      !(await reviewPublication.current(reviewedModel))
+    )
+      return;
+    setEditBase(captureEditingBase(reviewedModel));
+    setEditName(reviewedModel.name);
+    setEditDescription(reviewedModel.description ?? "");
+    setEditSourceUrl(reviewedModel.source_url ?? "");
+    setEditCollection(reviewedModel.collection ?? "");
+    setEditCollectionLabel(reviewedModel.collection_label);
+    setEditTags([...reviewedModel.tags]);
+    setEditProblem(null);
+    setReviewedModel(null);
+  }
+
+  function editToggleTag(name: string) {
+    const lower = name.toLowerCase();
+    setEditTags((p) =>
+      p.map((n) => n.toLowerCase()).includes(lower)
+        ? p.filter((s) => s.toLowerCase() !== lower)
+        : [...p, name],
+    );
+  }
+
+  async function editCreateTag(name: string) {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    const existing = tags.find((t) => t.name.toLowerCase() === trimmed.toLowerCase());
+    if (existing) {
+      if (!editTags.map((n) => n.toLowerCase()).includes(existing.name.toLowerCase())) {
+        editToggleTag(existing.name);
+      }
+      return;
+    }
+    try {
+      const t = await createTag({ name: trimmed });
+      // createTag invalidates the query cache, so useTags() refetches the new
+      // tag automatically; we just select it here.
+      setEditTags((p) => [...p, t.name]);
+    } catch {
+      /* ignored */
+    }
+  }
+
+  // Delete a tag globally (not just unassign it from this model). Lives here
+  // now that the Catalog page is gone; deleteTag invalidates the query cache,
+  // so useTags() refetches the list automatically.
+  async function editDeleteTag(tag: TagRead) {
+    if (!auth.isAuthenticated) {
+      auth.showAuthRequiredToast();
+      return;
+    }
+    setDeleteTagTarget(tag);
+  }
+
+  async function confirmDeleteTag() {
+    if (!deleteTagTarget) return;
+    const tag = deleteTagTarget;
+    setDeleteTagBusy(true);
+    try {
+      await deleteTag(tag.id);
+      setEditTags((p) => p.filter((n) => n.toLowerCase() !== tag.name.toLowerCase()));
+      toast.success(uiText('Tag "{value1}" deleted', { value1: String(tag.name) }));
+    } catch (e) {
+      toast.error(e);
+    } finally {
+      setDeleteTagBusy(false);
+      setDeleteTagTarget(null);
+    }
+  }
+
+  const editFilteredTags = useMemo(() => {
+    const q = tagInput.toLowerCase().trim();
+    const selectedNames = editTags.map((n) => n.toLowerCase());
+    return tags.filter(
+      (t) =>
+        !selectedNames.includes(t.name.toLowerCase()) &&
+        (q === "" || t.name.toLowerCase().includes(q)),
+    );
+  }, [tags, tagInput, editTags]);
+
+  const editCanCreate =
+    tagInput.trim().length > 0 &&
+    !tags.find((t) => t.name.toLowerCase() === tagInput.trim().toLowerCase());
+
+  const sortedFiles = useMemo(
+    () => normalizeRecommendedGcodeFiles([...model.files].sort((a, b) => a.version - b.version)),
+    [model.files],
+  );
+  const gcodeFiles = useMemo(
+    () => sortedFiles.filter((f) => f.file_type === "gcode"),
+    [sortedFiles],
+  );
+  const sourceFiles = useMemo(
+    () => sortedFiles.filter((f) => f.file_type !== "gcode"),
+    [sortedFiles],
+  );
+  const recommendedGcode = gcodeFiles.find((f) => f.is_recommended) ?? null;
+  const latestFile =
+    recommendedGcode ?? gcodeFiles[gcodeFiles.length - 1] ?? sortedFiles[sortedFiles.length - 1];
+  const meta = latestFile?.metadata;
+  const printSettingRows = buildPrintSettingRows(meta, metadataPreferences);
+  const meshFile = model.files.find(
+    (f) =>
+      f.file_type === "stl" ||
+      f.file_type === "3mf" ||
+      f.file_type === "obj" ||
+      f.file_type === "step",
+  );
+  const hasGcode = gcodeFiles.length > 0;
+  const thumbUrl = useAuthenticatedAssetUrl(model.thumbnail_url);
+  const printerFilesByFileId = useMemo(() => {
+    const grouped = new Map<number, ModelPrinterFileRead[]>();
+    for (const row of printerFiles) {
+      if (row.missing_since) continue;
+      grouped.set(row.file_id, [...(grouped.get(row.file_id) ?? []), row]);
+    }
+    return grouped;
+  }, [printerFiles]);
+
+  function requestSend(fileId: number) {
+    if (!auth.isAuthenticated) {
+      auth.showAuthRequiredToast();
+      return;
+    }
+    if (!canViewPrinters) return;
+    setSendFileId(fileId);
+    setSendOpen(true);
+  }
+
+  function requestAddRevision() {
+    if (!auth.isAuthenticated || !canEditModel) {
+      auth.showAuthRequiredToast();
+      return;
+    }
+    setAddRevisionOpen(true);
+  }
+
+  return (
+    <Localized>
+      <div className="flex flex-col h-full">
+        {readError && (
+          <div role="alert" className="border-b border-border bg-muted px-4 py-3 text-sm">
+            <p>{uiText("Couldn’t load this model")}</p>
+            <Button variant="outline" size="sm" onClick={retryRead}>
+              {uiText("Retry")}
+            </Button>
+          </div>
+        )}
+        <ConfirmModal
+          open={confirmDeleteOpen}
+          onClose={() => setConfirmDeleteOpen(false)}
+          onConfirm={doDelete}
+          busy={deleting}
+          title={uiText("Delete model?")}
+          description={uiText(
+            "This will move the model to trash. Files will be permanently removed after the retention period.",
+          )}
+          confirmLabel={uiText("Delete")}
+        />
+        <ConfirmModal
+          open={!!deleteTagTarget}
+          onClose={() => setDeleteTagTarget(null)}
+          onConfirm={confirmDeleteTag}
+          busy={deleteTagBusy}
+          title={uiText("Delete tag?")}
+          description={
+            deleteTagTarget
+              ? uiText("tags.removeFromModels", {
+                  value1: String(deleteTagTarget.name),
+                  value2: String(deleteTagTarget.model_count),
+                  count: Number(deleteTagTarget.model_count),
+                })
+              : uiText("This tag will be removed from the model.")
+          }
+        />
+        {addRevisionOpen && (
+          <AddGcodeRevisionModal
+            modelId={model.id}
+            onClose={() => setAddRevisionOpen(false)}
+            onUploaded={async (updated) => {
+              if (!(await setModel(updated))) return;
+              setAddRevisionOpen(false);
+              toast.success(uiText("G-code revision added"));
+            }}
+          />
+        )}
+        <ShareDialog
+          modelId={model.id}
+          files={model.files}
+          open={shareOpen}
+          onClose={() => setShareOpen(false)}
+        />
+        <ModelTagsDialog
+          key={`${model.id}:${tagDialogSession}`}
+          model={model}
+          suggestions={tags}
+          open={tagDialogOpen}
+          onClose={() => setTagDialogOpen(false)}
+          onSaved={(nextTags, editVersion) => {
+            void setModel((current) => ({ ...current, tags: nextTags, ...editVersion }));
+          }}
+        />
+        {editing && editProblem && (
+          <div role="alert" className="border-b border-border bg-muted px-4 py-3 text-sm">
+            <p>
+              {uiText(
+                editProblem === "conflict" ? "library.editConflict" : "library.saveUnconfirmed",
+              )}
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void reviewLatest()}
+              loading={reviewing}
+            >
+              {uiText("library.reviewLatest")}
+            </Button>
+          </div>
+        )}
+        <Modal
+          open={reviewedModel !== null}
+          onClose={() => setReviewedModel(null)}
+          title={uiText("library.latestVersion")}
+        >
+          {reviewedModel && (
+            <div className="space-y-4">
+              <dl className="space-y-2">
+                <dt className="font-semibold">{uiText("Name")}</dt>
+                <dd>{reviewedModel.name}</dd>
+                <dt className="font-semibold">{uiText("Description")}</dt>
+                <dd className="whitespace-pre-wrap">{reviewedModel.description ?? "—"}</dd>
+                <dt className="font-semibold">{uiText("Collection")}</dt>
+                <dd>{reviewedModel.collection_label ?? "—"}</dd>
+                <dt className="font-semibold">{uiText("Tags")}</dt>
+                <dd>{reviewedModel.tags.join(", ") || "—"}</dd>
+                <dt className="font-semibold">{uiText("Source URL")}</dt>
+                <dd>{reviewedModel.source_url ?? "—"}</dd>
+              </dl>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" onClick={() => setReviewedModel(null)}>
+                  {uiText("library.keepDraft")}
+                </Button>
+                <Button variant="outline" onClick={useReviewedVersion}>
+                  {uiText("library.useLatest")}
+                </Button>
+                <Button
+                  loading={saving}
+                  disabled={
+                    reviewedModel.effective_role !== "edit" &&
+                    reviewedModel.effective_role !== "admin"
+                  }
+                  onClick={() => void saveEdit(reviewedModel)}
+                >
+                  {uiText("library.retryDraft")}
+                </Button>
+              </div>
+            </div>
+          )}
+        </Modal>
+        {/* Detail Header */}
+        <header className="flex flex-wrap items-center justify-between px-4 md:px-6 py-3 gap-2 border-b border-outline-variant bg-surface-container-lowest shrink-0">
+          <div className="flex w-full min-w-0 items-start gap-3 md:w-auto md:flex-1 md:gap-4">
+            <LibraryBackLink
+              href={model.collection ? `/?c=${encodeURIComponent(model.collection)}` : "/"}
+              aria-label={uiText("Back")}
+              className="w-10 h-10 shrink-0 flex items-center justify-center rounded hover:bg-surface-container-high text-on-surface-variant transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </LibraryBackLink>
+            <div className="min-w-0 flex-1">
+              {editing ? (
+                <input
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  aria-invalid={!editName.trim()}
+                  aria-describedby={!editName.trim() ? "model-name-error" : undefined}
+                  className="w-full bg-surface text-on-surface font-mono text-lg border border-outline-variant rounded px-2 py-0.5 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                  placeholder={uiText("Model name")}
+                />
+              ) : (
+                <h1 className="break-words text-xl font-semibold text-on-surface leading-tight">
+                  {model.name}
+                </h1>
+              )}
+              <span className="font-mono text-xs text-on-surface-variant">
+                {(meshFile ?? sourceFiles[0]) && (
+                  <>
+                    {(meshFile ?? sourceFiles[0])!.file_type.toUpperCase()}
+                    {uiText(" source · ")}
+                  </>
+                )}
+                {uiText("counts.revisions", { count: gcodeFiles.length })}
+                {uiText(" · Last updated ")}
+                {timeAgo(model.updated_at)}
+              </span>
+              {editing && !editName.trim() && (
+                <p id="model-name-error" role="alert" className="mt-1 text-xs text-destructive">
+                  {uiText("Model name is required.")}
+                </p>
+              )}
+              {!editing && (recommendedGcode || meta?.material_type || meta?.printer_model) && (
+                <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                  {recommendedGcode && (
+                    <span className="inline-flex items-center gap-1 border border-primary/30 bg-secondary-container text-on-secondary-container rounded px-1.5 py-0.5 font-mono text-3xs uppercase tracking-wider">
+                      <Star className="h-3 w-3 fill-current" />
+                      {uiText(" Recommended Rev")}{" "}
+                      {recommendedGcode.gcode_revision_number ?? recommendedGcode.version}
+                    </span>
+                  )}
+                  {recommendedGcode?.revision_status && (
+                    <span
+                      className={`border rounded px-1.5 py-0.5 font-mono text-3xs uppercase tracking-wider ${revisionStatusClass(recommendedGcode.revision_status)}`}
+                    >
+                      {headerStatusLabel(recommendedGcode.revision_status)}
+                    </span>
+                  )}
+                  {meta?.material_type && (
+                    <span className="inline-flex items-center gap-1 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-400 rounded px-2 py-0.5 font-mono text-2xs font-semibold uppercase tracking-wider">
+                      {meta.material_type}
+                    </span>
+                  )}
+                  {meta?.printer_model && (
+                    <span className="inline-flex items-center gap-1 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400 rounded px-2 py-0.5 font-mono text-2xs font-semibold uppercase tracking-wider">
+                      <PrinterIcon className="h-3 w-3" /> {meta.printer_model}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {editing ? (
+              <>
+                <Button variant="outline" size="sm" onClick={cancelEdit}>
+                  {uiText("Cancel")}
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => void saveEdit()}
+                  loading={saving}
+                  disabled={!editName.trim() || editProblem !== null || !canEditModel}
+                >
+                  {!saving && <Check className="h-4 w-4" />}{" "}
+                  {saving ? uiText("Saving…") : uiText("Save")}
+                </Button>
+              </>
+            ) : (
+              <>
+                {canEditModel && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    aria-label={
+                      model.tags.length > 0
+                        ? uiText("Edit tags for {value1}", { value1: String(model.name) })
+                        : uiText("Add tags to {value1}", { value1: String(model.name) })
+                    }
+                    onClick={() => {
+                      setTagDialogSession((session) => session + 1);
+                      setTagDialogOpen(true);
+                    }}
+                  >
+                    <Tags className="h-4 w-4" />
+                    {model.tags.length > 0 ? uiText("Edit tags") : uiText("Add tags")}
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void toggleFavorite()}
+                  disabled={starBusy || !auth.isAuthenticated}
+                >
+                  <Star className={`h-4 w-4 ${model.starred ? "fill-current text-primary" : ""}`} />
+                  {model.starred ? uiText("Favorited") : uiText("Favorite")}
+                </Button>
+                <DropdownMenu
+                  open={actionsOpen}
+                  onOpenChange={setActionsOpen}
+                  trigger={
+                    <Button
+                      type="button"
+                      data-menu-trigger
+                      variant="outline"
+                      size="icon-sm"
+                      onClick={() => setActionsOpen((open) => !open)}
+                      aria-haspopup="menu"
+                      aria-expanded={actionsOpen}
+                      aria-label={uiText("Model actions")}
+                    >
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  }
+                  contentClassName="w-48 rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-lg"
+                >
+                  <ModelSearchAction modelId={model.id} onSelect={() => setActionsOpen(false)} />
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setActionsOpen(false);
+                      if (auth.isAuthenticated && canEditModel) setShareOpen(true);
+                      else auth.showAuthRequiredToast();
+                    }}
+                    disabled={!auth.isAuthenticated || !canEditModel}
+                    className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm hover:bg-popover-hover focus-visible:bg-popover-hover focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
+                  >
+                    <Link2 className="h-4 w-4" />
+                    {uiText(" Share")}
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setActionsOpen(false);
+                      if (auth.isAuthenticated && canEditModel) enterEdit();
+                      else auth.showAuthRequiredToast();
+                    }}
+                    disabled={!auth.isAuthenticated || !canEditModel}
+                    className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm hover:bg-popover-hover focus-visible:bg-popover-hover focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
+                  >
+                    <Pencil className="h-4 w-4" />
+                    {uiText(" Edit details")}
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setActionsOpen(false);
+                      if (auth.isAuthenticated && canEditModel) setConfirmDeleteOpen(true);
+                      else auth.showAuthRequiredToast();
+                    }}
+                    disabled={deleting || !auth.isAuthenticated || !canEditModel}
+                    className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-destructive hover:bg-destructive/10 focus-visible:bg-destructive/10 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    {uiText(" Delete model")}
+                  </button>
+                </DropdownMenu>
+              </>
+            )}
+          </div>
+        </header>
+
+        {/* Two-Column Layout. On mobile the panels stack and the whole area
+          scrolls; on desktop each pane keeps its own fixed height. */}
+        <div className="flex-1 flex flex-col md:flex-row min-h-0 overflow-y-auto md:overflow-hidden pb-24 md:pb-0">
+          {/* Left: 3D Model Preview */}
+          <div
+            className="relative m-2 flex min-h-80 flex-1 items-center justify-center overflow-hidden rounded border-b border-outline-variant bg-surface-container-low md:m-4 md:min-h-0 md:border-b-0 md:border-r"
+            style={{ boxShadow: "inset 0 0 0 1px var(--outline-variant)" }}
+          >
+            {viewerMode === "gcode" && hasGcode ? (
+              <Suspense fallback={ViewerFallback}>
+                <GcodeViewer
+                  url={`/api/v1/files/${(recommendedGcode ?? gcodeFiles[gcodeFiles.length - 1])!.id}/toolpath`}
+                  printerBedMm={getBedSize(meta?.printer_model)}
+                  screenshotName={model.slug || model.name}
+                />
+              </Suspense>
+            ) : meshFile ? (
+              <Suspense fallback={ViewerFallback}>
+                <STLViewer
+                  url={getAssetUrl(`/api/v1/files/${meshFile.id}/stl`)}
+                  modelId={model.id}
+                  onControlsReady={(api) => {
+                    viewerControls.current = api;
+                  }}
+                  onReadyChange={setViewerReady}
+                  displayMode={displayMode}
+                  showGrid={showGrid}
+                  screenshotName={model.slug || model.name}
+                />
+              </Suspense>
+            ) : thumbUrl ? (
+              <img
+                src={thumbUrl}
+                alt={model.name}
+                className="max-w-full max-h-full object-contain"
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-2 text-on-surface-variant">
+                <FileText className="h-20 w-20 opacity-20" />
+                {sourceFiles.some((file) => file.file_type === "dxf") && (
+                  <span>
+                    {uiText("DXF preview is not supported yet. Download the original file below.")}
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* Viewer toolbar and context stay in one responsive overlay so
+                neither can cover the other on narrow touch screens. */}
+            {(meshFile || hasGcode) && (
+              <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex min-w-0 flex-col gap-2 sm:inset-x-4 sm:top-4 xl:flex-row xl:items-start xl:justify-between">
+                <ViewerToolbar
+                  displayMode={displayMode}
+                  setDisplayMode={setDisplayMode}
+                  showGrid={showGrid}
+                  setShowGrid={setShowGrid}
+                  controls={viewerControls}
+                  viewerMode={viewerMode}
+                  setViewerMode={setViewerMode}
+                  hasGcode={hasGcode}
+                  viewerReady={viewerReady}
+                />
+                {(meshFile || (viewerMode === "gcode" && hasGcode)) && (
+                  <div className="min-w-0 max-w-full self-stretch xl:max-w-[60%] xl:self-start">
+                    <div className="rounded border border-outline-variant bg-surface-container-lowest/90 px-2.5 py-1.5 text-right backdrop-blur">
+                      {viewerMode === "gcode" ? (
+                        <>
+                          <p className="truncate font-mono text-2xs text-on-surface">
+                            {
+                              (recommendedGcode ?? gcodeFiles[gcodeFiles.length - 1])
+                                ?.original_filename
+                            }
+                          </p>
+                          <p className="font-mono text-3xs uppercase tracking-wider text-on-surface-variant">
+                            {uiText("G-code toolpath")}
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="truncate font-mono text-2xs text-on-surface">
+                            {uiText("Viewing: ")}
+                            {meshFile?.original_filename}
+                          </p>
+                          <p className="font-mono text-3xs uppercase tracking-wider text-on-surface-variant">
+                            {uiText("Source model")}
+                            {recommendedGcode
+                              ? uiText(" · Recommended G-code: Rev {value1}", {
+                                  value1: String(
+                                    recommendedGcode.gcode_revision_number ??
+                                      recommendedGcode.version,
+                                  ),
+                                })
+                              : ""}
+                          </p>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 3D Viewer Controls */}
+            <div className="absolute bottom-4 right-4 flex flex-col gap-1 z-10">
+              <div className="flex bg-surface-container-lowest/90 backdrop-blur border border-outline-variant rounded overflow-hidden shadow-sm">
+                <button
+                  onClick={() => viewerControls.current?.zoomIn()}
+                  className="flex h-11 w-11 items-center justify-center border-r border-outline-variant text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-primary sm:h-9 sm:w-9"
+                  title={uiText("Zoom in")}
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => viewerControls.current?.zoomOut()}
+                  className="flex h-11 w-11 items-center justify-center text-on-surface-variant transition-colors hover:bg-surface-container-high hover:text-primary sm:h-9 sm:w-9"
+                  title={uiText("Zoom out")}
+                >
+                  <Minus className="h-4 w-4" />
+                </button>
+              </div>
+              <button
+                onClick={() => viewerControls.current?.resetView()}
+                className="flex h-11 items-center justify-center rounded border border-outline-variant bg-surface-container-lowest/90 px-3 text-on-surface-variant shadow-sm backdrop-blur transition-colors hover:bg-surface-container-high hover:text-primary sm:h-9"
+                title={uiText("Reset view")}
+              >
+                <RotateCcw className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Dimensions overlay (bottom-left) */}
+            {meta?.bbox_x_mm && meta?.bbox_y_mm && meta?.bbox_z_mm && (
+              <div className="absolute bottom-4 left-4 z-10">
+                <div className="bg-surface-container-lowest/90 backdrop-blur border border-outline-variant rounded px-2 py-1 flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                  <span className="font-mono text-[13px] text-on-surface">
+                    {uiText("{value1}×{value2}×{value3} mm", {
+                      value1: String(meta.bbox_x_mm ?? ""),
+                      value2: String(meta.bbox_y_mm ?? ""),
+                      value3: String(meta.bbox_z_mm ?? ""),
+                    })}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Right: Settings & Files Panel */}
+          <div
+            data-testid="model-detail-sidebar"
+            style={{ "--detail-sidebar-width": `${detailSidebarWidth}px` }}
+            className="relative flex h-auto min-h-0 w-full shrink-0 flex-col border-l-0 border-t border-outline-variant bg-surface-container-lowest md:h-full md:[width:var(--detail-sidebar-width)] md:border-l md:border-t-0"
+          >
+            <div
+              role="separator"
+              aria-label={uiText("Resize details panel")}
+              aria-orientation="vertical"
+              aria-valuemin={DETAIL_SIDEBAR_MIN_WIDTH}
+              aria-valuemax={DETAIL_SIDEBAR_MAX_WIDTH}
+              aria-valuenow={detailSidebarWidth}
+              tabIndex={0}
+              title={uiText("Drag to resize · Double-click to reset")}
+              onPointerDown={startDetailSidebarResize}
+              onDoubleClick={() => setDetailSidebarWidth(DETAIL_SIDEBAR_DEFAULT_WIDTH)}
+              onKeyDown={(event) => {
+                if (event.key === "ArrowLeft")
+                  setDetailSidebarWidth((width) => clampDetailSidebarWidth(width + 16));
+                else if (event.key === "ArrowRight")
+                  setDetailSidebarWidth((width) => clampDetailSidebarWidth(width - 16));
+                else if (event.key === "Home") setDetailSidebarWidth(DETAIL_SIDEBAR_MIN_WIDTH);
+                else if (event.key === "End")
+                  setDetailSidebarWidth(clampDetailSidebarWidth(DETAIL_SIDEBAR_MAX_WIDTH));
+                else return;
+                event.preventDefault();
+              }}
+              className="group absolute inset-y-0 -left-1 z-20 hidden w-2 touch-none cursor-col-resize focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:block"
+            >
+              <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border transition-colors duration-press group-hover:bg-primary group-focus-visible:bg-primary" />
+              <span className="absolute left-1/2 top-1/2 h-10 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-border transition-colors duration-press group-hover:bg-primary group-focus-visible:bg-primary" />
+            </div>
+            {/* Segmented tab navigation */}
+            <TabBar
+              tabs={visibleTabs.map((tab) => ({
+                key: tab.key,
+                label: (
+                  <>
+                    {tab.label}
+                    {tab.key === "revisions" && gcodeFiles.length > 0 && (
+                      <span className="ml-1 opacity-60">{gcodeFiles.length}</span>
+                    )}
+                    {tab.key === "files" && sourceFiles.length > 0 && (
+                      <span className="ml-1 opacity-60">{sourceFiles.length}</span>
+                    )}
+                    {tab.key === "history" && printJobs.length > 0 && (
+                      <span className="ml-1 opacity-60">{printJobs.length}</span>
+                    )}
+                  </>
+                ),
+              }))}
+              active={activeTab}
+              onChange={setRequestedTab}
+              showIndicator={false}
+              className="shrink-0 overflow-x-auto border-b border-outline-variant bg-surface-container-lowest p-1"
+              tabClassName="min-w-max grow whitespace-nowrap rounded-md px-0.5 py-3 text-xs font-medium transition-colors duration-press text-on-surface-variant hover:bg-muted hover:text-on-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              activeTabClassName="bg-accent text-accent-foreground"
+            />
+            <div
+              key={activeTab}
+              className="animate-panel-in flex-1 overflow-y-auto p-4 md:p-6 space-y-6 md:space-y-8 [scrollbar-width:thin] [scrollbar-color:var(--outline-variant)_transparent] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-outline-variant [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb:hover]:bg-primary/50"
+            >
+              {activeTab === "overview" && (
+                <div className="space-y-4">
+                  <OverviewTab
+                    model={model}
+                    editing={editing}
+                    editor={{
+                      collection: editCollection,
+                      collectionLabel: editCollectionLabel,
+                      setCollection: (path, label) => {
+                        setEditCollection(path);
+                        setEditCollectionLabel(label);
+                      },
+                      catOpen,
+                      setCatOpen,
+                      allowRoot: !!user?.is_superuser,
+                      description: editDescription,
+                      setDescription: setEditDescription,
+                      sourceUrl: editSourceUrl,
+                      setSourceUrl: setEditSourceUrl,
+                      tagInput,
+                      setTagInput,
+                      tags: editTags,
+                      setTags: setEditTags,
+                      toggleTag: editToggleTag,
+                      createTag: editCreateTag,
+                      deleteTag: editDeleteTag,
+                      filteredTags: editFilteredTags,
+                      canCreate: editCanCreate,
+                    }}
+                    recommendedFile={recommendedGcode}
+                    hasGcode={hasGcode}
+                    revisionSaving={revisionUpdater.saving}
+                    onSend={requestSend}
+                    canSend={canViewPrinters}
+                    onCompare={() => setRequestedTab("revisions")}
+                    onMark={(file, patch) => void revisionUpdater.update(file, patch)}
+                    onAddRevision={requestAddRevision}
+                  />
+                  {!editing && auth.isAuthenticated && (
+                    <SubjectCaption key={model.id} type="model" id={model.id} />
+                  )}
+                </div>
+              )}
+
+              {activeTab === "settings" && (
+                <SettingsTab
+                  meta={meta}
+                  printSettingRows={printSettingRows}
+                  preferences={metadataPreferences}
+                />
+              )}
+
+              {activeTab === "similar" && canEditModel && <SimilarityQueue modelId={model.id} />}
+              {activeTab === "source" && <SourceTab modelId={model.id} canEdit={canEditModel} />}
+
+              {activeTab === "revisions" && canViewPrinters && printerFileQuery.isError && (
+                <Button variant="outline" onClick={() => void printerFileQuery.refetch()}>
+                  {uiText("Retry")}
+                </Button>
+              )}
+              {activeTab === "revisions" && (
+                <RevisionsTab
+                  modelId={model.id}
+                  gcodeFiles={gcodeFiles}
+                  allFiles={model.files}
+                  printerFilesByFileId={printerFilesByFileId}
+                  onModel={setModel}
+                  onAddRevision={requestAddRevision}
+                  canEdit={canEditModel}
+                />
+              )}
+
+              {activeTab === "files" && (
+                <FilesTab
+                  modelId={model.id}
+                  sourceFiles={sourceFiles}
+                  trashedSourceFiles={model.trashed_source_files ?? []}
+                  canEdit={canEditModel}
+                  onModel={setModel}
+                />
+              )}
+
+              {activeTab === "history" && canViewPrinters && printJobQuery.isError && (
+                <Button variant="outline" onClick={() => void printJobQuery.refetch()}>
+                  {uiText("Retry")}
+                </Button>
+              )}
+              {activeTab === "history" && canViewPrinters && printJobQuery.isPending && (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              )}
+              {activeTab === "history" &&
+                canViewPrinters &&
+                printJobQuery.data &&
+                !printJobQuery.isError && (
+                  <PrintHistorySection
+                    jobs={printJobs}
+                    modelId={model.id}
+                    gcodeFiles={gcodeFiles}
+                    onJobCreated={(job) => void printJobQuery.publish(job)}
+                  />
+                )}
+            </div>
+
+            {/* Klipper Sync Panel */}
+            <div className="p-4 md:p-6 border-t border-outline-variant bg-surface-container-low shrink-0 space-y-3">
+              {gcodeFiles.length > 0 && canViewPrinters && (
+                <SendToButtons
+                  gcodeFiles={gcodeFiles}
+                  printerFiles={printerFiles}
+                  open={sendOpen}
+                  onOpenChange={setSendOpen}
+                  preselectFileId={sendFileId}
+                />
+              )}
+              {!hasGcode && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-xs text-on-surface-variant uppercase tracking-wider">
+                      {uiText("Sync status")}
+                    </span>
+                    <div className="flex items-center gap-1.5 px-2 py-1 bg-surface-container-lowest border border-outline-variant rounded">
+                      <Wifi className="h-3 w-3 text-on-surface-variant" />
+                      <span className="font-mono text-xs text-on-surface-variant">
+                        {uiText("No G-code file")}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div className="flex items-center justify-between border-t border-surface-container-highest pt-3">
+                <span className="font-mono text-xs text-on-surface-variant uppercase tracking-wider">
+                  {uiText("Files")}
+                </span>
+                <span className="font-mono text-sm text-on-surface font-semibold">
+                  {model.files.length}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-xs text-on-surface-variant uppercase tracking-wider">
+                  {uiText("Created")}
+                </span>
+                <span className="font-mono text-xs text-on-surface">
+                  {new Date(model.created_at).toLocaleDateString(currentLocale())}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Localized>
+  );
+}

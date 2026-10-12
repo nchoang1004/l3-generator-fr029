@@ -1,0 +1,373 @@
+"""
+Thumbnail router — photo thumbnails, face thumbnails, person thumbnails, full images.
+
+"""
+
+import hashlib
+import logging
+import os
+from io import BytesIO
+from functools import lru_cache
+from pathlib import Path
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from fastapi.responses import FileResponse
+
+from api.auth import CurrentUser, get_optional_user
+from api.config import VIEWER_CONFIG
+from api.database import get_db, get_db_connection
+from api.db_helpers import get_visibility_clause
+from api.path_validation import resolve_photo_disk_path
+from utils.image_loading import RAW_EXTENSIONS, HEIF_EXTENSIONS, TIFF_EXTENSIONS
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(tags=["thumbnails"])
+
+_thumbnail_cache_size = VIEWER_CONFIG.get('performance', {}).get('thumbnail_cache_size', 2000)
+
+
+def _face_join_visible(column: str, value: int, user: Optional[CurrentUser]) -> bool:
+    """True when a ``faces`` row matching ``{column} = value`` belongs to a photo the caller may see.
+
+    ``column`` is a caller-supplied column reference (e.g. ``'f.id'``), never user input.
+    """
+    vis_sql, vis_params = get_visibility_clause(
+        user.user_id if user else None, table_alias='p'
+    )
+    with get_db() as conn:
+        row = conn.execute(
+            f"SELECT 1 FROM faces f JOIN photos p ON p.path = f.photo_path "
+            f"WHERE {column} = ? AND {vis_sql} LIMIT 1",
+            [value, *vis_params],
+        ).fetchone()
+    return row is not None
+
+
+def _face_visible(face_id: int, user: Optional[CurrentUser]) -> bool:
+    """True when ``face_id`` belongs to a photo the caller may see."""
+    return _face_join_visible('f.id', face_id, user)
+
+
+def _person_visible(person_id: int, user: Optional[CurrentUser]) -> bool:
+    """True when ``person_id`` has at least one face in a photo the caller may see."""
+    return _face_join_visible('f.person_id', person_id, user)
+
+
+def _cached_image_response(image_bytes: bytes, request: Request) -> Response:
+    """Build a cached JPEG response with ETag and conditional 304."""
+    etag = hashlib.md5(image_bytes).hexdigest()
+    if request.headers.get('if-none-match') == etag:
+        return Response(status_code=304)
+    return Response(
+        content=image_bytes,
+        media_type='image/jpeg',
+        headers={
+            'Cache-Control': 'public, max-age=31536000',
+            'ETag': etag,
+        }
+    )
+
+
+def _get_image_jpeg_quality() -> int:
+    return VIEWER_CONFIG['display'].get('image_jpeg_quality', 96)
+
+
+@lru_cache(maxsize=5)
+def _convert_raw_cached(file_path: str, mtime: float, quality: int = 96,
+                        sequence_kind: Optional[str] = None) -> bytes:
+    """Convert a RAW file to JPEG bytes, cached by path+mtime+quality+sequence kind.
+
+    The sequence kind is part of the key because it selects the rendering: a
+    frame relabelled as a bracket by a later detection pass must not keep
+    serving the camera-preview render cached before it.
+    """
+    from api.raw_processing import convert_raw_to_jpeg
+
+    return convert_raw_to_jpeg(file_path, quality, sequence_kind)
+
+
+@lru_cache(maxsize=32)
+def _convert_nonraw_cached(file_path: str, mtime: float, quality: int = 96) -> bytes:
+    """Convert a non-RAW, non-browser-renderable file to JPEG bytes, cached by path+mtime+quality.
+
+    Used for both HEIF/HEIC and TIFF: open_nonraw_image is format-agnostic for
+    every non-RAW extension (RGBA/16-bit/AVIF-PQ handling all live there), so
+    one cached conversion serves both branches below rather than pasting a
+    second near-identical function. Goes through the same loader as the
+    scanner so EXIF orientation and HDR PQ -> sRGB tone mapping (Canon .HIF)
+    are applied here too — otherwise the browser image would be dark/rotated
+    relative to what was actually scored.
+    """
+    from utils.image_loading import open_nonraw_image
+
+    buf = BytesIO()
+    open_nonraw_image(file_path).save(buf, format="JPEG", quality=quality)
+    return buf.getvalue()
+
+
+def _do_resize(thumbnail_bytes: bytes, size: int) -> bytes:
+    """Pure resize without caching."""
+    from PIL import Image
+    img = Image.open(BytesIO(thumbnail_bytes))
+    if max(img.size) <= size:
+        return thumbnail_bytes
+    img.thumbnail((size, size), Image.LANCZOS)
+    quality = 20 if size <= 48 else 80
+    buf = BytesIO()
+    img.save(buf, format='JPEG', quality=quality)
+    return buf.getvalue()
+
+
+_resize_cache: dict[tuple[str, int], bytes] = {}
+
+
+def _get_or_resize(photo_path: str, thumbnail_bytes: bytes, size: int) -> bytes:
+    """Resize a thumbnail with (path, size) caching. Caller provides bytes to avoid double-fetch."""
+    key = (photo_path, size)
+    cached = _resize_cache.get(key)
+    if cached is not None:
+        return cached
+    resized = _do_resize(thumbnail_bytes, size)
+    # Evict oldest entries when cache exceeds limit
+    if len(_resize_cache) >= _thumbnail_cache_size:
+        # Remove first ~10% of entries
+        evict_count = max(1, _thumbnail_cache_size // 10)
+        for old_key in list(_resize_cache.keys())[:evict_count]:
+            del _resize_cache[old_key]
+    _resize_cache[key] = resized
+    return resized
+
+
+@router.get("/thumbnail")
+def get_thumbnail(
+    request: Request,
+    path: str = Query(...),
+    size: Optional[int] = Query(None),
+    user: Optional[CurrentUser] = Depends(get_optional_user),
+):
+    """Get photo thumbnail."""
+    vis_sql, vis_params = get_visibility_clause(user.user_id if user else None)
+    with get_db() as conn:
+        row = conn.execute(
+            f"SELECT thumbnail FROM photos WHERE path = ? AND {vis_sql}",
+            [path, *vis_params],
+        ).fetchone()
+
+    if row and row['thumbnail']:
+        if size and 0 < size < 640:
+            resized = _get_or_resize(path, row['thumbnail'], size)
+            return _cached_image_response(resized, request)
+        return _cached_image_response(row['thumbnail'], request)
+    return Response(content="Thumbnail not found", status_code=404)
+
+
+_face_cache_size = VIEWER_CONFIG.get('performance', {}).get('face_cache_size', 500)
+
+
+@lru_cache(maxsize=_face_cache_size)
+def _get_face_thumbnail_data(face_id: int):
+    """Get face thumbnail bytes with LRU caching."""
+    from PIL import Image
+
+    conn = get_db_connection()
+    try:
+        face = conn.execute("""
+            SELECT f.photo_path, f.bbox_x1, f.bbox_y1, f.bbox_x2, f.bbox_y2,
+                   f.face_thumbnail, p.thumbnail
+            FROM faces f
+            JOIN photos p ON p.path = f.photo_path
+            WHERE f.id = ?
+        """, (face_id,)).fetchone()
+    finally:
+        conn.close()
+
+    if not face:
+        return None, None
+
+    if face['face_thumbnail']:
+        etag = hashlib.md5(face['face_thumbnail']).hexdigest()
+        return face['face_thumbnail'], etag
+
+    if not face['thumbnail']:
+        return None, None
+
+    try:
+        bbox_x1, bbox_y1, bbox_x2, bbox_y2 = face['bbox_x1'], face['bbox_y1'], face['bbox_x2'], face['bbox_y2']
+        if bbox_x1 is None or bbox_x2 is None:
+            return None, None
+
+        etag = hashlib.md5(f"{face_id}:{bbox_x1}:{bbox_y1}:{bbox_x2}:{bbox_y2}".encode()).hexdigest()
+
+        thumb_img = Image.open(BytesIO(face['thumbnail']))
+        thumb_w, thumb_h = thumb_img.size
+
+        if thumb_w >= thumb_h:
+            estimated_orig_longest = max(bbox_x2, bbox_y2 * thumb_w / thumb_h)
+        else:
+            estimated_orig_longest = max(bbox_y2, bbox_x2 * thumb_h / thumb_w)
+
+        estimated_orig_longest = max(estimated_orig_longest * 1.05, 100)
+        scale = max(thumb_w, thumb_h) / estimated_orig_longest
+
+        x1 = max(0, int(bbox_x1 * scale))
+        y1 = max(0, int(bbox_y1 * scale))
+        x2 = min(thumb_w, int(bbox_x2 * scale))
+        y2 = min(thumb_h, int(bbox_y2 * scale))
+
+        padding_ratio = VIEWER_CONFIG['face_thumbnails']['crop_padding_ratio']
+        pad_x = int((x2 - x1) * padding_ratio)
+        pad_y = int((y2 - y1) * padding_ratio)
+        x1 = max(0, x1 - pad_x)
+        y1 = max(0, y1 - pad_y)
+        x2 = min(thumb_w, x2 + pad_x)
+        y2 = min(thumb_h, y2 + pad_y)
+
+        min_size = VIEWER_CONFIG['face_thumbnails']['min_crop_size_px']
+        if x2 - x1 < min_size or y2 - y1 < min_size:
+            cx, cy = thumb_w // 2, thumb_h // 2
+            s = min(thumb_w, thumb_h) // 2
+            x1, y1 = cx - s, cy - s
+            x2, y2 = cx + s, cy + s
+
+        face_crop = thumb_img.crop((x1, y1, x2, y2))
+        output_size = VIEWER_CONFIG['face_thumbnails']['output_size_px']
+        face_crop.thumbnail((output_size, output_size), Image.Resampling.LANCZOS)
+
+        buf = BytesIO()
+        face_crop.save(buf, format="JPEG", quality=VIEWER_CONFIG['face_thumbnails']['jpeg_quality'])
+        return buf.getvalue(), etag
+    except (OSError, ValueError, TypeError):
+        logger.debug("Failed to generate face thumbnail on-the-fly", exc_info=True)
+        return None, None
+
+
+@router.get("/face_thumbnail/{face_id}")
+def face_thumbnail(
+    face_id: int,
+    request: Request,
+    user: Optional[CurrentUser] = Depends(get_optional_user),
+):
+    """Return cropped face thumbnail."""
+    if not _face_visible(face_id, user):
+        return Response(content="Not found", status_code=404)
+    face_bytes, etag = _get_face_thumbnail_data(face_id)
+    if face_bytes is None:
+        return Response(content="Face not found", status_code=404)
+    return _cached_image_response(face_bytes, request)
+
+
+@router.get("/person_thumbnail/{person_id}")
+def person_thumbnail(
+    person_id: int,
+    request: Request,
+    user: Optional[CurrentUser] = Depends(get_optional_user),
+):
+    """Return stored face thumbnail for a person."""
+    if not _person_visible(person_id, user):
+        return Response(content="Not found", status_code=404)
+    with get_db() as conn:
+        person = conn.execute("""
+            SELECT face_thumbnail, representative_face_id FROM persons WHERE id = ?
+        """, (person_id,)).fetchone()
+
+    if person and person['face_thumbnail']:
+        return _cached_image_response(person['face_thumbnail'], request)
+
+    if person and person['representative_face_id']:
+        face_bytes, etag = _get_face_thumbnail_data(person['representative_face_id'])
+        if face_bytes:
+            return _cached_image_response(face_bytes, request)
+
+    return Response(content="Person thumbnail not found", status_code=404)
+
+
+def _stored_thumbnail_response(path, request):
+    """Serve the stored thumbnail as a stand-in for an unavailable original."""
+    with get_db() as conn:
+        row = conn.execute("SELECT thumbnail FROM photos WHERE path = ?", (path,)).fetchone()
+    if row and row['thumbnail']:
+        return _cached_image_response(row['thumbnail'], request)
+    return Response(content="Not found", status_code=404)
+
+
+@router.get("/image")
+def image(
+    request: Request,
+    path: str = Query(...),
+    fallback: str = Query(""),
+    user: Optional[CurrentUser] = Depends(get_optional_user),
+):
+    """Serve full-size image file (RAW/HEIF converted to JPEG for the browser).
+
+    With ``fallback=thumbnail`` the stored thumbnail is returned instead of a
+    404/500 when the original is unavailable (e.g. an offline volume) or fails to
+    convert. The loupe in Scenes/Culling uses this so it degrades to the embedded
+    thumbnail rather than going blank.
+
+    ``sequence_kind`` rides along on the visibility query rather than costing a
+    second round trip: it selects how a RAW renders (see
+    ``utils.image_loading.renders_faithfully``).
+    """
+    vis_sql, vis_params = get_visibility_clause(user.user_id if user else None)
+    with get_db() as conn:
+        row = conn.execute(
+            f"SELECT path, sequence_kind FROM photos WHERE path = ? AND {vis_sql}",
+            [path, *vis_params],
+        ).fetchone()
+    if not row:
+        return Response(content="Not found", status_code=404)
+
+    want_fallback = fallback == "thumbnail"
+
+    try:
+        real_disk = resolve_photo_disk_path(row['path'])
+    except HTTPException:
+        if want_fallback:
+            return _stored_thumbnail_response(path, request)
+        return Response(content="Not found", status_code=404)
+
+    # Convert RAW files to JPEG for browser display (cached to avoid repeated conversion)
+    if Path(real_disk).suffix.lower() in RAW_EXTENSIONS:
+        try:
+            mtime = os.path.getmtime(real_disk)
+            quality = _get_image_jpeg_quality()
+            jpeg_bytes = _convert_raw_cached(real_disk, mtime, quality, row['sequence_kind'])
+            return _cached_image_response(jpeg_bytes, request)
+        except (OSError, ValueError, RuntimeError):
+            logger.exception("Failed to convert RAW file: %s", real_disk)
+            if want_fallback:
+                return _stored_thumbnail_response(path, request)
+            return Response(content="Failed to convert RAW file", status_code=500)
+
+    # Convert HEIF/HEIC to JPEG for browser compatibility (Firefox lacks native support)
+    if Path(real_disk).suffix.lower() in HEIF_EXTENSIONS:
+        try:
+            mtime = os.path.getmtime(real_disk)
+            quality = _get_image_jpeg_quality()
+            jpeg_bytes = _convert_nonraw_cached(real_disk, mtime, quality)
+            return _cached_image_response(jpeg_bytes, request)
+        except Exception:
+            logger.exception("Failed to convert HEIF file: %s", real_disk)
+            if want_fallback:
+                return _stored_thumbnail_response(path, request)
+            return Response(content="Failed to convert HEIF file", status_code=500)
+
+    # Convert TIFF to JPEG: the only new-format extension no major browser
+    # renders natively (confirmed via mimetypes.guess_type). PNG/GIF/WebP/BMP/
+    # AVIF are all browser-renderable and fall through to the bare
+    # FileResponse below, unconverted.
+    if Path(real_disk).suffix.lower() in TIFF_EXTENSIONS:
+        try:
+            mtime = os.path.getmtime(real_disk)
+            quality = _get_image_jpeg_quality()
+            jpeg_bytes = _convert_nonraw_cached(real_disk, mtime, quality)
+            return _cached_image_response(jpeg_bytes, request)
+        except Exception:
+            logger.exception("Failed to convert TIFF file: %s", real_disk)
+            if want_fallback:
+                return _stored_thumbnail_response(path, request)
+            return Response(content="Failed to convert TIFF file", status_code=500)
+
+    return FileResponse(real_disk)

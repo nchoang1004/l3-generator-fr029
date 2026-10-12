@@ -1,0 +1,214 @@
+{{- /* Issue #183 Phase 2 scaffold — spatium-supervisor.
+       Deferred: Phase 3 ports the supervisor onto k3s + wires the
+       CRD reconciler. This template ships the eventual pod spec
+       (privileged DaemonSet, hostPath mounts identical to today's
+       docker-compose volume mounts) so the chart structure is
+       stable + Phase 3 only flips supervisor.enabled to true.
+       Phase 2 keeps it ``enabled: false`` by default. */}}
+{{- if .Values.supervisor.enabled }}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: spatium-supervisor
+  labels:
+    {{- include "spatiumddi-appliance.labels" . | nindent 4 }}
+    app.kubernetes.io/component: supervisor
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: spatium-supervisor
+  template:
+    metadata:
+      labels:
+        {{- include "spatiumddi-appliance.podLabels" . | nindent 8 }}
+        app.kubernetes.io/name: spatium-supervisor
+        app.kubernetes.io/component: supervisor
+    spec:
+      {{- with .Values.supervisor.priorityClassName }}
+      priorityClassName: {{ . | quote }}
+      {{- end }}
+      {{- with (include "spatiumddi-appliance.seccompProfileType" $) }}
+      securityContext:
+        seccompProfile:
+          type: {{ . }}
+      {{- end }}
+      nodeSelector:
+        {{- toYaml .Values.global.nodeSelector | nindent 8 }}
+      # Pin the resolver so the supervisor's own bootstrap can't be broken by
+      # the network the appliance happens to be plugged into (#777).
+      #
+      # kubelet appends the NODE's DHCP-supplied search domains to every pod's
+      # resolv.conf. With the default ndots:5, any in-cluster name shorter than
+      # five dots is resolved by walking that list first — and if the inherited
+      # domain's zone answers NOERROR/NODATA instead of NXDOMAIN for a name that
+      # does not exist (Cloudflare-hosted zones do), musl stops the walk there
+      # and reports EAI_NODATA without ever trying the bare name. The supervisor
+      # then retries forever and the appliance never registers itself.
+      #
+      # ndots:1 means the four-dot Service names resolve as absolute on the
+      # first try, so the inherited domain is never consulted. The URLs are also
+      # written with a trailing dot, which fixes the same thing at the caller;
+      # this is the belt to that pair of braces, and covers every other name the
+      # supervisor may come to resolve.
+      dnsConfig:
+        options:
+          - name: ndots
+            value: "1"
+      # Issue #183 Phase 3 — in-cluster auth via the SA the matching
+      # supervisor-rbac template provisions. The auto-mounted SA
+      # token + ca.crt give the supervisor's k8s_api module enough
+      # to PATCH HelmChart CRs in kube-system + read pods in the
+      # spatium namespace, no external kubeconfig needed.
+      serviceAccountName: spatium-supervisor
+      hostPID: true
+      containers:
+        - name: spatium-supervisor
+          image: {{ include "spatiumddi-appliance.imageRef" (dict "global" .Values.global "repository" .Values.supervisor.image.repository) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          # #965 — a CPU request lifts the supervisor out of BestEffort QoS. It
+          # is the thing that REPAIRS the node (watchdog auto-heal, firewall
+          # drift re-apply), and BestEffort starves it in exactly the window
+          # those exist for. Requests only; see values.yaml.
+          {{- with .Values.supervisor.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          # Privileged because the supervisor writes host-side
+          # trigger files + reads /run/udev. Phase 3 narrows this
+          # down once the controller pattern lands.
+          securityContext:
+            privileged: true
+          env:
+            # Phase 10 (#183) — k8s_api.patch_node_labels needs the
+            # node name. Downward API surfaces the kubelet-known
+            # node name without having to guess from hostname (which
+            # may not match the registered node identity, especially
+            # on multi-NIC setups).
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            # No SPATIUM_INSECURE_SKIP_TLS_VERIFY (#1219). This used to set
+            # it unconditionally, calling the result trust-on-first-use; it
+            # was no verification at all, and the heartbeat response carries
+            # the agent keys and the slot image URL + sha256. The supervisor
+            # now pins the control plane's certificate on first contact
+            # itself (``cp_tls``), which is what makes a self-signed control
+            # plane work, and re-pins a rotated one only if the appliance CA
+            # vouches for it. Nor are the pairing code or the post-approval
+            # client cert any substitute: they authenticate the SUPERVISOR,
+            # not the server it is talking to.
+          volumeMounts:
+            - name: etc-spatiumddi-host
+              mountPath: /etc/spatiumddi-host
+              readOnly: true
+            - name: release-state
+              mountPath: /var/lib/spatiumddi-host/release-state
+            - name: boot-efi
+              mountPath: /boot/efi-host
+              readOnly: true
+            - name: run-udev
+              mountPath: /run/udev
+              readOnly: true
+            - name: state-dir
+              mountPath: /var/lib/spatium-supervisor
+            - name: chart-dir
+              mountPath: /usr/lib/spatiumddi/charts
+              readOnly: true
+            # Phase 3 will mount /etc/rancher/k3s/k3s.yaml here so the
+            # supervisor can talk to its local kubeapi.
+            - name: kubeconfig
+              mountPath: /etc/rancher/k3s
+              readOnly: true
+            # Issue #285 Phase 1 — the live base nftables.conf, read-only,
+            # so the supervisor can report the base-conf marker (sha256 +
+            # legacy-LAN-wide-k3s flag) on the heartbeat. Purely a read;
+            # the supervisor never writes it (the host-side firewall
+            # runner does, via the release-state trigger plane).
+            - name: nftables-conf
+              mountPath: /etc/nftables-host.conf
+              readOnly: true
+            # Issue #386 Part C — host slot-upgrade.log, read-only, so the
+            # heartbeat can ship a tail to the Fleet drilldown for full
+            # upgrade status (download → verify → write → bootloader).
+            # The structured progress sidecar lives in release-state
+            # (already mounted); this adds the raw log for detail.
+            - name: slot-upgrade-log
+              mountPath: /var/log/spatiumddi-host
+              readOnly: true
+            # Issue #402 — the active root-slot filesystem (read-only), so the
+            # heartbeat can statvfs it for the Cluster → Overview disk panel.
+            # /var + the ESP are already reachable via the release-state +
+            # boot-efi binds above; this adds the OS root slot ("/"). Read-only
+            # — the supervisor never writes here.
+            - name: host-root
+              mountPath: /host-root
+              readOnly: true
+            # #989 item 3 — removable (USB) backup disks, read-only:
+            # the heartbeat reports which of them are actually mounted
+            # and how much room is left. HostToContainer for the same
+            # reason the api and worker use it — under the default
+            # private propagation a disk mounted after this pod started
+            # is invisible, so every disk would report "waiting" forever
+            # while the backups were landing perfectly well.
+            - name: removable
+              mountPath: /host-removable
+              mountPropagation: HostToContainer
+              readOnly: true
+      volumes:
+        - name: etc-spatiumddi-host
+          hostPath:
+            path: {{ .Values.supervisor.hostMounts.etcSpatiumddiHost }}
+            type: Directory
+        - name: release-state
+          hostPath:
+            path: {{ .Values.supervisor.hostMounts.releaseState }}
+            type: DirectoryOrCreate
+        - name: boot-efi
+          hostPath:
+            path: {{ .Values.supervisor.hostMounts.bootEfi }}
+            type: Directory
+        - name: run-udev
+          hostPath:
+            path: {{ .Values.supervisor.hostMounts.runUdev }}
+            type: Directory
+        - name: state-dir
+          hostPath:
+            path: {{ .Values.supervisor.hostMounts.stateDir }}
+            type: DirectoryOrCreate
+        - name: chart-dir
+          hostPath:
+            path: {{ .Values.supervisor.hostMounts.chartDir }}
+            type: Directory
+        - name: kubeconfig
+          hostPath:
+            path: /etc/rancher/k3s
+            type: Directory
+        - name: slot-upgrade-log
+          hostPath:
+            path: /var/log/spatiumddi
+            # DirectoryOrCreate so a node that hasn't run an upgrade yet
+            # (no log dir) can never block the supervisor from scheduling.
+            type: DirectoryOrCreate
+        - name: nftables-conf
+          hostPath:
+            path: {{ .Values.supervisor.hostMounts.nftablesConf }}
+            # FileOrCreate (not File) so a node missing the file can
+            # never block the supervisor from scheduling — every
+            # appliance bakes /etc/nftables.conf, so it's never actually
+            # created there; the marker reader tolerates an empty/absent
+            # file by reporting None.
+            type: FileOrCreate
+        # Issue #402 — host root filesystem, read-only, for the disk panel's
+        # root-slot usage. statvfs("/host-root") reports the active root
+        # partition; /var + ESP come from the binds above.
+        - name: host-root
+          hostPath:
+            path: /
+            type: Directory
+        # #989 item 3 — see the volumeMount comment.
+        - name: removable
+          hostPath:
+            path: /var/lib/spatiumddi/removable
+            type: DirectoryOrCreate
+{{- end }}

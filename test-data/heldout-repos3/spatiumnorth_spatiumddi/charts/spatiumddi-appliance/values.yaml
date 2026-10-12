@@ -1,0 +1,600 @@
+# Issue #183 Phase 2 — appliance role values.
+#
+# Each top-level ``<role>.enabled: false`` is the operator-assigned
+# default. The supervisor's CRD reconciler (Phase 3) flips the right
+# subset to ``true`` based on the SpatiumApplianceRole spec.
+#
+# All container images come from the slot's containerd content store
+# (preloaded at firstboot from /usr/lib/spatiumddi/images/*.tar.zst).
+# imagePullPolicy is ``Never`` everywhere — air-gap means no registry
+# lookup at runtime, ever.
+
+# Global settings shared by every role.
+global:
+  # Image tags follow the slot's SPATIUMDDI_VERSION stamp. The
+  # supervisor rewrites this value when applying the chart so the
+  # tags line up with whatever's preloaded in containerd.
+  imageTag: dev
+  # ImagePullPolicy. Always ``Never`` on the appliance — bytes are
+  # baked, the kubelet must NOT phone home to ghcr.io.
+  imagePullPolicy: Never
+  # Node selector — every role pins to the appliance-labelled node
+  # so a future ops engineer who joins external workers to the
+  # cluster can't accidentally schedule our service pods there.
+  nodeSelector:
+    spatium.io/role: appliance
+  # Operator-pasted env applied to every service container. Lives on
+  # the appliance row's ``firewall_extra`` analogue (free-form
+  # operator override).
+  extraEnv: []
+
+  # #983 — pod-level seccomp profile for every workload this chart renders.
+  # Kubernetes leaves a container ``Unconfined`` unless asked; docker-compose
+  # applies the runtime's default profile to every service, so the appliance
+  # was running the same images with FEWER syscall restrictions than a
+  # Compose install. ``RuntimeDefault`` under containerd is the same profile
+  # family Docker applies.
+  # ``RuntimeDefault`` | ``Unconfined`` | ``""`` (omit the block entirely).
+  seccompProfile: RuntimeDefault
+
+# #1281 — how a role agent given the EXTERNAL control-plane URL (an off-cluster
+# appliance) checks the control plane's certificate. By default it trusts
+# exactly the certificate its supervisor pinned (supervisor.hostMounts.stateDir
+# + /tls, mounted read-only). The supervisor sets insecureSkipVerify only when
+# it was itself started with SPATIUM_INSECURE_SKIP_TLS_VERIFY=1: a supervisor
+# that does not verify pins nothing, so the agents would otherwise wait
+# forever for a pin that never comes. They then skip too, and say so on every
+# start. Never set by default.
+controlPlaneTls:
+  insecureSkipVerify: false
+
+# #983 — PriorityClasses. Unlike the umbrella chart these default to ON and
+# the per-workload names below default to NON-empty, because this chart
+# renders the classes it names. Turning ``create`` off without also clearing
+# every ``priorityClassName`` below leaves pods naming a class that does not
+# exist — which the apiserver REJECTS, so those pods never schedule at all.
+#
+# Values sit far below Kubernetes' own ``system-cluster-critical``
+# (2000000000) / ``system-node-critical`` (2000001000) so k3s components
+# still outrank everything here.
+priorityClasses:
+  # Does THIS release render the PriorityClass objects?
+  #
+  # #992 — the chart is installed TWICE per appliance, under two release
+  # names, and these are cluster-scoped. Helm refuses an install whole when
+  # it meets an existing object owned by another release, so exactly one of
+  # the two may create them: ``spatium-bootstrap`` (firstboot, installs
+  # first) does, and the supervisor's ``spatiumddi-appliance`` release sets
+  # create: false + external: true. See templates/priorityclasses.yaml.
+  create: true
+  # Assert that something ELSE creates them, so the guard in
+  # templates/priorityclasses.yaml stays satisfied while create is false.
+  # Required for any offline render (helm template / helm lint /
+  # charts-lint), where the guard's live ``lookup`` has no cluster to ask
+  # and would report every class missing.
+  external: false
+  classes:
+    # Serving pods — BIND / PowerDNS / Technitium / Kea / the BGP collector.
+    # The LAN stops working without these, so they are the last thing the
+    # kubelet should evict and the first thing the scheduler should place.
+    service:
+      name: spatium-service
+      value: 100000
+      description: >-
+        SpatiumDDI serving workloads (DNS / DHCP / BGP collector). Evicted
+        last under node pressure; the LAN depends on them.
+    # Control plane — the API, workers, database, cache, supervisor. Losing
+    # these costs the operator the UI and the config path, which is bad but
+    # recoverable; losing DNS costs everyone on the network.
+    controlPlane:
+      name: spatium-control-plane
+      value: 90000
+      description: >-
+        SpatiumDDI control plane (api / worker / beat / frontend / postgres /
+        redis / supervisor). Ranked below the serving pods on purpose.
+    # Observability — metrics exporters. First to be evicted, and
+    # ``preemptionPolicy: Never`` so a pending exporter can never displace a
+    # running pod to get itself scheduled: monitoring must not cause the
+    # outage it would then report.
+    observability:
+      name: spatium-observability
+      value: 10000
+      preemptionPolicy: Never
+      description: >-
+        SpatiumDDI observability exporters (kube-state-metrics /
+        node-exporter). Evicted first; never preempts anything.
+
+# DNS — bind9 backend. Exactly one of dnsBind9 / dnsPowerdns /
+# dnsTechnitium runs per appliance; the supervisor enforces mutual-
+# exclusion at the CRD reconciler level so flipping more than one
+# ``enabled: true`` is a server-side validation error.
+dnsBind9:
+  enabled: false
+  priorityClassName: spatium-service  # #983 — see ``priorityClasses`` above
+  image:
+    repository: ghcr.io/spatiumnorth/dns-bind9
+  # Scheduling weight for the serving pod. Requests only, no limits: a
+  # request lifts the pod out of BestEffort QoS (cgroup cpu.weight 1, the
+  # lowest on the node) so the control plane's bursts cannot starve the
+  # data plane; a CPU limit would throttle the bursts the data plane
+  # exists to serve. Sized as a floor, not a measurement of need.
+  resources:
+    requests:
+      cpu: 250m
+      memory: 64Mi
+  # Pass-through to the agent via env. The supervisor fills these in
+  # when assigning the DNS role.
+  # controlPlaneUrl is the EXTERNAL operator-facing URL. #409 — the
+  # co-located DaemonSet agent PREFERS this when the supervisor sets it (an
+  # Application appliance is its own single-node k3s with no in-cluster
+  # control Service, so the in-cluster name does not resolve). #1281 — on
+  # that path the agent verifies the control plane against the certificate
+  # the supervisor pinned (supervisor.hostMounts.stateDir + /tls, mounted
+  # read-only), where it used to skip verification.
+  # Empty on a control-plane member → falls through to inClusterApiUrl (the
+  # #292 in-cluster HTTP path). That includes an Application appliance
+  # promoted into the control plane: service_lifecycle.role_control_plane_url
+  # leaves this empty there, as the heartbeat switches to in-cluster too.
+  controlPlaneUrl: ""
+  # #292 — in-cluster API Service URL the co-located DaemonSet agent
+  # registers against (plain HTTP — no TLS to verify intra-cluster, so
+  # the appliance's self-signed cert is a non-issue). Empty → defaults
+  # to http://spatium-control-spatiumddi-api.<release-namespace>.svc:8000
+  # (the appliance's fixed spatium-control release). Override only for a
+  # non-standard control-release name/namespace.
+  inClusterApiUrl: ""
+  agentKey: ""
+  serverGroupName: ""
+  # #292 — per-node state lives on a hostPath dir at
+  # /var/lib/spatiumddi/agents/dns-bind9/state, mounted at the agent's
+  # /var/lib/spatium-dns-agent. That dir holds the cached ConfigBundle +
+  # the rendered named.conf/zones + tsig/rndc keys — everything named
+  # serves from — so the node keeps serving from last-known-good config
+  # when the control plane is unreachable (#5). NOT a shared RWO PVC (it
+  # pins to one node → other DaemonSet pods Pending) and NOT emptyDir
+  # (wiped on restart → loses the cache). The old /var/named/{data,keys}
+  # mounts were dropped — bind9 never wrote to them. No size knob —
+  # hostPath grows with /var.
+  #
+  # #50 — encrypted transports. The listeners are configured in the DB
+  # (DNS → group → options), NOT here: the agent renders named.conf from
+  # the config bundle, and this pod is hostNetwork so it binds the host
+  # regardless of what the manifest declares. Set these to MATCH the
+  # group's configured ports so they show up in `kubectl get svc`, get
+  # routed by the MetalLB VIP Service, and are visible to any
+  # NetworkPolicy. Empty = not declared (the default: DoT/DoH are off).
+  dotPort: ""   # e.g. 853
+  dohPort: ""   # e.g. 8443 — 443 collides with the appliance web UI
+
+# DNS — PowerDNS backend. Same shape as dnsBind9.
+dnsPowerdns:
+  enabled: false
+  priorityClassName: spatium-service  # #983 — see ``priorityClasses`` above
+  image:
+    repository: ghcr.io/spatiumnorth/dns-powerdns
+  # Scheduling weight for the serving pod — see dnsBind9.resources. The
+  # three DNS drivers are interchangeable roles on the same node, so they
+  # carry the same floor: whichever one the operator assigns must not be
+  # the BestEffort pod the control plane starves.
+  resources:
+    requests:
+      cpu: 250m
+      memory: 64Mi
+  controlPlaneUrl: ""
+  inClusterApiUrl: ""  # #292 — see dnsBind9.inClusterApiUrl
+  agentKey: ""
+  serverGroupName: ""
+  # #638 — LMDB rollback lever. Empty (the default) means "don't restore".
+  # PowerDNS 5.0 migrates the LMDB schema one way on first open, and the A/B
+  # slot rollback swaps only the rootfs while /var is shared — so rolling a
+  # PowerDNS node back to a pdns 4.x image ALSO needs the database restored.
+  # Set to ``latest``, or to a specific snapshot name from
+  # ``spatium-pdns-lmdb-guard list``, at the same time you pin the older
+  # image. Safe to leave set: the guard records what it restored from and
+  # subsequent restarts are a no-op. See docs/drivers/DNS_DRIVERS.md §4.9.
+  lmdbRestore: ""
+  # The dnsdist front (#146 Phase 2) is docker-compose-only for now — see the
+  # note in templates/dns-powerdns.yaml. k8s/appliance support (a dnsdist
+  # Deployment fronting the hostNetwork pdns DaemonSet) is a follow-up.
+  # #50 — that same gap means DoT/DoH on the PowerDNS driver is
+  # docker-compose-only too: pdns auth speaks neither protocol, so the
+  # listeners live on the dnsdist front. BIND9 needs no such sidecar.
+
+# DNS — Technitium backend. Same shape as dnsBind9. Supports primary
+# zones + standard record CRUD, online DNSSEC signing (#740) and native
+# DoT / DoH / DoQ listeners (#741) — a real differentiator, since
+# Technitium needs no dnsdist-style sidecar the way PowerDNS does.
+dnsTechnitium:
+  enabled: false
+  priorityClassName: spatium-service  # #983 — see ``priorityClasses`` above
+  image:
+    repository: ghcr.io/spatiumnorth/dns-technitium
+  # Scheduling weight for the serving pod — see dnsBind9.resources. The
+  # memory request is the same 64Mi floor the other DNS roles carry; it is
+  # a scheduling and eviction-ranking floor, not a sizing estimate, and
+  # Technitium's .NET runtime idles well above it. Requests only.
+  resources:
+    requests:
+      cpu: 250m
+      memory: 64Mi
+  controlPlaneUrl: ""
+  inClusterApiUrl: ""  # #292 — see dnsBind9.inClusterApiUrl
+  agentKey: ""
+  serverGroupName: ""
+  #
+  # #741 / #799 — encrypted transports. Same contract as
+  # dnsBind9.dotPort/dohPort above: the listeners are configured in the
+  # DB (DNS → group → options), NOT here. The agent renders the daemon
+  # config from the bundle, and this pod is hostNetwork so it binds the
+  # host regardless of what the manifest declares. Set these to MATCH
+  # the group's configured ports so they show up in `kubectl get svc`,
+  # get routed by the MetalLB VIP Service, and are visible to any
+  # NetworkPolicy. Empty = not declared (the default: all three off).
+  #
+  # doqPort is UDP where the other two are TCP, and 853 is the RFC
+  # default for BOTH DoT and DoQ — so doqPort == dotPort is normal and
+  # correct, not a misconfiguration. DoQ has no dnsBind9 equivalent
+  # because BIND has no QUIC transport; the API refuses doq_enabled on
+  # any group with a non-Technitium member.
+  dotPort: ""   # e.g. 853
+  dohPort: ""   # e.g. 8443 — 443 collides with the appliance web UI
+  doqPort: ""   # e.g. 853  — UDP; may equal dotPort
+
+# DHCP — Kea backend. DaemonSet (single node) with ``hostNetwork:
+# true`` + ``CAP_NET_BIND_SERVICE`` so Kea sees DHCP-discover
+# broadcasts on the appliance's host NIC. Same shape as today's
+# ``network_mode: host`` docker-compose entry.
+dhcpKea:
+  enabled: false
+  priorityClassName: spatium-service  # #983 — see ``priorityClasses`` above
+  image:
+    repository: ghcr.io/spatiumnorth/dhcp-kea
+  # Scheduling weight for the DHCP server pod — see dnsBind9.resources.
+  # Measured 2026-09-03 on a 5632 MiB / 3 vCPU appliance under a 35k-device
+  # DORA ramp: as a BestEffort pod Kea was given 7.5 % of a CPU while the
+  # api ran at 110 %, its socket queue overflowed and only 37 % of the
+  # DISCOVERs on the wire were answered. Requests only, no limits.
+  #
+  # 500m is the value every measured cell used (#967): what does the work
+  # under contention is the cgroup weight the request derives to, and
+  # 500m (weight 20) holds ~48 % of the CPU against the api + worker where
+  # the 250m #953 first shipped (weight 10) holds ~31 %. Kea's own use was
+  # under 100m once scheduled, so this is headroom for the api's bursts,
+  # not Kea's need; the DNS roles held 99.5–100 % at 250m in every cell
+  # and keep that floor.
+  resources:
+    requests:
+      cpu: 500m
+      memory: 64Mi
+  controlPlaneUrl: ""
+  inClusterApiUrl: ""  # #292 — see dnsBind9.inClusterApiUrl
+  agentKey: ""
+  serverGroupName: ""
+  # ``host`` = listen on the host's NIC (the default + only mode
+  # that lets DHCP broadcasts reach Kea). ``bridged`` would require
+  # a relay-agent on every subnet — defer to Phase 5.
+  networkMode: host
+  # #292 — per-node hostPath state under /var/lib/spatiumddi/agents/
+  # dhcp-kea/ (agent cache + Kea leases), NOT a PVC. See dnsBind9.
+  # #272 Phase 5 — DHCP relay-VIP (default off). When set, an ADDITIONAL
+  # LoadBalancer Service (``dhcp-kea-relay``) requests this IP from the
+  # MetalLB pool so a DHCP relay's ``forward-to`` target can outlive a
+  # single Kea node. Kea KEEPS hostNetwork:67 — this VIP does NOT replace
+  # client-facing broadcast reach (operators still run a relay per VLAN);
+  # it only stabilises the relay→server unicast forward. Must fall inside
+  # the MetalLB pool. Requires ``metallb.enabled: true``.
+  relayVIP: ""
+  # MetalLB pool the relay VIP draws from. Empty → falls back to the
+  # shared control-plane pool (``dns.vipPool``) so a single-pool install
+  # needs no extra config; set this only when DHCP must draw from a
+  # different pool than DNS.
+  relayVIPPool: ""
+
+# Looking Glass — receive-only BGP collector (GoBGP). Issue #566. Peers
+# passively with the operator's edge/core routers over the node's real
+# routable IP (hostNetwork, like DNS/DHCP) and never advertises a route
+# back — see agent/looking-glass/ + docs/features/LOOKING_GLASS.md for
+# the collector daemon + the hard receive-only invariant.
+lookingGlass:
+  enabled: false
+  priorityClassName: spatium-service  # #983 — see ``priorityClasses`` above
+  image:
+    repository: ghcr.io/spatiumnorth/looking-glass
+  # #965 — a floor, not a measurement. gobgpd holds real BGP sessions with
+  # operator routers (#566); as a BestEffort pod it had the lowest CFS
+  # weight on the node, and a starved collector misses keepalives until
+  # the peer's hold timer expires and the session flaps — louder than a
+  # dropped query. Requests only, no limits, same shape as dnsBind9.
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+  # Same precedence + rationale as dnsBind9.controlPlaneUrl /
+  # inClusterApiUrl above: external operator-facing URL (Application
+  # appliance, self-signed) takes priority over the in-cluster Service
+  # default.
+  controlPlaneUrl: ""
+  inClusterApiUrl: ""  # #292 — see dnsBind9.inClusterApiUrl
+  agentKey: ""
+  # #566 — per-node hostPath state under /var/lib/spatiumddi/agents/
+  # looking-glass/ (agent cache — cached ConfigBundle + peer config the
+  # collector re-applies from if the control plane is unreachable, non-
+  # negotiable #5), NOT a PVC. See dnsBind9 for the full rationale.
+
+# #272 Phase 5 — DNS resolver VIP (default off, full wiring is Phase 10).
+# When ``useMetalLBVIP: true`` the bind9 + powerdns Pods DROP
+# hostNetwork:53 and sit behind a single L2 LoadBalancer Service at
+# ``vip``, so clients use one resolver IP that follows whichever node is
+# up. Net-loss on single-node (an extra hop for no gain) — single-node
+# installs leave this false and keep hostNetwork. ``vip`` must fall
+# inside the MetalLB pool and differ from ``metallb.controlPlaneVIP``
+# (the pool needs ≥2 free addresses). Requires ``metallb.enabled: true``.
+# An appliance runs one DNS driver at a time, so the single ``vip`` is
+# requested by whichever of bind9 / powerdns is enabled.
+dns:
+  useMetalLBVIP: false
+  vip: ""
+  vipPool: spatium-control-plane
+
+# Observer — placeholder for future metrics / log shipper role. No
+# service container in Phase 2; this just lets the supervisor pre-
+# populate the values.yaml shape without leaving a TBD section.
+observer:
+  enabled: false
+
+# Issue #183 Phase 8 — cluster observability add-ons. Both default
+# OFF (operator opt-in via the Fleet UI's "Observability" toggle
+# once Phase 8 wires it). When enabled they expose Prometheus-shape
+# metrics at the standard endpoints; future Phase 8 work adds a
+# control-plane Prometheus scraper that federates across appliances.
+observability:
+  # #983 — PriorityClass for both exporters. ``spatium-observability``
+  # carries ``preemptionPolicy: Never``, so a pending exporter can never
+  # evict a running service pod to schedule itself.
+  priorityClassName: spatium-observability
+  # kube-state-metrics exposes cluster-state metrics (pod count,
+  # deployment status, restart counts, …) at /metrics. ~30 MB RSS.
+  # Standard k8s observability primitive.
+  kubeStateMetrics:
+    enabled: false
+    # #983 Phase 2 — user namespaces (Kubernetes 1.36 GA). ``false`` maps
+    # container root to an unprivileged host uid. This is the one appliance
+    # workload it is straightforwardly safe on: no volumes, no hostNetwork,
+    # it only reads the kubeapi. UNSET by default so it stays an explicit
+    # decision — the appliance's containerd 2.3 + kernel 6.12 meet the
+    # requirements, but that has not been exercised in the field yet.
+    hostUsers:
+    image:
+      repository: registry.k8s.io/kube-state-metrics/kube-state-metrics
+      tag: v2.20.0
+    # Resource cap — appliance VMs are typically 2-4 GB; KSM has a
+    # bounded memory profile but a runaway pod shouldn't dent the
+    # service pods' headroom.
+    resources:
+      requests:
+        cpu: 10m
+        memory: 32Mi
+      limits:
+        memory: 128Mi
+
+  # node-exporter exposes host-level metrics (CPU, memory, disk,
+  # network) at /metrics. DaemonSet with hostNetwork so the metrics
+  # reflect the host (not the pod's network namespace). ~10 MB RSS.
+  nodeExporter:
+    enabled: false
+    image:
+      repository: quay.io/prometheus/node-exporter
+      tag: v1.12.1
+    resources:
+      requests:
+        cpu: 10m
+        memory: 16Mi
+      limits:
+        memory: 64Mi
+
+# Supervisor — privileged DaemonSet that reconciles the operator's
+# CRD assignment + ships heartbeats to the control plane.
+#
+# Phase 1: the supervisor still runs via docker-compose on the host
+# (legacy compose path). Phase 3 ports it onto k3s; this block
+# scaffolds the eventual values shape so the chart structure is
+# stable from the start.
+supervisor:
+  enabled: false
+  priorityClassName: spatium-control-plane  # #983 — see ``priorityClasses`` above
+  image:
+    repository: ghcr.io/spatiumnorth/spatium-supervisor
+  # #965 — a floor, not a measurement. The supervisor is not a data-plane
+  # server, it is what repairs the node: the Wave-E watchdog re-fires
+  # apply_role_assignment for a missing service and re-applies a drifted
+  # nftables ruleset, both from inside the heartbeat loop. As a BestEffort
+  # pod it was starved at exactly the moment the data plane degraded, and
+  # the external bash watchdog then restarted a supervisor that was merely
+  # slow — burning its 3-per-30-min budget for nothing. Requests only.
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+  # Host mounts the supervisor needs — same set as today's compose
+  # entry (release-state writes the trigger files, etc).
+  hostMounts:
+    etcSpatiumddiHost: /etc/spatiumddi
+    releaseState: /var/lib/spatiumddi/release-state
+    bootEfi: /boot/efi
+    runUdev: /run/udev
+    # Supervisor's persistent state — Ed25519 identity, signed cert,
+    # approval state, cached pairing data. MUST persist across pod
+    # restarts or every restart re-pairs as a fresh appliance and the
+    # control plane's Fleet view fills with phantom rows.
+    #
+    # Path stays /var/persist/spatium-supervisor for compatibility with
+    # the host-side consumers (spatium-console, spatium-pair, the
+    # external watchdog). Issue #276 makes this a symlink INTO the
+    # STATE partition (spatium-etc-render points it at
+    # /var/lib/spatium-state/spatium-supervisor), so the supervisor's
+    # identity + signed cert survive a /var factory reset, not just
+    # slot swaps — the symlink target lives on STATE which /var-reset
+    # doesn't touch.
+    stateDir: /var/persist/spatium-supervisor
+    # Slot-baked chart tarball — the supervisor re-PATCHes the
+    # HelmChart CR on role-assignment changes and needs the chart
+    # bytes to base64-encode into spec.chartContent. The path
+    # matches service_lifecycle._BAKED_CHART_TARBALL.
+    chartDir: /usr/lib/spatiumddi/charts
+    # Issue #285 Phase 1 — the live base nftables.conf, mounted read-only
+    # so the supervisor reports the base-conf marker (sha256 + whether the
+    # legacy LAN-wide k3s-ha accept is still present) on the heartbeat.
+    nftablesConf: /etc/nftables.conf
+
+# Always-on landing page served on :80 — "this is a SpatiumDDI
+# appliance" + hostname / control-plane URL / version. firstboot
+# renders the HTML from the template at
+# /usr/local/share/spatiumddi/agent-landing/index.html.in into
+# /var/lib/spatiumddi/agent-landing/ on the host; nginx hostPath-
+# mounts that dir read-only.
+agentLanding:
+  enabled: true
+  # #983 — deliberately UNSET. The landing page is a courtesy redirect on
+  # an Application appliance; it must not outrank anything, and at priority
+  # 0 it is also the natural first eviction candidate.
+  priorityClassName: ""
+  image:
+    repository: nginx
+    tag: 1.31.6-alpine
+  # #965 — token request so no pod in this chart is BestEffort (the CI
+  # render check refuses one). A static nginx page needs nothing more.
+  resources:
+    requests:
+      cpu: 10m
+      memory: 16Mi
+  hostMounts:
+    htmlDir: /var/lib/spatiumddi/agent-landing
+
+# ─────────────────────────────────────────────────────────────────────
+# Multi-node HA scaffolding — #272 Phase 1 lands the value stubs;
+# the actual subchart vendoring + activation work lands in Phase 2
+# (CNPG) and Phase 5 (MetalLB). Single-node appliance installs leave
+# both ``enabled: false`` and behave identically to pre-#272.
+# ─────────────────────────────────────────────────────────────────────
+
+# CloudNativePG operator — declarative postgres HA. Apache 2.0.
+# Phase 2 vendors the upstream chart + adds a ``Cluster`` CR for
+# the SpatiumDDI schema, then renders a one-shot migration job
+# that pg_dumps the existing single-node ``postgres`` StatefulSet
+# and pg_restores into the CNPG cluster.
+cnpg:
+  enabled: false
+  # #277 — the cloudnative-pg subchart is aliased to ``cnpg`` (so its
+  # values + the enable gate live under a short key). But Helm sets the
+  # subchart's ``.Chart.Name`` to the ALIAS, so its ``app.kubernetes.io
+  # /name`` label renders ``cnpg`` — and the operator self-discovers its
+  # own Deployment with a HARDCODED filter ``app.kubernetes.io/name=
+  # cloudnative-pg`` (to own the CA cert it generates). Mismatch →
+  # "no operator deployment found" → "unable to setup PKI infrastructure"
+  # → CrashLoopBackOff. ``nameOverride`` forces the label (and the
+  # chart's fullname-derived service / configmap / RBAC names, all
+  # rendered consistently) back to ``cloudnative-pg`` so self-discovery
+  # works. Do NOT remove without also de-aliasing the dependency.
+  nameOverride: cloudnative-pg
+  # #983 — the operator is control-plane machinery: while it is gone,
+  # nothing reconciles Postgres failover, switchover or a replica rejoin.
+  # Ranking it alongside the rest of the control plane is the same argument
+  # #315 made for giving it resource requests — the upstream chart's
+  # defaults leave it the first casualty of node pressure, and the failure
+  # is silent until the next time Postgres needs it.
+  #
+  # Passed straight through to the vendored subchart's own
+  # ``priorityClassName`` value; the class itself is rendered by
+  # templates/priorityclasses.yaml in this chart.
+  priorityClassName: spatium-control-plane
+  # #315 — pin the operator pod's resources + loosen its startup probe.
+  #
+  # The upstream chart ships ``resources: {}``, which makes the operator
+  # pod **BestEffort** QoS — the first thing kubelet evicts / OOM-kills
+  # under node memory pressure. On the all-in-one control node (api + db
+  # + frontend + observability on one box) that bites: when the node
+  # gets tight the operator dies, then its restart re-attaches every
+  # watched volume at once → a reconciliation storm + log flood (the
+  # operator restart was observed alongside an ``api`` pod restart,
+  # i.e. node-level pressure, while the Postgres ``Cluster`` itself
+  # stayed healthy). Setting requests moves it to **Burstable** so it is
+  # no longer first in the eviction line; the (generous) memory limit is
+  # a backstop against a genuine runaway — well above the operator's
+  # real footprint (~30-150 MiB) so it never cgroup-OOMKills normal
+  # reconciliation.
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  # #590 — the operator itself must survive node loss, because it IS the
+  # failover: with the operator down, CNPG performs no reconciliation, so a
+  # dead node holding the Postgres primary is never failed over and the api
+  # (which needs a writable primary to be ready) 502s cluster-wide until the
+  # operator comes back. The #590 fast-evict work covered the
+  # spatium-control workloads (api/frontend/worker via the supervisor's
+  # HelmChartConfig, postgresql/redis instance pods via the spatiumddi
+  # chart) but MISSED this operator: a single replica with the k8s-default
+  # 300 s unreachable toleration. Kill the node it happens to sit on and
+  # Postgres failover stalls ~5 minutes — observed live 2026-07-11 as the
+  # ha suite's kill_leader "did not recover" (60 s spec).
+  #
+  # Two layers, same shape as the rest of #590:
+  #  * replicaCount 2 + preferred pod anti-affinity: a single node loss
+  #    never takes the only operator; controller-runtime leader election
+  #    hands the lease to the survivor in seconds. (Preferred, not
+  #    required — a momentarily-unlabelled fresh member must not leave the
+  #    second replica Pending forever; co-location is a degraded-but-safe
+  #    fallback, and the tolerations below still bound it.)
+  #  * fast-evict tolerations: even a co-located replica leaves a dead
+  #    node in ~20 s instead of 300 s (suppresses DefaultTolerationSeconds,
+  #    exactly like api/frontend/worker/postgresql/redis).
+  replicaCount: 2
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100
+          podAffinityTerm:
+            topologyKey: kubernetes.io/hostname
+            labelSelector:
+              matchLabels:
+                app.kubernetes.io/name: cloudnative-pg
+  tolerations:
+    - key: node.kubernetes.io/unreachable
+      operator: Exists
+      effect: NoExecute
+      tolerationSeconds: 20
+    - key: node.kubernetes.io/not-ready
+      operator: Exists
+      effect: NoExecute
+      tolerationSeconds: 20
+  # Loosen the default 3s-delay / 30s-window (6 × 5s) startup gate — on
+  # constrained appliance VMs the operator + its webhook TLS bootstrap
+  # can take longer than 30s to answer ``/readyz``, and a startup-probe
+  # miss is itself a restart cause. 60s window + later liveness/readiness
+  # start give honest headroom without masking a truly wedged operator.
+  # These keys merge into the chart's webhook defaults (port / mutating /
+  # validating stay intact).
+  webhook:
+    livenessProbe:
+      initialDelaySeconds: 15
+    readinessProbe:
+      initialDelaySeconds: 10
+    startupProbe:
+      failureThreshold: 12
+      periodSeconds: 5
+  # Replica topology for the SpatiumDDI ``Cluster`` CR. 3 replicas
+  # (primary + sync + async) is the etcd-quorum-friendly default;
+  # 5 / 7 work for larger clusters. Even counts refused at the
+  # promote endpoint (Phase 7).
+  cluster:
+    instances: 3
+    # Per-replica storage class. Single-node + small dev clusters
+    # default to local-path; multi-node needs longhorn / rook /
+    # external NFS — operator picks at install time. Empty here
+    # forces the operator to make an explicit choice in Phase 2.
+    storage:
+      storageClass: ""
+      size: 20Gi

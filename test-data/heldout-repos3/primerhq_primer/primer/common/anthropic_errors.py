@@ -1,0 +1,90 @@
+"""Shared anthropic SDK exception classifier.
+
+Used by every primer adapter that wraps anthropic.AsyncAnthropic.
+Maps the anthropic exception hierarchy (which mirrors openai's class
+names) to the primer exception hierarchy.
+"""
+
+from __future__ import annotations
+
+from anthropic import (
+    APIConnectionError,
+    APIStatusError,
+    APITimeoutError,
+    AuthenticationError as AnthropicAuthenticationError,
+    BadRequestError as AnthropicBadRequestError,
+    ConflictError as AnthropicConflictError,
+    InternalServerError as AnthropicInternalServerError,
+    NotFoundError as AnthropicNotFoundError,
+    PermissionDeniedError as AnthropicPermissionDeniedError,
+    RateLimitError as AnthropicRateLimitError,
+    UnprocessableEntityError as AnthropicUnprocessableEntityError,
+)
+
+from primer.model.except_ import (
+    AuthenticationError,
+    BadRequestError,
+    PrimerError,
+    NetworkError,
+    ProviderError,
+    RateLimitError,
+    ServerError,
+)
+
+
+def classify_anthropic_exception(exc: Exception) -> PrimerError:
+    """Map an anthropic SDK exception to the primer exception hierarchy."""
+    if isinstance(exc, (AnthropicAuthenticationError, AnthropicPermissionDeniedError)):
+        return AuthenticationError(
+            "Anthropic authentication failed",
+            code="auth_error",
+            status_code=getattr(exc, "status_code", 401),
+            cause=exc,
+        )
+    if isinstance(exc, AnthropicRateLimitError):
+        return RateLimitError(
+            "Anthropic rate limit exceeded",
+            code="rate_limit",
+            status_code=getattr(exc, "status_code", 429),
+            cause=exc,
+        )
+    if isinstance(exc, (
+        AnthropicBadRequestError,
+        AnthropicNotFoundError,
+        AnthropicUnprocessableEntityError,
+        AnthropicConflictError,
+    )):
+        return BadRequestError(
+            getattr(exc, "message", str(exc)) or "Anthropic rejected the request",
+            status_code=getattr(exc, "status_code", 400),
+            code=getattr(exc, "code", None),
+            cause=exc,
+        )
+    if isinstance(exc, AnthropicInternalServerError):
+        return ServerError(
+            "Anthropic server error",
+            code="server_error",
+            status_code=getattr(exc, "status_code", 500),
+            cause=exc,
+        )
+    if isinstance(exc, APIStatusError):
+        status = getattr(exc, "status_code", None)
+        if status is not None and status >= 500:
+            return ServerError(
+                f"Anthropic server error ({status})",
+                code="server_error",
+                status_code=status,
+                cause=exc,
+            )
+        return ProviderError(
+            getattr(exc, "message", str(exc)) or f"Anthropic status {status}",
+            status_code=status,
+            cause=exc,
+        )
+    if isinstance(exc, (APIConnectionError, APITimeoutError)):
+        return NetworkError(
+            f"Anthropic network failure: {type(exc).__name__}",
+            code="network_error",
+            cause=exc,
+        )
+    return ProviderError(str(exc), cause=exc)

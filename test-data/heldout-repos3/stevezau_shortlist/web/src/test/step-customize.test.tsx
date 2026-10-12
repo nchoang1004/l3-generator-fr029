@@ -1,0 +1,148 @@
+/**
+ * `step-customize` must not overwrite settings the owner has already saved.
+ *
+ * The wizard swaps the step COMPONENT per step, so going Back and forward again remounts this one
+ * from scratch. Its three fields were plain `useState` literals and it never read settings at all,
+ * so the remount silently reset them to defaults — and then Save wrote those defaults over whatever
+ * was stored. The worst case is the "Skip for now" button, which is also a save: a control that
+ * promises nothing changes was replacing a custom row name with the classic default.
+ */
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import { StepCustomize } from "@/pages/setup/step-customize";
+
+const { getSettings, putSettings } = vi.hoisted(() => ({
+  getSettings: vi.fn(),
+  putSettings: vi.fn((_values: Record<string, unknown>) => Promise.resolve({})),
+}));
+
+vi.mock("@/lib/api", () => ({
+  apiErrorMessage: (_error: unknown, fallback: string) => fallback,
+  api: {
+    getSettings: () => getSettings(),
+    putSettings: (values: Record<string, unknown>) => putSettings(values),
+  },
+}));
+
+const SAVED = {
+  "row.name_template": "🔥 My Own Row Name",
+  "row.size": 25,
+};
+
+function renderStep(back = vi.fn()) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  render(
+    <QueryClientProvider client={client}>
+      <StepCustomize
+        data={{}}
+        update={vi.fn()}
+        next={vi.fn()}
+        complete={vi.fn()}
+        back={back}
+      />
+    </QueryClientProvider>,
+  );
+}
+
+/** The values sent by the first save. Extracted so strict mode is satisfied once, not four times. */
+function firstSave(): Record<string, unknown> {
+  const call = putSettings.mock.calls[0];
+  if (!call) throw new Error("putSettings was never called");
+  return call[0];
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  getSettings.mockResolvedValue(SAVED);
+});
+
+describe("StepCustomize seeds from what is already saved", () => {
+  it("returns to the previous step without saving the current draft", async () => {
+    const back = vi.fn();
+    renderStep(back);
+    await userEvent.click(await screen.findByRole("button", { name: "Back" }));
+    expect(back).toHaveBeenCalledOnce();
+    expect(putSettings).not.toHaveBeenCalled();
+  });
+
+  it("keeps arbitrary row sizes available beside the preset shortcuts", async () => {
+    renderStep();
+    await screen.findByDisplayValue("25");
+    await userEvent.click(screen.getByRole("button", { name: "10 titles" }));
+    const size = screen.getByLabelText("How many titles");
+    expect(size).toHaveValue(10);
+    await userEvent.clear(size);
+    await userEvent.type(size, "17");
+    await userEvent.tab();
+    await userEvent.click(screen.getByRole("button", { name: "Save & continue" }));
+    await waitFor(() => expect(putSettings).toHaveBeenCalled());
+    expect(firstSave()["row.size"]).toBe(17);
+  });
+
+  it("does not overwrite a custom row name when the owner presses Save", async () => {
+    renderStep();
+    await waitFor(() => expect(getSettings).toHaveBeenCalled());
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: /^save/i }),
+    );
+
+    await waitFor(() => expect(putSettings).toHaveBeenCalled());
+    expect(firstSave()).toMatchObject({
+      "row.name_template": "🔥 My Own Row Name",
+      "row.size": 25,
+    });
+  });
+
+  it("offers one clearly labelled save, with no misleading Skip alias", async () => {
+    renderStep();
+    expect(await screen.findByRole("button", { name: /^save/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /skip for now/i })).not.toBeInTheDocument();
+  });
+
+  it("still saves the defaults on a fresh install with nothing stored", async () => {
+    getSettings.mockResolvedValue({});
+    renderStep();
+    await waitFor(() => expect(getSettings).toHaveBeenCalled());
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: /^save/i }),
+    );
+
+    await waitFor(() => expect(putSettings).toHaveBeenCalled());
+    expect(firstSave()["row.name_template"]).toContain(
+      "Picked for You",
+    );
+  });
+
+  it("does not clobber a choice the owner made before settings arrived", async () => {
+    // Functional updaters, same as step-history: a slow fetch must never win against typing.
+    let resolve!: (value: Record<string, unknown>) => void;
+    getSettings.mockReturnValue(
+      new Promise<Record<string, unknown>>((r) => {
+        resolve = r;
+      }),
+    );
+    renderStep();
+
+    // The dynamic option renders its template with sample values ("Because you watched Fargo"),
+    // so match on the hint, which is stable copy.
+    await userEvent.click(await screen.findByText(/renamed each night/i));
+    resolve(SAVED);
+
+    await waitFor(() => expect(getSettings).toHaveBeenCalled());
+    await userEvent.click(
+      await screen.findByRole("button", { name: /^save/i }),
+    );
+
+    await waitFor(() => expect(putSettings).toHaveBeenCalled());
+    expect(firstSave()["row.name_template"]).toContain(
+      "{top_seed}",
+    );
+  });
+});

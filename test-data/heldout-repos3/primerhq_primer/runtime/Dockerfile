@@ -1,0 +1,77 @@
+# Workspace runtime base image.
+#
+# Build:
+#   docker build -t primer/workspace-runtime:1.1 runtime/
+#
+# Run (minimal):
+#   docker run --rm -e PRIMER_RUNTIME_TOKEN=<secret> \
+#              -p 5959:5959 primer/workspace-runtime:1.1
+#
+# Workspace templates extend this image with:
+#   FROM primer/workspace-runtime:1.1
+#   RUN ...operator-specific deps...
+# They must NOT override ENTRYPOINT; run custom init via init_commands after
+# .runtime.ready appears.
+#
+# Protocol dependency:
+#   runtime/primer_runtime/protocol.py is a self-contained copy - no primer
+#   package needed at container runtime.  Keep it in sync with
+#   primer/workspace/runtime/protocol.py on the worker side.
+
+FROM python:3.12-slim
+
+LABEL runtime.primer.protocol="1"
+LABEL runtime.primer.version="1.0.0"
+
+# git is required by the workspace state repo: every workspace materialise
+# initialises a git-backed ``.state`` repo (SandboxStateRepo.initialize) via
+# an exec op inside the container, and session/graph history is committed
+# there. python:3.12-slim ships without git, so install it (slim base ->
+# apt). Without it, materialise hangs on a missing-binary exec failure.
+#
+# tini is the init the ENTRYPOINT runs the runtime under (see below): without
+# one, the runtime is PID 1, which never wait()s for the processes reparented
+# to it, so every process an exec left behind that later dies stays a zombie
+# for the life of the container.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git tini \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install runtime in its own directory so workspace files are not mixed in.
+WORKDIR /opt/primer-runtime
+COPY pyproject.toml README.md ./
+COPY primer_runtime/ ./primer_runtime/
+
+# Install runtime package and its deps.  Using `pip install .` installs
+# primer_runtime into site-packages so it is importable from any cwd.
+# watchfiles ships with pre-built wheels for linux/amd64 and linux/arm64 so
+# no Rust toolchain is required.
+RUN pip install --no-cache-dir aiohttp watchfiles pydantic && \
+    pip install --no-cache-dir --no-deps .
+
+# Workspace dir - the real workspace is mounted by `docker run -v`; this
+# fallback ensures the directory exists if no volume is provided.
+#
+# Mode 0777 so the runtime can write here regardless of the UID the
+# container is launched under. The container backend runs the runtime as
+# the host UID (ContainerWorkspaceBackend.create -> user=_host_uid_gid()),
+# and Docker initialises a fresh named volume mounted at /workspace from
+# this image directory's contents + ownership + mode. Without a writable
+# mode the (root-owned) volume is unwritable by a non-root UID and the
+# runtime crashes writing its readiness marker. World-writable is safe:
+# /workspace is the isolated per-workspace sandbox tree.
+RUN mkdir -p /workspace && chmod 0777 /workspace
+
+# Switch cwd to /workspace so relative paths in ops resolve correctly.
+WORKDIR /workspace
+
+EXPOSE 5959
+
+# Exec form, so tini and not a shell is PID 1 and gets the signals, which it
+# forwards to the runtime. tini reaps the orphans reparented to PID 1; `-s`
+# registers it as a child subreaper when it is NOT PID 1 (Docker's own `--init`,
+# or a pod with a shared process namespace, puts another init above it), so it
+# reaps either way. A Kubernetes `command:` replaces this ENTRYPOINT (the k8s
+# backend always sets one), so the pod gets its reaping from a shared process
+# namespace instead (primer/workspace/k8s/backend.py).
+ENTRYPOINT ["/usr/bin/tini", "-s", "--", "python", "-m", "primer_runtime.server"]

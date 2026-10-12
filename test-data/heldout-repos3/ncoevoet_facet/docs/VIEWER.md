@@ -1,0 +1,1488 @@
+# Web Viewer
+
+> 🌐 **English** · [Français](fr/VIEWER.md) · [Deutsch](de/VIEWER.md) · [Italiano](it/VIEWER.md) · [Español](es/VIEWER.md) · [Português](pt/VIEWER.md) · [简体中文](zh/VIEWER.md)
+
+FastAPI + Angular single-page application for browsing, filtering, and managing photos.
+
+## Contents
+
+- [Starting the Viewer](#starting-the-viewer) · [Authentication](#authentication) · [Filtering Options](#filtering-options) · [Sorting](#sorting) · [Gallery Features](#gallery-features)
+- [Panoramas and exposure brackets](#panoramas-and-exposure-brackets)
+- [Person Management](#person-management) · [Scan Trigger](#scan-trigger) · [Semantic Search](#semantic-search) · [Albums](#albums)
+- [AI Critique](#ai-critique) · [AI Captioning](#ai-captioning-gpu-16gb24gb-edition) · [Memories ("On This Day")](#memories-on-this-day) · [Timeline View](#timeline-view) · [Map View](#map-view) · [Capsules](#capsules)
+- [Folders View](#folders-view) · [GPS Filter Dialog](#gps-filter-dialog) · [Merge Suggestions](#merge-suggestions) · [Editor Export](#editor-export) · [Culling](#culling) · [Junk Sweep](#junk-sweep) · [Pairwise Comparison Mode](#pairwise-comparison-mode)
+- [EXIF Statistics](#exif-statistics) · [Keyboard Shortcuts](#keyboard-shortcuts-gallery) · [Undo](#undo) · [Progressive Web App](#progressive-web-app) · [Mobile](#mobile) · [Photo Frame / Kiosk Endpoint](#photo-frame--kiosk-endpoint) · [Phone Auto-Upload](#phone-auto-upload)
+- [Configuration](#configuration) · [Performance](#performance) · [API Endpoints](#api-endpoints) · [Troubleshooting](#troubleshooting)
+
+> **Feature requirements** are tagged inline: `[GPU]` · `[16gb/24gb]` (VRAM profile) · `[Edition]` (edition password) · `[Superadmin]`. See the [feature matrix](INSTALLATION.md#feature-requirements).
+
+## Starting the Viewer
+
+### Production
+
+```bash
+python viewer.py
+# Open http://localhost:5000
+```
+
+This serves both the API and the pre-built Angular application on a single port.
+
+For higher throughput, run in production mode (Uvicorn, no auto-reload). Add `--workers N` to scale (default 1):
+
+```bash
+python viewer.py --production --workers 4
+```
+
+### Development
+
+Run the API server and Angular dev server separately:
+
+```bash
+# Terminal 1: API server
+python viewer.py
+# API available at http://localhost:5000
+
+# Terminal 2: Angular dev server with hot reload
+cd client && npx ng serve
+# Open http://localhost:4200 (proxies API calls to :5000)
+```
+
+## Authentication
+
+### Single-User Mode (Default)
+
+Optional password protection via config:
+
+```json
+{
+  "viewer": {
+    "password": "your-password-here"
+  }
+}
+```
+
+When set, users must authenticate before accessing the viewer. An `edition_password` is required for any editing: ratings, favorites and rejects, culling, albums, person and face management, comparison mode, weight and priority changes and exports. With no `edition_password` (the shipped default) the install is **read-only**: every edit is refused with a `403` ("Set viewer.edition_password to enable editing"). On-demand AI generation (captions, VLM critiques) also needs it, but is a degradation rather than a refusal: the call answers `200` with only what is already cached (`source: "edition_required"` or `vlm_available: false`). Who may *browse* is decided by `viewer.password`: with none, anyone can browse the whole library; with one, only authenticated users. On such an install the gallery also no longer shows existing star, favourite and reject badges, as for a non-edition viewer on a locked install. After setting `viewer.edition_password`, restart the viewer: the config is not hot-reloaded.
+
+Login also mirrors the session token in an `HttpOnly` `SameSite=Lax` cookie so browser-native requests that cannot carry an `Authorization` header — `<img>` tags loading thumbnails, the scan progress stream — authenticate on locked deployments. The cookie is honored for read-only requests (GET/HEAD) only; every state-changing call still requires the Bearer token, so it adds no CSRF surface. Logging out calls `POST /api/auth/logout`, which clears the cookie.
+
+### Multi-User Mode
+
+For family NAS scenarios where each member has private photo directories. Enabled by adding a `users` section to `scoring_config.json`:
+
+```json
+{
+  "users": {
+    "alice": {
+      "password_hash": "salt_hex:dk_hex",
+      "display_name": "Alice",
+      "role": "superadmin",
+      "directories": ["/volume1/Photos/Alice"]
+    },
+    "bob": {
+      "password_hash": "salt_hex:dk_hex",
+      "display_name": "Bob",
+      "role": "user",
+      "directories": ["/volume1/Photos/Bob"]
+    },
+    "shared_directories": [
+      "/volume1/Photos/Family",
+      "/volume1/Photos/Vacations"
+    ]
+  }
+}
+```
+
+Users are created via CLI only (no registration UI):
+
+```bash
+python database.py --add-user alice --role superadmin --display-name "Alice"
+```
+
+See [Configuration](CONFIGURATION.md#users) for full reference.
+
+### Roles
+
+| Role | View own + shared | Rate/favorite | Manage persons/faces | Trigger scans |
+|------|:-:|:-:|:-:|:-:|
+| `user` | yes | yes | no | no |
+| `admin` | yes | yes | yes | no |
+| `superadmin` | yes | yes | yes | yes |
+
+### Photo Visibility
+
+Each user sees photos from their configured directories plus shared directories. Visibility is enforced across all endpoints: gallery, thumbnails, downloads, stats, filter options, and person pages.
+
+### Per-User Ratings
+
+In multi-user mode, star ratings, favorites, and rejected flags are stored per-user in the `user_preferences` table. Each user rates independently — Alice's favorites don't affect Bob's view.
+
+To migrate existing single-user ratings:
+
+```bash
+python database.py --migrate-user-preferences --user alice
+```
+
+## Filtering Options
+
+<details><summary>Full filter sidebar — every section expanded (click to view)</summary>
+<p align="center"><img src="screenshots/filter-sidebar-full.jpg" alt="Filter sidebar with every section expanded" width="360"></p>
+</details>
+
+### Primary Filters
+
+| Filter | Options |
+|--------|---------|
+| **Photo Type** | Top Picks, Portraits, People in Scene, Landscapes, Architecture, Nature, Animals, Art & Statues, Black & White, Low Light, Silhouettes, Macro, Astrophotography, Street, Long Exposure, Aerial & Drone, Concerts |
+| **Quality Level** | Good (6+), Great (7+), Excellent (8+), Best (9+) |
+| **Camera & Lens** | Equipment-based filtering |
+| **Person** | Filter by recognized person |
+| **Category** | Filter by photo category |
+
+### Advanced Filters
+
+| Category | Filters |
+|----------|---------|
+| **Date** | Start and end date |
+| **Scores** | Aggregate, aesthetic, TOPIQ score, quality score |
+| **Extended Quality** | Aesthetic IAA (artistic merit), Face Quality IQA, LIQE score |
+| **Face Metrics** | Face quality, eye sharpness, face sharpness, face ratio, face confidence, face count |
+| **Composition** | Composition score, power points, leading lines, isolation, composition pattern |
+| **Subject Saliency** | Subject sharpness, subject prominence, subject placement, background separation |
+| **Technical** | Sharpness, contrast, dynamic range, noise level |
+| **Color** | Color score, saturation, luminance, histogram spread; color temperature (warm/cool/neutral) and hue bucket (requires `--recompute-colors`) |
+| **Exposure** | Exposure score |
+| **User Ratings** | Star rating |
+| **Camera Settings** | ISO, aperture (f-stop range slider), focal length (range slider) |
+| **Content** | Tags, monochrome toggle |
+| **Moments** | Narrative moment confidence (0–1 range slider: `min_moment_confidence` / `max_moment_confidence`) |
+
+### Composition Patterns
+
+Filter by SAMP-Net detected patterns (the model emits exactly these 8, from
+`models/samp_net.py`):
+- global, horizontal, vertical, triangular
+- surround, quarter, cross, rule_of_thirds
+
+## Sorting
+
+Sortable columns grouped by category (from `viewer.sort_options`):
+
+| Group | Columns |
+|-------|---------|
+| **General** | Aggregate Score, Aesthetic, Quality Score, Date Taken, Star Rating, Aesthetic (IAA), LIQE Score |
+| **Face Metrics** | Face Quality, Face Quality (IQA), Eye Sharpness, Face Sharpness, Face Ratio, Face Count |
+| **Technical** | Tech Sharpness, Contrast, Noise Level |
+| **Color** | Color Score, Saturation |
+| **Exposure** | Exposure Score, Mean Luminance, Histogram Spread, Dynamic Range |
+| **Composition** | Composition Score, Power Point Score, Leading Lines, Isolation Bonus, Composition Pattern |
+| **Subject Saliency** | Subject Sharpness, Subject Prominence, Subject Placement, Background Separation |
+| **Content** | Moment Confidence (NULLs sink) |
+
+### My Taste
+
+A first-class sort option backed by the personal ranker's `learned_score` (renamed from "Picked for you"). It orders photos by what the ranker has learned from your A/B comparisons, ratings, and culling decisions. A confidence badge next to the sort shows the learned coverage (% of photos with a learned score) and the ranker's held-out accuracy, so you can judge how much to trust the ordering. Train or refresh the ranker with `python facet.py --train-ranker`.
+
+Controlled by `viewer.features.show_my_taste` (default: `true`). Ranker status is exposed via `GET /api/ranker/status`.
+
+## Gallery Features
+
+### Photo Cards
+
+- Thumbnail with score badge
+- Clickable tags for quick filtering
+- Person avatars for recognized faces
+- Category badge
+- Right-click (or Shift+F10) opens the [context menu](#multi-select--bulk-actions)
+
+### Multi-Select & Bulk Actions
+
+- Click photos to select, Shift+Click for range selection
+- Action bar appears with selection count and available actions
+- **Favorite** — Mark all selected as favorite (clears rejected)
+- **Reject** — Mark all selected as rejected (clears favorite and rating)
+- **Rate** — Set star rating (1–5) for all selected, or clear rating
+- **Add to album** — Add selected to an existing or new album
+- **Edit tags** — Add a [manual tag](#manual-tags) to, or remove one from, every selected photo (see [Manual Tags](#manual-tags))
+- **Select all** — With an empty selection, selects the whole filtered view — every photo the current filters match, not just the pages infinite scroll has fetched so far — at no network cost: the server derives the row set from the filters only when a bulk action is actually applied. With one or more photos already selected, it widens to the currently loaded photos only, and a banner offers to widen further to the whole view. Either way, applying an action scoped to the whole view first raises a confirmation dialog stating the exact photo count.
+- **Invert** — Swap the selection for its complement. With an empty selection the complement is the whole filtered view, exactly like Select all above and with the same no-request behavior — the case the previous wording here got wrong. With a non-empty selection it stays bounded to the loaded photos: pick the keepers, invert, reject — the direct way to see exactly what is about to go, without ever reaching photos you have not looked at.
+- **Compare** — Open 2–4 selected photos side by side with synced pan and zoom (scroll to zoom, drag to pan, double-click to reset; every pane moves together and swaps to full resolution past the fit scale). The same view the culling darkroom uses, reachable for any hand-picked set rather than only for frames adjacent in a burst.
+- **Copy filenames** — Copy selected filenames to clipboard; a whole-view copy confirms first, and a view over 10 000 photos is refused rather than partially copied
+- **Export** — Write XMP sidecars (rating/favorite/reject) next to the selected files (see [Editor Export](#editor-export))
+- **Cull to folder** — Copy keeps, or move/trash rejects, to a target folder (see [Cull to folder](#cull-to-folder))
+- **Delete** — Send selected photos straight to the OS trash (see [Delete](#delete)); gated by the same `viewer.cull.allow_trash` flag as Cull to folder, so an install that shows one shows the other. Disabled under "select all in view" scope — a filter-driven delete could trash an unbounded set in one request, so the button asks for an explicit selection instead.
+- **Download** — Download selected photos
+- Clear selection with Escape or the Clear button
+
+Bulk actions require edition mode. Double-click any photo to open it.
+
+**Context menu** — Right-click a photo (or focus it and press Shift+F10 / the Menu key) to open a menu at the cursor. On a photo inside a multi-photo selection it acts on the whole selection, with the action bar's actions under the same gates, except Invert and Select all, which stay on the bar (Delete is left out under "select all in view" scope). On any other photo it acts on that photo alone and leaves the selection untouched, and it adds Open photo plus, only where their feature or edition gates allow, Find Similar, Why This Score?, Write metadata to file and Assign face to person (the last only when the photo has unassigned faces). Under a selection the menu also carries the bulk **Edit tags** entry, edition-gated like the bar's, which is also reachable from the Actions sheet on touch devices. Culling a single photo this way takes only that photo out of the selection: a path selection keeps the rest, and a "select all in view" selection stays whole-view with that photo added to its exclusions. The menu is not offered on touch-first devices (`hover: none` and `pointer: coarse`), where the browser's long-press behavior and the Actions sheet remain.
+
+### Keep Top N%
+
+A **Keep top %** control in the gallery toolbar (edition mode) turns the whole filtered view into a one-step cull. Set a percentage; the server ranks the current view by the **current sort** (aggregate, My Taste, Top Picks, sharpness, …), keeps that top share, and **selects the rest** — the lowest-ranked photos — so you can reject them from the selection action bar (or deselect any you want to spare first). Nothing is moved or deleted: it only populates the selection (and every reject still trains "My Taste"). The selection is capped at 5000 photos; on a very large view the control says so — narrow the filter (album, date, person…) to act on the remainder. The ranking runs over the same hidden-filtered view as the gallery grid, so under the default `hide_brackets` / `hide_panoramas` a bracket or panorama set counts as **one** photo toward the percentage, not one per frame.
+
+### Cull to folder
+
+The bulk-action bar's **Cull to folder…** dialog (edition mode) copies keeps, or moves/trashes rejects, to a target folder in one step (OS-trash is gated behind `viewer.cull.allow_trash`, never a permanent delete). Applying is safe by construction: `POST /api/cull/apply` never trusts a client-supplied deletion list at face value — it re-derives the action's actual target set server-side from each photo's own `is_rejected` state (copy acts only on keeps, move/trash only on rejects) and reports anything outside that scope as `excluded_by_state` instead of acting on it. Every call defaults to a dry run, so a preview always runs before anything is written, and move/trash need an explicit `dry_run=false` to proceed; pulling in a rejected photo's untouched RAW or sidecar is opt-in (`include_companions`), so rejecting a derived JPEG never silently takes its RAW down with it. Several commercial photo tools have shipped delete-selection bugs that acted on the wrong photos; Facet's apply endpoint is designed so the client cannot specify a deletion set directly.
+
+**Trash rejects availability.** The "Trash rejects" radio only appears when `GET /api/config` reports `cull.trash_available: true` — `viewer.cull.allow_trash` on *and* the `send2trash` package importable — rather than the dialog offering an action the server would refuse. A direct `POST /api/cull/apply` call with `action=trash_rejects` can still hit either refusal on its own: a `403` means `viewer.cull.allow_trash` is off in `scoring_config.json`; a `400` means the config allows it but `send2trash` is not installed in this environment. The dialog no longer collapses the two: where the radio would have been it names the cause — `allow_trash` on but the package missing reads as "the `send2trash` package is not installed", anything else as "an administrator disabled trashing" — so the two are distinguishable without calling the API. An unknown capability (`/api/config` not loaded, or the field absent) reads as disabled, since an unknown is not a reason to offer a destructive action.
+
+**Multi-frame sets.** Under the default `hide_brackets` / `hide_panoramas` (both on), the gallery selection this dialog starts from contains only a bracket's base exposure or a panorama's marked middle frame — so, by default, culling an HDR bracket or a panorama sweep this way copies, moves, or trashes that **one** representative file, never the rest of the set. Two independent opt-in checkboxes widen what gets acted on: **Include companion RAW / XMP** (`include_companions`) pulls in the *same* frame's same-stem companion RAW and `.xmp` sidecar; **Include sequence siblings** (`include_sequence_siblings`) pulls in every *other* frame sharing the matched photo's `(sequence_kind, sequence_group_id)` — the actual bracket rungs or panorama tiles the gallery is hiding — **provided that sibling's own keep/reject state matches the action**. Rejecting one tile of a sweep and ticking this box moves or trashes that tile and any other rejected frame of the set, never the ones you kept; siblings whose state does not match are counted in `excluded_by_state` instead. A frame you took out of the selection is never pulled back in as a sibling: `exclude` narrows the sibling pass exactly as it narrows the target, so an excluded frame is left out of the acted-on files and out of the `sequence_siblings` count too. The preview reports how many sibling frames exist (`sequence_siblings`) even with the box unchecked, so a set's existence is never silently invisible, and `matched` distinguishes "nothing in the selection qualified for this action" from an empty result. Moving or trashing a panorama/bracket lead frame re-picks a surviving sibling as the new `is_sequence_lead` so the set stays visible under the default hide toggles afterward — the one database write this otherwise file-only endpoint makes. To hand-pick an explicit subset of a set instead of all-or-nothing, open it through the photo detail "open this set in the gallery" action first — its set-scope filter suppresses all four hide toggles while active, so every frame is individually selectable. A direct `POST /api/cull/apply` call with a `filters` body sidesteps the viewer's own defaults entirely: the caller's own `filters.hide_brackets` / `filters.hide_panoramas` decide the pre-siblings scope, not `viewer.defaults`. Beyond those two hide flags, though, `filters` is no longer resolved on its own: unset fields fall back to the viewer's own sort/type/person/page-size defaults exactly as `GET /api/photos` does, and a content-based **Photo Type** selection (e.g. `type=landscape`) expands into that type's full underlying filter set — so a `filters` body and the gallery view it was copied from resolve to the same rows. Previously cull and export skipped this step, so a Photo-Type-driven view could resolve to a different row set through the API than the grid showed for the same filters. A `filters` body matching more than 10 000 photos is refused outright (`412`, naming the count and the cap) rather than truncated, and the cap applies to a dry run exactly like a real one — half-culling a view you believed was whole is worse than a clear refusal, and a preview cannot be used to do the unbounded work the run itself is refused for. Narrow the filters (album, date, person…) and try again.
+
+**Where you can write.** With no `viewer.export.allowed_target_dirs` configured, the only folders Facet will write into are your scan directories — point the dialog at a subfolder of the photo tree (e.g. `_rejected`) and it works with no setup. To use a folder outside the scanned tree, add it to `viewer.export.allowed_target_dirs` first; anything else is refused with a `403`, regardless of filesystem permissions. See [Configuration — Export and Cull Destinations](CONFIGURATION.md#export-and-cull-destinations). Running in Docker/Podman, the path you type is resolved **inside the container**, against whatever is actually mounted there — never against the host filesystem — see [Deployment — Container Path Semantics](DEPLOYMENT.md#container-path-semantics).
+
+**"Access denied" on every action.** That's a `403` — a deliberate refusal from the target-folder check above, or an expired edition session — not a filesystem or container-user permission problem. The toast doesn't say which, so check the failed request's response body in your browser's Network tab for the `detail` field. A real filesystem/permission problem looks different: the action reports partial success with a nonzero `errors` count instead of failing outright, and the server logs the underlying OS error for each file that failed.
+
+### Delete
+
+Photo detail and the gallery's multi-select bar each add a **Delete** button, distinct from Cull to folder above and from the `/culling` darkroom in [Culling](#culling) — Facet now has three actions that touch a multi-frame set, and they do not behave alike. Delete calls `POST /api/photo/delete`, which sends the named file straight to the OS trash via `send2trash` — recoverable, never a permanent delete — and the confirm dialog says so plainly. It is gated by the same `viewer.cull.allow_trash` flag as Cull to folder (no separate config key): a `403` means the flag is off, a `400` means the flag is on but the `send2trash` package is not installed.
+
+Unlike Cull to folder, which leaves the database row alone until a rescan, Delete removes a photo's row immediately once its file is actually trashed — no `--cleanup-missing-photos` needed for it to disappear from the gallery. That includes a companion RAW pulled in by `include_companions`: if the companion was itself scanned as its own photo, its row is removed too, the moment its file trashes — a RAW that had been in the library as its own entry disappears along with the JPEG. Two cases keep their row instead, because nothing was trashed for them: a path in `skipped` — its file was already missing from disk before the request, so `--cleanup-missing-photos` is exactly what reconciles it — and a path in `errors` — the trash attempt itself failed, so the row is deliberately kept rather than left pointing at a file that is still there.
+
+**Scope.** The request takes only explicit `paths` (capped at 10000) — there is no `filters`-driven variant, because a filter-driven delete is the one shape that could trash an unbounded set in a single request. Under the gallery's "select all in view" scope the Delete action is disabled with a tooltip asking for an explicit selection, rather than silently under-deleting the view. The default scope is the named file only. Two opt-in checkboxes widen it, with the same names and defaults `/api/cull/apply` uses: **Include companion RAW / XMP** (`include_companions`, default off) pulls in the same frame's same-stem companion RAW and `.xmp` sidecar; **Include sequence siblings** (`include_sequence_siblings`, default off) widens any requested path to every other frame sharing its `(sequence_kind, sequence_group_id)`.
+
+**Bracket leads.** A bracket's base exposure — its `sequence_ev_offset = 0` frame — is refused rather than deleted — reported per-path in `refused_bracket_lead` — unless `include_sequence_siblings` is set, in which case the whole bracket goes together. That base exposure is a physical fact of the exposures rather than a movable flag, so unlike a panorama there is no surviving frame to promote; and because Delete removes the row immediately, a partially deleted bracket would vanish from the gallery with no way back short of a rescan. A panorama lead deleted without the flag re-picks a surviving sibling as the new `is_sequence_lead`, exactly as Cull to folder does, so the set stays visible under the default `hide_panoramas`.
+
+**Partial results.** The response is per-path, not all-or-nothing: `dry_run`, `would_trash` (dry-run preview), `deleted`, `not_found` (never in the database), `not_visible` (in the database but hidden from this user), `refused_bracket_lead`, `sequence_siblings` (frames the sibling flag pulled in), `skipped` (visible and present in `photos`, but the file was already missing from disk — not trashed, row not deleted), `trashed` (a count), and `errors` (an OS error string per path that failed to trash — not trashed, row not deleted). A bulk delete that includes a refused bracket lead still deletes everything else and reports the refusal, rather than failing the whole request. `dry_run` defaults to `true`.
+
+### Display Options
+
+- **Layout Mode** - Switch between **Grid** (uniform cards) and **Mosaic** (justified rows preserving aspect ratios). Mosaic is desktop-only; mobile always uses grid.
+- **Thumbnail Size** - Slider to adjust card/row height (120–400px, persisted in localStorage)
+- **Hide Details** - Hide photo metadata on cards (grid mode only)
+- **Tooltip** - How photo details are shown: **Hover** (default), **Click**, **Off**, or **Side panel**. The side panel docks the same details in the right-hand drawer instead of following the cursor, so a given field is always in the same place from one photo to the next. It follows **both** hover and click, so it is usable on a touch screen where hover never fires; it keeps the last photo you hovered rather than blanking when the cursor leaves the grid. Clicking a photo holds the panel on it — hovering other photos no longer switches it — until you press **Deselect** at the top of the panel, which also removes that photo from the selection. It shares that drawer with the filter sidebar — opening the filters hides it until you close them again, and the grid keeps exactly the width it has with the filters open. Needs a viewport of at least 1280px.
+- **Hide Blinks** - Filter out photos with detected blinks
+- **Best of Burst** - Show only top-scored photo from each burst
+- **Best of bracket** - Show only the base exposure of each detected bracket set, hiding the flanking frames. **On by default.** Independent of Best of Burst: a quarter of bracket sets share a burst group with unrelated frames, where the burst lead is not the base exposure, so burst-hiding alone leaves the extra exposures on show.
+- **Best of panorama** - Show only the marked representative (middle) frame of each detected panorama or HDR-panorama set, hiding the rest of the sweep. **On by default.**
+- **Infinite Scroll** - Photos load as you scroll
+- **Fast Scrolling (virtualized)** - Row-windowed rendering: only rows near the
+  viewport are in the DOM, so deep scrolling through tens of thousands of photos
+  stays responsive. On by default; disable in the Display section of the filter
+  sidebar if you hit layout issues (grid mode with details shown always uses
+  full rendering since row heights aren't deterministic there). Persisted in
+  localStorage (`facet_virtual_scroll`).
+
+### Similar Photos
+
+Click the "Similar" button on any photo to choose a similarity mode:
+
+- **Visual** (default) — pHash hamming distance (70%) + CLIP/SigLIP cosine similarity (30%). Falls back to CLIP-only when no pHash is available.
+- **Color** — Histogram intersection (70%) + saturation distance (10%) + luminance distance (10%) + monochrome bonus (10%). Pre-filters by monochrome flag and saturation range.
+- **Person** — Finds photos containing the same person(s). Uses `person_id` when available (fast), otherwise falls back to face embedding cosine similarity.
+
+Use the **similarity threshold slider** (0–90%) to control how strict the matching is (not shown in person mode). The panel supports infinite scroll for large result sets.
+
+### Filter Chips
+
+Active filters shown as removable chips with counts at top of gallery.
+
+### Manual Tags
+
+Manual tags are tags you type yourself, kept next to the AI tags a scan or retag produces. They live in their own table (`photo_manual_tags`), not in the photo's `tags` column, so a rescan or a retag never wipes them.
+
+- **Where they show.** In the photo **detail** view only, as chips beside the AI tags and visually distinct from them (a marker on the chip, not colour alone). Photo cards and the hover tooltip are unchanged and keep showing the AI tags.
+- **Who can edit.** Editing needs an edition session, which in turn needs a set `viewer.edition_password`; like every other edition-gated write, it is refused on an open install (no edition password), where manual tags are read-only. A non-edition viewer sees them read-only. In the detail view an edition user can add a tag, and remove a manual tag, even on a photo that has no tags yet. AI tags have no remove control.
+- **Bulk editing.** Select photos and use **Edit tags** to add or remove one tag across the whole selection: from the selection bar on desktop, from the Actions sheet on mobile, or from the context menu on a photo inside a multi-photo selection. A whole-view selection is accepted like any other bulk action. Photos already carrying 50 manual tags are skipped on a bulk add rather than failing the batch, and the reported `count` is the number of photos actually changed.
+- **Normalisation.** A tag is Unicode-normalised (NFC), trimmed, has runs of whitespace collapsed to one space and is lowercased. It may be at most 64 characters, a photo holds at most 50 manual tags, and an empty tag, a tag containing a comma or one containing a control character is rejected with a `422`. A tag identical to one of the photo's current AI tags is a no-op (nothing is stored), though a later retag can still produce the same tag on both sides; the gallery counts such a photo once.
+- **Search and filter reach them.** The gallery tag filter (including required and excluded tags), the gallery text search, semantic text search (`/api/search`, except the caption-only text scope), the tag dropdown and its counts, the statistics page and the sidecar, embed and Lightroom-manifest exports all see the union of AI and manual tags. Text search matches a manual tag as a whole phrase, not word by word. Capsules are the exception: they count AI tags only, so a capsule's count can be lower than the photos its click-through opens (the gallery tag filter, which does include manual tags). Manual tags never influence scores, categories or narrative moments.
+- **Hidden from share links.** A share-link viewer never sees manual tags in a shared photo, a shared album, its filter dropdown or its tag filter; a shared smart album still applies the owner's own saved filter, including a manual tag the owner filtered on.
+- **Global, not per user.** In multi-user mode manual tags are shared by everyone, not stored per user: any edition user can remove a tag another user added.
+- **Not undoable.** Manual tag edits are not covered by [Undo](#undo); re-add a removed tag by hand. A removed tag can also come back from a sidecar, see [Conflict rules](INTEROP.md#conflict-rules).
+- **Where they come from besides typing.** `--import-sidecars` stores keywords it finds in a sidecar that Facet does not already know (not an AI tag, not a person name) as manual tags, with source `xmp`.
+- **Tied to the file path.** A moved or renamed file is a new photo path and loses its manual tags with the old one.
+
+## Panoramas and exposure brackets
+
+A panorama's frames were shot to be stitched and a bracket's to be merged, so
+neither is a set of competing takes. Burst detection cannot tell the difference
+— the frames arrive seconds apart from one camera at one focal length — so
+without this it groups them and hides all but one behind a lead picked on a
+criterion that means nothing for a pan.
+
+**In the gallery.** `Best of bracket` and `Best of panorama` (both on by
+default) collapse each set behind one representative frame: a bracket's base
+exposure, a panorama's middle frame. That frame carries a small icon in the
+bottom row, next to the star and heart, naming what it stands for — a plain
+sweep, an HDR sweep, or an exposure bracket — with a tooltip. The icon appears
+only while the matching toggle is actually hiding the rest of the set; with the
+toggle off every frame is on screen in its own right and there is nothing to
+stand for.
+
+**In culling.** The granularity menu offers `Exposure brackets`, `Panoramas` and
+`HDR panoramas` as their own feeds, never merged into `All` — the point is to
+see them apart from the bursts they would otherwise be read as. Every frame
+starts marked keep, and confirming a set records no comparison pairs: preferring
+one rung of an exposure ladder, or one frame of a pan, describes how the set was
+shot rather than the photograph, and feeding that to the ranker would bias every
+later ranking.
+
+**Correcting a set.** Geometry cannot recover intent — a deliberate sweep and a
+pan that follows a moving subject are the same measurement — so a residual error
+rate is inherent, measured at roughly 4%. A correction ("this is not a panorama"
+/ "these frames are one") is sticky: it lives in its own table and survives every
+later detection run, which clears and rewrites the labels it produced.
+
+Both error directions have their own surface, because they are found in
+different places. A **false positive** is corrected in culling, where the set is
+in front of you: the group's action bar carries a correction menu (edition only)
+offering *Not a panorama* and a relabel between plain and HDR. A **miss** is
+corrected from the gallery, because an undetected sweep appears in no culling
+group at all: select its frames and use *Mark as a set* → *Mark as one panorama*
+in the selection bar. Both are undoable from the snackbar, and both take at least
+two frames.
+
+**Marking a missed bracket.** An exposure ladder that burst detection never
+told apart from an ordinary burst is corrected the same way a missed panorama
+is, from either surface: from the darkroom, a plain burst group — one where no
+frame already belongs to a bracket or a panorama — carries its own
+edition-only menu offering *Mark as bracket*; from the gallery selection bar,
+*Mark as a set* → *Mark as one bracket* does the same for any selection. Both
+require the frames to form a real exposure ladder — at least 2 frames, every
+one carrying usable exposure metadata (f-stop, shutter speed, ISO) *and* a
+parseable capture date, and no two of them at the same exposure value — and
+both reject the correction outright with an on-screen message when they
+don't; nothing partial is ever saved. Marking frames that overlap a bracket
+you already marked extends that set rather than starting a second one — the
+rule is checked against the whole combined set (the frames you just selected
+plus every frame already in that set), so a mark that would break the
+existing ladder is refused with the same message and the earlier bracket is
+left exactly as it was. The darkroom's group feed hides rejected frames by
+default, so marking a bracket from the darkroom can never include a rung you
+had already rejected — it simply is not in the feed to select. A bracket-kind
+group (already labelled `bracket`, whether detected or from an earlier
+correction) gets a *Drop the correction* entry instead, mirroring panorama's
+own. If a marked frame later disappears or loses the exposure or date data
+the ladder rule needs (deleted, or rescanned with different EXIF), the whole
+marked set is skipped at the next detection run rather than partially applied
+— it stays pending until every member qualifies again. **Marking wins over
+panorama detection**: if the
+frames you mark already belong to a panorama the geometry pass detected, that
+panorama is dropped on the next run — a set cannot be both.
+
+Nothing relabels immediately. A correction is saved at once and marked pending —
+a clock badge on the gallery tile, a *Correction pending* chip on the culling
+group — because detection is a whole-library batch pass, far too expensive to run
+once per click. The culling page shows a banner counting what is waiting, with a
+**Re-run detection** button beside it; the sidebar's *Panorama corrections* filter
+(edition only, under Refine) lists them library-wide, as either direction or
+both. Until that run, a suppressed set is still grouped as a panorama and a
+forced one (panorama or bracket alike) is still ungrouped — the correction is a
+note to the detector, not a label of its own. Undo is available from the
+snackbar right after marking, and *Drop the correction* removes it afterwards.
+
+**Tuning it.** The Panoramas tab under Compare exposes the thresholds that were
+actually calibrated against labelled sets — minimum frames, minimum sweep,
+longest gap and the HDR exposure spread. Saving them changes nothing on its own:
+detection is a batch pass over the whole library rather than a live query, so the
+tab offers a re-run beside the save. See
+[CONFIGURATION.md](CONFIGURATION.md#panorama-detection) for the full block.
+
+## Person Management
+
+> Browsing persons is open to all viewers; renaming, merging, avatar changes and face assignment require `[Edition]`.
+
+### Person Filter
+
+Dropdown shows persons with face thumbnails. Click to filter gallery.
+
+### Person Gallery
+
+Click person name to view all their photos at `/person/<id>`.
+
+### Manage Persons Page
+
+Access via header button or `/persons`:
+
+| Action | How To |
+|--------|--------|
+| **Merge** | Select source person, click target, confirm |
+| **Delete** | Click delete button on person card |
+| **Rename** | Click person name to edit inline |
+| **Split** | Open a person's faces, select a subset, split them into a new person |
+| **Hide** | Hide a cluster from the persons list, filters, and merge suggestions (reversible) |
+
+## Scan Trigger
+
+Scan is offered when **both** of these hold: `viewer.features.show_scan_button` is `true` (it ships **`false`** in `scoring_config.json`, opt-in) **and** the caller has scan access — the `superadmin` role in multi-user mode, or an edition-authenticated session on a locked single-user install (a non-empty `viewer.edition_password`) in single-user mode. The gallery then offers it from two places, and both open the scan launcher dialog (`ScanLauncherComponent`): a **Scan photos to get started** button on the empty-gallery state, and — while the gallery has photos to show — a **Scan for new photos** icon button at the top right of the photo grid, at every screen width. On an open single-user install (`viewer.edition_password` empty, the shipped default) all four scan routes 403 for every caller, including one holding a valid edition-generation JWT, and neither entry point is ever rendered — spawning a scan subprocess must not be reachable anonymously.
+
+- Pick a directory from the launcher's list and start the scan in-app
+- The launcher streams live progress (SSE with automatic polling fallback) into a `mat-progress-bar` driven by the structured `progress` field, plus a tail of output lines, and refreshes the gallery when the scan finishes
+- Scan runs as a background subprocess (`facet.py`); only one scan at a time (global lock)
+- Directory choices come from `get_all_scan_directories()`, which unions each user's `directories`, shared directories, `path_mapping` targets, and the standalone `viewer.scan_directories` list — seed the latter (e.g. `/data/photos`) so single-user / Docker installs have a pickable target
+
+No GPU is required to scan — see [Which profile fits my hardware?](INSTALLATION.md#which-profile-fits-my-hardware) and [No graphics card](INSTALLATION.md#no-graphics-card) for the CPU-only (`legacy`) path. The scan runs on the machine hosting the viewer, so it is fastest when that machine has GPU access for scoring.
+
+A related but separate trigger, `POST /api/scan/recompute`, reuses the same job lock to rescore existing photos in place (no new files) — see [Category Priority & Scoring Contexts](#category-priority--scoring-contexts). Unlike this scan button's mode-dependent access rule above, it is edition-gated only, with no superadmin/locked-install distinction.
+
+## Semantic Search
+
+Hybrid search combining CLIP/SigLIP embedding similarity (70%) with FTS5 BM25 text matching on captions and tags (30%). Type a query like "sunset over mountains" or "child playing in snow" and the viewer returns matching photos ranked by combined score.
+
+- Requires stored `clip_embedding` data (computed during scoring)
+- Uses sqlite-vec for KNN vector search when installed and this Python's SQLite can load extensions, falls back to in-memory NumPy
+- FTS5 text search on AI captions/tags provides additional keyword matching (run `database.py --rebuild-fts` to enable)
+- Uses the same embedding model as the active VRAM profile (SigLIP 2 for 16gb/24gb, CLIP ViT-L-14 for legacy/8gb), or whichever of `models.clip`/`clip_legacy` actually matches the stored embedding dimension if the two disagree (see [docs/CONFIGURATION.md](CONFIGURATION.md))
+- `scope=text` restricts the query to literal FTS5 matches in OCR/caption text and skips the embedding search
+- Controlled by `viewer.features.show_semantic_search` (default: `true`)
+- The cosine gate defaults to `models.clip.search_threshold_percent` (5%) / `models.clip_legacy.search_threshold_percent` (15%) — calibrated per-backend values, distinct from the tag-match `similarity_threshold_percent`. `/api/config`'s `search_threshold_default` seeds the gallery's 0-50% threshold slider, which spans the whole range: a query can be tightened above the default or loosened back down toward `0%` per search; a threshold of exactly `0%` still rejects a negative cosine, it is not "no filter". The `5%` SigLIP default itself deliberately favours recall over precision — see `clip.search_threshold_percent` in [docs/CONFIGURATION.md](CONFIGURATION.md) for the calibration tradeoff
+- Each result reports two similarity fields: `similarity` is the blended embedding (70%) + FTS (30%) score used for ranking; `embedding_similarity` is the raw cosine that was actually gated against the threshold above, present only when an embedding score was computed for that photo (absent — never `null` — on an FTS-only or `scope=text` hit)
+
+## Albums
+
+Organize photos into named albums. Access via the `/albums` route.
+
+### Manual Albums
+
+Create albums and add photos from the gallery using multi-select. Albums support:
+- Name and description
+- Custom cover photo
+- Custom ordering
+- Browse album contents at `/album/:albumId`
+
+### Smart Albums
+
+Save a combination of filters (camera, tag, person, date range, score thresholds, etc.) as a smart album. Smart albums dynamically update as new photos match the saved filter criteria. The filter combination is stored as JSON in `smart_filter_json`.
+
+### Scoring Context
+
+Each album can carry a scoring context that decides which category wins for its member photos, independent of the global priority order — see [Scoring Contexts](CONFIGURATION.md#scoring-contexts). `PUT /api/albums/{id}/scoring_context` (edition-gated) sets it and materializes the same context onto every photo that is a member **right now**; `conflicts` in the response counts non-manual members that already carried a different context, `manual_skipped` counts members whose own manual override was left untouched (an album assignment never silently converts a photo's manual override into an album-sourced one), and `updated` counts how many were actually written. A manual album resolves membership from its `album_photos` rows; a smart album has none, so membership is instead resolved by evaluating its saved `smart_filter_json` against the live database. That is the album's **filter definition**, not "whatever the gallery happened to be showing": it deliberately ignores the gallery's hide-blinks/hide-bursts/hide-duplicates/hide-rejected view preferences (global, runtime-toggleable, and not part of `smart_filter_json`), so `updated` can legitimately exceed the photo count the album's own gallery view displays with those toggles on — and comes back with `updated: 0` and a `warning` when the filter currently matches nothing. Either way the stamp is a one-time snapshot, not a live subscription: a manual album's photo added *afterward* does inherit the context automatically, but a smart album's filter matching a *new* photo later does **not** retroactively apply the context to it — the context has to be set again (`PUT`) to pick up new matches. `DELETE /api/albums/{id}/scoring_context` (surfaced in the dialog as a "Clear context" action distinct from selecting the `default` context, which stamps `default` rather than clearing) undoes the stamp on exactly the members this album set, leaving any photo's own manual override untouched — and when a photo being undone is *still* a member of another album that itself declares a context, it is re-stamped with that other album's context instead of being left unscored (this re-derivation is scoped to the specific photos being removed from an album; deleting or clearing a whole album does not attempt it). `GET /api/albums/{id}/suggested_context` proposes one from the album's dominant detected `narrative_moment` (via each context's `suggest_from_moments` list) with a `share` confidence — it writes nothing; the assignment above still has to be confirmed explicitly. A recompute (`POST /api/scan/recompute`) is required for the new context to actually change any photo's stored category.
+
+### Portfolio Export
+
+When `viewer.features.show_portfolio_export` is `true` (default) and edition is unlocked, each manual album card gains an **Export portfolio** action. It opens a small dialog (gallery title, target folder, include-captions toggle) and renders the album into a self-contained static HTML gallery — the thumbsup/sigal use case, but native, with no external tool dependency. The output directory holds `index.html` (a responsive CSS-only thumbnail grid with a built-in vanilla-JS lightbox — **zero** external/CDN references, so it works fully offline), an `assets/` folder of sequentially-named JPEGs (no library paths leaked), and a `manifest.json` recording counts and per-photo sources. Each photo prefers the on-disk **original** (downscaled to `portfolio.max_edge`, EXIF orientation applied) and falls back to the stored 640px thumbnail when the original is unreachable (offline network shares). The endpoint is `POST /api/albums/{album_id}/export-portfolio` (edition-gated); the `target_dir` is validated against the same allow-list (`viewer.export.allowed_target_dirs` plus the scan directories, see [Configuration — Export and Cull Destinations](CONFIGURATION.md#export-and-cull-destinations)) as the copy/move export endpoints, and albums over `portfolio.max_photos` (default 500) are refused. Re-exporting the same album is idempotent — only the export's own files are rewritten. See [Portfolio Export configuration](CONFIGURATION.md#portfolio-export).
+
+API: see the [API Endpoints](#api-endpoints) section below.
+
+Controlled by `viewer.features.show_albums` (default: `true`).
+
+### Photo Sharing
+
+Share albums with external users via tokenized links. No authentication required to view shared albums.
+
+| Action | How To |
+|--------|--------|
+| **Share** | Open album, click "Share" button to generate a shareable link |
+| **Revoke** | Click "Unshare" to invalidate the share token |
+| **View** | Recipients open the link to browse the shared album at `/shared/album/:id` |
+
+API: see the [API Endpoints](#api-endpoints) section below.
+
+### Client Proofing
+
+When `viewer.features.show_proofing` is enabled (default `false`), a shared-album link can run in **proofing mode**: the client (no account) opens the share link, optionally enters a PIN (`viewer.proofing.pin`), and can then **heart** photos and leave **comments** — a lightweight way to let a client choose their favorites from a delivery.
+
+Client picks are fully isolated from your library. They live in a dedicated `album_client_picks` table, are bounded to that album's photos, and never touch your own favorites/ratings (`photos.is_favorite` / `user_preferences`) or train the personal ranker. As the owner you read the picks from an `[Edition]` dialog on the album card. Sessions are short-lived (`viewer.proofing.session_minutes`, default 24h) and stop working the moment the album is unshared or proofing is disabled.
+
+Controlled by `viewer.features.show_proofing` (default: `false`). See [Configuration — Client Proofing](CONFIGURATION.md#client-proofing).
+
+## AI Critique
+
+Breaks down a photo's scores into strengths, weaknesses, and suggestions.
+
+### Rule-Based Critique
+
+Available on all VRAM profiles. Analyzes stored metrics (aesthetic, composition, sharpness, face quality, etc.) and generates a structured explanation of the score.
+
+The breakdown also surfaces the explainable **form and color-harmony** rows (symmetry, balance, edge-orientation entropy, fractal complexity, Matsuda color harmony — populated by `--recompute-form`), **distortion-attribute chips** for any likely defects (motion blur, color cast, oversharpening, … — from `--recompute-distortions`), and a **skin-tone note** for portraits whose skin chroma drifts off-natural (`--recompute-skin-tone`). All three are advisory — they explain the photo, they do not change the aggregate — and each row shows only when its underlying column is populated.
+
+### VLM Critique `[GPU]` `[16gb/24gb]`
+
+Uses the configured VLM (Qwen3.5-2B or Qwen3.5-4B) for a context-aware critique. Requires 16gb or 24gb VRAM profile and `viewer.features.show_vlm_critique: true`. Generating one also requires an edition session; without it only an already cached critique is served and `vlm_available` is `false`.
+
+The prompt is a configurable ladder (`critique.vlm`) that injects the full rule breakdown, penalties and EXIF, and the reply is rendered as **Observation / Assessment / Suggestions**. The result is cached per photo (`photos.vlm_critique`) and translated on demand, with a **Regenerate** button to recompute it. It runs against the stored thumbnail, so RAW files critique correctly instead of failing silently.
+
+API: see the [API Endpoints](#api-endpoints) section below.
+
+Controlled by `viewer.features.show_critique` (default: `true`) and `viewer.features.show_vlm_critique` (default: `true`).
+
+**Visual "why this score" overlay.** When `viewer.features.show_saliency_overlay` is `true` (default), the critique dialog gains a **Show overlay** toggle: it draws the BiRefNet saliency map as a translucent heatmap over the photo (recomputed on demand from the stored thumbnail — `GET /api/saliency_overlay`), plus soft per-face boxes and eye markers reconstructed from stored landmarks (`GET /api/photo/face_markers`). Boxes are green when eyes are open, amber on a blink. The heatmap is illustrative (thumbnail-resolution), not pixel-exact; the toggle hides itself on profiles where no saliency mask is producible.
+
+## AI Captioning `[GPU]` `[16gb/24gb]` `[Edition]`
+
+Get an AI-generated natural language caption for any photo. Captions are generated on first request by an edition session (an open, read-only install never generates one) and cached in the `caption` database column. Captions can be edited manually in edition mode via the photo detail page. (Caption *translation* runs on CPU — see below.)
+
+API: see the [API Endpoints](#api-endpoints) section below.
+
+Also available via CLI for bulk generation and translation:
+
+```bash
+python facet.py --generate-captions      # Generate captions for all uncaptioned photos
+python facet.py --translate-captions     # Translate captions to configured target language
+```
+
+Caption translation uses MarianMT (CPU, no GPU required). Configure the target language in `scoring_config.json` under `translation.target_language` (default: `"fr"`). Supported languages: French, German, Spanish, Italian.
+
+Controlled by `viewer.features.show_captions` (default: `true`). Requires 16gb or 24gb VRAM profile for VLM-based captioning.
+
+## Memories ("On This Day")
+
+Browse photos taken on the same calendar date in previous years. Opening Memories starts a randomized full-screen diaporama (slideshow) of the matching photos rather than a grid; the nav button's tooltip spells out what it does.
+
+API: see the [API Endpoints](#api-endpoints) section below.
+
+Controlled by `viewer.features.show_memories` (default: `true`).
+
+## Common workflows
+
+- **Cull a vacation** — open Capsules → look for the auto-generated `journey` capsule for the trip dates. Each capsule offers a Save-as-Album action.
+- **Browse a day-by-day review** — open Timeline and drill down years → months → a calendar of days; click a day to open the gallery filtered to that date. There's no sort control in Timeline itself, but the day/month/year counts and hero thumbnails now honor the same `hide_bursts` / `hide_duplicates` toggles as the gallery (defaults: on), so a tile's count matches what clicking it opens.
+- **Show what's hidden** — the gallery hides blinks / non-lead bursts / non-lead duplicates by default. When at least one of those filters is on and would exclude rows, a "N photos hidden by current filters · Show all" banner appears above the grid.
+
+## Timeline View
+
+Chronological photo browser: a grid of years drills down to a grid of months, then to a calendar of days, each tile showing a photo count and hero thumbnail. Click a day to open the gallery filtered to that date. There is no sort control in Timeline itself — sorting happens in the gallery you land on.
+
+The five gallery hide toggles (`hide_blinks`, `hide_bursts`, `hide_duplicates`, `hide_brackets`, `hide_panoramas`) apply at every level, falling back to `viewer.defaults` when a request sends none — so a year/month/day tile counts and picks its hero thumbnail only from photos the gallery would actually show. When at least one toggle is hiding something, a `visibility_off` button appears in the toolbar (and the mobile bottom bar) with the tooltip "Some photos are hidden by your filters"; click it to clear all five, the same as the gallery's own hidden-photos banner.
+
+API: see the [API Endpoints](#api-endpoints) section below.
+
+Access via the `/timeline` route. Controlled by `viewer.features.show_timeline` (default: `true`).
+
+## Map View
+
+View photos on an interactive map based on GPS coordinates extracted from EXIF data. Uses Leaflet for map rendering with clustering at different zoom levels.
+
+### Setup
+
+Extract GPS coordinates from existing photos:
+
+```bash
+python facet.py --extract-gps    # Extract GPS lat/lng from EXIF into database
+```
+
+GPS coordinates are also extracted automatically during scoring for new photos.
+
+API: see the [API Endpoints](#api-endpoints) section below.
+
+Access via the `/map` route. Controlled by `viewer.features.show_map` (default: `true`).
+
+## Capsules
+
+Curated photo diaporamas (slideshows) grouped by theme, place, people, and time — click a capsule to play it. Access via the `/capsules` route.
+
+### Capsule Types
+
+Capsules are auto-generated from your library using multiple algorithms:
+
+- **Journey** — trips detected via GPS clustering, with reverse-geocoded destination names ("Journey to Rome — March 2025")
+- **Moments with [Person]** — best photos of each recognized person
+- **Seasonal Palette** — photos grouped by season + year
+- **Golden Collection** — top 1% by aggregate score
+- **Color Story** — visually similar groups via CLIP embedding clustering
+- **This Week, Years Ago** — extended "On This Day" across ±3 days
+- **Location** — geotagged photo clusters with place names
+- **Favorites** — favorited photos grouped by year and season
+- **Dimension-based** — auto-generated from camera, lens, category, composition pattern, focal length range, time of day, star rating, and cross-dimensional combos
+
+### Slideshow
+
+Click any capsule card to start a slideshow. Features:
+- **Themed transitions** — slide (journeys), zoom (portraits), kenburns (golden/seasonal), crossfade (default)
+- **Auto-chaining** — when a capsule finishes, a transition card shows the next capsule before continuing
+- **Shuffle & resume** — photos are shuffled for variety; resume position is tracked per capsule
+- **Adaptive grouping** — portrait photos are grouped side-by-side based on viewport aspect ratio
+- **Save as album** — save any capsule as a permanent album
+
+### Freshness
+
+Capsules rotate on a configurable schedule (default: 24 hours). Cover photos and seeded discovery capsules align to the same rotation period. The "Regenerate" button in the header forces an immediate refresh.
+
+### Reverse Geocoding
+
+Location and journey capsules show place names (e.g., "Paris, France") instead of coordinates. This uses offline geocoding via the `reverse_geocoder` package — no API calls needed. Results are cached in the database.
+
+Install: `pip install reverse_geocoder`
+
+API: see the [API Endpoints](#api-endpoints) section below.
+
+### Configuration
+
+See [Configuration — Capsules](CONFIGURATION.md#capsules) for all settings.
+
+## Folders View
+
+Browse your photo library by directory structure. Access via the `/folders` route.
+
+- Breadcrumb navigation to move up the directory tree
+- Each folder shows a cover photo (highest-scoring image in that directory)
+- Click a folder to descend into it, or click a photo to open it in the gallery
+- Each folder card has a filter action that opens the gallery restricted to that folder — available on every folder, not only leaf folders
+- Respects multi-user directory visibility in multi-user mode
+
+### Folder Filter
+
+The gallery filter sidebar has a **Folder** section. **Choose folder…** opens a picker that walks the
+directory tree one level at a time; applying it restricts the gallery to that folder **and all of its
+subfolders**. The active folder shows up as a filter chip, combines with every other filter (score,
+person, date…), survives a reload through the `path_prefix` URL parameter, and is saved into smart albums.
+
+The folder filter narrows the photo grid only — the sidebar dropdowns, type counts, statistics,
+timeline, map and search stay library-wide.
+
+## GPS Filter Dialog
+
+Filter photos by geographic location using an interactive map picker:
+
+- Click the location filter button to open the map dialog
+- Click or drag on the map to set a center point
+- Adjust the radius slider to control the search area
+- Photos within the selected radius are filtered into the gallery
+- Requires GPS coordinates (run `--extract-gps` if photos have EXIF GPS data)
+
+## Merge Suggestions
+
+Find person clusters that may be the same individual. Access via `/merge-suggestions` or from the Manage Persons page.
+
+- **Similarity threshold slider** — how similar two persons must look to be suggested (lower = more suggestions, higher = fewer)
+- **Merge** — accept a suggestion to merge the two persons
+- **Batch merge** — select multiple suggestions and merge them at once
+- Dismissed suggestions are remembered and not proposed again
+- Also available via CLI: `python facet.py --suggest-person-merges`
+
+## Editor Export
+
+Write your ratings, favorites, and rejections to disk as XMP sidecars, so external editors (darktable, Lightroom) pick them up. Requires edition mode.
+
+- **From the gallery** — select photos, then **Actions → Export** writes a sidecar next to each file. Exporting a whole filtered view rather than a hand-picked set is capped at 10 000 photos: a larger view is refused outright, with the message naming its photo count and the cap, and nothing is written. It is never truncated — half-exporting a selection you believed was whole is worse than a clear refusal — so narrow the filters and export again.
+- **From an album** ("basket") — export the whole album as sidecars, or copy/symlink the files to a target directory (same destination allow-list as [Cull to folder](#cull-to-folder)).
+- **Write metadata to file** — the photo detail "Write metadata to file" action embeds the rating/keywords directly into the original file (JPEG/HEIC/TIFF/PNG/DNG via exiftool) in addition to writing the sidecar, so the whole photo ecosystem sees them. Proprietary RAW originals are never modified. Controlled by `viewer.features.show_embed_metadata` (default: `true`).
+- **Lightroom section** (edition mode) — the same dialog gains a **Download Lightroom manifest** button, which fetches and downloads `facet_manifest.json` scoped to the dialog's own selection/filter set (the same `{paths?, filters?, exclude?}` shape the sidecar export next to it uses), for the `facet.lrplugin` plug-in's **Facet: Apply ratings and flags...** step. Its **Import Lightroom state…** button reads a `facet_lightroom_state.json` file the plug-in's **Facet: Export Lightroom State to Facet...** menu item produced (Lightroom-wins: rating and pick/reject, whichever fields the file carries) and posts it straight to the server, reporting matched/unmatched/changed counts — no manual `--import-lightroom` run needed for a viewer-driven workflow. See [Lightroom Classic](INTEROP.md#lightroom-classic).
+
+API: see the [API Endpoints](#api-endpoints) section below.
+
+## Culling
+
+The culling page (`/culling`, edition mode) groups near-identical shots so you can keep the best of each and reject the rest. A **granularity** select — the first, highest-impact control in the toolbar — chooses how photos are grouped:
+
+- **All** (default) — merged burst + similar groups.
+- **Bursts** — photos shot close together in time (from burst detection).
+- **Similar** — photos that look alike regardless of when they were taken, grouped by CLIP/SigLIP embedding similarity. A threshold slider controls how strict the grouping is.
+- **Scenes** — chronological scene groups (capture-time runs), each headed by its time span and dominant narrative moment. Gated on `viewer.features.show_scenes`.
+- **Exposure brackets** — the multi-exposure sets found by [`--detect-sequences`](COMMANDS.md), base exposure first, each frame badged with its compensation (`-2 EV` … `+2 EV`). Deliberately not part of **All**: a bracket is one subject shot several times to be merged, not a set of competing takes, so every frame starts marked keep and confirming records no comparison pairs — preferring one rung of an exposure ladder says nothing about your taste. Use auto-cull's bracket trimming (below) if you want the flanking exposures gone.
+- **Panoramas** — the stitched-sweep sets found by [`--detect-panoramas`](COMMANDS.md), in capture order, with the middle frame marked as the set's representative. Kept whole exactly like exposure brackets: every frame starts marked keep and confirming records no comparison pairs.
+- **HDR panoramas** — the same detection pass's high-dynamic-range sweeps (exposure spread past `hdr_min_span_stops`), grouped and kept whole the same way. There is no separate "HDR bracket" granularity: a tripod HDR set is bracketed at every position, so the bracket pass labels it a plain **Exposure bracket** first, and only once the panorama pass recognizes the sweep does that label get superseded with `hdr_panorama`. A tripod HDR set the panorama pass doesn't recognize is not lost — it just stays under **Exposure brackets** instead.
+
+These three granularities (**Exposure brackets**, **Panoramas**, **HDR panoramas**) are the "keep-whole" ones: double-clicking a tile, the fast "keep only this one" gesture everywhere else, is a no-op here — a bracket or a pan was shot to be merged, not to compete, so the darkroom refuses to reduce it to a single frame. Their feeds also ignore the gallery's `hide_*` toggles entirely, the opposite of the gallery grid (which shows only a set's representative by default): every frame of every unreviewed set is visible for review here regardless of what the gallery is configured to hide. As with burst/similar/scene groups, a set left with fewer than 2 surviving frames after already-rejected members are excluded is dropped from the feed rather than shown as a group of one.
+
+Two sort controls sit beside the granularity: the **sort mode** (easiest first, most redundant, best, most recent, needs comparisons, or **oldest first**) and an **arrow button that reverses whichever mode is active**. Oldest-first is the one mode that also puts the photos *inside* each group in capture order, which is the only order a bracket or a panned sequence reads correctly in.
+
+For each group, pick the keeper(s); confirming rejects the rest. Confirms are deferred and can be undone (see [Undo](#undo)). The granularity, sort, and category choices persist in `localStorage`. Controls that don't apply to the current granularity are hidden — the sort dropdown and similarity-threshold slider disappear in scene mode, and the scope button is hidden when you have no manual albums. Every toolbar and group-action button carries a tooltip, and on small screens the toolbar detaches into a scrollable bottom bar.
+
+**Scoped culling.** The darkroom can be narrowed to a subset via query params: `?group_by=scene` switches to scene granularity, `?album=<id>` restricts it to an album, and `?from=&to=` (EXIF capture-time window, the basis of **Cull this scene**) restricts it to one scene. A banner shows the active scope with an **Exit scene** control; the burst member fetch stays album-scoped but ignores the window, so a burst straddling the scene boundary still shows all its frames.
+
+**My Taste chip.** Every confirm records `source='culling'` comparison rows that train the personal ranker, so the header shows a small "My Taste · N comparisons" chip that updates after each decision — the AI learns your eye as you cull (`GET /api/ranker/status`).
+
+**Genre profiles.** A **Profile** selector in the toolbar applies a genre preset that bundles every culling knob at once — strictness, keeper budget, similarity threshold and the darkroom's eyes-closed / poor-expression face cutoffs — so sports keeps only the sharpest of a burst, weddings keep more eyes-open variants, concerts and wildlife relax the face gates. The choice persists in `localStorage`; nudging any knob by hand reverts the label to "Custom". Presets live in the [`cull_profiles`](CONFIGURATION.md#genre-aware-culling-profiles) block (`GET /api/culling/profiles`).
+
+### Auto-cull
+
+A toolbar **Auto-cull** button culls a whole scope in one pass instead of group-by-group. Pick the scope with the granularity/scope controls (all groups, or only bursts / similars / scenes, optionally an album or date window), set a **strictness** — the keeper budget, where higher keeps fewer per group — and preview. Each group keeps its best photo plus everything within the strictness margin (floored at a per-group minimum) and rejects the rest. The button is hidden entirely in the three keep-whole granularities (**Exposure brackets**, **Panoramas**, **HDR panoramas**) — there is nothing for it to decide there, since every frame of those sets starts kept. In a mixed scope, brackets are decided first, ahead of bursts, similars, and scenes, so a bracket's base exposure is never re-decided by a later group it also happens to overlap.
+
+The preview is a **dry run** (nothing is written): it shows the per-group keep/reject split. Confirm to apply — rejections are recorded and, like every cull, train "My Taste"; an optional **Highlights** album idempotently collects each group's best photo scoring at least `auto_cull.highlights_min`. A "better photo in this group" hint badge flags groups where auto-cull would keep a different frame than the current lead. `POST /api/culling/auto`; configured via the [`auto_cull`](CONFIGURATION.md#auto-cull) block. The same rules run headless from the terminal as `python facet.py --auto-cull` — see [Culling](COMMANDS.md#culling).
+
+When a keeper-ranking head is trained, `POST /api/culling/auto` picks each group's keeper by `keeper_prob` once it clears its accuracy gate — otherwise the output is byte-identical to the heuristic pick.
+
+**Trimming redundant brackets** is opt-in (`trim_brackets`, off by default), and it is the only auto-cull path that ever reduces a sequence set — everywhere else, a bracket, panorama, or HDR panorama that a mixed scope happens to touch stays kept whole, untouched by strictness. A bracket earns its extra frames by covering range the base exposure clips away; when that base clips neither shadows nor highlights there was nothing to recover, so the flanking exposures are storage rather than latitude — the "I leave bracketing on all the time" case. Only the base frame is kept, decided by which frame is the base exposure, never by score or strictness, and sets whose base has never been measured are left alone: unmeasured is not the same as unclipped.
+
+### Fullscreen
+
+Press **`F`** (or the header toggle) to drive the browser Fullscreen API and review edge-to-edge — the darkroom fills the screen with no app chrome. The key is listed in the darkroom's shortcut legend; press `F` or `Esc` to exit.
+
+### Loupe / Z-key zoom
+
+Press **`Z`** in the single-view lightbox to toggle a Photo-Mechanic-style loupe (fit ↔ 2×; wheel/`+`/`-` zoom up to 800%). Past the fit scale the pane swaps its thumbnail for the full-resolution `/image` source, so you judge critical focus on real pixels without leaving the view. On the Scenes contact strip, `Z` toggles a hover-magnifier that follows the cursor over a tile (sourced from the full-res image), with an adjustable zoom slider. Stored thumbnails cap at 640px, so the loupe is the way to pixel-peek beyond that.
+
+**Darkroom hover loupe.** Separately, a circular magnifier follows the cursor over the darkroom's main frame — in single view and over each compare pane — magnifying the full-resolution `/image` source mapped to the actual letterboxed picture, so the lens shows exactly the pixel under the cursor. The same lens also works over the face panel's close-up crops. A toolbar toggle turns it on or off; it is ON by default and its choice is remembered in `localStorage` per browser, not per user account. The lens is suppressed while the frame is zoomed past fit, since that view already shows real pixels and panning would fight the lens; it works in the darkroom's fullscreen mode and follows the frame when you step with `←`/`→` while hovering. This is separate from the contact-sheet grid's own loupe toggle in the culling header.
+
+### Per-Face Badges
+
+In the burst/similar culling lightbox, each detected face carries its own badges — eyes open/closed, poor expression, and detection confidence — instead of a single photo-level blink flag. This makes group shots easier to cull: you can see at a glance which face has closed eyes or a weak expression. The badges are fetched for a whole group in one batch call (`POST /api/culling-group/faces`).
+
+The darkroom's **face panel** colour-codes each face crop green / orange / red from its continuous eyes-open and smile scores, and adds live **eyes** and **smile** threshold sliders so you can tune what counts as a blink or a weak expression on the fly. The cut-offs are the config keys `face_detection.eyes_closed_max` and `face_detection.poor_expression_min` (both default `4.0`); the sliders start there. A third **Size** slider (64–256 px, steps of 16, default `112px`) resizes the face crops themselves — up from the previous fixed 64px — and, like the eyes/smile thresholds, its value is remembered in `localStorage` per browser, not per user account. After a mouse drag or click on any of the three sliders, keyboard focus returns to the darkroom so `←`/`→` (previous/next frame) and `↑`/`↓` (keep/reject) keep working right away instead of nudging the slider; tabbing onto a slider still hands the arrow keys to it, so keyboard-only adjustment still works.
+
+**Subject close-up strip (non-face groups).** For bursts / similar groups whose photos have no significant faces — wildlife, macro, products, birds — the darkroom shows a **subject** strip instead: the key subject of every frame, cropped from the persisted BiRefNet subject box and lined up side by side so you can compare the actual subject at close-up (the Zoner "AI Close-Up" idea, native). Each crop carries a group-normalized sharpness badge (10 = the sharpest subject in the group) and a coloured ring (green / amber / red) so the tack-sharp frame stands out; clicking a crop jumps the main view to that photo. The crops are cut from the stored thumbnail with no model run (`POST /api/culling-group/subjects`) and appear only when a group has subjects but no faces. This lights up only once photos carry a subject box: run `python facet.py --recompute-saliency` (GPU) to backfill an existing library — until then the strip simply doesn't appear.
+
+**Key subject (zoom target + key person).** The darkroom resolves who or what each frame of the open group is about — the best of its detected faces, or the persisted BiRefNet subject box when it has none — for the whole group in one call (`POST /api/photos/key_subjects`), and then zooms *at* it: **`Z`**, a double-click, or the first wheel step off the fit scale land the 1:1 view on that point instead of on the middle of the frame, so a pixel peek starts on the face that matters. Once you have panned or wheeled a frame yourself the suggestion stands down for that frame — it never re-frames a crop you chose. When the winner is a named person, that face carries an amber name pill in the face strip. Faces beat saliency, and among faces the best mix of relative size, centrality and named-person status wins, so a named subject in the middle distance beats a bigger stranger while a named speck in the background does not. Nothing is stored, so the answer always reflects the current face and person assignments; boxes are fractions of the full frame (`normalized_frame_xyxy`), never of the thumbnail on screen. `GET /api/photo/key_subject` serves the same answer for a single photo.
+
+**Synced compare (2-up / 4-up).** The lightbox header has Single / Compare 2 / Compare 4 buttons. In compare mode the panes share one pan/zoom transform, so scroll-wheel zoom or drag-pan on any pane moves them all to the identical crop — the way to pick the sharpest frame of a burst by actually peeping pixels. Double-click toggles fit ↔ zoom; past the fit scale each pane lazily swaps its 1920px thumbnail for the full-resolution `/image` source so the peek is crisp. No backend change — both image routes already exist. (Touch-pinch is not yet wired; use the wheel on desktop.)
+
+**Swipe to keep or reject (touch).** On a touch device the darkroom's single view doubles as a swipe deck: drag the frame right to keep it, left to reject it, and it tilts and tints as it goes — green with a KEEP badge, red with a REJECT one. Past 35% of the frame's width (never less than 48px) the release flings it off that side, writes the very decision the `↑` / `↓` keys write, and steps to the next frame exactly as `→` does; short of that the frame springs back and nothing is decided. A drag whose axis turns out to be vertical is released untouched the moment that is known, so it stays whoever's it was. Each commit raises a snackbar with **Undo** that restores both the decision *and* the frame it was made on — a mis-keyed `↑` is undone by pressing `↓`, but a mis-flicked thumb is already on the next frame with no opposite gesture to reach for. The gesture is offered only where it cannot fight another one: a coarse pointer (finger or stylus, never a mouse), single view (a compare grid has no one frame a swipe would be about), and the fit scale — past it the identical drag *is* the pane's pan, which the pane has already captured the pointer for. A one-line hint sits under the first frame until dismissed (remembered in `localStorage`).
+
+**Edited-look preview.** In single view the darkroom header gains a **palette** menu listing "Original" plus each configured darktable style, so you can cull on the *developed* look instead of the flat RAW preview — the way to judge a shot the way it will actually be delivered. Picking a style renders the original through darktable-cli (`--style`, bounded to `preview_max_edge`) and swaps it into the main image, with a spinner while it renders and a snackbar + revert to Original on failure. The chosen style persists across the frames of the current group and resets when you reopen the darkroom (per-session, never saved). The control only appears when at least one style is configured **and** darktable-cli resolves; the styles must already exist in the darktable configuration of the user running the viewer. Rendered previews are cached on disk (keyed by source mtime, style and max edge), so re-viewing a frame is instant. Endpoint: `GET /api/photo/cull_preview?path=&style=` (edition-gated); configure via [`raw_processor.darktable.cull_styles`](CONFIGURATION.md#raw-decode).
+
+API: see the [API Endpoints](#api-endpoints) section below.
+
+## Scenes View
+
+A **read-only** browse of your library grouped into chronological "scenes" — capture-time runs shown in story order with a grid, a hover loupe, and date/moment headers. Open to **all authenticated users** (read-only and edition alike). Photos are split into scenes by capture-time gaps (a new scene starts when more than `scenes.gap_minutes` pass between consecutive shots, adaptively widened on sparse shoots), and any over-long run is sub-split so a continuously-shot event never collapses into one giant scene.
+
+The only entry point is the per-album **Display scenes of this album** action button in the Albums grid (an album-scope picker inside the browse lets you switch the scope). There is no Scenes entry in the main nav. Each scene carries an edition-only **Cull this scene** button that deep-links into the [Culling](#culling) surface in scene granularity (`/culling?group_by=scene&album=&from=&to=`); edition users can also reach Scenes-as-culling directly from the Culling nav. The browse itself has no reject grid or bulk confirm — all culling now happens through the unified Culling surface.
+
+When narrative moments are computed (below), each scene is also titled by its dominant moment, and `scenes.split_on_moment_change` can sub-split a long run where the moment changes.
+
+## Narrative Moments
+
+Facet labels each photo with the scene/activity "moment" it depicts. The default **general** vocabulary is library-agnostic — celebration, dining, beach, water activity, mountains, nature & wildlife, cityscape, travel landmark, concert, sports, group gathering, portrait, children, pets, nightlife, ceremony, scenic landscape, snow & winter, home indoor, road & vehicle — or `other` (a `wedding` vocabulary ships as an opt-in genre). Neither Narrative Select nor AfterShoot does this; they group by time and visual similarity only.
+
+It is **zero-shot and fully local**, and **caption-semantic**: each photo's AI caption is encoded once and stored, and the moment is the best **max-pooled** cosine of that caption embedding against each moment's text prompts (L0) — the stored image embedding is the fallback when a photo has no caption. The caption signal matches moments ~2.4× more cleanly than the raw image. Small face/tag priors break near-ties (L1), then a Viterbi pass **smooths along the timeline** so an isolated misread is pulled back into the surrounding run (L2). An optional VLM tie-breaker (L3, 16gb/24gb) can re-judge low-confidence frames. Caption embeddings are computed once and reused, so re-labelling is a cheap dot product over stored vectors — no image decode, no per-image model pass; it **runs automatically at the end of every scan** (encoding only the new captions). The first full pass over an existing library encodes every caption (GPU recommended); re-label the whole library with `python facet.py --recompute-moments`.
+
+Moments surface as scene titles and as a gallery filter (`GET /api/photos?narrative_moment=beach`, options from `GET /api/filter_options/narrative_moments`). The vocabulary is config-driven per event type — see [Configuration — Narrative Moments](CONFIGURATION.md#narrative-moments) to tune prompts/thresholds or switch genre.
+
+**Moment confidence.** Each label stores a posterior confidence (`narrative_moment_confidence`). Labels below `viewer.moment_confidence_min` (default `0` = never dim) render dimmed with an "(uncertain)" suffix in the Scenes header, the Culling scene-group header, and the gallery photo tooltip (which also shows the confidence %). Confidence is also a sort option — **Moment Confidence** (NULLs sink) under the Content group — and a gallery range filter (`min_moment_confidence` / `max_moment_confidence`, a 0–1 slider in the sidebar **Moments** section).
+
+- Each scene shows its lead photos in capture order
+- Cull a scene from its **Cull this scene** button, which opens the culling surface scoped to that scene
+- Scenes smaller than `scenes.min_size` are omitted; at most `scenes.max_photos` photos are loaded
+
+API: see the [API Endpoints](#api-endpoints) section below.
+
+Controlled by `viewer.features.show_scenes` (default: `true`). See [Configuration — Scenes](CONFIGURATION.md#scenes) for `gap_minutes`, `min_size`, `max_photos`, `max_scene_size`, `adaptive`, and `adaptive_k`.
+
+## Junk Sweep
+
+A fast review queue for the non-photo "junk" that piles up in a hobbyist library — screenshots, scanned documents, receipts, memes, and presentation slides. Detection is zero-shot over the stored image embeddings (see [Configuration — Junk Sweep](CONFIGURATION.md#junk-sweep)); run `python facet.py --detect-junk` (or let it auto-run at the end of each scan) to populate `junk_kind`.
+
+Open it from the **Junk Sweep** nav button (the `/junk` route, edition-only). The page reuses the gallery grid and shows every flagged candidate:
+
+- **Kind filter chips** — "All kinds" plus one chip per detected kind with its count (from `GET /api/filter_options/junk_kinds`). Click to narrow the queue to one kind.
+- **Keep** (per photo) — clears the junk label so the photo leaves the queue **permanently**: it is marked evaluated-clean (`not_junk`) and is never re-flagged by a later `--detect-junk`.
+- **Reject** (per photo) — flags the photo as rejected using the same reject plumbing as everywhere else (nothing is deleted from disk).
+- **Reject all shown** — a bulk reject of every candidate currently loaded, behind a confirmation dialog.
+- **Loupe** — press **`Z`** (or the toolbar toggle) for a Photo-Mechanic-style hover magnifier to read fine text before deciding.
+
+Junk photos are **not** hidden from the normal gallery — they stay visible until you filter for them. Filter any gallery view with `?junk_kind=<kind>` (exact) or `?junk_kind=any` (any junk, excludes the `not_junk` sentinel).
+
+Controlled by `viewer.features.show_junk_sweep` (default: `true`).
+
+## Pairwise Comparison Mode
+
+Rank photos by judging them two at a time. The accumulated votes feed weight tuning. Access via the `/compare` route (Compare button in the header). Requires a non-empty `edition_password` (single-user) or `admin`/`superadmin` role (multi-user).
+
+The page has four tabs:
+
+### A/B Compare tab
+
+Side-by-side photo pairs. Pick a winner, mark a tie, or skip. A progress bar tracks votes toward 50, with running A-wins/B-wins/tie counts. A category filter scopes the session, and a selection-strategy dropdown controls how pairs are chosen.
+
+| Strategy | Description |
+|----------|-------------|
+| `uncertainty` | Photos with similar scores (most informative) |
+| `boundary` | 6–8 score range (ambiguous zone) |
+| `active` | Photos with the fewest comparisons (ensures coverage) |
+| `random` | Random pairs (baseline) |
+
+**Keyboard shortcuts:**
+
+| Key | Action |
+|-----|--------|
+| `A` | Left photo wins |
+| `B` | Right photo wins |
+| `T` | Tie |
+| `S` | Skip pair |
+| `Escape` | Close category override modal |
+
+### Weight Suggestions tab
+
+Shows the weights learned from comparisons against the current weights, side by side, with model accuracy before/after. The current top 10 photos and the predicted top 10 after recompute are previewed in adjacent columns. **Apply** writes the suggested weights; **Recompute** rescores the category to apply them (both require edition mode).
+
+### Weights tab
+
+Manual weight editor: a slider per metric for the selected category with a live score preview. **Save** writes to `scoring_config.json` (with a backup); **Recompute Scores** applies them; **Reset** reloads the stored weights.
+
+### Snapshots tab
+
+Save the current weights as a named snapshot and restore any earlier snapshot.
+
+### Category Priority & Scoring Contexts
+
+Categories are evaluated in ascending `priority` order and the first filter match wins — see [Filter Evaluation](SCORING.md#how-scoring-works) and [Scoring Contexts](CONFIGURATION.md#scoring-contexts) for the full model. Two edition-gated levers manage this without hand-editing `scoring_config.json`:
+
+- **Global priority** — `GET/POST /api/config/category_priorities` lists and reorders the base evaluation order. `POST` takes a full ordered list of category names and permutes the existing priority values onto it, so the multiset (and its uniqueness) is preserved rather than renumbered.
+- **Scoring contexts** — `GET /api/config/scoring_contexts` lists the configured presets (`default`, `action_stage`, `party_event`, `portrait_session`, `wildlife`, `landscape`, `motorsport`) together with each one's resolved effective order. A context promotes some categories to the front and excludes others outright without touching the global order. Every non-`default` preset's `promote`/`excluded` delta is itself editable from this same **Scoring Context** tab — drag the promoted head into order (or use the move-up/move-down buttons), toggle a category's exclusion, save — via `PUT /api/config/scoring_contexts/{name}` (edition-gated, body `{promote, excluded}`); it rejects an unknown category, `default` in either list, and a duplicate within `promote`, while a name listed in both is accepted and `excluded` wins. `label_key` and `suggest_from_moments` aren't editable from here. A context is assigned per album (see [Scoring Context](#scoring-context) under Albums) or per photo via the category override below.
+
+Neither lever rescores photos by itself. After reordering priorities, assigning a context, or setting a per-photo override, trigger a recompute (`POST /api/scan/recompute`, edition-gated) and poll `GET /api/scan/recompute_status` for `{running, kind, progress, exit_code}`. Both `/scan/start` and `/scan/recompute` are guarded cross-process by `facet.LibraryLock`, not just the viewer's in-memory job lock (see [Reordering the global priority](CONFIGURATION.md#reordering-the-global-priority)): a recompute or scan already running from a terminal makes the viewer refuse a new job with 409, naming the holder, so a CLI job and a viewer-triggered one can no longer collide. If `normalization.per_category` is enabled, a single recompute after a category-affecting change won't fully converge — see [Normalization](CONFIGURATION.md#normalization).
+
+The same tab's **Category collisions** panel (`GET /api/stats/categories/overlap`) exists to answer, before any reordering, which higher-priority category is quietly capturing a category's photos and by how many. Its table lists, per category, how many photos are currently assigned to it (**Assigned**), how many photos in the library would match its filters if evaluated alone (**Matches filters**), and how many of those are captured by a higher-priority category instead (**Captured by higher priority**, `matched - assigned`, floored at 0). A **Top colliding pairs** list below it ranks the categories most often matched together, by shared-photo count. The pinned `default` catch-all is excluded from both the table and the pairs list — it matches every photo by design (an empty filter set), so including it would drown out every real collision.
+
+### Category Override
+
+To reassign a photo's category from the comparison view: edit the category badge, select a target category, run "Analyze Filter Conflicts" to see which filters exclude it, then apply the override. The override is validated against the configured category names (`POST /api/comparison/override_category`) and now persists in the `photo_scoring_overrides` side table — unlike before, it survives the next recompute instead of being silently discarded, and the photo keeps the manually assigned category until it is explicitly cleared (`POST /api/comparison/clear_category_override`).
+
+The same two actions are available in the photo lightbox under **Set scoring category…** / **Clear override** (edition-gated), alongside a collapsible **why isn't this a different category?** panel. Pick a target category there and the panel reports which filters currently exclude the photo and what each one would have to become — for example *"Raise shutter_speed_max from 0.02 to 0.033"*. This is the quickest way to find out that a category is unreachable for a given photo rather than merely out-ranked, which reordering alone cannot fix. It is backed by `POST /api/comparison/suggest_filters`.
+
+## EXIF Statistics
+
+The Stats page (`/stats`) provides analytics across 5 tabs. Use the **category** and **date range** selectors in the toolbar to filter all charts to a specific subset of your library.
+
+### Tabs
+
+| Tab | Description |
+|-----|-------------|
+| **Equipment** | Camera bodies, lenses, and combos (top 20 each) |
+| **Shooting Settings** | ISO, aperture, focal length, shutter speed distributions |
+| **Timeline** | Photos over time |
+| **Categories** | Category analytics, weight management, and score correlations |
+| **Correlations** | Custom X/Y metric correlation charts with grouping |
+
+### Categories Tab
+
+Four sub-tabs:
+
+| Sub-tab | Description |
+|---------|-------------|
+| **Breakdown** | Photo counts per category, average scores, score distribution histograms |
+| **Weights** | Radar chart comparison (up to 5 categories), weight heatmap, and weight editor (edition mode) |
+| **Correlations** | Pearson correlation heatmap showing how each dimension influences the aggregate, click-to-detail view |
+| **Overlap** | Filter overlap analysis showing which categories share matching photos |
+
+Each chart has a toggleable `?` help button explaining how to read it. A global help toggle in the sub-tab bar shows explanations for all sub-tabs.
+
+### Weight Editor (Edition Mode)
+
+Available in the Weights sub-tab when edition mode is active:
+
+1. Select a category from the dropdown
+2. Adjust the weight sliders (one per metric, should sum to 100%)
+3. Use "Normalize to 100" to auto-balance
+4. Expand the collapsible Modifiers section to adjust bonuses/penalties
+5. The **Score Distribution Preview** shows a live before/after histogram as you move sliders
+6. Click **Save** to update `scoring_config.json` (creates a timestamped backup)
+7. Click **Recompute Scores** (appears after save) to apply new weights to all photos in that category
+
+All stats are user-aware in multi-user mode — each user sees analytics for their visible photos only.
+
+## Keyboard Shortcuts (Gallery)
+
+| Key | Action |
+|-----|--------|
+| `←` `→` `↑` `↓` | Move the current-photo marker between photo cards (grid columns and mosaic rows) |
+| `Enter` | Open the focused photo |
+| `Space` | Select / deselect the focused photo |
+| `Ctrl+A` | Select all — the whole filtered view from an empty selection (no request), otherwise the loaded photos |
+| `Escape` | Clear selection / close filter drawer |
+| `Shift+Click` | Range-select photos between last selected and clicked |
+| `Double-click` | Open photo |
+| `Shift+F10` / `Menu` | Open the context menu of the focused photo card (right-click does the same) |
+| `?` | Show the keyboard shortcuts reference (works on every page) |
+
+The current photo — the one star-rating, favorite and reject shortcuts act on — is marked with a 4px outline around its card; every other card dims to 50% opacity. Nothing is marked until the cursor has actually moved onto a photo in the results, so a gallery you have not navigated yet stays at full strength. Clicking a photo moves the marker onto it, so a shortcut typed right after a click lands on the photo you clicked, not on wherever the arrow keys last left it.
+
+## Undo
+
+Batch favorite/reject/rating operations and culling confirms show a snackbar
+with an **Undo** action for ~7 seconds. Batch flag operations are committed
+immediately and undone via inverse API calls (capped at 500 photos); culling
+confirms are deferred — the group disappears instantly but the API call only
+fires once the undo window elapses. [Manual tag](#manual-tags) edits are not
+undoable.
+
+## Progressive Web App
+
+The viewer ships a web app manifest and an Angular service worker (production
+builds only): it can be installed to the home screen, the app shell loads
+offline, and up to 1000 thumbnails are LRU-cached for 7 days. API responses
+are never cached (except i18n bundles with a freshness strategy), and logout
+clears the thumbnail cache so multi-user setups sharing a browser can't leak
+previews across accounts. A snackbar offers a reload when a new version has
+been deployed.
+
+## Mobile
+
+On small screens the bulk-selection bar collapses to the selection count,
+clear, select-all and a single **Actions** button that opens a touch-friendly
+bottom sheet with all bulk operations (favorite, reject, rate, albums, copy,
+download).
+
+## Photo Frame / Kiosk Endpoint
+
+Login-less kiosk devices — smart photo frames, Home Assistant dashboards, ImmichFrame / Immich-Kiosk style displays — can pull Facet's best shots without a user session. There is **no client UI**: kiosks consume the endpoints directly, authenticated by a long-lived opaque **frame token** configured in the `frame` config block (`frame.tokens`, an empty list disables the whole feature and every endpoint returns 404). Tokens are compared constant-time as UTF-8 bytes, so a missing token is a 401 and a wrong or non-ASCII token is a 403 — never a 500.
+
+Curation draws from the whole library: rejected, junk and blink photos are excluded, `frame.min_aggregate` (default 7.0) sets the score floor, and optional `frame.favorites_only` / `frame.categories` narrow it further. Photos are returned by a **score-weighted random sample** (a shuffle of the top-by-score candidate pool), so a frame shows variety among your best shots rather than the same handful every time. Responses **never contain filesystem paths** — each photo is addressed by an opaque signed id (the row's `rowid` signed with the server secret), so a token holder cannot enumerate arbitrary rows or learn where your files live.
+
+| Endpoint | Returns | Cache |
+|----------|---------|-------|
+| `GET /api/frame/photos?token=&count=` | `{photos: [{id, caption?, date_taken?, width, height}]}` — `count` capped at `frame.max_count` (default 100), defaults to `frame.count` (20) | — |
+| `GET /api/frame/image/{id}?token=&max_edge=` | the photo JPEG — on-disk original downscaled to `max_edge` (capped by `frame.max_edge`, default 1920), falling back to the stored thumbnail when the original is unreachable | long immutable |
+| `GET /api/frame/next?token=` | one random curated JPEG, different on every call — the dumb-frame / Home Assistant generic-camera case | `no-store` |
+
+### Generating a token
+
+Tokens are opaque strings you invent — use a long random one and treat it like a password:
+
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+```
+
+Add the result to `frame.tokens` in `scoring_config.json` (you can list several — one per device — and revoke one by removing it):
+
+```json
+"frame": {
+  "tokens": ["Xu8w…your-random-token…"],
+  "count": 20,
+  "min_aggregate": 7.0,
+  "max_edge": 1920,
+  "favorites_only": false,
+  "categories": []
+}
+```
+
+### Home Assistant recipe
+
+The single-URL `/api/frame/next` maps directly onto Home Assistant's [generic camera](https://www.home-assistant.io/integrations/generic/) — every refresh pulls a fresh curated shot:
+
+```yaml
+camera:
+  - platform: generic
+    name: Facet Frame
+    still_image_url: "http://facet.local:5000/api/frame/next?token=Xu8w…your-random-token…"
+    verify_ssl: false
+    framerate: 0.05  # refresh every ~20s
+```
+
+Add the camera to a Picture Glance / Picture Entity card (or a wall-tablet dashboard) and it becomes a self-updating photo frame.
+
+For an **ImmichFrame-style** consumer that manages its own slideshow, poll `GET /api/frame/photos?token=…&count=30` for the id list, then request each `GET /api/frame/image/{id}?token=…&max_edge=1920` — the ids are stable and the image responses carry a long immutable cache, so a client fetches each photo once and can crossfade between them itself.
+
+## Phone Auto-Upload
+
+A minimal **WebDAV** endpoint under `/dav` lets phone auto-upload apps (PhotoSync, and any client that speaks WebDAV) push photos straight into a Facet **inbox directory**. Point the inbox at one of your scanned directories (or a subdirectory of one) and run `facet.py --watch` on it: every uploaded photo is scored automatically as it lands — the PhotoPrism mobile-sync pattern.
+
+This is **upload-only plumbing** — it never touches user sessions or JWTs. Access is HTTP Basic with **shared-device credentials** configured in the `upload` block (`upload.username` / `upload.password`), **not** a user account. The whole `/dav` tree returns **404 while disabled**: the feature is only enabled when `upload.username`, `upload.password`, and `upload.inbox_dir` are all set. Every operation is confined to `upload.inbox_dir` — traversal, absolute paths, and symlink escapes are refused — and uploads stream to disk atomically, capped at `upload.max_file_mb` (default 500).
+
+Implemented methods: `OPTIONS`, `PROPFIND` (depth 0/1), `MKCOL`, `PUT`, `MOVE`, `DELETE`, `GET`, `HEAD`. `LOCK`/`UNLOCK` are not implemented (upload clients treat their absence as a non-locking share).
+
+### Configuration
+
+```json
+"upload": {
+  "username": "phone",
+  "password": "…a-long-random-shared-secret…",
+  "inbox_dir": "/photos/inbox",
+  "max_file_mb": 500
+}
+```
+
+`inbox_dir` should live under a scanned directory so `--watch` picks uploads up:
+
+```bash
+python facet.py /photos --watch
+```
+
+### PhotoSync recipe
+
+1. In PhotoSync, add a **WebDAV** configuration (Configure → Add Configuration → WebDAV).
+2. **URL / Server**: `http://<host>:5000/dav/` (use your Facet host; `https://` if you front it with a reverse proxy).
+3. **Username / Password**: the `upload.username` / `upload.password` you set above.
+4. **Target folder**: leave at the root (`/`) to drop into the inbox, or a subfolder PhotoSync creates via `MKCOL`.
+5. On the Facet host, scan the inbox in watch mode so uploads are scored as they arrive:
+
+   ```bash
+   python facet.py /photos --watch
+   ```
+
+### curl smoke test
+
+```bash
+curl -T photo.jpg -u phone:'…a-long-random-shared-secret…' http://<host>:5000/dav/photo.jpg
+```
+
+A `201 Created` (or `204 No Content` when overwriting) confirms the upload landed in the inbox; `--watch` scores it on the next debounce.
+
+## Configuration
+
+### Display Settings
+
+```json
+{
+  "viewer": {
+    "display": {
+      "tags_per_photo": 4,
+      "card_width_px": 168,
+      "image_width_px": 160,
+      "image_jpeg_quality": 96
+    }
+  }
+}
+```
+
+### Pagination
+
+```json
+{
+  "viewer": {
+    "pagination": {
+      "default_per_page": 64
+    }
+  }
+}
+```
+
+### Dropdown Limits
+
+```json
+{
+  "viewer": {
+    "dropdowns": {
+      "max_cameras": 50,
+      "max_lenses": 50,
+      "max_persons": 50,
+      "max_tags": 20,
+      "min_photos_for_person": 10
+    }
+  }
+}
+```
+
+Set `min_photos_for_person` higher to hide persons with few photos from the filter dropdown.
+
+### Quality Thresholds
+
+```json
+{
+  "viewer": {
+    "quality_thresholds": {
+      "good": 6,
+      "great": 7,
+      "excellent": 8,
+      "best": 9
+    }
+  }
+}
+```
+
+### Default Filters
+
+```json
+{
+  "viewer": {
+    "defaults": {
+      "hide_blinks": true,
+      "hide_bursts": true,
+      "hide_duplicates": true,
+      "hide_brackets": true,
+      "hide_panoramas": true,
+      "hide_details": true,
+      "hide_rejected": true,
+      "sort": "aggregate",
+      "sort_direction": "DESC",
+      "type": ""
+    },
+    "default_category": ""
+  }
+}
+```
+
+### Top Picks Weights
+
+```json
+{
+  "viewer": {
+    "photo_types": {
+      "top_picks_min_score": 7,
+      "top_picks_min_face_ratio": 0.2,
+      "top_picks_weights": {
+        "aggregate_percent": 30,
+        "aesthetic_percent": 28,
+        "composition_percent": 18,
+        "face_quality_percent": 24
+      }
+    }
+  }
+}
+```
+
+## Performance
+
+### Large Databases (50k+ photos)
+
+Run these for better performance:
+
+```bash
+python database.py --migrate-tags    # 10-50x faster tag queries
+python database.py --refresh-stats   # Precompute aggregations
+python database.py --optimize        # Defragment database
+```
+
+### Async SQLite (opt-in, for high-concurrency read paths)
+
+`api.database.get_async_db()` is an aiosqlite-backed async context manager
+parallel to `get_db()`. Endpoints are currently sync (FastAPI offloads them
+to a worker thread pool, which is fine at typical concurrency). For high-
+concurrency read paths (>5 simultaneous users), individual endpoints can be
+migrated by:
+
+1. Change `def foo(...)` to `async def foo(...)`.
+2. Replace `with get_db() as conn:` with `async with get_async_db() as conn:`.
+3. `await` every `.execute()` and `.fetchone()` / `.fetchall()`.
+4. Keep write paths sync — aiosqlite serializes writes anyway, and the sync
+   path's connection pool already handles them.
+
+The plan's hottest candidates are `/api/photos`, `/api/timeline`,
+`/api/search`. Migrate one at a time and benchmark before promoting.
+
+### Statistics Cache
+
+Precomputed aggregations with 5-minute TTL:
+- Total photo counts
+- Camera/lens model counts
+- Person counts
+- Category and pattern counts
+
+Check status:
+```bash
+python database.py --stats-info
+```
+
+### Lazy Filter Loading
+
+Filter dropdowns load on-demand via API:
+- `/api/filter_options/cameras`
+- `/api/filter_options/lenses`
+- `/api/filter_options/tags`
+- `/api/filter_options/persons`
+- `/api/filter_options/patterns`
+- `/api/filter_options/categories`
+- `/api/filter_options/apertures`
+- `/api/filter_options/focal_lengths`
+- `/api/filter_options/colors`
+- `/api/filter_options/metric_ranges`
+
+## API Endpoints
+
+Interactive API documentation is available at `/api/docs` (Swagger UI) and the OpenAPI schema at `/api/openapi.json`.
+
+The client's TypeScript types are generated from that schema into `client/src/app/core/api/schema.d.ts` by `cd client && npm run gen:api`. The generated file is committed, and CI regenerates it and fails if it differs — so a response model and the type the client reads it with cannot drift apart.
+
+### Gallery
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/photos` | Paginated photo list with filters |
+| `GET /api/photos/count` | `{ total }` — how many photos match the current gallery filters |
+| `GET /api/photos/paths` | `{ total, paths }` — every matching path, unordered; used on demand by actions that need filenames (download, copy), never by select-all. Capped at 10000: a view holding more is refused with a `412` naming the count and the cap rather than truncated — a partial path list would be a selection the user believes is whole — and there is no fallback: the action is abandoned with a "too many photos" message so the user can narrow the filters and retry. Only the actions that need a literal path list go through here; the whole-view selection itself is count-only (`GET /api/photos/count`) and never needed one, so the filter-scoped actions built on it (batch rating/reject writes, cull, sidecar export) are unaffected by this cap and carry their own |
+| `GET /api/photo` | Single photo details |
+| `PUT /api/photo/manual_tags` | Add a [manual tag](#manual-tags) to one photo (edition-gated). Body: `{path, tag}`. `404` for an unknown or invisible path, `422` for an invalid tag or a photo already at 50 tags; a tag that equals one of the photo's AI tags is a no-op answered `200` with `skipped_existing: true` |
+| `DELETE /api/photo/manual_tags` | Remove a manual tag from one photo (edition-gated). Body: `{path, tag}` |
+| `GET /api/photo/set?path=` | The bracket/panorama/hdr_panorama/burst/duplicate set a photo belongs to (sequence takes precedence over burst, burst over duplicate), keyed on `path` — never a group id, which the bracket and panorama passes each renumber from 1 on every run |
+| `GET /api/photo/histogram?path=&bins=` | Draw-ready luminance + R/G/B bins (`bins` ∈ 32/64/128/256, default 64) measured at scan time on the full-resolution image. Every channel is scaled by one global max, never its own. `r`/`g`/`b` are `null` for a row stored before the per-channel format; 404 when the row has no histogram at all, which is the widget's signal to fall back to sampling the thumbnail |
+| `GET /api/type_counts?hide_blinks=&hide_bursts=&hide_duplicates=&hide_brackets=&hide_panoramas=` | Photo counts per type for the sidebar chips. Same five toggles as the gallery; an omitted one falls back to `viewer.defaults` rather than "off" — send `hide_bursts=0` etc. explicitly to count everything |
+| `GET /api/similar_photos/{path}` | Similar photos (modes: `visual`, `color`, `person`) |
+| `GET /api/search?q=&limit=&threshold=&scope=` | Semantic text-to-image search (`scope=text` = OCR/caption text only). `threshold` is optional: omitted, it resolves to the active encoder's `models.*.search_threshold_percent` (exposed to the client as `/api/config`'s `search_threshold_default`); an explicit value — including `0.0` — always overrides the resolved default. Only evaluated when the search actually runs an embedding search (`scope != 'text'` skips the resolution entirely) |
+| `GET /api/critique?path=&mode=&refresh=` | AI critique (rule-based or VLM); `refresh=true` regenerates the cached VLM critique (edition session only; otherwise `vlm_available: false`) |
+| `GET /api/ranker/status` | Personal-ranker status for the "My Taste" sort (learned coverage %, held-out accuracy) |
+| `GET /api/config` | Viewer configuration |
+
+### Authentication
+
+| Endpoint | Description |
+|----------|-------------|
+| `POST /api/auth/login` | Authenticate and receive token; 503 when the server's own configuration could not be read, which is refused rather than treated as an install with no password |
+| `POST /api/auth/edition/login` | Unlock edition mode; 503 on the same unreadable-configuration state, so it is not reported as a wrong password |
+| `POST /api/auth/edition/logout` | Lock edition mode (drop privileges, stay authenticated) |
+| `GET /api/auth/status` | Check authentication status |
+
+### Thumbnails and Images
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /thumbnail` | Photo thumbnail |
+| `GET /face_thumbnail/{id}` | Face crop thumbnail |
+| `GET /person_thumbnail/{id}` | Person representative thumbnail |
+| `GET /image` | Full-resolution image |
+
+### Filter Options
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/filter_options/cameras` | Camera models with counts |
+| `GET /api/filter_options/lenses` | Lens models with counts |
+| `GET /api/filter_options/tags` | Tags with counts |
+| `GET /api/filter_options/persons` | Persons with counts |
+| `GET /api/filter_options/patterns` | Composition patterns |
+| `GET /api/filter_options/categories` | Categories with counts |
+| `GET /api/filter_options/apertures` | Distinct f-stop values with counts |
+| `GET /api/filter_options/focal_lengths` | Distinct focal lengths with counts |
+| `GET /api/filter_options/colors` | Color temperature and hue-bucket facets with counts |
+| `GET /api/filter_options/metric_ranges` | Observed min/max and histogram per numeric metric (for slider bounds) |
+
+### Batch Operations
+
+| Endpoint | Description |
+|----------|-------------|
+| `POST /api/photos/batch_favorite` | Mark multiple photos as favorite (clears rejected). Body is exactly one of `{photo_paths}` (max 1000) or `{filters}` — `filters` takes the same query params as `GET /api/photos`, as strings, with no cap. `exclude` (optional, max 1000) may accompany either and narrows whichever target is sent — subtracted from `photo_paths`, or bound out of the `filters` scope — so it can only narrow, never widen. Supplying neither target or both is a 422, and a `filters` set naming an album is access-checked like that album's own GET — `404` for an album that does not exist, `403` for another user's on an access-controlled install. Response `{success, count}`, where `count` is the number of rows actually written |
+| `POST /api/photos/batch_reject` | Mark multiple photos as rejected (clears favorite and rating). Same body contract as `batch_favorite` above |
+| `POST /api/photos/batch_rating` | Set star rating for multiple photos. Same body contract as `batch_favorite`, plus a required `rating` (0–5) |
+| `POST /api/photos/batch_manual_tags` | Add or remove one [manual tag](#manual-tags) on multiple photos (edition-gated). Same body contract as `batch_favorite`, plus a required `tag` and an `action` of `add` or `delete`. Response `{success, count}`, where `count` is the number of rows actually written: photos already at the 50-tag cap and photos whose AI tags already contain the tag are skipped on `add` |
+
+### Persons
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/persons` | List all persons |
+| `POST /api/persons` | Create a new person, optionally attaching faces (edition-gated). Body: `{name, face_ids}` |
+| `GET /api/persons/needs_naming?min_faces=N` | List unnamed auto-clustered persons with `face_count >= N` (default from `viewer.persons.needs_naming_min_faces`) |
+| `POST /api/persons/{id}/rename` | Rename a person |
+| `POST /api/persons/{id}/assign_faces` | Bulk-attach faces to a person; empty old-persons are auto-deleted (edition-gated). Body: `{face_ids}` |
+| `POST /api/persons/{id}/split` | Split a subset of a person's faces into a new person (edition-gated). Body: `{face_ids, name}` |
+| `POST /api/persons/{id}/hide` | Hide a person from the list, filters, and merge suggestions |
+| `POST /api/persons/{id}/unhide` | Unhide a previously hidden person |
+| `POST /api/persons/merge` | Merge two persons (JSON body) |
+| `POST /api/persons/merge/{source_id}/{target_id}` | Merge source person into target |
+| `POST /api/persons/merge_batch` | Merge multiple persons at once |
+| `POST /api/persons/merge_suggestions/reject` | Dismiss a merge suggestion so it is not proposed again |
+| `POST /api/persons/{id}/delete` | Delete a person |
+| `POST /api/persons/delete_batch` | Delete multiple persons at once |
+
+### Albums
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/albums` | List all albums |
+| `POST /api/albums` | Create album |
+| `GET /api/albums/{id}` | Get album details |
+| `PUT /api/albums/{id}` | Update album |
+| `DELETE /api/albums/{id}` | Delete album |
+| `GET /api/albums/{id}/photos` | List photos in album (paginated) |
+| `POST /api/albums/{id}/photos` | Add photos to album |
+| `DELETE /api/albums/{id}/photos` | Remove photos from album |
+| `PUT /api/albums/{id}/scoring_context` | `[Edition]` Set the album's scoring context; materializes it onto members matching the album's filter right now, skipping any member's manual override (smart albums resolve `smart_filter_json` live), returns `{updated, conflicts, manual_skipped}` |
+| `DELETE /api/albums/{id}/scoring_context` | `[Edition]` Clear the album's scoring context and undo its stamp on exactly the members it set, returns `{ok, cleared}` |
+| `GET /api/albums/{id}/suggested_context` | Suggest a scoring context from the album's dominant `narrative_moment` (suggestion only, writes nothing) |
+| `POST /api/albums/{id}/share` | Generate share token |
+| `DELETE /api/albums/{id}/share` | Revoke share token |
+| `GET /api/shared/album/{id}?token=` | View shared album (no auth) |
+| `POST /api/shared/album/{id}/session` | Exchange a share token (+ optional PIN) for a client proofing session (rate-limited) |
+| `PUT /api/shared/album/{id}/picks` | Client upserts a heart/comment on a photo (proofing session) |
+| `GET /api/shared/album/{id}/picks` | Client reads their own picks (proofing session) |
+| `GET /api/albums/{id}/picks` | `[Edition]` Owner reads all client picks for the album |
+
+### Memories, Timeline, Map & Captions
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/memories?date=` | Photos taken on this date in previous years |
+| `GET /api/memories/check` | Check if memories exist for a date |
+| `GET /api/caption?path=` | Get the AI caption; an edition session generates it on first request (otherwise `source: "edition_required"`) |
+| `PUT /api/caption` | Update photo caption (edition mode) |
+| `GET /api/timeline?cursor=&limit=&direction=&hide_blinks=&hide_bursts=&hide_duplicates=&hide_brackets=&hide_panoramas=` | Paginated timeline photos. The five `hide_*` toggles are the gallery's; an omitted one falls back to `viewer.defaults` rather than "off" |
+| `GET /api/timeline/dates?year=&month=&hide_blinks=&hide_bursts=&hide_duplicates=&hide_brackets=&hide_panoramas=` | Available dates for navigation (same `hide_*` fallback) |
+| `GET /api/timeline/years?hide_blinks=&hide_bursts=&hide_duplicates=&hide_brackets=&hide_panoramas=` | Available years with photo counts (same `hide_*` fallback) |
+| `GET /api/timeline/months?hide_blinks=&hide_bursts=&hide_duplicates=&hide_brackets=&hide_panoramas=` | Available months for a year (same `hide_*` fallback) |
+| `GET /api/photos/map?bounds=&zoom=&limit=` | Geotagged photos within bounds |
+| `GET /api/photos/map/count` | Count of geotagged photos |
+
+### Capsules
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/capsules` | Paginated capsule list (cached) |
+| `GET /api/capsules/{id}/photos` | Photos for a specific capsule |
+| `POST /api/capsules/{id}/save-album` | Save capsule as album (edition mode) |
+
+### Statistics
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/stats/overview` | Overall scoring statistics summary |
+| `GET /api/stats/score_distribution` | Score distribution histogram data |
+| `GET /api/stats/top_cameras` | Top cameras by photo count |
+| `GET /api/stats/categories` | Category counts and averages |
+| `GET /api/stats/gear` | Camera/lens/combo counts |
+| `GET /api/stats/settings` | Shooting settings distributions |
+| `GET /api/stats/timeline` | Timeline data |
+| `GET /api/stats/correlations` | Custom metric correlations |
+| `GET /api/stats/categories/breakdown` | Per-category photo counts and score distributions |
+| `GET /api/stats/categories/weights` | Category weights and modifiers from config |
+| `GET /api/stats/categories/correlations` | Pearson r correlation per dimension per category |
+| `GET /api/stats/categories/metrics?category=X` | Raw metric values for client-side preview |
+| `GET /api/stats/categories/overlap` | Filter overlap analysis between categories |
+| `POST /api/stats/categories/update` | Update category weights/modifiers (edition mode) |
+| `POST /api/stats/categories/recompute` | Recompute scores for a category (edition mode) |
+
+### Comparison Mode
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/comparison/next_pair` | `[Edition]`  Get next photo pair for comparison |
+| `POST /api/comparison/submit` | Submit comparison result |
+| `POST /api/comparison/reset` | Reset comparison data |
+| `GET /api/comparison/stats` | `[Edition]`  Comparison session statistics |
+| `GET /api/comparison/history` | `[Edition]`  List past comparisons |
+| `POST /api/comparison/edit` | Edit a comparison result |
+| `POST /api/comparison/delete` | Delete a comparison |
+| `GET /api/comparison/coverage` | `[Edition]`  Category coverage of comparisons |
+| `GET /api/comparison/confidence` | `[Edition]`  Confidence metrics for learned scores |
+| `GET /api/comparison/photo_metrics` | Raw metrics for photos |
+| `GET /api/comparison/category_weights` | `[Edition]`  Category weights/filters |
+| `GET /api/comparison/learned_weights` | `[Edition]`  Suggested weights from comparisons |
+| `POST /api/comparison/preview_score` | Preview with custom weights |
+| `POST /api/comparison/suggest_filters` | Analyze filter conflicts |
+| `POST /api/comparison/override_category` | `[Edition]` Set a sticky per-photo category override (validated against configured category names; survives the next recompute) |
+| `POST /api/comparison/clear_category_override` | `[Edition]` Remove a photo's category override; filter evaluation decides again on the next recompute |
+| `POST /api/recalculate` | Recalculate scores with current weights |
+
+### Burst Culling
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/burst-groups` | List burst groups for culling |
+| `POST /api/burst-groups/select` | Select keepers from a burst group |
+| `GET /api/similar-groups?threshold=&page=&per_page=` | Groups of visually similar photos |
+| `POST /api/similar-groups/select` | Select keepers from a similar group |
+| `GET /api/culling-groups?group_by=all\|burst\|similar\|scene\|bracket\|panorama\|hdr_panorama&exclude_rejected=true&similarity_threshold=&page=&per_page=` | Burst/similar/scene/sequence groups for culling. `group_by` (default `all`) selects merged burst+similar, burst-only, similar-only, chronological scene groups (scene groups add `type`/`start`/`end`/`moment`/`moment_confidence`; the `sort` param is ignored in scene mode), or one of the keep-whole sequence kinds (`bracket`, `panorama`, `hdr_panorama` — each its own granularity, never merged into `all`). `exclude_rejected` (default `true`) hides photos with `is_rejected=1`; groups with fewer than 2 remaining photos are dropped. When a keeper-ranking head is trained, each photo also carries `keeper_prob` and each group carries `keeper_best_path` |
+| `POST /api/culling-groups/confirm` | Confirm culling selections. Body `{group_id, type, paths, keep_paths}`; `type` is `burst \| similar \| scene \| bracket \| panorama \| hdr_panorama`. `type:'scene'` records the scene-cull comparison rows; the three sequence kinds reject like the others but record no comparison pairs, since preferring one rung of a ladder or one frame of a pan says nothing about taste |
+| `POST /api/culling/auto` | `[Edition]` One-button auto-cull for a whole scope. Body `{group_by, album_id?, date_from?, date_to?, strictness?, min_keep_per_group, highlights_album, dry_run, profile?, trim_brackets}`; `group_by` is `all \| burst \| similar \| scene` (sequence kinds are not a valid scope here — see `trim_brackets`). `profile` names a `cull_profiles` preset to source `strictness`/`min_keep_per_group` from when they are omitted. `dry_run` (default `true`) returns the per-group keep/reject preview, an apply rejects the rest and records culling pairs. `trim_brackets` (default `false`) additionally trims brackets whose base exposure clips neither shadows nor highlights down to that base frame — the only auto-cull path that ever reduces a sequence set |
+| `GET /api/culling/suggest_profile?album_id=&date_from=&date_to=` | Infer the scope's dominant shoot type from its stored categories, narrative moments, face counts and capture hours, and name the `cull_profiles` preset that fits it, with a confidence and the evidence counts it was based on; cached per scope. `profile` is `null` below the dominance floor or when the matching preset isn't configured |
+| `POST /api/culling-groups/override_sequence` | `[Edition]` Record a sticky correction to what a set of frames is. Body `{paths, kind?}`; `kind` is `panorama \| hdr_panorama \| bracket` or omitted to mark the frames as not one of these. A `bracket` mark is gated on the exposure-ladder rule (≥2 frames, every one with usable exposure metadata, no two at the same exposure value) and 400s with a specific message when the frames don't qualify. Lands in `photo_sequence_overrides` (survives the detector clearing and rewriting `photos.sequence_*` on every run); takes effect on the next `POST /api/scan/detect_panoramas` |
+| `POST /api/culling-groups/clear_sequence_override` | `[Edition]` Drop a manual sequence correction for the named frames, handing them back to the detector. Body `{paths}` |
+| `POST /api/culling-group/faces` | Per-face badges (eyes open/closed, expression, confidence) for a group, in one batch |
+| `POST /api/culling-group/subjects` | Subject close-up crops (from the persisted BiRefNet subject box) + group-normalized sharpness for a non-face group, in one batch. `has_subject:false` when a photo has no box / a near-full-frame box (no model runs) |
+| `GET /api/photo/key_subject?path=` | Who / what a photo is about: its best-ranked face, else its persisted saliency box, as a `normalized_frame_xyxy` box + centre. Resolved per request from stored columns (no model run, nothing cached); `kind:"none"` when neither exists |
+| `POST /api/photos/key_subjects` | The same answer for up to 1000 paths in one call (`key_subjects_by_path`) — the darkroom's zoom target and key-person badge. Every requested path is present; unknown or invisible ones come back as `kind:"none"` rather than missing |
+| `POST /api/photos/keeper_hints` | Per-photo "a better shot exists in this group" hints for the gallery/lightbox badge, grouped by `burst_group_id`. Body `{paths}`; returns `{path: {has_better, best_path, keeper_prob}}`. Head-gated — returns `{}` when no keeper-ranking head is trained |
+| `GET /api/photo/cull_preview?path=&style=` | `[Edition]` Render a photo's original through a configured darktable style (`--style`, bounded to `preview_max_edge`) for the darkroom's edited-look preview. Disk-cached; 400 on unknown style, 503 when darktable-cli is unavailable, 502 on render failure/timeout |
+| `GET /api/scenes` | Chronological scenes of burst-lead photos (read-only browse) |
+| `GET /api/filter_options/junk_kinds` | Detected junk kinds with counts (excludes the `not_junk` sentinel) for the Junk Sweep chips |
+| `POST /api/photo/clear_junk` | `[Edition]` Keep a junk candidate — clears its `junk_kind` to `not_junk` so it leaves the queue permanently. Body `{photo_path}` |
+
+### Scan
+
+| Endpoint | Description |
+|----------|-------------|
+| `POST /api/scan/start` | Start a scoring scan. Requires `superadmin` role (multi-user) or an edition-authenticated session on a locked single-user install (`viewer.edition_password` set) — an open single-user install (`viewer.edition_password` empty, the shipped default) 403s every caller, including one holding a valid edition-generation JWT |
+| `GET /api/scan/status` | Check scan progress (structured `progress`: `{phase, current, total, eta_seconds}`); same access rule as `/start` |
+| `GET /api/scan/stream?token=<jwt>` | Real-time progress via Server-Sent Events; the token is minted by `GET /api/scan/stream_token` (same access rule as `/start`) and passed as a query param (the `EventSource` API can't set headers), with automatic fallback to polling `/status` |
+| `GET /api/scan/directories` | List configured scan directories; same access rule as `/start` |
+| `POST /api/scan/recompute` | `[Edition]` Trigger a full-library aggregate recompute (`--recompute-average`) as a background job; guarded cross-process by `facet.LibraryLock`, so it also refuses (409, naming the holder) when a scan or recompute is already running from a terminal, not just from another viewer tab. Unlike `/start`, its argv is fixed server-side and takes no request input, so it isn't gated by the mode-dependent access rule above |
+| `GET /api/scan/recompute_status` | `[Edition]` Poll recompute progress: `{running, kind, progress, exit_code}` — omits the `output_lines` log stream that `/status` returns, which is gated the same way as `/start` |
+
+### Face Management
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/person/{id}/faces` | List faces for a person |
+| `POST /api/person/{id}/avatar` | Set person avatar face |
+| `GET /api/photo/faces` | List faces detected in a photo |
+| `POST /api/face/{id}/assign` | Assign a face to a person |
+| `POST /api/photo/assign_all_faces` | Assign all faces in a photo to a person |
+| `POST /api/photo/unassign_person` | Unassign a person from a photo |
+
+### Photo Actions
+
+| Endpoint | Description |
+|----------|-------------|
+| `POST /api/photo/set_rating` | Set star rating for a photo |
+| `POST /api/photo/toggle_favorite` | Toggle favorite status |
+| `POST /api/photo/toggle_rejected` | Toggle rejected status |
+
+### Config Management
+
+| Endpoint | Description |
+|----------|-------------|
+| `POST /api/config/update_weights` | Update scoring weights |
+| `GET /api/config/weight_snapshots` | `[Edition]`  List saved weight snapshots |
+| `POST /api/config/save_snapshot` | Save current weights as snapshot |
+| `POST /api/config/restore_weights` | Restore weights from snapshot |
+| `GET /api/config/category_priorities` | `[Edition]` List categories in current priority (evaluation) order |
+| `POST /api/config/category_priorities` | `[Edition]` Reorder category evaluation priority; permutes the existing priority values onto the new order rather than renumbering |
+| `GET /api/config/scoring_contexts` | List configured scoring contexts, each with its resolved effective category order |
+| `PUT /api/config/scoring_contexts/{name}` | `[Edition]` Rewrite one context's `promote`/`excluded` delta (body `{promote, excluded}`); rejects an unknown category, `default` in either list, and duplicates within `promote` — a name in both lists is accepted and `excluded` wins |
+
+### Merge Suggestions
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/merge_suggestions` | Suggested person merges based on face similarity |
+
+### Folders
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/folders?hide_blinks=&hide_bursts=&hide_duplicates=&hide_brackets=&hide_panoramas=` | List photo folder structure. Same `hide_*` fallback to `viewer.defaults` as the gallery |
+
+### Download
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/download/options` | Available download types for a photo (`path`, optional `is_shared`) |
+| `GET /api/download` | Download a photo (`path`, `type=original\|darktable\|raw`, optional `profile`) |
+| `GET /api/photo/social_crop` | `[Edition]` Download the cropped full-resolution JPEG for a social aspect preset (`path`, `preset`) |
+| `GET /api/photo/social_crop/preview` | `[Edition]` Return just the normalized crop rectangle + framing source for a preset (`path`, `preset`) — no original decode |
+
+**Download types:**
+
+- `original` — Serve the file as-is (JPG/HEIF) or rawpy-converted to JPEG (RAW files).
+- `darktable` — Convert companion RAW with a named darktable profile (requires `profile` param). Falls back to original if no companion RAW exists.
+- `raw` — Serve the companion RAW file as-is (not available in shared albums).
+
+The `/api/download/options` endpoint detects companion RAW files automatically and returns available options including configured darktable profiles. The viewer uses this to populate a per-photo download menu.
+
+`type=original` converts a RAW through the same rendering the viewer shows, so a bracketed frame downloads with no camera preview and no exposure gain — see [CONFIGURATION.md](CONFIGURATION.md#bracketed-frames-render-uncorrected). `type=raw` and `type=darktable` are unaffected.
+
+**Saliency-aware social crop.** When `viewer.features.show_social_export` is `true` (default) and edition is unlocked, the photo detail download bar gains a **Social crop** menu listing the configured `social_export.presets` (square 1:1, portrait 4:5, story 9:16 out of the box). Choosing a preset downloads a full-resolution JPEG cropped to that aspect and framed on the detected subject — something Lightroom export presets cannot do. The crop window is the largest rectangle of the target aspect that fits inside the image, centered on the subject and clamped at the edges. The subject box comes from a fallback chain: the persisted BiRefNet subject box (`photos.subject_bbox`, written by the saliency pass and `--recompute-saliency`) → the union of detected face boxes → a plain center crop. The `preview` endpoint returns which source drove the crop (`saliency` / `faces` / `center`), shown in the menu tooltip. Original decoding reuses the same RAW (rawpy) and HEIC (pillow-heif) loader as the download path, with EXIF orientation applied before cropping.
+
+### Editor Export
+
+| Endpoint | Description |
+|----------|-------------|
+| `POST /api/photo/export_xmp` | `[Edition]` Write one XMP sidecar |
+| `POST /api/export/sidecars` | `[Edition]` Write sidecars for explicit paths or a filter set. Body `{paths?, filters?, exclude?, overwrite}` — exactly one of `paths` (max 10000) or a gallery `filters` set: naming both is a `422`, naming neither a `400`. `exclude` (optional, max 1000) drops named paths from whichever target is sent — subtracted from `paths`, or bound out of the `filters` scope; `filters` resolves through the same normalization `GET /api/photos` uses, exactly like `POST /api/cull/apply` below, and a `filters` set naming an album is access-checked like that album's own GET — `404` for an album that does not exist, `403` for another user's on an access-controlled install. A `filters` set matching more than 10000 photos is refused with a `412` naming the count and the cap, counted before any path list is built and never truncated |
+| `POST /api/photo/embed_metadata` | `[Edition]` Embed metadata into the original file (JPEG/HEIC/TIFF/PNG/DNG; RAW never modified) and write the sidecar |
+| `POST /api/lightroom/manifest` | `[Edition]` Build and return the same `facet_manifest.json` `--export-manifest` writes, scoped by `{paths?, filters?, exclude?}` — same shape, resolution and selection cap (10000) as `POST /api/export/sidecars` above. In multi-user mode, a photo outside the caller's visible directories is dropped from `paths` and from any burst/sequence set expansion, never appears via either route; `exclude` is applied AFTER that expansion (an excluded frame is never re-added as a set sibling). The selection is bounded twice: `paths`/`filters` is capped at 10000 before expansion, and the selection after expanding to full burst/sequence sets is re-checked against a separate, higher cap of 50000 (matching `POST /api/lightroom/import`'s own photo cap, since a manifest built here must be small enough for that route to accept it back) — a `412` naming the count and whichever cap it crossed. Returned as an attachment (`facet_manifest.json`); ratings are the caller's own (multi-user resolved) |
+| `POST /api/lightroom/import` | `[Edition]` Import the plug-in's exported Lightroom state (raw JSON body, no multipart) via `processing.lightroom_sync.import_lightroom_state` — Lightroom wins for `rating`/`pick`, whichever fields each record carries. In multi-user mode, a record naming a photo outside the caller's visible directories counts as `unmatched` and is never written. Capped at 20 MB / 50000 photos (`413`, the photo-count check runs after `json.loads`); a chunked body with no `Content-Length` is refused with `413` as soon as the streamed size crosses the 20 MB cap, rather than buffered first. A body failing the `{"format":"facet-lightroom-state","version":1,...}` shape check is `400` before any write. Response `{matched, unmatched, changed}` |
+| `POST /api/albums/{id}/export` | `[Edition]` Album export as sidecars, copy, or symlink |
+| `POST /api/cull/apply` | `[Edition]` Copy keeps or move/trash rejects to a folder (see [Cull to folder](#cull-to-folder)). Body `{paths?, filters?, exclude?, action, target_dir?, include_companions, include_sequence_siblings, dry_run}` — exactly one of `paths` (max 10000) or a gallery `filters` set, naming both being a `422` and naming neither a `400`; `exclude` (optional, max 1000) drops named paths from whichever target is sent — subtracted from `paths`, or bound out of the `filters` scope — so it can only narrow the target, never widen it, and an excluded path is never re-added as a sequence sibling either (it is left out of `sequence_siblings` as well); a `filters` set naming an album is access-checked like that album's own GET — `404` for an album that does not exist, `403` for another user's on an access-controlled install; `filters` resolves through the same normalization `GET /api/photos` uses (viewer defaults plus `type` preset expansion), so it always matches the gallery view it was derived from. A `filters` set matching more than 10000 photos is refused with a `412` naming the count and the cap, counted before any path list is built, never truncated, and enforced on a dry run exactly like a real one — a preview cannot be used to do the unbounded work the run itself is refused for; `action` is `copy_keeps \| trash_rejects \| move_rejects`; `include_companions` (default `false`) adds each file's same-stem companion RAW and `.xmp`; `include_sequence_siblings` (default `false`) adds every other frame sharing a matched photo's `(sequence_kind, sequence_group_id)` **whose own reject state matches the action**, so a kept frame is never destroyed because a sibling was rejected; `dry_run` defaults to `true`. Response adds `matched` (paths that qualified for the action) and `sequence_siblings` (sibling frame count, reported even when the flag is off) alongside `skipped` / `excluded_by_state` / `not_visible` |
+| `POST /api/photo/delete` | `[Edition]` Send one or more photos to the OS trash — recoverable, never a permanent delete (see [Delete](#delete)). Gated by the same `viewer.cull.allow_trash` flag as `/api/cull/apply`: `403` when off, `400` when the `send2trash` package is not installed. Body `{paths, include_companions, include_sequence_siblings, dry_run}` — `paths` only (max 10000), deliberately no `filters`/`exclude` branch: a filter-driven delete is the one shape that could trash an unbounded set, so the gallery's "select all in view" scope cannot use this endpoint. Default scope is the named file only; `include_companions` (default `false`) adds each file's same-stem companion RAW and `.xmp`; `include_sequence_siblings` (default `false`) widens any requested path to every other frame sharing its `(sequence_kind, sequence_group_id)`, exactly as it does on `/api/cull/apply`; a companion RAW/XMP pulled in by `include_companions` that itself has its own `photos` row is removed too, once its file trashes. A bracket's base exposure (its `sequence_ev_offset = 0` frame) in a bracket-kind group is refused (`refused_bracket_lead`) unless `include_sequence_siblings` is set, in which case the whole bracket is deleted together; a panorama lead deleted without the flag re-picks a surviving sibling as the new lead instead. A path's row is deleted immediately once its file actually trashes — no `--cleanup-missing-photos` needed for it. A path in `skipped` (file already missing from disk) keeps its row, since nothing was trashed for it — that is exactly what `--cleanup-missing-photos` reconciles. A path in `errors` (the trash attempt failed) also keeps its row, since its file is still on disk. `dry_run` defaults to `true`. Response is per-path: `{dry_run, would_trash, deleted, not_found, not_visible, refused_bracket_lead, sequence_siblings, skipped, trashed, errors}` |
+
+### Plugins
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/plugins` | `[Edition]`  List configured plugins |
+| `POST /api/plugins/test-webhook` | `[Edition]`  Test a webhook plugin |
+
+### Immich
+
+| Endpoint | Description |
+|----------|-------------|
+| `POST /api/immich/webhook` | Receive an Immich workflow webhook and mirror the pushed rating back immediately; an asset Facet hasn't scored yet is queued for the next `--immich-sync`. Static-token auth (`immich.webhook.token_env`; unset ⇒ 404); never triggers a scan. See [docs/IMMICH.md](IMMICH.md) |
+
+### Health
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /health` | Server health check |
+| `GET /ready` | Server readiness check |
+| `GET /metrics` | Prometheus-format metrics: photo counts, embedding coverage, DB size, process memory |
+
+### Internationalization
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/i18n/languages` | List available languages |
+| `GET /api/i18n/{lang}` | Get translations for a language |
+
+### Filter Options (additional)
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/filter_options/location_name?lat=&lng=` | Reverse geocode coordinates to place name |
+
+## Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| Slow page load | Run `--migrate-tags` and `--optimize` |
+| Filters not showing | Check `--stats-info`, run `--refresh-stats` |
+| Person filter empty | Run `--cluster-faces-incremental` |
+| Compare button missing | Set a non-empty `edition_password` (single-user) or use `admin`/`superadmin` role (multi-user) |
+| Password not working | Check `viewer.password` (single-user) or verify password hash (multi-user) |
+| User can't see photos | Check `directories` in their user config and `shared_directories` |
+| Scan button missing | Requires `viewer.features.show_scan_button: true` plus scan access: `superadmin` role (multi-user), or an edition-authenticated session on a locked single-user install (`viewer.edition_password` set) — an open single-user install never shows it |
+| Search returns no results | Ensure photos have `clip_embedding` data (run scoring first) |
+| VLM critique unavailable | Requires 16gb/24gb VRAM profile and `viewer.features.show_vlm_critique: true`, plus an edition session to generate one (without it only a cached critique is served) |
+| Map shows no photos | Run `--extract-gps` to populate GPS columns, ensure photos have EXIF GPS data |
+| Captions not generating | Requires 16gb/24gb VRAM profile for VLM captioning |
+| Timeline empty | Ensure photos have `date_taken` values |
+| Port 5000 in use | Run `python viewer.py --port 5001` (or set `PORT=5001`). On macOS, ControlCenter's AirPlay Receiver binds 5000 by default — either pick another port or disable AirPlay Receiver in System Settings → General → AirDrop & Handoff. |

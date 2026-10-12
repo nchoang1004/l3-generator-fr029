@@ -1,0 +1,2591 @@
+# Changelog
+
+## Unreleased
+
+- Keep the collection tree visible when selecting folders, preserving open branches
+  and downloaded sibling pages without reloading them on every click.
+
+- Finish Settings cache and audit ownership: preserve pending edits during refresh,
+  reject obsolete cache-policy changes, share audit reads, and retire commands
+  when leaving a view or changing session.
+
+- Keep manual printer-material drafts after rejected saves and offer explicit review
+  before adoption; cancel obsolete reads when switching printers.
+
+- Preserve first-run storage drafts across locale changes, retire setup requests
+  on navigation, and recover one initial Library read conflict without mixing snapshots.
+
+- Keep Library view metadata out of AI Search filter requests, so filtered and saved searches remain usable.
+
+- Offer Everything and Multipart Sets as the two Library views. Filter and order
+  mixed results on the server before pagination so later matching results remain
+  reachable. Reject stale continuation pages instead of mixing catalog revisions.
+
+- Preserve each Library history entry's filters and reading position through
+  detail navigation. Bound restoration after cache eviction, explain missing
+  anchors, keep rapid folder transitions coherent and retire private snapshots
+  when the session or access changes.
+
+- Detect competing edits to Models, Multipart Sets, Documents, printer settings,
+  Profiles, Search, Vault settings, browser names, notifications, storage connections,
+  Library sources and Spoolman. Preserve drafts for explicit review after conflicts
+  or uncertain responses. Bind edits to database history so restored backups cannot
+  authorize obsolete drafts. Legacy clients retain unversioned compatibility.
+
+- Keep confirmed changes authoritative during refetch and pagination races. Remove
+  the duplicate transport GET cache and transport-owned invalidation. Feature owners
+  coordinate reads, receipts and recovery; session changes retire private requests,
+  cached results, local secrets and pending confirmations.
+
+- Retain protected thumbnail URLs while displayed, admit nearby images under a
+  four-download limit and cancel abandoned work. Bound idle encoded image data
+  without evicting mounted consumers. Preserve Shift selection after page append
+  and the reading position after removing a confirmed favorite.
+
+- Share Inbox and durable Job state across consumers. Preserve accepted uploads
+  and scans after their forms close, recover missed events and prevent disposed
+  printer subscriptions from reconnecting. Retire bulk transfers with their session.
+
+- Give settings, storage migration, backup, source management, manufacturing and
+  ZIP review explicit loading, error and recovery states. Preserve unsaved input,
+  require the reviewed destination for destructive actions and avoid replaying
+  commands after an uncertain acknowledgement. Save compound Vault configuration
+  in one transaction; retain omitted credentials and independent edit counters.
+
+- Bind browser-extension captures to the selected connection throughout download
+  and upload. Retire revoked credentials, cancelled pairing and obsolete callbacks;
+  clean up malformed upload receipts and unnecessary host permissions.
+
+- Keep route-chunk recovery bounded and localized, restrict the offline cache to
+  public static resources and recover online navigation when Cache Storage fails.
+  Retain React Router and the static Vite deployment; enforce app/package dependency
+  directions and remove obsolete navigation and invalidation compatibility APIs.
+
+- Load the Library route immediately and defer upload, tag, multipart creation
+  and ZIP review forms until opened. Prioritize cards and the bounded tree,
+  release auxiliary reads after paint or explicit interaction, and share the
+  initial Jobs snapshot with the event handshake and a one-second fallback.
+  Deliver bootstrap and hashed assets without waiting for Cache Storage, keep
+  an offline shell fallback, and bound Model pages to 24 cards. Add production
+  startup measurements against a disposable real SQLite library in Deep CI.
+  Discard reads from previous sessions, prevent late GET/blob results from
+  refilling invalidated caches, and recognize session changes across tabs.
+
+- Add storage publication authority boundary tests for incompatible receipts and stale reconciliation.
+
+- Add import download contracts for staging names, redirect and window ceilings, stream cleanup and ZIP CRC refusal.
+
+- Add thumbnail engine contracts for unavailable allocation, source files and RSS telemetry, preserving publication errors.
+
+- Add real database contracts for mesh continuation recovery, cache lease deferral and current Job withdrawal authority.
+
+- Add authenticated HTTP contracts for outliner printer-filter authority and contradictory query scopes.
+
+- Add real ZIP preview contracts for embedded 3MF budgets, unsafe member names, CRC recovery and strict PNG validation.
+
+- Add real database contracts for similarity ingestion continuation authority, durable analysis eligibility and caller write rollback.
+
+- Verify fingerprint publication preserves active caller transactions and leases,
+  rejecting detached authority, changed recipes and invalid descriptor metadata.
+
+- Verify STL publication readers preserve buffered byte semantics and cancellation,
+  refusing nonregular output and unavailable or mismatched source storage.
+
+- Verify local inference rejects missing capabilities, model assets and oversized
+  input while preserving admission recovery and read-only cached model support.
+
+- Verify viewer STL conversion refuses nonfinite facets, excess streamed output
+  and changed or missing source identities before reporting success.
+
+- Verify prepared mesh resource identity and immutable detached buffers refuse
+  incoherent evidence before native analysis.
+
+- Verify import resolver selection identities reject malformed provider responses
+  while preserving stable errors and redacting private transport data.
+
+- Verify durable ingestion receipt writer authority, result pagination and canonical
+  File confirmation through real SQLite contracts.
+
+- Verify batch session lifecycle, frozen snapshots and result context against
+  real durable receipts, including refusal of incomplete artifact commit results.
+
+- Verify retained scene measurements preserve finite dimensions when closed
+  resources collapse or numeric volume aggregation exceeds its representable range.
+
+- Verify mesh output frame boundaries reject malformed flags, incoherent evidence,
+  oversized payloads and invalid fingerprint records before publication.
+
+- Verify preparation resource lifecycle rejects malformed recovery identities,
+  preserves failed cleanup ownership and enforces source-before-native ordering.
+
+- Verify durable volume evidence reads preserve closed variants and refuse
+  incompatible scalar, method, cause or state combinations.
+
+- Verify search generation proposal provider, visual profile and aggregation
+  rejection contracts directly at the public schema boundary.
+
+- Measure whole-host native fairness in the mandatory serial resource phase,
+  retaining real workers, branch coverage and the existing timing budgets.
+
+- Isolate provider HTTP pools and host capacity between tests so a previous
+  test's ended event loop cannot affect transport shutdown.
+
+- Keep fairness qualification reads bounded to pending foreground uploads while
+  preserving exact progress totals, native budgets and its existing deadline.
+
+- Qualify backup recovery and exact deletion against versioned S3 generations;
+  verify that missing receipts on unversioned targets are refused without
+  changing the published archive.
+
+- Reset PostgreSQL work-engine state by removing only its DBOS schema, preserving
+  application tables in the shared database and rebuilding the reconciler schedule.
+
+- Run Python compatibility tests and external service contracts in independent
+  Deep CI jobs, preserving both required results and their execution limits.
+
+- Distinguish repeated uploads from same-Job retries in sustained ingestion
+  qualification, verify versioned Artifact identities, and stop after the first
+  failed mandatory control while preserving failure evidence. Configure E2E
+  SQLite connections before concurrent work starts, matching production WAL
+  initialization and native-extension startup; prepare backup recovery through
+  permanent purge with foreign-key enforcement intact.
+
+- Keep Model card tag and similarity badge reads bounded as the SQLite catalog grows, including
+  installations with stale query-planner statistics.
+
+- Defer parent-only metrics and database URL parsing in disposable mesh workers,
+  reducing measured small-model startup costs while preserving CPU outputs,
+  parent telemetry and guarded process cleanup.
+
+- Add isolated GLB/LOD qualification tools with supervised native exports, real
+  browser memory/draw/quality measurements and protected-feature checks. Retain
+  STL after measured candidate correctness, resource and performance limits.
+
+- Publish batch Artifacts before materializing later entries. Bound disposable
+  staging by files and bytes, record each entry with its Artifact transaction,
+  and resume confirmed entries without reopening their sources. Keep partial
+  failures retryable and report unknown totals until discovery finishes.
+
+- Stop withdrawn batch imports between entries and source blocks, preserving
+  committed Artifacts and durable upload sources while cleaning owned staging.
+  Copy and hash browser upload bytes in one pass, and preserve cancellation when
+  receipt cleanup fails.
+
+- Add an isolated prepared-geometry cache benchmark with bounded, checksummed
+  arrays, current-loader STL equivalence checks and supervised worker timings.
+  Keep production preparation unchanged pending demonstrated reuse and recovery
+  guarantees.
+
+- Publish viewer STL conversions from verified staged streams without buffering
+  whole outputs in the API/worker parent. Reserve expanded output space before
+  conversion, reject changed or incomplete publications, and release request
+  database connections before work hints so concurrent viewer misses share one
+  durable conversion without pool timeouts. Release native compute credits before
+  storage publication; viewer recipe 3 rejects malformed STL and float32 overflow
+  or collapsed faces, rebuilding older viewer outputs on demand.
+
+- Bound file acceptance commands independently of ordinary API workers. Keep SQL
+  sessions on their creating thread, release them while streamed bodies wait,
+  revalidate credentials before publication, and finish admitted writes before
+  returning cancellation. Slow storage or engine hints leave lightweight API
+  requests responsive; accepted imports remain durable background Jobs.
+
+- Reserve interactive discovery slots beside one active backfill Job per
+  derivation lane. Keep bounded indexed scans and durable backfill progress
+  during uploads, dispatch admitted derivatives in FIFO order, and carry Job
+  priority through shared native and source-preparation admission with aging.
+  Preserve backfill reservations across public retries and engine-acceptance
+  crashes without spending another attempt while waiting. Verify legacy queue state before starting consumers; upgrades drain and
+  restart API and workers together.
+
+- Local ONNX models reserve a shared, bounded memory partition across API and worker processes, retain warm reuse, retire idle residents under pressure, and release their credits after guarded process-tree termination.
+
+**Source installs require Python 3.14 or newer.** See [the upgrade guide](UPGRADE.md#unreleased-python-314).
+
+- Coordinate mesh CPU/RAM credits across local API and worker processes. Bound
+  source preparation separately by bytes and I/O slots, retain native credits
+  through descendant cleanup, and recover abandoned source copies before reuse.
+  Reserve memory for the requested geometry, raster dimensions and optional
+  analysis, preserving WebP output and complete fingerprints for admitted work.
+  Reduce temporary raster buffers while keeping complete frames and output pixels.
+  Report queue time independently of native execution.
+- Remove the sidebar tree’s global 500-model limit with folder-scoped pages, complete branch counts, and global paginated name search with “Open location”. Keep permissions and library views in the server query; retry failed pages without losing loaded rows (#335).
+
+- Keep backup and vault audit clock inputs within valid minutes on Python 3.14; reject `24:00` rather than treating it as midnight.
+- Preserve traceable printer display names for extension-only and genuinely named inputs on Python 3.14.
+- Require Python 3.14 for the application and shared core, pin development and container runtimes to 3.14.8, and update the mesh stack to NumPy 2.5.3, SciPy 1.18.1 and Trimesh 5.1.1.
+- Publish mesh metadata and thumbnails before optional fingerprints finish, with durable bounded recovery that preserves completed outputs after native failures.
+- Reuse immutable mesh positions and smooth normals across each visual pass.
+  Embedding views and similarity view hashes consume pixels directly without
+  repeated PNG encoding and decoding, while preserving existing preview bytes
+  and descriptor identities.
+- Retain unique 3MF resources and explicit placements through measurement and
+  preview rendering. Measure repeated instances without first allocating a whole
+  placed mesh, materialize only for admitted fingerprints or global topology,
+  and release that mesh before rendering. Keep exact dimensions and counts when
+  optional volume or fingerprint analysis fails, with explicit volume evidence.
+  Preserve finite volume when source and placement scales compensate, and clear
+  measurement topology caches before rendering even without fingerprints.
+  Refresh mesh outputs under the new eligibility and budget policy.
+- Share bounded STL source validation across measurements, full loading, fallback
+  samples and streamed previews. Validate complete source facets and stable EOF
+  before reporting coverage, retain exact full-source bounds and counts for
+  partial samples, and refuse malformed or changed sources consistently.
+- Interpret reachable Core 3MF geometry and Production external model references
+  through an explicit bounded scene reader. Refuse unsupported required
+  capabilities with typed metadata, similarity and viewer reasons while retaining
+  original downloads and independently usable embedded previews. Refresh mesh
+  derivative recipes without introducing a Lib3MF dependency.
+- Keep mesh measurements and previews available when optional fingerprint analysis
+  exceeds its triangle budget, and release analysis buffers before STL rendering fallbacks.
+  Re-derive earlier terminal refusals at updated mesh recipes.
+- Independent mesh, G-code metadata/thumbnail and binary toolpath processing controls, with deployment defaults and live administrator settings. Disabling retains published previews and lets admitted processing finish; re-enabling resumes eligible missing work (#263).
+- Harden mesh workers with pre-import address-space limits, one admission controller
+  across concurrency changes, process-tree memory accounting, and shared budgets
+  for nested CAD/streaming work (#259).
+- Report refused mesh geometry separately from usable thumbnails, retain terminal
+  failures for unchanged input, and backfill accurate metadata with recipe 3 (#259).
+
+
+**Upgrade note:** The background engine now uses DBOS 3.0. Stop all API and
+worker processes before upgrading together. Engine state migrates on startup;
+rolling back requires discarding the upgraded, disposable engine state first.
+See [the upgrade guide](UPGRADE.md#unreleased-dbos-30).
+
+### Added
+
+- Measure mesh rendering, supervised native workers and upload-to-visible
+  production DBOS ingestion through separate reproducible benchmark paths.
+  Preserve phase costs, resource observations and failed samples, with an expanded
+  versioned corpus and opt-in large inputs and hash-pinned real slicer projects.
+- Publish explicit mesh volume state, method and cause independently of similarity
+  fingerprints. Preserve historical scalar provenance, keep small measurements
+  unrounded and evaluate signed volume accurately across large translations.
+  Reject nonphysical dimensions before publication and repair unusable historical
+  measurements during the additive upgrade.
+
+- Add a frozen synthetic mesh contract corpus and record benchmark environment, limits, versions and target expectations separately from observed render results.
+
+- Mesh workers retain bounded phase costs and parent-observed resource usage in structured process logs and local Prometheus counters, including metadata-only work and failed or cancelled native processes.
+
+- Deep CI exercises the production mesh pipeline under 1 GiB and 4 GiB
+  limits on amd64 and arm64, publishing memory, failure and cleanup evidence.
+- Job details show retained ingest capacity and provide a confirmed, identity-checked
+  discard action serialized against retry. Completed staging is reconciled at
+  startup; failed input retains its existing expiry (#259).
+
+- API responses include `Server-Timing` for total request time, SQL time and
+  statement count. Requests exceeding `VAULT_SLOW_REQUEST_MS` (1,000 ms by
+  default) emit a warning with those timings and the request ID to help diagnose
+  slow library pages without logging query values.
+- The API serves the collection tree a page at a time:
+  `GET /api/v1/collections/children` lists one level (or a user's top level),
+  `GET /api/v1/collections/lookup` resolves a path with its ancestors, and
+  `GET /api/v1/collections/search` finds collections by name at a minimum role.
+  Each result carries its subtree Model count, child count and display path.
+  `GET /api/v1/collections`, which returns the whole tree, is deprecated and
+  will be removed in 0.16.
+
+### Fixed
+
+- Keep admitted editor state while setup navigation is checked, retire it on rejection, and show legacy local/S3 storage details.
+
+- Preserve confirmed Model batch results when a later request loses its response, with explicit review and conditional undo of acknowledged changes.
+
+- Bounded STL previews report whether all source triangles are represented independently from a complete source scan. Mesh processing now uses separate admission, loading, measurement and preview owners with validated geometry and fingerprint contracts.
+- Mesh workers reject unknown or malformed fingerprint result states before publication.
+- Capture and similarity commands keep the API event loop responsive through database writes, background-engine notification and response projection.
+- Preserve existing paired Point model manifests and native encoder alignment when mesh rendering recipes change. Visual vector caches still track their rendering recipe.
+- Mesh metadata preserves measurement precision, including submillimeter dimensions and small positive volumes; existing rounded measurements are recalculated.
+- Small meshes placed far from the coordinate origin retain their thumbnail
+  geometry and shading. Visual recipes now refresh previews, view fingerprints,
+  and derived image vectors while preserving original files and encoder assets.
+- Geometric verification reuses an exact point index and preserves nearest-point
+  distances for models placed far from the origin. Previous pair proofs are
+  rechecked under the new verifier recipe while retaining review decisions.
+- Ingest acceptance keeps the API event loop responsive while staging files,
+  recording work and notifying the background engine.
+
+- Keep mesh-worker memory limits and cancellation active after the child closes its reply stream.
+- Active mesh workers can release their render admission while a queued worker checks durable cancellation state.
+
+
+- The thumbnail benchmark now runs the real engine, measures persisted local thumbnail reads, and preserves failed attempts with their costs instead of reporting misleading cache timings.
+- Large STL files now retain complete bounding dimensions and facet counts when only metadata is requested; measurements no longer depend on producing a thumbnail.
+- Mesh previews and image embeddings ignore vertices unused by any face when
+  framing the surface. Existing visual derivatives are regenerated.
+- Meshes with repeated identical faces no longer expand the same thumbnail pixels
+  repeatedly, avoiding unnecessary rasterization work during ingestion.
+- Meshes with inconsistent triangle winding now report unknown volume while
+  retaining dimensions and triangle counts. Existing metadata is recalculated
+  automatically.
+- Browser-local upload queues recover as interrupted after a reload, so stale
+  tasks can be cleared. Resumable uploads retain their recovery controls, and
+  queued browser work now asks users to keep the tab open (#336).
+- 3D viewer conversions run as durable, on-demand Jobs. Requests share preparation
+  and retain failure reasons; memory refusals show a clear message while original
+  downloads and slicer handoff stay available. Hovering a model card no longer
+  starts a mesh conversion (#259).
+- Containers start with read-only Library source mounts beneath `/data`. Startup
+  ownership repair is limited to app-owned directories and preserves external
+  sources, including bind mounts on the same filesystem (#330).
+- Cancelling active mesh work now stops its native worker tree, releases capacity,
+  and preserves the original. Immediate retry cannot resume the cancelled attempt (#259).
+- Keep native STEP/STP conversion within small worker memory budgets by using serial tessellation, and classify B-rep allocation failures as resource refusals.
+
+- Background work starts on DBOS 3.0, with a persistent reconciler schedule
+  that survives process restarts and is recreated after restore.
+- Late derivative results can no longer overwrite cancellation, retries, regeneration, trashed Artifacts or replaced source bytes. Stale Job executions also cannot settle a newer attempt or reclaim its staging files.
+
+
+- Removed the duplicate Wiki entry from the profile dropdown.
+- Rendering model views for learned similarity embeddings no longer happens in
+  the API process ([#259](https://github.com/xiao-villamor/PrintStash/issues/259)).
+  With embeddings enabled, the similarity run rendered six views of every model
+  in the library inside the API; it now uses the same disposable worker as the
+  other mesh work. A model that exhausts memory or never finishes fails that one
+  embedding and the run continues with the rest.
+- Collection search, breadcrumbs and subtree counts now follow indexed parent
+  links, keeping these reads responsive in libraries with tens of thousands of
+  collections ([#295](https://github.com/xiao-villamor/PrintStash/issues/295)).
+- Opening the 3D viewer on a 3MF or OBJ no longer converts it inside the API
+  process ([#259](https://github.com/xiao-villamor/PrintStash/issues/259)).
+  The conversion runs in the same disposable worker as mesh derivatives, so a
+  model that exhausts memory or never finishes fails that one request with
+  `stl_conversion_failed` instead of taking the API down. A model that cannot
+  be converted still answers the same error; the viewer's behaviour is
+  otherwise unchanged.
+- Comparing two models during a similarity run no longer happens in the API
+  process ([#259](https://github.com/xiao-villamor/PrintStash/issues/259)).
+  Verification now runs in the same disposable worker as mesh derivatives, so a
+  pair whose comparison exhausts memory or never finishes is counted as a failed
+  verification and the run moves on to the next pair.
+- Analysing the whole library for similar models no longer runs in the API
+  process ([#259](https://github.com/xiao-villamor/PrintStash/issues/259)).
+  The fingerprint pass now uses the same disposable worker as mesh derivatives,
+  so a file that exhausts memory or never finishes is recorded as a failed
+  fingerprint for that file alone. The run carries on with the rest of the
+  library instead of taking the API down or stopping.
+- The Settings Maintenance heading now uses the same framed section treatment as neighboring tabs.
+- Opening the 3D viewer, converting to STL, and geometry comparison no longer
+  expand a 3MF's repeated parts before checking their size. These paths still
+  used a loader that composed every placed instance first, so a small project
+  file that places one part many times could exhaust the API's memory
+  ([#259](https://github.com/xiao-villamor/PrintStash/issues/259)). They now
+  share the bounded 3MF resource loader and the same face budget as thumbnail
+  generation; an over-budget project is refused instead.
+- Manual and scheduled backup tasks now show database snapshot, file archiving,
+  archive verification, destination publication and finalization progress in
+  Tasks and Background work, including the number of files archived. Scheduled
+  backups now appear in administrators' Tasks while they run, and the latest
+  completed scheduled backup remains visible if it finished before reconnect.
+- A model file that needs more memory than expected can no longer take the API
+  down or crash-loop the container
+  ([#259](https://github.com/xiao-villamor/PrintStash/issues/259)). Mesh
+  geometry, thumbnails and similarity fingerprints now run in a disposable
+  worker process. When a file passes its memory budget or the worker deadline,
+  the worker is killed and that one file is recorded as failed: a file over the
+  memory budget is not retried, while a timeout keeps its bounded retries. Every
+  other request keeps working. The deadline is `VAULT_MESH_WORKER_TIMEOUT_SECONDS`
+  (default 300 s).
+- Backup history disables replica retries when a run has no completed archive
+  record. Its guidance now refers to that run instead of implying that existing
+  backup archives have been lost.
+- Storage migration no longer clears destination fields when an obsolete
+  startup request finishes after the form becomes editable.
+- Storage migration deadlines now include their UTC timezone, so a fresh plan
+  remains usable and source-retention deadlines display correctly outside UTC.
+- Restoring a backup no longer fails because a completed ZIP inspection is
+  waiting for file selection. Its staged archive remains available; unfinished
+  uploads and imports still block restore until they are settled.
+- Large STL previews frame every source component and preserve ASCII geometry after large translations.
+
+- Streamed STL previews preserve valid oblique facets that the degeneracy filter could discard.
+
+- Serialize storage adoption and retirement by immutable reservation generation;
+  retain exact cleanup revocations and preserve newer objects at reused keys.
+  S3 backup deletion now requires an immutable object version. Failed commit
+  acknowledgements preserve already adopted covers, documents and embedded images.
+- Import completion prepares private source-cover candidates and switches their
+  visible pointer only under the current Job and Inbox authority.
+- Interrupted downloads, archive extraction and local copies retain exact cleanup
+  receipts and disk reservations; restart or retry reclaims their private workspaces
+  before the next input is admitted.
+- Recover maintenance capacity when a process dies after committing a Job result
+  but before its engine execution finishes, preserving the completed outcome.
+
+### Performance
+
+- Convex hull descriptors use normalized SciPy/Qhull geometry, preserving dense convex surfaces and finite extreme scales while rejecting invalid coordinates. Existing fingerprints are recalculated.
+
+- Tag counts now follow collection links when inheriting tags, so listing tags
+  stays responsive in libraries with tens of thousands of collections and
+  100,000 Models, including for users with collection-specific access.
+- **3MF geometry loads about 1.6 times faster.** The bounded 3MF loader read
+  every vertex and triangle attribute with a Python call per value; it now
+  hands each column to NumPy in one pass. A 320,000-face project went from
+  3.1 s to 1.9 s. Memory use is unchanged, and malformed attributes are still
+  refused as an invalid package.
+- **Splitting a mesh into its separate parts is about three times faster.**
+  Similarity fingerprints of STL, OBJ and other non-3MF meshes joined connected
+  faces one edge at a time in Python; a 500,000-face surface spent 4.3 s there
+  and now spends 1.4 s. The parts found are unchanged.
+- **Large libraries load their collection tree in about a second.** A library
+  with 9,000 collections and 40,000 Models took over a minute to show its
+  sidebar, because each collection's model count was checked against every
+  other collection. Non-administrators' library, tag, collection, document,
+  Multipart Model, build, search and similar-model reads no longer send their
+  whole list of visible collections with every query. The library sidebar now
+  loads one folder level at a time and starts collapsed on a first visit,
+  except along the path to the current folder. Move, upload, ZIP review and
+  new Multipart Model destinations use search instead of loading every folder.
+  Model cards and detail pages receive their folder names from the server.
+  Multipart Model browsing loads one folder page at a time; Pending Import and
+  Similar Models collection scopes use search. Settings loads grants only for
+  the collection an administrator selects, avoiding a permissions request for
+  every collection when the page opens.
+
+## 0.14.0
+
+**Running from a git checkout? The old `docker-compose.yml` is now
+`docker-compose.advanced.yml`; `docker-compose.yml` now runs the single-container
+image. See UPGRADE.md before pulling.**
+
+**Compose installs: both Compose files now mount one `printstash` volume at
+`/data` instead of five. Copy your data into it before starting the new file
+(one command, in UPGRADE.md), or the app starts empty at first-run setup.**
+
+### Added
+
+- ZIP uploads now prepare and validate their contents as a visible background
+  Job. When ready, a notification and Tasks open a folder-based file picker;
+  only selected 3D files are imported, through a second Job. The upload itself
+  appears in Tasks immediately, leaves the form free, and can be cancelled;
+  transfer failures remain visible there. During transfer, Tasks shows bytes,
+  percentage, upload speed and estimated time remaining. Large ZIPs stream
+  through the web proxy without an extra buffered copy; Tasks distinguishes
+  browser transfer, server receipt and ZIP preparation. The ZIP picker has
+  consistent folder and file cards, and can select whole folders or every
+  importable file in one action.
+
+- OrcaSlicer uploads now carry one versioned native metadata context. Exact
+  single-object source matches become idempotent `needs_test` G-code Revisions;
+  named-but-unknown or ambiguous sources fail without orphan rows,
+  multi-object plates never attach to their first object, and `.gcode.3mf`
+  context is supported.
+  The standard-library hook also has a non-secret diagnostic mode and keeps
+  exiting successfully when PrintStash is unavailable.
+
+- Settings → **Background work** shows every lane with a runtime concurrency
+  override, each kind of Job with its queue and schedule, the processes running
+  work, and recent failures to retry; administrators can derive missing or
+  regenerate every thumbnail or metadata output. Each source Artifact shows what
+  is still being prepared and offers a retry for a failure.
+- Optional workers: `docker-compose.advanced.yml --profile workers` adds
+  `python -m app.worker` containers beside the API, on PostgreSQL with the
+  API's volumes, declared with `VAULT_SHARED_STORAGE=true`; with
+  `VAULT_API_RUNS_JOBS=false` the API leaves every Job to them. Realtime notices
+  cross processes over PostgreSQL `NOTIFY`. Both Compose files keep running
+  everything in one process by default. `.env.example` documents the
+  background-work settings, and the advanced file forwards
+  `VAULT_MAX_RENDER_JOBS` and `VAULT_JOBS_INGEST_CONCURRENCY`;
+  `VAULT_INGEST_WORKER_COUNT`, which nothing read, is gone.
+- Similar candidates are available from the Model detail Similar tab. The
+  library-wide Similar Models page is linked from Library tools on desktop and
+  remains in mobile navigation.
+- The search bar now uses an icon-only AI control to switch between AI and
+  keyword results. Search results use the full browsing surface with visible
+  filters and simpler result cards instead of a nested results panel. Print
+  duration filters show readable time in the results toolbar.
+- **First administrator from the deployment.** `VAULT_SETUP_MODE=environment`
+  with `VAULT_SETUP_ADMIN_USERNAME` and `VAULT_SETUP_ADMIN_PASSWORD` (plus
+  optional `VAULT_SETUP_ADMIN_EMAIL`) creates the first administrator at
+  startup, for app-store install forms and unattended deployments that cannot
+  use browser registration. The administrator signs in and chooses storage in
+  the browser. The variables are used once and never change an existing
+  account. The mode and variables are checked together: a contradicting
+  combination keeps setup closed instead of silently falling back to browser
+  registration.
+- App-store manifests for Runtipi, Umbrel and CasaOS/ZimaOS live in
+  `catalogues/` and are published with each release. The Unraid template now
+  shows optional administrator username, password and email fields, and the
+  `PUID`/`PGID` fields, without opening Advanced.
+- When the browser cannot create the first administrator, the setup page now
+  says why and lists what to change: the address PrintStash saw, or the
+  first-run variables that don't fit together. It previously showed a single
+  "registration is disabled" message.
+- DXF files can be imported as source Artifacts, downloaded with their original
+  bytes, and included in backups. Drawing previews are not yet available.
+- Managed source Artifacts can be moved to trash and restored individually from
+  Model detail. The Model, sibling Artifacts, Revisions and print history remain.
+  Linked Library-source originals stay protected.
+- A PNG version of the PrintStash icon for Unraid and other container dashboards
+  that cannot use SVG icons.
+
+- AI Search adds transactional text indexing for Models, Collections, Multipart
+  Models and Documents, authorized lexical suggestions, hybrid results with match
+  evidence, and local image/geometry search. Image queries support file selection,
+  drag-and-drop and device camera capture. Pinned BGE, CLIP and OpenShape models
+  use one bounded CPU runtime; acquisition and activation require explicit action.
+  AI inference is optional and off by default; library features and ordinary
+  keyword search require no model, inference server or OpenAI account.
+- AI Search settings manage encrypted compatible endpoints, model provenance,
+  capacity estimates and resumable index rebuilds. Serving generations remain
+  available during replacement; float, int8/binary and approved MRL transforms
+  preserve native vectors. SQLite/PostgreSQL derivatives can fall back to portable
+  retrieval and rebuild after restore. Local models warm after restart while
+  lexical search remains available.
+- Separate captions preserve human descriptions and require explicit render
+  consent. Editable print-history filters use actual duration and timezone-aware
+  calendar bounds; optional personal natural-language consent enables parsing and
+  Saved Views. Optional local SPLADE expansion stores bounded weighted terms
+  separately from original text. The AI master disables these inference consumers;
+  query text and images stay out of durable search data and request/error logs.
+- PostgreSQL supports the existing backup API through verified portable snapshots.
+  A dry-run-first SQLite-to-PostgreSQL command preserves encrypted fields, IDs,
+  cyclic library references and native vector bytes without re-embedding.
+- **Similar Models** offers opt-in local geometry analysis, resumable library scans,
+  a filtered review queue and synchronized comparisons at shared physical scale.
+  Evidence confirmation keeps each Model, Artifact and Revision separate; verified
+  part/plate matches can create or extend an existing Multipart Model.
+- Full installations can analyze STEP assemblies and use operator-supplied CPU
+  ONNX models for local text-to-shape or Model queries. Learned neighbors remain
+  separate from verified geometry, and analysis never downloads model weights.
+
+- Verified, resumable Vault migration with create-only destination copies,
+  online ingestion deltas, journal-backed cutover recovery, generation-pinned
+  reads, and explicit receipt-scoped source retention and cleanup (#104).
+
+- Multipart model selection now browses thumbnail cards and nested collections,
+  pages through large libraries, and keeps multiple selections across searches
+  and pages. Add selected Models as separate parts or as variants of one part.
+
+- Optional scheduled Quick and Full Vault audits with maintenance windows, safe regression and recovery alerts, history, and verified opt-in derived-data repair.
+
+- **Storage presets:** Synology, TrueNAS, QNAP and Unraid mounted-folder guidance; explicit Synology/QNAP WebDAV, MinIO, Garage, SeaweedFS, Hetzner Object Storage, Storage Box SFTP/WebDAV, and Koofr connections. Presets reuse existing transports and encrypted credentials, with endpoint validation and separate delivery/safety facts.
+
+- Capacity admission supports percentage headroom and retains durable upload, migration and restore budgets across process failure.
+
+- Storage insights with logical and unique-object inventory, shared-volume capacity reservations, dated growth evidence, and explicit audited cleanup for expired staging and receipt-verified derived STL cache. Heavy operations now preserve configurable disk headroom before allocation.
+
+- Download strategy and proxied-byte diagnostics use bounded labels; signed query credentials are redacted from application and access logs.
+
+- Authorized Artifact downloads can offload managed S3 bodies through short-lived
+  HTTPS redirects when browser CORS is supported. Local files retain range
+  delivery; originals, previews and thumbnails now revalidate privately, and
+  shares/slicer downloads remain noncacheable.
+
+- The unified Docker image runs the full API and web UI in one container,
+  with the default single-service Compose file and tested AMD64/ARM64 publishing
+  to GHCR.
+
+- Optional verified remote Artifact cache with bounded disk usage, active-reader leases, administrator controls, and authoritative audit bypass.
+
+- Successful browser-extension CI jobs provide the validated Chrome Web Store
+  ZIP as a direct download, retained for 30 days.
+
+- The browser importer includes offline help and privacy information, with a
+  validated Chrome Web Store ZIP command and a publishing guide.
+
+- Vault, Library and backup connection forms use one typed provider catalogue.
+  S3 and Nextcloud presets resolve consistently across uses. Connection editing
+  preserves omitted credentials, supports explicit replacement and prevents
+  changing a target while linked sources or owned backups depend on it.
+
+- BGCODE v1 toolpath previews use the pinned official libbgcode converter in full
+  and lite API images on amd64/arm64. Conversion and browser parsing have explicit
+  resource limits; G92 coordinate resets and G2/G3 arcs are rendered. Travel lifts
+  no longer create empty layers. Originals
+  remain unchanged for downloads and PrusaLink.
+
+- Backup run history records every selected destination, including invalid
+  connections and partial failures. Administrators can retry an exact failed
+  replica from a verified surviving archive; successful copies remain available.
+  Publication, verification and retry history are reported separately in Settings
+  and operational health.
+
+- Multipart builds snapshot part quantities and selected Revisions for a concrete
+  manufacturing run. Linked print jobs reserve units; explicit usable-output
+  confirmations track missing pieces and retain previous physical attempts.
+  Builds can be duplicated with fresh results or archived with their history.
+
+- Remote Library discovery streams large directories into a durable inventory.
+  Completed pages resume without rereading the directory, interrupted discovery
+  cannot remove linked Artifacts, and transport deadlines bound stalled requests.
+  Setup probes inspect only their own prefix. S3, WebDAV and SFTP directory
+  benchmarks cover 1,000, 10,000 and 100,000 entries.
+
+- Browser-based first-owner registration on explicitly enabled trusted networks,
+  with a guided account, storage-check and first-model flow. Local Compose no
+  longer requires a setup credential from API logs. Database serialization
+  prevents competing API processes from creating multiple initial administrators;
+  authenticated recovery preserves an account when storage preparation is pending.
+
+- A minimal, standalone Compose file for local deployment, with optional settings
+  and customization examples in a separate deployment guide.
+
+### Changed
+
+- Background work settings now lead with running, waiting, and failed work and
+  show each active Job's state, progress and cancel action. They also show where
+  to check a model's preview status. Queue tools and worker controls sit in
+  separate views, and mobile Settings links bring the selected tab into view.
+
+- Collection tree badges now count Models in child folders, use the complete
+  total when only part of a large library is loaded, and stay visible in the
+  default sidebar width.
+
+- Storage settings now show one clear current safety state and the location,
+  while remote file cache is visible without nested dropdowns. Cache limits
+  and activity have separate views; sizes use MB or GB. Storage cards reserve
+  their layout while loading, and remote connection setup uses the same visible
+  category and provider choices as Move Vault storage.
+- **One data volume.** Every path PrintStash writes (database, files,
+  thumbnails, staging, backups, caches) lives under `VAULT_DATA_ROOT`, `/data`
+  in the container, so a deployment mounts one volume. Each directory can still
+  be moved on its own with its existing variable. The artifact cache and
+  downloaded AI search models, previously left in the container's own layer,
+  now persist across updates. The Unraid template's Appdata field now says to
+  keep that folder on one pool with no second mapping inside it, so imports
+  keep hard-linking.
+
+- Model Families have been removed. Existing Models, files, G-code revisions and
+  print history remain independent; existing Family relationships and covers
+  are retired when the database migration runs. Multipart Models continue to
+  support named parts and alternative Models.
+
+- Nine Compose files became two in the repository root: `docker-compose.yml`
+  starts PrintStash as one container (web UI and full API) with no
+  configuration, and `docker-compose.advanced.yml` wires every setting with its
+  default, plus optional PostgreSQL, S3 and background workers. The light,
+  production and build-from-source variants are folded into the advanced file;
+  maintainer stacks moved under `deploy/`.
+
+- CI no longer runs the eight per-image Docker build and Grype jobs or the
+  legacy MinIO-to-SeaweedFS migration job. Container publishing no longer runs
+  Grype scans; release builds and the legacy migration helper remain available.
+
+- **Background work runs on a durable engine.** Imports, previews, metadata,
+  backups, scans, notifications, fleet dispatch, audits, migrations and AI
+  Search projection, indexing, captions, expansion and model downloads are Jobs
+  on DBOS, found by a reconciler from what the database says is owed, so a
+  crash, restart or upgrade resumes them instead of losing them. Uploads now
+  commit the Artifact and return; its metadata, thumbnail and binary G-code
+  toolpath are derived afterwards and appear on an open page without a reload.
+  A new kind or a renderer change re-derives the library in the background
+  while current previews stay visible. Native work is bounded by its lane, not
+  a database permit: indexing runs as similarity and search Jobs, and a search
+  query embeds inside the request, ahead of background inference, in a worker
+  with its own memory and time limits. An index build and a model download are
+  each a Job, followed and cancelled through the Jobs API.
+- Follow any Job at `GET /api/v1/jobs/{id}` (cancel and retry beside it) and
+  live changes on the `/api/v1/events/ws` socket. **Breaking:**
+  `/api/v1/ingest/jobs`, `POST /api/v1/files/thumbnails/rebuild`, plain
+  `POST /api/v1/ingest/archive` and `POST /api/v1/storage/migrations/{id}/advance`
+  are removed; `POST /api/v1/backups` and
+  `POST /api/v1/backups/runs/destinations/{id}/retry` now answer 202 with a
+  `job_id`, and the backup (or the retried destination) is the Job's result; a
+  binary toolpath still being derived answers 202; Pending Imports expose
+  `job_id` instead of `background_job_id`; similarity runs no longer report
+  `last_activity_at`.
+- Similarity runs, backup runs and destination retries each follow their Job:
+  the engine, not a lease the run held, decides what is running, and the next
+  attempt of an interrupted Job settles what the previous one left open.
+  Upgrading settles backups an interrupted process left running.
+- Restoring a backup rebuilds the engine's state from the restored database:
+  work the snapshot shows as owed is found again even though the engine that
+  was running it is gone, and a backup the snapshot shows in progress no longer
+  blocks the next one.
+- AI Search settings now separate guided setup, search types, AI servers and
+  technical options. Search types and compatible models appear as visible choices;
+  the active search is clearly separate from a new index build. Specialist index
+  tuning has its own view; server editing and custom model choices no longer
+  depend on nested dropdown sections.
+
+- Storage and Maintenance settings now lead with plain-language tasks, usage, and
+  library checks. Technical cache, migration, and audit controls open on demand;
+  Maintenance actions and backup verification align across narrow screens;
+  Similar Models has its own analysis and paired candidate review flow. An empty
+  audit history no longer generates a failed latest-audit request, and schedules
+  remain available if history fails to load. Collection usage now compares sizes
+  in a compact view with readable B, KB, MB, or GB units and direct Model drilldown.
+  Storage insights now highlights stored files and free space, groups usage by
+  purpose, and shows a dated history chart. File types and provider evidence remain
+  available in Measurement details with readable file-type labels. Collection
+  storage now shows recorded sizes with model counts instead of bars scaled to
+  the largest item on each page. Opening a collection now shows its models in
+  the same fixed-size Collection storage area, preserving the two-column
+  collection layout and links to Model details. Model pages fit fully above the
+  pager even for large collections. Pagination
+  shows the visible range, and recent storage activity appears directly when
+  there is something to report. Cleanup actions appear only for measured
+  candidates and lead with the reclaimable size.
+
+- The getting-started reminder can be dismissed with Don't show again. The choice
+  is remembered per user in the current browser across Settings and the empty library.
+
+- First-run setup uses a centered, responsive form with inline password visibility
+  controls. Storage choices and server folders are visible immediately, with a
+  clear access-check step before account creation and guidance in English and Spanish.
+  A compact branded frame, slim progress steps, and a prominent server-storage
+  choice bring the guide closer to the app's forms and reduce mobile scrolling.
+  The first-model guide now offers a focused file upload or a two-field folder
+  connection that starts scanning immediately. Upload progress, recoverable scan
+  errors, and verified Model links stay visible in the guide; backup and printer
+  shortcuts follow the first Model.
+
+- Artifact downloads use the canonical `/files/{id}/download` endpoint. The
+  separate `download-url` and `download-direct` endpoints have been removed.
+
+- Interface text, accessible labels, errors, plural counts and offline screens
+  use shared language catalogs. Dates and numbers follow the selected language;
+  the language menu supports adding further locales without a two-language toggle.
+  Catalogs are static, typo-friendly sources with guarded imperative feedback and
+  a safe scaffold command for adding complete language drafts.
+
+- Backend code is organized by capability, with separate startup, storage,
+  backup recovery and library query modules. G-code Revision deletion uses a
+  shared business operation with product-specific authorization and persistence.
+
+- The simple Docker Compose deployment now uses the light API image.
+
+- The browser extension is now named PrintStash in the browser, help and store
+  listing. Its connection settings and extension identity are unchanged.
+
+### Performance
+
+- Direct browser uploads to S3-compatible storage are published by copying the
+  finished upload inside the bucket instead of uploading it again from
+  PrintStash. The copy is create-only and pinned to the verified object, and is
+  used only when the startup probe proves the endpoint refuses a changed source
+  and an overwrite (`server_side_copy` in the storage diagnostics); other
+  endpoints keep uploading the verified copy.
+- S3 uploads of staged files send their parts in parallel straight from the
+  file, without first copying it into a temporary spool. Adopting an existing
+  S3 object hashes it as a stream with bounded memory.
+
+### Fixed
+
+- Similar model analysis now appears in Tasks with live run status and a link back
+  to the analysis page. Starting a second scan for the same scope shows a clear
+  explanation instead of a connection error.
+
+- ZIP imports now show how many selected Models have been imported while work is running. The task progress bar advances for each file attempted, including files that fail or are skipped.
+
+- Completing first-run setup now clears task history left in the browser by a
+  previous installation, so old Jobs no longer appear as failed in a new vault.
+
+- **3MF imports no longer exhaust container memory on repeated project parts.** Mesh metadata and previews now use a bounded 3MF resource loader that checks placed instances before composing geometry. Over-budget projects keep their original Artifact and embedded preview without crashing the API; existing mesh derivatives are refreshed at the new recipe version. ([#259](https://github.com/xiao-villamor/PrintStash/issues/259))
+
+- Search action buttons now sit inside the search field border, and model names
+  in the field no longer receive browser spellcheck underlines.
+
+- AI Search index builds now finish library reconciliation even when its source
+  and orphan scans finish on different passes. Smaller reconciliation pages
+  release SQLite writer locks sooner. Deferred embedding failures wait for their
+  scheduled retry; failed builds and manually activated builds release their
+  background jobs, while a retry or later content change starts a tracked job.
+  Automatic activation reports permanent errors and rechecks changed content.
+  Active indexes sleep until a deferred embedding retry is due and wake when an
+  administrator retries a failed input. Local embedding contention yields the
+  search lane for interactive inference. Index ETAs now use recent completed
+  vectors, so time spent reconciling or stuck before backfill is excluded.
+  Guided setup names the current phase, shows vector counts only during indexing,
+  offers failed builds a retry, and discloses that local AI uses the CPU.
+
+- Portable ZIP imports now update processed file counts while they run. The completed import task links administrators to Background work, where preview generation has its own queue status.
+- Library source setup now distinguishes a mounted folder that needs temporary
+  write permission for enrollment from one that cannot be read. Testing a
+  shared remote connection also checks Library source listing, and failed
+  listings show a useful message instead of a server-reachability error. New
+  remote connections default to Library-only use, so a read-only SFTP account
+  is not tested for backup access unless selected (#262).
+
+- Trash GC preview now loads the active plan when another request claims it
+  first, so operators can review and abort the existing plan instead of seeing
+  an error.
+
+- Unify local create-only publication on filesystems without hard links (#249):
+  uploads, URL imports, native completion, cache fills and root markers use the
+  same safe copy fallback. Probe staging for every Vault provider and report
+  its limitations once at startup and in Settings, without changing the Vault's
+  safety tier. Preserve pinned-directory and identity checks during recovery.
+
+- File uploads now stage successfully on Unraid SHFS and other filesystems
+  that refuse hard links, including resumable uploads and native multipart
+  completion. Staging and storage downloads use an exclusive copy without
+  overwriting existing files. The Unraid guide explains the fallback and how
+  to rotate and preserve diagnostic container logs.
+
+- A process that started while an interrupted restore or Vault migration still
+  needed recovery now starts its background work once recovery resolves it,
+  instead of queueing work nothing ran until the next restart.
+- Opening a folder in the library no longer swaps the grid for a loading
+  skeleton; the current folder stays on screen until the next one is ready.
+  Folders are also prefetched when the pointer rests on them or they receive
+  keyboard focus, and a folder's readme is requested only when it has one and
+  is cached for later visits (`CollectionRead` gains `has_readme`).
+
+- Mounted Library source folders keep their exact capitalization and spaces in
+  collection labels and write-back destinations. Case- or punctuation-distinct
+  folders remain separate, including on rescan of previously indexed sources.
+- Double-clicking a collection in the library sidebar keeps that collection open
+  instead of returning to All Models.
+- Long nested collection paths stay within the upload dialog's collection selector.
+
+- "Or select a folder" in the Bulk upload tab opens the folder picker again. The
+  hidden inputs sat inside the clickable drop zone, so the folder input's click
+  bubbled to the zone and the file picker opened on top of it; only drag-and-drop
+  could queue a folder.
+
+- Browser Back now returns through the Vault's collection navigation before leaving for an earlier page.
+- Model cards show the collection name in their badge instead of its full hierarchy path.
+- Long collection paths no longer push the Create Family model picker beyond the dialog edge.
+- A fault inside the browser tab is no longer reported as "Couldn't reach the
+  server". Only real `fetch` rejections map to that message; any other `TypeError`
+  now says to reload the page, and keeps its original text for diagnostics.
+
+- The Unraid Community Applications catalog has one current PrintStash listing;
+  the old API and frontend templates are marked deprecated for existing users.
+
+- The Unraid template uses the unified image with one persistent appdata mount,
+  a working first-run setup default, and Unraid file-owner defaults.
+
+- Printables captures request each selected file host's browser permission once
+  before downloading, avoiding repeated permission dialogs for multi-file imports.
+- Browser captures accept multi-file selections within the review limit, release
+  unfinished upload slots after transfer failures, and explain capacity errors.
+
+- Uploads work again when PrintStash is opened over plain HTTP on a LAN address
+  (for example `http://192.168.1.10:3000`). Browsers hide `crypto.subtle` outside
+  secure contexts, so the new resumable upload failed while hashing the file and
+  reported "Couldn't reach the server" before sending anything. The browser now
+  falls back to a JavaScript SHA-256 there.
+
+- Provider connection errors now distinguish missing MyMiniFactory OAuth setup,
+  rejected Cults credentials, provider outages, and invalid provider responses.
+- Routine HTTP client requests no longer fill INFO logs during PrusaLink polling;
+  printer errors and transport warnings remain visible.
+
+- AI Search mutations enforce token write scope, including caption edits, settings,
+  generation management, local model operations and personal preferences.
+
+- Library search keeps typing and Enter in the current library view. A labeled
+  “Search with AI” action opens AI results; result cards no longer show retrieval
+  explanations.
+- Model detail tabs stay in one row, scrolling within the tab bar when needed.
+  Similar Models keep readable names and reachable comparison actions in narrow panels.
+- The library exposes multipart creation as a separate action on desktop and mobile.
+
+- AI search recovers bounded name misspellings, finds functional holder metadata,
+  and rejects weak short-query matches before combining retrieval signals.
+- Caption edits and dismissal reserve the SQLite writer before reading, avoiding
+  failed updates when background indexing commits concurrently.
+- Sparse search avoids temporary SQL query-name collisions on Python 3.13 while
+  preserving keyword scores and candidate filtering.
+- The legacy MinIO migration helper pulls its unchanged, digest-pinned release
+  from the official Quay registry.
+
+- AI Search guides setup and preserves keyboard focus between basic and advanced controls. Clearing a query cancels stale navigation; result views support a grid, list and on-demand match details.
+- Deferred search projection commits bounded source notifications with content edits and hides stale evidence until refreshed. Sparse ranking preserves independent SQL identities without excessive nesting.
+
+- Search backfill yields to complete user write requests, including upload staging
+  and cleanup, without holding a database transaction while waiting.
+- AI Search bounds permission checks and Model-card loading to result identities,
+  avoids repeated full top-k sorting during portable vector scans, and keeps
+  periodic SQLite projection-repair transactions short during browsing.
+- Search backfill drains bounded batches between periodic pauses, removing the
+  one-second delay per embedding batch while preserving maintenance and shutdown
+  coordination. Settled active generations stop a burst without inference.
+- Restoring AI Search backups no longer requires optional vector extensions to
+  inspect unversioned databases. Durable vectors remain searchable through the
+  portable backend while native acceleration is disabled.
+
+- AI Search activation acquires the SQLite writer lock before verification, so
+  concurrent worker commits cannot invalidate the cutover snapshot. Search and
+  ordinary Model results start without optional search annotations.
+
+- Caption text and unsaved edits now clear when the signed-in account changes,
+  including account changes received from another browser tab.
+
+- Browser Pending Imports accept signed-in session cookies while preserving bearer-token precedence and browser-device scope restrictions.
+
+- Printables capture and selected-file downloads use supported GraphQL fields, retaining creator and license metadata.
+
+- Preserve the original HTTPS scheme when the frontend proxy sits behind a TLS-terminating reverse proxy.
+
+- Mounted Library sources retain preview and download access when their indexed
+  Artifacts have a source key, without treating them as remote storage connections.
+
+- Idle similarity polling no longer transiently blocks backup restoration with a storage-retention conflict.
+
+- Ordinary dense meshes such as the repository Benchy now receive complete
+  similarity analysis at the default budget. Geometry ordering, convex hulls,
+  nearest-surface queries and thumbnail allocation use less work and memory;
+  repeated exact comparisons reuse compatible proofs after checking source bytes.
+  Capture and ingestion share these improvements, including bounded STEP output
+  and Linux service memory-limit detection.
+
+- Active print jobs no longer remain paused indefinitely after an out-of-band
+  emergency stop. Authoritative idle printer updates now close interrupted jobs,
+  with an operator recovery action for stale history when no update arrives.
+
+- The Model detail back arrow returns to its containing collection instead of
+  always returning to the library root, including nested collection paths.
+
+- Mounted Library source enrollment now rolls back known marker failures instead
+  of leaving a conflicted source behind, reports read-only marker failures
+  explicitly, and documents the one-time writable mount required for enrollment.
+
+- Removing a library source no longer fails with a server error when one of its
+  files was already in the trash. The failed attempt had also moved the source's
+  models to the trash while leaving the source itself in place.
+
+- PrusaLink now discovers the printer's advertised storage root, using `/usb`
+  on Buddy/Core One firmware while retaining `/local` compatibility, so file
+  inventory, upload, start and deletion no longer surface a false authentication
+  failure.
+
+- Pending Imports remain readable when an older or damaged capture manifest is incomplete, without overwriting the stored capture data.
+
+- Browser pairing accepts local addresses without a scheme and explains invalid
+  setup input. First-run setup keeps pairing controls visible in the popup;
+  transfers remind users to keep it open until completion. Chrome and Edge
+  packages omit Firefox-only manifest settings.
+
+- Documented pinned Nextcloud and WsgiDAV cleanup evidence, including ETag
+  collisions, conditional quarantine and lock expiry. WebDAV physical deletion
+  and automatic retention remain disabled; replacement bytes stay protected by
+  the production adapter's guarded cleanup policy.
+
+- Remote Library sources and backup replicas use explicit streaming transport
+  contracts. Reader and directory handles close on early exit, and replica
+  publication no longer implies managed atomic creation. SFTP recovery is
+  exercised through the shipped image; native Local and S3 Vault paths remain.
+
+- Backup deletion refuses destinations without an exact owned-object deletion operation, including manually confirmed requests. Unsupported retention keeps replicas and ownership evidence intact without repeated provider-error warnings. Mutable S3 null versions use conditional ETags.
+- Verified OpenDAL S3 backup replicas can now witness GC when current target and failure-domain evidence proves independence. Approval and finalization remain bound to the exact owned archive and quarantine deadline.
+
+- SFTP backup profiles can probe, list, verify and restore remote-only archives.
+  Manifest reads stream through bounded buffers and close their remote handles
+  on early exit; failed downloads remove their temporary bytes.
+
+- Remote Library scans preserve ETags, versions and unknown modification times.
+  Equal-size changes trigger the next scan; sources without change markers are
+  hashed on every scan. Reads use supported version or conditional constraints
+  and reject metadata drift before indexing.
+- Storage settings and backup lists distinguish catalog removal, exact physical
+  deletion, automatic retention and GC evidence. Unavailable image services and
+  retained bytes have explicit explanations; a connection probe does not imply
+  safe deletion. Guarded catalog removal keeps its confirmation and now states
+  that stored bytes remain.
+- The full container image includes the S3 transport used by remote Library
+  sources and backup connections. Image checks now exercise remote-only S3
+  recovery on both supported architectures.
+- SFTP streaming releases its connection, reader, and event loop when opening
+  fails, a read is cancelled, or cleanup itself encounters an error.
+- Garbage collection requires current evidence of independent storage failure
+  domains. Different profiles, credentials, or prefixes cannot authorize
+  deletion using a backup on the same storage. Custom targets require an
+  administrator declaration; changes invalidate an approved plan.
+- Remote Library sources reject incomplete or oversized downloads before
+  indexing, so a truncated first read cannot create an Artifact from partial bytes.
+
+### Performance
+
+- Bound each geometric similarity comparison to three minutes so a pathological
+  mesh pair cannot occupy the scan worker for hours; exhausted pairs are counted
+  as failed verifications and the scan continues.
+- Similar Model analysis now reuses triangle measurements during surface
+  comparisons and avoids Trimesh array tracking inside geometry calculations,
+  reducing CPU time without changing comparison evidence.
+
+- **Imports no longer copy files into local storage.** A staged upload, URL
+  import, library-transfer archive entry or Bambu print capture
+  becomes its library file by hard link when staging shares the library's
+  mount, which the single `/data` volume guarantees: instant, whatever the file
+  size, with no second copy on disk. Local backups publish their archive the
+  same way when no remote replica needs it. Where a link is impossible (another
+  mount, or a filesystem without hard links) the file is copied as before, and
+  Settings warns "Imports are copied, not hard-linked" with a link to the
+  storage layout guide, which lists the layouts that keep hard links.
+
+## 0.13.0
+
+[Published September 4, 2026](https://github.com/xiao-villamor/PrintStash/releases/tag/v0.13.0).
+
+**Back up before upgrading. This release includes additive database migrations
+and storage configuration/safety changes. Existing S3-compatible buckets must
+be provisioned before startup; review [UPGRADE.md](./UPGRADE.md).**
+
+### Added
+
+- **Multipart Models.** The Vault can group existing Models into named pieces
+  and alternatives, with independent tags and PDF, Markdown or image guides.
+  Adding or deleting a grouping never moves or deletes a Model, its files, or
+  its revisions; Models remain directly accessible and reusable in multiple
+  groupings.
+
+- **Quick restart from Settings.** Administrators on supervised deployments
+  can now gracefully restart the PrintStash API without opening container
+  details. Official Compose stacks enable the action through their existing
+  `unless-stopped` restart policy; unsupervised source launches keep it hidden.
+
+- **Read-only remote libraries and guarded garbage collection.** Reusable,
+  encrypted S3-compatible, WebDAV, and SFTP connections can discover external
+  files through bounded, resumable scans without writing back to the source.
+  Destructive cleanup now requires an immutable preview digest, a recent fully
+  verified independent backup, explicit approval, quarantine, and final
+  revalidation; scheduled maintenance can never approve a deletion plan.
+
+- **OpenDAL Library sources and remote backup replicas.** S3 Library sources
+  now use the shared OpenDAL adapter, Google Drive joins S3 and WebDAV as a beta
+  read-only source, and reusable remote connections can serve Library sources,
+  replicate locally committed archives, or do both. Settings keeps these S3,
+  WebDAV, SFTP and Google Drive profiles together under Remote storage. Remote
+  restore verifies provider identity and SHA-256. Backup management now has its
+  own Settings section, accepts validated archive uploads, and can discover and
+  adopt existing archives from configured OpenDAL backup connections. Providers
+  without immutable delete identity are excluded from automatic retention and
+  Vault-GC evidence.
+
+- **Scheduled backups with per-mode destinations.** Administrators can opt in
+  to one daily backup at a selected UTC time and independently choose which
+  enabled local or remote destinations receive manual or automatic copies.
+  Existing installations keep local storage selected after upgrade, but may
+  switch either mode to remote-only storage. Backup copies can be deleted from
+  Settings after exact-source verification.
+
+- **Reliable Google Drive backup uploads.** Google Drive archives are now sent
+  through OpenDAL's one-shot writer, so backups larger than one transfer chunk
+  no longer fail after their first chunk.
+
+- **Guarded remote storage hardening.** WebDAV publishes through atomic
+  `MOVE`/`Overwrite: F`; SFTP uses exclusive create with pinned host keys.
+  Both are Guarded: permanent deletion requires confirmation and scheduled
+  purge remains disabled. NAS-linked files stay user-owned and are never
+  deleted by vault ownership maintenance; restores require the same provider
+  and namespace. Azure and GCS remain deferred.
+
+- **Runtime-probed storage capability tiers and remote providers.** Local and
+  S3 storage now report Verified, Guarded, or Unguarded guarantees from runtime
+  probes; durable publication intents and one-shot destructive confirmations
+  protect weaker backends. Setup and Settings add typed presets for S3, R2,
+  B2, Wasabi, self-hosted S3, Nextcloud, WebDAV, and SFTP. The full image pins
+  Apache OpenDAL core 0.58.2 and supports SFTP password or mounted-key
+  authentication ([#90](https://github.com/xiao-villamor/PrintStash/issues/90)).
+- **GitHub-flavoured Markdown tables.** Collection READMEs and Markdown
+  documents now render pipe-table syntax as semantic tables while retaining
+  the existing sanitisation boundary
+  ([#88](https://github.com/xiao-villamor/PrintStash/issues/88)).
+- **Rich URL capture and Model Source records.** Pending Imports can now accept
+  browser-transferred files, show complete/partial outcomes, retry only failed
+  or partial captures, and preserve per-Artifact source snapshots, confirmed or
+  inferred fields, and explicit user overrides. Portable library archives carry
+  optional provenance sidecars while remaining compatible with earlier exports.
+- **Authenticated marketplace capture in the browser extension.** Printables
+  file selection and MakerWorld package selection now use the browser's own
+  authenticated session, with guided pairing, revocable named devices,
+  localhost permission setup, build identification, and clear partial/failure
+  states. PrintStash does not receive the marketplace session cookies.
+- **Capture provider connections and browser pairing.** Per-user MyMiniFactory
+  OAuth and Cults metadata connections, plus named and revocable paired browser
+  devices, support source-aware capture without sharing source-site sessions.
+- **Bambu LAN reproducibility evidence.** Externally started Bambu jobs now
+  preserve the task, subtask, project, profile, plate, layer, nozzle, and G-code
+  identities the printer actually reports. PrintStash makes a bounded,
+  best-effort capture of exact G-code or project 3MF files while they remain in
+  the printer's FTPS cache, labels exact/metadata/basic evidence honestly, and
+  can preview archived G-code contained in a captured 3MF
+  ([#69](https://github.com/xiao-villamor/PrintStash/issues/69),
+  [#70](https://github.com/xiao-villamor/PrintStash/issues/70),
+  [#82](https://github.com/xiao-villamor/PrintStash/issues/82)).
+
+### Security
+
+- Delegated printer administrators can no longer redirect provider endpoints or
+  forward stored credentials, view-only shares no longer expose original G-code,
+  blank JWT secrets are replaced automatically, and optional Postgres, SeaweedFS,
+  and migration MinIO services stay off host interfaces by default.
+- Capture rejects URL credentials and strips secret-shaped URL parameters. It
+  does not retain raw HTML, source-site cookies, OAuth codes, signed download
+  URLs, resolved credentials, or staging paths; active provider credentials are
+  encrypted at rest and never returned. Provider traffic is restricted to
+  bounded, validated endpoints.
+
+### Changed
+
+- **External storage is now presented as Library sources.** Settings uses one
+  ownership-aware flow for mounted folders and read-only S3, WebDAV, and SFTP
+  connections, with explicit no-copy and no-delete guarantees throughout the UI.
+- **Legacy S3 backup fields leave Settings.** Storage now contains only managed
+  Vault storage and local backup retention. Existing legacy configuration remains
+  readable for upgrades, while new remote profiles live under Remote storage.
+- **Multipart sets now live in the main Models library.** The default Organized
+  view shows a set once without duplicating its member cards; Everything,
+  Multipart sets only and Parts only make every reusable Model accessible without a
+  second navigation mode. Search always reveals matching member Models, and
+  multipart cards use the same square visual language, tag actions and per-user
+  favorites as ordinary Models. Set-owned covers may be uploaded privately from
+  the user's computer or use an external HTTP(S) image without depending on a
+  member preview. Set details retain their read-only overview, an empty-state Add
+  part action and an explicit editor for metadata, tags, cover, ordered pieces,
+  variants and guides.
+- **Model tags are now discoverable from the library.** Editable model cards
+  and detail headers expose a direct Add/Edit tags action, where users can find
+  existing tags or create and assign a new one without entering full model edit.
+- **Thumbnail generation now shares one versioned visual recipe.** Full,
+  streaming, fallback, embedded 3MF, and browser preview paths use deterministic
+  framing and an upper-hemisphere camera. Durable recipe/hash caching coalesces
+  concurrent work across instances, enforces database-backed render slots, and
+  prevents repeated CPU/GPU cost for ready or deterministically failed results.
+  Screenshots render on demand from the visible scene without retaining the
+  drawing buffer, reject empty captures, and obey texture and 16-megapixel caps.
+- **The browser extension now shows its normal SemVer release.** The popup header
+  displays the packaged `0.x.y` version, and every browser manifest derives that
+  version from the extension package so release identifiers cannot drift.
+- **Storage ownership is data-plane only.** PrintStash no longer creates S3
+  buckets or changes lifecycle policies. It inspects versioning/lifecycle state
+  to report safety, keeps backup S3 configuration independent, and requires an
+  explicit acknowledgement before starting on Unguarded storage. Legacy
+  `VAULT_STORAGE_BACKEND`/S3 settings remain accepted; new deployments use typed
+  provider configuration.
+- **Dense STL previews preserve surface coverage.** Oversized binary and ASCII
+  meshes now use an isolated, bounded two-pass streaming renderer before the
+  deterministic sampled fallback, keeping previews coherent without loading the
+  full mesh into API memory ([#67](https://github.com/xiao-villamor/PrintStash/issues/67)).
+- **Embedded 3MF previews take precedence.** Valid slicer-provided PNG previews
+  bypass mesh regeneration, while invalid or oversized candidates are skipped
+  safely in favour of the next bounded candidate.
+- **Authenticated package downloads moved out of the API.** Server-side
+  marketplace authentication has been retired in favour of paired-browser
+  transfer, keeping source-site credentials in the user's browser.
+- **Shared domain and UI packages now own reusable behaviour.** Archive, G-code,
+  mesh, networking, notification, import, and printer logic is consolidated in
+  `printstash-core`; frontend domain helpers and UI primitives live in internal
+  workspace packages. Application startup now composes storage, queues,
+  realtime, sessions, and printer providers explicitly while retaining the
+  local-first defaults and existing API contracts.
+- **Frontend toolchain moved to oxc.** ESLint and `typescript-eslint` are
+  replaced by [oxlint](https://oxc.rs), formatting is now enforced by
+  [oxfmt](https://oxc.rs) (the frontend was previously unformatted), and
+  typechecking runs on the TypeScript 7 native compiler — about 6x faster
+  (`3.97s` to `0.66s` on this tree). Dropping `typescript-eslint` is what makes
+  TypeScript 7 usable at all: it has no stable programmatic API until 7.1.
+  `pnpm lint` and `pnpm typecheck` keep their names; `pnpm format` and
+  `pnpm format:check` are new and `format:check` gates CI.
+- **Lint rules now reject low-evidence typing.** The
+  [anti-slop](https://github.com/dmmulroy/anti-slop) rule set is vendored at
+  `frontend/tools/oxlint/anti-slop/` and enabled as errors, alongside oxlint's
+  React and Vitest rules. `react/set-state-in-effect`, previously disabled, is
+  now enforced.
+- The i18n coverage test parses JSX with `oxc-parser` instead of the TypeScript
+  compiler API, which TypeScript 7 no longer exposes.
+- **Tests now mirror production ownership.** Backend tests are separated into
+  unit, integration, live-contract, and end-to-end lanes; frontend app, shared
+  packages, browser extension, mock-API Playwright, real-backend Playwright,
+  storage-provider E2E, migration convergence, and branch-coverage floors are
+  independent gates. A Docker pre-release harness covers PostgreSQL, S3,
+  Spoolman, Authentik, and printer emulators, and arm64 images build on native
+  runners.
+
+### Fixed
+
+- Vault Audit now explains why unlinked files are retained, shows their type,
+  size, and modification time when available, totals the space they may reclaim
+  after review, and makes clear that marking a finding reviewed never deletes
+  its file.
+- Restoring a backup now safely reuses storage objects whose size and SHA-256
+  already match the archive, so an in-place recovery no longer fails merely
+  because its immutable files are still present. A genuine destination
+  conflict still fails before any write, but now removes its preflight journal
+  and releases maintenance mode instead of leaving the vault read-only. If an
+  interrupted restore outlives the browser session, administrators can sign in
+  through an access-only recovery session and resume it without admitting a
+  concurrent database write. Container restarts preserve valid local ownership
+  receipts, and backups affected by an earlier metadata-only ownership repair
+  can restore after exact SHA-256 and inode verification.
+- Interrupted OpenDAL backup publications can now reconcile their persisted
+  ownership receipt instead of failing while constructing the verification
+  copy.
+- Library view now remembers the user's selection, and new browsers default to
+  Everything instead of Organized.
+- Exploratory-QA fixes now keep live locale changes consistent, translate the
+  library result count, validate Model names, backup retention, and filament
+  costs visibly, identify remote backup destinations accurately, keep delete
+  and restore warnings distinct, and confirm preset deletion before removing
+  it.
+- Remote-only backups now restore archives containing both Artifact data and
+  generated thumbnails, and missing rebuildable remote derivatives no longer
+  abort backup creation with a provider-specific `NotFound` error.
+- Full container images now register OpenDAL's advertised Google Drive
+  transport. Remote-connection tests align their controls at intermediate
+  widths and report unavailable provider support explicitly instead of an
+  internal server error.
+- Multipart Model editing now keeps part actions, variants, metadata, and the
+  Save action in the mobile flow. Model-detail previews reserve a larger touch
+  surface, keep their file label clear of viewer controls, and use 44px mobile
+  targets without handing drag gestures to the page.
+- Selecting **None** while editing a Model now removes its Collection
+  assignment instead of leaving the Model in its previous Collection
+  ([#110](https://github.com/xiao-villamor/PrintStash/issues/110)).
+- PDF guides recover from browsers that cached the pdf.js worker before its
+  production MIME type was corrected and use PDF.js's compatibility worker for
+  mobile browsers that cannot start its modern build. Protected PDFs are passed
+  to the worker as downloaded bytes instead of Android-inaccessible `blob:`
+  URLs; module-worker responses revalidate, and renderer failures report their
+  underlying error.
+- Backup restore confirmations now keep long source identities, namespaces,
+  and checksums contained within the dialog at desktop and mobile widths.
+- Saved light and dark theme preferences now survive a page refresh under the
+  production Content Security Policy.
+- MakerWorld package resolution accepts both current root-level and compatible
+  nested link responses, and Thingiverse model pages list and transfer selected
+  individual files instead of manufacturing a model ZIP candidate.
+- Browser-extension failures now lead with a short recovery step and keep safe
+  diagnostic codes in a collapsed technical-details section.
+- Cached 3D previews no longer leave their loading spinner over an already
+  rendered model when the same Model is reopened.
+- Manual backups no longer fail when a superseded thumbnail or another
+  rebuildable preview projection is absent from storage; original Artifact
+  bytes remain mandatory.
+- Completed uploads no longer leave a duplicate generic Import task polling
+  forever; clients also reconcile the stuck duplicate rows persisted by the
+  affected build.
+- Task Center reconnects now request every locally active job explicitly, so a
+  thumbnail rebuild or upload that finished while the browser was disconnected
+  reaches its terminal state instead of spinning forever after normal history
+  expires. Jobs the server genuinely no longer knows become retryable failures.
+- Completed ingestion now bypasses the legacy response cache when refreshing
+  the vault grid, outliner, and facets, so a newly uploaded Model appears
+  without a page reload.
+- Full, streaming, and sampled thumbnail renderers now take their material
+  albedo from the same versioned preview recipe, preventing large-STL previews
+  from looking like a different colour or material.
+- **BGCODE uploads now work from every browser upload surface.** Main uploads,
+  vault drag-and-drop, and revision uploads now accept PrusaSlicer `.bgcode`
+  files and route them through the existing binary G-code metadata and thumbnail
+  pipeline.
+- Uploads at exactly the configured per-file limit now reach the route's precise
+  `upload_too_large` response instead of being rejected as an oversized request.
+  The API and reverse proxy retain a separate bounded multipart headroom above
+  that per-file cap
+  ([#94](https://github.com/xiao-villamor/PrintStash/pull/94)).
+- API containers now honour positive numeric `PUID` and `PGID` values for
+  bind-mounted data, repair ownership when that identity changes, and reject
+  invalid or root IDs before migrations start
+  ([#83](https://github.com/xiao-villamor/PrintStash/issues/83)).
+- 3MF previews now preserve component and build transforms used by 3D Builder
+  projects when producing the browser's STL representation
+  ([#84](https://github.com/xiao-villamor/PrintStash/issues/84)).
+- Pending Imports now preserve completed/partial outcomes across polling,
+  refreshes, retries, and cleanup; can be dismissed after capture without
+  affecting imported Models or Artifacts; block deletion while resolution is
+  active; recover legacy staging indexes; and no longer let expired terminal
+  jobs break a later upload.
+- Bambu LAN now uses persistent report-topic subscriptions without losing
+  request-topic commands, merges partial reports, reconciles evolving job
+  identities without conflating printers or print cycles, retains project-file
+  hints, and retries FTPS capture only for explicit transport faults.
+- Legacy local Artifacts can be adopted safely into the storage-ownership
+  ledger, while garbage collection and permanent deletion continue to preserve
+  bytes that PrintStash cannot prove it owns.
+- Legacy local and S3 backup archives can be discovered and explicitly adopted
+  after full validation without copying their bytes. Exact-source identity keeps
+  same-id replicas collision-safe across listing, restore, deletion, and
+  retention, while restore journals and interrupted S3 publication recovery now
+  fail closed on ambiguous archive or provider identity.
+- Fleet scheduling and printer queues now exclude deleted jobs, and fleet editor
+  selections are validated instead of being accepted through stale UI state.
+- Frontend hardening uncovered and fixed a missing-`starred` Model-card crash,
+  an upload dialog that could overwrite the user's Collection choice after a
+  query resolved, and error-message lookups that could traverse object
+  prototypes.
+- **`greenlet` is now declared directly, so the async database capability works
+  on Apple Silicon.** SQLAlchemy requires `greenlet` for every asyncio code path
+  but declares it only for `platform_machine` in `AMD64`, `WIN32`, `aarch64`,
+  `amd64`, `ppc64le`, `win32`, `x86_64`. macOS on Apple Silicon reports `arm64`,
+  so that marker was false and `uv sync` left `greenlet` out — an async engine
+  then failed at runtime on a developer Mac while passing in CI. `aiosqlite` also
+  joins the `dev` group, so the SQLite async contracts run everywhere instead of
+  skipping (4 skipped tests became 4 passing ones).
+
+## 0.12.1
+
+### Fixed
+
+- **Container startup reliability.** API images now give legacy or
+  operator-supplied `uv run` commands a fresh user-writable runtime cache and
+  disable runtime environment synchronization. This prevents the unprivileged
+  API process from crash-looping on the root-owned build cache
+  ([#77](https://github.com/xiao-villamor/PrintStash/issues/77)).
+
+## 0.12.0
+
+**Back up before upgrading. This release includes additive database migrations and deployment/dependency changes; PostgreSQL, MinIO, and lite-image users should review [UPGRADE.md](./UPGRADE.md).**
+
+### Added
+
+- **Material-aware fleet dispatch.** Printer tools and material feeds now track
+  their source, Bambu AMS and Moonraker active-Spoolman state can synchronize
+  automatically, and G-code preflight compares material and nozzle metadata
+  before a direct send. Fleet batches add copy counts, group constraints,
+  priority lanes, audited mismatch overrides, optional operator release gates,
+  and an at-a-glance printer board
+  ([#73](https://github.com/xiao-villamor/PrintStash/issues/73)).
+- Preview settings now control interactive 3D/G-code render sharpness, downloaded screenshot resolution, and generated Model image resolution, with a background action to recreate existing Model previews.
+- Import jobs now publish durable completion metadata, explicit complete/partial outcomes, thumbnail status and stable reasons, restart recovery, monotonic progress, structured metrics/logs, and no-store polling.
+- A memory-bounded streaming STL fallback generates 640×480 WebP thumbnails for oversized or otherwise unrasterizable meshes, including Vault Maintenance repair and Bulk upload flows ([#67](https://github.com/xiao-villamor/PrintStash/issues/67)).
+- Bambu LAN beta now records externally started prints using the identity fields reported by the printer and makes a best-effort capture of exact G-code or project files while they remain in the printer's FTPS cache, clearly labelling metadata-only history when no Artifact can be recovered.
+- Separate `printstash-api` full and `printstash-api-lite` images expose browser, STEP, and thumbnail capabilities through authenticated health details; lite retains NumPy/Pillow/Trimesh thumbnailing without Chromium or OpenCASCADE.
+- A transitional, idempotent MinIO-to-SeaweedFS helper copies objects without deletion and verifies their downloaded content with a digest-pinned rclone image.
+
+### Changed
+
+- New password hashes use Argon2; successful login transparently upgrades legacy bcrypt hashes while preserving bcrypt's historical 72-byte behavior only for legacy verification.
+- Mesh processing now uses NumPy 2, Trimesh 5's `load_mesh()`, and Cascadio 0.1.1, including STEP support in full amd64 and arm64 images.
+- PostgreSQL now uses Psycopg 3 for sync and optional async engines. `aiosqlite` moved to the opt-in `async-db` extra, and unused `asyncpg`/Psycopg 2 dependencies were removed.
+- FastAPI, Starlette, SQLModel, SQLAlchemy, Alembic, Uvicorn, WebSockets, and compatible patch/minor dependencies were refreshed; direct runtime dependencies and deptry checks now make dependency ownership explicit.
+- Patchright and Cascadio moved to `browser`, `step`, and `full` extras. The lite API image is more than 700 MiB smaller than full without losing mesh thumbnail generation.
+- The normal Compose stack no longer contains MinIO; SeaweedFS remains the bundled S3-compatible service, while external MinIO endpoints remain supported.
+
+### Fixed
+
+- Vault Maintenance now derives severity totals from the findings it actually
+  returns, shows the complete finding count, and skips missing-file checks for
+  trashed Models, Artifacts, Documents, Collection images, and external links.
+- Printer-card image visibility now reloads and synchronizes from its saved
+  browser preference, while browsers without a saved language start in English
+  instead of inheriting the browser locale.
+- Confirmation dialogs now translate their title, description, Cancel,
+  destructive action, and Close label consistently, expose an accessible
+  dialog name, remove empty header spacing, and stack long actions on narrow
+  screens.
+- Startup and hourly maintenance no longer infer file ownership by recursively deleting unindexed objects from configured storage. First-run local vault paths must now be writable, dedicated empty directories; failed uploads clean up only their exact destinations, and occupied paths are never overwritten. Existing NAS and Nextcloud folders belong under External Libraries.
+- Task Center is now the single import-job transition owner, emits one terminal event per job, rejects stale/out-of-order polling responses, resumes active work after reload/connectivity changes, and coordinates one post-Bulk refresh.
+- Import jobs cannot report completion before Model, Artifact, Metadata, primary storage, and expected thumbnail outputs are visible from a fresh session.
+- Oversized valid STL uploads no longer silently finish without thumbnails, and partial thumbnail outcomes remain visible and repairable instead of masquerading as complete success ([#67](https://github.com/xiao-villamor/PrintStash/issues/67)).
+- STEP tessellation now runs in a disposable child process with a cgroup-aware memory budget and timeout, so an overly complex file degrades without taking down the API process.
+- OIDC login now accepts issuer URLs that differ only by a trailing slash, fixing Authentik `PER_PROVIDER` configurations while continuing to reject genuinely mismatched issuers ([#71](https://github.com/xiao-villamor/PrintStash/issues/71)).
+
+### Security
+
+- Long, Unicode, and malformed password inputs and damaged legacy hashes now fail in controlled paths, and dependency CI adds weekly uv lock updates plus explicit vulnerability/dependency hygiene gates.
+
+## 0.11.4
+
+**This patch-version release is an explicit exception to normal 0.x patch policy: it adds cursor pagination endpoints and an append-only index migration. Back up before upgrading.**
+
+### Added
+
+- Model browsing now has globally sorted cursor pagination for date, name, print success, last print, duration, filament, and cost, plus a lightweight desktop-outliner endpoint.
+
+### Fixed
+
+- Portable library exports now enforce the same entry and uncompressed-size ceilings as imports, and verify every source Artifact while streaming, so PrintStash does not produce an archive it would reject on round-trip.
+- Remote thumbnails now expose storage ETags and honor `If-None-Match` with a bodyless `304`, matching local thumbnail cache revalidation.
+- Task Center synchronization now releases timers on cleanup, pauses while the tab is hidden, stops when idle, and backs off after transient errors.
+- Permanent deletion now preserves user-owned external/NAS bytes while consistently removing vault-owned Artifact blobs, thumbnails, dependent rows, Document files, and embedded Document images.
+- Password resets, account activation changes, role changes, and logout now invalidate all access and refresh sessions durably; refresh-token rotation is atomic under concurrent requests and expired rows are pruned in bounded batches.
+- First-run setup now commits its configuration, initial superuser, and completion marker in one transaction, so an interrupted request cannot leave a half-configured vault.
+- Concurrent administrator changes can no longer deactivate or demote the final active superuser.
+- OIDC callback provisioning now participates in backup-restore write quiescing, and cookie-authenticated mutations retain their actor in audit logs.
+- Manual print-history entries now reject trashed Artifacts and invalid states instead of silently treating bad state input as completed.
+- Document trash now supports listing, restore, permanent purge, and retention GC without leaking its binary or embedded-image blobs.
+- Rate-limit state now evicts expired or least-recently-used IP buckets at a fixed cardinality ceiling.
+- Shutdown now cancels and awaits every managed background loop before closing shared clients.
+- Fleet queue pagination now applies printer permissions in SQL before page limits, and one live default printer is enforced by the database with deterministic migration repair.
+- Orphan-database adoption now compares column types, nullability, defaults, keys, constraints, indexes, and partial predicates before stamping a schema as current.
+- Vault garbage collection now removes unreferenced STL caches and Collection images while preserving shared derivatives until their final owner is deleted.
+- Backup APIs now publish database capabilities and return a stable unsupported response for PostgreSQL instead of failing late in SQLite-specific code.
+- Numeric environment limits are validated at startup, including archive and S3 lifecycle relationships, while documented zero-value sentinels remain supported.
+- OpenAPI now describes the actual HTTP Bearer JWT contract used by programmatic clients.
+
+### Changed
+
+- The supported deployment topology is explicitly one API process per vault. Startup claims a vault lock and fails fast when another API process is active; detailed health reports this topology.
+- PostgreSQL 16 now has a real CI contract gate covering fresh migrations, CRUD/RBAC enums, partial indexes, and concurrent refresh-token consumption; critical backend modules and architecture seams also have an incremental Pyright gate.
+- The bundled local S3 service and real-storage CI gate now use pinned SeaweedFS 4.41 instead of archived MinIO. Existing MinIO volumes remain available through an explicit legacy profile for deliberate migration.
+
+### Security
+
+- The container build now pins the `uv` toolchain image to version `0.12.1` and an immutable multi-architecture digest.
+
+### Performance
+
+- Portable archive export now scopes accessible Models directly in SQL instead of first materializing the full metadata export, keeps large ID sets inside SQL subqueries, and hashes Artifact data in bounded chunks.
+- Portable archive import validates Artifact members in bounded chunks and runs blocking upload, ZIP, filesystem, and database work outside the async event loop.
+- Model metric sorts now run in SQL across the complete filtered library instead of draining every frontend page; mobile skips outliner leaves and desktop receives only its minimal tree fields.
+- Background-job reconnect reads filter and bound persisted history in SQL before deserialization, while active polling runs only while work exists.
+- External-library scans coalesce progress persistence to 250 ms or one-percent steps instead of committing once per unchanged Artifact.
+- Model facets and vault counters now each use one aggregate database round-trip, backed by composite indexes for live Artifact, Model cursor, and background-job lookup paths.
+- Fleet dispatch now processes bounded candidate batches, preloads routing and permission data in fixed-query snapshots, and moves synchronous database/import work out of async event loops.
+- Initial font CSS is limited to the Latin subset, and Vite's native TypeScript path resolver replaces the redundant plugin.
+
+## 0.11.3
+
+**This patch-version release is an explicit exception to normal 0.x patch policy: it adds two user-facing features and an append-only database migration. Back up before upgrading.**
+
+### Added
+
+- **Elegoo Centauri Carbon upload.** Both Centauri Carbon models can now receive Vault G-code directly (chunked HTTP upload, independent of the SDCP/MQTT control channel), via an upgraded `pycentauri` dependency ([#57](https://github.com/xiao-villamor/PrintStash/issues/57)).
+- **Spool coverage warning.** Selecting a spool on send now warns if it can't cover the revision's filament weight, or if that can't be verified (parsed weight missing, or the spool has no tracked remaining weight) — never assumed to be fine. The warning doesn't block sending ([#64](https://github.com/xiao-villamor/PrintStash/issues/64)).
+
+### Fixed
+
+- The Spoolman integration no longer enables consumption write-back by default; it stays off until an operator explicitly turns it on, since most providers (only Moonraker reports measured consumption today) could never act on it anyway ([#58](https://github.com/xiao-villamor/PrintStash/issues/58)).
+- The Spoolman spool inventory (`GET /api/v1/spoolman/spools`) and picker now surface Spoolman's `location` field, so spools that are otherwise identical (same vendor, material, color) can be told apart across multi-slot changers (AMS, CANVAS, MMU) ([#58](https://github.com/xiao-villamor/PrintStash/issues/58)).
+- Importing a zip archive with deeply nested folders no longer fails with "too many files" — the archive entry-count cap now counts real files, not the directory records a nested tree accumulates ([#61](https://github.com/xiao-villamor/PrintStash/issues/61)).
+- Centauri Carbon setup and settings now explain that the Mainboard ID is needed for reliable printer commands while idle, paused, or errored, instead of describing it as a reconnection-only aid ([#65](https://github.com/xiao-villamor/PrintStash/issues/65)).
+- Concurrent Artifact imports now reserve Revision numbers atomically. The upgrade repairs any duplicate Revision numbers or recommended markers already present, then adds database constraints that keep both invariants intact.
+- SQLite backups now capture a transactionally consistent database snapshot, including committed WAL data, and archive the blob set owned by that same snapshot. Restore validates and stages the database and blobs, rolls storage changes back on failure, and pauses concurrent writers before applying anything.
+- The migration runner no longer marks an incomplete, unversioned database as current. Orphan databases are adopted only when their schema matches the complete application schema; ambiguous states fail with recovery guidance instead of silently skipping migrations.
+
+### Performance
+
+- OctoPrint uploads now stream G-code into the multipart request instead of loading the entire file into memory first.
+
+### Security
+
+- Updated the Python `cryptography` dependency to its patched 50.0.0 release.
+
+## 0.11.2
+
+### Fixed
+
+- The theme toggle now reads the theme already applied to the page instead of re-resolving it from storage, so it switches on the first click ([#55](https://github.com/xiao-villamor/PrintStash/issues/55)).
+
+## 0.11.1
+
+**This patch-version release is an explicit exception to normal 0.x patch policy: it adds features and append-only database migrations. Back up before upgrading.**
+
+### Added
+
+- **Vault Maintenance.** Superusers can run persisted Quick or Full audits, inspect severity-grouped findings, cancel hashing between objects, repair eligible thumbnail/Metadata/Revision findings, and verify backup archive structure and manifest membership.
+- **Pending Imports and Quick Capture.** URL captures persist across restarts with owner-scoped review, retry, Collection/tag assignment, archive/file selection, and a minimal Manifest V3 browser helper that sends only current page URL/title.
+- **Structured Model filters.** Artifact type, material, slicer, printer model, Revision status, print history/outcome, storage location, and upload date extend canonical URLs, facet counts, and Saved Views.
+- **Per-printer access control.** Superusers can grant view, print, control, or admin roles independently for each printer. Printer, fleet, live WebSocket, remote-file, queue, routing, and maintenance APIs enforce the effective role; connection details and unavailable actions stay hidden in the UI.
+
+### Changed
+
+- Backup creation now fails if a database-owned blob is unreadable, missing, changes size, or vanishes while streaming instead of silently producing a smaller archive.
+- Completed Spanish translations across the Model detail print-settings panel, card-metric and metadata-field pickers, and remaining Settings surfaces left over from 0.11.0's localization foundation.
+
+### Fixed
+
+- Clearing all Structured Model filters at once now removes every active filter and date range from the URL instead of leaving the last-applied one in place.
+- The mobile bottom navigation no longer pushes "Profiles" into the overflow "More" sheet for administrators; it stays one tap away alongside Vault, Pending, and Printers.
+
+### Security
+
+- Pending Import URLs strip secret-shaped query parameters and reject embedded URL credentials; persisted manifests and API responses omit staging paths, cookies, and resolved download credentials.
+- Vault-audit and repair endpoints are superuser-only, Pending Imports are owner-scoped, and facet counts use the same Collection RBAC scope as Model browsing.
+- Printer grants are checked server-side on every REST and WebSocket boundary. Printing also requires existing Collection edit access to the source Model, and API keys inherit their owning user's printer grants.
+
+## 0.11.0
+
+### Added
+
+- **Fleet queue and routing.** Administrators can queue Vault G-code across configured printers using manual, default-printer, or deterministic least-busy routing, then reorder, reroute, cancel, and retry eligible failed dispatches.
+- **Maintenance-aware scheduling.** Printers can be placed in soft-drain mode, assigned one-off maintenance windows, and given a simple maintenance log without interrupting active prints.
+- **Persistent background progress.** Import and scan job status now survives application restarts; interrupted non-replayable work is marked failed and retryable instead of disappearing or hanging indefinitely.
+- **Fleet operations UI.** Printer management now includes Fleet, Queue, and Maintenance views, and Model send dialogs can add G-code to the fleet queue.
+- **OIDC / SSO login.** Optional generic OpenID Connect supports Authentik, Authelia, and similar providers with discovery, authorization-code PKCE, validated ID tokens, collision-safe just-in-time users, configurable admin-group mapping, fallback local login, and encrypted setup under Settings → SSO.
+- **Installable offline shell.** PrintStash now includes a web-app manifest and service worker so it can be installed as a PWA and reopen its cached shell when the server is temporarily unreachable.
+- **Localization foundation.** A typed, persisted locale system ships with English and Spanish catalogs, a global language switch, and translated login, desktop, mobile, profile, and Settings navigation surfaces.
+
+### Changed
+
+- Immediate sends and scheduled dispatches share one storage-to-provider transfer seam while preserving provider capability checks and local-first storage behavior.
+- Printer jobs expose additive routing, queue, provider identity, dispatch-attempt, and blocked-reason fields without removing existing history fields.
+- The previously planned 0.12 Auth and Platform scope is included in 0.11.0.
+- Fleet queue reads keep active work visible while limiting terminal history to 20 rows by default, with bounded pagination up to 100 rows in the UI and API.
+- The local `TaskQueue` now wakes database-backed fleet dispatch immediately while timeout polling preserves queued work across restarts without Redis or another external service.
+
+### Fixed
+
+- Moonraker WebSocket connections now send the required `server.connection.identify` handshake before subscribing when an API key is configured, instead of silently subscribing unauthenticated.
+- Bambu LAN MQTT commands wait for the printer's own report before treating a print/pause/cancel/resume as successful, and status queries read the pushed MQTT report instead of a nonexistent local HTTPS status endpoint.
+- PrusaLink file listing, job state, and start-print now match the real v1 API: recursive folder listings, telemetry read from `printer` fields, and starting a file via `POST /api/v1/files/local/{path}` instead of the OctoPrint-style select/print body.
+- Cancelling a printer job now also marks its active PrintStash job row as cancelled, instead of leaving it stuck in a started/printing/paused state after the provider cancel succeeds.
+
+### Security
+
+- Dispatches interrupted between provider upload/start and the final database write are marked as an unknown outcome and cannot be retried automatically, preventing accidental duplicate prints after restart.
+- OIDC ID tokens accept only asymmetric RS/ES signing algorithms, and HTTPS callback configurations force Secure state, nonce, verifier, and session cookies.
+
+### Operations
+
+- Prometheus now reports fleet jobs, blocked work, dispatcher outcomes, scheduler liveness, and last-tick time; authenticated health details expose the same scheduler state.
+- PWA registration bypasses HTTP caching for service-worker updates, replaces old cache generations, activates waiting workers, and revalidates cached static assets while preserving offline navigation fallback.
+
+## 0.10.0
+
+### Added
+
+- **Bulk library editing.** Select up to 500 Models to move collections, add or remove tags, move to trash, or update labels across selected G-code revisions with atomic permission preflight.
+- **Saved views and favorites.** Star Models per user and save common collection, tag, search, printer-presence, and favorites filters. Applying a saved view restores canonical URL filters.
+- **Richer Artifact comparison.** Compare any two live Artifacts within one Model, including file, mesh, slicer, material, revision, and measured print-outcome differences.
+- **Portable library migration.** Export a versioned ZIP containing accessible Models, original Artifact blobs, metadata, taxonomy, print history, favorites, and saved views; admins can safely import it into another installation with hash validation and deduplication.
+- **Configured-root folder import.** Admins can trigger a targeted external-library scan below an already configured root without granting access to arbitrary server paths.
+
+### Security
+
+- **First-run setup is gated by a setup token.** The endpoint that creates the initial superuser cannot require a login, so it now requires `VAULT_SETUP_TOKEN` and returns `403 invalid_setup_token` without it. When the variable is unset the API generates a token per process and logs it while the vault is unconfigured, so a fresh install reads it with `docker compose logs api | grep "setup token"` and pastes it into the wizard. Restarting the API before finishing setup invalidates the logged token; set the variable for a stable one.
+- Portable imports reject path traversal, missing blobs, unsupported manifests, oversized archives, and SHA-256 mismatches before database or storage writes.
+
+### Changed
+
+- Model detail now includes actual print counts, success rate, duration, filament, and cost when comparing Artifacts.
+- **Daily library workflow polish.** Saved views now support search, recent ordering, update, rename, duplicate, and delete; mixed Model/folder selection adapts available bulk actions; destination search prevents invalid folder moves; sorting, compact density, keyboard shortcuts, recent folders, and undo reduce repetitive library work.
+- Collection and tag management now lives in Vault, model editing, upload, and Settings; the redundant Catalog page and navigation entry have been removed.
+
+### Fixed
+
+- Artifact comparison rounds percentages and filament totals to readable precision instead of exposing floating-point artifacts, and the vault sort picker now uses the shared styled menu.
+- Header and recent-folder menus now stay above adjacent vault surfaces instead of being obscured by sticky controls or the collection sidebar.
+
+## 0.9.0
+
+### Added
+
+- **PrusaLink local FDM support (beta).** Connect modern PrusaLink with Digest
+  username/password authentication or legacy installations with an API key.
+  PrintStash supports live status, G-code upload, explicit start, remote file
+  inventory/deletion, and pause/resume/cancel without using Prusa Connect cloud.
+- **Elegoo Neptune 4-family setup.** Neptune 4, Pro, Plus, and Max can be added
+  through a dedicated preset backed by the existing Moonraker/Klipper provider,
+  keeping one tested transport and an identifiable printer variant.
+- **Elegoo Centauri Carbon support (beta).** Original Carbon printers connect
+  locally over SDCP/WebSocket, while Carbon 2 uses its access-code-protected
+  local MQTT API. Both provide status and start/pause/resume/cancel controls.
+  Upload and file inventory stay disabled because current firmware exposes no
+  safe confirmed file API.
+- **OctoPrint support (beta).** Connect a local OctoPrint/OctoPi instance with
+  an API key for live status, G-code upload, explicit start, remote file
+  inventory/deletion, and pause/resume/cancel.
+- **Provider-aware printer setup.** The add-printer flow now offers Moonraker,
+  Elegoo Neptune 4, PrusaLink, OctoPrint, and Bambu LAN with only the
+  credentials required by each integration.
+- **Printer model detection on the printer card.** Bambu (from its serial
+  prefix) and Elegoo Neptune 4/Centauri (from the setup preset) show a
+  best-effort hardware model automatically. Any printer's model can be set or
+  corrected from a curated picklist to avoid typos, with an "Other" option
+  for custom builds.
+- **Bambu LAN Vault send support (beta).** PrintStash can upload plain-text
+  G-code to a Bambu printer's local cache over implicit FTPS, then start the
+  uploaded file through the local MQTT connection. Upload-only remains the
+  default; starting requires the explicit **Start print immediately** option.
+- **Provider-safe Bambu send guard.** Bambu sends now verify that the printer
+  reports an idle/ready state before creating a transfer job, so an active or
+  unreachable printer is rejected without leaving a job stuck uploading.
+- **Provider capability matrix.** Printer integrations declare supported
+  actions from one shared capability set (status, upload, start, controls,
+  file inventory, raw G-code, and measured consumption). API diagnostics and
+  frontend actions are derived from that data instead of provider-specific UI
+  checks.
+- **Provider conformance suite.** Every printer integration is exercised by one
+  shared test pack: it must register, reject incomplete credentials, refuse the
+  actions it does not declare without touching the network, and keep transport
+  failures behind the common provider error surface. Adding a printer backend is
+  now a single small class, so future providers arrive faster and behave
+  consistently from the first release.
+- **Printer management refresh.** Printer cards can optionally show model
+  artwork, detected models can be corrected inline, and provider badges now use
+  the shared visual language. Printer detail has a clearer idle/offline Status
+  view, compact temperature telemetry, and a new Settings tab for editing names,
+  groups, notes, model overrides, connection addresses, and provider credentials.
+- **Dashboard-wide UI polish.** Document pages now share one responsive width
+  and heading pattern; Settings, Statistics, Profiles, Organize, navigation,
+  empty states, errors, and destructive confirmations use the same semantic
+  surfaces and controls. Browser tabs also identify the current PrintStash page.
+- **Consistent motion and feedback.** Model grids settle in with a short capped
+  stagger, the batch toolbar rises and fades with selection, tabs move on the
+  compositor, and modals, drawers, menus, and toasts use the same fast motion
+  scale with symmetric close animations and reduced-motion support.
+
+### Fixed
+
+- **Predictable reconnect behavior.** Initial connection and subscription
+  failures now use bounded exponential backoff, while a recovered provider
+  clears its stale offline/error state on the first successful status update.
+- **Bambu status failures reach the printer hub.** Polling errors no longer stay
+  hidden inside the provider loop, preventing stale online state during a LAN
+  outage and allowing the shared reconnect policy to take over.
+- **Mixed-provider send controls are capability-aware.** The send dialog keeps
+  upload-only printers selectable but disables **Send & Print** when any
+  selected printer cannot start the uploaded file.
+
+- **Consistent page width.** Printers, Statistics, Profiles, Settings, Organize
+  and printer detail each defined their own scroll container and content width,
+  so navigating between them shifted the layout sideways. They now share one
+  `PageContainer` primitive with a single content width.
+- **The batch selection toolbar animates.** Selecting models popped the toolbar
+  into existence with no transition; it now rises and fades, and reverses
+  cleanly when a selection is toggled rapidly.
+- **Printer creation ignores duplicate submits.** Rapidly pressing **Add
+  printer** can no longer create multiple database rows and unexpectedly advance
+  the printer URL ID.
+- **Navigation and overlays are more accessible.** Active navigation links now
+  expose their current-page state, focus behavior is consistent, and shared
+  confirmation dialogs replace browser-native destructive prompts.
+
+### Performance
+
+- **Live job database writes are bounded.** Unchanged progress updates are
+  coalesced to a five-second interval. Three consecutive job-sync database
+  failures open a per-printer circuit breaker with increasing retry delays,
+  preventing a database outage from becoming a write storm.
+- **Theme switching no longer restyles the whole document.** The theme swap
+  applied a transition to every element and pseudo-element including
+  `box-shadow`; it is now limited to color properties on the standard timing
+  scale. Toasts and the tab indicator were also moved onto GPU-composited
+  properties and the shared motion tokens.
+
+### Ops
+
+- Node.js 24 is pinned for frontend development and release builds, matching
+  CI and the production frontend image.
+- Provider documentation, limitations, diagnostics, manual hardware checks,
+  and the public roadmap now describe the 0.9.0 capability surface.
+
+## 0.8.5
+
+### Security
+
+- **Login and refresh are now rate-limited** (10 requests/minute per IP,
+  separately for each endpoint), reusing the same limiter the public share
+  API already had.
+- **Backup and restore are now audit-logged** (`backup.create`,
+  `restore.start`, `restore.complete`, `restore.failed`), closing the one gap
+  in audit coverage — everything else already flowed through the ORM's
+  change-tracking hook.
+- **Reverse-proxy IP handling documented.** If `api` sits behind a reverse
+  proxy, set the new `FORWARDED_ALLOW_IPS` compose variable to the proxy's
+  address so rate limiting and audit logs see the real client IP instead of
+  the proxy's. See `docs/known-limitations.md`.
+- **Audit-log diffs no longer leak secrets.** The change-tracking hook wrote
+  unredacted before/after values for every changed column, so printer API
+  keys, S3/Spoolman/MakerWorld credentials, the auto-generated JWT secret, and
+  password/token hashes were readable via `GET /admin/audit`. Redacted by
+  field name going forward; a migration scrubs previously-captured rows.
+
+### Fixed
+
+- **S3/R2 backends could fail to boot on first run.** `_ensure_bucket`'s
+  missing-bucket check compared against a response field
+  (`Error.StatusCode`) that a `ClientError` never sets, so the auto-create
+  path never ran on a real S3-compatible store — startup
+  failed instead of creating the bucket. Found by adding integration tests
+  against a real SeaweedFS instance.
+- **A rejected send-to-printer could leave a job stuck "uploading" forever.**
+  The print job was marked `UPLOADING` before checking the printer's provider
+  supported the upload; a 409 on an unsupported provider left it orphaned in
+  that state. The check now runs before the job is created.
+- **"Send to printer" could keep a deleted revision selected** in the picker
+  after it was trashed elsewhere; it now falls back to the current
+  recommended revision. Failed sends now show which printer failed and why,
+  instead of only a success count.
+- **The trash/notification cleanup loop skipped its first run for up to an
+  hour** on every boot (it slept before its first tick), so short-lived
+  containers could go a whole redeploy cycle without expiring trash or
+  pruning old notification deliveries.
+
+### Performance
+
+- **New model versioning is a single `SELECT MAX()`** instead of loading
+  every file row for the model.
+- **The live-print DB sync skips its lookup query on repeat ticks** — the
+  active job is now cached per printer and re-queried only when the tracked
+  file changes or the print finishes, instead of running a filtered query on
+  every status update (several per second per printer).
+- **Collection and model-detail permission checks are batched**, replacing
+  a per-row lookup with one query for the whole page — most noticeable in
+  the sidebar on installs with many collections.
+- **Filament/printer profile usage counts scan thinner rows**, selecting only
+  the matched columns instead of hydrating full metadata records for every
+  live file.
+
+### Ops
+
+- CI now runs `bandit` and `pip-audit` on every PR, and a migration-upgrade
+  job that seeds a database from the oldest supported release and replays
+  every migration to head. Release tags are validated as strict semver before
+  publishing.
+
+## 0.8.4
+
+**Behavior changes on upgrade — read before installing.**
+
+### Security
+
+- **JWT secret can no longer boot with the shipped default.** The app now
+  generates and persists a real secret on first boot; if a `VAULT_JWT_SECRET`
+  was left at the placeholder value, existing sessions are invalidated once on
+  the upgrade boot. Set your own with `openssl rand -hex 32` if you manage it
+  explicitly.
+- **SQLite foreign keys are now enforced.** The upgrade repairs any orphaned
+  rows first (clears a dangling attribution, or drops a row whose required
+  parent no longer exists) so enforcement doesn't turn a later delete into a
+  crash.
+- **Outbound fetches are pinned to the address the SSRF guard validated**,
+  closing a DNS-rebind gap between validation and connection.
+
+### Fixed
+
+- **Printer history re-import could duplicate every past job.** Comparing
+  imported filenames case-sensitively (and, in one path, against only the
+  first character of the stored name) meant a printer that changed filename
+  casing between polls — or any poll at all — could re-import its whole
+  history. Comparison is now a real case-insensitive match on both sides.
+- **Backup restore could race the background jobs.** Restoring while GC, an
+  external library scan, or a live print sync were in flight could leave the
+  database mid-swap under them. Restore now waits briefly for in-flight
+  ingestion to finish and refuses with a 409 if it doesn't; GC and printer sync
+  skip their tick while a restore is in progress.
+
+### Performance
+
+- **Collection permission checks and model-list role resolution** now run as
+  a single SQL query instead of a per-row Python scan.
+- **Print-job ingestion is atomic** — a failed thumbnail no longer leaves a
+  half-built model behind.
+- **The printer WebSocket fan-out no longer blocks on a slow client.** One
+  stalled browser tab used to stall the update for every other subscriber to
+  that printer; sends now run concurrently with a timeout, and a slow or dead
+  socket is dropped instead of blocking the rest.
+- **The dashboard's storage-usage figure is cached for 60 seconds** instead of
+  walking the filesystem on every load.
+- **Print statistics no longer re-hydrate every completed job on every
+  dashboard load.** Cost and effective filament grams are now resolved once,
+  when a print completes, and summed directly.
+  **Behavior change:** a print's cost is frozen at completion time — editing a
+  filament profile's price afterwards no longer revises the cost of prints
+  that already finished.
+
+## 0.8.3
+
+**Upgrade immediately if you use Documents.**
+
+### Fixed
+
+- **Hourly cleanup could delete document files.** The background job that
+  removes unreferenced files only recognised model files as "in use", so
+  uploaded documents (PDFs and other binaries) were treated as leftovers and
+  deleted. Only local storage was affected; S3/R2 installs were not. Documents
+  deleted by an earlier version cannot be recovered by upgrading — restore them
+  from a backup taken before the loss, if you have one.
+- **Backups omitted document files.** For the same reason, document blobs were
+  never written into the backup archive, so restoring a backup silently lost
+  them. New backups include them.
+- **S3/R2 existence checks hid errors.** A credentials or permissions failure
+  was reported as "this file does not exist" instead of raising. Combined with
+  the cleanup job, a transient auth error could have been read as "every file
+  is unreferenced".
+
+## 0.8.2
+
+### Added
+
+- **Grid drag-to-move.** Drag a model card onto a folder in the grid view to
+  move it there.
+- **Trademark policy.** Added `TRADEMARKS.md` to protect the PrintStash name
+  and branding; the project stays licensed under AGPLv3.
+
+### Fixed
+
+- **Remember-me login.** Fixed the remember-me checkbox not persisting the
+  session correctly, and shortened the token lifetime for accounts that don't
+  opt in.
+- **Query client.** Dropped a duplicate collections invalidation that could
+  cause extra refetches.
+- **Docker Compose (light).** Repaired `docker-compose.light.yml`.
+
+## 0.8.1
+
+### Added
+
+- **Live printer controls (Moonraker).** The printer Status tab now lets you set
+  the hotend and bed target temperature, apply one-tap PLA/PETG/ABS preheat
+  presets or Cooldown, Home all axes, and trigger an Emergency stop. Controls are
+  gated behind a new `can_send_gcode` capability, so they're shown only for
+  providers that accept G-code (hidden for Bambu LAN).
+
+### Fixed
+
+- **Mobile scrolling.** Pages use the dynamic viewport height (`dvh`) so they
+  scroll fully under the mobile browser chrome; the model detail page scrolls
+  when its right-hand panel overflows; and the vault, model, and document pages
+  keep their last content clear of the fixed bottom navigation bar instead of
+  hiding it behind the nav.
+- **Thumbnails.** Brighter, higher-contrast mesh lighting on the dark theme.
+
+## 0.8.0b1
+
+### Fix
+
+- Minor fix after the merge of 0.8.0 with 0.7.1b1 (@JrVolt)
+
+## 0.8.0
+
+### Added
+
+- **Spoolman integration (optional, OFF by default).** Connect a self-hosted
+  [Spoolman](https://github.com/Donkie/Spoolman) instance under
+  Settings → Spoolman with a base URL and optional API key, behind a master
+  switch. A Test connection action and a live status badge confirm reachability,
+  and the connection is reported in `/health` (informational — a Spoolman outage
+  never marks the service degraded or blocks a print).
+- **Spool inventory display.** The Spoolman card lists spools with their
+  remaining weight, pulled live from Spoolman (the source of truth).
+- **Filament preset sync (Spoolman → PrintStash, one-way).** A "Sync from
+  Spoolman" action on the Profiles page imports Spoolman filaments as
+  `FilamentProfile` presets keyed by `spoolman_filament_id` (deriving `$/kg` from
+  `price / weight`, plus material, brand, density, and diameter). Synced presets
+  are **read-only** in PrintStash (edit them in Spoolman); the first sync adopts
+  matching local presets by name+material instead of duplicating, and filaments
+  removed in Spoolman are unlinked (reverted to editable local), never deleted.
+  Sync also runs automatically when the integration is enabled. This keeps
+  filament data in one source of truth instead of drifting across two apps.
+- **Exact per-print cost & weight from the selected spool.** When a print used a
+  synced spool, its cost comes from that filament's real Spoolman price and its
+  grams use the spool's real density/diameter (`mm_to_grams` override) instead of
+  the static per-material table — replacing fuzzy metadata matching for those
+  prints.
+- **Per-print spool selection.** Choose which spool a print consumes when
+  sending a job to a printer (`send-to-printer`) or logging a print manually.
+  The spool is persisted on the print record (`PrintJob.spool_id`/`spool_name`)
+  and shown in the model's print history.
+- **Consumption write-back.** On a Moonraker-measured print completion,
+  PrintStash decrements the selected Spoolman spool by the measured
+  `filament_used_g` (server-side via Spoolman's `/spool/{id}/use`), reusing the
+  existing `print_results` + `mm_to_grams` pipeline. Once per job, after the job
+  is committed, so it never blocks the print path. Bambu reports no live
+  consumption, so its prints are skipped.
+- **Double-count safety.** Before writing consumption back, PrintStash checks
+  Spoolman's active spool at completion time; if Moonraker's own Spoolman
+  integration is already decrementing it, PrintStash skips its own write so a
+  print is never counted twice — even if you never opened the settings card.
+  The UI also warns when this is detected. An operator who has disabled
+  Moonraker's hook can set a "write back anyway" override to make PrintStash
+  own the consumption.
+- **Collection documents & READMEs.** Attach documentation to any collection:
+  write Markdown in an in-app editor (live preview, paste-or-drop image embeds)
+  or upload PDFs and other files. New Markdown docs open straight in the editor
+  and aren't created until you save. PDFs render inline in a themed pdf.js viewer
+  (page navigation, zoom, fit-to-width) that matches the app instead of the
+  browser's default chrome. Each collection can also carry a README shown at the
+  top of its page. Access follows the collection's role (view / edit / admin).
+
+### Changed
+
+- **Mobile UI refresh.** Rebuilt the bottom navigation as a five-slot
+  Material-style bar (four destination tabs plus an always-present "More"
+  sheet) instead of cramming up to seven items across the width — readable
+  labels, a clear active indicator, and the account actions (username +
+  Log out) moved into the More sheet.
+- **Search on mobile.** The top-bar search is now available on small screens;
+  the redundant user-avatar menu is hidden there since navigation and account
+  actions live in the bottom nav.
+- **Library header on mobile.** The "All Models" header stacks its title and
+  actions on narrow screens (so the heading no longer wraps), with tighter
+  padding and smaller folder cards.
+
+### Fixed
+
+- Dark-mode Catalog stat cards no longer show bright/stray dividers — the
+  Collections/Tags summary now uses theme-aware hairline separators.
+- The internal `__external__` sentinel model (placeholder for external print
+  jobs) no longer leaks into the "All Models" grid — the library browse now
+  excludes it, matching the header count that already did.
+- Batch tag/move no longer creates a tag or destination collection as a side
+  effect when every selected model fails the permission check; taxonomy is only
+  created once at least one model qualifies. Batch permission checks were also
+  collapsed from a per-model grants query into a single pass.
+- Upload drag-and-drop is steadier: the drop highlight no longer flickers when
+  the cursor crosses items inside the dropzone, the copy cursor shows while
+  dragging, and a folder that fails to read now surfaces an error instead of
+  silently doing nothing.
+- Spoolman **Test connection** now probes the values typed into the form, so you
+  can verify a connection before saving — it no longer tests only the last-saved
+  config. **Save** and **Test** now show clear success/error feedback (a "Saved."
+  / "Connected — Spoolman vX" line and an immediate status-badge update) instead
+  of appearing to do nothing, and a failed connection names the error instead of
+  showing a bare "transport error:".
+- The PrintStash logo and the document **Back** link now return to the Documents
+  tab when that's where you were, rather than always resetting to Models.
+
+### Internal
+
+- New `app.modules.printing.spoolman` (`SpoolmanClient` over the shared httpx pool, plus
+  a blocking `use_spool_weight_sync` for the worker-thread finish tick),
+  `app.api.v1.spoolman` router (superuser, secret-masked config), a
+  `record_spool_usage` helper in `print_results`, a `_spoolman_probe` health
+  component, and the `spoolman_*` switches on `SystemConfig` with an Alembic
+  migration. Covered by client/helper/API unit tests and a frontend API-contract
+  test; e2e mock routes added for the Spoolman endpoints.
+- Consumption write-back gained a write-time double-count guard: a blocking
+  `active_spool_sync` probe in `app.modules.printing.spoolman` and a
+  `spoolman_write_force` override on `SystemConfig` (third Alembic migration).
+  `record_spool_usage` skips the decrement when Spoolman reports an active spool
+  unless the override is set. Covered by unit tests.
+- `app.modules.printing.filament_sync` (Spoolman→preset reconcile), `spoolman_filament_id`
+  /`density_g_cm3`/`diameter_mm` on `FilamentProfile` and `spool_filament_id` on
+  `PrintJob` (second Alembic migration), a `density` override on `mm_to_grams`,
+  and `model_views.filament_cost_for_job` for spool-exact cost. Read-only
+  enforcement on linked presets in the filaments API.
+- Collection documents: `app.api.v1.documents` (CRUD, file upload, Markdown image
+  embeds) with a `Document` model and a collection `readme` field across two
+  Alembic migrations. Frontend adds `react-pdf`/`pdfjs-dist` (lazy-loaded, code
+  split) for the inline PDF viewer; the nginx config now serves `.mjs` as
+  `application/javascript` so the pdf.js module worker loads (browsers reject a
+  module worker served as `application/octet-stream`). `POST /spoolman/test`
+  gained optional `base_url`/`api_key` overrides so the UI can probe unsaved
+  values. Covered by document/README and Spoolman API tests.
+
+## 0.7.3
+
+### Added
+
+- **PrusaSlicer binary G-code (`.bgcode`) is now a first-class file type.** It
+  was previously skipped on upload, URL/zip import, and shared-volume scans
+  ("returns empty metadata gracefully", tracked as a 0.7.0 follow-up). The
+  parser now reads bgcode's container blocks directly: slicer/printer/print
+  metadata (slicer + version, printer model, nozzle/bed temps, layer height,
+  infill, filament length/weight/cost, estimated time, material, …) and the
+  largest embedded PNG/JPG thumbnail are extracted just like a text `.gcode`.
+  Only the metadata and thumbnail blocks are read — they're stored uncompressed
+  or zlib-deflated, so this needs **no new dependency**; the heatshrink-
+  compressed G-code body is skipped, keeping the read cheap on large files.
+
+### Changed
+
+- **Binary G-code is metadata-only where it can't be more.** A `.bgcode` file's
+  toolpath is heatshrink-compressed, and Moonraker/Klipper and Bambu LAN print
+  plain-text G-code only — so for `.bgcode` files the in-browser toolpath
+  preview shows a notice instead of an empty plot, "Open in slicer" is hidden,
+  and send-to-printer is excluded (and rejected by the API with
+  `binary_gcode_not_printable` as a backstop). Metadata and thumbnail still
+  display, and the file downloads normally.
+
+### Internal
+
+- New stdlib-only `app.modules.media.bgcode` reader (container walk, deflate, INI
+  metadata, thumbnail blocks) with safety caps for truncated/hostile files.
+  Covered by synthetic-container unit tests plus a guarded real-fixture test,
+  and the `.bgcode`-skipped assertions in the import and shared-volume suites
+  were updated to expect ingestion.
+
+## 0.7.2
+
+### Changed
+
+- **Database migrations now run automatically on startup.** The API image's
+  entrypoint runs `alembic upgrade head` before the server launches, so migrations
+  happen however the container is started (Compose, Portainer, Unraid, bare
+  `docker run`) — editing or removing the Compose `command:` can no longer skip
+  them (issue #29). A failed migration aborts startup _before_ the app serves a
+  request. The previous explicit `docker compose run … alembic upgrade head` step
+  is now optional.
+
+### Fixed
+
+- **Fresh installs and upgrades come up cleanly on SQLite _and_ PostgreSQL.** The
+  migration runner now bootstraps a brand-new database directly from the models
+  (then stamps it at head) instead of replaying the historical migration chain,
+  whose SQLite-authored baseline failed outright on a fresh Postgres. Existing
+  databases still upgrade normally. (#29)
+- **A database started once without migrations is adopted safely.** If the schema
+  was built by the app's own `create_all()` and never recorded a migration version
+  (e.g. after the Compose migration step was removed), the runner now detects it,
+  stamps it at head, and continues — no "table already exists" crash on the next
+  upgrade, and no data is touched. A one-time manual repair is also documented. (#29)
+- **Deleting a model keeps you in its folder.** It previously returned to the root
+  "All Models" view; it now returns to the collection the model lived in. (#30)
+- **The PrintStash logo returns you to the collection you were browsing** instead
+  of always resetting to "All Models" — the last-viewed folder is remembered. (#30)
+
+## 0.7.1b1 - Upload methods improvement & Docker Compose light
+
+### Added
+
+- **Drag file(s) or folder directly** in the viewport (or over a specific folder) to open a prefilled upload wizard (@JrVolt)
+- **Added docker-compose.light.yml** since env only JWT secret and all the other service aren't used in basic config.
+  so i made a light compose that requires no env with JWT in compose and removed optional services. (@JrVolt)
+
+### Changed
+
+- **Drag is now available in every tab** of the upload wizard (@JrVolt)
+
+## 0.7.1
+
+### Fixed
+
+- **Further hardening against OOM during library scans.** The mesh-density caps
+  added in 0.7.0 (#24) are the primary fix for scan OOMs; this adds a second,
+  format-blind backstop for the cases the triangle estimate can't size up — e.g.
+  a 3MF with no parseable mesh parts, where the estimate came up empty and the
+  file was loaded anyway. A byte-size ceiling (`VAULT_MESH_MAX_LOAD_MB`, default
+  200 MB) is now checked before any load, and the 3MF estimator falls back to the
+  total uncompressed payload when it finds no mesh parts. Such files are indexed
+  and skipped (3MF keeps its embedded preview) instead of risking a crash. If you
+  hit a scan OOM on an older image, upgrading to 0.7.0+ is the actual fix. (#29)
+- **RAM-aware mesh cap.** The thumbnail/geometry cap now scales with the memory
+  the process actually has. PrintStash reads the cgroup limit (or host RAM) and
+  derives a per-format triangle ceiling from `VAULT_MESH_MEMORY_BUDGET_FRACTION`
+  (default 0.5), combined with the static cap — so a 4 GB container automatically
+  skips meshes a 32 GB host renders, without per-host tuning. Measured cost is
+  format-specific (3MF's XML loader is ~4.5× heavier per triangle than STL), and
+  the cap accounts for that. (#29)
+- **~50 % less thumbnail-render memory + no leak.** The software renderer now
+  works in float32 instead of float64, roughly halving the peak RSS of the arrays
+  that scale with triangle count (a 2.2 M-triangle model's render dropped from
+  ~3.0 GB to ~1.6 GB) with no visible change to thumbnails. And every mesh's
+  buffers are explicitly freed with the heap returned to the OS (`malloc_trim`)
+  after each file, so a long scan's memory recedes between files instead of only
+  climbing. (#29)
+- **Face-chunked thumbnail rendering — peak memory is now O(chunk), not O(mesh).**
+  The software rasteriser built every per-face array (screen-space triangles,
+  smoothed corner normals, per-vertex colours, …) for the _whole_ mesh at once,
+  so peak RAM scaled with total triangle count. It now processes faces in chunks
+  of `VAULT_MESH_RENDER_FACE_CHUNK_SIZE` (default 200k), building and freeing each
+  chunk's arrays before the next, so a million-triangle mesh no longer materialises
+  several large arrays simultaneously. Thumbnails are visually identical. (#29)
+- **Concurrency-aware render budget.** Bulk/folder uploads (#26) run in a
+  background-task threadpool and could fire many simultaneous renders that
+  collectively OOM the box. A new `VAULT_MAX_RENDER_JOBS` (default 1) caps how
+  many mesh load+render jobs run at once via a semaphore, and the RAM-aware
+  triangle cap now divides its budget by the same value so each concurrent job
+  stays within its share. `VAULT_MESH_MEMORY_BUDGET_FRACTION` stays 0.5 by
+  default, with 0.30–0.35 now documented as safer for production hosts. (#29)
+- **Large 3MF files skip the costly XML parse.** A 3MF whose estimate exceeds the
+  adaptive cap now uses its embedded slicer preview directly instead of handing
+  the archive to the loader, whose XML parse is the dominant memory cost.
+  Controlled by `VAULT_USE_EMBEDDED_3MF_PREVIEW_FOR_LARGE_FILES` (default on). (#29)
+- **"All Models" now shows the real library total.** The count on the root
+  "All Models" view only reflected models sitting loose at the root, so a library
+  whose models all live in (folder-mirrored) collections showed `0`. It now shows
+  the access-scoped library total. (#30)
+
+## 0.7.0 - Notifications & event hooks
+
+### Added
+
+- **Outbound notifications on print and printer events.** PrintStash can now
+  alert you when a print completes, fails, or is cancelled, and when a printer
+  goes offline — no need to watch the dashboard. Cancellations are a separate
+  event from failures, so you can mute self-cancellations without silencing real
+  failures.
+- **Four delivery targets.** Generic JSON webhooks, Discord, Telegram, and ntfy.
+  Configure channels under **Settings → Notifications** (administrators only).
+- **Per-event and per-printer toggles.** Each channel subscribes to the events
+  you choose and, optionally, only specific printers.
+- **Richer, linked notifications.** Messages now lead with an event glyph and
+  carry a "View model" link straight to the model's source page (Printables,
+  MakerWorld, …) where one is known: Discord makes the embed title clickable
+  (with a footer), Telegram adds an inline link, and ntfy gets a tap target plus
+  a "View model" action button. Only safe `http(s)` links are ever rendered.
+- **Reliable delivery.** Events are enqueued atomically with the state change
+  that produced them (so none are lost) and delivered by a background dispatcher
+  with automatic retry and exponential backoff. Each channel shows its last
+  delivery status, and a recent-deliveries log records outcomes. A **Test**
+  button sends a sample notification to verify a channel end to end. The whole
+  feature is off until you enable it with a master switch.
+- **Much better mesh thumbnails.** The STL/3MF/OBJ thumbnail renderer now uses
+  crease-aware smooth (Gouraud) shading instead of flat per-facet shading, with
+  retuned lighting and a subtle specular highlight. Organic models render as
+  smooth surfaces like the interactive 3D viewer instead of a faceted, washed-out
+  blob, while mechanical parts keep their crisp flat faces and sharp edges. The
+  camera is also fixed: models are framed in a Z-up 3/4 "hero" view (the way the
+  viewer shows them) instead of staring straight down the Z axis, which showed
+  the top of upright models rather than their front.
+
+### Fixed
+
+- **Filament length no longer corrupted on OrcaSlicer files.** Real OrcaSlicer
+  output embeds a `;Filament used:4.20m` comment in its start G-code, which was
+  mistaken for Cura's metres figure and multiplied the true millimetre length by
+  1000 (e.g. a benchy reported ~4,200,000 mm of filament). The metres conversion
+  now only applies when no explicit `[mm]` length is present.
+- **Bed temperature now detected on OrcaSlicer / BambuStudio.** These slicers
+  name the heated bed `hot_plate_temp`, which the parser previously ignored.
+- **Infill percentage now detected on PrusaSlicer.** It writes `fill_density`
+  (underscore), which the older space-separated pattern missed.
+- **Telegram notifications no longer fail on ordinary filenames.** The Telegram
+  renderer now uses `parse_mode=HTML` with every interpolated value escaped,
+  instead of legacy Markdown. A common name like `benchy_v2.gcode` (a single
+  `_`) previously made the message unparseable and Telegram rejected it with
+  HTTP 400; arbitrary printer/model/file names are now always safe.
+- **ntfy notifications no longer fail on Unicode titles.** Notification titles
+  carry an em-dash (`—`) and printer names can contain any Unicode, which broke
+  _every_ ntfy send because HTTP headers must be latin-1. Non-latin-1 header
+  values are now RFC 2047-encoded (and decoded by ntfy for display).
+- **Library scans no longer get OOM-killed by a dense mesh ([#24]).** A
+  high-polygon model (a gyroid/lattice "infill core" 3MF or STL — tens of
+  millions of triangles from a small file) made `trimesh.load` + the thumbnail
+  rasteriser allocate **~700 MB of RAM per million triangles**, peaking at
+  multiple GB _inside the load itself_. On a NAS scan that quietly drove the
+  process to ~7 GB RSS and the kernel OOM-killed it; Docker misreported the death
+  as a clean exit and restarted it, so it looped. The mesh's triangle count is
+  now estimated **before** loading (exact for binary STL, from the uncompressed
+  mesh XML for 3MF); anything over `mesh_max_render_triangles` (2,000,000 by
+  default, env `VAULT_MESH_MAX_RENDER_TRIANGLES`) skips the load entirely. The
+  file is still indexed, and a 3MF still shows its embedded slicer preview.
+  Measured effect on a 5.2 M-triangle mesh: peak RSS drops from ~5.9 GB to
+  ~45 MB. Mesh loading also now runs with `process=False` to trim memory further.
+- **Dense-mesh OOM guard closed in three more spots ([#24]).** Hardening the
+  pre-load triangle estimate after the initial fix:
+  - **Binary STL with trailing bytes** (some exporters append metadata) failed
+    the exact `84 + 50·N` size check and fell back to the _ASCII_ density of
+    ~250 B/triangle — a 5x underestimate for a binary file that could let an
+    over-cap mesh slip through to the very OOM load the cap exists to stop. The
+    estimator now distinguishes ASCII from binary STL and uses the binary
+    body size (50 B/facet) as a safe upper bound.
+  - **PLY meshes** (scans, point-cloud exports) were not estimated at all and so
+    relied on the post-load backstop, i.e. they still loaded fully first. The
+    face count is now read straight from the PLY header (which is ASCII even for
+    binary bodies), so over-cap PLY files are skipped before loading too.
+  - **"Download as STL"** ran an unbounded `trimesh.load` to convert a 3MF/OBJ,
+    so a single click on a monster mesh could OOM the process and take every
+    request down with it. The same cap now applies; an over-cap conversion
+    returns a clean error instead of crashing the server. (Raw STL downloads are
+    streamed byte-for-byte and never affected.)
+- **An interrupted library scan no longer crash-loops the container ([#24]).**
+  A scan stranded RUNNING by a process restart was reset to ERROR but kept its
+  old `last_scanned_at`, so the scheduler found it immediately due again and
+  re-ran it on the very next tick — a tight restart loop whenever the scan was
+  what killed the process. The reset now stamps `last_scanned_at`, so an
+  interrupted scan waits for its next scheduled slot (a manual scan is always
+  still available).
+- **Dense OBJ meshes are now guarded before loading too ([#24]).** OBJ is a
+  first-class mesh type but was the one format the pre-load estimator didn't
+  size, so a dense OBJ bypassed `mesh_max_render_triangles` and hit the exact
+  full-`trimesh.load` OOM the cap exists to prevent. The estimator now counts
+  OBJ face directives (triangulating n-gons for a conservative upper bound)
+  without building the mesh, so over-cap OBJ files are skipped like STL/PLY/3MF.
+- **Serving an STL no longer reads the whole file into RAM ([#24]).** The
+  raw-STL preview/download path slurped the entire blob into memory before
+  responding, so a multi-GB STL ballooned RSS per request. It now streams off
+  disk (`FileResponse`/chunked) like the regular download route; the cached
+  3MF/OBJ→STL conversion is streamed too.
+- **A scan that hits an unexpected error can no longer strand a library
+  `RUNNING` ([#24]).** Only the per-file loop was guarded, so a failure in the
+  folder walk (a NAS mount dropping mid-scan), the deletion pass, or the final
+  commit escaped with the row still committed `RUNNING` — and the scheduler
+  permanently skips `RUNNING` libraries, so every future scheduled scan was
+  silently dead until a restart. The whole scan now lands in a terminal state
+  (`ERROR`, with `last_scanned_at` stamped) on any unexpected failure.
+- **Scans with per-file failures now report `partial`, not `ok` ([#24]).** A
+  scan where some files failed to index still showed a green `ok` status,
+  hiding a persistent error behind the `errors` array. Such scans now finish
+  with a new `partial` status (terminal, like `ok`); a clean run stays `ok`.
+- **Unchanged NAS files no longer re-hash on mtime jitter ([#24]).** The
+  "unchanged" skip tolerance was `1e-6` s — effectively exact-match — so any
+  sub-second/FAT-granularity mtime drift forced a full sha256 re-hash of the
+  file over the network on every scan. The tolerance is now 2 s (the FAT
+  worst case); a genuine edit is still caught by the content-hash compare.
+- **"Open in slicer" now works on self-hosted instances ([#27]).** The download
+  URL handed to the slicer required a logged-in bearer token, but a slicer is a
+  separate process with no login session — so it fetched the URL unauthenticated,
+  got a 401, and showed a "load cancelled" error (or silently no-op'd if already
+  running). The button now mints a short-lived, file-scoped download token and
+  embeds it in a URL that _ends_ in the original filename
+  (`…/slicer/<token>/part.3mf`), so OrcaSlicer/Bambu Studio can fetch the file
+  _and_ detect its format. (Slicers take the URL tail as the download name, so a
+  trailing `?token=…` query made them save e.g. `part.3mf?token=…` and never
+  open it — the token has to come before the filename.)
+  Each slicer is also gated by file type: Bambu Studio only opens 3MF via URL
+  (other formats error with "unknown format"), matching what Manyfold ships,
+  while OrcaSlicer handles STL/3MF/OBJ/STEP/G-code. The macOS `bambustudioopen://`
+  scheme handling from the previous release is retained.
+- **Zip imports now preserve the archive's folder structure.** Importing a zip
+  with sub-folders flattened every entry onto a single auto-collection named
+  after the archive, losing the layout the author organised the pack with. Each
+  entry now keeps its archive-relative path: a file inside `Terrain/` becomes a
+  model in a `Terrain` sub-collection nested under the archive's collection,
+  while files at the archive root stay on the collection itself. Path entries
+  are still validated against traversal (`..`, absolute, drive-letter) before
+  extraction.
+- **3D viewer no longer lays models on their side.** STL and other print meshes
+  are authored Z-up, but the interactive viewer dropped them into its Y-up scene
+  unrotated — so a model rested on its back and the floor grid sliced through its
+  middle. Meshes are now stood upright before measuring (object `+Z` → screen-up,
+  matching the thumbnail renderer), so they sit on the grid the right way up.
+
+[#24]: https://github.com/xiao-villamor/PrintStash/issues/24
+[#27]: https://github.com/xiao-villamor/PrintStash/issues/27
+
+### Internal
+
+- Parser hardening is now driven by self-sourced fixtures trimmed from real
+  public slicer output (OrcaSlicer 2.3.2, PrusaSlicer 2.6.1), with regression
+  tests for each bug above. Binary `.bgcode` remains unparsed (returns empty
+  metadata gracefully) and is tracked as a follow-up.
+- New end-to-end test suite (`backend/tests/e2e/`) boots the real app against
+  contract-enforcing fakes and covers auth, ingest, notification delivery, and
+  sharing. Marked `e2e` and runnable in isolation with `pytest tests/e2e`.
+
+## 0.6.7 - Collection & file-level import
+
+### Added
+
+- **Import a whole collection from a URL.** Pasting a Printables or MakerWorld
+  _collection_ URL into Upload → From URL now fans the collection out into a new
+  PrintStash collection (named after the source), importing every member model.
+  Each model records its own member page as `source_url`, and a member that
+  itself ships multiple files expands into multiple models. Multi-file members
+  and per-member failures are handled independently, so one bad member never
+  aborts the batch.
+- **Auto or review.** A "Review collection items before importing" toggle lets
+  you either import everything automatically or first pick which member models
+  to keep (mirroring the existing ZIP entry-selection flow).
+- **Per-file selection for multi-file model pages.** A Printables model page with
+  several files (e.g. a model with 11 STLs) now lists those files from the source
+  _without downloading_, so you can choose exactly which ones to import; only the
+  selected files are fetched. Single-file pages still import directly.
+
+### Notes
+
+- Printables works fully anonymously. MakerWorld sits behind a Cloudflare
+  challenge, so collection import there is best-effort and may require a browser
+  cookie, matching the existing single-model MakerWorld behaviour. Tinkercad is
+  intentionally out of scope (no clean download API).
+
+## 0.6.6 - Operations hardening (R2)
+
+### Added
+
+- **Prometheus metrics at `/metrics`.** Request latency (by route template),
+  terminal ingestion-job counts, and live printer status by provider are now
+  exported in Prometheus text format for Grafana/Prometheus scraping. The
+  endpoint is open by default on the trusted internal network; set
+  `VAULT_METRICS_TOKEN` to require a static bearer token.
+- **Richer `/api/v1/health` output.** The health probe now reports background
+  ingestion-job counts and external-library scan status alongside the existing
+  database, storage, backup, and printer-provider sections.
+- **Unraid Community Applications support.** Added CA-ready repository metadata
+  (`ca_profile.xml`, root `icon.svg`) and Docker templates under `templates/`
+  (`printstash-api.xml`, `printstash-frontend.xml`) plus a step-by-step
+  `unraid/README.md` for installing PrintStash on Unraid (create the
+  `printstash` network, install the API then the frontend, finish in the setup
+  wizard).
+
+### Fixed
+
+- **External library scans no longer get stranded by a restart.** If the backend
+  was restarted mid-scan, the library stayed marked `running` forever and the
+  scheduler skipped it indefinitely. Orphaned scans are now reset to `error` at
+  startup so they are picked up again on the next scheduled tick.
+
+## 0.6.5 - First-run polish
+
+### Fixed
+
+- **The UI is interactive immediately after first-run setup.** Completing the
+  setup wizard logged you in by writing the token to local storage and firing an
+  in-tab auth event, but the auth provider only subscribed to that event when a
+  token already existed _at mount_ — which is never the case on a brand-new
+  install. So the freshly created admin session wasn't observed: the app showed
+  the vault but treated you as signed out, leaving Upload, New collection, and
+  the admin/settings menu unresponsive until the JWT was picked up on the next
+  full page load (a reload, or the ~2 minute window before the next probe). The
+  provider now subscribes to auth changes unconditionally, so the setup login is
+  reflected right away. Covered by a regression test.
+
+### Changed
+
+- **Faster first paint.** Route components are now code-split with lazy imports,
+  so the initial load only ships the shell plus the landing route instead of
+  every page up front.
+- **React Query Devtools no longer ship in production.** They're lazily loaded
+  and gated to dev builds, trimming the production bundle.
+
+## 0.6.4 - Backup restore and download
+
+### Added
+
+- **Restore from the UI.** Settings -> Storage now lists available backups and
+  lets an admin restore one with a destructive confirmation step.
+- **Download backups to your computer.** Each listed backup has a Download
+  action, and admins can also fetch an archive from
+  `/api/v1/backups/{id}/download`.
+
+## 0.6.3 - Reliability & correctness hardening
+
+A maintenance release focused on edge-case correctness across importing,
+printing, library browsing, and backups, plus a large expansion of the
+automated test suite (backend 351 → 547 tests; frontend 85 → 93).
+
+### Fixed
+
+- **Bambu printers now report paused/finished state.** A Bambu printer that
+  paused or finished a print showed as "Unknown" and its job never advanced to
+  Paused/Completed, because Bambu's state words (`RUNNING`/`PAUSE`/`FINISH`)
+  weren't translated into the vocabulary the rest of the app uses. Bambu status
+  and job tracking now follow the full print lifecycle.
+- **Reprinting the same file keeps your history.** Starting a second print of a
+  file that was already printed once revived the first (completed) job instead
+  of recording a new one, erasing the earlier print's outcome. Each run is now
+  its own history entry.
+- **Library and trash lists page reliably.** They could repeat or skip a model
+  between pages when many shared the same timestamp (e.g. right after a bulk ZIP
+  import). Ordering now has a stable tiebreaker.
+- **Search is case-insensitive on PostgreSQL.** Model-name search matched case
+  only on SQLite; it now behaves identically on PostgreSQL.
+- **G-code metadata edge cases.** Fractional time estimates (`1.5h`) parse
+  correctly (previously read as 5h); Cura filament length converts from metres
+  even when the comment spacing differs; and a genuine `0` (0% infill, an
+  unheated 0 °C bed) is shown and exported instead of being dropped as blank.
+- **Imports.** Page URLs from look-alike domains (e.g. `evilmakerworld.com`) are
+  no longer treated as MakerWorld; downloaded filenames containing a semicolon
+  are preserved in full; and archive entries using Windows-style `..\..\`
+  traversal are rejected.
+- **Printer file timestamps** from Moonraker are stored as UTC rather than the
+  server's local time.
+
+### Hardening
+
+- A malformed G-code with an unterminated embedded-thumbnail block no longer
+  buffers the entire file into memory during import.
+- A printer-side filename that resembles a Vault revision marker can no longer
+  be matched ahead of the genuine trailing marker.
+
+### Performance
+
+- Listing cloud (S3/R2) backups no longer streams each full archive just to read
+  its manifest — the manifest is now the first entry, so only a small header is
+  read per backup.
+
+### Internal
+
+- Substantially expanded unit coverage: G-code parsing, import resolvers and the
+  SSRF/zip-slip guards, cost & filament maths, collection-RBAC boundaries, the
+  backup round-trip and archive layout, external-library scanner helpers,
+  printer-file correlation, embedded-3MF thumbnails, and the frontend formatters.
+
+## 0.6.2 - Shared volumes: scheduling + real-time watching
+
+External Libraries grow up: the feature is now **Shared volumes** (a folder on
+the server _or_ a NAS), with proper scheduling and optional real-time syncing.
+
+### Highlights
+
+- **Statistics dashboard.** A new admin-only Statistics page turns completed
+  prints into trends — total cost, prints, filament used, average filament per
+  print, and total print time — with a cost/filament/prints time series
+  (area/line/bar), top collections, and most-used filaments, filtered by period
+  (7/30/90 days, 1 year, all time). A configurable display **currency**
+  (Settings → Design) is applied across all cost figures.
+- **Cron-based scheduling.** Each volume's scan runs on a schedule you pick from
+  a preset (hourly, every 6 hours, daily, weekly) or a custom cron expression —
+  or set it to **Manual only**. This replaces the fixed "every N minutes" field;
+  existing libraries are migrated to an equivalent cron schedule automatically.
+- **Real-time watching.** Local folders are watched (via `watchfiles`) and
+  reconcile within seconds of a change, so you no longer have to wait for the
+  next scheduled scan. A burst of changes is debounced and then runs the same
+  safe reconcile as a normal scan.
+- **Network-aware fallback.** Filesystem events aren't delivered for network
+  mounts (NFS/SMB/CIFS), so watching auto-detects the filesystem and falls back
+  to scheduled scans on network folders. A per-volume control (Auto / On / Off)
+  lets you override the detection. Each volume shows its detected filesystem and
+  whether watching is active.
+
+### Renamed
+
+- The **Settings → NAS folders** tab is now **Shared volumes**, reflecting that
+  it works for local server folders as well as NAS shares.
+
+### Reliability
+
+- **Fixed:** opening the Shared volumes settings tab returned a 500. The
+  `watch_mode` column's migration default stored the lowercase enum value while
+  SQLAlchemy reads enums by member name, so existing rows failed to load. The
+  default is corrected and a follow-up migration repairs affected rows.
+
+## 0.6.1 - About tab freshness
+
+A small patch release.
+
+### Highlights
+
+- **Paste a model page to import.** Import from URL previously accepted only
+  direct file/`.zip` links — pasting the Printables/MakerWorld/Thingiverse page
+  you were looking at failed. The server now resolves the page to its
+  downloadable asset (Printables, MakerWorld, and Thingiverse), keeping the
+  original page as the model's source URL. MakerWorld/Thingiverse downloads that
+  require a login accept an optional session cookie.
+
+### Reliability
+
+- **Fixed:** the Settings → About "Latest changes" card stayed on the previous
+  release because its entry list was hand-maintained and easy to forget. A
+  drift-guard test now fails whenever `changelog.ts` falls behind
+  `package.json`, so the About tab can't ship stale.
+
+### Performance
+
+- **Fixed:** 3D model (STL) previews took ~20-30s to load on the first open.
+  The `/files/{id}/stl` endpoint wrapped the rendered bytes in a
+  `StreamingResponse(BytesIO(...))`, which Starlette iterates line-by-line —
+  catastrophic for binary mesh data, where stray `0x0A` bytes split the body
+  into tens of thousands of tiny ASGI chunks (~1s per MB). It now returns the
+  body in a single `Response`, dropping an 11 MB preview from ~26s to ~0.02s.
+  Affects both the model detail viewer and public share links.
+
+## 0.6.0 - NAS External Libraries
+
+Mirror a folder you already have — typically on a NAS — into PrintStash without
+copying it. The folder stays the source of truth; PrintStash indexes files
+where they live and stores only thumbnails and metadata.
+
+### Highlights
+
+- **External libraries (NAS folder mirroring).** Point PrintStash at a folder
+  and it indexes every supported file in place (`File.is_external`), storing
+  only the generated thumbnail + metadata. Opt-in and OFF by default
+  (`SystemConfig.external_libraries_enabled`). Manage libraries in Settings
+  (superuser only).
+- **Two-way sync.** A scan reconciles the index with the folder — new files
+  indexed, removed files trashed, edited files re-hashed and refreshed — while
+  web uploads/revisions _write back_ into the folder so it stays complete.
+  Revisions follow their model's library automatically; new uploads pick a
+  destination in the upload modal.
+- **Folder hierarchy → collections.** In MIRROR mode a file's subfolder chain
+  becomes its collection path; SINGLE mode routes everything into one chosen
+  collection.
+- **Your bytes are never touched.** PrintStash only ever _adds_ files to the
+  folder (collision-safe naming), never overwrites. Trash hard-delete and the
+  orphan-blob GC skip external files entirely — removing a model or a library
+  drops the index rows but leaves the originals on the NAS.
+- **Unmount safety.** A scan aborts without deleting anything when the root is
+  missing/unreadable, or empty while indexed files still exist — an unmounted
+  share can never trigger mass deletion.
+- **Periodic background scans.** Enabled libraries are rescanned on their
+  configured interval; manual scan available via the API and UI.
+
+### Reliability
+
+- **Fixed:** the periodic scan scheduler crashed on a naive/aware datetime
+  comparison (`last_scanned_at` reads back from the DB without tzinfo), which
+  the scan loop swallowed — silently stopping scheduled scans after each
+  library's first run. Normalised via `core.time.ensure_utc`.
+- **Fixed:** the frontend e2e suite broke once the upload modal began probing
+  `/api/v1/config` for the NAS feature flag — the mock API now serves the vault
+  config (and `/libraries`), and a new e2e case covers the upload modal's NAS
+  write-back destination selector.
+- Real-use-case test suites for NAS mirroring (safety invariants, write-back,
+  reconcile, scheduler, full API round trip) and for ingestion/revisions driven
+  by real STL/3MF/g-code fixtures. Frontend unit tests pin the External
+  Libraries API client and the `external_libraries_enabled` config flag.
+
+## 0.5.0 - Import, CAD, Sharing & Measured Prints
+
+A big release closing the ingest/discovery gap and deepening the
+print-tracking loop that sets PrintStash apart.
+
+### Highlights
+
+- **Import from URL or ZIP.** Paste a direct file/`.zip` URL or upload a `.zip`
+  and pick which files to import. Each 3D file becomes its own model, grouped
+  under an auto-created collection named after the archive. Server-side fetches
+  are SSRF-guarded (no private/loopback/metadata hosts) and archives are
+  zip-slip / zip-bomb protected.
+- **STEP / STP CAD files.** Ingested, tessellated (via `cascadio`/OpenCASCADE),
+  previewed in the browser, and thumbnailed like any mesh.
+- **Public share links.** Create expiring, read-only links to a single model.
+  View-only by default (the viewer renders a tessellated mesh; original-file
+  download is opt-in per link). Strictly isolated: an unauthenticated, GET-only
+  router; tokens stored hashed; uniform 404 on bad/expired/revoked tokens; file
+  access re-scoped to the shared model; per-IP rate limiting.
+- **Measured filament + duration.** When a print finishes, real filament used
+  and actual duration are captured from Moonraker and shown in print history,
+  with real per-print cost (Bambu leaves filament null — no live data).
+- **Auto known-good revisions.** A revision is promoted to _known-good_ after its
+  first successful print (never overriding a manual failed/archived verdict).
+  Toggle in Settings → Design.
+- **Delete G-code revisions.** The Revisions tab gains a delete action per
+  revision. Deletes are soft — the file follows the trash lifecycle and its blob
+  is reclaimed by the GC — consistent with model deletion.
+- **Print history without a registered printer.** Manual print records can now be
+  logged against a free-text printer name ("Other (not listed)…") instead of
+  requiring a preconfigured Moonraker/Bambu printer. `print_jobs.printer_id` is
+  now nullable, backed by a new `printer_name` column.
+
+## 0.4.0 - Vite + React Router Frontend
+
+The frontend is rebuilt as a Vite single-page app on React Router, migrated off
+Next.js. The app was already ~95% client-rendered behind auth, so server
+rendering added complexity without benefit — and under multi-user RBAC it broke
+outright, because server-side renders had no access to the browser-held token.
+
+### Highlights
+
+- Frontend migrated from Next.js to Vite + React Router (client SPA). All reads
+  now fetch client-side with the stored token.
+- Fixes the model detail page server error and the broken 3D preview / file
+  downloads that appeared once assets required authentication.
+- TanStack Query is the cache layer: shared `collections`/`tags` cache across the
+  grid, detail, and upload views; revalidation on window focus (so another
+  user's edits surface); and automatic refetch after any mutation.
+- Production image now serves the static build via nginx, which proxies
+  `/api/v1` and WebSockets to the API same-origin (replacing the Next rewrites).
+- Tooling moved to Vite build, `tsc` typecheck, and a standard ESLint flat
+  config.
+
+## 0.3.0 - Multi-User & RBAC
+
+PrintStash gains real multi-user support with per-collection access control.
+
+### Highlights
+
+- Collection-level role-based access control: each user can be granted `view`,
+  `edit`, or `admin` on a collection, and the UI gates actions accordingly.
+- Admin user management and access controls.
+- Authenticated asset delivery: thumbnails, mesh/STL previews, and file
+  downloads now require a signed-in user and carry the access token.
+- Lossless WebP thumbnails.
+- Settings UI refinements and collections sidebar (outliner) fixes.
+
+### Upgrade Notes
+
+Read [UPGRADE.md](./UPGRADE.md) before upgrading an existing install.
+
+## 0.1.0 - Initial Self-Hosted Release
+
+PrintStash 0.1 is the first tagged self-hosted release. It is focused on the
+local-first library workflow: ingest STL/3MF/G-code, extract slicer metadata,
+keep model revisions searchable, and integrate with Moonraker/Klipper printers.
+
+### Highlights
+
+- Docker Compose is the primary install path, with SQLite and local disk as the
+  default storage stack.
+- Alembic migrations provide a repeatable schema upgrade path.
+- OrcaSlicer post-processing ingestion remains dependency-free and exits `0` on
+  vault outages.
+- G-code revisions support labels, outcome status, notes, recommended versions,
+  and metadata comparison.
+- Model detail includes split overview/files/revisions/history/settings views,
+  mesh preview, and a client-side G-code toolpath viewer.
+- Settings includes vault stats, storage usage, metadata/card display
+  preferences, API-key management, backup creation, and trash restore/purge.
+- Model print history supports manual entries and Moonraker history import for
+  matching G-code filenames.
+- Moonraker/Klipper is the primary supported printer provider.
+- Bambu LAN is available as beta status/control support only. Upload, send, start,
+  and file inventory parity are intentionally not part of 0.1.
+- Postgres, S3/R2 storage, cloud backups, and audit logs are optional adapters for
+  larger self-hosted installs.
+
+### Validation
+
+- Backend unit/API suite covers ingestion, auth, migrations, parser fixtures,
+  thumbnails, storage/file serving, printer providers, print jobs, and API
+  hardening.
+- Frontend CI runs typecheck, lint, and production build.
+- Additional parser fixtures cover OrcaSlicer, PrusaSlicer, Bambu Studio, Cura,
+  and a common Klipper/Orca profile.
+
+### Upgrade Notes
+
+Read [UPGRADE.md](./UPGRADE.md) before upgrading an existing install.

@@ -1,0 +1,84 @@
+[Unit]
+Description=SpatiumDDI appliance console dashboard (tty1)
+Documentation=https://github.com/spatiumnorth/spatiumddi/issues/134
+# Skip on installer/live ISO modes — those have their own tty1 units
+# (spatium-install.service / spatium-live-banner.service). Operators
+# can also force-disable with `spatium-console=off` on the kernel
+# cmdline for debugging.
+ConditionKernelCommandLine=!spatium-mode=install
+ConditionKernelCommandLine=!spatium-mode=live
+ConditionKernelCommandLine=!spatium-console=off
+# Start as early as possible — operators want a visible console
+# during boot, NOT a black screen until firstboot finishes pulling
+# images (which can take ~4 min on first power-on while multi-user
+# .target waits on spatiumddi-firstboot.service to complete).
+#
+# Same After= set getty@.service uses: user-sessions + getty-pre. We
+# deliberately do NOT wait for multi-user.target / docker.service —
+# the dashboard renders "not running" rows correctly when docker
+# isn't up yet, and operators see progress (live log of firstboot)
+# in the meantime.
+After=systemd-user-sessions.service getty-pre.target
+Before=getty.target
+# #393 — NO Conflicts=getty@tty1.service. Conflicts= is registered at
+# unit-load time and leaks: even though this unit's
+# ConditionKernelCommandLine=!spatium-console=off makes it inactive in
+# the text_console mode, the recorded conflict still drops getty@tty1
+# from the boot transaction (ConflictedBy), so the operator who picked
+# the plain-console mode was left with NO login at all. The dashboard and
+# getty@tty1 are now mutually exclusive purely by their opposite
+# spatium-console=off conditions (getty's gate is in
+# getty@tty1.service.d/spatium-console-gate.conf), which needs no
+# Conflicts. The ExecStartPre `systemctl stop getty@tty1` below stays as
+# belt-and-braces for the rare case getty somehow raced up first.
+
+[Service]
+# `idle` defers ExecStart until pending jobs settle — same trick
+# getty@tty1 uses so we don't fight kernel boot output for the TTY.
+Type=idle
+# Belt + braces: if some earlier unit started getty@tty1, stop it
+# before we claim the TTY. Mirrors spatium-live-banner.service's
+# pattern. Leading `-` keeps the unit healthy if getty isn't running.
+ExecStartPre=-/usr/bin/systemctl stop getty@tty1.service
+# Switch to a compact 6x12 font BEFORE python starts so rich's Console
+# picks up the bigger terminal size (more rows + cols) on its first
+# probe. #272 — the multi-node console fits more (a Nodes panel + more
+# pods across the cluster) and operators want more log lines at the
+# bottom; Terminus 6x12 yields ~33% more rows than the old 8x16 VGA
+# font (~66 vs ~50 on a 1280x800 framebuffer) and is a crisp, terminal-
+# designed bitmap face. Falls back silently if the font file isn't
+# present (leading ``-``).
+ExecStartPre=-/usr/bin/setfont -C /dev/tty1 Lat15-Terminus12x6
+ExecStart=/usr/local/bin/spatium-console --tty /dev/tty1
+StandardInput=tty
+StandardOutput=tty
+StandardError=journal
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
+# Restart whenever the script exits — on F1 the dashboard exec's
+# agetty which itself exits when the operator logs out, and we want
+# the dashboard back on the next tty1 switch.
+Restart=always
+RestartSec=2
+# Bail out of the restart loop when the script exits with 75
+# (EX_TEMPFAIL). spatium-console probes the target TTY at startup and
+# returns 75 on EIO so we don't crash-loop the dashboard on a TTY that
+# isn't usable (rare on tty1 itself, but mirrors the @.service
+# instance template for consistency).
+RestartPreventExitStatus=75
+# #994 — and, for the same reason as the @.service instance, record that
+# verdict as a SUCCESS rather than leaving the unit ``failed``. Rare here
+# (tty1 exists on essentially every boot), but 75 means the same thing on
+# both units and they should not disagree about whether it is an error.
+SuccessExitStatus=75
+UtmpIdentifier=spc1
+UtmpMode=user
+# Same nicety getty@.service applies — keep us out of the OOM killer
+# so the operator's only console doesn't disappear under memory
+# pressure.
+OOMScoreAdjust=-100
+
+[Install]
+WantedBy=multi-user.target

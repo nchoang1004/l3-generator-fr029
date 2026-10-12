@@ -1,0 +1,1411 @@
+# Galleria web
+
+> 🌐 [English](../VIEWER.md) · [Français](../fr/VIEWER.md) · [Deutsch](../de/VIEWER.md) · **Italiano** · [Español](../es/VIEWER.md) · [Português](../pt/VIEWER.md) · [简体中文](../zh/VIEWER.md)
+
+Applicazione a pagina singola FastAPI + Angular per sfogliare, filtrare e gestire le foto.
+
+## Contenuti
+
+- [Avvio della galleria](#avvio-della-galleria) · [Autenticazione](#autenticazione) · [Opzioni di filtraggio](#opzioni-di-filtraggio) · [Ordinamento](#ordinamento) · [Funzionalità della galleria](#funzionalità-della-galleria)
+- [Gestione delle persone](#gestione-delle-persone) · [Avvio scansione](#avvio-scansione) · [Ricerca semantica](#ricerca-semantica) · [Album](#album)
+- [Critica IA](#critica-ia) · [Didascalie IA](#didascalie-ia-gpu-16gb24gb-edition) · [Ricordi ("In questo giorno")](#ricordi-in-questo-giorno) · [Vista cronologia](#vista-cronologia) · [Vista mappa](#vista-mappa) · [Capsule](#capsule)
+- [Vista cartelle](#vista-cartelle) · [Finestra filtro GPS](#finestra-filtro-gps) · [Suggerimenti di unione](#suggerimenti-di-unione) · [Esportazione per editor](#esportazione-per-editor) · [Selezione](#selezione) · [Pulizia degli scarti](#pulizia-degli-scarti) · [Modalità di confronto a coppie](#modalità-di-confronto-a-coppie)
+- [Statistiche EXIF](#statistiche-exif) · [Scorciatoie da tastiera](#scorciatoie-da-tastiera-galleria) · [Annulla](#annulla) · [Progressive Web App](#progressive-web-app) · [Mobile](#mobile) · [Cornice digitale / Chiosco](#cornice-digitale--chiosco) · [Caricamento automatico dal telefono](#caricamento-automatico-dal-telefono)
+- [Configurazione](#configurazione) · [Prestazioni](#prestazioni) · [Endpoint API](#endpoint-api) · [Risoluzione dei problemi](#risoluzione-dei-problemi)
+
+> **I requisiti delle funzionalità** sono indicati in linea: `[GPU]` · `[16gb/24gb]` (profilo VRAM) · `[Edition]` (password di modifica) · `[Superadmin]`. Vedi la [matrice delle funzionalità](../README.md#feature-availability--requirements).
+
+## Avvio della galleria
+
+### Produzione
+
+```bash
+python viewer.py
+# Apri http://localhost:5000
+```
+
+Questo serve sia l'API sia l'applicazione Angular pre-compilata su un'unica porta.
+
+Per un throughput maggiore, esegui in modalità di produzione (Uvicorn, senza ricaricamento automatico). Aggiungi `--workers N` per scalare (predefinito 1):
+
+```bash
+python viewer.py --production --workers 4
+```
+
+### Sviluppo
+
+Esegui separatamente il server API e il dev server Angular:
+
+```bash
+# Terminale 1: server API
+python viewer.py
+# API disponibile su http://localhost:5000
+
+# Terminale 2: server di sviluppo Angular con hot reload
+cd client && npx ng serve
+# Apri http://localhost:4200 (inoltra le chiamate API a :5000)
+```
+
+## Autenticazione
+
+### Modalità utente singolo (predefinita)
+
+Protezione facoltativa con password tramite configurazione:
+
+```json
+{
+  "viewer": {
+    "password": "your-password-here"
+  }
+}
+```
+
+Quando impostata, gli utenti devono autenticarsi prima di accedere alla galleria. Per qualsiasi modifica è richiesta una `edition_password`: valutazioni, preferiti e scarti, selezione, album, gestione di persone e volti, modalità di confronto, modifiche a pesi e priorità ed esportazioni. Senza `edition_password` (il valore predefinito) l'installazione è in **sola lettura**: ogni modifica viene rifiutata con un `403` («Set viewer.edition_password to enable editing»). Anche la generazione IA su richiesta (didascalie, critiche VLM) la richiede, ma è un degrado e non un rifiuto: la chiamata risponde `200` con solo ciò che è già in cache (`source: "edition_required"` oppure `vlm_available: false`). Chi può *sfogliare* lo decide `viewer.password`: senza, chiunque può sfogliare l'intera libreria; con essa, solo gli utenti autenticati. Su un'installazione simile la galleria non mostra più nemmeno i badge esistenti di stelle, preferiti e scarti, come per un viewer senza modifica su un'installazione bloccata. Dopo aver impostato `viewer.edition_password`, riavvia il viewer: la configurazione non viene ricaricata a caldo.
+
+### Modalità multiutente
+
+Per scenari di NAS familiari in cui ogni membro ha directory di foto private. Si abilita aggiungendo una sezione `users` a `scoring_config.json`:
+
+```json
+{
+  "users": {
+    "alice": {
+      "password_hash": "salt_hex:dk_hex",
+      "display_name": "Alice",
+      "role": "superadmin",
+      "directories": ["/volume1/Photos/Alice"]
+    },
+    "bob": {
+      "password_hash": "salt_hex:dk_hex",
+      "display_name": "Bob",
+      "role": "user",
+      "directories": ["/volume1/Photos/Bob"]
+    },
+    "shared_directories": [
+      "/volume1/Photos/Family",
+      "/volume1/Photos/Vacations"
+    ]
+  }
+}
+```
+
+Gli utenti vengono creati solo tramite CLI (nessuna interfaccia di registrazione):
+
+```bash
+python database.py --add-user alice --role superadmin --display-name "Alice"
+```
+
+Vedi [Configurazione](CONFIGURATION.md#users) per il riferimento completo.
+
+### Ruoli
+
+| Ruolo | Visualizza propri + condivise | Valuta/preferisci | Gestisci persone/volti | Avvia scansioni |
+|------|:-:|:-:|:-:|:-:|
+| `user` | sì | sì | no | no |
+| `admin` | sì | sì | sì | no |
+| `superadmin` | sì | sì | sì | sì |
+
+### Visibilità delle foto
+
+Ogni utente vede le foto delle proprie directory configurate più le directory condivise. La visibilità è applicata su tutti gli endpoint: galleria, miniature, download, statistiche, opzioni di filtro e pagine delle persone.
+
+### Valutazioni per utente
+
+In modalità multiutente, le valutazioni a stelle, i preferiti e i contrassegni di scarto sono memorizzati per utente nella tabella `user_preferences`. Ogni utente valuta in modo indipendente: i preferiti di Alice non influenzano la vista di Bob.
+
+Per migrare le valutazioni esistenti di un utente singolo:
+
+```bash
+python database.py --migrate-user-preferences --user alice
+```
+
+## Opzioni di filtraggio
+
+<details><summary>Barra laterale dei filtri completa — ogni sezione espansa (clicca per visualizzare)</summary>
+<p align="center"><img src="screenshots/filter-sidebar-full.jpg" alt="Barra laterale dei filtri con ogni sezione espansa" width="360"></p>
+</details>
+
+### Filtri primari
+
+| Filtro | Opzioni |
+|--------|---------|
+| **Tipo di foto** | Migliori scelte, Ritratti, Persone nella scena, Paesaggi, Architettura, Natura, Animali, Arte e statue, Bianco e nero, Bassa luminosità, Silhouette, Macro, Astrofotografia, Street, Lunga esposizione, Aereo e drone, Concerti |
+| **Livello di qualità** | Buono (6+), Ottimo (7+), Eccellente (8+), Migliore (9+) |
+| **Fotocamera e obiettivo** | Filtraggio in base all'attrezzatura |
+| **Persona** | Filtra per persona riconosciuta |
+| **Categoria** | Filtra per categoria di foto |
+
+### Filtri avanzati
+
+| Categoria | Filtri |
+|----------|---------|
+| **Data** | Data di inizio e di fine |
+| **Punteggi** | Aggregato, estetica, punteggio TOPIQ, punteggio qualità |
+| **Qualità estesa** | Estetica IAA (merito artistico), Qualità volto IQA, punteggio LIQE |
+| **Metriche volti** | Qualità volto, nitidezza occhi, nitidezza volto, rapporto volto, confidenza volto, numero di volti |
+| **Composizione** | Punteggio composizione, punti di forza, linee guida, isolamento, modello compositivo |
+| **Salienza del soggetto** | Nitidezza soggetto, prominenza soggetto, posizionamento soggetto, separazione sfondo |
+| **Tecnica** | Nitidezza, contrasto, gamma dinamica, livello di rumore |
+| **Colore** | Punteggio colore, saturazione, luminanza, ampiezza istogramma; temperatura colore (caldo/freddo/neutro) e gruppo di tonalità (richiede `--recompute-colors`) |
+| **Esposizione** | Punteggio esposizione |
+| **Valutazioni utente** | Valutazione a stelle |
+| **Impostazioni fotocamera** | ISO, apertura (cursore di intervallo f-stop), lunghezza focale (cursore di intervallo) |
+| **Contenuto** | Tag, interruttore monocromatico |
+| **Momenti** | Confidenza del momento narrativo (cursore di intervallo 0–1: `min_moment_confidence` / `max_moment_confidence`) |
+
+### Modelli compositivi
+
+Filtra per modelli rilevati da SAMP-Net (il modello ne emette esattamente questi 8,
+da `models/samp_net.py`):
+- global, horizontal, vertical, triangular
+- surround, quarter, cross, rule_of_thirds
+
+## Ordinamento
+
+Colonne ordinabili raggruppate per categoria (da `viewer.sort_options`):
+
+| Gruppo | Colonne |
+|-------|---------|
+| **Generale** | Punteggio aggregato, Estetica, Punteggio qualità, Data di scatto, Valutazione a stelle, Estetica (IAA), Punteggio LIQE |
+| **Metriche volti** | Qualità volto, Qualità volto (IQA), Nitidezza occhi, Nitidezza volto, Rapporto volto, Numero di volti |
+| **Tecnica** | Nitidezza tecnica, Contrasto, Livello di rumore |
+| **Colore** | Punteggio colore, Saturazione |
+| **Esposizione** | Punteggio esposizione, Luminanza media, Ampiezza istogramma, Gamma dinamica |
+| **Composizione** | Punteggio composizione, Punteggio punti di forza, Linee guida, Bonus isolamento, Modello compositivo |
+| **Salienza del soggetto** | Nitidezza soggetto, Prominenza soggetto, Posizionamento soggetto, Separazione sfondo |
+| **Contenuto** | Confidenza del momento (i NULL finiscono in fondo) |
+
+### I miei gusti
+
+Un'opzione di ordinamento di prima classe, basata sul `learned_score` del ranker personale (rinominata da "Scelte per te"). Ordina le foto in base a ciò che il ranker ha appreso dai tuoi confronti A/B, dalle valutazioni e dalle decisioni di selezione. Un badge di confidenza accanto all'ordinamento mostra la copertura appresa (% di foto con un punteggio appreso) e l'accuratezza del ranker su dati di validazione, così da poter giudicare quanto fidarsi dell'ordinamento. Addestra o aggiorna il ranker con `python facet.py --train-ranker`.
+
+Controllato da `viewer.features.show_my_taste` (predefinito: `true`). Lo stato del ranker è esposto tramite `GET /api/ranker/status`.
+
+## Funzionalità della galleria
+
+### Schede foto
+
+- Miniatura con badge del punteggio
+- Tag cliccabili per un filtraggio rapido
+- Avatar delle persone per i volti riconosciuti
+- Badge della categoria
+- Il clic destro (o Maiusc+F10) apre il [menu contestuale](#selezione-multipla-e-azioni-di-gruppo)
+
+### Selezione multipla e azioni di gruppo
+
+- Clicca sulle foto per selezionarle, Maiusc+Clic per la selezione di un intervallo
+- Compare una barra delle azioni con il conteggio della selezione e le azioni disponibili
+- **Preferito** — Contrassegna tutte le selezionate come preferite (rimuove lo scarto)
+- **Rifiuta** — Contrassegna tutte le selezionate come scartate (rimuove preferito e valutazione)
+- **Valuta** — Imposta la valutazione a stelle (1–5) per tutte le selezionate, o azzera la valutazione
+- **Aggiungi all'album** — Aggiungi le selezionate a un album esistente o nuovo
+- **Seleziona tutto** — Con una selezione vuota, seleziona l'intera vista filtrata — ogni foto corrispondente ai filtri attuali, non solo le pagine già caricate dallo scroll infinito — senza costo di rete: il server deriva l'insieme delle righe dai filtri solo quando un'azione collettiva viene effettivamente applicata. Con una o più foto già selezionate, si estende solo alle foto attualmente caricate, e un banner propone poi di estendere all'intera vista. In entrambi i casi, applicare un'azione riferita all'intera vista mostra prima una finestra di conferma con il numero esatto di foto.
+- **Inverti** — Sostituisce la selezione con il suo complemento. Con una selezione vuota il complemento è l'intera vista filtrata, esattamente come «Seleziona tutto» sopra e con lo stesso comportamento senza richieste — il caso che la formulazione precedente descriveva in modo errato. Con una selezione non vuota resta limitato alle foto caricate: scegliere quelle da conservare e invertire — il modo diretto di vedere esattamente ciò che sta per sparire, senza mai raggiungere foto che non hai visto.
+- **Confronta** — Apre da 2 a 4 foto selezionate affiancate con panoramica e zoom sincronizzati (rotella per ingrandire, trascinamento per spostare, doppio clic per azzerare; tutti i riquadri si muovono insieme e passano a piena risoluzione oltre la scala di adattamento). La stessa vista della camera oscura di selezione, ora raggiungibile per qualsiasi insieme scelto a mano e non più solo per scatti contigui di una raffica.
+- **Copia nomi file** — Copia i nomi dei file selezionati negli appunti; una copia riferita all'intera vista chiede prima conferma, e una vista con più di 10 000 foto viene rifiutata anziché copiata parzialmente
+- **Esporta** — Scrivi i sidecar XMP (valutazione/preferito/scarto) accanto ai file selezionati (vedi [Esportazione per editor](#esportazione-per-editor))
+- **Scarta in cartella** — Copia i mantenuti, o sposta/cestina gli scartati, in una cartella di destinazione (vedi [Scarta in cartella](#scarta-in-cartella))
+- **Elimina** — Invia le foto selezionate direttamente al cestino di sistema (vedi [Elimina](#elimina)); vincolato allo stesso flag `viewer.cull.allow_trash` di Scarta in cartella, quindi un'installazione che mostra l'uno mostra anche l'altro. Disattivato quando la selezione copre l'intera vista filtrata — un'eliminazione guidata dai filtri potrebbe cestinare un insieme senza limiti in un'unica richiesta, quindi il pulsante richiede invece una selezione esplicita.
+- **Scarica** — Scarica le foto selezionate
+- Annulla la selezione con Esc o con il pulsante Cancella
+- **Modifica tag** — Aggiungi un [tag manuale](#tag-manuali) a ogni foto selezionata, oppure rimuovilo (vedi [Tag manuali](#tag-manuali))
+
+Le azioni di gruppo richiedono la modalità di modifica. Fai doppio clic su una foto qualsiasi per aprirla.
+
+**Menu contestuale** — Fai clic destro su una foto (oppure dai il focus e premi Shift+F10 / il tasto Menu) per aprire un menu in corrispondenza del cursore. Su una foto compresa in una selezione di più foto agisce sull'intera selezione, con le azioni della barra delle azioni alle stesse condizioni, tranne Inverti e Seleziona tutto, che restano sulla barra (Elimina è omesso con l'ambito «seleziona tutto nella vista»). Su qualsiasi altra foto agisce solo su quella foto e lascia intatta la selezione, e aggiunge Apri foto e, solo quando le condizioni di funzionalità o di edizione lo consentono, Trova simili, Perché questo punteggio?, Scrivi i metadati nel file e Assegna volto alla persona (quest'ultima solo se la foto ha volti non assegnati). Scartare così una sola foto toglie dalla selezione solo quella foto: una selezione per percorsi conserva il resto, e una selezione «tutto nella vista» resta sull'intera vista con quella foto aggiunta alle esclusioni. Il menu non viene proposto sui dispositivi touch (`hover: none` e `pointer: coarse`), dove restano il comportamento nativo della pressione prolungata e il foglio delle azioni. Su una selezione il menu include anche la voce di gruppo **Modifica tag**, soggetta alla modalità di modifica come quella della barra; sui dispositivi touch è raggiungibile anche dal foglio Azioni.
+
+### Tieni il top N%
+
+Un controllo **Tieni top %** nella barra degli strumenti della galleria (modalità di modifica) trasforma l'intera vista filtrata in una selezione in un solo passaggio. Imposta una percentuale: il server classifica la vista corrente in base all'**ordinamento attuale** (aggregato, I miei gusti, Migliori scelte, nitidezza, …), mantiene quella quota superiore e **seleziona il resto** — le foto con il punteggio più basso — così puoi rifiutarle dalla barra delle azioni (o deselezionare prima quelle che vuoi risparmiare). Nulla viene spostato o eliminato: si limita a popolare la selezione (e ogni rifiuto continua ad addestrare "I miei gusti"). La selezione è limitata a 5000 foto; su una vista molto ampia il controllo lo segnala — restringi il filtro (album, data, persona…) per agire sul resto. La classifica scorre sulla stessa vista filtrata dagli interruttori di nascondimento della griglia della galleria, quindi con `hide_brackets` / `hide_panoramas` attivi per impostazione predefinita una serie di bracket o un panorama conta come **una sola** foto ai fini della percentuale, non una per fotogramma.
+
+### Scarta in cartella
+
+La finestra di dialogo **Scarta in cartella…** nella barra delle azioni di gruppo (modalità di modifica) copia i mantenuti, o sposta/cestina gli scartati, in una cartella di destinazione in un solo passaggio (il cestino di sistema è vincolato a `viewer.cull.allow_trash`, mai un'eliminazione permanente). L'applicazione è sicura per costruzione: `POST /api/cull/apply` non si fida mai ciecamente di un elenco di eliminazione fornito dal client — rideriva lato server l'insieme effettivo dell'azione a partire dallo stato `is_rejected` proprio di ogni foto (la copia agisce solo sui mantenuti, lo spostamento/cestino solo sugli scartati) e segnala tutto ciò che è fuori da questo ambito come `excluded_by_state` invece di agirvi sopra. Ogni chiamata ha come predefinito una simulazione (dry run): un'anteprima viene sempre eseguita prima di qualsiasi scrittura, e spostamento/cestino richiedono un `dry_run=false` esplicito per procedere; includere il RAW o il sidecar non toccato di una foto scartata è opzionale (`include_companions`), così scartare un JPEG derivato non trascina mai silenziosamente il suo RAW. Diversi strumenti fotografici commerciali hanno avuto bug di selezione dell'eliminazione che hanno colpito le foto sbagliate; l'endpoint di applicazione di Facet è progettato in modo che il client non possa mai specificare direttamente un insieme da eliminare.
+
+**Disponibilità di «Cestina gli scartati».** L'opzione «Cestina gli scartati» compare solo quando `GET /api/config` riporta `cull.trash_available: true` — cioè `viewer.cull.allow_trash` attivo *e* il pacchetto `send2trash` importabile — invece che la finestra di dialogo offra un'azione che il server rifiuterebbe. Una chiamata diretta a `POST /api/cull/apply` con `action=trash_rejects` può comunque incontrare l'uno o l'altro rifiuto per conto proprio: un `403` significa che `viewer.cull.allow_trash` è disattivato in `scoring_config.json`; un `400` significa che la configurazione lo consente ma `send2trash` non è installato in questo ambiente. La finestra di dialogo non riduce più i due casi a uno: al posto dell'opzione nascosta indica la causa — `allow_trash` attivo ma pacchetto assente si legge «il pacchetto `send2trash` non è installato», ogni altro caso «un amministratore ha disattivato il cestino» — così i due si distinguono senza chiamare l'API. Una capacità sconosciuta (`/api/config` non caricato, o campo assente) viene letta come disattivata, perché un'incognita non è un motivo per offrire un'azione distruttiva.
+
+**Serie multi-scatto.** Con `hide_brackets` / `hide_panoramas` attivi per impostazione predefinita, la selezione della galleria da cui parte questa finestra di dialogo contiene solo l'esposizione di base di un bracket o il fotogramma centrale contrassegnato di un panorama — quindi, per impostazione predefinita, selezionare così un bracket HDR o una sequenza panoramica copia, sposta o cestina quel singolo file rappresentativo, mai il resto della serie. Due caselle di spunta facoltative e indipendenti allargano ciò su cui si agisce: **Includi RAW/XMP di corredo** (`include_companions`) include il RAW e il sidecar `.xmp` con lo stesso nome base dello *stesso* fotogramma; **Includi fotogrammi della serie** (`include_sequence_siblings`) include ogni *altro* fotogramma che condivide `(sequence_kind, sequence_group_id)` con la foto corrispondente — i veri gradini del bracket o i tasselli del panorama che la galleria sta nascondendo — **a condizione che lo stato di conservazione/scarto di quel fotogramma corrisponda all'azione**. Scartare un fotogramma di una sequenza e selezionare questa casella sposta o cestina quel fotogramma e ogni altro fotogramma scartato della serie, mai quelli conservati; i fotogrammi il cui stato non corrisponde vengono conteggiati invece in `excluded_by_state`. Un fotogramma che hai tolto dalla selezione non viene mai reintrodotto come fotogramma della serie: `exclude` restringe il passaggio sui fotogrammi della serie esattamente come restringe il bersaglio, quindi un fotogramma escluso resta fuori dai file su cui si agisce e anche dal conteggio `sequence_siblings`. L'anteprima segnala quanti fotogrammi della serie esistono (`sequence_siblings`) anche a casella deselezionata, così l'esistenza di una serie non resta mai silenziosamente invisibile, e `matched` distingue «nulla nella selezione era idoneo per questa azione» da un risultato vuoto. Spostare o cestinare il fotogramma guida di un panorama/bracket sceglie di nuovo un fotogramma superstite come nuovo `is_sequence_lead`, così la serie resta visibile con gli interruttori di nascondimento predefiniti anche dopo — l'unica scrittura sul database che questo endpoint altrimenti solo-file compie. Per scegliere a mano un sottoinsieme esplicito di una serie invece di un tutto-o-niente, aprila prima tramite l'azione «apri questa serie nella galleria» del dettaglio foto — il suo filtro di ambito-serie sospende tutti e quattro gli interruttori di nascondimento mentre è attivo, così ogni fotogramma è selezionabile singolarmente. Una chiamata diretta a `POST /api/cull/apply` con un corpo `filters` aggira del tutto le impostazioni predefinite del visualizzatore: sono `filters.hide_brackets` / `filters.hide_panoramas` del chiamante stesso a decidere l'ambito precedente ai fotogrammi della serie, non `viewer.defaults`. Oltre a questi due flag di nascondimento, `filters` non viene più risolto in isolamento: i campi non impostati ricadono sui valori predefiniti propri del visualizzatore per ordinamento/tipo/persona/dimensione pagina, esattamente come fa `GET /api/photos`, e una selezione di **Tipo di foto** basata sul contenuto (per es. `type=landscape`) si espande nell'insieme di filtri completo sottostante a quel tipo — cosicché un corpo `filters` e la vista di galleria da cui è stato copiato risolvano nelle stesse righe. In precedenza, lo scarto e l'esportazione saltavano questo passaggio, per cui una vista guidata dal Tipo di foto poteva risolvere, tramite l'API, in un insieme di righe diverso da quello mostrato dalla griglia per gli stessi filtri. Un corpo `filters` che corrisponde a più di 10 000 foto viene rifiutato categoricamente (`412`, con l'indicazione del conteggio e del limite) anziché troncato, e il limite si applica a una simulazione esattamente come a un'esecuzione reale — scartare solo a metà una vista che si credeva completa è peggio di un rifiuto netto, e un'anteprima non può essere usata per svolgere il lavoro senza limiti per cui l'esecuzione stessa viene rifiutata. Restringi i filtri (album, data, persona…) e riprova.
+
+**Dove è possibile scrivere.** Senza `viewer.export.allowed_target_dirs` configurato, le uniche cartelle in cui Facet può scrivere sono le directory di scansione — punta la finestra di dialogo verso una sottocartella dell'albero fotografico (ad es. `_rejected`) e funziona senza alcuna configurazione. Per usare una cartella fuori dall'albero scansionato, aggiungila prima a `viewer.export.allowed_target_dirs`; qualsiasi altra cosa viene rifiutata con un `403`, indipendentemente dai permessi del filesystem. Vedi [Configurazione — Destinazioni di esportazione e scarto](CONFIGURATION.md#destinazioni-di-esportazione-e-scarto). In esecuzione su Docker/Podman, il percorso digitato viene risolto **all'interno del container**, rispetto a ciò che è effettivamente montato lì — mai rispetto al filesystem host — vedi [Deployment — Semantica dei percorsi nel container](DEPLOYMENT.md#semantica-dei-percorsi-nel-container).
+
+**"Accesso negato" a ogni azione.** È un `403` — un rifiuto deliberato del controllo sulla cartella di destinazione sopra descritto, oppure una sessione di modifica scaduta — mai un problema di permessi del filesystem o dell'utente del container. Il messaggio non specifica quale dei due casi si sia verificato; controlla il corpo della risposta della richiesta fallita nella scheda Rete del browser per il campo `detail`. Un vero problema di permessi del filesystem si presenta diversamente: l'azione segnala un successo parziale con un conteggio `errors` diverso da zero, e il server registra l'errore del sistema operativo sottostante per ogni file non riuscito.
+
+### Elimina
+
+La scheda foto e la barra di selezione multipla della galleria aggiungono ciascuna un pulsante **Elimina**, distinto da Scarta in cartella sopra e dalla camera oscura `/culling` descritta in [Selezione](#selezione) — Facet ha ora tre azioni che toccano un insieme multi-fotogramma, e non si comportano allo stesso modo. Elimina chiama `POST /api/photo/delete`, che invia il file indicato direttamente al cestino di sistema tramite `send2trash` — recuperabile, mai un'eliminazione permanente — e la finestra di conferma lo dichiara chiaramente. È vincolato allo stesso flag `viewer.cull.allow_trash` di Scarta in cartella (nessuna nuova chiave di configurazione): un `403` significa che il flag è disattivato, un `400` significa che è attivato ma il pacchetto `send2trash` non è installato.
+
+A differenza di Scarta in cartella, che lascia intatta la riga del database fino a una nuova scansione, Elimina rimuove subito la riga di una foto non appena il suo file va effettivamente nel cestino — non serve `--cleanup-missing-photos` perché sparisca dalla galleria. Questo vale anche per un RAW di corredo incluso da `include_companions`: se quel RAW era stato a sua volta scansionato come propria foto, anche la sua riga viene rimossa, non appena il suo file va nel cestino — un RAW che era presente in libreria come voce propria sparisce insieme al JPEG. Due casi conservano invece la propria riga, perché per essi non è stato cestinato nulla: un percorso in `skipped` — il suo file era già assente dal disco prima della richiesta, quindi `--cleanup-missing-photos` è esattamente ciò che lo riconcilia — e un percorso in `errors` — il tentativo di cestinare è esso stesso fallito, quindi la riga viene deliberatamente conservata invece di lasciarla puntare a un file ancora presente.
+
+**Ambito.** La richiesta accetta solo `paths` espliciti (limitati a 10000) — non esiste una variante guidata da `filters`, perché un'eliminazione guidata dai filtri è l'unica forma capace di cestinare un insieme senza limiti in un'unica richiesta. Sotto la selezione "tutta la vista" della galleria, l'azione Elimina è disattivata, con un suggerimento che chiede una selezione esplicita, invece di eliminare silenziosamente solo in parte la vista. L'ambito predefinito è solo il file indicato. Due caselle di spunta opzionali lo ampliano, con gli stessi nomi e valori predefiniti di `/api/cull/apply`: **Includi RAW compagno / XMP** (`include_companions`, disattivato per impostazione predefinita) aggiunge il RAW compagno e l'`.xmp` di corredo con lo stesso nome base dello stesso fotogramma; **Includi i fotogrammi della serie** (`include_sequence_siblings`, disattivato per impostazione predefinita) amplia qualunque percorso richiesto a ogni altro fotogramma che condivide il suo `(sequence_kind, sequence_group_id)`.
+
+**Guide dei bracket.** L'esposizione di base di un bracket — il suo fotogramma con `sequence_ev_offset = 0` — viene rifiutata invece di essere eliminata — segnalata per percorso in `refused_bracket_lead` — a meno che `include_sequence_siblings` non sia impostato, nel qual caso l'intero bracket viene eliminato insieme. Questa esposizione di base è un dato fisico delle esposizioni piuttosto che un flag spostabile, quindi a differenza di un panorama non esiste un fotogramma sopravvissuto da promuovere; e poiché Elimina rimuove subito la riga, un bracket eliminato solo in parte sparirebbe dalla galleria senza modo di tornare indietro se non con una nuova scansione. Una guida di panorama eliminata senza il flag ridesigna invece un fotogramma sopravvissuto come nuova `is_sequence_lead`, esattamente come fa Scarta in cartella, così l'insieme resta visibile sotto il `hide_panoramas` predefinito.
+
+**Risultati parziali.** La risposta è per percorso, mai tutto-o-niente: `dry_run`, `would_trash` (anteprima della simulazione), `deleted`, `not_found` (mai nel database), `not_visible` (nel database ma nascosto a questo utente), `refused_bracket_lead`, `sequence_siblings` (fotogrammi inclusi dal flag delle serie), `skipped` (visibile e presente in `photos`, ma il file era già assente dal disco — non cestinato, riga non eliminata), `trashed` (un conteggio) ed `errors` (un errore di sistema per ogni percorso non riuscito — non cestinato, riga non eliminata). Un'eliminazione di gruppo che include una guida di bracket rifiutata elimina comunque tutto il resto e segnala il rifiuto, invece di far fallire l'intera richiesta. `dry_run` predefinito a `true`.
+
+### Opzioni di visualizzazione
+
+- **Modalità layout** - Passa tra **Griglia** (schede uniformi) e **Mosaico** (righe giustificate che preservano le proporzioni). Il mosaico è solo per desktop; su mobile si usa sempre la griglia.
+- **Dimensione miniatura** - Cursore per regolare l'altezza delle schede/righe (120–400px, salvato in localStorage)
+- **Nascondi dettagli** - Nascondi i metadati delle foto sulle schede (solo modalità griglia)
+- **Tooltip** - Come vengono mostrati i dettagli: **Al passaggio** (predefinito), **Al clic**, **Disattivato** o **Pannello laterale**. Il pannello laterale ancora gli stessi dettagli nel cassetto di destra invece di seguire il cursore: un dato si trova così sempre nello stesso punto da una foto all'altra, e il pannello conserva l'ultima foto sfiorata invece di svuotarsi quando il cursore lascia la griglia. Un clic su una foto blocca il pannello su di essa — sfiorare altre foto non lo cambia più — finché non premi **Deseleziona** in cima al pannello, che toglie anche quella foto dalla selezione. Condivide quel cassetto con la barra dei filtri: aprire i filtri lo nasconde finché non li richiudi, e la griglia mantiene esattamente la larghezza che ha con i filtri aperti. Richiede una finestra di almeno 1280 px.
+- **Nascondi occhi chiusi** - Filtra le foto con battiti di ciglia rilevati
+- **Migliore della raffica** - Mostra solo la foto con il punteggio più alto di ogni raffica
+- **Migliore del bracketing** - Mostra solo l'esposizione di base di ogni bracketing rilevato, nascondendo gli scatti laterali. **Attivo per impostazione predefinita.** Indipendente da «Migliore della raffica»: un quarto dei bracketing condivide una raffica con scatti estranei, dove la foto guida non è l'esposizione di base.
+- **Migliore del panorama** - Mostra solo il fotogramma rappresentativo (centrale) contrassegnato di ogni panorama o panorama HDR rilevato, nascondendo il resto della sequenza. **Attivo per impostazione predefinita.**
+- **Scorrimento infinito** - Le foto si caricano man mano che scorri
+- **Scorrimento rapido (virtualizzato)** - Rendering a finestra di righe: solo le righe
+  vicine al viewport sono nel DOM, così lo scorrimento profondo attraverso decine di
+  migliaia di foto rimane reattivo. Attivo per impostazione predefinita; disabilitalo
+  nella sezione Visualizzazione della barra laterale dei filtri se riscontri problemi
+  di layout (la modalità griglia con dettagli visibili usa sempre il rendering completo,
+  poiché le altezze delle righe non sono deterministiche in quel caso). Salvato in
+  localStorage (`facet_virtual_scroll`).
+
+### Foto simili
+
+Clicca il pulsante "Simili" su una foto qualsiasi per scegliere una modalità di somiglianza:
+
+- **Visivo** (predefinito) — distanza di Hamming pHash (70%) + somiglianza coseno CLIP/SigLIP (30%). Ricade su CLIP soltanto quando non è disponibile alcun pHash.
+- **Colore** — Intersezione istogramma (70%) + distanza di saturazione (10%) + distanza di luminanza (10%) + bonus monocromatico (10%). Pre-filtra in base al flag monocromatico e all'intervallo di saturazione.
+- **Persona** — Trova le foto contenenti le stesse persone. Usa `person_id` quando disponibile (veloce), altrimenti ricade sulla somiglianza coseno degli embedding dei volti.
+
+Usa il **cursore della soglia di somiglianza** (0–90%) per controllare quanto è rigida la corrispondenza (non mostrato in modalità persona). Il pannello supporta lo scorrimento infinito per insiemi di risultati di grandi dimensioni.
+
+### Chip dei filtri
+
+I filtri attivi sono mostrati come chip rimovibili con i relativi conteggi in cima alla galleria.
+
+### Tag manuali
+
+I tag manuali sono tag che digiti tu stesso, conservati accanto ai tag IA prodotti da una scansione o da una nuova etichettatura. Vivono in una tabella propria (`photo_manual_tags`), non nella colonna `tags` della foto, quindi una nuova scansione o una nuova etichettatura non li cancella mai.
+
+- **Dove compaiono.** Solo nella vista di **dettaglio** della foto, come chip accanto ai tag IA e visivamente distinti (un indicatore sul chip, non solo il colore). Le schede delle foto e il tooltip al passaggio del mouse restano invariati e continuano a mostrare i tag IA.
+- **Chi può modificarli.** La modifica richiede una sessione di modifica, che a sua volta richiede un `viewer.edition_password` impostato; come ogni altra scrittura soggetta alla modalità di modifica, viene rifiutata su un'installazione aperta (senza password di modifica), dove i tag manuali sono di sola lettura. Chi non ha i permessi di modifica li vede in sola lettura. Nella vista di dettaglio un utente in modalità di modifica può aggiungere un tag e rimuovere un tag manuale, anche su una foto che non ha ancora alcun tag. I tag IA non hanno un controllo di rimozione.
+- **Modifica di gruppo.** Seleziona delle foto e usa **Modifica tag** per aggiungere o rimuovere un tag su tutta la selezione: dalla barra di selezione su desktop, dal foglio Azioni su mobile o dal menu contestuale su una foto compresa in una selezione di più foto. Una selezione dell'intera vista è accettata come per qualsiasi altra azione di gruppo. Le foto che hanno già 50 tag manuali vengono saltate in un'aggiunta di gruppo invece di far fallire il lotto, e il `count` restituito è il numero di foto effettivamente modificate.
+- **Normalizzazione.** Un tag viene normalizzato in Unicode (NFC), privato degli spazi iniziali e finali, le sequenze di spazi vengono ridotte a uno solo e il testo passa in minuscolo. Può avere al massimo 64 caratteri, una foto porta al massimo 50 tag manuali, e un tag vuoto, con una virgola o con un carattere di controllo viene rifiutato con `422`. Un tag identico a uno degli attuali tag IA della foto non fa nulla (non viene memorizzato nulla), anche se una successiva etichettatura può produrre lo stesso tag su entrambi i lati; la galleria conta quella foto una sola volta.
+- **Ricerca e filtri li raggiungono.** Il filtro per tag della galleria (inclusi i tag richiesti ed esclusi), la ricerca testuale della galleria, la ricerca semantica testuale (`/api/search`, tranne l'ambito limitato alle didascalie), l'elenco a discesa dei tag con i relativi conteggi, la pagina delle statistiche e le esportazioni di sidecar, metadati incorporati e manifest di Lightroom vedono tutti l'unione dei tag IA e manuali. La ricerca testuale confronta un tag manuale come espressione intera, non parola per parola. Le capsule fanno eccezione: contano solo i tag IA, quindi il numero di una capsula può essere inferiore alle foto che il suo clic apre (il filtro per tag della galleria include invece i tag manuali). I tag manuali non influenzano mai punteggi, categorie o momenti narrativi.
+- **Nascosti ai link di condivisione.** Chi visualizza tramite un link di condivisione non vede mai i tag manuali, né in una foto o in un album condivisi, né nel relativo elenco a discesa dei filtri o nel filtro per tag; un album smart condiviso applica comunque il filtro salvato dal proprietario, compreso un tag manuale su cui il proprietario ha filtrato.
+- **Globali, non per utente.** In modalità multiutente i tag manuali sono condivisi da tutti e non memorizzati per utente: qualsiasi utente in modalità di modifica può rimuovere un tag aggiunto da un altro.
+- **Non annullabili.** Le modifiche ai tag manuali non sono coperte da [Annulla](#annulla); aggiungi di nuovo a mano un tag rimosso. Un tag rimosso può anche tornare da un sidecar, vedi [Regole di conflitto](INTEROP.md#regole-di-conflitto).
+- **Da dove arrivano oltre alla digitazione.** `--import-sidecars` memorizza come tag manuali, con origine `xmp`, le parole chiave che trova in un sidecar e che Facet non conosce ancora (né un tag IA né il nome di una persona).
+- **Legati al percorso del file.** Un file spostato o rinominato è una nuova foto (nuovo percorso) e perde i suoi tag manuali insieme al vecchio.
+
+## Panorami e bracket di esposizione
+
+I fotogrammi di un panorama sono stati scattati per essere uniti e quelli di un bracket per essere fusi: né gli uni né gli altri sono scatti in competizione. Il rilevamento delle raffiche non coglie la differenza — arrivano a pochi secondi l'uno dall'altro, da una fotocamera, a una focale — e senza questo li raggruppa e ne nasconde tutti tranne uno, scelto con un criterio che per una panoramica non significa nulla.
+
+**Nella galleria.** «Migliore del bracket» e «Migliore del panorama» (attivi per impostazione predefinita) comprimono ogni serie dietro un fotogramma rappresentativo: l'esposizione di base per un bracket, il fotogramma centrale per un panorama. Quel fotogramma porta una piccola icona in basso, accanto alla stella e al cuore, che indica che cosa rappresenta — panoramica semplice, panoramica HDR o bracket — con un suggerimento. L'icona compare solo finché il filtro corrispondente nasconde davvero il resto della serie.
+
+**Nella selezione.** Il menu di granularità offre «Bracket di esposizione», «Panorami» e «Panorami HDR» come flussi propri, mai uniti in «Tutto». Ogni fotogramma parte contrassegnato da tenere, e confermare una serie non registra coppie di confronto: preferire un gradino di una scala di esposizione, o un fotogramma di una panoramica, descrive come è stata scattata la serie, non la fotografia.
+
+**Correggere una serie.** La geometria non può ricostruire l'intenzione — una panoramica deliberata e un panning che segue un soggetto in movimento sono la stessa misura — quindi un tasso di errore residuo intorno al 4 % è inerente. Una correzione è persistente e sopravvive a ogni rilevamento successivo, che cancella e riscrive le etichette che aveva prodotto.
+
+Le due direzioni dell'errore hanno ciascuna la propria superficie, perché si incontrano in punti diversi. Un **falso positivo** si corregge nella selezione, dove la serie è davanti agli occhi: la barra delle azioni del gruppo porta un menu di correzione (solo in modalità edizione) con «Non è un panorama» e il passaggio tra semplice e HDR. Una **mancanza** si corregge dalla galleria, perché una panoramica non rilevata non compare in alcun gruppo di selezione: seleziona i fotogrammi e usa «Segna come serie» → «Segna come un panorama» nella barra di selezione. Entrambe si annullano dalla notifica, ed entrambe richiedono almeno due fotogrammi.
+
+**Segnare un bracket non rilevato.** Una scala di esposizione che il rilevamento delle raffiche non è riuscito a distinguere da una raffica normale si corregge come un panorama non rilevato, da entrambe le superfici: nella selezione, un gruppo di raffica semplice — uno in cui nessun fotogramma appartiene già a un bracket o a un panorama — porta un proprio menu (solo edizione) con «Segna come serie di esposizione»; nella barra di selezione della galleria, «Segna come serie» → «Segna come un'unica serie di esposizione» fa lo stesso per qualsiasi selezione. Entrambe richiedono che i fotogrammi formino una vera scala di esposizione — almeno 2 fotogrammi, ognuno con metadati di esposizione utilizzabili *e* una data di scatto interpretabile, mai due alla stessa esposizione — ed entrambe rifiutano la correzione con un messaggio a schermo quando non è così; nulla viene mai salvato parzialmente. Segnare fotogrammi che si sovrappongono a un bracket già segnato estende quell'insieme invece di crearne un secondo — la regola viene verificata sull'insieme combinato (i fotogrammi appena selezionati più tutti quelli già in quell'insieme), quindi un'aggiunta che romperebbe la scala esistente viene rifiutata con lo stesso messaggio e il bracket precedente resta invariato. Il flusso della selezione nasconde di default i fotogrammi rifiutati, quindi segnare un bracket da lì non può mai includere un gradino già rifiutato — semplicemente non è nel flusso da selezionare. Un gruppo già di tipo `bracket` (rilevato o da una correzione precedente) riceve invece una voce «Annulla la correzione», sul modello di quella del panorama. Se un fotogramma segnato scompare in seguito o perde i metadati di esposizione o la data richiesti dalla regola (eliminato, o rianalizzato con EXIF diversi), l'intero insieme segnato viene ignorato al rilevamento successivo invece di essere applicato parzialmente — resta in sospeso finché ogni membro non torna a essere idoneo. **Segnare prevale sul rilevamento del panorama**: se i fotogrammi segnati appartengono già a un panorama rilevato dalla geometria, quel panorama viene eliminato alla prossima esecuzione — una serie non può essere entrambe le cose.
+
+Nulla viene rietichettato subito. Una correzione è salvata immediatamente e segnata in attesa — un badge orologio sulla miniatura, un chip «Correzione in attesa» sul gruppo — perché il rilevamento è una passata batch sull'intera libreria, troppo costosa per essere lanciata a ogni clic. La pagina di selezione mostra un banner che conta le correzioni in attesa, con accanto **Rilancia il rilevamento**; il filtro «Correzioni panorama» nella barra laterale (solo edizione, sotto Affina) le elenca su tutta la libreria, per direzione o entrambe. Fino a quella passata, una serie soppressa resta raggruppata come panorama e una forzata resta non raggruppata: la correzione è una nota per il rilevatore, non un'etichetta a sé.
+
+**Regolare il rilevamento.** La scheda Panorami, sotto Confronta, espone le soglie realmente calibrate su serie etichettate. Salvarle non cambia nulla di per sé: il rilevamento è una passata batch sull'intera libreria, quindi la scheda offre un rilancio accanto al salvataggio. Vedi [CONFIGURATION.md](CONFIGURATION.md).
+
+## Gestione delle persone
+
+> La consultazione delle persone è aperta a tutti i visualizzatori; rinominare, unire, cambiare gli avatar e assegnare i volti richiede `[Edition]`.
+
+### Filtro persona
+
+Il menu a tendina mostra le persone con le miniature dei volti. Clicca per filtrare la galleria.
+
+### Galleria della persona
+
+Clicca sul nome di una persona per visualizzare tutte le sue foto in `/person/<id>`.
+
+### Pagina Gestisci persone
+
+Accessibile tramite il pulsante nell'intestazione o `/persons`:
+
+| Azione | Come fare |
+|--------|--------|
+| **Unisci** | Seleziona la persona di origine, clicca quella di destinazione, conferma |
+| **Elimina** | Clicca il pulsante di eliminazione sulla scheda della persona |
+| **Rinomina** | Clicca sul nome della persona per modificarlo in linea |
+| **Dividi** | Apri i volti di una persona, seleziona un sottoinsieme, dividili in una nuova persona |
+| **Nascondi** | Nascondi un cluster dall'elenco delle persone, dai filtri e dai suggerimenti di unione (reversibile) |
+
+## Avvio scansione
+
+La scansione viene proposta quando valgono **entrambe** queste condizioni: `viewer.features.show_scan_button` è `true` (viene fornito su **`false`** in `scoring_config.json`, opt-in) **e** chi chiama ha l'accesso alla scansione — ruolo `superadmin` in modalità multiutente, oppure una sessione autenticata in modalità di modifica su un'installazione a utente singolo bloccata (un `viewer.edition_password` non vuoto) in modalità utente singolo. La galleria la offre allora in due punti, che aprono entrambi la finestra di avvio della scansione (`ScanLauncherComponent`): un pulsante **Scansiona le foto per iniziare** nello stato di galleria vuota e — finché la galleria mostra foto — un pulsante a icona **Scansiona nuove foto** in alto a destra nella griglia delle foto, a qualsiasi larghezza dello schermo. Su un'installazione a utente singolo aperta (`viewer.edition_password` vuota, il valore predefinito di fabbrica) tutte e quattro le rotte di scansione restituiscono 403 per qualsiasi chiamante, incluso chi possiede un JWT di generazione della modifica valido, e nessuno dei due punti di accesso viene mai mostrato — l'avvio di un sottoprocesso di scansione non deve essere raggiungibile in modo anonimo.
+
+- Scegli una directory dall'elenco del launcher e avvia la scansione direttamente nell'app
+- Il launcher trasmette l'avanzamento in tempo reale (SSE con fallback automatico al polling) in una `mat-progress-bar` pilotata dal campo strutturato `progress`, oltre a una coda di righe di output, e aggiorna la galleria al termine della scansione
+- La scansione viene eseguita come sottoprocesso in background (`facet.py`); una sola scansione alla volta (blocco globale)
+- Le scelte di directory provengono da `get_all_scan_directories()`, che unisce le `directories` di ciascun utente, le directory condivise, le destinazioni di `path_mapping` e l'elenco autonomo `viewer.scan_directories` — popola quest'ultimo (ad es. `/data/photos`) affinché le installazioni a utente singolo / Docker abbiano una destinazione selezionabile
+
+Per eseguire una scansione non serve alcuna GPU — vedi [Quale profilo si adatta al mio hardware?](INSTALLATION.md#quale-profilo-si-adatta-al-mio-hardware) e [Nessuna scheda grafica](INSTALLATION.md#nessuna-scheda-grafica) per il percorso solo CPU (`legacy`). La scansione viene eseguita sulla macchina che ospita la galleria, quindi è più veloce quando quella macchina ha accesso alla GPU per la valutazione.
+
+Un trigger correlato ma distinto, `POST /api/scan/recompute`, riutilizza lo stesso lock del job per rivalutare le foto esistenti sul posto (nessun file nuovo) — vedi [Priorità delle categorie e contesti di punteggio](#priorità-delle-categorie-e-contesti-di-punteggio). A differenza della regola di accesso di questo pulsante di scansione, dipendente dalla modalità, esso è riservato esclusivamente alla modalità di modifica, senza distinzione superadmin/installazione bloccata.
+
+## Ricerca semantica
+
+Ricerca ibrida che combina la somiglianza degli embedding CLIP/SigLIP (70%) con la corrispondenza testuale FTS5 BM25 su didascalie e tag (30%). Digita una query come "tramonto sulle montagne" o "bambino che gioca nella neve" e la galleria restituisce le foto corrispondenti ordinate per punteggio combinato.
+
+- Richiede i dati `clip_embedding` memorizzati (calcolati durante la valutazione)
+- Usa sqlite-vec per la ricerca vettoriale KNN quando installato e SQLite di questo Python può caricare estensioni, altrimenti ricade su NumPy in memoria
+- La ricerca testuale FTS5 su didascalie/tag IA fornisce una corrispondenza per parole chiave aggiuntiva (esegui `database.py --rebuild-fts` per abilitarla)
+- Usa lo stesso modello di embedding del profilo VRAM attivo (SigLIP 2 per 16gb/24gb, CLIP ViT-L-14 per legacy/8gb), oppure quello tra `models.clip`/`clip_legacy` che corrisponde effettivamente alla dimensione di embedding memorizzata se i due non coincidono (vedi [docs/CONFIGURATION.md](CONFIGURATION.md))
+- `scope=text` limita la query alle corrispondenze FTS5 letterali nel testo OCR/didascalia e salta la ricerca tramite embedding
+- Controllato da `viewer.features.show_semantic_search` (predefinito: `true`)
+- La soglia coseno usa di default `models.clip.search_threshold_percent` (5%) / `models.clip_legacy.search_threshold_percent` (15%) — valori calibrati per backend, distinti dalla soglia di corrispondenza dei tag `similarity_threshold_percent`. Il `search_threshold_default` di `/api/config` inizializza il cursore di soglia 0-50% della galleria, che copre l'intero intervallo: una ricerca può essere restretta oltre il valore predefinito o allargata di nuovo fino a `0%` per singola query; una soglia esattamente `0%` continua a rifiutare una similarità coseno negativa, non è "nessun filtro". Il valore predefinito del 5% per SigLIP favorisce deliberatamente il recall rispetto alla precisione — vedi `clip.search_threshold_percent` in [docs/CONFIGURATION.md](CONFIGURATION.md) per il compromesso di quella calibrazione
+- Ogni risultato riporta due campi di similarità: `similarity` è il punteggio combinato embedding (70%) + FTS (30%) usato per il ranking; `embedding_similarity` è la similarità coseno grezza effettivamente confrontata con la soglia sopra, presente solo quando è stato calcolato un punteggio di embedding per quella foto (assente — mai `null` — per una corrispondenza solo FTS o `scope=text`)
+
+## Album
+
+Organizza le foto in album denominati. Accessibile tramite la rotta `/albums`.
+
+### Album manuali
+
+Crea album e aggiungi foto dalla galleria usando la selezione multipla. Gli album supportano:
+- Nome e descrizione
+- Foto di copertina personalizzata
+- Ordinamento personalizzato
+- Consultazione del contenuto dell'album in `/album/:albumId`
+
+### Album intelligenti
+
+Salva una combinazione di filtri (fotocamera, tag, persona, intervallo di date, soglie di punteggio, ecc.) come album intelligente. Gli album intelligenti si aggiornano dinamicamente man mano che nuove foto corrispondono ai criteri di filtro salvati. La combinazione di filtri è memorizzata come JSON in `smart_filter_json`.
+
+### Contesto di punteggio
+
+Ogni album può portare un contesto di punteggio che decide quale categoria vince per le sue foto membro, indipendentemente dall'ordine di priorità globale — vedi [Contesti di punteggio](CONFIGURATION.md#contesti-di-punteggio). `PUT /api/albums/{id}/scoring_context` (riservato alla modalità di modifica) lo imposta e materializza lo stesso contesto su ogni foto che è membro **in questo momento**; `conflicts` nella risposta conta i membri non manuali che portavano già un contesto diverso, `manual_skipped` conta i membri la cui sovrascrittura manuale è stata lasciata intatta (un'assegnazione di album non converte mai silenziosamente la sovrascrittura manuale di una foto in una proveniente dall'album), e `updated` conta quante ne sono state effettivamente scritte. Un album manuale risolve l'appartenenza dalle sue righe `album_photos`; un album intelligente non ne ha, quindi l'appartenenza viene invece risolta valutando il suo `smart_filter_json` salvato rispetto al database live. Questa è la **definizione del filtro** dell'album, non «quello che la galleria si trovava a mostrare»: ignora deliberatamente le preferenze di visualizzazione della galleria che nascondono battito di palpebre, foto non principali di raffiche, duplicate e rifiutate (globali, commutabili a runtime e non parte di `smart_filter_json`), perciò `updated` può legittimamente superare il numero di foto che la vista galleria dell'album stesso mostra con quegli interruttori attivi — e restituisce `updated: 0` con un `warning` quando il filtro al momento non corrisponde a nulla. In entrambi i casi la marcatura è un'istantanea, non un abbonamento continuo: una foto aggiunta *in seguito* a un album manuale eredita comunque automaticamente il contesto, ma una foto che corrisponde *più tardi* al filtro di un album intelligente **non** eredita retroattivamente il contesto — il contesto va reimpostato (`PUT`) per catturare le nuove corrispondenze. `DELETE /api/albums/{id}/scoring_context` (presentato nella finestra di dialogo come un'azione «Cancella contesto» distinta dalla selezione del contesto `default`, che imposta `default` invece di cancellare) annulla la marcatura esattamente sui membri che questo album aveva impostato, senza toccare la sovrascrittura manuale di una foto — e quando una foto la cui marcatura viene annullata è *ancora* membro di un altro album che dichiara a sua volta un contesto, viene ri-marcata con il contesto di quell'altro album invece di restare senza punteggio (questa nuova derivazione è limitata alle foto specifiche rimosse da un album; l'eliminazione o la cancellazione di un intero album non lo tenta). `GET /api/albums/{id}/suggested_context` ne propone uno a partire dal `narrative_moment` dominante rilevato per l'album (tramite l'elenco `suggest_from_moments` di ciascun contesto) con una confidenza `share` — non scrive nulla; l'assegnazione sopra descritta deve comunque essere confermata esplicitamente. Un ricalcolo (`POST /api/scan/recompute`) è necessario perché il nuovo contesto cambi effettivamente la categoria memorizzata di qualunque foto.
+
+### Esportazione portfolio
+
+Quando `viewer.features.show_portfolio_export` è `true` (predefinito) e la modalità di modifica è sbloccata, ogni scheda di album manuale acquisisce un'azione **Esporta portfolio**. Apre una piccola finestra di dialogo (titolo della galleria, cartella di destinazione, interruttore per includere le didascalie) e trasforma l'album in una galleria HTML statica autonoma — il caso d'uso di thumbsup/sigal, ma nativo, senza dipendenza da strumenti esterni. La directory di output contiene `index.html` (una griglia di miniature responsive solo in CSS con una lightbox vanilla-JS integrata — **zero** riferimenti esterni/CDN, quindi funziona completamente offline), una cartella `assets/` di JPEG con nomi sequenziali (nessun percorso della libreria viene divulgato) e un `manifest.json` che registra conteggi e sorgenti per foto. Ogni foto preferisce l'**originale** su disco (ridotto a `portfolio.max_edge`, con orientamento EXIF applicato) e ripiega sulla miniatura da 640 px memorizzata quando l'originale è irraggiungibile (condivisioni di rete offline). L'endpoint è `POST /api/albums/{album_id}/export-portfolio` (riservato alla modalità di modifica); il `target_dir` viene convalidato rispetto alla stessa allow-list (`viewer.export.allowed_target_dirs` più le directory di scansione, vedi [Configurazione — Destinazioni di esportazione e scarto](CONFIGURATION.md#destinazioni-di-esportazione-e-scarto)) degli endpoint di esportazione copia/spostamento, e gli album oltre `portfolio.max_photos` (predefinito 500) vengono rifiutati. Riesportare lo stesso album è idempotente — vengono riscritti solo i file propri dell'esportazione. Vedi [Configurazione dell'esportazione portfolio](CONFIGURATION.md#esportazione-portfolio).
+
+API: vedi la sezione [Endpoint API](#endpoint-api) più sotto.
+
+Controllato da `viewer.features.show_albums` (predefinito: `true`).
+
+### Condivisione foto
+
+Condividi gli album con utenti esterni tramite collegamenti con token. Non è richiesta alcuna autenticazione per visualizzare gli album condivisi.
+
+| Azione | Come fare |
+|--------|--------|
+| **Condividi** | Apri l'album, clicca il pulsante "Condividi" per generare un collegamento condivisibile |
+| **Revoca** | Clicca "Annulla condivisione" per invalidare il token di condivisione |
+| **Visualizza** | I destinatari aprono il collegamento per sfogliare l'album condiviso in `/shared/album/:id` |
+
+API: vedi la sezione [Endpoint API](#endpoint-api) più sotto.
+
+### Revisione del cliente
+
+Quando `viewer.features.show_proofing` è abilitato (predefinito `false`), un collegamento a un album condiviso può funzionare in **modalità di revisione**: il cliente (senza account) apre il collegamento di condivisione, inserisce facoltativamente un PIN (`viewer.proofing.pin`) e può quindi **mettere un cuore** alle foto e lasciare **commenti** — un modo leggero per lasciare che un cliente scelga i propri preferiti da una consegna.
+
+Le scelte del cliente sono completamente isolate dalla tua libreria. Risiedono in una tabella dedicata `album_client_picks`, sono delimitate alle foto di quell'album e non toccano mai i tuoi preferiti/valutazioni (`photos.is_favorite` / `user_preferences`) né addestrano il ranker personale. In qualità di proprietario leggi le scelte da una finestra di dialogo `[Edition]` sulla scheda dell'album. Le sessioni sono di breve durata (`viewer.proofing.session_minutes`, predefinito 24h) e smettono di funzionare nel momento in cui l'album viene rimosso dalla condivisione o la revisione viene disabilitata.
+
+Controllato da `viewer.features.show_proofing` (predefinito: `false`). Vedi [Configurazione — Revisione del cliente](CONFIGURATION.md#revisione-del-cliente).
+
+## Critica IA
+
+Scompone i punteggi di una foto in punti di forza, punti deboli e suggerimenti.
+
+### Critica basata su regole
+
+Disponibile su tutti i profili VRAM. Analizza le metriche memorizzate (estetica, composizione, nitidezza, qualità volto, ecc.) e genera una spiegazione strutturata del punteggio.
+
+La scomposizione mostra anche le righe esplicabili di **forma e armonia cromatica** (simmetria, equilibrio, entropia dell'orientamento dei bordi, complessità frattale, armonia cromatica di Matsuda — popolate da `--recompute-form`), i **chip degli attributi di distorsione** per eventuali difetti probabili (sfocatura da movimento, dominante di colore, eccessiva nitidezza, … — da `--recompute-distortions`) e una **nota sul tono della pelle** per i ritratti la cui croma della pelle deriva verso tinte innaturali (`--recompute-skin-tone`). Tutte e tre sono indicative — spiegano la foto, non modificano l'aggregato — e ogni riga appare solo quando la sua colonna sottostante è popolata.
+
+### Critica VLM `[GPU]` `[16gb/24gb]`
+
+Usa il VLM configurato (Qwen3.5-2B o Qwen3.5-4B) per una critica consapevole del contesto. Richiede il profilo VRAM 16gb o 24gb e `viewer.features.show_vlm_critique: true`. Generarla richiede anche una sessione di modifica; senza, viene servita solo una critica già in cache e `vlm_available` è `false`.
+
+Il prompt è una scala configurabile (`critique.vlm`) che inserisce la scomposizione completa delle regole, le penalità e l'EXIF, e la risposta viene presentata come **Osservazione / Valutazione / Suggerimenti**. Il risultato viene memorizzato nella cache per foto (`photos.vlm_critique`) e tradotto su richiesta, con un pulsante **Rigenera** per ricalcolarlo. Viene eseguito sulla miniatura memorizzata, così i file RAW vengono criticati correttamente invece di fallire silenziosamente.
+
+API: vedi la sezione [Endpoint API](#endpoint-api) più sotto.
+
+Controllato da `viewer.features.show_critique` (predefinito: `true`) e `viewer.features.show_vlm_critique` (predefinito: `true`).
+
+**Overlay visivo "perché questo punteggio".** Quando `viewer.features.show_saliency_overlay` è `true` (predefinito), la finestra di critica acquisisce un interruttore **Mostra overlay**: disegna la mappa di salienza BiRefNet come heatmap traslucida sopra la foto (ricalcolata su richiesta dalla miniatura memorizzata — `GET /api/saliency_overlay`), oltre a riquadri soft per volto e marcatori degli occhi ricostruiti dai landmark memorizzati (`GET /api/photo/face_markers`). I riquadri sono verdi quando gli occhi sono aperti, ambra in caso di occhi chiusi. La heatmap è illustrativa (risoluzione della miniatura), non esatta a livello di pixel; l'interruttore si nasconde sui profili in cui non è producibile alcuna maschera di salienza.
+
+## Didascalie IA `[GPU]` `[16gb/24gb]` `[Edition]`
+
+Ottieni una didascalia in linguaggio naturale generata dall'IA per qualsiasi foto. Le didascalie vengono generate alla prima richiesta da una sessione di modifica (un'installazione aperta, in sola lettura, non ne genera mai) e memorizzate nella cache nella colonna `caption` del database. Le didascalie possono essere modificate manualmente in modalità di modifica tramite la pagina di dettaglio della foto. (La *traduzione* delle didascalie viene eseguita su CPU — vedi sotto.)
+
+API: vedi la sezione [Endpoint API](#endpoint-api) più sotto.
+
+Disponibile anche tramite CLI per la generazione e la traduzione di massa:
+
+```bash
+python facet.py --generate-captions      # Genera didascalie per tutte le foto senza didascalia
+python facet.py --translate-captions     # Traduci le didascalie nella lingua di destinazione configurata
+```
+
+La traduzione delle didascalie usa MarianMT (CPU, nessuna GPU richiesta). Configura la lingua di destinazione in `scoring_config.json` sotto `translation.target_language` (predefinito: `"fr"`). Lingue supportate: francese, tedesco, spagnolo, italiano.
+
+Controllato da `viewer.features.show_captions` (predefinito: `true`). Richiede il profilo VRAM 16gb o 24gb per le didascalie basate su VLM.
+
+## Ricordi ("In questo giorno")
+
+Sfoglia le foto scattate nella stessa data di calendario negli anni precedenti. L'apertura dei Ricordi avvia un diaporama (presentazione) a schermo intero in ordine casuale delle foto corrispondenti, anziché una griglia; il tooltip del pulsante di navigazione ne spiega esplicitamente il funzionamento.
+
+API: vedi la sezione [Endpoint API](#endpoint-api) più sotto.
+
+Controllato da `viewer.features.show_memories` (predefinito: `true`).
+
+## Flussi di lavoro comuni
+
+- **Selezionare una vacanza** — apri Capsule → cerca la capsula `journey` generata automaticamente per le date del viaggio. Ogni capsula offre un'azione Salva come album.
+- **Eseguire una revisione giorno per giorno** — apri Cronologia e scendi da anni a mesi fino a un calendario di giorni; clicca su un giorno per aprire la galleria filtrata su quella data. Cronologia non ha un ordinamento proprio, ma i conteggi per giorno/mese/anno e le miniature in evidenza ora rispettano gli stessi interruttori `hide_bursts` / `hide_duplicates` della galleria (predefiniti: attivi), quindi il conteggio di una cella corrisponde a ciò che apre il clic.
+- **Mostrare ciò che è nascosto** — la galleria nasconde per impostazione predefinita i battiti di ciglia / le raffiche non principali / i duplicati non principali. Quando almeno uno di questi filtri è attivo ed escluderebbe delle righe, sopra la griglia compare un banner "N foto nascoste dai filtri attivi · Mostra tutte".
+
+## Vista cronologia
+
+Browser di foto cronologico: una griglia di anni scende a una griglia di mesi, poi a un calendario di giorni, ogni cella con un conteggio foto e una miniatura in evidenza. Clicca su un giorno per aprire la galleria filtrata su quella data. Non c'è alcun controllo di ordinamento in Cronologia — l'ordinamento avviene nella galleria su cui atterri.
+
+I cinque interruttori di nascondimento della galleria (`hide_blinks`, `hide_bursts`, `hide_duplicates`, `hide_brackets`, `hide_panoramas`) si applicano a ogni livello, ricadendo su `viewer.defaults` quando una richiesta non ne invia nessuno — quindi una cella anno/mese/giorno conta e sceglie la propria miniatura in evidenza solo tra le foto che la galleria mostrerebbe davvero. Quando almeno un interruttore sta nascondendo qualcosa, appare un pulsante `visibility_off` nella barra degli strumenti (e nella barra inferiore mobile) con il tooltip "Alcune foto sono nascoste dai tuoi filtri"; cliccalo per azzerare tutti e cinque, proprio come il banner delle foto nascoste della galleria.
+
+API: vedi la sezione [Endpoint API](#endpoint-api) più sotto.
+
+Accessibile tramite la rotta `/timeline`. Controllato da `viewer.features.show_timeline` (predefinito: `true`).
+
+## Vista mappa
+
+Visualizza le foto su una mappa interattiva in base alle coordinate GPS estratte dai dati EXIF. Usa Leaflet per il rendering della mappa con clustering a diversi livelli di zoom.
+
+### Configurazione
+
+Estrai le coordinate GPS dalle foto esistenti:
+
+```bash
+python facet.py --extract-gps    # Estrai lat/lng GPS da EXIF nel database
+```
+
+Le coordinate GPS vengono estratte automaticamente anche durante la valutazione delle nuove foto.
+
+API: vedi la sezione [Endpoint API](#endpoint-api) più sotto.
+
+Accessibile tramite la rotta `/map`. Controllato da `viewer.features.show_map` (predefinito: `true`).
+
+## Capsule
+
+Diaporama di foto curati (presentazioni) raggruppati per tema, luogo, persone e tempo — clicca su una capsula per riprodurla. Accessibile tramite la rotta `/capsules`.
+
+### Tipi di capsula
+
+Le capsule vengono generate automaticamente dalla tua libreria usando più algoritmi:
+
+- **Viaggio** — viaggi rilevati tramite clustering GPS, con nomi delle destinazioni ottenuti tramite geocodifica inversa ("Viaggio a Roma — Marzo 2025")
+- **Momenti con [Persona]** — le migliori foto di ogni persona riconosciuta
+- **Tavolozza stagionale** — foto raggruppate per stagione + anno
+- **Collezione d'oro** — il primo 1% per punteggio aggregato
+- **Storia di colori** — gruppi visivamente simili tramite clustering degli embedding CLIP
+- **Questa settimana, anni fa** — "In questo giorno" esteso su ±3 giorni
+- **Posizione** — cluster di foto geolocalizzate con nomi di luoghi
+- **Preferiti** — foto preferite raggruppate per anno e stagione
+- **Basate su dimensione** — generate automaticamente da fotocamera, obiettivo, categoria, modello compositivo, intervallo di lunghezza focale, ora del giorno, valutazione a stelle e combinazioni intersezionali
+
+### Presentazione
+
+Clicca su una scheda di capsula qualsiasi per avviare una presentazione. Caratteristiche:
+- **Transizioni a tema** — slide (viaggi), zoom (ritratti), kenburns (oro/stagionale), crossfade (predefinito)
+- **Concatenamento automatico** — quando una capsula termina, una scheda di transizione mostra la capsula successiva prima di continuare
+- **Mescola e riprendi** — le foto vengono mescolate per varietà; la posizione di ripresa è tracciata per ogni capsula
+- **Raggruppamento adattivo** — le foto in formato verticale vengono raggruppate affiancate in base alle proporzioni del viewport
+- **Salva come album** — salva qualsiasi capsula come album permanente
+
+### Aggiornamento
+
+Le capsule ruotano secondo una pianificazione configurabile (predefinito: 24 ore). Le foto di copertina e le capsule di scoperta seminate si allineano allo stesso periodo di rotazione. Il pulsante "Rigenera" nell'intestazione forza un aggiornamento immediato.
+
+### Geocodifica inversa
+
+Le capsule di posizione e di viaggio mostrano i nomi dei luoghi (ad es. "Parigi, Francia") invece delle coordinate. Questo usa la geocodifica offline tramite il pacchetto `reverse_geocoder` — non sono necessarie chiamate API. I risultati vengono memorizzati nella cache del database.
+
+Installazione: `pip install reverse_geocoder`
+
+API: vedi la sezione [Endpoint API](#endpoint-api) più sotto.
+
+### Configurazione
+
+Vedi [Configurazione — Capsule](CONFIGURATION.md#capsules) per tutte le impostazioni.
+
+## Vista cartelle
+
+Sfoglia la tua libreria di foto in base alla struttura delle directory. Accessibile tramite la rotta `/folders`.
+
+- Navigazione tramite breadcrumb per risalire l'albero delle directory
+- Ogni cartella mostra una foto di copertina (l'immagine con il punteggio più alto in quella directory)
+- Clicca su una cartella per entrarvi, oppure clicca su una foto per aprirla nella galleria
+- Ogni scheda di cartella offre un'azione di filtro che apre la galleria limitata a quella cartella — disponibile su qualsiasi cartella, non solo su quelle finali
+- Rispetta la visibilità delle directory multiutente in modalità multiutente
+
+### Filtro per cartella
+
+Il pannello dei filtri della galleria include una sezione **Cartella**. **Scegli cartella…** apre un
+selettore che percorre l'albero delle directory un livello alla volta; applicandolo la galleria viene
+limitata a quella cartella **e a tutte le sue sottocartelle**. La cartella attiva compare come chip di
+filtro, si combina con tutti gli altri filtri (punteggio, persona, data…), sopravvive a un ricaricamento
+tramite il parametro URL `path_prefix` ed è salvata negli album intelligenti.
+
+Il filtro per cartella restringe soltanto la griglia delle foto: i menu a discesa del pannello, i
+conteggi per tipo, le statistiche, la cronologia, la mappa e la ricerca restano sull'intera libreria.
+
+## Finestra filtro GPS
+
+Filtra le foto per posizione geografica usando un selettore di mappa interattivo:
+
+- Clicca il pulsante del filtro di posizione per aprire la finestra della mappa
+- Clicca o trascina sulla mappa per impostare un punto centrale
+- Regola il cursore del raggio per controllare l'area di ricerca
+- Le foto entro il raggio selezionato vengono filtrate nella galleria
+- Richiede le coordinate GPS (esegui `--extract-gps` se le foto hanno dati GPS EXIF)
+
+## Suggerimenti di unione
+
+Trova cluster di persone che potrebbero essere lo stesso individuo. Accessibile tramite `/merge-suggestions` o dalla pagina Gestisci persone.
+
+- **Cursore della soglia di somiglianza** — quanto due persone devono assomigliarsi per essere suggerite (più basso = più suggerimenti, più alto = meno)
+- **Unisci** — accetta un suggerimento per unire le due persone
+- **Unione di gruppo** — seleziona più suggerimenti e uniscili in una sola volta
+- I suggerimenti ignorati vengono ricordati e non riproposti
+- Disponibile anche tramite CLI: `python facet.py --suggest-person-merges`
+
+## Esportazione per editor
+
+Scrivi su disco le tue valutazioni, preferiti e scarti come sidecar XMP, così che gli editor esterni (darktable, Lightroom) li rilevino. Richiede la modalità di modifica.
+
+- **Dalla galleria** — seleziona le foto, quindi **Azioni → Esporta** scrive un sidecar accanto a ogni file. Esportare un'intera vista filtrata anziché una selezione scelta a mano è limitato a 10 000 foto: una vista più grande viene rifiutata categoricamente, con il messaggio che indica il conteggio delle foto e il limite, e non viene scritto nulla. Non viene mai troncata — esportare solo a metà una selezione che si credeva completa è peggio di un rifiuto netto — quindi restringi i filtri ed esporta di nuovo.
+- **Da un album** ("paniere") — esporta l'intero album come sidecar, oppure copia/crea collegamenti simbolici dei file in una directory di destinazione (stessa allow-list di destinazione di [Scarta in cartella](#scarta-in-cartella)).
+- **Scrivi metadati nel file** — l'azione "Scrivi metadati nel file" della pagina di dettaglio incorpora la valutazione/le parole chiave direttamente nel file originale (JPEG/HEIC/TIFF/PNG/DNG tramite exiftool) oltre a scrivere il sidecar, così che l'intero ecosistema fotografico le veda. I file RAW proprietari originali non vengono mai modificati. Controllato da `viewer.features.show_embed_metadata` (predefinito: `true`).
+- **Sezione Lightroom** (modalità edizione) — la stessa finestra ottiene un pulsante **Download Lightroom manifest**, che scarica `facet_manifest.json` limitato alla selezione/al filtro propri della finestra (la stessa forma `{paths?, filters?, exclude?}` dell'esportazione dei sidecar accanto), per il passaggio **Facet: Apply ratings and flags...** del plug-in `facet.lrplugin`. Il suo pulsante **Import Lightroom state…** legge un file `facet_lightroom_state.json` prodotto dalla voce di menu **Facet: Export Lightroom State to Facet...** del plug-in (vince Lightroom: valutazione e pick/rifiuto, secondo i campi portati dal file) e lo invia direttamente al server, riportando i conteggi matched/unmatched/changed — nessuna esecuzione manuale di `--import-lightroom` necessaria per un flusso guidato dal viewer. Vedi [Lightroom Classic](INTEROP.md#lightroom-classic).
+
+API: vedi la sezione [Endpoint API](#endpoint-api) più sotto.
+
+## Selezione
+
+La pagina di selezione (`/culling`, modalità di modifica) raggruppa gli scatti quasi identici in modo da poter conservare il migliore di ciascuno e scartare il resto. Un selettore di **granularità** — il primo controllo, quello con maggiore impatto, della barra degli strumenti — sceglie come raggruppare le foto:
+
+- **Tutto** (predefinito) — gruppi combinati di raffiche + foto simili.
+- **Raffiche** — foto scattate ravvicinate nel tempo (dal rilevamento delle raffiche).
+- **Simili** — foto che si assomigliano indipendentemente da quando sono state scattate, raggruppate per somiglianza degli embedding CLIP/SigLIP. Un cursore di soglia controlla quanto è rigido il raggruppamento.
+- **Scene** — gruppi di scene cronologiche (sequenze temporali di scatto), ciascuna intestata dal proprio intervallo temporale e dal momento narrativo dominante. Soggetto a `viewer.features.show_scenes`.
+- **Bracketing di esposizione** — le serie multi-esposizione trovate da [`--detect-sequences`](COMMANDS.md), con l'esposizione di base per prima e ogni scatto etichettato con la sua compensazione (`-2 EV` … `+2 EV`). Deliberatamente fuori da **Tutto**: un bracketing è uno stesso soggetto fotografato più volte per essere fuso, non un insieme di scatti in competizione; per questo tutti gli scatti partono contrassegnati come «da conservare» e la conferma non registra alcuna coppia di confronto — preferire un gradino di una scala di esposizione non dice nulla sul proprio gusto. Per eliminare le esposizioni laterali, usa il taglio dei bracketing della selezione automatica (più sotto).
+- **Panorami** — le serie panoramiche assemblate trovate da [`--detect-panoramas`](COMMANDS.md), in ordine di scatto, con il fotogramma centrale contrassegnato come rappresentante della serie. Mantenute intere esattamente come i bracketing di esposizione: ogni scatto parte contrassegnato come «da conservare» e la conferma non registra alcuna coppia di confronto.
+- **Panorami HDR** — le sequenze ad alta gamma dinamica dello stesso passaggio di rilevamento (scarto di esposizione oltre `hdr_min_span_stops`), raggruppate e mantenute intere allo stesso modo. Non esiste una granularità separata «bracket HDR»: una serie HDR su treppiede è bracketata in ogni posizione, quindi il passaggio di rilevamento dei bracketing la etichetta prima come semplice **Bracketing di esposizione**, e solo quando il passaggio di rilevamento dei panorami riconosce la sequenza quell'etichetta viene sostituita con `hdr_panorama`. Una serie HDR su treppiede che il passaggio di rilevamento dei panorami non riconosce non viene persa — resta semplicemente sotto **Bracketing di esposizione**.
+
+Queste tre granularità (**Bracketing di esposizione**, **Panorami**, **Panorami HDR**) sono quelle «da mantenere intere»: il doppio clic su una scheda, il gesto rapido «conserva solo questa» disponibile ovunque altrove, qui non fa nulla — un bracketing o un panorama sono stati scattati per essere fusi, non per competere, quindi la camera oscura si rifiuta di ridurli a un unico fotogramma. I loro flussi ignorano inoltre del tutto gli interruttori `hide_*` della galleria, il contrario della griglia della galleria (che mostra solo il rappresentante di una serie per impostazione predefinita): ogni fotogramma di ogni serie non ancora revisionata è visibile qui per la revisione, indipendentemente da cosa la galleria sia configurata a nascondere. Come per i gruppi di raffiche/simili/scene, una serie che resta con meno di 2 fotogrammi superstiti dopo l'esclusione dei membri già scartati viene rimossa dal flusso anziché mostrata come gruppo di uno solo.
+
+Accanto alla granularità stanno due comandi di ordinamento: la **modalità di ordinamento** (più facili prima, più ridondanti, migliori, più recenti, servono confronti oppure **più vecchie prima**) e un **pulsante freccia che inverte la modalità attiva**. «Più vecchie prima» è l'unica modalità che ordina anche le foto *all'interno* di ogni gruppo per ora di scatto, l'unico ordine in cui un bracketing o una sequenza panoramica si leggono correttamente.
+
+Per ogni gruppo, scegli quale/quali conservare; la conferma scarta il resto. Le conferme sono differite e possono essere annullate (vedi [Annulla](#annulla)). Le scelte di granularità, ordinamento e categoria vengono salvate in `localStorage`. I controlli che non si applicano alla granularità corrente vengono nascosti — il menu a tendina di ordinamento e il cursore della soglia di somiglianza scompaiono in modalità scena, e il pulsante di ambito viene nascosto quando non hai album manuali. Ogni pulsante della barra degli strumenti e di azione di gruppo riporta un tooltip e, sugli schermi piccoli, la barra degli strumenti si stacca in una barra inferiore scorrevole.
+
+**Selezione delimitata.** La camera oscura può essere ristretta a un sottoinsieme tramite parametri di query: `?group_by=scene` passa alla granularità per scene, `?album=<id>` la limita a un album, e `?from=&to=` (finestra temporale di scatto EXIF, alla base di **Seleziona questa scena**) la limita a una sola scena. Un banner mostra l'ambito attivo con un controllo **Esci dalla scena**; il recupero dei membri della raffica rimane delimitato all'album ma ignora la finestra, così che una raffica a cavallo del confine della scena mostri comunque tutti i suoi fotogrammi.
+
+**Chip I miei gusti.** Ogni conferma registra righe di confronto `source='culling'` che addestrano il ranker personale, così l'intestazione mostra un piccolo chip "I miei gusti · N confronti" che si aggiorna dopo ogni decisione — l'IA impara il tuo occhio mentre selezioni (`GET /api/ranker/status`).
+
+### Selezione automatica
+
+Un pulsante **Selezione automatica** nella barra degli strumenti seleziona un intero ambito in un solo passaggio, anziché gruppo per gruppo. Scegli l'ambito con i controlli di granularità/ambito (tutti i gruppi, oppure solo raffiche / foto simili / scene, eventualmente un album o una finestra temporale), imposta un **rigore** — il budget di conservazione, dove un valore più alto ne conserva meno per gruppo — e visualizza l'anteprima. Ogni gruppo conserva la sua foto migliore più tutto ciò che rientra nel margine di rigore (con un minimo per gruppo) e scarta il resto. Il pulsante è completamente nascosto nelle tre granularità da mantenere intere (**Bracketing di esposizione**, **Panorami**, **Panorami HDR**) — non c'è nulla da decidere lì, dato che ogni fotogramma di quelle serie parte già conservato. In un ambito misto, i bracketing vengono decisi per primi, prima di raffiche, simili e scene, così l'esposizione di base di un bracketing non viene mai ridecisa da un gruppo successivo con cui capita di sovrapporsi.
+
+L'anteprima è un'**esecuzione a vuoto** (dry run, non viene scritto nulla): mostra la suddivisione conservazione/scarto per gruppo. Conferma per applicare — gli scarti vengono registrati e, come ogni selezione, addestrano "I miei gusti"; un album facoltativo **Highlights** raccoglie in modo idempotente la foto migliore di ogni gruppo con punteggio almeno pari a `auto_cull.highlights_min`. Un badge indicatore "foto migliore in questo gruppo" segnala i gruppi in cui la selezione automatica conserverebbe un fotogramma diverso dall'attuale foto guida. `POST /api/culling/auto`; configurato tramite il blocco [`auto_cull`](CONFIGURATION.md#auto-cull). Le stesse regole girano senza interfaccia da terminale con `python facet.py --auto-cull` — vedi [Selezione da terminale](COMMANDS.md#selezione-da-terminale).
+
+Quando è addestrato un keeper-ranking head, `POST /api/culling/auto` sceglie la foto da conservare di ogni gruppo in base a `keeper_prob` non appena supera il proprio vincolo di accuratezza — altrimenti l'output è identico byte per byte a quello euristico.
+
+**Il taglio dei bracketing ridondanti** è facoltativo (`trim_brackets`, disattivato per impostazione predefinita), ed è l'unico percorso della selezione automatica che riduce mai una serie: ovunque altrove, un bracketing, un panorama o un panorama HDR toccato da un ambito misto resta mantenuto intero, non toccato dal rigore. Un bracketing si guadagna gli scatti in più coprendo la gamma che l'esposizione di base taglia; quando quella base non taglia né le ombre né le alte luci non c'era nulla da recuperare, e le esposizioni laterali sono spazio occupato anziché latitudine — il caso «tengo il bracketing sempre attivo». Resta solo lo scatto di base, deciso da quale fotogramma è l'esposizione di base, mai dal punteggio o dal rigore, e le serie la cui base non è mai stata misurata restano intatte: non misurato non equivale a non tagliato.
+
+### Schermo intero
+
+Premi **`F`** (o l'interruttore nell'intestazione) per attivare l'API Fullscreen del browser ed esaminare da bordo a bordo — la camera oscura riempie lo schermo senza gli elementi dell'interfaccia dell'app. Il tasto è elencato nella legenda delle scorciatoie della camera oscura; premi `F` o `Esc` per uscire.
+
+### Lente / zoom con tasto Z
+
+Premi **`Z`** nel lightbox a vista singola per attivare una lente in stile Photo Mechanic (adatta ↔ 2×; zoom con rotellina/`+`/`-` fino all'800%). Oltre la scala di adattamento il riquadro sostituisce la sua miniatura con la sorgente `/image` a piena risoluzione, così puoi giudicare la messa a fuoco critica sui pixel reali senza lasciare la vista. Sulla striscia provini delle Scene, `Z` attiva una lente d'ingrandimento al passaggio del mouse che segue il cursore su una tessera (proveniente dall'immagine a piena risoluzione), con un cursore di zoom regolabile. Le miniature memorizzate si fermano a 640px, perciò la lente è il modo per esaminare i pixel oltre tale limite.
+
+**Lente al passaggio del mouse della camera oscura.** Separatamente, una lente circolare segue il cursore sull'immagine principale della camera oscura — in vista singola e su ciascun riquadro di confronto — ingrandendo la sorgente `/image` a piena risoluzione mappata sull'immagine effettivamente adattata alla cornice, così la lente mostra esattamente il pixel sotto il cursore. La stessa lente funziona anche sui ritagli in primo piano del pannello dei volti. Un interruttore nella barra degli strumenti la attiva o disattiva; è attiva per impostazione predefinita e il suo valore viene ricordato in `localStorage` per browser, non per account utente. La lente viene nascosta mentre l'immagine è ingrandita oltre la scala di adattamento, poiché quella vista mostra già pixel reali e lo spostamento entrerebbe in conflitto con la lente; funziona nella modalità a schermo intero della camera oscura e segue l'immagine quando si passa al fotogramma successivo/precedente con `←`/`→` durante il passaggio del mouse. È separata dall'interruttore della lente della striscia provini nell'intestazione della selezione.
+
+### Badge per volto
+
+Nel lightbox di selezione delle raffiche/foto simili, ogni volto rilevato porta i propri badge — occhi aperti/chiusi, espressione scadente e confidenza di rilevamento — anziché un'unica indicazione di occhi chiusi a livello di foto. Questo rende più facile selezionare le foto di gruppo: puoi vedere a colpo d'occhio quale volto ha gli occhi chiusi o un'espressione debole. I badge vengono recuperati per un intero gruppo in un'unica chiamata batch (`POST /api/culling-group/faces`).
+
+Il **pannello dei volti** della camera oscura assegna a ogni ritaglio di volto un codice colore verde / arancione / rosso in base ai suoi punteggi continui di occhi aperti e sorriso, e aggiunge cursori di soglia **occhi** e **sorriso** in tempo reale così da poter regolare al volo cosa conti come occhi chiusi o come espressione debole. I valori di taglio sono le chiavi di configurazione `face_detection.eyes_closed_max` e `face_detection.poor_expression_min` (entrambe predefinite a `4.0`); i cursori partono da lì. Un terzo cursore **Dimensione** (64–256 px, a passi di 16, predefinito `112px`) ridimensiona i ritagli di volto stessi — prima fissi a 64px — e, come le soglie occhi/sorriso, il suo valore viene ricordato in `localStorage` per browser, non per account utente. Dopo un trascinamento o un clic del mouse su uno dei tre cursori, il focus da tastiera torna alla camera oscura, così `←`/`→` (fotogramma precedente/successivo) e `↑`/`↓` (mantieni/scarta) continuano a funzionare subito invece di spostare il cursore; passando a un cursore con Tab, le freccette continuano invece a regolarlo, così resta possibile l'uso da sola tastiera.
+
+**Striscia di primo piano del soggetto (gruppi senza volti).** Per raffiche / gruppi simili le cui foto non hanno volti rilevanti — fauna, macro, prodotti, uccelli — la camera oscura mostra invece una striscia **soggetto**: il soggetto chiave di ogni fotogramma, ritagliato dalla box del soggetto BiRefNet persistita e allineato fianco a fianco per confrontare il soggetto reale in primo piano (l'idea «AI Close-Up» di Zoner, in modo nativo). Ogni ritaglio porta un badge di nitidezza normalizzato sul gruppo (10 = il soggetto più nitido del gruppo) e un anello colorato (verde / ambra / rosso) così che il fotogramma perfettamente nitido risalti; cliccando un ritaglio la vista principale passa a quella foto. I ritagli sono tagliati dalla miniatura memorizzata senza alcun modello (`POST /api/culling-group/subjects`) e compaiono solo quando un gruppo ha soggetti ma non volti. Si attiva solo quando le foto portano una box del soggetto: esegui `python facet.py --recompute-saliency` (GPU) per riempirla su una libreria esistente — fino ad allora la striscia semplicemente non compare.
+
+**Soggetto chiave (bersaglio dello zoom + persona principale).** La camera oscura determina di cosa — o di chi — parla ogni fotogramma del gruppo aperto: il migliore dei volti rilevati, oppure la box del soggetto BiRefNet persistita quando non ce ne sono, per l'intero gruppo in un'unica chiamata (`POST /api/photos/key_subjects`), e poi ci zooma *sopra*: **`Z`**, un doppio clic o il primo scatto di rotella oltre la scala di adattamento portano la vista 1:1 su quel punto anziché al centro del fotogramma, così l'ispezione dei pixel parte dal volto che conta. Una volta che hai spostato o zoomato un fotogramma da solo, il suggerimento si ritira per quel fotogramma — non ricompone mai un ritaglio che hai scelto tu. Quando il vincitore è una persona con un nome, quel volto porta una pastiglia ambra con il nome nella striscia dei volti. I volti battono la salienza, e tra i volti vince il miglior mix di dimensione relativa, centralità e stato di persona nominata: un soggetto nominato a media distanza batte uno sconosciuto più grande, ma un puntino nominato sullo sfondo no. Nulla viene memorizzato, quindi la risposta riflette sempre le assegnazioni correnti di volti e persone; le box sono frazioni del fotogramma intero (`normalized_frame_xyxy`), mai della miniatura mostrata. `GET /api/photo/key_subject` fornisce la stessa risposta per una singola foto.
+
+**Confronto sincronizzato (2-up / 4-up).** L'intestazione del lightbox ha i pulsanti Singolo / Confronta 2 / Confronta 4. In modalità di confronto i riquadri condividono un'unica trasformazione di pan/zoom, così lo zoom con la rotellina o il trascinamento su un riquadro qualsiasi sposta tutti gli altri sullo stesso identico ritaglio — il modo per scegliere il fotogramma più nitido di una raffica esaminando davvero i pixel. Il doppio clic alterna adatta ↔ zoom; oltre la scala di adattamento ogni riquadro sostituisce in modo lazy la sua miniatura da 1920px con la sorgente `/image` a piena risoluzione, così l'ingrandimento resta nitido. Nessuna modifica al backend — entrambe le rotte dell'immagine esistono già. (Il pinch tattile non è ancora collegato; sul desktop usa la rotellina.)
+
+**Scorri per mantenere o rifiutare (tocco).** Su un dispositivo touch la vista singola della camera oscura diventa un mazzo da scorrere: trascina il fotogramma a destra per mantenerlo, a sinistra per rifiutarlo — mentre si sposta si inclina e si tinge, di verde con un badge MANTIENI, di rosso con un badge RIFIUTA. Oltre il 35% della larghezza del fotogramma (mai meno di 48px) il rilascio lo scaglia via da quel lato, scrive esattamente la decisione che scrivono i tasti `↑` / `↓` e passa al fotogramma successivo esattamente come `→`; al di sotto il fotogramma torna al suo posto e non viene deciso nulla. Un trascinamento il cui asse risulta verticale viene rilasciato intatto non appena questo è noto, così resta di chi era. Ogni conferma mostra una snackbar con **Annulla** che ripristina sia la decisione *sia* il fotogramma su cui è stata presa — una `↑` sbagliata si annulla premendo `↓`, ma un pollice sbagliato è già sul fotogramma successivo e non ha un gesto contrario a disposizione. Il gesto è offerto solo dove non può entrare in conflitto con un altro: un puntatore grossolano (dito o stilo, mai un mouse), la vista singola (una griglia di confronto non ha un unico fotogramma su cui decidere) e la scala di adattamento — oltre la quale lo stesso trascinamento *è* il pan del riquadro, che ne ha già catturato il puntatore. Un suggerimento di una riga resta sotto il primo fotogramma finché non viene chiuso (memorizzato in `localStorage`).
+
+**Anteprima dell'aspetto elaborato.** Nella vista singola l'intestazione della camera oscura guadagna un menu **tavolozza** che elenca «Originale» più ogni stile darktable configurato, così da poter selezionare sull'aspetto *elaborato* invece che sull'anteprima RAW piatta — il modo di giudicare uno scatto come verrà effettivamente consegnato. Scegliere uno stile rende l'originale tramite darktable-cli (`--style`, limitato a `preview_max_edge`) e lo sostituisce all'immagine principale, con un indicatore di caricamento durante il rendering e, in caso di errore, una snackbar con ritorno a Originale. Lo stile scelto persiste tra i fotogrammi del gruppo corrente e si azzera alla riapertura della camera oscura (per sessione, mai salvato). Il controllo compare solo quando almeno uno stile è configurato **e** darktable-cli viene risolto; gli stili devono già esistere nella configurazione darktable dell'utente che esegue il visualizzatore. Le anteprime renderizzate sono memorizzate in cache su disco (chiave: data di modifica della sorgente, stile e bordo massimo), perciò rivedere un fotogramma è istantaneo. Endpoint: `GET /api/photo/cull_preview?path=&style=` (riservato all'edizione); configurabile tramite [`raw_processor.darktable.cull_styles`](CONFIGURATION.md#decodifica-raw).
+
+API: vedi la sezione [Endpoint API](#endpoint-api) più sotto.
+
+## Vista Scene
+
+Una consultazione in **sola lettura** della tua libreria raggruppata in "scene" cronologiche — sequenze temporali di scatto mostrate in ordine narrativo con una griglia, una lente al passaggio del mouse e intestazioni di data/momento. Aperta a **tutti gli utenti autenticati** (sia in sola lettura sia in modalità di modifica). Le foto vengono suddivise in scene in base agli intervalli temporali di scatto (una nuova scena inizia quando trascorrono più di `scenes.gap_minutes` tra due scatti consecutivi, ampliati adattivamente nei servizi con pochi scatti), e qualsiasi sequenza troppo lunga viene ulteriormente suddivisa affinché un evento ripreso in continuità non collassi in un'unica scena gigantesca.
+
+L'unico punto di accesso è il pulsante di azione per album **Mostra le scene di questo album** nella griglia degli Album (un selettore di ambito album all'interno della consultazione consente di cambiare l'ambito). Non esiste alcuna voce Scene nella navigazione principale. Ogni scena riporta un pulsante **Seleziona questa scena**, riservato alla modalità di modifica, che effettua un collegamento diretto alla superficie di [Selezione](#selezione) nella granularità per scene (`/culling?group_by=scene&album=&from=&to=`); gli utenti in modalità di modifica possono inoltre raggiungere le Scene-come-selezione direttamente dalla navigazione Selezione. La consultazione in sé non ha griglia di rifiuto né conferma in blocco — tutta la selezione avviene ora tramite la superficie unificata di Selezione.
+
+Quando vengono calcolati i momenti narrativi (più sotto), ogni scena viene inoltre titolata dal suo momento dominante, e `scenes.split_on_moment_change` può ulteriormente suddividere una sequenza lunga in cui il momento cambia.
+
+## Momenti narrativi
+
+Facet etichetta ogni foto con il "momento" di scena/attività che raffigura. Il vocabolario **general** predefinito è agnostico rispetto alla libreria — celebrazioni, pasti, spiaggia, attività acquatiche, montagna, natura e fauna selvatica, paesaggio urbano, monumenti di viaggio, concerti, sport, raduni di gruppo, ritratti, bambini, animali domestici, vita notturna, cerimonie, paesaggi panoramici, neve e inverno, interni domestici, strade e veicoli — oppure `other` (un vocabolario `wedding` è incluso come genere opt-in). Né Narrative Select né AfterShoot fanno questo; raggruppano solo per tempo e somiglianza visiva.
+
+È **zero-shot e completamente locale**, ed è **semantico sulla didascalia**: la didascalia AI di ogni foto viene codificata una sola volta e memorizzata, e il momento è il miglior coseno **max-pooled** di quell'embedding della didascalia rispetto ai prompt testuali di ogni momento (L0) — l'embedding dell'immagine memorizzato è il ripiego quando una foto non ha didascalia. Il segnale della didascalia corrisponde ai momenti in modo ~2,4× più netto rispetto all'immagine grezza. Piccoli prior di volto/tag rompono i quasi-pareggi (L1), poi un passaggio Viterbi **regolarizza lungo la cronologia** affinché una lettura errata isolata venga riportata nella sequenza circostante (L2). Un tie-breaker VLM facoltativo (L3, 16gb/24gb) può rigiudicare i fotogrammi a bassa confidenza. Gli embedding delle didascalie vengono calcolati una sola volta e riutilizzati, quindi rietichettare è un prodotto scalare economico su vettori memorizzati — nessuna decodifica dell'immagine, nessun passaggio del modello per immagine; **viene eseguito automaticamente al termine di ogni scansione** (codificando solo le nuove didascalie). Il primo passaggio completo su una libreria esistente codifica ogni didascalia (GPU consigliata); ri-elabora l'intera libreria con `python facet.py --recompute-moments`.
+
+I momenti emergono come titoli di scena e come filtro della galleria (`GET /api/photos?narrative_moment=beach`, opzioni da `GET /api/filter_options/narrative_moments`). Il vocabolario è guidato dalla configurazione per tipo di evento — vedi [Configurazione — Momenti narrativi](CONFIGURATION.md#narrative-moments) per regolare prompt/soglie o cambiare genere.
+
+**Confidenza del momento.** Ogni etichetta memorizza una confidenza posteriore (`narrative_moment_confidence`). Le etichette al di sotto di `viewer.moment_confidence_min` (predefinito `0` = non attenuare mai) vengono mostrate attenuate con un suffisso "(incerto)" nell'intestazione delle Scene, nell'intestazione del gruppo di scena della Selezione e nel tooltip della foto in galleria (che mostra anche la percentuale di confidenza). La confidenza è anche un'opzione di ordinamento — **Confidenza del momento** (i NULL finiscono in fondo) sotto il gruppo Contenuto — e un filtro di intervallo della galleria (`min_moment_confidence` / `max_moment_confidence`, un cursore 0–1 nella sezione **Momenti** della barra laterale).
+
+- Ogni scena mostra le sue foto guida in ordine di scatto
+- Seleziona una scena dal suo pulsante **Seleziona questa scena**, che apre la superficie di selezione delimitata a quella scena
+- Le scene più piccole di `scenes.min_size` vengono omesse; vengono caricate al massimo `scenes.max_photos` foto
+
+API: vedi la sezione [Endpoint API](#endpoint-api) più sotto.
+
+Controllato da `viewer.features.show_scenes` (predefinito: `true`). Vedi [Configurazione — Scene](CONFIGURATION.md#scenes) per `gap_minutes`, `min_size`, `max_photos`, `max_scene_size`, `adaptive` e `adaptive_k`.
+
+## Pulizia degli scarti
+
+Una coda di revisione rapida per gli scarti non fotografici che si accumulano in una libreria amatoriale — screenshot, documenti scansionati, ricevute, meme e diapositive di presentazione. Il rilevamento è zero-shot sugli embedding immagine memorizzati (vedi [Configurazione — Junk Sweep](CONFIGURATION.md#junk-sweep)); esegui `python facet.py --detect-junk` (o lascia che venga eseguito automaticamente alla fine di ogni scansione) per popolare `junk_kind`.
+
+Aprila dal pulsante di navigazione **Pulizia** (la rotta `/junk`, riservata alla modifica). La pagina riutilizza la griglia della galleria e mostra ogni candidato segnalato:
+
+- **Chip di filtro per tipo** — "Tutti i tipi" più un chip per ogni tipo rilevato con il suo conteggio (da `GET /api/filter_options/junk_kinds`). Clicca per restringere la coda a un solo tipo.
+- **Conserva** (per foto) — cancella l'etichetta di scarto così la foto lascia la coda **permanentemente**: viene marcata come valutata-pulita (`not_junk`) e non viene mai più segnalata da un successivo `--detect-junk`.
+- **Rifiuta** (per foto) — segna la foto come rifiutata usando lo stesso meccanismo di rifiuto usato ovunque altrove (nulla viene eliminato dal disco).
+- **Rifiuta tutto** — un rifiuto in blocco di tutti i candidati attualmente caricati, dietro una finestra di conferma.
+- **Lente** — premi **`Z`** (o l'interruttore nella barra degli strumenti) per una lente d'ingrandimento al passaggio del mouse in stile Photo Mechanic, per leggere il testo fine prima di decidere.
+
+Le foto scarto **non** vengono nascoste dalla galleria normale — restano visibili finché non le filtri. Filtra qualsiasi vista della galleria con `?junk_kind=<tipo>` (esatto) o `?junk_kind=any` (qualsiasi scarto, esclude la sentinella `not_junk`).
+
+Controllato da `viewer.features.show_junk_sweep` (predefinito: `true`).
+
+## Modalità di confronto a coppie
+
+Classifica le foto giudicandole due alla volta. I voti accumulati alimentano la regolazione dei pesi. Accessibile tramite la rotta `/compare` (pulsante Confronta nell'intestazione). Richiede una `edition_password` non vuota (utente singolo) o il ruolo `admin`/`superadmin` (multiutente).
+
+La pagina ha quattro schede:
+
+### Scheda Confronto A/B
+
+Coppie di foto affiancate. Scegli un vincitore, segna un pareggio o salta. Una barra di avanzamento traccia i voti verso 50, con conteggi correnti di vittorie A/vittorie B/pareggi. Un filtro di categoria delimita la sessione, e un menu a tendina di strategia di selezione controlla come vengono scelte le coppie.
+
+| Strategia | Descrizione |
+|----------|-------------|
+| `uncertainty` | Foto con punteggi simili (più informative) |
+| `boundary` | Intervallo di punteggio 6–8 (zona ambigua) |
+| `active` | Foto con il minor numero di confronti (assicura la copertura) |
+| `random` | Coppie casuali (riferimento) |
+
+**Scorciatoie da tastiera:**
+
+| Tasto | Azione |
+|-----|--------|
+| `A` | Vince la foto a sinistra |
+| `B` | Vince la foto a destra |
+| `T` | Pareggio |
+| `S` | Salta la coppia |
+| `Escape` | Chiudi la finestra di sovrascrittura della categoria |
+
+### Scheda Suggerimenti pesi
+
+Mostra i pesi appresi dai confronti rispetto ai pesi correnti, affiancati, con l'accuratezza del modello prima/dopo. Le prime 10 foto attuali e le prime 10 foto previste dopo il ricalcolo vengono visualizzate in anteprima in colonne adiacenti. **Applica** scrive i pesi suggeriti; **Ricalcola** rivaluta la categoria per applicarli (entrambi richiedono la modalità di modifica).
+
+### Scheda Pesi
+
+Editor manuale dei pesi: un cursore per ogni metrica della categoria selezionata con un'anteprima del punteggio in tempo reale. **Salva** scrive su `scoring_config.json` (con un backup); **Ricalcola punteggi** li applica; **Ripristina** ricarica i pesi memorizzati.
+
+### Scheda Istantanee
+
+Salva i pesi correnti come istantanea denominata e ripristina qualsiasi istantanea precedente.
+
+### Priorità delle categorie e contesti di punteggio
+
+Le categorie vengono valutate in ordine crescente di `priority` e vince la prima corrispondenza di filtro — vedi [Valutazione dei filtri](SCORING.md#come-funziona-il-punteggio) e [Contesti di punteggio](CONFIGURATION.md#contesti-di-punteggio) per il modello completo. Due leve riservate alla modalità di modifica gestiscono questo comportamento senza dover modificare a mano `scoring_config.json`:
+
+- **Priorità globale** — `GET/POST /api/config/category_priorities` elenca e riordina l'ordine di valutazione di base. `POST` accetta un elenco ordinato completo di nomi di categoria e vi permuta sopra i valori di priorità esistenti, così il multiset (e la sua unicità) viene preservato invece di essere rinumerato.
+- **Contesti di punteggio** — `GET /api/config/scoring_contexts` elenca i preset configurati (`default`, `action_stage`, `party_event`, `portrait_session`, `wildlife`, `landscape`, `motorsport`) insieme all'ordine effettivo risolto di ciascuno. Un contesto promuove alcune categorie in testa ed esclude del tutto le altre senza toccare l'ordine globale. Il delta `promote`/`excluded` di ogni preset non-`default` è a sua volta modificabile dalla stessa scheda **Contesto di punteggio** — trascina la testa promossa nell'ordine voluto (o usa i pulsanti Sposta su / Sposta giù), attiva/disattiva l'esclusione di una categoria, salva — tramite `PUT /api/config/scoring_contexts/{name}` (riservato alla modalità edizione, corpo `{promote, excluded}`); rifiuta una categoria sconosciuta, `default` in una delle due liste e un duplicato dentro `promote`, mentre un nome presente in entrambe le liste è accettato ed `excluded` vince. `label_key` e `suggest_from_moments` non sono modificabili da qui. Un contesto si assegna per album (vedi [Contesto di punteggio](#contesto-di-punteggio) nella sezione Album) o per singola foto tramite la sovrascrittura categoria qui sotto.
+
+Nessuna delle due leve rivaluta da sola le foto. Dopo aver riordinato le priorità, assegnato un contesto o impostato una sovrascrittura per singola foto, avvia un ricalcolo (`POST /api/scan/recompute`, riservato alla modalità di modifica) e interroga `GET /api/scan/recompute_status` per `{running, kind, progress, exit_code}`. Sia `/scan/start` sia `/scan/recompute` sono protetti a livello inter-processo da `facet.LibraryLock`, non solo dal lock in memoria del viewer (vedi [Riordinare la priorità globale](CONFIGURATION.md#riordinare-la-priorità-globale)): se un ricalcolo o una scansione sono già in corso da un terminale, il viewer rifiuta un nuovo job con 409, indicando chi lo detiene — un job da CLI e uno avviato dal viewer non possono quindi più entrare in collisione. Se `normalization.per_category` è abilitato, un singolo ricalcolo dopo una modifica che tocca le categorie non converge completamente — vedi [Normalization](CONFIGURATION.md#normalization).
+
+Il pannello **Collisioni tra categorie** della stessa scheda (`GET /api/stats/categories/overlap`) esiste per rispondere, prima di qualsiasi riordino, a quale categoria con priorità superiore stia silenziosamente catturando le foto di una categoria, e in che misura. La sua tabella elenca, per categoria, quante foto le sono attualmente assegnate (**Assegnate**), quante foto della libreria corrisponderebbero ai suoi filtri se valutati da soli (**Corrispondenze filtri**), e quante di queste vengono invece catturate da una categoria con priorità superiore (**Catturate da priorità superiore**, `matched - assigned`, con minimo 0). Un elenco **Coppie con più collisioni** sottostante classifica le categorie più spesso abbinate insieme, per numero di foto condivise. Il ripiego `default` fissato in fondo è escluso sia dalla tabella sia dall'elenco delle coppie — corrisponde a ogni foto per costruzione (un insieme di filtri vuoto), quindi includerlo sommergerebbe ogni collisione reale.
+
+### Sovrascrittura categoria
+
+Per riassegnare la categoria di una foto dalla vista di confronto: modifica il badge della categoria, seleziona una categoria di destinazione, esegui "Analizza conflitti filtri" per vedere quali filtri la escludono, quindi applica la sovrascrittura. La sovrascrittura viene convalidata rispetto ai nomi di categoria configurati (`POST /api/comparison/override_category`) e ora persiste nella tabella satellite `photo_scoring_overrides` — a differenza di prima, sopravvive al ricalcolo successivo invece di essere scartata silenziosamente, e la foto mantiene la categoria assegnata manualmente finché non viene rimossa esplicitamente (`POST /api/comparison/clear_category_override`).
+
+Le stesse due azioni sono disponibili nella lightbox della foto sotto **Imposta categoria di punteggio…** / **Rimuovi sovrascrittura** (modalità edizione), accanto a un pannello richiudibile **perché questa foto non è in un'altra categoria?**. Scegli lì una categoria di destinazione e il pannello riporta quali filtri escludono attualmente la foto e cosa dovrebbe diventare ciascuno — per esempio «Aumentare shutter_speed_max da 0,02 a 0,033». È il modo più rapido per scoprire che una categoria è irraggiungibile per una data foto anziché semplicemente scavalcata, cosa che il solo riordino non può correggere. Si basa su `POST /api/comparison/suggest_filters`.
+
+## Statistiche EXIF
+
+La pagina Statistiche (`/stats`) fornisce analisi su 5 schede. Usa i selettori **categoria** e **intervallo di date** nella barra degli strumenti per filtrare tutti i grafici su un sottoinsieme specifico della tua libreria.
+
+### Schede
+
+| Scheda | Descrizione |
+|-----|-------------|
+| **Attrezzatura** | Corpi macchina, obiettivi e combinazioni (top 20 ciascuno) |
+| **Impostazioni di scatto** | Distribuzioni di ISO, apertura, lunghezza focale, tempo di esposizione |
+| **Cronologia** | Foto nel tempo |
+| **Categorie** | Analisi delle categorie, gestione dei pesi e correlazioni dei punteggi |
+| **Correlazioni** | Grafici di correlazione personalizzati di metriche X/Y con raggruppamento |
+
+### Scheda Categorie
+
+Quattro sotto-schede:
+
+| Sotto-scheda | Descrizione |
+|---------|-------------|
+| **Dettaglio** | Conteggio foto per categoria, punteggi medi, istogrammi di distribuzione dei punteggi |
+| **Pesi** | Confronto con grafico radar (fino a 5 categorie), mappa di calore dei pesi ed editor dei pesi (modalità di modifica) |
+| **Correlazioni** | Mappa di calore della correlazione di Pearson che mostra come ogni dimensione influenza l'aggregato, vista clicca-per-dettaglio |
+| **Sovrapposizione** | Analisi della sovrapposizione dei filtri che mostra quali categorie condividono foto corrispondenti |
+
+Ogni grafico ha un pulsante di aiuto `?` attivabile che spiega come leggerlo. Un interruttore di aiuto globale nella barra delle sotto-schede mostra le spiegazioni per tutte le sotto-schede.
+
+### Editor dei pesi (modalità di modifica)
+
+Disponibile nella sotto-scheda Pesi quando la modalità di modifica è attiva:
+
+1. Seleziona una categoria dal menu a tendina
+2. Regola i cursori dei pesi (uno per metrica, dovrebbero sommare a 100%)
+3. Usa "Normalizza a 100" per bilanciare automaticamente
+4. Espandi la sezione comprimibile Modificatori per regolare bonus/penalità
+5. L'**Anteprima distribuzione punteggi** mostra un istogramma prima/dopo in tempo reale mentre muovi i cursori
+6. Clicca **Salva** per aggiornare `scoring_config.json` (crea un backup con marca temporale)
+7. Clicca **Ricalcola punteggi** (compare dopo il salvataggio) per applicare i nuovi pesi a tutte le foto di quella categoria
+
+Tutte le statistiche sono consapevoli dell'utente in modalità multiutente — ogni utente vede le analisi solo per le proprie foto visibili.
+
+## Scorciatoie da tastiera (galleria)
+
+| Tasto | Azione |
+|-----|--------|
+| `←` `→` `↑` `↓` | Sposta il marcatore della foto corrente tra le schede foto (colonne della griglia e righe del mosaico) |
+| `Enter` | Apri la foto a fuoco |
+| `Space` | Seleziona / deseleziona la foto a fuoco |
+| `Ctrl+A` | Seleziona tutto — l'intera vista filtrata da una selezione vuota (nessuna richiesta), altrimenti le foto caricate |
+| `Escape` | Cancella la selezione / chiudi il pannello dei filtri |
+| `Shift+Click` | Selezione di un intervallo di foto tra l'ultima selezionata e quella cliccata |
+| `Double-click` | Apri la foto |
+| `Shift+F10` / `Menu` | Apri il menu contestuale della scheda foto con il focus (il clic destro fa lo stesso) |
+| `?` | Mostra il riferimento delle scorciatoie da tastiera (funziona su ogni pagina) |
+
+La foto corrente — quella su cui agiscono le scorciatoie di valutazione, preferito e scarto — è contrassegnata da un contorno di 4px attorno alla sua scheda; tutte le altre schede si affievoliscono al 50% di opacità. Nulla è contrassegnato finché il cursore non si è effettivamente spostato su una foto tra i risultati, quindi una galleria che non hai ancora esplorato resta a piena intensità. Cliccare su una foto sposta il marcatore su di essa, così una scorciatoia digitata subito dopo un clic si applica alla foto cliccata, non a quella dove le frecce l'avevano lasciata.
+
+## Annulla
+
+Le operazioni di gruppo di preferito/rifiuto/valutazione e le conferme di selezione mostrano
+una snackbar con un'azione **Annulla** per circa 7 secondi. Le operazioni di gruppo sui
+contrassegni vengono confermate immediatamente e annullate tramite chiamate API inverse
+(limitate a 500 foto); le conferme di selezione sono differite — il gruppo scompare
+istantaneamente ma la chiamata API parte solo allo scadere della finestra di annullamento. Le modifiche ai [tag manuali](#tag-manuali) non sono annullabili.
+
+## Progressive Web App
+
+La galleria include un manifest di web app e un service worker Angular (solo build di
+produzione): può essere installata nella schermata principale, lo shell dell'app si carica
+offline e fino a 1000 miniature vengono memorizzate in cache LRU per 7 giorni. Le risposte
+API non vengono mai memorizzate in cache (tranne i bundle i18n con una strategia di
+aggiornamento), e la disconnessione cancella la cache delle miniature in modo che le
+configurazioni multiutente che condividono un browser non possano far trapelare le anteprime
+tra gli account. Una snackbar offre un ricaricamento quando è stata distribuita una nuova versione.
+
+## Mobile
+
+Sugli schermi piccoli la barra di selezione di gruppo si riduce al conteggio della selezione,
+ai pulsanti cancella, seleziona tutto e a un unico pulsante **Azioni** che apre un foglio inferiore
+adatto al tocco con tutte le operazioni di gruppo (preferito, rifiuto, valutazione, album, copia,
+download).
+
+## Cornice digitale / Chiosco
+
+I dispositivi in modalità chiosco senza login — cornici digitali smart, dashboard Home Assistant, display in stile ImmichFrame / Immich-Kiosk — possono recuperare gli scatti migliori di Facet senza una sessione utente. Non c'è **alcuna interfaccia client**: i chioschi consumano direttamente gli endpoint, autenticati da un **token di cornice** opaco e a lunga durata configurato nel blocco di configurazione `frame` (`frame.tokens`; un elenco vuoto disabilita l'intera funzione e ogni endpoint restituisce 404). I token vengono confrontati a tempo costante come byte UTF-8, quindi un token mancante è 401 e un token errato o non ASCII è 403 — mai 500.
+
+La curatela attinge dall'intera libreria: le foto rifiutate, spazzatura e con occhi chiusi vengono escluse, `frame.min_aggregate` (predefinito `7.0`) imposta il punteggio minimo, e le opzioni facoltative `frame.favorites_only` / `frame.categories` la restringono ulteriormente. Le foto vengono restituite tramite un **campione casuale ponderato per punteggio** (un mescolamento del gruppo di candidate con punteggio più alto), così una cornice mostra varietà tra i tuoi scatti migliori invece della stessa manciata ogni volta. Le risposte **non contengono mai percorsi del file system** — ogni foto è indirizzata tramite un id firmato opaco (il `rowid` della riga firmato con il segreto del server), quindi chi possiede un token non può enumerare righe arbitrarie né scoprire dove si trovano i tuoi file.
+
+| Endpoint | Restituisce | Cache |
+|----------|---------|-------|
+| `GET /api/frame/photos?token=&count=` | `{photos: [{id, caption?, date_taken?, width, height}]}` — `count` limitato a `frame.max_count` (predefinito 100), predefinito `frame.count` (20) | — |
+| `GET /api/frame/image/{id}?token=&max_edge=` | il JPEG della foto — originale su disco ridotto a `max_edge` (limitato da `frame.max_edge`, predefinito 1920), con ripiego sulla miniatura memorizzata quando l'originale è irraggiungibile | lunga durata, immutabile |
+| `GET /api/frame/next?token=` | un JPEG curato casuale, diverso a ogni chiamata — il caso della cornice "sciocca" / della fotocamera generica di Home Assistant | `no-store` |
+
+### Generare un token
+
+I token sono stringhe opache che inventi tu — usane uno lungo e casuale, e trattalo come una password:
+
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+```
+
+Aggiungi il risultato a `frame.tokens` in `scoring_config.json` (puoi elencarne diversi — uno per dispositivo — e revocarne uno rimuovendolo):
+
+```json
+"frame": {
+  "tokens": ["Xu8w…your-random-token…"],
+  "count": 20,
+  "min_aggregate": 7.0,
+  "max_edge": 1920,
+  "favorites_only": false,
+  "categories": []
+}
+```
+
+### Ricetta Home Assistant
+
+L'URL singolo `/api/frame/next` corrisponde direttamente alla [fotocamera generica](https://www.home-assistant.io/integrations/generic/) di Home Assistant — ogni aggiornamento recupera uno scatto curato fresco.
+
+```yaml
+camera:
+  - platform: generic
+    name: Facet Frame
+    still_image_url: "http://facet.local:5000/api/frame/next?token=Xu8w…your-random-token…"
+    verify_ssl: false
+    framerate: 0.05  # aggiorna ogni ~20s
+```
+
+Aggiungi la fotocamera a una scheda Picture Glance / Picture Entity (o a una dashboard su tablet da parete) e diventa una cornice digitale che si aggiorna da sola.
+
+Per un client in stile **ImmichFrame** che gestisce la propria presentazione, interroga `GET /api/frame/photos?token=…&count=30` per ottenere l'elenco degli id, quindi richiedi ogni `GET /api/frame/image/{id}?token=…&max_edge=1920` — gli id sono stabili e le risposte immagine hanno una cache lunga e immutabile, così un client recupera ogni foto una sola volta e può gestire da solo le dissolvenze incrociate tra loro.
+
+## Caricamento automatico dal telefono
+
+Un endpoint **WebDAV** minimale sotto `/dav` consente alle app di caricamento automatico dal telefono (PhotoSync e qualsiasi client che parla WebDAV) di inviare foto direttamente in una **cartella di ingresso** di Facet. Punta la cartella di ingresso a una delle tue directory scansionate (o a una sottocartella di una di esse) ed esegui `facet.py --watch` su di essa: ogni foto caricata viene valutata automaticamente non appena arriva — lo schema di sincronizzazione mobile di PhotoPrism.
+
+Questa è **semplice infrastruttura di caricamento** — non tocca mai le sessioni utente né i JWT. L'accesso è HTTP Basic con **credenziali di dispositivo condiviso** configurate nel blocco `upload` (`upload.username` / `upload.password`), **non** un account utente. L'intero albero `/dav` restituisce **404 finché è disattivato**: la funzione è attiva solo quando `upload.username`, `upload.password` e `upload.inbox_dir` sono tutti impostati. Ogni operazione è confinata a `upload.inbox_dir` — traversal, percorsi assoluti ed evasioni tramite collegamento simbolico vengono rifiutati — e i caricamenti vengono scritti su disco in modo atomico, con limite `upload.max_file_mb` (predefinito 500).
+
+Metodi implementati: `OPTIONS`, `PROPFIND` (profondità 0/1), `MKCOL`, `PUT`, `MOVE`, `DELETE`, `GET`, `HEAD`. `LOCK`/`UNLOCK` non sono implementati (i client di caricamento trattano la loro assenza come una condivisione non bloccante).
+
+### Configurazione
+
+```json
+"upload": {
+  "username": "phone",
+  "password": "…a-long-random-shared-secret…",
+  "inbox_dir": "/photos/inbox",
+  "max_file_mb": 500
+}
+```
+
+`inbox_dir` dovrebbe trovarsi sotto una directory scansionata, così `--watch` rileva i caricamenti:
+
+```bash
+python facet.py /photos --watch
+```
+
+### Ricetta PhotoSync
+
+1. In PhotoSync, aggiungi una configurazione **WebDAV** (Configura → Aggiungi configurazione → WebDAV).
+2. **URL / Server**: `http://<host>:5000/dav/` (usa il tuo host Facet; `https://` se lo fai passare attraverso un reverse proxy).
+3. **Nome utente / Password**: `upload.username` / `upload.password` impostati sopra.
+4. **Cartella di destinazione**: lascia alla radice (`/`) per depositare nella cartella di ingresso, oppure una sottocartella che PhotoSync crea tramite `MKCOL`.
+5. Sull'host Facet, scansiona la cartella di ingresso in modalità watch, così i caricamenti vengono valutati non appena arrivano:
+
+   ```bash
+   python facet.py /photos --watch
+   ```
+
+### Test rapido con curl
+
+```bash
+curl -T photo.jpg -u phone:'…a-long-random-shared-secret…' http://<host>:5000/dav/photo.jpg
+```
+
+Un `201 Created` (o `204 No Content` in caso di sovrascrittura) conferma che il caricamento è arrivato nella cartella di ingresso; `--watch` lo valuta al prossimo debounce.
+
+## Configurazione
+
+### Impostazioni di visualizzazione
+
+```json
+{
+  "viewer": {
+    "display": {
+      "tags_per_photo": 4,
+      "card_width_px": 168,
+      "image_width_px": 160,
+      "image_jpeg_quality": 96
+    }
+  }
+}
+```
+
+### Impaginazione
+
+```json
+{
+  "viewer": {
+    "pagination": {
+      "default_per_page": 64
+    }
+  }
+}
+```
+
+### Limiti dei menu a tendina
+
+```json
+{
+  "viewer": {
+    "dropdowns": {
+      "max_cameras": 50,
+      "max_lenses": 50,
+      "max_persons": 50,
+      "max_tags": 20,
+      "min_photos_for_person": 10
+    }
+  }
+}
+```
+
+Imposta `min_photos_for_person` su un valore più alto per nascondere dal menu a tendina dei filtri le persone con poche foto.
+
+### Soglie di qualità
+
+```json
+{
+  "viewer": {
+    "quality_thresholds": {
+      "good": 6,
+      "great": 7,
+      "excellent": 8,
+      "best": 9
+    }
+  }
+}
+```
+
+### Filtri predefiniti
+
+```json
+{
+  "viewer": {
+    "defaults": {
+      "hide_blinks": true,
+      "hide_bursts": true,
+      "hide_duplicates": true,
+      "hide_brackets": true,
+      "hide_panoramas": true,
+      "hide_details": true,
+      "hide_rejected": true,
+      "sort": "aggregate",
+      "sort_direction": "DESC",
+      "type": ""
+    },
+    "default_category": ""
+  }
+}
+```
+
+### Pesi delle migliori scelte
+
+```json
+{
+  "viewer": {
+    "photo_types": {
+      "top_picks_min_score": 7,
+      "top_picks_min_face_ratio": 0.2,
+      "top_picks_weights": {
+        "aggregate_percent": 30,
+        "aesthetic_percent": 28,
+        "composition_percent": 18,
+        "face_quality_percent": 24
+      }
+    }
+  }
+}
+```
+
+## Prestazioni
+
+### Database di grandi dimensioni (50k+ foto)
+
+Esegui questi comandi per prestazioni migliori:
+
+```bash
+python database.py --migrate-tags    # query dei tag 10-50x più veloci
+python database.py --refresh-stats   # Precalcola le aggregazioni
+python database.py --optimize        # Deframmenta il database
+```
+
+### SQLite asincrono (opt-in, per percorsi di lettura ad alta concorrenza)
+
+`api.database.get_async_db()` è un gestore di contesto asincrono basato su aiosqlite,
+parallelo a `get_db()`. Gli endpoint sono attualmente sincroni (FastAPI li delega a un
+pool di thread worker, il che va bene a concorrenze tipiche). Per percorsi di lettura ad
+alta concorrenza (>5 utenti simultanei), i singoli endpoint possono essere migrati così:
+
+1. Cambia `def foo(...)` in `async def foo(...)`.
+2. Sostituisci `with get_db() as conn:` con `async with get_async_db() as conn:`.
+3. `await` su ogni `.execute()` e `.fetchone()` / `.fetchall()`.
+4. Mantieni sincroni i percorsi di scrittura — aiosqlite serializza comunque le scritture, e
+   il pool di connessioni del percorso sincrono le gestisce già.
+
+I candidati più caldi del piano sono `/api/photos`, `/api/timeline`,
+`/api/search`. Migra uno alla volta e fai benchmark prima di promuovere.
+
+### Cache delle statistiche
+
+Aggregazioni precalcolate con TTL di 5 minuti:
+- Conteggi totali delle foto
+- Conteggi dei modelli di fotocamera/obiettivo
+- Conteggi delle persone
+- Conteggi delle categorie e dei modelli
+
+Controlla lo stato:
+```bash
+python database.py --stats-info
+```
+
+### Caricamento differito dei filtri
+
+I menu a tendina dei filtri si caricano su richiesta tramite API:
+- `/api/filter_options/cameras`
+- `/api/filter_options/lenses`
+- `/api/filter_options/tags`
+- `/api/filter_options/persons`
+- `/api/filter_options/patterns`
+- `/api/filter_options/categories`
+- `/api/filter_options/apertures`
+- `/api/filter_options/focal_lengths`
+- `/api/filter_options/colors`
+- `/api/filter_options/metric_ranges`
+
+## Endpoint API
+
+La documentazione interattiva delle API è disponibile in `/api/docs` (Swagger UI) e lo schema OpenAPI in `/api/openapi.json`.
+
+I tipi TypeScript del client sono generati da questo schema in `client/src/app/core/api/schema.d.ts` con `cd client && npm run gen:api`. Il file generato è versionato e la CI lo rigenera, fallendo se differisce: un modello di risposta e il tipo con cui il client lo legge non possono più divergere.
+
+### Galleria
+
+| Endpoint | Descrizione |
+|----------|-------------|
+| `GET /api/photos` | Elenco foto impaginato con filtri |
+| `GET /api/photos/count` | `{ total }` — quante foto corrispondono ai filtri attuali della galleria |
+| `GET /api/photos/paths` | `{ total, paths }` — ogni percorso corrispondente, senza ordine; usato all'occorrenza dalle azioni che hanno bisogno dei nomi file (scaricamento, copia), mai da «Seleziona tutto». Limitato a 10000: una vista che ne contiene di più viene rifiutata con un `412` che indica il conteggio e il limite anziché essere troncata — un elenco di percorsi parziale sarebbe una selezione che l'utente crede completa — e non esiste alcun ripiego: l'azione viene abbandonata con un messaggio «troppe foto», lasciando all'utente il compito di restringere i filtri e riprovare. Solo le azioni che hanno bisogno di un elenco di percorsi letterale passano di qui; la selezione dell'intera vista è essa stessa un semplice conteggio (`GET /api/photos/count`) e non ha mai avuto bisogno di un simile elenco, quindi le azioni basate sui filtri che ne derivano (scritture in blocco di voto/scarto, cernita, esportazione dei sidecar) non sono toccate da questo limite e hanno il proprio |
+| `GET /api/photo` | Dettagli di una singola foto |
+| `PUT /api/photo/manual_tags` | Aggiunge un [tag manuale](#tag-manuali) a una foto (soggetto alla modalità di modifica). Corpo: `{path, tag}`. `404` per un percorso sconosciuto o non visibile, `422` per un tag non valido o una foto già a 50 tag; un tag uguale a uno dei tag IA della foto non fa nulla e risponde `200` con `skipped_existing: true` |
+| `DELETE /api/photo/manual_tags` | Rimuove un tag manuale da una foto (soggetto alla modalità di modifica). Corpo: `{path, tag}` |
+| `GET /api/photo/set?path=` | L'insieme bracketing/panorama/hdr_panorama/raffica/duplicato a cui appartiene una foto (la sequenza ha la precedenza sulla raffica, la raffica sul duplicato), indicizzato su `path` — mai un ID di gruppo, che i passaggi di bracketing e panorama rinumerano ciascuno a partire da 1 a ogni esecuzione |
+| `GET /api/photo/histogram?path=&bins=` | Bin di luminanza + R/G/B pronti da disegnare (`bins` ∈ 32/64/128/256, predefinito 64), misurati durante la scansione sull'immagine a piena risoluzione. Ogni canale è scalato da un unico massimo globale, mai dal proprio. `r`/`g`/`b` sono `null` per una riga salvata prima del formato per canale; 404 quando la riga non ha alcun istogramma, il segnale per cui il widget ripiega sul campionamento della miniatura |
+| `GET /api/type_counts?hide_blinks=&hide_bursts=&hide_duplicates=&hide_brackets=&hide_panoramas=` | Conteggi foto per tipo per i chip della barra laterale. Stessi cinque interruttori della galleria; uno omesso ricade su `viewer.defaults` invece che su "disattivato" — invia `hide_bursts=0`, ecc., esplicitamente per contare tutto |
+| `GET /api/similar_photos/{path}` | Foto simili (modalità: `visual`, `color`, `person`) |
+| `GET /api/search?q=&limit=&threshold=&scope=` | Ricerca semantica testo-immagine (`scope=text` = solo testo OCR/didascalia). `threshold` è opzionale: se omesso, si risolve al `models.*.search_threshold_percent` dell'encoder attivo (esposto al client come `search_threshold_default` di `/api/config`); un valore esplicito — incluso `0.0` — prevale sempre sul valore predefinito risolto. Valutato solo quando la ricerca esegue effettivamente una ricerca tramite embedding (`scope != 'text'` salta interamente la risoluzione) |
+| `GET /api/critique?path=&mode=&refresh=` | Critica IA (basata su regole o VLM); `refresh=true` rigenera la critica VLM memorizzata nella cache (solo sessione di modifica; altrimenti `vlm_available: false`) |
+| `GET /api/ranker/status` | Stato del ranker personale per l'ordinamento "I miei gusti" (% di copertura appresa, accuratezza su dati di validazione) |
+| `GET /api/config` | Configurazione della galleria |
+
+### Autenticazione
+
+| Endpoint | Descrizione |
+|----------|-------------|
+| `POST /api/auth/login` | Autenticati e ricevi un token; 503 quando la configurazione del server stesso non può essere letta, stato che viene rifiutato anziché trattato come un'installazione senza password |
+| `POST /api/auth/edition/login` | Sblocca la modalità di modifica; 503 nello stesso stato di configurazione illeggibile, così da non essere segnalato come una password errata |
+| `POST /api/auth/edition/logout` | Blocca la modalità di modifica (rimuove i privilegi, resti autenticato) |
+| `GET /api/auth/status` | Controlla lo stato di autenticazione |
+
+### Miniature e immagini
+
+| Endpoint | Descrizione |
+|----------|-------------|
+| `GET /thumbnail` | Miniatura della foto |
+| `GET /face_thumbnail/{id}` | Miniatura del ritaglio del volto |
+| `GET /person_thumbnail/{id}` | Miniatura rappresentativa della persona |
+| `GET /image` | Immagine a piena risoluzione |
+
+### Opzioni di filtro
+
+| Endpoint | Descrizione |
+|----------|-------------|
+| `GET /api/filter_options/cameras` | Modelli di fotocamera con conteggi |
+| `GET /api/filter_options/lenses` | Modelli di obiettivo con conteggi |
+| `GET /api/filter_options/tags` | Tag con conteggi |
+| `GET /api/filter_options/persons` | Persone con conteggi |
+| `GET /api/filter_options/patterns` | Modelli compositivi |
+| `GET /api/filter_options/categories` | Categorie con conteggi |
+| `GET /api/filter_options/apertures` | Valori f-stop distinti con conteggi |
+| `GET /api/filter_options/focal_lengths` | Lunghezze focali distinte con conteggi |
+| `GET /api/filter_options/colors` | Facet di temperatura colore e gruppo di tonalità con conteggi |
+| `GET /api/filter_options/metric_ranges` | Min/max osservati e istogramma per ogni metrica numerica (per i limiti dei cursori) |
+
+### Operazioni di gruppo
+
+| Endpoint | Descrizione |
+|----------|-------------|
+| `POST /api/photos/batch_favorite` | Contrassegna più foto come preferite (annulla lo scarto). Il corpo è esattamente uno tra `{photo_paths}` (max 1000) o `{filters}` — `filters` usa gli stessi parametri di query di `GET /api/photos`, come stringhe, senza limite. `exclude` (opzionale, max 1000) può accompagnare l'uno o l'altro e restringe il bersaglio inviato, qualunque sia — sottratto da `photo_paths` oppure escluso dall'ambito `filters` — quindi può solo restringere, mai ampliare. Non fornire alcun bersaglio, o fornirli entrambi, restituisce un 422, e un insieme `filters` che nomina un album viene sottoposto allo stesso controllo di accesso del GET di quell'album — `404` per un album che non esiste, `403` per quello di un altro utente su un'installazione con controllo degli accessi. Risposta `{success, count}`, dove `count` è il numero di righe effettivamente scritte |
+| `POST /api/photos/batch_reject` | Contrassegna più foto come scartate (annulla preferita e valutazione). Stesso contratto del corpo di `batch_favorite` sopra |
+| `POST /api/photos/batch_rating` | Imposta la valutazione a stelle per più foto. Stesso contratto del corpo di `batch_favorite`, con in più un `rating` obbligatorio (0–5) |
+| `POST /api/photos/batch_manual_tags` | Aggiunge o rimuove un [tag manuale](#tag-manuali) su più foto (soggetto alla modalità di modifica). Stesso contratto del corpo di `batch_favorite`, più un `tag` obbligatorio e un `action` pari a `add` o `delete`. Risposta `{success, count}`, dove `count` è il numero di righe effettivamente scritte: le foto già al limite di 50 tag e quelle i cui tag IA contengono già il tag vengono saltate con `add` |
+
+### Persone
+
+| Endpoint | Descrizione |
+|----------|-------------|
+| `GET /api/persons` | Elenca tutte le persone |
+| `POST /api/persons` | Crea una nuova persona, allegando facoltativamente dei volti (riservato alla modalità di modifica). Corpo: `{name, face_ids}` |
+| `GET /api/persons/needs_naming?min_faces=N` | Elenca le persone raggruppate automaticamente senza nome con `face_count >= N` (predefinito da `viewer.persons.needs_naming_min_faces`) |
+| `POST /api/persons/{id}/rename` | Rinomina una persona |
+| `POST /api/persons/{id}/assign_faces` | Allega in blocco volti a una persona; le vecchie persone vuote vengono eliminate automaticamente (riservato alla modalità di modifica). Corpo: `{face_ids}` |
+| `POST /api/persons/{id}/split` | Dividi un sottoinsieme dei volti di una persona in una nuova persona (riservato alla modalità di modifica). Corpo: `{face_ids, name}` |
+| `POST /api/persons/{id}/hide` | Nascondi una persona dall'elenco, dai filtri e dai suggerimenti di unione |
+| `POST /api/persons/{id}/unhide` | Mostra di nuovo una persona precedentemente nascosta |
+| `POST /api/persons/merge` | Unisci due persone (corpo JSON) |
+| `POST /api/persons/merge/{source_id}/{target_id}` | Unisci la persona di origine in quella di destinazione |
+| `POST /api/persons/merge_batch` | Unisci più persone in una sola volta |
+| `POST /api/persons/merge_suggestions/reject` | Ignora un suggerimento di unione in modo che non venga riproposto |
+| `POST /api/persons/{id}/delete` | Elimina una persona |
+| `POST /api/persons/delete_batch` | Elimina più persone in una sola volta |
+
+### Album
+
+| Endpoint | Descrizione |
+|----------|-------------|
+| `GET /api/albums` | Elenca tutti gli album |
+| `POST /api/albums` | Crea un album |
+| `GET /api/albums/{id}` | Ottieni i dettagli dell'album |
+| `PUT /api/albums/{id}` | Aggiorna l'album |
+| `DELETE /api/albums/{id}` | Elimina l'album |
+| `GET /api/albums/{id}/photos` | Elenca le foto nell'album (impaginato) |
+| `POST /api/albums/{id}/photos` | Aggiungi foto all'album |
+| `DELETE /api/albums/{id}/photos` | Rimuovi foto dall'album |
+| `PUT /api/albums/{id}/scoring_context` | `[Edition]` Imposta il contesto di punteggio dell'album; lo materializza sui membri che corrispondono al filtro dell'album in questo momento, saltando la sovrascrittura manuale di ciascun membro (gli album intelligenti risolvono `smart_filter_json` dal vivo), restituisce `{updated, conflicts, manual_skipped}` |
+| `DELETE /api/albums/{id}/scoring_context` | `[Edition]` Cancella il contesto di punteggio dell'album e annulla la marcatura esattamente sui membri che aveva impostato, restituisce `{ok, cleared}` |
+| `GET /api/albums/{id}/suggested_context` | Suggerisce un contesto di punteggio a partire dal `narrative_moment` dominante dell'album (solo suggerimento, non scrive nulla) |
+| `POST /api/albums/{id}/share` | Genera un token di condivisione |
+| `DELETE /api/albums/{id}/share` | Revoca il token di condivisione |
+| `GET /api/shared/album/{id}?token=` | Visualizza l'album condiviso (nessuna autenticazione) |
+| `POST /api/shared/album/{id}/session` | Scambia un token di condivisione (+ PIN facoltativo) con una sessione di revisione del cliente (con limite di frequenza) |
+| `PUT /api/shared/album/{id}/picks` | Il cliente inserisce/aggiorna un cuore/commento su una foto (sessione di revisione) |
+| `GET /api/shared/album/{id}/picks` | Il cliente legge le proprie scelte (sessione di revisione) |
+| `GET /api/albums/{id}/picks` | `[Edition]` Il proprietario legge tutte le scelte dei clienti per l'album |
+
+### Ricordi, Cronologia, Mappa e didascalie
+
+| Endpoint | Descrizione |
+|----------|-------------|
+| `GET /api/memories?date=` | Foto scattate in questa data negli anni precedenti |
+| `GET /api/memories/check` | Controlla se esistono ricordi per una data |
+| `GET /api/caption?path=` | Ottieni la didascalia IA; una sessione di modifica la genera alla prima richiesta (altrimenti `source: "edition_required"`) |
+| `PUT /api/caption` | Aggiorna la didascalia della foto (modalità di modifica) |
+| `GET /api/timeline?cursor=&limit=&direction=&hide_blinks=&hide_bursts=&hide_duplicates=&hide_brackets=&hide_panoramas=` | Foto cronologiche impaginate. I cinque interruttori `hide_*` sono quelli della galleria; uno omesso ricade su `viewer.defaults` invece che su "disattivato" |
+| `GET /api/timeline/dates?year=&month=&hide_blinks=&hide_bursts=&hide_duplicates=&hide_brackets=&hide_panoramas=` | Date disponibili per la navigazione (stesso fallback `hide_*`) |
+| `GET /api/timeline/years?hide_blinks=&hide_bursts=&hide_duplicates=&hide_brackets=&hide_panoramas=` | Anni disponibili con conteggi di foto (stesso fallback `hide_*`) |
+| `GET /api/timeline/months?hide_blinks=&hide_bursts=&hide_duplicates=&hide_brackets=&hide_panoramas=` | Mesi disponibili per un anno (stesso fallback `hide_*`) |
+| `GET /api/photos/map?bounds=&zoom=&limit=` | Foto geolocalizzate entro i confini |
+| `GET /api/photos/map/count` | Conteggio delle foto geolocalizzate |
+
+### Capsule
+
+| Endpoint | Descrizione |
+|----------|-------------|
+| `GET /api/capsules` | Elenco capsule impaginato (in cache) |
+| `GET /api/capsules/{id}/photos` | Foto di una capsula specifica |
+| `POST /api/capsules/{id}/save-album` | Salva la capsula come album (modalità di modifica) |
+
+### Statistiche
+
+| Endpoint | Descrizione |
+|----------|-------------|
+| `GET /api/stats/overview` | Riepilogo generale delle statistiche di valutazione |
+| `GET /api/stats/score_distribution` | Dati dell'istogramma di distribuzione dei punteggi |
+| `GET /api/stats/top_cameras` | Fotocamere principali per numero di foto |
+| `GET /api/stats/categories` | Conteggi e medie delle categorie |
+| `GET /api/stats/gear` | Conteggi di fotocamere/obiettivi/combinazioni |
+| `GET /api/stats/settings` | Distribuzioni delle impostazioni di scatto |
+| `GET /api/stats/timeline` | Dati della cronologia |
+| `GET /api/stats/correlations` | Correlazioni di metriche personalizzate |
+| `GET /api/stats/categories/breakdown` | Conteggi foto per categoria e distribuzioni dei punteggi |
+| `GET /api/stats/categories/weights` | Pesi e modificatori delle categorie dalla configurazione |
+| `GET /api/stats/categories/correlations` | Correlazione di Pearson r per dimensione per categoria |
+| `GET /api/stats/categories/metrics?category=X` | Valori grezzi delle metriche per l'anteprima lato client |
+| `GET /api/stats/categories/overlap` | Analisi della sovrapposizione dei filtri tra categorie |
+| `POST /api/stats/categories/update` | Aggiorna pesi/modificatori della categoria (modalità di modifica) |
+| `POST /api/stats/categories/recompute` | Ricalcola i punteggi per una categoria (modalità di modifica) |
+
+### Modalità di confronto
+
+| Endpoint | Descrizione |
+|----------|-------------|
+| `GET /api/comparison/next_pair` | `[Edition]` Ottieni la prossima coppia di foto da confrontare |
+| `POST /api/comparison/submit` | Invia il risultato del confronto |
+| `POST /api/comparison/reset` | Azzera i dati di confronto |
+| `GET /api/comparison/stats` | `[Edition]` Statistiche della sessione di confronto |
+| `GET /api/comparison/history` | `[Edition]` Elenca i confronti passati |
+| `POST /api/comparison/edit` | Modifica il risultato di un confronto |
+| `POST /api/comparison/delete` | Elimina un confronto |
+| `GET /api/comparison/coverage` | `[Edition]` Copertura per categoria dei confronti |
+| `GET /api/comparison/confidence` | `[Edition]` Metriche di confidenza per i punteggi appresi |
+| `GET /api/comparison/photo_metrics` | Metriche grezze delle foto |
+| `GET /api/comparison/category_weights` | `[Edition]` Pesi/filtri della categoria |
+| `GET /api/comparison/learned_weights` | `[Edition]` Pesi suggeriti dai confronti |
+| `POST /api/comparison/preview_score` | Anteprima con pesi personalizzati |
+| `POST /api/comparison/suggest_filters` | Analizza i conflitti dei filtri |
+| `POST /api/comparison/override_category` | `[Edition]` Imposta una sovrascrittura di categoria persistente per singola foto (convalidata rispetto ai nomi di categoria configurati; sopravvive al ricalcolo successivo) |
+| `POST /api/comparison/clear_category_override` | `[Edition]` Rimuove la sovrascrittura di categoria di una foto; la valutazione dei filtri decide di nuovo al ricalcolo successivo |
+| `POST /api/recalculate` | Ricalcola i punteggi con i pesi correnti |
+
+### Selezione delle raffiche
+
+| Endpoint | Descrizione |
+|----------|-------------|
+| `GET /api/burst-groups` | Elenca i gruppi di raffica per la selezione |
+| `POST /api/burst-groups/select` | Seleziona i conservati da un gruppo di raffica |
+| `GET /api/similar-groups?threshold=&page=&per_page=` | Gruppi di foto visivamente simili |
+| `POST /api/similar-groups/select` | Seleziona i conservati da un gruppo di foto simili |
+| `GET /api/culling-groups?group_by=all\|burst\|similar\|scene\|bracket\|panorama\|hdr_panorama&exclude_rejected=true&similarity_threshold=&page=&per_page=` | Gruppi di raffiche/foto simili/scene/serie per la selezione. `group_by` (predefinito `all`) seleziona i gruppi combinati di raffiche+foto simili, solo raffiche, solo foto simili, gruppi di scene cronologiche (i gruppi di scene aggiungono `type`/`start`/`end`/`moment`/`moment_confidence`; il parametro `sort` viene ignorato in modalità scena), oppure uno dei tipi di serie da mantenere intere (`bracket`, `panorama`, `hdr_panorama` — ciascuno una propria granularità, mai unita in `all`). `exclude_rejected` (predefinito `true`) nasconde le foto con `is_rejected=1`; i gruppi con meno di 2 foto rimanenti vengono scartati. Quando è addestrato un keeper-ranking head, ogni foto porta anche `keeper_prob` e ogni gruppo porta `keeper_best_path` |
+| `POST /api/culling-groups/confirm` | Conferma le selezioni. Corpo `{group_id, type, paths, keep_paths}`; `type` è `burst \| similar \| scene \| bracket \| panorama \| hdr_panorama`. `type:'scene'` registra le righe di confronto della selezione delle scene; i tre tipi di serie scartano come gli altri ma non registrano alcuna coppia di confronto, dato che preferire un gradino di una scala o un fotogramma di un panorama non dice nulla sul gusto |
+| `POST /api/culling/auto` | `[Edition]` Selezione automatica con un solo pulsante per un intero ambito. Corpo `{group_by, album_id?, date_from?, date_to?, strictness?, min_keep_per_group, highlights_album, dry_run, profile?, trim_brackets}`; `group_by` è `all \| burst \| similar \| scene` (i tipi di serie non sono un ambito valido qui — vedi `trim_brackets`). `profile` indica un preset `cull_profiles` da cui ricavare `strictness`/`min_keep_per_group` quando omessi. `dry_run` (predefinito `true`) restituisce l'anteprima di conservazione/scarto per gruppo, l'applicazione scarta il resto e registra le coppie di selezione. `trim_brackets` (predefinito `false`) taglia inoltre i bracket la cui esposizione di base non taglia né le ombre né le alte luci fino a quel fotogramma di base — l'unico percorso della selezione automatica che riduce mai una serie |
+| `GET /api/culling/suggest_profile?album_id=&date_from=&date_to=` | Deduce il tipo di scatto dominante dell'ambito dalle categorie, momenti narrativi, conteggi di volti e ore di scatto memorizzati, e indica il preset `cull_profiles` più adatto, con un livello di confidenza e i conteggi di evidenza su cui si basa; memorizzato in cache per ambito. `profile` è `null` sotto la soglia di dominanza o quando non è configurato un preset corrispondente |
+| `POST /api/culling-groups/override_sequence` | `[Edition]` Registra una correzione persistente su cosa sia una serie di fotogrammi. Corpo `{paths, kind?}`; `kind` è `panorama \| hdr_panorama \| bracket` oppure omesso per contrassegnare i fotogrammi come nessuno di questi. Un contrassegno `bracket` è vincolato alla regola della scala di esposizione (≥2 fotogrammi, ognuno con metadati di esposizione utilizzabili, nessuna coppia alla stessa esposizione) e risponde 400 con un messaggio specifico quando i fotogrammi non sono idonei. Finisce in `photo_sequence_overrides` (sopravvive alla cancellazione e riscrittura di `photos.sequence_*` da parte del rilevatore a ogni esecuzione); ha effetto alla successiva `POST /api/scan/detect_panoramas` |
+| `POST /api/culling-groups/clear_sequence_override` | `[Edition]` Rimuove una correzione manuale della sequenza per i fotogrammi indicati, restituendoli al rilevatore. Corpo `{paths}` |
+| `POST /api/culling-group/faces` | Badge per volto (occhi aperti/chiusi, espressione, confidenza) per un gruppo, in un'unica chiamata batch |
+| `POST /api/culling-group/subjects` | Ritagli di primo piano del soggetto (dalla box del soggetto BiRefNet persistita) + nitidezza normalizzata sul gruppo per un gruppo senza volti, in un'unica chiamata batch. `has_subject:false` quando una foto non ha una box / ha una box quasi a schermo intero (nessun modello viene eseguito) |
+| `GET /api/photo/key_subject?path=` | Di cosa / di chi parla una foto: il suo volto meglio classificato, altrimenti la sua box di salienza persistita, come box + centro `normalized_frame_xyxy`. Risolto a ogni richiesta dalle colonne memorizzate (nessun modello, nessuna cache); `kind:"none"` quando non esiste né l'uno né l'altra |
+| `POST /api/photos/key_subjects` | La stessa risposta per un massimo di 1000 percorsi in un'unica chiamata (`key_subjects_by_path`) — il bersaglio dello zoom della camera oscura e il badge della persona principale. Ogni percorso richiesto è presente; quelli sconosciuti o invisibili tornano come `kind:"none"` anziché mancare |
+| `POST /api/photos/keeper_hints` | Suggerimenti per foto "esiste una foto migliore in questo gruppo" per il badge di galleria/lightbox, raggruppati per `burst_group_id`. Corpo `{paths}`; restituisce `{path: {has_better, best_path, keeper_prob}}`. Dipende dal modello — restituisce `{}` se non è addestrato alcun keeper-ranking head |
+| `GET /api/photo/cull_preview?path=&style=` | `[Edition]` Rende l'originale di una foto attraverso uno stile darktable configurato (`--style`, limitato a `preview_max_edge`) per l'anteprima dell'aspetto elaborato della camera oscura. Memorizzato in cache su disco; 400 per stile sconosciuto, 503 quando darktable-cli non è disponibile, 502 per errore/timeout del rendering |
+| `GET /api/scenes` | Scene cronologiche delle foto guida delle raffiche (consultazione in sola lettura) |
+| `GET /api/filter_options/junk_kinds` | Tipi di scarto rilevati con conteggio (esclude la sentinella `not_junk`) per i chip di Pulizia degli scarti |
+| `POST /api/photo/clear_junk` | `[Edition]` Conserva un candidato scarto — riporta il suo `junk_kind` a `not_junk` così lascia la coda permanentemente. Corpo `{photo_path}` |
+
+### Scansione
+
+| Endpoint | Descrizione |
+|----------|-------------|
+| `POST /api/scan/start` | Avvia una scansione di valutazione. Richiede il ruolo `superadmin` (multiutente) oppure una sessione autenticata in modalità di modifica su un'installazione a utente singolo bloccata (`viewer.edition_password` impostata) — un'installazione a utente singolo aperta (`viewer.edition_password` vuota, il valore predefinito di fabbrica) restituisce 403 per qualsiasi chiamante, incluso chi possiede un JWT di generazione della modifica valido |
+| `GET /api/scan/status` | Controlla l'avanzamento della scansione (campo strutturato `progress`: `{phase, current, total, eta_seconds}`); stessa regola di accesso di `/start` |
+| `GET /api/scan/stream?token=<jwt>` | Avanzamento in tempo reale tramite Server-Sent Events; il token viene rilasciato da `GET /api/scan/stream_token` (stessa regola di accesso di `/start`) e passato come parametro di query (l'API `EventSource` non può impostare header), con fallback automatico al polling di `/status` |
+| `GET /api/scan/directories` | Elenca le directory di scansione configurate; stessa regola di accesso di `/start` |
+| `POST /api/scan/recompute` | `[Edition]` Avvia un ricalcolo aggregato dell'intera libreria (`--recompute-average`) come job in background; protetto a livello inter-processo da `facet.LibraryLock`, quindi si rifiuta anche con 409, indicando chi lo detiene, se è già in corso una scansione o un ricalcolo da un terminale, non solo da un'altra scheda del viewer. A differenza di `/start`, i suoi argomenti sono fissati lato server e non accetta alcun input dalla richiesta, quindi non è soggetto alla regola di accesso dipendente dalla modalità descritta sopra |
+| `GET /api/scan/recompute_status` | `[Edition]` Interroga l'avanzamento del ricalcolo: `{running, kind, progress, exit_code}` — omette il flusso di log `output_lines` restituito da `/status`, soggetto alla stessa regola di accesso di `/start` |
+
+### Gestione dei volti
+
+| Endpoint | Descrizione |
+|----------|-------------|
+| `GET /api/person/{id}/faces` | Elenca i volti di una persona |
+| `POST /api/person/{id}/avatar` | Imposta il volto avatar della persona |
+| `GET /api/photo/faces` | Elenca i volti rilevati in una foto |
+| `POST /api/face/{id}/assign` | Assegna un volto a una persona |
+| `POST /api/photo/assign_all_faces` | Assegna tutti i volti di una foto a una persona |
+| `POST /api/photo/unassign_person` | Rimuovi l'assegnazione di una persona da una foto |
+
+### Azioni sulle foto
+
+| Endpoint | Descrizione |
+|----------|-------------|
+| `POST /api/photo/set_rating` | Imposta la valutazione a stelle di una foto |
+| `POST /api/photo/toggle_favorite` | Attiva/disattiva lo stato di preferito |
+| `POST /api/photo/toggle_rejected` | Attiva/disattiva lo stato di scartato |
+
+### Gestione della configurazione
+
+| Endpoint | Descrizione |
+|----------|-------------|
+| `POST /api/config/update_weights` | Aggiorna i pesi di valutazione |
+| `GET /api/config/weight_snapshots` | `[Edition]` Elenca le istantanee dei pesi salvate |
+| `POST /api/config/save_snapshot` | Salva i pesi correnti come istantanea |
+| `POST /api/config/restore_weights` | Ripristina i pesi da un'istantanea |
+| `GET /api/config/category_priorities` | `[Edition]` Elenca le categorie nell'attuale ordine di priorità (valutazione) |
+| `POST /api/config/category_priorities` | `[Edition]` Riordina la priorità di valutazione delle categorie; permuta i valori di priorità esistenti sul nuovo ordine invece di rinumerare |
+| `GET /api/config/scoring_contexts` | Elenca i contesti di punteggio configurati, ciascuno con il proprio ordine di categoria effettivo risolto |
+| `PUT /api/config/scoring_contexts/{name}` | `[Edition]` Riscrive il delta `promote`/`excluded` di un contesto (corpo `{promote, excluded}`); rifiuta una categoria sconosciuta, `default` in una delle due liste e i duplicati in `promote` — un nome presente in entrambe le liste è accettato ed `excluded` vince |
+
+### Suggerimenti di unione
+
+| Endpoint | Descrizione |
+|----------|-------------|
+| `GET /api/merge_suggestions` | Unioni di persone suggerite in base alla somiglianza dei volti |
+
+### Cartelle
+
+| Endpoint | Descrizione |
+|----------|-------------|
+| `GET /api/folders?hide_blinks=&hide_bursts=&hide_duplicates=&hide_brackets=&hide_panoramas=` | Elenca la struttura delle cartelle delle foto. Stesso fallback `hide_*` su `viewer.defaults` della galleria |
+
+### Download
+
+| Endpoint | Descrizione |
+|----------|-------------|
+| `GET /api/download/options` | Tipi di download disponibili per una foto (`path`, `is_shared` facoltativo) |
+| `GET /api/download` | Scarica una foto (`path`, `type=original\|darktable\|raw`, `profile` facoltativo) |
+| `GET /api/photo/social_crop` | `[Edition]` Scarica il JPEG a piena risoluzione ritagliato per un preset di formato social (`path`, `preset`) |
+| `GET /api/photo/social_crop/preview` | `[Edition]` Restituisce solo il rettangolo di ritaglio normalizzato + la fonte dell'inquadratura per un preset (`path`, `preset`) — senza decodifica dell'originale |
+
+**Tipi di download:**
+
+- `original` — Serve il file così com'è (JPG/HEIF) o convertito in JPEG tramite rawpy (file RAW).
+- `darktable` — Converte il RAW associato con un profilo darktable denominato (richiede il parametro `profile`). Ricade sull'originale se non esiste alcun RAW associato.
+- `raw` — Serve il file RAW associato così com'è (non disponibile negli album condivisi).
+
+L'endpoint `/api/download/options` rileva automaticamente i file RAW associati e restituisce le opzioni disponibili, inclusi i profili darktable configurati. La galleria lo usa per popolare un menu di download per foto.
+
+### Esportazione per editor
+
+| Endpoint | Descrizione |
+|----------|-------------|
+| `POST /api/photo/export_xmp` | `[Edition]` Scrivi un sidecar XMP |
+| `POST /api/export/sidecars` | `[Edition]` Scrivi i sidecar per percorsi espliciti o per un insieme di filtri. Corpo `{paths?, filters?, exclude?, overwrite}` — esattamente uno tra `paths` (max 10000) oppure un insieme `filters` di galleria: nominare entrambi dà un `422`, non nominarne nessuno un `400`. `exclude` (opzionale, max 1000) rimuove i percorsi indicati dal bersaglio inviato, qualunque sia — sottratti da `paths` oppure esclusi dall'ambito `filters`; `filters` viene risolto tramite la stessa normalizzazione usata da `GET /api/photos`, esattamente come `POST /api/cull/apply` sotto, e un insieme `filters` che nomina un album viene sottoposto allo stesso controllo di accesso del GET di quell'album — `404` per un album che non esiste, `403` per quello di un altro utente su un'installazione con controllo degli accessi. Un insieme `filters` che corrisponde a più di 10000 foto viene rifiutato con un `412` che indica il conteggio e il limite, contato prima che venga costruito qualunque elenco di percorsi, e mai troncato |
+| `POST /api/photo/embed_metadata` | `[Edition]` Incorpora i metadati nel file originale (JPEG/HEIC/TIFF/PNG/DNG; RAW mai modificato) e scrivi il sidecar |
+| `POST /api/lightroom/manifest` | `[Edition]` Costruisce e restituisce lo stesso `facet_manifest.json` scritto da `--export-manifest`, limitato da `{paths?, filters?, exclude?}` — stessa forma, risoluzione e limite di selezione (10000) di `POST /api/export/sidecars` sopra. In modalità multiutente, una foto fuori dalle directory visibili del chiamante viene esclusa sia da `paths` sia da qualsiasi espansione a un insieme di raffica/sequenza, e non appare in nessuno dei due modi; `exclude` viene applicato DOPO tale espansione (un fotogramma escluso non viene mai riaggiunto come membro dell'insieme). La selezione è limitata due volte: `paths`/`filters` è limitato a 10000 prima dell'espansione, e la selezione dopo l'espansione a insiemi completi di raffica/sequenza viene riverificata contro un limite separato e più alto di 50000 (uguale al limite di foto di `POST /api/lightroom/import` stesso, poiché un manifesto costruito qui deve rimanere sufficientemente piccolo perché quella rotta possa riaccettarlo) — un `412` che indica il conteggio e il limite superato. Restituito come allegato (`facet_manifest.json`); le valutazioni sono quelle proprie del chiamante (risolte in modalità multiutente) |
+| `POST /api/lightroom/import` | `[Edition]` Importa lo stato Lightroom esportato dal plug-in (corpo JSON grezzo, senza multipart) tramite `processing.lightroom_sync.import_lightroom_state` — vince Lightroom per `rating`/`pick`, secondo i campi portati da ciascun record. In modalità multiutente, un record che nomina una foto fuori dalle directory visibili del chiamante conta come `unmatched` e non viene mai scritto. Limitato a 20 MB / 50000 foto (`413` prima del parsing); un corpo inviato in modalità chunked senza `Content-Length` viene rifiutato con `413` non appena la dimensione trasmessa supera il limite di 20 MB, invece di essere bufferizzato per intero prima. Un corpo che non soddisfa il controllo di forma `{"format":"facet-lightroom-state","version":1,...}` riceve `400` prima di qualsiasi scrittura. Risposta `{matched, unmatched, changed}` |
+| `POST /api/albums/{id}/export` | `[Edition]` Esportazione album come sidecar, copia o collegamento simbolico |
+| `POST /api/cull/apply` | `[Edition]` Copia i mantenuti o sposta/cestina gli scartati in una cartella (vedi [Scarta in cartella](#scarta-in-cartella)). Corpo `{paths?, filters?, exclude?, action, target_dir?, include_companions, include_sequence_siblings, dry_run}` — esattamente uno tra `paths` (max 10000) oppure un insieme `filters` di galleria, nominarli entrambi dà un `422` e non nominarne nessuno un `400`; `exclude` (opzionale, max 1000) rimuove i percorsi indicati dal bersaglio inviato, qualunque sia — sottratti da `paths` oppure esclusi dall'ambito `filters` — il che può solo restringerlo, mai ampliarlo, e un percorso escluso non viene mai reintrodotto come fotogramma della serie (resta fuori anche da `sequence_siblings`); un insieme `filters` che nomina un album viene sottoposto allo stesso controllo di accesso del GET di quell'album — `404` per un album che non esiste, `403` per quello di un altro utente su un'installazione con controllo degli accessi; `filters` viene risolto tramite la stessa normalizzazione usata da `GET /api/photos` (valori predefiniti del visualizzatore più l'espansione dei preset `type`), così da corrispondere sempre alla vista di galleria da cui proviene. Un insieme `filters` che corrisponde a più di 10000 foto viene rifiutato con un `412` che indica il conteggio e il limite, contato prima che venga costruito qualunque elenco di percorsi, mai troncato e applicato anche a una simulazione esattamente come a un'esecuzione reale — un'anteprima non può essere usata per svolgere il lavoro senza limiti per cui l'esecuzione stessa viene rifiutata; `action` è `copy_keeps \| trash_rejects \| move_rejects`; `include_companions` (predefinito `false`) aggiunge il RAW e l'`.xmp` di corredo con lo stesso nome base di ogni file; `include_sequence_siblings` (predefinito `false`) aggiunge ogni altro fotogramma che condivide `(sequence_kind, sequence_group_id)` con una foto corrispondente **il cui stato di scarto corrisponde all'azione**, così un fotogramma conservato non viene mai distrutto perché un fotogramma della serie è stato scartato; `dry_run` predefinito a `true`. La risposta aggiunge `matched` (percorsi idonei per l'azione) e `sequence_siblings` (conteggio dei fotogrammi della serie, segnalato anche a interruttore disattivato) accanto a `skipped` / `excluded_by_state` / `not_visible` |
+| `POST /api/photo/delete` | `[Edition]` Invia una o più foto al cestino di sistema — recuperabile, mai un'eliminazione permanente (vedi [Elimina](#elimina)). Vincolato allo stesso flag `viewer.cull.allow_trash` di `/api/cull/apply`: `403` se disattivato, `400` se il pacchetto `send2trash` non è installato. Corpo `{paths, include_companions, include_sequence_siblings, dry_run}` — solo `paths` (max 10000), deliberatamente senza un ramo `filters`/`exclude`: un'eliminazione guidata dai filtri è l'unica forma capace di cestinare un insieme senza limiti, quindi l'ambito "seleziona tutto nella vista" della galleria non può usare questo endpoint. L'ambito predefinito è solo il file indicato; `include_companions` (predefinito `false`) aggiunge il RAW e l'`.xmp` di corredo con lo stesso nome base di ogni file; `include_sequence_siblings` (predefinito `false`) allarga qualunque percorso richiesto a ogni altro fotogramma che condivide il suo `(sequence_kind, sequence_group_id)`, esattamente come su `/api/cull/apply`; un RAW/XMP di corredo incluso da `include_companions` che possiede a sua volta una propria riga `photos` viene rimosso anch'esso, non appena il suo file va nel cestino. L'esposizione di base di un bracket (il suo fotogramma con `sequence_ev_offset = 0`) in un gruppo di tipo bracket viene rifiutata (`refused_bracket_lead`) a meno che `include_sequence_siblings` non sia impostato, nel qual caso l'intero bracket viene eliminato insieme; un fotogramma guida di un panorama eliminato senza il flag ridesigna invece un fotogramma sopravvissuto come nuova guida. La riga di un percorso viene eliminata immediatamente non appena il suo file va effettivamente nel cestino — nessun `--cleanup-missing-photos` necessario per esso. Un percorso in `skipped` (file già assente dal disco) conserva la propria riga, perché per esso non è stato cestinato nulla — è esattamente ciò che `--cleanup-missing-photos` riconcilia. Anche un percorso in `errors` (il tentativo di cestinare è fallito) conserva la propria riga, perché il suo file è ancora presente sul disco. `dry_run` è `true` per impostazione predefinita. La risposta è per percorso: `{dry_run, would_trash, deleted, not_found, not_visible, refused_bracket_lead, sequence_siblings, skipped, trashed, errors}` |
+
+### Plugin
+
+| Endpoint | Descrizione |
+|----------|-------------|
+| `GET /api/plugins` | `[Edition]` Elenca i plugin configurati |
+| `POST /api/plugins/test-webhook` | `[Edition]` Testa un plugin webhook |
+
+### Immich
+
+| Endpoint | Descrizione |
+|----------|-------------|
+| `POST /api/immich/webhook` | Riceve un webhook di workflow Immich e rispecchia immediatamente la valutazione inviata; un asset che Facet non ha ancora valutato viene messo in coda per il prossimo `--immich-sync`. Autenticazione a token statico (`immich.webhook.token_env`; non impostato ⇒ 404); non avvia mai una scansione. Vedi [docs/IMMICH.md](IMMICH.md) |
+
+### Stato di salute
+
+| Endpoint | Descrizione |
+|----------|-------------|
+| `GET /health` | Controllo dello stato di salute del server |
+| `GET /ready` | Controllo della prontezza del server |
+| `GET /metrics` | Metriche in formato Prometheus: conteggi foto, copertura degli embedding, dimensione del DB, memoria del processo |
+
+### Internazionalizzazione
+
+| Endpoint | Descrizione |
+|----------|-------------|
+| `GET /api/i18n/languages` | Elenca le lingue disponibili |
+| `GET /api/i18n/{lang}` | Ottieni le traduzioni per una lingua |
+
+### Opzioni di filtro (aggiuntive)
+
+| Endpoint | Descrizione |
+|----------|-------------|
+| `GET /api/filter_options/location_name?lat=&lng=` | Geocodifica inversa delle coordinate in un nome di luogo |
+
+## Risoluzione dei problemi
+
+| Problema | Soluzione |
+|-------|----------|
+| Caricamento pagina lento | Esegui `--migrate-tags` e `--optimize` |
+| I filtri non compaiono | Controlla `--stats-info`, esegui `--refresh-stats` |
+| Filtro persona vuoto | Esegui `--cluster-faces-incremental` |
+| Pulsante Confronta mancante | Imposta una `edition_password` non vuota (utente singolo) o usa il ruolo `admin`/`superadmin` (multiutente) |
+| Password non funzionante | Controlla `viewer.password` (utente singolo) o verifica l'hash della password (multiutente) |
+| L'utente non vede le foto | Controlla `directories` nella sua configurazione utente e `shared_directories` |
+| Pulsante di scansione mancante | Richiede `viewer.features.show_scan_button: true` più l'accesso alla scansione: ruolo `superadmin` (multiutente), oppure una sessione autenticata in modalità di modifica su un'installazione a utente singolo bloccata (`viewer.edition_password` impostata) — un'installazione a utente singolo aperta non lo mostra mai |
+| La ricerca non restituisce risultati | Assicurati che le foto abbiano i dati `clip_embedding` (esegui prima la valutazione) |
+| Critica VLM non disponibile | Richiede il profilo VRAM 16gb/24gb e `viewer.features.show_vlm_critique: true`, più una sessione di modifica per generarla (senza, viene servita solo una critica in cache) |
+| La mappa non mostra foto | Esegui `--extract-gps` per popolare le colonne GPS, assicurati che le foto abbiano dati GPS EXIF |
+| Le didascalie non vengono generate | Richiede il profilo VRAM 16gb/24gb per le didascalie VLM |
+| Cronologia vuota | Assicurati che le foto abbiano valori `date_taken` |
+| Porta 5000 in uso | Esegui `python viewer.py --port 5001` (o imposta `PORT=5001`). Su macOS, il Ricevitore AirPlay di ControlCenter occupa la porta 5000 per impostazione predefinita — scegli un'altra porta oppure disabilita il Ricevitore AirPlay in Impostazioni di Sistema → Generali → AirDrop e Handoff. |

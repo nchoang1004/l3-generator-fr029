@@ -1,0 +1,242 @@
+"""
+Facet Tagger Module
+
+Uses CLIP/SigLIP embeddings to generate semantic tags for images based on
+similarity to predefined tag vocabulary.
+"""
+
+
+import logging
+
+from utils import bytes_to_embedding
+
+logger = logging.getLogger("facet.tagger")
+
+_tokenizer_cache = {}
+
+
+def _get_tokenizer(backend, model_name):
+    """Return a cached tokenizer for ``(backend, model_name)``.
+
+    ``from_pretrained``/``get_tokenizer`` are expensive and stateless, so a
+    process-level cache avoids re-instantiating once per moment prompt and once
+    per caption-backfill chunk.
+    """
+    key = (backend, model_name)
+    tokenizer = _tokenizer_cache.get(key)
+    if tokenizer is None:
+        if backend == 'transformers':
+            from transformers import AutoTokenizer
+            tokenizer = AutoTokenizer.from_pretrained(model_name)
+        else:
+            import open_clip
+            tokenizer = open_clip.get_tokenizer(model_name or 'ViT-L-14')
+        _tokenizer_cache[key] = tokenizer
+    return tokenizer
+
+
+def encode_text_prompts(model, model_name, backend, device, texts):
+    """Return L2-normalized text embeddings for ``texts`` in the image space.
+
+    Shared by the tagger and the narrative-moment classifier so the SigLIP
+    ``max_length=64`` padding rule (dynamic padding collapses similarities to
+    noise) lives in exactly one place.
+    """
+    import torch
+
+    tokenizer = _get_tokenizer(backend, model_name)
+    if backend == 'transformers':
+        inputs = tokenizer(
+            texts, padding="max_length", max_length=64, truncation=True,
+            return_tensors="pt",
+        ).to(device)
+        with torch.no_grad():
+            text_features = model.get_text_features(**inputs)
+            if not isinstance(text_features, torch.Tensor):
+                text_features = text_features.pooler_output
+    else:
+        text_tokens = tokenizer(texts).to(device)
+        with torch.no_grad():
+            text_features = model.encode_text(text_tokens)
+    return text_features / text_features.norm(dim=-1, keepdim=True)
+
+
+class CLIPTagger:
+    """
+    Generates semantic tags for images using stored CLIP/SigLIP embeddings.
+    Compares image embeddings against precomputed text embeddings for tag vocabulary.
+    Tag vocabulary is loaded from config's weights.*.tags - no hardcoded defaults.
+    """
+
+    def __init__(self, clip_model=None, device='cuda', config=None, model_name=None,
+                 backend='open_clip'):
+        """
+        Initialize the tagger.
+
+        Args:
+            clip_model: CLIP/SigLIP model instance
+            device: torch device ('cuda' or 'cpu')
+            config: ScoringConfig instance for loading vocabulary dynamically
+            model_name: Model name for tokenizer (e.g. 'ViT-L-14', 'google/siglip2-...')
+            backend: 'open_clip' or 'transformers'
+        """
+        self.model = clip_model
+        self.device = device
+        self.config = config
+        self.model_name = model_name
+        self.backend = backend
+        self.text_embeddings = None
+        self.tag_names = None
+        # Rows whose stored embedding came from a different image tower. Counted
+        # rather than logged per photo: a library can hold thousands of them.
+        self.skipped_dim_mismatch = 0
+
+        # Load vocabulary from config
+        self._load_vocabulary()
+
+        if clip_model is not None:
+            self._precompute_text_embeddings()
+
+    def _load_vocabulary(self):
+        """Load tag vocabulary from config."""
+        if self.config:
+            self.tag_vocabulary = self.config.get_tag_vocabulary()
+            self.art_tags = self.config.get_art_tags()
+        else:
+            # No config = empty vocabulary (will skip tagging)
+            self.tag_vocabulary = {}
+            self.art_tags = set()
+
+    def _precompute_text_embeddings(self):
+        """Precompute text embeddings for all tag vocabulary."""
+
+        if self.model is None:
+            return
+
+        self.tag_names = []
+        all_texts = []
+
+        # Flatten vocabulary: each tag gets multiple text prompts
+        for tag_name, descriptions in self.tag_vocabulary.items():
+            for desc in descriptions:
+                self.tag_names.append(tag_name)
+                all_texts.append(f"a photo of {desc}")
+
+        if self.backend == 'transformers':
+            self._precompute_text_transformers(all_texts)
+        else:
+            self._precompute_text_open_clip(all_texts)
+
+    def _precompute_text_open_clip(self, all_texts):
+        """Precompute text embeddings using open_clip."""
+        self.text_embeddings = encode_text_prompts(
+            self.model, self.model_name, 'open_clip', self.device, all_texts)
+
+    def _precompute_text_transformers(self, all_texts):
+        """Precompute text embeddings using transformers AutoProcessor."""
+        self.text_embeddings = encode_text_prompts(
+            self.model, self.model_name, 'transformers', self.device, all_texts)
+
+    def get_tags_from_embedding(self, clip_embedding_bytes, threshold=0.25, max_tags=5):
+        """
+        Get tags from a stored CLIP embedding (bytes).
+
+        Args:
+            clip_embedding_bytes: CLIP embedding as bytes (768 or 1152 floats)
+            threshold: Minimum similarity threshold for a tag (default: 0.25)
+            max_tags: Maximum number of tags to return (default: 5)
+
+        Returns:
+            List of tag names sorted by relevance
+        """
+        if self.text_embeddings is None or clip_embedding_bytes is None:
+            return []
+
+        embedding = bytes_to_embedding(clip_embedding_bytes)
+
+        # A library outlives the profile that filled it: switching vram_profile
+        # swaps the image tower (CLIP 768 <-> SigLIP 1152) while rows written by
+        # the previous one stay exactly as they were. This tagger's text tower
+        # matches only the active profile, so a row from the other one cannot be
+        # scored against it. Unguarded, that matmul raised a bare shape
+        # RuntimeError that killed the caller's entire pass -- a scan's whole
+        # post-processing tail, tagging through vec population -- rather than
+        # skipping the one photo it could not tag. Checked before the tensor is
+        # built, so a row being discarded never costs a device copy.
+        expected_dim = self.text_embeddings.shape[-1]
+        if len(embedding) != expected_dim:
+            self.skipped_dim_mismatch += 1
+            if self.skipped_dim_mismatch == 1:
+                logger.warning(
+                    "Skipping photos whose stored embedding is %d-dim: this tagger's text "
+                    "tower is %d-dim. Re-embed them under the active profile "
+                    "(--recompute-embeddings) to have them tagged.",
+                    len(embedding), expected_dim)
+            return []
+
+        import torch
+
+        # Convert bytes back to tensor, matching text_embeddings dtype
+        image_features = torch.tensor(embedding).unsqueeze(0).to(self.device)
+        image_features = image_features.to(self.text_embeddings.dtype)
+
+        # Compute cosine similarity with all text embeddings
+        with torch.no_grad():
+            similarities = (image_features @ self.text_embeddings.T).squeeze(0)
+
+        # Get best similarity for each unique tag
+        tag_scores = {}
+        for i, (tag_name, sim) in enumerate(zip(self.tag_names, similarities.cpu().numpy())):
+            if tag_name not in tag_scores or sim > tag_scores[tag_name]:
+                tag_scores[tag_name] = float(sim)
+
+        # Filter by threshold and sort by score
+        filtered_tags = [(tag, score) for tag, score in tag_scores.items() if score >= threshold]
+        filtered_tags.sort(key=lambda x: x[1], reverse=True)
+
+        # Return top N tag names
+        return [tag for tag, _ in filtered_tags[:max_tags]]
+
+    def get_tags_with_scores(self, clip_embedding_bytes, threshold=0.20):
+        """
+        Get tags with their similarity scores (for debugging/tuning).
+
+        Args:
+            clip_embedding_bytes: CLIP embedding as bytes
+            threshold: Minimum similarity threshold
+
+        Returns:
+            Dict of tag -> score for tags above threshold
+        """
+        if self.text_embeddings is None or clip_embedding_bytes is None:
+            return {}
+
+        import torch
+
+        embedding = bytes_to_embedding(clip_embedding_bytes)
+        image_features = torch.tensor(embedding).unsqueeze(0).to(self.device)
+        image_features = image_features.to(self.text_embeddings.dtype)
+
+        with torch.no_grad():
+            similarities = (image_features @ self.text_embeddings.T).squeeze(0)
+
+        tag_scores = {}
+        for i, (tag_name, sim) in enumerate(zip(self.tag_names, similarities.cpu().numpy())):
+            if tag_name not in tag_scores or sim > tag_scores[tag_name]:
+                tag_scores[tag_name] = float(sim)
+
+        return {tag: round(score, 3) for tag, score in tag_scores.items() if score >= threshold}
+
+    def is_artwork(self, clip_embedding_bytes, threshold=0.24):
+        """
+        Check if image contains artwork (painting/statue/sculpture/drawing/cartoon).
+
+        Args:
+            clip_embedding_bytes: CLIP embedding as bytes
+            threshold: Minimum similarity threshold for art detection (default: 0.24)
+
+        Returns:
+            True if any art-related tag is detected above threshold
+        """
+        tags = self.get_tags_from_embedding(clip_embedding_bytes, threshold=threshold, max_tags=10)
+        return bool(set(tags) & self.art_tags)

@@ -1,0 +1,1929 @@
+"""RunService: DB-backed cache/snapshots, run execution persistence, error handling."""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import threading
+import time
+from datetime import UTC, datetime
+from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
+
+import shortlist.server.services.run_service as run_service_mod
+from shortlist.engine.models import (
+    CollectionDiff,
+    EngineConfig,
+    FilterSnapshot,
+    MediaType,
+    Pick,
+    RunReport,
+    StageCounts,
+    UserRunReport,
+)
+from shortlist.server.db.adapters import DbCache, DbSnapshotStore
+from shortlist.server.db.models import Delivery, Event, Job, PickRow, Run, RunUser, User
+from shortlist.server.db.session import make_engine, make_session_factory, run_migrations
+from shortlist.server.services.context_builder import ContextBuilder
+from shortlist.server.services.plex_reachability import PlexUnreachable
+from shortlist.server.services.run_service import RunService
+from shortlist.server.services.secrets import SecretBox
+from shortlist.server.services.sse import EventBus
+from shortlist.server.settings_store import SettingsStore
+from tests.db_helpers import disposing_engine
+from tests.watch_fixtures import personal_delivery
+
+
+def _fake_ctx() -> SimpleNamespace:
+    """Stands in for an EngineContext in tests that stub out the engine entirely.
+
+    It carries the attributes `_execute` SETS on a real context (`config`, `cancelled`,
+    `on_user_done`) — a bare SimpleNamespace() silently diverged from the real shape and turned a
+    new assignment into an AttributeError swallowed by the run's error handling.
+    """
+    return SimpleNamespace(config=EngineConfig())
+
+
+@pytest.fixture
+def sessions(tmp_path: Path):
+    run_migrations(tmp_path)
+    with disposing_engine(make_engine(tmp_path)) as engine:
+        factory = make_session_factory(engine)
+        with factory() as session:
+            session.add(User(plex_account_id=555000100, username="sarah", slug="sarah", enabled=True))
+            session.add(User(plex_account_id=555000200, username="mike", slug="mike", enabled=True))
+            session.commit()
+        yield factory
+
+
+class TestDbCache:
+    def test_set_get_and_expiry(self, sessions):
+        cache = DbCache(sessions)
+        cache.set("k", json.dumps({"a": 1}), ttl_s=60)
+        assert json.loads(cache.get("k")) == {"a": 1}
+        cache.set("k", json.dumps({"a": 2}), ttl_s=-1)  # already expired
+        assert cache.get("k") is None
+
+    def test_concurrent_set_of_the_same_key_does_not_raise(self, sessions):
+        # Parallel runs (Stage 3) fetch candidates for two users who share a seed at once — both
+        # cold-miss and write the same (kind, key). The atomic upsert must let the second writer win
+        # instead of raising IntegrityError (which would fail that user's pool).
+        import threading
+        from concurrent.futures import ThreadPoolExecutor
+
+        cache = DbCache(sessions)
+        barrier = threading.Barrier(6)
+
+        def write(i: int) -> None:
+            barrier.wait()  # maximize the collision window
+            cache.set("shared-seed", json.dumps({"n": i}), ttl_s=60)
+
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            list(pool.map(write, range(6)))  # raises here if any thread hit IntegrityError
+
+        assert cache.get("shared-seed") is not None  # one writer won, value is present
+
+
+class TestDbSnapshotStore:
+    def test_save_then_get_initial_snapshot(self, sessions):
+        store = DbSnapshotStore(sessions)
+        assert store.get(555000100) is None
+        snapshot = FilterSnapshot(
+            plex_account_id=555000100,
+            username="sarah",
+            taken_at=datetime(2026, 7, 12, tzinfo=UTC),
+            filters={"filterMovies": "contentRating!=R"},
+        )
+        store.save(snapshot)
+        loaded = store.get(555000100)
+        assert loaded.filters == {"filterMovies": "contentRating!=R"}
+        assert store.get(999999) is None
+
+
+def fake_report(dry_run: bool = False) -> RunReport:
+    users = []
+    for slug, status in (("sarah", "ok"), ("mike", "error")):
+        users.append(
+            UserRunReport(
+                username=slug,
+                slug=slug,
+                status=status,
+                picks=[Pick(tmdb_id=1, rating_key=10, title="Movie", rank=1, reason="r", media_type=MediaType.MOVIE)]
+                if status == "ok"
+                else [],
+                counts=StageCounts(picks=1 if status == "ok" else 0),
+                diff=CollectionDiff(added=["Movie"]),
+                error=None if status == "ok" else "boom",
+                duration_s=1.5,
+                privacy_synced=status == "ok",
+            )
+        )
+    return RunReport(
+        started_at=datetime.now(UTC),
+        finished_at=datetime.now(UTC),
+        dry_run=dry_run,
+        users=users,
+        # A run that got as far as persisting reached the privacy phase, so it DID look. Without
+        # this the stats carry no `unhideable_rows` key at all, which is the deliberate signal for
+        # "this run never measured" — see `_finalize_run`.
+        unhideable_measured=True,
+    )
+
+
+async def _wait_for_run(sessions, run_id: int, timeout_s: float = 3.0) -> Run:
+    """The run once it has ENDED: its status settled, and its task finished.
+
+    The status alone is not the end. Crediting, the alert, `notify.after_run` and the queue drain all
+    come after it, and returning while they are in flight makes `asyncio.run` cancel the run task on
+    its way out — so a test would observe a shutdown instead of the run it started.
+    """
+    deadline = time.monotonic() + timeout_s
+    while True:
+        with sessions() as session:
+            run = session.get(Run, run_id)
+            if run and run.status in ("ok", "error"):
+                break
+        if time.monotonic() >= deadline:
+            raise AssertionError("run did not finish in time")
+        await asyncio.sleep(0.02)
+    rest = asyncio.all_tasks() - {asyncio.current_task()}
+    if rest:
+        _, pending = await asyncio.wait(rest, timeout=timeout_s)
+        assert not pending, "the run's task did not finish in time"
+    with sessions() as session:
+        run = session.get(Run, run_id)
+        session.expunge(run)
+        return run
+
+
+class TestRunExecution:
+    def test_cancel_run_signals_an_armed_run_and_ignores_others(self, sessions, tmp_path):
+        import threading
+
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+        assert service.cancel_run(999) is False  # nothing in-flight with that id
+        service._cancels[7] = threading.Event()  # simulate a run currently executing
+        assert service.cancel_run(7) is True
+        assert service._cancels[7].is_set()  # the engine's cooperative cancel flag is now set
+
+    def test_cancelling_twice_is_not_an_error(self, sessions, tmp_path):
+        """A second press must not read as "this run isn't running" — it IS, it is stopping. The two
+        cases were one `False`, so the UI showed a 409 saying the opposite of the truth. Pressing
+        again is a no-op, and a no-op is a success."""
+        import threading
+
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+        service._cancels[7] = threading.Event()
+        assert service.cancel_run(7) is True
+        assert service.cancel_run(7) is True  # idempotent, not a lie
+
+    def test_a_cancel_is_recorded_on_the_run_so_a_reloaded_page_still_knows(self, sessions, tmp_path):
+        """The button read "Stopping..." off local mutation state alone, so a refresh forgot and
+        offered a live-looking Cancel that could only 409. Any client must be able to see it."""
+        import threading
+
+        from shortlist.server.db.models import Run
+
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+        with sessions() as session:
+            session.add(Run(id=7, status="running", trigger="manual", stats={}))
+            session.commit()
+        service._cancels[7] = threading.Event()
+
+        service.cancel_run(7)
+
+        with sessions() as session:
+            assert session.get(Run, 7).stats.get("cancel_requested") is True
+
+    def test_a_skipped_user_is_counted_as_skipped_not_as_a_success(self, sessions, tmp_path, monkeypatch):
+        """A skipped person built nothing. Folding them into `users_ok` is what made a run where
+        EVERY person was skipped report "3 succeeded · all succeeded" over three "Skipped" rows —
+        the summary contradicting the rows right beneath it (issue #3 follow-up)."""
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+        monkeypatch.setattr(service, "build_context", lambda **kw: _fake_ctx())
+        report = RunReport(
+            started_at=datetime.now(UTC),
+            finished_at=datetime.now(UTC),
+            dry_run=False,
+            users=[
+                UserRunReport(username="sarah", slug="sarah", status="skipped", reason="No per-person rows."),
+                UserRunReport(username="mike", slug="mike", status="ok", diff=CollectionDiff(added=["Movie"])),
+            ],
+        )
+        monkeypatch.setattr(run_service_mod, "engine_run", lambda ctx, profiles: report)
+
+        async def scenario():
+            run_id = await service.start_run(trigger="manual", dry_run=False)
+            return await _wait_for_run(sessions, run_id)
+
+        run = asyncio.run(scenario())
+
+        assert run.stats["users_skipped"] == 1
+        assert run.stats["users_ok"] == 1, "the skipped user must not be counted as a success"
+        assert run.stats["users_error"] == 0
+        assert run.status == "ok"  # a skip is not a failure — the run itself is still fine
+        with sessions() as session:
+            rows = {r.user.username: (r.status, r.reason) for r in session.query(RunUser).all()}
+        assert rows["sarah"] == ("skipped", "No per-person rows.")
+
+    def test_run_persists_report_picks_and_events(self, sessions, tmp_path, monkeypatch):
+        bus = EventBus()
+        service = RunService(sessions, bus, tmp_path, SecretBox(tmp_path))
+        monkeypatch.setattr(service, "build_context", lambda **kw: _fake_ctx())
+        monkeypatch.setattr(run_service_mod, "engine_run", lambda ctx, profiles: fake_report())
+
+        async def scenario():
+            run_id = await service.start_run(trigger="manual", dry_run=False)
+            return await _wait_for_run(sessions, run_id)
+
+        run = asyncio.run(scenario())
+        assert run.status == "error"  # one user errored -> run status error
+        assert run.stats == {
+            "users_ok": 1,
+            "users_error": 1,
+            "users_skipped": 0,
+            "dry_run": False,
+            "rows_swept": 0,
+            "shares_updated": 0,
+            "titles_added": 2,  # the fake_report's ok user has a 2-title diff.added
+            "titles_removed": 0,
+            "titles_requested": 0,
+            "requests_warnings": [],
+            # Beside the count, because "0 requested" cannot be read without them: how many titles
+            # cleared the base floors, how many the rating gate rated, what that cost MDBList.
+            "requests_queued": 0,
+            "requests_wanted": 0,
+            "requests_pool": 0,
+            "requests_examined": 0,
+            "requests_lookups": 0,
+            "llm_tokens": 0,
+            "llm_output_tokens": 0,
+            "llm_tokens_by_step": {},
+            "exa_searches": 0,
+            "exa_cache_hits": 0,
+            "error": None,
+            "promotion_blockers": [],
+            "unhideable_rows": {},
+            "unreadable_filters": {},
+            # Written empty on every measured run: absent reads as "not fully measured" on the run page.
+            "privacy_unchecked": [],
+            "privacy_write_failed": [],
+            "privacy_left_alone": [],
+        }
+        with sessions() as session:
+            run_users = session.query(RunUser).filter_by(run_id=run.id).all()
+            assert {r.status for r in run_users} == {"ok", "error"}
+            picks = session.query(PickRow).all()
+            assert len(picks) == 1
+            assert picks[0].title == "Movie"
+            events = session.query(Event).filter_by(scope="run.user").all()
+            assert len(events) == 2
+            assert any(e.level == "error" for e in events)
+
+    def test_a_failed_run_queues_the_external_alert(self, sessions, tmp_path, monkeypatch):
+        """The wiring, driven through the real `RunService` rather than by calling the hook.
+
+        The hook itself is covered in `test_notify_delivery.py`; what only this can show is that
+        `_run_locked` actually calls it, on the path where the engine RETURNS a not-ok report.
+        """
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+        monkeypatch.setattr(service, "build_context", lambda **kw: _fake_ctx())
+        monkeypatch.setattr(run_service_mod, "engine_run", lambda ctx, profiles: fake_report())
+        with sessions() as session:
+            SettingsStore(session).set("notify.webhook.enabled", True)
+
+        async def scenario():
+            run_id = await service.start_run(trigger="schedule", dry_run=False)
+            return await _wait_for_run(sessions, run_id)
+
+        run = asyncio.run(scenario())
+        assert run.status == "error"
+        with sessions() as session:
+            queued = session.query(Job).filter(Job.kind == "notify.send").all()
+        assert len(queued) == 1
+        # The payload is the bell's own alert for THIS run, not a message written twice.
+        assert queued[0].payload["item"]["id"] == f"run-failed-{run.id}"
+
+    def test_a_run_that_crashes_queues_the_alert_too(self, sessions, tmp_path, monkeypatch):
+        """The other path to `error`, and the one worth waking up for: the engine RAISED.
+
+        Hooking only the tidy path would stay silent exactly when Plex or plex.tv fell over.
+        """
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+        monkeypatch.setattr(service, "build_context", lambda **kw: _fake_ctx())
+
+        def _boom(ctx, profiles):
+            raise RuntimeError("plex.tv went away")
+
+        monkeypatch.setattr(run_service_mod, "engine_run", _boom)
+        with sessions() as session:
+            SettingsStore(session).set("notify.webhook.enabled", True)
+
+        async def scenario():
+            run_id = await service.start_run(trigger="schedule", dry_run=False)
+            return await _wait_for_run(sessions, run_id)
+
+        run = asyncio.run(scenario())
+        assert run.status == "error"
+        with sessions() as session:
+            queued = session.query(Job).filter(Job.kind == "notify.send").all()
+        assert len(queued) == 1 and queued[0].payload["item"]["id"] == f"run-failed-{run.id}"
+
+    def test_a_healthy_run_queues_no_alert(self, sessions, tmp_path, monkeypatch):
+        """The guard at the call site. Without it the hook fires on every run and the owner mutes it."""
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+        monkeypatch.setattr(service, "build_context", lambda **kw: _fake_ctx())
+        healthy = RunReport(
+            started_at=datetime.now(UTC),
+            finished_at=datetime.now(UTC),
+            dry_run=False,
+            users=[UserRunReport(username="sarah", slug="sarah", status="ok", diff=CollectionDiff(added=["Movie"]))],
+            unhideable_measured=True,
+        )
+        monkeypatch.setattr(run_service_mod, "engine_run", lambda ctx, profiles: healthy)
+        with sessions() as session:
+            SettingsStore(session).set("notify.webhook.enabled", True)
+
+        async def scenario():
+            run_id = await service.start_run(trigger="schedule", dry_run=False)
+            return await _wait_for_run(sessions, run_id)
+
+        run = asyncio.run(scenario())
+        assert run.status == "ok"
+        with sessions() as session:
+            assert session.query(Job).filter(Job.kind == "notify.send").count() == 0
+
+    def test_a_run_announces_its_start_and_its_finish_when_the_owner_chose_them(self, sessions, tmp_path, monkeypatch):
+        """The wiring for `run.started` and `run.finished`, through the real `RunService`."""
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+        monkeypatch.setattr(service, "build_context", lambda **kw: _fake_ctx())
+        healthy = RunReport(
+            started_at=datetime.now(UTC),
+            finished_at=datetime.now(UTC),
+            dry_run=False,
+            users=[UserRunReport(username="sarah", slug="sarah", status="ok", diff=CollectionDiff(added=["Movie"]))],
+            unhideable_measured=True,
+        )
+        monkeypatch.setattr(run_service_mod, "engine_run", lambda ctx, profiles: healthy)
+        with sessions() as session:
+            store = SettingsStore(session)
+            store.set("notify.webhook.enabled", True)
+            store.set("notify.webhook.events", ["run.started", "run.finished"])
+
+        async def scenario():
+            run_id = await service.start_run(trigger="schedule", dry_run=False)
+            return await _wait_for_run(sessions, run_id)
+
+        run = asyncio.run(scenario())
+        with sessions() as session:
+            queued = session.query(Job).filter(Job.kind == "notify.send").order_by(Job.id).all()
+        assert [(j.payload["item"]["event"], j.payload["item"]["id"]) for j in queued] == [
+            ("run.started", f"run-started-{run.id}"),
+            ("run.finished", f"run-finished-{run.id}"),
+        ]
+
+    def test_shortlist_dry_run_env_forces_dry_run(self, sessions, tmp_path, monkeypatch):
+        """SHORTLIST_DRY_RUN forces even a non-dry 'Run now' to dry-run — the safety a demo/test
+        instance pointed at a real server relies on (it can never write to Plex)."""
+        monkeypatch.setenv("SHORTLIST_DRY_RUN", "1")
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+        captured: dict = {}
+
+        def fake_build_context(**kw):
+            captured["dry_run"] = kw.get("dry_run")
+            return _fake_ctx()
+
+        monkeypatch.setattr(service, "build_context", fake_build_context)
+        monkeypatch.setattr(run_service_mod, "engine_run", lambda ctx, profiles: fake_report(dry_run=True))
+
+        async def scenario():
+            run_id = await service.start_run(trigger="manual", dry_run=False)  # caller asked for a REAL run
+            return await _wait_for_run(sessions, run_id)
+
+        run = asyncio.run(scenario())
+        assert captured["dry_run"] is True  # engine built in dry-run despite the caller's dry_run=False
+        assert run.dry_run is True  # and the persisted run is marked dry
+        assert run.stats["dry_run"] is True
+
+    def test_build_context_forces_dry_run_under_safe_mode(self, sessions, tmp_path, monkeypatch):
+        """Safe-mode chokepoint: build_context is where EVERY Plex-touching path (runs + the manual
+        row delete/rename/poster/disable reconciles) gets its context, so forcing dry-run here covers
+        all of them. Assert a caller's dry_run=False is overridden when the env is set."""
+        monkeypatch.setenv("SHORTLIST_DRY_RUN", "1")
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+        captured: dict = {}
+        monkeypatch.setattr(service._ctx, "build", lambda **kw: captured.update(kw) or SimpleNamespace())
+
+        service.build_context(dry_run=False)
+
+        assert captured["dry_run"] is True  # forced on despite the caller asking for a live context
+
+    def _one_user_report(self, slug: str) -> UserRunReport:
+        return UserRunReport(
+            username=slug,
+            slug=slug,
+            status="ok",
+            picks=[Pick(tmdb_id=1, rating_key=10, title="Movie", rank=1, reason="r", media_type=MediaType.MOVIE)],
+            counts=StageCounts(picks=1),
+            diff=CollectionDiff(added=["Movie"]),
+            error=None,
+            duration_s=1.0,
+            privacy_synced=True,
+        )
+
+    def _new_run(self, sessions) -> int:
+        with sessions() as session:  # users 'sarah'/'mike' are already seeded by the fixture
+            run = Run(trigger="manual", status="running", stats={})
+            session.add(run)
+            session.commit()
+            return run.id
+
+    def _report(self, *reports: UserRunReport) -> RunReport:
+        return RunReport(started_at=datetime.now(UTC), finished_at=datetime.now(UTC), users=list(reports))
+
+    def test_live_persist_then_end_persist_writes_each_user_exactly_once(self, sessions, tmp_path):
+        """The live per-user persist writes a user; the end-of-run persist must NOT write them again —
+        exactly one RunUser + its picks + one run.user event, not two."""
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+        run_id = self._new_run(sessions)
+        report = self._one_user_report("sarah")
+
+        service._persist_user_live(run_id, SimpleNamespace(slug="sarah"), report, dry_run=False)
+        with sessions() as s:
+            assert s.query(RunUser).filter_by(run_id=run_id).count() == 1
+            assert s.query(PickRow).filter_by(run_id=run_id).count() == 1
+            assert s.query(Event).filter_by(scope="run.user").count() == 1
+
+        # End-of-run persist over the same user must be a no-op for their rows (dedup guard).
+        service._persist_report(run_id, self._report(report))
+        with sessions() as s:
+            assert s.query(RunUser).filter_by(run_id=run_id).count() == 1
+            assert s.query(PickRow).filter_by(run_id=run_id).count() == 1
+            assert s.query(Event).filter_by(scope="run.user").count() == 1
+            assert s.get(Run, run_id).stats["users_ok"] == 1  # still counted for finalize stats
+
+    def test_end_persist_backstops_a_user_the_live_path_missed(self, sessions, tmp_path):
+        """If the live persist never ran for a user (hook raised / unwired), the end-of-run persist
+        still writes them exactly once."""
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+        run_id = self._new_run(sessions)
+
+        service._persist_report(run_id, self._report(self._one_user_report("mike")))
+        with sessions() as s:
+            assert s.query(RunUser).filter_by(run_id=run_id).count() == 1
+            assert s.query(PickRow).filter_by(run_id=run_id).count() == 1
+
+    def test_an_unreadable_filter_is_recorded_on_every_run_that_looked_empty_included(self, sessions, tmp_path):
+        """Empty must be written too, or one bad night pins the alert through every fixed run after it —
+        the shape `filters_not_enforced` already had to be fixed for."""
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+        run_id = self._new_run(sessions)
+        report = self._report(self._one_user_report("sarah"))
+        report.unhideable_measured = True
+
+        service._persist_report(run_id, report)
+
+        with sessions() as s:
+            assert s.get(Run, run_id).stats["unreadable_filters"] == {}
+
+    def test_the_accounts_a_run_could_not_vouch_for_are_recorded(self, sessions, tmp_path):
+        """The run page counts an account as hiding only when the run vouched for it; these three keys are
+        what it reads, and an absent key reads as "not fully measured" on every new run."""
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+        run_id = self._new_run(sessions)
+        report = self._report(self._one_user_report("sarah"))
+        report.unhideable_measured = True
+        report.privacy_unchecked, report.privacy_write_failed, report.privacy_left_alone = ["kid"], ["mike"], ["tom"]
+
+        service._persist_report(run_id, report)
+
+        with sessions() as s:
+            stats = s.get(Run, run_id).stats
+            assert [stats["privacy_unchecked"], stats["privacy_write_failed"], stats["privacy_left_alone"]] == [
+                ["kid"],
+                ["mike"],
+                ["tom"],
+            ]
+
+    def test_a_run_that_restored_an_owners_restriction_records_who(self, sessions, tmp_path):
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+        run_id = self._new_run(sessions)
+        report = self._report(self._one_user_report("sarah"))
+        report.restrictions_restored = {201: "sarah"}
+
+        service._persist_report(run_id, report)
+
+        with sessions() as s:
+            events = s.query(Event).filter_by(scope="privacy.restriction_restored").all()
+            assert [e.message for e in events] == [{"account_id": 201, "username": "sarah"}]
+
+    def test_a_shared_rows_write_is_audited(self, sessions, tmp_path, monkeypatch):
+        """A shared row files its report under `shared_<slug>`, which is nobody's user slug — so
+        _persist_report's `if user is None: continue` dropped it whole. A real Plex collection was
+        created, labelled and promoted with NO audit event at all (plex-safety rule 10), and a failed
+        shared row produced an errored run with nothing to show for it."""
+        bus = EventBus()
+        service = RunService(sessions, bus, tmp_path, SecretBox(tmp_path))
+        monkeypatch.setattr(service, "build_context", lambda **kw: _fake_ctx())
+
+        shared = UserRunReport(
+            username="Popular on this server",
+            slug="shared_popular",
+            status="ok",
+            picks=[Pick(tmdb_id=7, rating_key=70, title="Dune", rank=1, reason="r", media_type=MediaType.MOVIE)],
+            counts=StageCounts(picks=1),
+            diff=CollectionDiff(added=["Dune"]),
+            duration_s=0.5,
+        )
+        report = RunReport(started_at=datetime.now(UTC), finished_at=datetime.now(UTC), users=[shared])
+        monkeypatch.setattr(run_service_mod, "engine_run", lambda ctx, profiles: report)
+
+        async def scenario():
+            run_id = await service.start_run(trigger="manual", dry_run=False)
+            return await _wait_for_run(sessions, run_id)
+
+        run = asyncio.run(scenario())
+
+        with sessions() as session:
+            events = session.query(Event).filter_by(scope="run.shared").all()
+            assert len(events) == 1, "a shared row's Plex write left no audit trail"
+            assert events[0].message["row"] == "shared_popular"
+            assert events[0].message["diff"]["added"] == ["Dune"]
+            assert events[0].message["picks"] == 1
+        assert run.status == "ok"
+
+    def test_cancelling_a_QUEUED_run_stops_it_without_waiting_for_the_one_ahead(self, sessions, tmp_path):
+        """Runs serialise on the Plex writer lock, and the cancel flag is only read BETWEEN users —
+        which a queued run has not reached. So pressing Cancel on a queued run did nothing until the
+        run in front finished: on a real server, half an hour of "Stopping…" on four runs at once.
+
+        Nothing has been built at that point, so there is nothing to unwind."""
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+        run_id = self._new_run(sessions)
+        # Queued: the cancel Event exists from the moment `start_run` arms it.
+        service._cancels[run_id] = threading.Event()
+        assert service.cancel_run(run_id) is True
+
+        asyncio.run(service._run_locked(run_id, False, None, None, asyncio.new_event_loop()))
+
+        with sessions() as session:
+            run = session.get(Run, run_id)
+            assert run.status == "aborted", "a cancelled queued run must not sit in the queue"
+            assert run.finished_at is not None, "it has to stop being 'in flight' or the UI waits for ever"
+
+    def test_a_shared_row_gets_a_queryable_run_record_not_just_an_event(self, sessions, tmp_path, monkeypatch):
+        """The audit event carries status and diff TITLES and nothing else — no trace, no breakdown,
+        no token spend, no picks. So a run whose only work was a shared row could show a wall of
+        skipped people and never say what it built, and "why did this row pick that" was answerable
+        from the container log alone. Recorded from run #37 on a live server: 46 skipped users beside
+        a shared row that had just built 40 picks."""
+        from shortlist.server.db.models import RunSharedRow
+
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+        monkeypatch.setattr(service, "build_context", lambda **kw: _fake_ctx())
+        shared = UserRunReport(
+            username="Shared · popular",
+            slug="shared_popular",
+            status="ok",
+            picks=[Pick(tmdb_id=7, rating_key=70, title="Dune", rank=1, reason="r", media_type=MediaType.MOVIE)],
+            counts=StageCounts(picks=1),
+            diff=CollectionDiff(added=["Dune"]),
+            duration_s=0.5,
+            llm_tokens=120,
+            llm_output_tokens=20,
+            trace={"gathers": [{"source": "popular"}]},
+            breakdown=[{"row_slug": "popular", "row_title": "👥 Popular on SFLIX", "library_key": "1"}],
+        )
+        report = RunReport(started_at=datetime.now(UTC), finished_at=datetime.now(UTC), users=[shared])
+        monkeypatch.setattr(run_service_mod, "engine_run", lambda ctx, profiles: report)
+
+        async def scenario():
+            run_id = await service.start_run(trigger="manual", dry_run=False)
+            return await _wait_for_run(sessions, run_id)
+
+        run = asyncio.run(scenario())
+
+        with sessions() as session:
+            row = session.get(RunSharedRow, (run.id, "popular"))
+            assert row is not None, "a shared row must have a run record, not only an audit event"
+            assert row.collection_slug == "popular", "keyed on the COLLECTION slug, not the shared_ report slug"
+            assert row.row_title == "👥 Popular on SFLIX", "the title AS RENDERED this run"
+            assert row.status == "ok"
+            assert row.trace == {"gathers": [{"source": "popular"}]}, "the trace is the whole point"
+            assert row.llm_tokens == 120
+            # The run's output share, summed like its total: output is billed at several times the input rate.
+            assert run.stats["llm_tokens"] == 120
+            assert run.stats["llm_output_tokens"] == 20
+            assert [p["title"] for p in row.picks] == ["Dune"], "its picks are on the row — never in `picks`"
+            assert session.query(PickRow).filter_by(run_id=run.id).count() == 0, (
+                "PickRow.user_id is RESTRICT-keyed to a real account; a shared row must not invent one"
+            )
+
+    def test_a_shared_rows_collections_reach_the_delivery_ledger(self, sessions, tmp_path, monkeypatch):
+        """`_record_deliveries` was only ever called from `_persist_user_report`, which a shared row
+        never reached — so its collections were absent from the ledger, and a later reconcile had no
+        ratingKey for a row whose title it cannot re-derive. `delivery.py` files them under this same
+        `shared_<slug>` key, so the ledger and the deliverer must agree on it."""
+        from shortlist.server.db.models import Delivery
+
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+        monkeypatch.setattr(service, "build_context", lambda **kw: _fake_ctx())
+        shared = UserRunReport(
+            username="Shared · popular",
+            slug="shared_popular",
+            status="ok",
+            counts=StageCounts(),
+            diff=CollectionDiff(added=["Dune"]),
+            breakdown=[
+                {
+                    "row_slug": "popular",
+                    "row_title": "👥 Popular on SFLIX",
+                    "library_key": "1",
+                    "rating_key": 9001,
+                }
+            ],
+        )
+        report = RunReport(started_at=datetime.now(UTC), finished_at=datetime.now(UTC), users=[shared])
+        monkeypatch.setattr(run_service_mod, "engine_run", lambda ctx, profiles: report)
+
+        async def scenario():
+            run_id = await service.start_run(trigger="manual", dry_run=False)
+            return await _wait_for_run(sessions, run_id)
+
+        asyncio.run(scenario())
+
+        with sessions() as session:
+            entry = session.get(Delivery, ("popular", "shared_popular", "1"))
+            assert entry is not None, "a shared row's collection never entered the delivery ledger"
+            assert entry.rating_key == 9001
+
+    def test_a_skipped_shared_row_is_counted_as_skipped_and_still_audited(self, sessions, tmp_path, monkeypatch):
+        """A shared row has no RunUser row, so this event is the only record of its outcome (rule 10)
+        — and a row that built nothing must not inflate the run's success count."""
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+        monkeypatch.setattr(service, "build_context", lambda **kw: _fake_ctx())
+        shared = UserRunReport(
+            username="Shared · popular",
+            slug="shared_popular",
+            status="skipped",
+            reason="A shared row needs at least 2 people with overlapping viewing.",
+            counts=StageCounts(),
+        )
+        report = RunReport(started_at=datetime.now(UTC), finished_at=datetime.now(UTC), users=[shared])
+        monkeypatch.setattr(run_service_mod, "engine_run", lambda ctx, profiles: report)
+
+        async def scenario():
+            run_id = await service.start_run(trigger="manual", dry_run=False)
+            return await _wait_for_run(sessions, run_id)
+
+        run = asyncio.run(scenario())
+
+        assert run.stats["users_skipped"] == 1
+        assert run.stats["users_ok"] == 0 and run.stats["users_error"] == 0
+        with sessions() as session:
+            events = session.query(Event).filter_by(scope="run.shared").all()
+            assert len(events) == 1, "a shared row's outcome must still be audited"
+            assert "at least 2 people" in events[0].message["reason"]
+
+    def test_a_failed_shared_row_makes_the_run_an_error(self, sessions, tmp_path, monkeypatch):
+        bus = EventBus()
+        service = RunService(sessions, bus, tmp_path, SecretBox(tmp_path))
+        monkeypatch.setattr(service, "build_context", lambda **kw: _fake_ctx())
+
+        shared = UserRunReport(
+            username="Popular",
+            slug="shared_popular",
+            status="error",
+            error="plex timed out",
+            counts=StageCounts(),
+            duration_s=0.1,
+        )
+        report = RunReport(started_at=datetime.now(UTC), finished_at=datetime.now(UTC), users=[shared])
+        monkeypatch.setattr(run_service_mod, "engine_run", lambda ctx, profiles: report)
+
+        async def scenario():
+            run_id = await service.start_run(trigger="manual", dry_run=False)
+            return await _wait_for_run(sessions, run_id)
+
+        run = asyncio.run(scenario())
+
+        assert run.stats["users_error"] == 1  # it used to be 0 — an errored run naming nobody
+        with sessions() as session:
+            event = session.query(Event).filter_by(scope="run.shared").one()
+            assert event.level == "error"
+            assert event.message["error"] == "plex timed out"
+
+    def test_hit_rate_marks_the_picks_a_person_actually_watched(self, sessions, tmp_path, monkeypatch):
+        """`picks.watched_at` was declared, migrated and READ by the hit-rate query — and written by
+        nothing. Every hit rate was structurally 0%, while the docs promised "expect 20-40%".
+
+        Credit lands one night LATER than delivery, and that is not an accident of the test: a title
+        is creditable because it was in the row the person was looking at, so the run that first
+        delivers it cannot also credit it — its own history read happened before it existed on the
+        shelf. Tonight's run credits what LAST night's row put there.
+        """
+        from datetime import timedelta
+
+        from shortlist.engine.models import UserProfile, UserType, WatchedItem
+        from shortlist.server.db.models import DEFAULT_SLUG, User
+
+        bus = EventBus()
+        service = RunService(sessions, bus, tmp_path, SecretBox(tmp_path))
+        monkeypatch.setattr(service, "build_context", lambda **kw: _fake_ctx())
+
+        # The `sessions` fixture already seeds sarah. Last night's run put tmdb 1 and 2 in her row;
+        # she has since watched 1 and ignored 2.
+        now = datetime.now(UTC)
+        with sessions() as session:
+            sarah = session.query(User).filter_by(slug="sarah").one()
+            last_night = Run(trigger="schedule", status="ok", started_at=now - timedelta(days=1))
+            session.add(last_night)
+            # The ledger entry a real delivery leaves behind — liveness means the collection is still
+            # ON PLEX, and this is the only record of that.
+            session.add(Delivery(collection_slug=DEFAULT_SLUG, user_slug="sarah", library_key="1", rating_key=7))
+            session.flush()
+            for tmdb_id, title in ((1, "Watched"), (2, "Ignored")):
+                session.add(
+                    PickRow(
+                        run_id=last_night.id,
+                        user_id=sarah.id,
+                        collection_slug=DEFAULT_SLUG,
+                        section_key="1",
+                        library="Movies",
+                        tmdb_id=tmdb_id,
+                        media_type="movie",
+                        rating_key=tmdb_id * 10,
+                        rank=tmdb_id,
+                        title=title,
+                        created_at=now - timedelta(days=1),
+                    )
+                )
+            personal_delivery(session, last_night.id, user_id=sarah.id, slug=DEFAULT_SLUG)
+            session.commit()
+        report = RunReport(
+            started_at=now,
+            finished_at=now,
+            users=[UserRunReport(username="sarah", slug="sarah", status="ok", counts=StageCounts(), duration_s=0.1)],
+        )
+        profile = UserProfile(
+            username="sarah",
+            plex_account_id=100,
+            user_type=UserType.SHARED,
+            slug="sarah",
+            history=[
+                WatchedItem(title="Watched", media_type=MediaType.MOVIE, watched_at=now, tmdb_id=1),
+            ],
+        )
+        monkeypatch.setattr(run_service_mod, "engine_run", lambda ctx, profiles: report)
+        monkeypatch.setattr(service, "enabled_profiles", lambda session, user_ids=None: [profile])
+
+        async def scenario():
+            run_id = await service.start_run(trigger="manual", dry_run=False)
+            return await _wait_for_run(sessions, run_id)
+
+        asyncio.run(scenario())
+
+        with sessions() as session:
+            picks = {p.tmdb_id: p for p in session.query(PickRow).all()}
+            assert picks[1].watched_at is not None, "a watched pick was never credited to the hit rate"
+            assert picks[2].watched_at is None  # never watched
+            user = session.query(User).filter_by(slug="sarah").one()
+            assert user.prefs["history_depth"] == 1  # also written by nothing before
+
+    def test_an_auto_sent_title_is_filed_and_never_re_requested(self, sessions, tmp_path, monkeypatch):
+        """The starvation bug, end to end. An auto-sent title used to leave NO ledger row — only
+        titles the owner sent by hand did — so tomorrow it was 'missing' again, out-ranked everything
+        by demand, re-consumed one of max_per_run, and the queue starved on the same few titles."""
+        from shortlist.engine.models import MissingTitle, RequestOutcome, RequestReport, RequestWhy
+        from shortlist.server.db.models import RequestCandidate
+
+        bus = EventBus()
+        service = RunService(sessions, bus, tmp_path, SecretBox(tmp_path))
+        monkeypatch.setattr(service, "build_context", lambda **kw: _fake_ctx())
+
+        why = RequestWhy(user="Sarah", row="Sarah's Picks", seed="Blade Runner", source="tmdb_similar")
+        sent = MissingTitle(42, "Dune", MediaType.MOVIE, 2021, rating=8.5, vote_count=900, demand=4, why=[why])
+        report = RunReport(
+            started_at=datetime.now(UTC),
+            finished_at=datetime.now(UTC),
+            users=[],
+            requests=RequestReport(
+                considered=1,
+                outcomes=[RequestOutcome(42, "Dune", MediaType.MOVIE, "requested", detail="added to Radarr")],
+                sent=[sent],
+            ),
+        )
+        monkeypatch.setattr(run_service_mod, "engine_run", lambda ctx, profiles: report)
+
+        async def scenario():
+            run_id = await service.start_run(trigger="manual", dry_run=False)
+            return await _wait_for_run(sessions, run_id)
+
+        asyncio.run(scenario())
+
+        with sessions() as session:
+            row = session.query(RequestCandidate).filter_by(tmdb_id=42).one()
+            assert row.status == "sent", "an auto-sent title left no ledger row, so it would be re-sent"
+            # The send log needs the Arr's own answer, not just "sent" — assert the outcome landed.
+            assert row.detail == "added to Radarr"
+            # ...and the provenance persisted, so the log can say which row/person wanted it and why.
+            assert row.why == [
+                # `row_slug` sits beside the rendered `row` name: the name carries Sarah's own seed
+                # title, so only the slug can resolve this row's Arr target on a later approval.
+                {
+                    "user": "Sarah",
+                    "row": "Sarah's Picks",
+                    "seed": "Blade Runner",
+                    "source": "tmdb_similar",
+                    "row_slug": "",
+                }
+            ]
+            # ...and the next run's engine context therefore excludes it.
+            handled = ContextBuilder._handled_requests(session)
+            assert (42, "movie") in handled
+
+    def test_dry_run_persists_no_picks(self, sessions, tmp_path, monkeypatch):
+        bus = EventBus()
+        service = RunService(sessions, bus, tmp_path, SecretBox(tmp_path))
+        monkeypatch.setattr(service, "build_context", lambda **kw: _fake_ctx())
+        monkeypatch.setattr(run_service_mod, "engine_run", lambda ctx, profiles: fake_report(dry_run=True))
+
+        async def scenario():
+            run_id = await service.start_run(trigger="manual", dry_run=True)
+            return await _wait_for_run(sessions, run_id)
+
+        asyncio.run(scenario())
+        with sessions() as session:
+            assert session.query(PickRow).count() == 0
+
+    def test_context_build_failure_marks_run_error(self, sessions, tmp_path, monkeypatch):
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+
+        def boom(**kw):
+            raise RuntimeError("Plex connection is not configured yet")
+
+        monkeypatch.setattr(service, "build_context", boom)
+
+        async def scenario():
+            run_id = await service.start_run(trigger="schedule", dry_run=False)
+            return await _wait_for_run(sessions, run_id)
+
+        run = asyncio.run(scenario())
+        assert run.status == "error"
+        assert "not configured" in run.stats["error"]
+
+    def test_an_unreachable_plex_is_recorded_as_the_explanation_not_the_exception(
+        self, sessions, tmp_path, monkeypatch
+    ):
+        # Issue #139: the run page printed `ConnectionError: HTTPSConnectionPool(host=...)`.
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+
+        def boom(**kw):
+            raise PlexUnreachable("Shortlist could not reach Plex at http://pms:32400: it did not answer in time.")
+
+        monkeypatch.setattr(service, "build_context", boom)
+
+        async def scenario():
+            run_id = await service.start_run(trigger="manual", dry_run=False)
+            return await _wait_for_run(sessions, run_id)
+
+        run = asyncio.run(scenario())
+        assert run.stats["error"] == "Shortlist could not reach Plex at http://pms:32400: it did not answer in time."
+
+    def test_a_failed_runs_error_is_scrubbed_of_tokens(self, sessions, tmp_path, monkeypatch):
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+
+        def boom(**kw):
+            raise RuntimeError("GET http://pms:32400/library?X-Plex-Token=abcdefghij0123456789 failed")
+
+        monkeypatch.setattr(service, "build_context", boom)
+
+        async def scenario():
+            run_id = await service.start_run(trigger="manual", dry_run=False)
+            return await _wait_for_run(sessions, run_id)
+
+        run = asyncio.run(scenario())
+        assert run.stats["error"].startswith("RuntimeError: GET http://pms:32400/library")
+        assert "abcdefghij0123456789" not in run.stats["error"]
+
+    def test_a_run_that_fails_before_it_starts_says_why_in_its_own_log(self, sessions, tmp_path, monkeypatch):
+        # The engine's warnings are only captured once it is running, so a failure building the
+        # context reached the container log and left the run's Log tab empty.
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+
+        def boom(**kw):
+            raise RuntimeError("Plex connection is not configured yet")
+
+        monkeypatch.setattr(service, "build_context", boom)
+
+        async def scenario():
+            run_id = await service.start_run(trigger="manual", dry_run=False)
+            await _wait_for_run(sessions, run_id)
+            return run_id
+
+        run_id = asyncio.run(scenario())
+        errors = [line for line in service.run_log(run_id) if line["level"] == "error"]
+        assert [line["reason"] for line in errors] == [
+            "The run failed: RuntimeError: Plex connection is not configured yet"
+        ]
+
+    def test_user_ids_narrows_but_never_widens_past_enabled(self, sessions, tmp_path):
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+        with sessions() as session:
+            mike = session.query(User).filter_by(slug="mike").one()
+            mike.enabled = False
+            session.commit()
+            mike_id, sarah_id = mike.id, session.query(User).filter_by(slug="sarah").one().id
+            # Asking for a disabled user must NOT run them.
+            assert [p.slug for p in service.enabled_profiles(session, [mike_id])] == []
+            assert [p.slug for p in service.enabled_profiles(session, [mike_id, sarah_id])] == ["sarah"]
+            # Empty list means "no users", not "everyone".
+            assert service.enabled_profiles(session, []) == []
+
+    def test_enabled_profiles_skips_paused_and_maps_prefs(self, sessions, tmp_path):
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+        with sessions() as session:
+            mike = session.query(User).filter_by(slug="mike").one()
+            mike.prefs = {"paused": True}
+            sarah = session.query(User).filter_by(slug="sarah").one()
+            sarah.prefs = {"excluded_genres": ["Horror"]}
+            session.commit()
+            profiles = service.enabled_profiles(session)
+        assert [p.slug for p in profiles] == ["sarah"]
+        assert profiles[0].excluded_genres == {"Horror"}
+
+
+class TestPauseAll:
+    """The Danger Zone switch was a no-op: the key wasn't storable and nothing read it."""
+
+    def test_paused_all_stops_every_run_without_disabling_users(self, sessions, tmp_path):
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+        with sessions() as session:
+            assert {p.slug for p in service.enabled_profiles(session)} == {"sarah", "mike"}
+            SettingsStore(session, service._secrets).set("paused_all", True)
+            assert service.enabled_profiles(session) == []
+            # The users are still enabled — unpausing restores them, no re-enabling needed.
+            assert session.query(User).filter_by(enabled=True).count() == 2
+            SettingsStore(session, service._secrets).set("paused_all", False)
+            assert {p.slug for p in service.enabled_profiles(session)} == {"sarah", "mike"}
+
+
+class TestSnapshotsForAccountsShortlistDoesNotKnow:
+    """The server must be able to write share filters for accounts that aren't in its users table.
+
+    A row is visible to anyone whose filter doesn't exclude it, so every account sharing the
+    server needs the excludes — including someone the owner invited to Plex ten minutes ago, who
+    has never appeared on the Users page. Rule 2 forbids writing a filter without snapshotting it
+    first, so if the snapshot store cannot record a stranger, that account's filter is never
+    written and they go on seeing other people's rows, forever, with the run reporting green.
+    """
+
+    def test_snapshotting_a_stranger_records_them_so_uninstall_can_restore_them(self, sessions):
+        from shortlist.server.db.adapters import DbSnapshotStore
+
+        store = DbSnapshotStore(sessions)
+        snapshot = FilterSnapshot(
+            plex_account_id=987654,
+            username="brand.new",
+            taken_at=datetime.now(UTC),
+            filters={"filterMovies": "contentRating!=R", "filterTelevision": ""},
+        )
+
+        store.save(snapshot)
+
+        # Round-trips: uninstall reads snapshots back through the users table.
+        restored = store.get(987654)
+        assert restored is not None
+        assert restored.filters["filterMovies"] == "contentRating!=R"
+
+        with sessions() as session:
+            user = session.query(User).filter_by(plex_account_id=987654).one()
+            assert user.username == "brand.new"
+            assert user.enabled is False, "a stranger gets excludes, not a row"
+
+    def test_two_display_names_that_slugify_alike_do_not_collide(self, sessions):
+        """Plex display names are free text, and the slug column is UNIQUE. If two accounts
+        slugified to the same string, the second one's snapshot would fail to save — and a
+        snapshot that cannot be saved means a share filter that is never written, which means
+        that account goes on seeing everyone else's rows."""
+        from shortlist.server.db.adapters import DbSnapshotStore
+
+        store = DbSnapshotStore(sessions)
+        for account_id, username in ((111, "Bob Smith"), (222, "bob-smith")):
+            store.save(
+                FilterSnapshot(
+                    plex_account_id=account_id,
+                    username=username,
+                    taken_at=datetime.now(UTC),
+                    filters={"filterMovies": "", "filterTelevision": ""},
+                )
+            )
+
+        with sessions() as session:
+            slugs = {u.plex_account_id: u.slug for u in session.query(User).all()}
+        assert slugs[111] != slugs[222], "two accounts must never share a slug — the label is built from it"
+        assert store.get(111) is not None and store.get(222) is not None
+
+
+class TestAFinishedRunStartsTheWorkItWasBlocking:
+    """A run holds the Plex writer lock, so `_plex_busy` parks every writer job behind it.
+
+    Nothing used to tell the queue when that ended, so the jobs sat idle until the worker's next
+    60-second tick — measured at 29 seconds of nothing on the maintainer's server, which is what he
+    noticed when a manual run appeared to do nothing for 10-20s.
+    """
+
+    def _service_with_a_drain_spy(self, sessions, tmp_path, monkeypatch):
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+        monkeypatch.setattr(service, "build_context", lambda **kw: _fake_ctx())
+        drained: list[bool] = []
+
+        async def fake_drain(state, reason):
+            # Asserted, not incidental: draining while the run still counts as in-flight would
+            # re-park every writer and buy nothing, which is the whole bug being fixed.
+            drained.append(state.run_service.is_running())
+
+        monkeypatch.setattr(run_service_mod.jobs, "drain_now", fake_drain)
+        service.state = SimpleNamespace(run_service=service)
+        return service, drained
+
+    def test_it_drains_as_soon_as_the_run_finishes(self, sessions, tmp_path, monkeypatch):
+        service, drained = self._service_with_a_drain_spy(sessions, tmp_path, monkeypatch)
+        monkeypatch.setattr(run_service_mod, "engine_run", lambda ctx, profiles: fake_report())
+
+        async def scenario():
+            run_id = await service.start_run(trigger="manual", dry_run=False)
+            return await _wait_for_run(sessions, run_id)
+
+        asyncio.run(scenario())
+
+        assert drained == [False], "expected exactly one drain, with the run no longer in flight"
+
+    def test_it_drains_even_when_the_run_failed(self, sessions, tmp_path, monkeypatch):
+        """The failure path is the one most likely to be missed — and the one that matters most.
+
+        A crashed run released the writer lock just the same, and it is exactly when a `privacy.sync`
+        is most likely to be sitting in the queue: that is the leak direction.
+        """
+        service, drained = self._service_with_a_drain_spy(sessions, tmp_path, monkeypatch)
+
+        def boom(ctx, profiles):
+            raise RuntimeError("plex went away mid-run")
+
+        monkeypatch.setattr(run_service_mod, "engine_run", boom)
+
+        async def scenario():
+            run_id = await service.start_run(trigger="manual", dry_run=False)
+            return await _wait_for_run(sessions, run_id)
+
+        run = asyncio.run(scenario())
+
+        assert run.status == "error"
+        assert drained == [False], "a failed run still owes the queue its turn"
+
+    def test_a_broken_queue_never_fails_an_otherwise_good_run(self, sessions, tmp_path, monkeypatch):
+        """The drain is opportunistic: the queue is durable and the worker re-ticks regardless."""
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+        monkeypatch.setattr(service, "build_context", lambda **kw: _fake_ctx())
+        monkeypatch.setattr(run_service_mod, "engine_run", lambda ctx, profiles: fake_report())
+
+        async def exploding_drain(state, reason):
+            raise RuntimeError("the queue is on fire")
+
+        monkeypatch.setattr(run_service_mod.jobs, "drain_now", exploding_drain)
+        service.state = SimpleNamespace(run_service=service)
+
+        async def scenario():
+            run_id = await service.start_run(trigger="manual", dry_run=False)
+            return await _wait_for_run(sessions, run_id)
+
+        run = asyncio.run(scenario())
+
+        assert run.status == "error"  # fake_report has one errored user; the DRAIN did not cause it
+        assert run.stats["users_ok"] == 1, "the run's own results survived the queue blowing up"
+
+    def test_a_run_stopped_with_cancel_run_still_drains(self, sessions, tmp_path, monkeypatch):
+        """`cancel_run` is not task cancellation. It sets the engine's flag, the engine stops between
+        users and RETURNS, and the run ends normally with its thread finished — so it owes the queue its
+        drain exactly like a finished run. The shutdown guard must not swallow this one."""
+        service, drained = self._service_with_a_drain_spy(sessions, tmp_path, monkeypatch)
+        engine_started = threading.Event()
+
+        def engine_that_stops_when_asked(ctx, profiles):
+            engine_started.set()
+            deadline = time.monotonic() + 5
+            while not ctx.cancelled() and time.monotonic() < deadline:
+                time.sleep(0.01)
+            return fake_report()
+
+        monkeypatch.setattr(run_service_mod, "engine_run", engine_that_stops_when_asked)
+
+        async def scenario() -> int:
+            run_id = await service.start_run(trigger="manual", dry_run=False)
+            (task,) = service._tasks
+            await asyncio.get_running_loop().run_in_executor(None, engine_started.wait, 5)
+            assert service.cancel_run(run_id) is True
+            await asyncio.wait({task}, timeout=5)
+            assert task.done() and not task.cancelled()
+            return run_id
+
+        run_id = asyncio.run(scenario())
+
+        with sessions() as session:
+            assert session.get(Run, run_id).status == "aborted"
+        assert drained == [False], "a run stopped by the owner still owes the queue its turn"
+
+
+class TestShutdownNeverStartsAWriterBesideALiveEngine:
+    """Cancelling a run task must retain its writer lock until the executor thread finishes.
+
+    Previously, cancellation ran the task's `finally` blocks immediately: they released the writer
+    lock and dropped the cancel Event, so `is_running()` read False. The following drain could then
+    start a queued `privacy.sync` while the engine thread was still merging share filters. Two
+    overlapping read-modify-write merges drop the first one's `label!=` excludes (plex-safety rule 3).
+
+    Shutdown now joins owned work, and a cancelled run task requests cooperative cancellation while
+    retaining ownership until its engine settles. Neither path may start a second writer beside it.
+    """
+
+    def test_a_cancelled_run_task_starts_no_writer_while_its_engine_thread_runs(self, sessions, tmp_path, monkeypatch):
+        from shortlist.server.services import jobs
+
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+        monkeypatch.setattr(service, "build_context", lambda **kw: _fake_ctx())
+        service.state = SimpleNamespace(run_service=service, sessions=sessions)
+        engine_started, release_engine, engine_done = threading.Event(), threading.Event(), threading.Event()
+
+        def engine_still_mid_run(ctx, profiles):
+            engine_started.set()
+            release_engine.wait(timeout=10)
+            engine_done.set()
+            return fake_report()
+
+        writer_ran_beside_engine: list[bool] = []
+
+        def privacy_sync(state, payload):
+            writer_ran_beside_engine.append(not engine_done.is_set())
+            return {}
+
+        monkeypatch.setattr(run_service_mod, "engine_run", engine_still_mid_run)
+        monkeypatch.setitem(jobs._HANDLERS, "privacy.sync", privacy_sync)
+
+        async def scenario() -> tuple[list[bool], str, bool]:
+            loop = asyncio.get_running_loop()
+            try:
+                await service.start_run(trigger="schedule", dry_run=False)
+                (task,) = service._tasks
+                assert await loop.run_in_executor(None, engine_started.wait, 5)
+                job_id = jobs.enqueue(sessions, "privacy.sync", {"scheduled": True})
+
+                task.cancel()  # what asyncio.run's teardown does to every task left after uvicorn stops
+                await asyncio.sleep(0)
+                assert not task.done(), "the run must keep ownership of its live executor"
+                assert jobs.plex_writer_lock().locked(), "a live engine still owns the writer lock"
+                during_shutdown = list(writer_ran_beside_engine)
+                with sessions() as session:
+                    left_queued = session.get(Job, job_id).status
+                engine_was_alive = not engine_done.is_set()
+            finally:
+                release_engine.set()
+                await asyncio.wait_for(service.shutdown(), timeout=10)
+            assert task.cancelled()
+            assert engine_done.is_set()
+            assert not jobs.plex_writer_lock().locked()
+            # The next drain (the next boot's, in production) still finds the job and runs it.
+            await jobs.drain_now(service.state, "next boot")
+            return during_shutdown, left_queued, engine_was_alive
+
+        during_shutdown, left_queued, engine_was_alive = asyncio.run(scenario())
+
+        assert engine_was_alive, "the scenario needs the engine thread still running when cancellation is requested"
+        assert during_shutdown == [], "a writer job started while the cancelled run's engine thread was running"
+        assert left_queued == "queued", "a skipped job must stay queued for the next drain"
+        assert writer_ran_beside_engine == [False], "the next drain must run it, after the engine finished"
+
+
+class TestRunLogBuffer:
+    """The in-memory run activity log: append via the progress sink, replay, and bounded eviction."""
+
+    def test_appends_replays_and_evicts_old_runs(self, sessions, tmp_path):
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+        sink = service._new_run_log(1)
+        sink({"stage": "history", "user": "sarah"})
+        sink({"stage": "candidates", "user": "sarah"})
+        assert [e["stage"] for e in service.run_log(1)] == ["history", "candidates"]
+
+        # Only the most-recent runs' logs are kept in memory; older ones are evicted.
+        for run_id in range(2, 2 + service._log._run_log_runs + 1):
+            service._new_run_log(run_id)
+        assert service.run_log(999_999) == [], "a run that never ran, and has no rows, has an empty log"
+
+    def test_stamps_a_monotonic_seq_so_the_live_tail_can_be_deduped(self, sessions, tmp_path):
+        """The client merges a seeded fetch with the SSE tail. Timestamps are not unique enough to
+        dedupe on — several lines land in the same millisecond."""
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+        sink = service._new_run_log(1)
+        for stage in ("history", "candidates", "delivering"):
+            sink({"stage": stage, "user": "sarah"})
+
+        assert [e["seq"] for e in service.run_log(1)] == [0, 1, 2]
+        assert [e["stage"] for e in service.run_log(1, after_seq=0)] == ["candidates", "delivering"]
+
+    def test_survives_the_log_being_evicted_from_memory(self, sessions, tmp_path):
+        """The whole point of persisting it: opening an older run's log used to show nothing at all."""
+        from shortlist.server.db.models import Run
+
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+        with sessions() as session:
+            run = Run(trigger="manual", status="ok")
+            session.add(run)
+            session.commit()
+            run_id = run.id
+
+        sink = service._new_run_log(run_id)
+        sink({"stage": "history", "user": "sarah", "counts": {"titles": 113}})
+        sink({"stage": "finished", "user": "Shortlist", "counts": {}, "reason": "all done"})
+        service.flush_run_log(run_id)
+
+        # Evict every in-memory tail, as a restart would.
+        for other in range(run_id + 1, run_id + 2 + service._log._run_log_runs):
+            service._new_run_log(other)
+        assert run_id not in service._log._run_logs
+
+        replayed = service.run_log(run_id)
+        assert [e["stage"] for e in replayed] == ["history", "finished"]
+        assert replayed[0]["counts"] == {"titles": 113}
+        assert replayed[1]["reason"] == "all done"
+
+    def test_a_broken_log_write_never_fails_the_run(self, sessions, tmp_path, monkeypatch):
+        """The run has already written to Plex by the time the tail flushes. Losing narration is an
+        annoyance; raising here would turn it into a failed run that actually succeeded."""
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+        sink = service._new_run_log(1)
+        sink({"stage": "history", "user": "sarah"})
+
+        def boom():
+            raise RuntimeError("disk is on fire")
+
+        monkeypatch.setattr(service._log, "_sessions", boom)
+        service.flush_run_log(1)  # must not raise
+
+    def test_a_lines_level_survives_the_durable_read(self, sessions, tmp_path):
+        """`level` was written to `run_log_lines` and then left out of the read, so a warning that made
+        it into the table came back indistinguishable from narration once the run left memory."""
+        from shortlist.server.db.models import Run
+
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+        with sessions() as session:
+            run = Run(trigger="manual", status="ok")
+            session.add(run)
+            session.commit()
+            run_id = run.id
+        sink = service._new_run_log(run_id)
+        sink({"stage": "warning", "user": "", "counts": {}, "reason": "tmdb gave up", "level": "warning"})
+        sink({"stage": "history", "user": "sarah", "counts": {}})
+        service.flush_run_log(run_id)
+        for other in range(run_id + 1, run_id + 2 + service._log._run_log_runs):
+            service._new_run_log(other)
+
+        assert [e["level"] for e in service.run_log(run_id)] == ["warning", "info"]
+
+
+class TestTheWatchSyncSaysItsUnmatchedWatchedSummaryOnce:
+    """The nightly sync reads every person's watched set through one history source; its per-library
+    tally of titles dropped for want of a tmdb:// guid is said once, after the last read."""
+
+    def test_the_summary_is_asked_for_once_after_every_read(self, sessions, tmp_path, monkeypatch):
+        from shortlist.engine.models import UserProfile, UserType
+
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+        order: list[str] = []
+
+        def read(profile, *args, **kwargs):
+            order.append(f"read {profile.slug}")
+            return []
+
+        ctx = SimpleNamespace(
+            plex=SimpleNamespace(sections=lambda: [SimpleNamespace(key="1", type="movie", title="Movies")]),
+            history_source=SimpleNamespace(
+                fetch=read, fetch_section=read, log_unmatched_summary=lambda: order.append("summary")
+            ),
+            config=SimpleNamespace(min_completion=0.7),
+        )
+        monkeypatch.setattr(service, "build_context", lambda **k: ctx)
+        profiles = [
+            UserProfile(username=slug, plex_account_id=i, user_type=UserType.SHARED, slug=slug)
+            for i, slug in enumerate(("sarah", "mike"), start=1)
+        ]
+        monkeypatch.setattr(service, "enabled_profiles", lambda session, user_ids=None: profiles)
+
+        asyncio.run(service.sync_watched())
+
+        assert order == ["read sarah", "read mike", "summary"]
+
+    def test_a_sync_that_never_built_a_context_asks_for_nothing(self, sessions, tmp_path, monkeypatch):
+        """Plex not configured: the sync skips, and there is no source to ask."""
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+
+        def unconfigured(**kwargs):
+            raise RuntimeError("plex is not configured")
+
+        monkeypatch.setattr(service, "build_context", unconfigured)
+
+        asyncio.run(service.sync_watched())  # must not raise
+
+
+class TestTheRunLogCarriesTheEnginesWarnings:
+    """`run_log_lines.level` read 'info' on every row ever written: the progress hook carries no level,
+    and the engine's real warnings went only to the container's log, so the Runs page never showed one.
+
+    The hard half is scoping. Jobs, the watch stream and other runs log from the same process at the
+    same moment, and a run's log must hold only what THAT run's work said."""
+
+    def _run(self, sessions, tmp_path, monkeypatch, engine) -> tuple[RunService, int]:
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+        monkeypatch.setattr(service, "build_context", lambda **kw: _fake_ctx())
+        monkeypatch.setattr(run_service_mod, "engine_run", engine)
+
+        async def scenario():
+            run_id = await service.start_run(trigger="manual", dry_run=False)
+            await _wait_for_run(sessions, run_id)
+            return run_id
+
+        return service, asyncio.run(scenario())
+
+    @staticmethod
+    def _levelled(service: RunService, run_id: int) -> list[tuple]:
+        return [
+            (e["stage"], e["level"], e["reason"]) for e in service.run_log(run_id) if e.get("level", "info") != "info"
+        ]
+
+    def test_a_warning_and_an_error_land_in_the_runs_log_with_their_level(self, sessions, tmp_path, monkeypatch):
+        from loguru import logger
+
+        def engine(ctx, profiles):
+            logger.info("narration that belongs in the container log only")
+            logger.warning("tmdb gave up on 3 titles")
+            logger.error("plex refused a write")
+            return fake_report()
+
+        service, run_id = self._run(sessions, tmp_path, monkeypatch, engine)
+
+        assert self._levelled(service, run_id) == [
+            ("warning", "warning", "tmdb gave up on 3 titles"),
+            ("error", "error", "plex refused a write"),
+        ]
+
+    def test_a_warning_from_other_work_running_at_the_same_moment_stays_out(self, sessions, tmp_path, monkeypatch):
+        """A job or the watch stream logs from its own thread, which never carried this run's context."""
+        from loguru import logger
+
+        def engine(ctx, profiles):
+            other = threading.Thread(target=lambda: logger.warning("a job's warning"))
+            other.start()
+            other.join()
+            logger.warning("the run's own warning")
+            return fake_report()
+
+        service, run_id = self._run(sessions, tmp_path, monkeypatch, engine)
+
+        assert [reason for _, _, reason in self._levelled(service, run_id)] == ["the run's own warning"]
+
+    def test_a_credential_in_a_warning_lands_redacted(self, sessions, tmp_path, monkeypatch):
+        """The Logs page scrubs every line it serves; the run log is served too, so it gets the same pass
+        (plex-safety rule 9). Client errors embed the request URL, credential and all."""
+        from loguru import logger
+
+        def engine(ctx, profiles):
+            logger.warning(
+                "PMS refused GET /library/sections?X-Plex-Token=abc123 and TMDB /3/movie/5?api_key=deadbeef99"
+            )
+            return fake_report()
+
+        service, run_id = self._run(sessions, tmp_path, monkeypatch, engine)
+
+        assert self._levelled(service, run_id) == [
+            (
+                "warning",
+                "warning",
+                "PMS refused GET /library/sections?X-Plex-Token=REDACTED and TMDB /3/movie/5?api_key=REDACTED",
+            ),
+        ]
+
+    def test_a_slow_pms_call_stays_in_the_container_log_only(self, sessions, tmp_path, monkeypatch):
+        """`PMS SLOW` timings were 423 of 457 WARNING/ERROR lines on a real server. They are for reading
+        lock-wait in the container log; on the Runs page they would bury every warning that matters."""
+        import requests
+        from loguru import logger
+        from requests.adapters import HTTPAdapter
+
+        from shortlist.engine.clients import plex_pms
+
+        monkeypatch.setattr(HTTPAdapter, "send", lambda self, request, **kw: SimpleNamespace(status_code=200))
+        monkeypatch.setattr(plex_pms, "_SLOW_PMS_S", 0.0)  # every call is "slow"
+
+        def engine(ctx, profiles):
+            plex_pms._TimingHTTPAdapter().send(requests.Request("GET", "http://pms:32400/library/sections").prepare())
+            logger.warning("tmdb gave up on 3 titles")
+            return fake_report()
+
+        container: list[str] = []
+        sink = logger.add(container.append, level="WARNING", format="{message}")
+        try:
+            service, run_id = self._run(sessions, tmp_path, monkeypatch, engine)
+        finally:
+            logger.remove(sink)
+
+        assert any("PMS SLOW" in line for line in container), "the container log keeps the timing"
+        assert self._levelled(service, run_id) == [("warning", "warning", "tmdb gave up on 3 titles")]
+
+    def test_nothing_is_captured_once_the_run_is_over(self, sessions, tmp_path, monkeypatch):
+        """The capture is torn down with the run: a warning after it reaches no run's log."""
+        from loguru import logger
+
+        service, run_id = self._run(sessions, tmp_path, monkeypatch, lambda ctx, profiles: fake_report())
+        logger.warning("after the run")
+        service.flush_run_log(run_id)
+
+        assert self._levelled(service, run_id) == []
+
+
+class TestCancellingAQueuedRunIsImmediate:
+    """A queued run must stop the moment you ask, not when the run in front of it finishes.
+
+    Runs serialise on the Plex writer lock. The first attempt at this marked a queued run aborted
+    when it ACQUIRED that lock — which is the very thing it is waiting for. Queue two runs, cancel
+    both, and the second sat on "Stopping…" until the first completed: the code meant to stop it
+    could not run until the thing it was queued behind got out of the way.
+    """
+
+    def test_a_queued_run_is_aborted_without_waiting_for_the_lock(self, sessions, tmp_path):
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+        with sessions() as session:
+            run = Run(trigger="manual", status="queued", stats={})
+            session.add(run)
+            session.commit()
+            run_id = run.id
+        service._cancels[run_id] = threading.Event()
+
+        # Nothing is draining the queue here — as far as this run knows, the lock is held forever.
+        assert service.cancel_run(run_id) is True
+
+        with sessions() as session:
+            run = session.get(Run, run_id)
+            assert run.status == "aborted", "a queued run must not wait on the run ahead of it"
+            assert run.finished_at is not None, "it has to stop being in-flight or the UI waits for ever"
+
+    def test_a_queued_run_that_is_cancelled_never_gets_a_start_time(self, sessions, tmp_path):
+        """NULL `began_at` is what makes the Runs page say "never ran" instead of billing the queue
+        wait as work. Three runs queued together and cancelled nine minutes later each reported
+        "9m 26s" (SFLIX, 2026-08-13) — measured from `started_at`, which is stamped at INSERT."""
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+        with sessions() as session:
+            run = Run(trigger="manual", status="queued", stats={})
+            session.add(run)
+            session.commit()
+            run_id = run.id
+        service._cancels[run_id] = threading.Event()
+
+        service.cancel_run(run_id)
+
+        with sessions() as session:
+            run = session.get(Run, run_id)
+            assert run.status == "aborted"
+            assert run.began_at is None, "it never executed, so it has no duration to report"
+
+    def test_a_run_that_executes_is_stamped_with_when_it_actually_began(self, sessions, tmp_path):
+        """The stamp has no other coverage, and `run.status = "running"` has already been moved once
+        in this file (the cancel-while-queued fix). Move it again without this and every run on the
+        page reads "never ran", with nothing failing."""
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+        with sessions() as session:
+            run = Run(trigger="manual", status="queued", stats={})
+            session.add(run)
+            session.commit()
+            run_id, queued_at = run.id, run.started_at
+
+        service._mark_started(run_id)
+
+        with sessions() as session:
+            run = session.get(Run, run_id)
+            assert run.status == "running"
+            assert run.began_at is not None, "a run that starts must say when, or it reads as never having run"
+            began = run.began_at if run.began_at.tzinfo else run.began_at.replace(tzinfo=UTC)
+            queued = queued_at if queued_at.tzinfo else queued_at.replace(tzinfo=UTC)
+            assert began >= queued, "it cannot have begun before it was asked for"
+
+    def test_the_abort_releases_the_job_queue_instead_of_parking_it_for_ever(self, sessions, tmp_path):
+        """The cancel Event must be dropped on the abort path too, or the job queue stops for good.
+
+        `is_running()` is `bool(self._cancels)`, and the job worker reads it to decide whether to
+        claim WRITER jobs. The early return that aborts a queued run sits before the try/finally that
+        drops the Event, so the entry leaked and `is_running()` stayed True for the life of the
+        process: `privacy.sync`, `user.disable`, `user.remove` and the roster syncs would never be
+        claimed again — silently, looking like a backlog rather than a fault, until a restart. On a
+        Watchtower host that means a departed user's `label!=` excludes are never pruned.
+        """
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+        with sessions() as session:
+            run = Run(trigger="manual", status="queued", stats={})
+            session.add(run)
+            session.commit()
+            run_id = run.id
+        service._cancels[run_id] = threading.Event()
+        service.cancel_run(run_id)  # marks it aborted; the task is still queued for the lock
+
+        # It finally gets the lock and takes the abort path.
+        asyncio.run(service._run_locked(run_id, False, None, None, asyncio.new_event_loop()))
+
+        assert service._cancels == {}, "the cancel Event must not outlive the run"
+        assert service.is_running() is False, "a finished run must not hold the job queue shut"
+
+    def test_a_running_run_is_still_only_signalled(self, sessions, tmp_path):
+        """The cooperative path is unchanged: a running run is mid-write, so it is asked to stop
+        rather than declared stopped — finishing the row in hand is what keeps Plex consistent."""
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+        with sessions() as session:
+            run = Run(trigger="manual", status="running", stats={})
+            session.add(run)
+            session.commit()
+            run_id = run.id
+        service._cancels[run_id] = threading.Event()
+
+        assert service.cancel_run(run_id) is True
+
+        with sessions() as session:
+            run = session.get(Run, run_id)
+            assert run.status == "running", "a running run stops cooperatively, not by decree"
+            assert run.stats["cancel_requested"] is True
+        assert service._cancels[run_id].is_set()
+
+
+class TestThePerRowRequestBreakdownIsPersisted:
+    """The four per-row dicts on RequestReport were populated by the engine and written nowhere, so
+    the run page could not answer "which row was starved" — the question they were added for. Found
+    when a live two-row experiment could not be interpreted from its own run record (2026-08-18)."""
+
+    def test_the_breakdown_reaches_the_run_stats(self, sessions, tmp_path, monkeypatch):
+        from shortlist.engine.models import RequestReport
+
+        report = fake_report()
+        report.requests = RequestReport(
+            pool_by_row={"picked": 400, "because": 23},
+            examined_by_row={"picked": 100, "because": 32},
+            considered_by_row={"picked": 12, "because": 0},
+            claimed_by_row={"picked": 6, "because": 1},
+            sent_by_row={"picked": 5},
+        )
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+        monkeypatch.setattr(service, "build_context", lambda **kw: _fake_ctx())
+        monkeypatch.setattr(run_service_mod, "engine_run", lambda ctx, profiles: report)
+
+        async def scenario():
+            run_id = await service.start_run(trigger="manual", dry_run=False)
+            return await _wait_for_run(sessions, run_id)
+
+        stats = asyncio.run(scenario()).stats
+        # `claimed` is what the caps allocated; `sent` is what the Arr accepted. They differ when a
+        # claim is skipped (no TheTVDB id), which is exactly what made a live two-row test read as
+        # "because got nothing" when its cap had in fact allocated it one.
+        assert stats["requests_by_row"]["because"] == {
+            "pool": 23,
+            "examined": 32,
+            "considered": 0,
+            "claimed": 1,
+            "sent": 0,
+        }
+        assert stats["requests_by_row"]["picked"]["sent"] == 5
+
+    def test_a_run_with_no_request_phase_records_no_empty_dict(self, sessions, tmp_path, monkeypatch):
+        """An empty key would read as "measured, and every row was zero" — it wasn't measured."""
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+        monkeypatch.setattr(service, "build_context", lambda **kw: _fake_ctx())
+        monkeypatch.setattr(run_service_mod, "engine_run", lambda ctx, profiles: fake_report())
+
+        async def scenario():
+            run_id = await service.start_run(trigger="manual", dry_run=False)
+            return await _wait_for_run(sessions, run_id)
+
+        assert "requests_by_row" not in asyncio.run(scenario()).stats
+
+
+class TestTheLiveRowSnapshotIsTakenBeforeTheRebuild:
+    """The ordering that makes the membership rule survivable, in the real run path.
+
+    Being watched is exactly what makes the engine drop a title from a row, so by the time a run
+    reaches its reconcile the row no longer lists what the person just watched. Read "what is in
+    their row" at that moment and every genuine hit scores zero. The run therefore snapshots the live
+    picks BEFORE `engine_run` and hands that in — and only a run that actually rebuilds the row can
+    tell the two orderings apart, which is why this test delivers a different pick set.
+    """
+
+    def test_a_watch_is_credited_even_though_tonights_run_replaced_the_row(self, sessions, tmp_path, monkeypatch):
+        from datetime import timedelta
+
+        from shortlist.engine.models import UserProfile, UserType, WatchedItem
+        from shortlist.server.db.models import DEFAULT_SLUG, User
+
+        bus = EventBus()
+        service = RunService(sessions, bus, tmp_path, SecretBox(tmp_path))
+        monkeypatch.setattr(service, "build_context", lambda **kw: _fake_ctx())
+
+        now = datetime.now(UTC)
+        with sessions() as session:
+            sarah = session.query(User).filter_by(slug="sarah").one()
+            last_night = Run(trigger="schedule", status="ok", started_at=now - timedelta(days=1))
+            session.add(last_night)
+            session.add(Delivery(collection_slug=DEFAULT_SLUG, user_slug="sarah", library_key="1", rating_key=7))
+            session.flush()
+            session.add(
+                PickRow(
+                    run_id=last_night.id,
+                    user_id=sarah.id,
+                    collection_slug=DEFAULT_SLUG,
+                    section_key="1",
+                    library="Movies",
+                    tmdb_id=1,
+                    media_type="movie",
+                    rating_key=10,
+                    rank=1,
+                    title="Watched",
+                    created_at=now - timedelta(days=1),
+                )
+            )
+            personal_delivery(session, last_night.id, user_id=sarah.id, slug=DEFAULT_SLUG)
+            session.commit()
+
+        # Tonight's run rebuilds the SAME row with a different title — the state the reconcile sees.
+        report = RunReport(
+            started_at=now,
+            finished_at=now,
+            users=[
+                UserRunReport(
+                    username="sarah",
+                    slug="sarah",
+                    status="ok",
+                    picks=[
+                        Pick(
+                            tmdb_id=2,
+                            rating_key=20,
+                            title="Fresh",
+                            rank=1,
+                            reason="r",
+                            media_type=MediaType.MOVIE,
+                            collection_slug=DEFAULT_SLUG,
+                            section_key="1",
+                            library="Movies",
+                        )
+                    ],
+                    counts=StageCounts(picks=1),
+                    duration_s=0.1,
+                )
+            ],
+        )
+        report.users[0].breakdown = [
+            {
+                "row_slug": DEFAULT_SLUG,
+                "library_key": "1",
+                "rating_key": 7,
+                "delivered_at": (now + timedelta(seconds=1)).isoformat(),
+                "picks": [{"tmdb_id": 2, "media_type": "movie", "rating_key": 20, "rank": 1, "title": "Fresh"}],
+            }
+        ]
+        profile = UserProfile(
+            username="sarah",
+            plex_account_id=100,
+            user_type=UserType.SHARED,
+            slug="sarah",
+            history=[WatchedItem(title="Watched", media_type=MediaType.MOVIE, watched_at=now, tmdb_id=1)],
+        )
+        monkeypatch.setattr(run_service_mod, "engine_run", lambda ctx, profiles: report)
+        monkeypatch.setattr(service, "enabled_profiles", lambda session, user_ids=None: [profile])
+
+        async def scenario():
+            run_id = await service.start_run(trigger="manual", dry_run=False)
+            return await _wait_for_run(sessions, run_id)
+
+        asyncio.run(scenario())
+
+        with sessions() as session:
+            watched = session.query(PickRow).filter_by(tmdb_id=1).one()
+            fresh = session.query(PickRow).filter_by(tmdb_id=2).one()
+            from shortlist.server.services.run_persistence import live_pick_ids
+
+            assert live_pick_ids(session)[fresh.user_id] == {fresh.id}, "the new delivery really replaced the row"
+            assert watched.watched_at is not None, (
+                "the snapshot was taken after the rebuild — the row had already dropped the title she watched"
+            )
+            assert fresh.watched_at is None, "tonight's pick was never watched"
+
+
+class TestARunSettlesOffTheEventLoop:
+    """Building the context, saving the report, crediting and the alert were measured holding the loop
+    for 4.4s+ (and the context's PMS request for up to 45s), stalling /api/system/health and SSE."""
+
+    def _service(self, sessions, tmp_path, monkeypatch):
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+        monkeypatch.setattr(run_service_mod, "engine_run", lambda ctx, profiles: fake_report())
+        service.state = None
+        return service
+
+    def test_context_report_crediting_and_alert_run_off_the_loop_when_a_run_finishes(
+        self, sessions, tmp_path, monkeypatch
+    ):
+        service = self._service(sessions, tmp_path, monkeypatch)
+        loop_thread = threading.get_ident()
+        seen: dict[str, int] = {}
+
+        def spy(name, real=None):
+            def wrapper(*args, **kwargs):
+                seen[name] = threading.get_ident()
+                return real(*args, **kwargs) if real else None
+
+            return wrapper
+
+        monkeypatch.setattr(service, "build_context", spy("build_context", lambda **kw: _fake_ctx()))
+        monkeypatch.setattr(service, "_persist_report", spy("persist", service._persist_report))
+        monkeypatch.setattr(service, "_reconcile_watched", spy("reconcile"))
+        monkeypatch.setattr(run_service_mod.notify, "enqueue_run_outcome", spy("outcome"))
+
+        async def scenario():
+            run_id = await service.start_run(trigger="manual", dry_run=False)
+            return await _wait_for_run(sessions, run_id)
+
+        asyncio.run(scenario())
+
+        assert set(seen) == {"build_context", "persist", "reconcile", "outcome"}
+        assert all(tid != loop_thread for tid in seen.values()), seen
+
+    def test_a_cancel_while_the_run_settles_leaves_no_stale_flag_on_the_finished_run(
+        self, sessions, tmp_path, monkeypatch
+    ):
+        service = self._service(sessions, tmp_path, monkeypatch)
+        monkeypatch.setattr(service, "build_context", lambda **kw: _fake_ctx())
+        results: list[bool] = []
+
+        def after_run_that_gets_cancelled(sessions_, run_id, version):
+            # Cancel pressed from the loop while the worker thread is inside `notify.after_run`.
+            results.append(asyncio.run_coroutine_threadsafe(_cancel(run_id), loop).result(5))
+
+        async def _cancel(run_id):
+            return service.cancel_run(run_id)
+
+        monkeypatch.setattr(run_service_mod.notify, "after_run", after_run_that_gets_cancelled)
+
+        async def scenario():
+            nonlocal loop
+            loop = asyncio.get_running_loop()
+            run_id = await service.start_run(trigger="manual", dry_run=False)
+            return await _wait_for_run(sessions, run_id)
+
+        loop = None
+        run = asyncio.run(scenario())
+
+        assert results == [True], "pressing Cancel on a settling run is accepted, not an error"
+        assert run.status == "ok" or run.status == "error"
+        assert "cancel_requested" not in (run.stats or {})
+
+    def test_the_loop_keeps_ticking_while_a_slow_context_is_built(self, sessions, tmp_path, monkeypatch):
+        service = self._service(sessions, tmp_path, monkeypatch)
+
+        def slow_context(**kw):
+            time.sleep(0.6)  # stands in for the PMS request
+            return _fake_ctx()
+
+        monkeypatch.setattr(service, "build_context", slow_context)
+        gaps: list[float] = []
+        deadline = time.monotonic() + 1.5  # outlives the 0.6s context build; ends on its own
+
+        async def ticker():
+            last = time.monotonic()
+            while time.monotonic() < deadline:
+                await asyncio.sleep(0.02)
+                now = time.monotonic()
+                gaps.append(now - last)
+                last = now
+
+        async def scenario():
+            tick = asyncio.create_task(ticker())
+            run_id = await service.start_run(trigger="manual", dry_run=False)
+            await _wait_for_run(sessions, run_id)
+            await tick
+
+        asyncio.run(scenario())
+
+        assert max(gaps) < 0.4, f"the loop stalled for {max(gaps):.2f}s"
+
+
+class TestAFinishedRunDropsTheCachedReport:
+    """The dashboard report is cached for a couple of minutes; a run changes what it reads."""
+
+    def test_a_run_that_completes_clears_the_cache(self, sessions, tmp_path, monkeypatch):
+        from shortlist.server.services import report_cache
+
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+        monkeypatch.setattr(service, "build_context", lambda **kw: _fake_ctx())
+        monkeypatch.setattr(run_service_mod, "engine_run", lambda ctx, profiles: fake_report())
+        report_cache.store_report("30", {"stale": True})
+
+        async def scenario():
+            run_id = await service.start_run(trigger="manual", dry_run=False)
+            return await _wait_for_run(sessions, run_id)
+
+        asyncio.run(scenario())
+
+        assert report_cache.get_cached_report("30") is None
+
+    def test_a_run_cancelled_while_queued_clears_the_cache(self, sessions, tmp_path):
+        from shortlist.server.services import report_cache
+
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+        with sessions() as session:
+            run = Run(trigger="manual", status="queued")
+            session.add(run)
+            session.commit()
+            run_id = run.id
+        service._cancels[run_id] = threading.Event()
+        report_cache.store_report("30", {"stale": True})
+
+        service.cancel_run(run_id)
+
+        assert report_cache.get_cached_report("30") is None
+
+    def test_a_run_that_errors_clears_the_cache(self, sessions, tmp_path, monkeypatch):
+        from shortlist.server.services import report_cache
+
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+        monkeypatch.setattr(service, "build_context", lambda **kw: _fake_ctx())
+
+        def boom(ctx, profiles):
+            raise RuntimeError("plex went away mid-run")
+
+        monkeypatch.setattr(run_service_mod, "engine_run", boom)
+
+        async def scenario():
+            run_id = await service.start_run(trigger="manual", dry_run=False)
+            report_cache.store_report("30", {"stale": True})
+            return await _wait_for_run(sessions, run_id)
+
+        run = asyncio.run(scenario())
+
+        assert run.status == "error"
+        assert report_cache.get_cached_report("30") is None
+
+    def test_a_run_stopped_mid_run_clears_the_cache(self, sessions, tmp_path, monkeypatch):
+        from shortlist.server.services import report_cache
+
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+        monkeypatch.setattr(service, "build_context", lambda **kw: _fake_ctx())
+        engine_started = threading.Event()
+
+        def engine_that_stops_when_asked(ctx, profiles):
+            engine_started.set()
+            deadline = time.monotonic() + 5
+            while not ctx.cancelled() and time.monotonic() < deadline:
+                time.sleep(0.01)
+            return fake_report()
+
+        monkeypatch.setattr(run_service_mod, "engine_run", engine_that_stops_when_asked)
+
+        async def scenario() -> int:
+            run_id = await service.start_run(trigger="manual", dry_run=False)
+            (task,) = service._tasks
+            await asyncio.get_running_loop().run_in_executor(None, engine_started.wait, 5)
+            report_cache.store_report("30", {"stale": True})
+            service.cancel_run(run_id)
+            await asyncio.wait({task}, timeout=5)
+            return run_id
+
+        run_id = asyncio.run(scenario())
+
+        with sessions() as session:
+            assert session.get(Run, run_id).status == "aborted"
+        assert report_cache.get_cached_report("30") is None
+
+    def test_a_run_cancelled_as_it_reaches_the_lock_clears_the_cache(self, sessions, tmp_path, monkeypatch):
+        """The flag is set while the run waits behind another one, without `cancel_run` marking it
+        aborted first — so only the in-lock early exit can drop the cached report."""
+        from shortlist.server.services import report_cache
+
+        service = RunService(sessions, EventBus(), tmp_path, SecretBox(tmp_path))
+        monkeypatch.setattr(service, "build_context", lambda **kw: _fake_ctx())
+        monkeypatch.setattr(run_service_mod, "engine_run", lambda ctx, profiles: fake_report())
+
+        async def scenario() -> int:
+            async with service._lock:
+                run_id = await service.start_run(trigger="manual", dry_run=False)
+                service._cancels[run_id].set()
+                report_cache.store_report("30", {"stale": True})
+            (task,) = service._tasks
+            await asyncio.wait({task}, timeout=5)
+            return run_id
+
+        run_id = asyncio.run(scenario())
+
+        with sessions() as session:
+            assert session.get(Run, run_id).status == "aborted"
+        assert report_cache.get_cached_report("30") is None

@@ -1,0 +1,435 @@
+"""Unit tests for the LLM per-event inactivity timeout.
+
+Covers:
+* ``Limits.request_timeout_seconds`` field defaults and validation.
+* ``_iter_with_timeout`` helper: passthrough with None, fires on stall,
+  transparent on normal iteration.
+* Timeout enforcement in both OpenChat and Anthropic adapters:
+  ProviderTimeoutError is raised promptly when the SDK stream stalls.
+"""
+
+from __future__ import annotations
+
+import asyncio
+from collections.abc import AsyncIterator
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+from pydantic import HttpUrl, SecretStr, ValidationError
+
+from primer.llm._timeout import GenerationBudgetExceeded, _iter_with_timeout
+from primer.model.except_ import ProviderTimeoutError
+from primer.model.provider import (
+    AnthropicConfig,
+    Limits,
+    LLMProvider,
+    LLMProviderType,
+    OpenChatConfig,
+    OpenChatFlavor,
+)
+
+
+# ---------------------------------------------------------------------------
+# Limits model tests
+# ---------------------------------------------------------------------------
+
+
+class TestLimitsField:
+    def test_default_request_timeout(self) -> None:
+        lim = Limits(max_concurrency=2)
+        assert lim.request_timeout_seconds == 300.0
+
+    def test_explicit_value(self) -> None:
+        lim = Limits(max_concurrency=1, request_timeout_seconds=60.0)
+        assert lim.request_timeout_seconds == 60.0
+
+    def test_none_disables_timeout(self) -> None:
+        lim = Limits(max_concurrency=1, request_timeout_seconds=None)
+        assert lim.request_timeout_seconds is None
+
+    def test_zero_is_allowed(self) -> None:
+        # 0.0 is valid (ge=0.0).
+        lim = Limits(max_concurrency=1, request_timeout_seconds=0.0)
+        assert lim.request_timeout_seconds == 0.0
+
+    def test_negative_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            Limits(max_concurrency=1, request_timeout_seconds=-1.0)
+
+    def test_field_is_on_llm_provider(self) -> None:
+        provider = LLMProvider(
+            id="p1",
+            provider=LLMProviderType.ANTHROPIC,
+            config=AnthropicConfig(api_key=SecretStr("sk-ant-test")),
+            limits=Limits(max_concurrency=2, request_timeout_seconds=120.0),
+        )
+        assert provider.limits.request_timeout_seconds == 120.0
+
+
+class TestConnectTimeoutField:
+    def test_default_is_none(self) -> None:
+        # Default is None: no connect bound, cold loads are never aborted.
+        lim = Limits(max_concurrency=2)
+        assert lim.connect_timeout_seconds is None
+
+    def test_explicit_value(self) -> None:
+        lim = Limits(max_concurrency=1, connect_timeout_seconds=45.0)
+        assert lim.connect_timeout_seconds == 45.0
+
+    def test_round_trips_through_model_dump(self) -> None:
+        lim = Limits(max_concurrency=1, connect_timeout_seconds=45.0)
+        restored = Limits.model_validate(lim.model_dump())
+        assert restored.connect_timeout_seconds == 45.0
+        assert restored.request_timeout_seconds == lim.request_timeout_seconds
+
+    def test_none_round_trips(self) -> None:
+        lim = Limits(max_concurrency=1)
+        restored = Limits.model_validate(lim.model_dump())
+        assert restored.connect_timeout_seconds is None
+
+    def test_zero_is_allowed(self) -> None:
+        lim = Limits(max_concurrency=1, connect_timeout_seconds=0.0)
+        assert lim.connect_timeout_seconds == 0.0
+
+    def test_negative_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            Limits(max_concurrency=1, connect_timeout_seconds=-1.0)
+
+    def test_independent_of_request_timeout(self) -> None:
+        # The two timeouts are separate knobs and do not influence each other.
+        lim = Limits(
+            max_concurrency=1,
+            request_timeout_seconds=60.0,
+            connect_timeout_seconds=10.0,
+        )
+        assert lim.request_timeout_seconds == 60.0
+        assert lim.connect_timeout_seconds == 10.0
+
+
+# ---------------------------------------------------------------------------
+# _iter_with_timeout helper
+# ---------------------------------------------------------------------------
+
+
+async def _fast_agen(*items):
+    """Yield items immediately."""
+    for item in items:
+        yield item
+
+
+async def _stalling_agen():
+    """Yield one item then stall forever."""
+    yield "first"
+    await asyncio.Event().wait()  # blocks indefinitely
+
+
+class TestIterWithTimeout:
+    @pytest.mark.asyncio
+    async def test_passthrough_none(self) -> None:
+        """None timeout: items flow through without modification."""
+        result = []
+        async for item in _iter_with_timeout(_fast_agen(1, 2, 3), None):
+            result.append(item)
+        assert result == [1, 2, 3]
+
+    @pytest.mark.asyncio
+    async def test_passthrough_with_timeout_when_fast(self) -> None:
+        """Items arrive well within the window: no timeout fires."""
+        result = []
+        async for item in _iter_with_timeout(_fast_agen("a", "b"), 10.0):
+            result.append(item)
+        assert result == ["a", "b"]
+
+    @pytest.mark.asyncio
+    async def test_fires_on_stall(self) -> None:
+        """When no event arrives within the window asyncio.TimeoutError is raised."""
+        it = _iter_with_timeout(_stalling_agen(), 0.05)  # 50 ms timeout
+        # Consume the first item (arrives instantly).
+        item = await it.__anext__()
+        assert item == "first"
+        # The second __anext__ stalls; timeout should fire.
+        with pytest.raises(asyncio.TimeoutError):
+            await it.__anext__()
+
+    @pytest.mark.asyncio
+    async def test_empty_iterable(self) -> None:
+        result = []
+        async for item in _iter_with_timeout(_fast_agen(), 5.0):
+            result.append(item)
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_fires_promptly(self) -> None:
+        """Confirm the timeout fires well within 3 x the configured window.
+
+        Uses asyncio.wait_for to assert the test itself completes quickly,
+        so a regression that silently ignores the timeout does not hang CI.
+        """
+        async def _run():
+            it = _iter_with_timeout(_stalling_agen(), 0.05)
+            await it.__anext__()  # "first" -- instant
+            await it.__anext__()  # should raise TimeoutError after ~50 ms
+
+        with pytest.raises(asyncio.TimeoutError):
+            await asyncio.wait_for(_run(), timeout=3.0)
+
+
+# ---------------------------------------------------------------------------
+# total_timeout_seconds: Limits field + runaway-generation budget
+# ---------------------------------------------------------------------------
+
+
+async def _runaway_agen():
+    """Yield tokens forever with no stall -- the runaway-generation case."""
+    n = 0
+    while True:
+        yield n
+        n += 1
+        await asyncio.sleep(0)
+
+
+class TestTotalTimeoutField:
+    def test_default_is_none(self) -> None:
+        lim = Limits(max_concurrency=1)
+        assert lim.total_timeout_seconds is None
+
+    def test_explicit_value(self) -> None:
+        lim = Limits(max_concurrency=1, total_timeout_seconds=900.0)
+        assert lim.total_timeout_seconds == 900.0
+
+    def test_negative_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            Limits(max_concurrency=1, total_timeout_seconds=-1.0)
+
+    def test_round_trip(self) -> None:
+        lim = Limits(max_concurrency=1, total_timeout_seconds=42.0)
+        restored = Limits.model_validate(lim.model_dump())
+        assert restored.total_timeout_seconds == 42.0
+
+    def test_independent_of_other_timeouts(self) -> None:
+        lim = Limits(
+            max_concurrency=1,
+            request_timeout_seconds=60.0,
+            connect_timeout_seconds=10.0,
+            total_timeout_seconds=900.0,
+        )
+        assert lim.request_timeout_seconds == 60.0
+        assert lim.connect_timeout_seconds == 10.0
+        assert lim.total_timeout_seconds == 900.0
+
+
+class TestTotalGenerationBudget:
+    @pytest.mark.asyncio
+    async def test_runaway_aborted_by_budget(self) -> None:
+        """A stream that keeps emitting never trips the stall window but IS
+        aborted by the total budget, raising GenerationBudgetExceeded."""
+        async def _run():
+            count = 0
+            async for _ in _iter_with_timeout(
+                _runaway_agen(), 10.0, total_timeout_seconds=0.1
+            ):
+                count += 1
+            return count
+
+        with pytest.raises(GenerationBudgetExceeded):
+            await asyncio.wait_for(_run(), timeout=3.0)
+
+    @pytest.mark.asyncio
+    async def test_budget_exceeded_is_a_timeout_error(self) -> None:
+        """Adapters' existing ``except TimeoutError`` handlers must catch it."""
+        assert issubclass(GenerationBudgetExceeded, TimeoutError)
+
+    @pytest.mark.asyncio
+    async def test_no_budget_means_unbounded(self) -> None:
+        """total=None keeps prior behaviour: fast finite streams complete."""
+        result = []
+        async for item in _iter_with_timeout(
+            _fast_agen(1, 2, 3), 10.0, total_timeout_seconds=None
+        ):
+            result.append(item)
+        assert result == [1, 2, 3]
+
+    @pytest.mark.asyncio
+    async def test_completes_within_budget(self) -> None:
+        """A finite stream that ends inside the budget is untouched."""
+        result = []
+        async for item in _iter_with_timeout(
+            _fast_agen("a", "b"), None, total_timeout_seconds=10.0
+        ):
+            result.append(item)
+        assert result == ["a", "b"]
+
+    @pytest.mark.asyncio
+    async def test_stall_still_fires_with_budget_set(self) -> None:
+        """The stall window keeps working when a (larger) budget is set, and
+        a stall raises plain TimeoutError, not GenerationBudgetExceeded."""
+        async def _run():
+            it = _iter_with_timeout(
+                _stalling_agen(), 0.05, total_timeout_seconds=30.0
+            )
+            await it.__anext__()  # "first" -- instant
+            await it.__anext__()  # stalls; stall window should fire
+
+        with pytest.raises(asyncio.TimeoutError) as excinfo:
+            await asyncio.wait_for(_run(), timeout=3.0)
+        assert not isinstance(excinfo.value, GenerationBudgetExceeded)
+
+    @pytest.mark.asyncio
+    async def test_budget_wins_when_smaller_than_stall_window(self) -> None:
+        """With budget < stall window, a stalling stream fails with the
+        budget error (the remaining budget caps the wait)."""
+        async def _run():
+            it = _iter_with_timeout(
+                _stalling_agen(), 30.0, total_timeout_seconds=0.1
+            )
+            await it.__anext__()  # "first" -- instant
+            await it.__anext__()  # stalls; budget expires first
+
+        with pytest.raises(GenerationBudgetExceeded):
+            await asyncio.wait_for(_run(), timeout=3.0)
+
+
+# ---------------------------------------------------------------------------
+# Adapter-level: ProviderTimeoutError is raised from a stalling stream
+# ---------------------------------------------------------------------------
+
+
+class _FakeAnthropicRaw:
+    """Minimal anthropic event stub -- _translate_event treats it as unknown."""
+    type = "message_start"
+    message = None
+
+
+class _FakeOpenAIChunk:
+    """Minimal openai SSE chunk stub -- _translate_chunk ignores it."""
+    model = "gpt-test"
+    choices = []
+    usage = None
+
+
+async def _stalling_anthropic_sdk():
+    yield _FakeAnthropicRaw()
+    await asyncio.Event().wait()
+
+
+async def _stalling_openai_sdk():
+    yield _FakeOpenAIChunk()
+    await asyncio.Event().wait()
+
+
+def _make_anthropic_provider(*, timeout_seconds: float | None = 0.05) -> LLMProvider:
+    return LLMProvider(
+        id="test-ant",
+        provider=LLMProviderType.ANTHROPIC,
+        config=AnthropicConfig(api_key=SecretStr("sk-ant-test")),
+        limits=Limits(max_concurrency=2, request_timeout_seconds=timeout_seconds),
+    )
+
+
+def _make_openchat_provider(*, timeout_seconds: float | None = 0.05) -> LLMProvider:
+    return LLMProvider(
+        id="test-oc",
+        provider=LLMProviderType.OPENCHAT,
+        config=OpenChatConfig(
+            url=HttpUrl("http://localhost:11434"),
+            flavor=OpenChatFlavor.OTHER,
+            api_key=SecretStr("no-key"),
+        ),
+        limits=Limits(max_concurrency=1, request_timeout_seconds=timeout_seconds),
+    )
+
+
+class TestAdapterTimeoutEnforcement:
+    @pytest.mark.asyncio
+    async def test_anthropic_raises_provider_timeout_error(self) -> None:
+        """AnthropicLLM raises ProviderTimeoutError when the stream stalls."""
+        from primer.llm.anthropic import AnthropicLLM
+        from primer.model.chat import Message, TextPart
+
+        provider = _make_anthropic_provider(timeout_seconds=0.05)
+        llm = AnthropicLLM(provider)
+
+        # Patch the SDK client so create() returns our stalling generator.
+        fake_client = MagicMock()
+        fake_client.messages.create = AsyncMock(
+            return_value=_stalling_anthropic_sdk()
+        )
+        llm._get_client = MagicMock(return_value=fake_client)
+
+        prompt = [Message(role="user", parts=[TextPart(text="hi")])]
+
+        with pytest.raises(ProviderTimeoutError) as exc_info:
+            async for _event in llm.stream(
+                model="claude-3-haiku-20240307", messages=prompt
+            ):
+                pass
+
+        assert exc_info.value.code == "stream_timeout"
+        assert "claude-3-haiku-20240307" in str(exc_info.value)
+
+    @pytest.mark.asyncio
+    async def test_anthropic_no_timeout_when_none(self) -> None:
+        """With request_timeout_seconds=None the stream is passed through."""
+        from primer.llm.anthropic import AnthropicLLM
+        from primer.model.chat import Done, Message, TextPart
+
+        # Use a stream that completes normally (no stalling).
+        async def _completing_sdk():
+            # Yield one real-ish event and stop.
+            return
+            yield  # make it a generator
+
+        provider = _make_anthropic_provider(timeout_seconds=None)
+        llm = AnthropicLLM(provider)
+
+        async def _fast_sdk():
+            return
+            yield
+
+        fake_client = MagicMock()
+        fake_client.messages.create = AsyncMock(return_value=_fast_sdk())
+        llm._get_client = MagicMock(return_value=fake_client)
+
+        prompt = [Message(role="user", parts=[TextPart(text="hi")])]
+
+        # Should complete without raising ProviderTimeoutError (stream ends immediately).
+        events = []
+        async for event in llm.stream(
+            model="claude-3-haiku-20240307", messages=prompt
+        ):
+            events.append(event)
+        # The adapter always yields exactly one terminal event; with an empty
+        # SDK stream and the value-error guard it logs a warning and returns --
+        # no ProviderTimeoutError even with a none timeout.
+
+    @pytest.mark.asyncio
+    async def test_openchat_raises_provider_timeout_error(self) -> None:
+        """OpenChatLLM raises ProviderTimeoutError when the stream stalls."""
+        from primer.llm.openchat import OpenChatLLM
+        from primer.model.chat import Message, TextPart
+
+        provider = _make_openchat_provider(timeout_seconds=0.05)
+        llm = OpenChatLLM(provider)
+
+        fake_client = MagicMock()
+        fake_client.chat.completions.create = AsyncMock(
+            return_value=_stalling_openai_sdk()
+        )
+        llm._get_client = MagicMock(return_value=fake_client)
+
+        prompt = [Message(role="user", parts=[TextPart(text="hi")])]
+
+        with pytest.raises(ProviderTimeoutError) as exc_info:
+            async for _event in llm.stream(model="gpt-test", messages=prompt):
+                pass
+
+        assert exc_info.value.code == "stream_timeout"
+
+    @pytest.mark.asyncio
+    async def test_timeout_stored_at_construction(self) -> None:
+        """Adapters store request_timeout_seconds from provider.limits."""
+        from primer.llm.anthropic import AnthropicLLM
+
+        provider = _make_anthropic_provider(timeout_seconds=42.0)
+        llm = AnthropicLLM(provider)
+        assert llm._request_timeout_seconds == 42.0

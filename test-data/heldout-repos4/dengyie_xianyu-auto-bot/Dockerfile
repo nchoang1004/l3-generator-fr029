@@ -1,0 +1,172 @@
+# 使用Python 3.11作为基础镜像
+# 支持通过构建参数指定镜像源（解决多架构构建时的网络问题）
+# 使用方法：docker build --build-arg BASE_IMAGE=ccr.ccs.tencentyun.com/dockerp/library/python:3.11-slim-bookworm
+ARG BASE_IMAGE=python:3.11-slim-bookworm
+FROM ${BASE_IMAGE}
+
+# 设置标签信息
+LABEL maintainer="dengyie"
+LABEL version="2.1.0"
+LABEL description="闲鱼自动化客服机器人，支持多用户、多账号与自动化管理"
+LABEL repository="https://github.com/dengyie/xianyu-auto-bot"
+LABEL license="仅供学习与研究使用，禁止商业用途"
+LABEL author="dengyie"
+LABEL build-date=""
+LABEL vcs-ref=""
+
+# 设置工作目录
+WORKDIR /app
+
+# 设置环境变量
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV TZ=Asia/Shanghai
+ENV DOCKER_ENV=true
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+
+# Use HTTPS Debian mirrors with retries; HTTP and some domestic mirrors are unreliable here.
+RUN sed -i 's|http://deb.debian.org|https://deb.debian.org|g' /etc/apt/sources.list.d/debian.sources
+
+# 安装系统依赖（包括Playwright浏览器依赖）
+RUN apt-get -o Acquire::Retries=5 update && \
+    apt-get -o Acquire::Retries=5 install -y --no-install-recommends \
+        # 基础工具
+        nodejs \
+        npm \
+        tzdata \
+        curl \
+        ca-certificates \
+        git \
+        # 图像处理依赖
+        libjpeg-dev \
+        libpng-dev \
+        libfreetype6-dev \
+        fonts-dejavu-core \
+        fonts-liberation \
+        # Playwright浏览器依赖
+        libnss3 \
+        libnspr4 \
+        libatk-bridge2.0-0 \
+        libdrm2 \
+        libxkbcommon0 \
+        libxcomposite1 \
+        libxdamage1 \
+        libxrandr2 \
+        libgbm1 \
+        libxss1 \
+        libasound2 \
+        libatspi2.0-0 \
+        libgtk-3-0 \
+        libgdk-pixbuf2.0-0 \
+        libxcursor1 \
+        libxi6 \
+        libxrender1 \
+        libxext6 \
+        libx11-6 \
+        libxft2 \
+        libxinerama1 \
+        libxtst6 \
+        libappindicator3-1 \
+        libx11-xcb1 \
+        libxfixes3 \
+        xdg-utils \
+        xvfb \
+        tigervnc-scraping-server \
+        novnc \
+        websockify \
+        fluxbox \
+        # OpenCV运行时依赖
+        libgl1 \
+        # Mesa 软渲染（llvmpipe）：无 GPU 容器里让 WebGL 渲染串是真实 Linux 机器的
+        # 合法特征，而非基本只在自动化环境出现的 "Google SwiftShader"（slidex
+        # --use-angle=gl 配合本包生效）
+        libgl1-mesa-dri \
+        # CJK/emoji 字体：中文平台的会话里浏览器字体验不出任何中文字体是矛盾信号
+        fonts-noto-cjk \
+        fonts-noto-color-emoji \
+        libglib2.0-0 \
+        && apt-get clean \
+        && rm -rf /var/lib/apt/lists/* \
+        && rm -rf /tmp/* \
+        && rm -rf /var/tmp/*
+
+# 真 Google Chrome（仅 amd64，官方无 arm64 Linux deb）：自带 Chromium 的
+# userAgentData.brands 露 "Chromium" 是强自动化信号。slidex 0.6.22 起探测到
+# google-chrome-stable 自动切 channel="chrome"（XY_SLIDER_BROWSER_CHANNEL 可覆盖）；
+# arm64 构建跳过，自动回自带 Chromium。
+ARG TARGETARCH
+RUN if [ "$TARGETARCH" = "amd64" ]; then \
+        curl -fsSL --retry 3 -o /tmp/chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && \
+        apt-get -o Acquire::Retries=5 update && \
+        apt-get -o Acquire::Retries=5 install -y --no-install-recommends /tmp/chrome.deb && \
+        rm -f /tmp/chrome.deb && rm -rf /var/lib/apt/lists/*; \
+    fi
+
+# 设置时区
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+# 验证Node.js安装并设置环境变量
+RUN node --version && npm --version
+ENV NODE_PATH=/usr/lib/node_modules
+
+# 使用经过解析和哈希校验的生产依赖锁文件
+COPY requirements.txt requirements.lock ./
+RUN pip install --no-cache-dir --upgrade pip -i https://pypi.tuna.tsinghua.edu.cn/simple&& \
+    pip install --no-cache-dir --require-hashes -r requirements.lock -i https://pypi.tuna.tsinghua.edu.cn/simple && \
+    pip install --no-cache-dir --no-deps "slidex @ git+https://github.com/dengyie/slidex.git@0d41893"
+
+# 复制项目文件
+COPY . .
+
+# 安装Playwright浏览器（必须在复制项目文件之后）
+# patchright 的 chromium revision（1243）与 playwright 1.59（1223）不同，需各自安装；
+# 两者共用 PLAYWRIGHT_BROWSERS_PATH=/ms-playwright。
+RUN playwright install chromium && \
+    playwright install-deps chromium && \
+    patchright install chromium && \
+    CHROME_BIN="$(find /ms-playwright -type f -path '*/chrome-linux*/chrome' | head -n 1)" && \
+    test -n "$CHROME_BIN" && \
+    ln -sf "$CHROME_BIN" /usr/bin/chromium && \
+    ln -sf "$CHROME_BIN" /usr/bin/chromium-browser && \
+    ln -sf "$CHROME_BIN" /usr/bin/google-chrome
+
+# 创建必要的目录并设置权限
+RUN mkdir -p /app/logs /app/data /app/backups /app/static/uploads/images /app/trajectory_history && \
+    chmod 777 /app/logs /app/data /app/backups /app/static/uploads /app/static/uploads/images /app/trajectory_history
+
+# 配置系统限制，防止core文件生成
+RUN echo "ulimit -c 0" >> /etc/profile
+
+RUN groupadd -g 1000 appuser && \
+    useradd -m -u 1000 -g appuser appuser && \
+    mkdir -p /app/data /app/logs /app/backups /app/static/uploads/images /app/trajectory_history && \
+    chown -R appuser:appuser /app
+
+# 暴露端口
+EXPOSE 8090
+EXPOSE 6080
+
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8090/health || exit 1
+
+# 复制启动脚本
+# 复制启动脚本和调试工具
+COPY entrypoint.sh /app/entrypoint.sh
+COPY debug-xvfb.sh /app/debug-xvfb.sh
+
+# 设置执行权限（使用多种方式确保权限正确）
+RUN chmod +x /app/entrypoint.sh /app/debug-xvfb.sh && \
+    chmod 755 /app/entrypoint.sh /app/debug-xvfb.sh && \
+    chown appuser:appuser /app/entrypoint.sh /app/debug-xvfb.sh && \
+    ls -la /app/entrypoint.sh /app/debug-xvfb.sh
+
+USER appuser
+
+# 兜底 HOME：compose 的 user: 可指定镜像里不存在的 UID（如生产 1001），
+# 此时 glibc 查不到 home，HOME 会退化成 / 且不可写，slidex 落 ~/.slidex 必失败。
+# 该目录已 chmod 777，任何 UID 都能写。compose 里也显式设了同值。
+ENV HOME=/app/trajectory_history
+
+# 启动命令
+CMD ["/app/entrypoint.sh"]

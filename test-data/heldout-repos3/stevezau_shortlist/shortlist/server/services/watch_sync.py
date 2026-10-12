@@ -1,0 +1,530 @@
+"""Watch-cache orchestration — who gets their watched set re-read, how completely, and when.
+
+`watch_cache.WatchCache` owns the per-section mechanics (cursor, upsert, full re-read). This module
+is the layer above it: it decides whether tonight is the weekly complete re-read, walks a person's
+libraries, falls back to a direct complete read when the cache cannot answer, and drives the
+server-wide nightly sweep that keeps the effectiveness report fresh between runs.
+
+The pieces it needs from the run orchestrator (a built engine context, the enabled roster, the
+pick/watch reconcile, the one-run-at-a-time lock) are passed in per call rather than held, so the
+orchestrator stays the single owner of them.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import contextvars
+import threading
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime, timedelta
+
+from loguru import logger
+from sqlalchemy.orm import Session, sessionmaker
+
+from shortlist.engine.clients.plex_pms import SectionNotShared
+from shortlist.engine.models import MediaType, UserProfile, UserType
+from shortlist.server.db.models import User
+from shortlist.server.services.report_cache import invalidate_report_cache
+from shortlist.server.services.sse import EventBus
+from shortlist.server.services.watch_cache import DEFAULT_FULL_EVERY, WatchCache
+from shortlist.server.services.watch_events import ingest_play_history
+from shortlist.server.services.watching_account import stamp_true_dates
+from shortlist.server.settings_store import SettingsStore
+
+
+def _with_owner(session: Session, profiles: list) -> list:
+    """Add the owner to a sweep that would otherwise skip them.
+
+    `enabled` decides who gets a ROW, and the owner is created with it off — most never turn it on,
+    because Plex shows them everyone's rows anyway. Their watched set still has a consumer: the
+    watching-account transfer copies FROM it, and this sweep is the only thing that ever fills it.
+    Without this an owner who never gave themselves a row had an empty cache for ever, and the
+    wizard's offer to copy their history across silently copied nothing (#88).
+
+    Read-only, like everything else this list drives — it decides whose history is re-read, never
+    who gets a row or what is written to Plex.
+    """
+    # `.first()`, like every other owner lookup here (`notifications.py`, `api/watching_account.py`,
+    # `context_builder.py`). This is a top-up, not a precondition: it runs outside any per-profile
+    # try/except, and `sync_watched` swallows what escapes it at INFO — so raising on a duplicate
+    # owner row would stop EVERY user's history being read and say only "watch-sync skipped".
+    owner = session.query(User).filter_by(user_type=UserType.OWNER.value).first()
+    if owner is None or any(p.plex_account_id == owner.plex_account_id for p in profiles):
+        return profiles
+    # Paused is the per-user half of the same switch the caller checks globally. `enabled_profiles`
+    # drops a paused person; topping the owner back up regardless would undo that for the one
+    # account whose pause nobody thinks to check.
+    if (owner.prefs or {}).get("paused"):
+        return profiles
+    return [
+        *profiles,
+        UserProfile(
+            username=owner.username,
+            plex_account_id=owner.plex_account_id,
+            user_type=UserType.OWNER,
+            slug=owner.slug,
+        ),
+    ]
+
+
+def _media_type(section) -> MediaType:
+    return MediaType.MOVIE if section.type == "movie" else MediaType.SHOW
+
+
+def _for_each_profile(ctx, profiles: list, work: Callable[[UserProfile], None]) -> None:
+    """Call ``work`` once per profile, ``ctx.concurrency`` of them at a time.
+
+    ``work`` must not raise: each caller keeps its own per-person error handling inside it, so one
+    person's failure never cancels anyone else's read.
+
+    Each person runs in a copy of the caller's contextvars, as in `pipeline.engine_run`: a pool thread
+    starts with an empty context, so anything the caller scoped by contextvar would otherwise be lost.
+    """
+    concurrency = getattr(ctx, "concurrency", 1)
+    if not isinstance(concurrency, int) or concurrency <= 1 or len(profiles) <= 1:
+        for profile in profiles:
+            work(profile)
+        return
+    # Read /library/sections once, up front. `PlexClient`'s sections cache is unlocked, so parallel people
+    # would each fetch it, and a dead-library sweep could act on a different answer per person. A failure
+    # here is left to each person's own read, which reports it exactly as before.
+    plex = getattr(ctx, "plex", None)
+    if plex is not None:
+        try:
+            plex.sections()
+        except Exception:
+            logger.debug("watch-sync: sections pre-read failed; each person's read will report it")
+    contexts = [contextvars.copy_context() for _ in profiles]
+    with ThreadPoolExecutor(max_workers=concurrency) as pool:
+        list(pool.map(lambda context, profile: context.run(work, profile), contexts, profiles))
+
+
+class WatchSync:
+    """Keeps every profile's watched set fresh, as cheaply as is safe."""
+
+    def __init__(self, session_factory: sessionmaker[Session], bus: EventBus) -> None:
+        self._sessions = session_factory
+        self._bus = bus
+        # One person's cache writes at a time. People are READ in parallel, but SQLite takes one writer
+        # and makes the rest wait out `busy_timeout` (5s) — which a cold-cache bulk insert can outlast,
+        # failing the waiting person's library. Queueing here keeps SQLite seeing the one sync writer
+        # it saw when people were read serially.
+        self._cache_writes = threading.Lock()
+
+    def _dead_sweep_due(self, store: SettingsStore) -> bool:
+        """Is this the periodic pass?
+
+        Not "is a complete read due" — every sync reads the whole library now (issue #108). Gates ONE
+        thing, which must stay rare because it acts on ABSENCE from a single response and does not
+        self-heal: the dead-library sweep, which believes one `/library/sections` answer for every
+        user. Never having run counts as due.
+
+        Two things used to be gated here and no longer are, both because they made a correction the
+        person had already made in Plex take up to a week to show up. Dropping cached titles the read
+        did not return: guarded instead by proof the read saw the whole library, a confirming re-read
+        before any large deletion, and the fact that a wrong drop of one title returns on the next
+        sync. And withdrawing pick credit (#108, the dashboard still calling an un-marked title
+        "finished"): guarded instead by the completeness of the read plus withdrawal's own rules —
+        never a credit we watched happen, never one past 30 days, never an empty history.
+        """
+        stamp = store.get("report.watch_full_at")
+        if not isinstance(stamp, str) or not stamp:
+            return True
+        try:
+            last = datetime.fromisoformat(stamp)
+        except ValueError:
+            return True
+        if last.tzinfo is None:
+            last = last.replace(tzinfo=UTC)
+        days = store.get("sync.watch_full_days")
+        every = days if isinstance(days, int) and days > 0 else 7
+        return datetime.now(UTC) - last >= timedelta(days=every)
+
+    def _watch_cache(self) -> WatchCache:
+        """The cache, honouring `sync.watch_full_days`.
+
+        The setting has to reach `WatchCache` itself, not just the global `force_full` decision:
+        `needs_full` independently re-reads a section whose `last_full_at` is older than this, so
+        leaving the constructor on its 7-day default silently capped the setting at 7.
+        """
+        with self._sessions() as session:
+            days = SettingsStore(session).get("sync.watch_full_days")
+        every = timedelta(days=days) if isinstance(days, int) and days > 0 else DEFAULT_FULL_EVERY
+        return WatchCache(self._sessions, full_every=every)
+
+    def refresh_watched(self, ctx, profile, *, force_full: bool = False, sweep_dead: bool = False) -> list:
+        """This person's watched set, read from the PMS and cached.
+
+        Returns the full cached set (not just what this read fetched), so callers see the same thing
+        a direct complete read would have given them.
+
+        Also stamps ``profile.history_complete`` — whether this read proved it saw everything. Only
+        the cache path does: it deletes on absence only once coverage is proven, so absence from the
+        cached set means something. Both fallbacks below return a raw ``history_source.fetch``, which
+        swallows an unreadable library as "nothing watched there" and hands back the OTHER libraries'
+        titles — non-empty, and indistinguishable from a complete read unless someone says so.
+
+        There is no longer a switch to bypass the cache. `sync.watch_incremental=false` used to send
+        this straight to the PMS instead — which also meant nothing refreshed `watched_titles`, so
+        the user page's watched list silently went stale while the setting sounded like it was making
+        reads MORE thorough. With every sync now reading each library in full (issue #108) the switch
+        had nothing left to turn off, so it is gone rather than left as a trap.
+        """
+        user_id = getattr(profile, "db_id", None)
+        if user_id is None:
+            with self._sessions() as session:
+                row = session.query(User).filter(User.slug == profile.slug).one_or_none()
+                user_id = row.id if row else None
+        if user_id is None:
+            # A profile with no DB row — there is nothing to cache against.
+            profile.history_complete = False
+            return ctx.history_source.fetch(profile, min_completion=ctx.config.min_completion)
+
+        cache = self._watch_cache()
+        token_source = ctx.history_source
+        outcomes = []
+        failed: list[str] = []
+        # Read once and keep: this is also the authority for which libraries still EXIST, and asking
+        # twice risks sweeping against a different answer than the one just synced against.
+        sections = list(ctx.plex.sections())
+        # The PMS reads happen before taking `_cache_writes`, so people read in parallel overlap on the
+        # slow part and queue only for the write. Only a complete read can be taken ahead: an
+        # incremental one starts from the cursor, which is in the DB.
+        read_ahead = self._read_ahead(token_source, profile, sections) if force_full else {}
+        with self._cache_writes, self._sessions() as session:
+            for section in sections:
+                media_type = _media_type(section)
+
+                def read(since, _section=section, _media=media_type):
+                    key = str(_section.key)
+                    # Once only: `_confirm_shrink` calls this a second time to ask the server AGAIN,
+                    # and handing it the same answer would have it agree with itself.
+                    if since is None and key in read_ahead:
+                        answer = read_ahead.pop(key)
+                        if isinstance(answer, Exception):
+                            raise answer
+                        return answer
+                    return token_source.fetch_section(profile, _section, _media, since=since)
+
+                # Only ever called for shows Plex re-counted without re-dating, so a quiet night
+                # makes no request at all. Movies have no episodes to ask about.
+                repair = None
+                if media_type is MediaType.SHOW:
+
+                    def repair(show_keys, _section=section):
+                        return token_source.episode_dates(profile, _section, show_keys)
+
+                try:
+                    outcomes.append(
+                        cache.sync_section(
+                            session,
+                            profile,
+                            user_id,
+                            str(section.key),
+                            media_type,
+                            read,
+                            # The display name, cached beside the section key so the watched page can
+                            # group a title held in two libraries into one row and say which two
+                            # (issue #111). This is the only place it is known — the page itself
+                            # never talks to Plex.
+                            library=getattr(section, "title", "") or "",
+                            repair_dates=repair,
+                            force_full=force_full,
+                            # EVERY sync, not just the periodic pass. Confining deletion to that pass
+                            # was right when a complete read could delete on no proof at all; it is
+                            # wrong now that it cannot. The cost was un-watching: before #108 the
+                            # nightly incremental read dropped a title someone un-watched inside its
+                            # window, and moving deletion to the weekly pass made that take up to
+                            # seven days — reported straight after the fix shipped.
+                            #
+                            # Safe because the two guards that made weekly deletion tolerable are
+                            # what make frequent deletion safe: the read must PROVE it saw the whole
+                            # library, and a pass that would drop more than half a library asks the
+                            # server a second time first. What is left unguarded is the small
+                            # deletion — one or two titles — which is exactly what an un-watch looks
+                            # like, and which self-heals on the next sync if it was wrong.
+                            reconcile=True,
+                        )
+                    )
+                except SectionNotShared:
+                    # NOT a failure, so it must not reach `failed`. `ctx.plex.sections()` is the
+                    # OWNER's library list walked for every person, so any library someone isn't
+                    # given 403s here on every sync — and counting that as unreadable threw away
+                    # their whole cache and forced an uncached complete re-read of every library,
+                    # hourly, for ever. Skipping also leaves the cursor alone: there is nothing to
+                    # self-heal, and a forced full read would 403 exactly the same way.
+                    logger.debug("watch cache: {} section {} not shared — skipped", profile.username, section.key)
+                except Exception as e:
+                    failed.append(str(section.key))
+                    logger.warning(
+                        "watch cache: {} section {} failed ({})", profile.username, section.key, type(e).__name__
+                    )
+                    # Self-heal. The commonest way this fails is the PMS refusing the incremental
+                    # `lastViewedAt>=` filter — and a full read sends no filter at all, so forcing
+                    # one is the escape from a section that can never be topped up. Without this the
+                    # cursor simply never advances and the cache silently goes stale for ever.
+                    cache.force_full_next_time(session, user_id, str(section.key))
+                # Per library, not once at the end. Every sync writes (the cursor and `last_full_at`
+                # at least), and SQLite holds its one write lock from the first write to the commit —
+                # so a single commit held it through every later library's PMS read, 12-18s for a TV
+                # library, and every other writer waited out `busy_timeout` and failed. Nothing is
+                # lost to a crash between commits: each library's rows are complete on their own, and
+                # `stamp_true_dates` below re-stamps whatever is still undated on the next sync.
+                session.commit()
+            # A library REMOVED from the server is swept here and nowhere else: `sync_section` only
+            # ever replaces sections it read, so rows for one that is gone would otherwise be counted
+            # as watched for ever. A section that merely 403'd above is still in `sections`, so an
+            # unshared library is untouched — that history is still true.
+            #
+            # On the weekly pass only, not every sync. The sweep believes a single `/library/sections`
+            # response, and `PlexClient` caches that for the life of the client — so one short answer
+            # would be applied to every user in the sync. A dead library lingering a few days matches
+            # the latency the full read already has; running it hourly buys nothing and multiplies the
+            # exposure to a bad response by ~168.
+            if sweep_dead:
+                cache.forget_dead_sections(session, user_id, {str(section.key) for section in sections})
+            # A transferred account's rows are CREATED here, by reading back what the transfer wrote
+            # to Plex — so the transfer itself had nothing to stamp, and every one of them arrives
+            # dated today. Stamping after the read is what puts the real dates on them. Idempotent and
+            # a no-op for the 99% of accounts that carry no transferred events.
+            stamped = stamp_true_dates(session, user_id)
+            if stamped:
+                logger.info("watch cache: {} — restored the true watch dates on {} title(s)", profile.username, stamped)
+            session.commit()
+            history = cache.watched_set(session, user_id)
+
+        if failed:
+            # A partial cache must NEVER be served as if it were complete: the watched set is what
+            # stops an already-seen title being recommended again, so a stale one is a visible,
+            # confusing regression. Fall back to the direct complete read — exactly the behaviour
+            # before this cache existed, so it cannot be worse, only slower.
+            logger.warning(
+                "watch cache: {} — {} section(s) unreadable, falling back to a direct read",
+                profile.username,
+                len(failed),
+            )
+            # NOT complete, despite the name this fallback used to carry. `ShareTokenWatchSource.fetch`
+            # catches a per-section failure and moves on, so the very library that just failed here
+            # contributes nothing and the result still comes back non-empty. Serving that as complete
+            # let credit withdrawal read "absent" as "un-watched" and permanently clear the credit on
+            # every pick in the unreadable library.
+            profile.history_complete = False
+            return ctx.history_source.fetch(profile, min_completion=ctx.config.min_completion)
+
+        fetched = sum(o.fetched for o in outcomes)
+        full = any(o.full for o in outcomes)
+        logger.info(
+            "watch cache: {} {} -> {} fetched, {} cached",
+            profile.username,
+            "FULL" if full else "incremental",
+            fetched,
+            len(history),
+        )
+        # Every section read succeeded and the cache owns the answer. The cache only deletes on
+        # absence once a read has proven it covered the window, so absence from this set is evidence.
+        profile.history_complete = True
+        return history
+
+    @staticmethod
+    def _read_ahead(token_source, profile, sections: list) -> dict[str, object]:
+        """Each library's complete read for this person — or the exception it raised, which `read`
+        re-raises where the read used to happen, so a failed library is handled exactly as before."""
+        answers: dict[str, object] = {}
+        for section in sections:
+            try:
+                answers[str(section.key)] = token_source.fetch_section(
+                    profile, section, _media_type(section), since=None
+                )
+            except Exception as e:
+                answers[str(section.key)] = e
+        return answers
+
+    def prefill_history(self, ctx, profiles, run_id: int | None = None) -> None:
+        """Top up the cache and hand each profile its watched set, so the engine reads none itself.
+
+        Narrated, not silent: on a cold cache this is a complete per-user PMS read, so without a
+        progress line the run's first minutes look exactly like the wedge the rest of this work exists
+        to remove.
+
+        Best-effort per person: anyone whose top-up fails is left with an empty history, and the
+        engine falls back to its own complete read for them — the behaviour before the cache existed.
+        """
+        # Only people this run will actually build for. `_run_user` returns early — before its own
+        # history read — for anyone with no row in scope, so pre-filling them is a complete per-user
+        # PMS read spent on someone the run then skips.
+        wanted = [p for p in profiles if self.has_a_row_in_scope(ctx, p)]
+        # getattr, not attribute access: narration must never be the thing that fails a run, and a
+        # caller may hand in a context that has no progress hook at all.
+        progress = getattr(ctx, "progress", None)
+        total = len(wanted)
+        started = 0
+        started_lock = threading.Lock()
+
+        def prefill(profile) -> None:
+            nonlocal started
+            if progress is not None:
+                # Counted and reported under one lock, so the line never steps backwards.
+                with started_lock:
+                    started += 1
+                    try:
+                        progress("Shortlist", "reading_history", {"done": started, "total": total}, None)
+                    except Exception:  # a broken listener must never fail the run
+                        logger.exception("progress callback failed during history pre-fill")
+            try:
+                # force_full, like the sync job. Without it this fell through to `needs_full()`,
+                # which is False as soon as a section has one proven complete read on record — so
+                # from the second night onward a RUN topped up incrementally and walked straight past
+                # a series whose show date lags its episodes. That is issue #108's own mechanism,
+                # left live on the path an owner reaches by pressing "Run now". The measured cost of
+                # reading complete is 27.4s against 27.3s, so there was nothing here to protect.
+                profile.history = self.refresh_watched(ctx, profile, force_full=True)
+            except Exception as e:
+                logger.warning(
+                    "run: could not pre-fill history for {} ({}) — the engine will read it directly",
+                    profile.slug,
+                    type(e).__name__,
+                )
+
+        _for_each_profile(ctx, wanted, prefill)
+
+    @staticmethod
+    def has_a_row_in_scope(ctx, profile) -> bool:
+        """Will this run build anything for this person?
+
+        Mirrors the engine's own gate in `rows._run_user` — a row this person is in the audience for,
+        not muted, and in this run's scope — rather than inventing a second rule. If it is empty the
+        engine returns "skipped" BEFORE reading any history, so pre-filling theirs is a complete
+        per-user PMS read spent on someone the run then skips. Every row carries its own cron, so a
+        scheduled run is always scoped and this is the common case, not the rare one.
+
+        Asks the ENGINE, through its public `builds_anything_for`. The rule is the engine's — audience,
+        mute and run scope — and reaching in for the private `_in_audience`/`_is_muted` to re-assemble
+        it here meant the server owned a copy of a rule it does not define.
+
+        Fails OPEN: any context that cannot answer (a test double, an engine that predates the
+        export) is treated as in-scope, so the worst case is exactly the behaviour before this
+        narrowing — a complete history read for somebody the run then skips, never a person silently
+        missing their history.
+        """
+        config = getattr(ctx, "config", None)
+        if config is None:
+            return True
+        try:
+            from shortlist.engine.rows import builds_anything_for
+
+            return builds_anything_for(profile, config)
+        except Exception:
+            return True
+
+    async def sync_watched(
+        self,
+        *,
+        build_context: Callable[..., object],
+        enabled_profiles: Callable[[Session], list],
+        reconcile_watched: Callable[..., None],
+        run_lock: asyncio.Lock,
+    ) -> None:
+        """Refresh every enabled user's ``watched_at`` (and the owner's — see ``_with_owner``) from
+        their current watch history WITHOUT rebuilding rows or writing to Plex — a read-only
+        reconcile so the effectiveness report stays fresh daily even when a row's own cron is weekly
+        (or a user has no scheduled row at all).
+
+        Reads people ``run.concurrency`` at a time (`ctx.concurrency`); their cache writes still take
+        turns — see ``_cache_writes``.
+
+        Skips quietly if Plex isn't configured (build_context raises), and a per-user history-fetch
+        failure is logged and skipped rather than aborting the sweep. Serialized against runs by
+        ``run_lock`` — the run orchestrator's own lock — so it never overlaps a live run's per-user
+        writes.
+
+        Streams ``sync.progress`` per user (done/total) and a final ``sync.finished`` over the SSE bus
+        so the Tools page can show a live bar. Harmless on the nightly schedule (no subscribers)."""
+        loop = asyncio.get_running_loop()
+
+        def emit(event: str, data: dict) -> None:
+            # work() runs in an executor thread; publish must hop back to the loop (see system.py).
+            loop.call_soon_threadsafe(self._bus.publish, event, {"kind": "watched", **data})
+
+        def work() -> int:
+            # Plex-only: this reads watch history and writes nothing anywhere. The full context also
+            # builds TMDB, Trakt, Exa, MDBList and the LLM curator, so a nightly READ of watch history
+            # failed when an LLM key was wrong — a failure with nothing to do with what it was doing.
+            ctx = build_context(dry_run=True, plex_only=True)
+            with self._sessions() as session:
+                profiles = enabled_profiles(session)
+                store = SettingsStore(session)
+                # The periodic reconcile: the dead-library sweep, dropping titles Plex no longer
+                # reports, and credit withdrawal. The READ below is always complete regardless.
+                sweep_dead = self._dead_sweep_due(store)
+                # After the pause check, not before it: `enabled_profiles` returns nothing at all
+                # while "pause all" is on, and topping the owner back up would quietly make the
+                # switch stop meaning "everything".
+                if not store.get("paused_all"):
+                    profiles = _with_owner(session, profiles)
+            total = len(profiles)
+            emit("sync.progress", {"done": 0, "total": total})
+            finished = 0
+            finished_lock = threading.Lock()
+
+            def refresh(profile) -> None:
+                nonlocal finished
+                try:
+                    # ALWAYS a complete read. Measured on a live 47-user, 3-library server: 27.4s
+                    # complete against 27.3s incremental, because every read fetches a 500-row page
+                    # per library either way and only 7 of 93 (person, library) pairs hold more than
+                    # one page. The incremental path bought 0.1s and cost correctness — Plex's own
+                    # "mark as played" on a series leaves the show row with no `lastViewedAt`, which
+                    # an incremental walk sorts behind its cutoff and drops, so a marked series was
+                    # invisible until the weekly complete read (issue #108).
+                    profile.history = self.refresh_watched(ctx, profile, force_full=True, sweep_dead=sweep_dead)
+                except Exception as e:
+                    logger.warning("watch-sync: history fetch failed for {}: {}", profile.slug, type(e).__name__)
+                # Counted and emitted under one lock: people finish out of order, and the bar must
+                # never step backwards.
+                with finished_lock:
+                    finished += 1
+                    emit("sync.progress", {"done": finished, "total": total})
+
+            _for_each_profile(ctx, profiles, refresh)
+            # The server's own play log, one admin call for every account. Deliberately AFTER the
+            # per-user reads and inside the same lock: it is the source of exact play TIMES, which is
+            # what lets the reconcile ask "was this in their row at the time" instead of "is it in
+            # their row now". Its failure must not cost us the watched-state refresh above, which is
+            # what the engine depends on — hence its own try.
+            try:
+                with self._sessions() as session:
+                    added = ingest_play_history(session, ctx.plex, SettingsStore(session))
+                    session.commit()
+                if added:
+                    emit("sync.progress", {"done": total, "total": total, "events": added})
+            except Exception as e:
+                logger.warning(
+                    "watch-sync: play-history read failed ({}) — watched state is still fresh", type(e).__name__
+                )
+            # No completeness flag passed: each profile carries its own, stamped by `refresh_watched`
+            # above, and withdrawal consults that per person. A single roster-wide claim cannot be
+            # true — one person's library being unreadable makes only THEIR read fail soft.
+            #
+            # Withdrawal used to be gated on the WEEKLY sweep, which is what made a pick keep its
+            # credit for up to seven days after the person un-marked it in Plex — reported on #108,
+            # where the dashboard went on calling a title "finished" that Plex no longer had as
+            # watched. That gate was protecting against incremental reads, which no longer exist.
+            reconcile_watched(profiles)
+            with self._sessions() as session:
+                store = SettingsStore(session)
+                # Stamp the sync so the dashboard can show "watch status synced N ago".
+                store.set("report.watch_synced_at", datetime.now(UTC).isoformat())
+                if sweep_dead:
+                    store.set("report.watch_full_at", datetime.now(UTC).isoformat())
+            invalidate_report_cache()
+            return total
+
+        async with run_lock:
+            try:
+                count = await loop.run_in_executor(None, work)
+                logger.info("watch-sync: refreshed watch status for {} user(s)", count)
+                self._bus.publish("sync.finished", {"kind": "watched", "ok": True, "count": count})
+            except Exception as e:  # e.g. Plex not configured yet — never crash the scheduler
+                logger.info("watch-sync skipped: {}", type(e).__name__)
+                self._bus.publish("sync.finished", {"kind": "watched", "ok": False, "error": type(e).__name__})

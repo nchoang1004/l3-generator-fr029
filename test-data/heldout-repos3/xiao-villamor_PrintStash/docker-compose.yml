@@ -1,0 +1,23 @@
+# PrintStash — start here: docker compose up -d, then open http://localhost:3000
+# One container (web UI + API), SQLite and local storage. No .env needed.
+# Optional settings: docs/deployment.md
+# Every setting, PostgreSQL and S3: docker-compose.advanced.yml
+services:
+  printstash:
+    # PRINTSTASH_IMAGE selects a fork's GHCR namespace or a locally built image.
+    image: ${PRINTSTASH_IMAGE:-ghcr.io/xiao-villamor/printstash}:${PRINTSTASH_VERSION:-latest}
+    restart: unless-stopped
+    stop_grace_period: 60s
+    ports:
+      - "${PRINTSTASH_HTTP_PORT:-3000}:3000"
+    environment:
+      VAULT_SETUP_MODE: trusted_network
+      VAULT_RESTART_ENABLED: "true"
+    volumes:
+      # Everything PrintStash keeps: database, files, thumbnails, staging,
+      # backups and caches. Keep it one mount, so imports hard-link into the
+      # library instead of copying every file.
+      - printstash:/data
+
+volumes:
+  printstash:

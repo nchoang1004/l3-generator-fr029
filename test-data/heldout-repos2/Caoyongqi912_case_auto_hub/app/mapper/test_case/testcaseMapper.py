@@ -1,0 +1,1574 @@
+#!/usr/bin/env python
+# -*- coding:utf-8 -*-
+# @Time : 2025/8/27
+# @Author : cyq
+# @File : testcaseMapper
+# @Software: PyCharm
+# @Desc: 测试用例数据访问层
+from logging import warning
+from typing import List, Dict, Any, Optional,Tuple
+import warnings
+
+from sqlalchemy import select, insert, update, and_, delete, func, case
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.mapper import Mapper, set_creator
+from app.mapper.test_case.requirementMapper import RequirementMapper
+from app.mapper.test_case.testCaseStepMapper import TestCaseStepMapper
+from app.mapper.test_case.caseDynamicMapper import CaseDynamicMapper, CaseDynamicRenderer
+from app.model.base import User
+from app.model.caseHub.test_case import TestCase
+from app.model.caseHub.test_case_step import TestCaseStep
+from app.model.caseHub.association import RequirementCaseAssociation
+from app.model.base.module import Module
+from enums import ModuleEnum
+from app.model.caseHub.case_step_dynamic import CaseStepDynamic
+from utils import log
+import re
+
+# 预编译步骤序号清洗正则，避免每次解析都重新编译
+_STEP_NUMBER_RE = re.compile(r"【\d+】")
+
+
+async def get_last_index(session: AsyncSession, requirement_id: int) -> int:
+    """
+    获取指定需求下用例的最大排序序号
+
+    :param session: 数据库会话
+    :param requirement_id: 需求ID
+    :return: 最大排序序号，如果不存在则返回0
+    """
+    stmt = (
+        select(RequirementCaseAssociation.order)
+        .where(RequirementCaseAssociation.requirement_id == requirement_id)
+        .order_by(RequirementCaseAssociation.order.desc())
+        .limit(1)
+    )
+    result = await session.execute(stmt)
+    return result.scalar() or 0
+
+
+async def get_case_index(session: AsyncSession, requirement_id: int, case_id: int) -> Optional[int]:
+    """
+    获取指定用例在需求下的排序序号
+
+    :param session: 数据库会话
+    :param requirement_id: 需求ID
+    :param case_id: 用例ID
+    :return: 排序序号
+    """
+    stmt = (
+        select(RequirementCaseAssociation.order)
+        .where(
+            and_(
+                RequirementCaseAssociation.requirement_id == requirement_id,
+                RequirementCaseAssociation.case_id == case_id,
+            )
+        )
+    )
+    result = await session.execute(stmt)
+    return result.scalar()
+
+
+async def insert_requirement_case(session: AsyncSession, requirement_id: int, case_id: int):
+    """
+    将用例关联到需求，并更新需求的用例数量
+
+    :param session: 数据库会话
+    :param requirement_id: 需求ID
+    :param case_id: 用例ID
+    """
+    last_order = await get_last_index(session, requirement_id)
+    await session.execute(
+        insert(RequirementCaseAssociation).values(
+            requirement_id=requirement_id,
+            case_id=case_id,
+            order=last_order + 1
+        )
+    )
+    req = await RequirementMapper.get_by_id(ident=requirement_id, session=session)
+    req.case_number += 1
+
+
+
+
+def _parse_steps(action: Optional[str], expected_result: Optional[str]) -> List[Dict[str, Optional[str]]]:
+    """
+    将按行分割的操作步骤和预期结果解析为步骤列表
+
+    :param action: 操作步骤文本（按换行分割）
+    :param expected_result: 预期结果文本（按换行分割）
+    :return: 步骤字典列表
+    """
+    def _clean_line(line: str) -> str:
+        """移除行中的【xx】序号标记"""
+        return _STEP_NUMBER_RE.sub("", line).strip()
+
+    def _normalize(value: Optional[str]) -> Optional[str]:
+        """None / 空字符串 / 全空白 统一规整为 None, 其余去掉首尾空白.
+
+        修复 R6: action="  " / "\n" 这类"伪空"输入不再被拆出 1 条空 step.
+        调用方 (insert_upload_case / _prepare_plan_steps) 按行生成 TestCaseStep,
+        一旦多出 1 条 {action=None, expected_result=None} 的 row, 库里会留
+        "幽灵空步骤" 且 step_order 占用 0 号位, 影响后续插入逻辑.
+        """
+        if value is None:
+            return None
+        stripped = value.strip()
+        return stripped or None
+
+    # 两侧都为空 -> 无步骤. 修复 R5 遗留的 [{None, None}] ghost step.
+    act, exp = _normalize(action), _normalize(expected_result)
+    if act is None and exp is None:
+        return []
+
+    act_lines = [_clean_line(l) for l in act.split("\n")] if act is not None else None
+    exp_lines = [_clean_line(l) for l in exp.split("\n")] if exp is not None else None
+    max_steps = max(len(act_lines) if act_lines else 0, len(exp_lines) if exp_lines else 0)
+
+    return [
+        {
+            "action": act_lines[i] if act_lines and i < len(act_lines) else None,
+            "expected_result": exp_lines[i] if exp_lines and i < len(exp_lines) else None,
+        }
+        for i in range(max_steps)
+    ]
+
+
+class TestCaseMapper(Mapper[TestCase]):
+    __model__ = TestCase
+
+
+    @classmethod
+    async def case_info(cls,case_id:int):
+        """
+        获取指定用例的详细信息，包括步骤
+
+        :param case_id: 用例ID
+        :return: 用例详细信息字典
+        """
+
+        try:
+            async with cls.session_scope() as session:
+                case = await cls.get_by_id(ident=case_id, session=session)
+                case_steps = await TestCaseStepMapper.query_sub_steps(case_id=case_id, session=session)
+                return {
+                    **case.to_dict(),
+                    "case_sub_steps": case_steps,
+                }
+        except Exception as e:
+            log.exception(f"case_info error: case_id={case_id}, error={e}")
+            raise
+
+    @classmethod
+    async def query_cases_for_export(
+        cls,
+        project_id: int,
+        module_id: int,
+        case_ids: Optional[List[int]] = None,
+        recursive: bool = True,
+    ) -> List[Dict[str, Any]]:
+        """
+        拉目标模块下要导出的用例 + 子步骤 (用例库 scope).
+        排序 create_time desc, 跟页面默认序一致. 子步骤一次拉完避免 N+1.
+
+        :param case_ids: 显式白名单. 非空时**互斥** module_id 范围, 按 ID 全量查
+                         (跨 module 的 case_ids 仍全返回, scope 防御由 PR-3 commit 端按 _meta 做).
+        :param recursive: case_ids 为空时, scope = module_id 还是 module_id + 所有子 module.
+                          默认 True, 符合"选目录 = 整个子树" 的用户直觉 (FE CaseDataTable 工具栏"导出" 走这个).
+                          单叶子 case 场景无差别 (无子 module); 中间目录场景必须 True.
+        """
+        try:
+            async with cls.session_scope() as session:
+                if case_ids:
+                    # 白名单语义: 不限制 module_id, 信任前端的 ID 选择.
+                    # 跨 module 的 case_ids 一并返回 (PR-3 commit 端有 _meta scope 严格防御).
+                    stmt = (
+                        select(cls.__model__)
+                        .where(
+                            cls.__model__.project_id == project_id,
+                            cls.__model__.is_common.is_(True),
+                            cls.__model__.id.in_(case_ids),
+                        )
+                        .order_by(cls.__model__.create_time.desc())
+                    )
+                elif recursive:
+                    # 选目录语义: scope = module_id 及其所有子 module.
+                    # 复用 moduleMapper.get_subtree_ids 走 CTE 一次拿全, 避免 N+1.
+                    from app.mapper.project.moduleMapper import get_subtree_ids
+                    from enums import ModuleEnum as _ME
+                    all_module_ids = await get_subtree_ids(
+                        session=session,
+                        module_id=module_id,
+                        module_type=_ME.CASE,
+                    )
+                    stmt = (
+                        select(cls.__model__)
+                        .where(
+                            cls.__model__.project_id == project_id,
+                            cls.__model__.is_common.is_(True),
+                            cls.__model__.module_id.in_(all_module_ids),
+                        )
+                        .order_by(cls.__model__.create_time.desc())
+                    )
+                else:
+                    # 精确 module_id (旧默认行为, 兼容不走 recursive 的调用方)
+                    stmt = (
+                        select(cls.__model__)
+                        .where(
+                            cls.__model__.project_id == project_id,
+                            cls.__model__.module_id == module_id,
+                            cls.__model__.is_common.is_(True),
+                        )
+                        .order_by(cls.__model__.create_time.desc())
+                    )
+                cases = (await session.scalars(stmt)).all()
+                if not cases:
+                    return []
+                ids = [c.id for c in cases]
+                step_rows = (await session.scalars(
+                    select(TestCaseStep)
+                    .where(TestCaseStep.test_case_id.in_(ids))
+                    .order_by(TestCaseStep.test_case_id, TestCaseStep.order)
+                )).all()
+                steps_by_case = {}
+                for s in step_rows:
+                    steps_by_case.setdefault(s.test_case_id, []).append(s.to_dict())
+                return [
+                    {**c.to_dict(), "case_sub_steps": steps_by_case.get(c.id, [])}
+                    for c in cases
+                ]
+        except Exception as e:
+            log.exception(f"query_cases_for_export error: project_id={project_id}, module_id={module_id}, error={e}")
+            raise
+
+    @classmethod
+    async def build_module_path_map(
+        cls,
+        session: AsyncSession,
+        module_ids: list,
+        project_id: int,
+        module_type: int,
+    ) -> dict:
+        """module_id -> 'root/.../leaf' 路径. 复用调用方 session, 一次拉全内存回溯."""
+        from app.service.exportCaseService import _walk_paths
+        if not module_ids:
+            return {}
+        rows = (await session.execute(
+            select(Module.id, Module.title, Module.parent_id)
+            .where(
+                Module.project_id == project_id,
+                Module.module_type == module_type,
+            )
+        )).all()
+        id_to_node = {r.id: (r.title, r.parent_id) for r in rows}
+        return _walk_paths(id_to_node, list(module_ids))
+
+    @classmethod
+    async def update_cases_common(cls, case_ids: List[int], project_id: int, module_id: int):
+        """
+        批量将用例设为公共用例库
+
+        :param case_ids: 用例ID列表
+        :param project_id: 目标项目ID
+        :param module_id: 目标模块ID
+        """
+        try:
+            async with cls.transaction() as session:
+                await session.execute(
+                    update(cls.__model__)
+                    .where(cls.__model__.id.in_(case_ids))
+                    .values(
+                        is_common=True,
+                        project_id=project_id,
+                        module_id=module_id,
+                    )
+                )
+        except Exception:
+            log.exception(f"update_cases_common 异常")
+            raise
+
+    @classmethod
+    async def _update_association_field(
+            cls,
+            case_ids: List[int],
+            field_name: str,
+            new_value: Any,
+            old_field_name: str,
+            user: User
+    ):
+        """
+        批量更新关联表字段并记录变更动态（内部方法）
+
+        :param case_ids: 用例ID列表
+        :param field_name: 要更新的字段名
+        :param new_value: 新值
+        :param old_field_name: 变更前数据中对应的字段名
+        :param user: 操作用户
+        """
+        try:
+            async with cls.transaction() as session:
+                stmt = select(RequirementCaseAssociation).where(
+                    RequirementCaseAssociation.case_id.in_(case_ids)
+                )
+                assoc_list = (await session.execute(stmt)).scalars().all()
+
+                for assoc in assoc_list:
+                    old_value = getattr(assoc, old_field_name, None)
+                    await CaseDynamicMapper.update_dynamic(
+                        case_id=assoc.case_id,
+                        old_case={old_field_name: old_value},
+                        new_case={old_field_name: new_value},
+                        session=session,
+                        cr=user
+                    )
+
+                field = getattr(RequirementCaseAssociation, field_name)
+                await session.execute(
+                    update(RequirementCaseAssociation)
+                    .where(RequirementCaseAssociation.case_id.in_(case_ids))
+                    .values({field_name: new_value})
+                )
+        except Exception as e:
+            log.exception(f"_update_association_field error: case_ids={case_ids}, field={field_name}, error={e}")
+            raise
+
+
+
+    @classmethod
+    async def validate_group_paths(
+            cls,
+            cases: List[Dict[str, Any]],
+            project_id: int,
+    ) -> List[Dict[str, Any]]:
+        """
+        校验 cases 中的 group_path 是否已存在于用例库 module 树.
+
+        用于**预览阶段**的硬门禁: 用户在 commit 之前就能看到 Excel 里的目录
+        是否都已在用例库建好. 配合 commit 阶段 insert_upload_case 里的二次校验,
+        形成"早提示 + 终拦截"的双层防护 (防预览和 commit 之间目录被人删掉).
+
+        与 insert_upload_case 内的校验逻辑保持一致:
+        - 用 find_group_path 只查不建
+        - 按 cache_key dedupe, K 个 unique path 只 K 次查询
+        - 空 group_path 视为"未分类", 跳过 (跟入库行为对齐)
+
+        :param cases: 解析后的 valid_cases, 每项应含 "group_path" (raw 字符串)
+                      和 "_row" (Excel 行号, 由 aioFileReader 注入)
+        :param project_id: 目标项目 ID
+        :return: invalid 列表, 每项形如 {"path": str, "rows": List[int]}
+                 - path: 原始 raw 字符串 (与用户 Excel 输入一致)
+                 - rows: 命中该 path 的所有 case 在 cases 中的 Excel 行号 (排序后)
+                 若全部有效, 返回 []
+        """
+        if not cases:
+            return []
+        from utils.caseEnumResolver import find_group_path, _split_group_path
+        log.debug(f"validate_group_paths cases={cases}")
+        # path -> [row, ...]
+        invalid: Dict[str, List[int]] = {}
+        cache: Dict[str, Optional[int]] = {}
+        for case in cases:
+            raw_path = case.get("group_path")
+            row = case.get("_row")
+            if not raw_path or row is None:
+                continue
+            titles = _split_group_path(raw_path)
+            # 0x1f 用作 dedupe key, 与 insert_upload_case 保持一致
+            cache_key = "\x1f".join(titles)
+            if cache_key not in cache:
+                cache[cache_key] = await find_group_path(
+                    project_id=project_id,
+                    raw_group_path=raw_path,
+                )
+            if cache[cache_key] is None:
+                invalid.setdefault(raw_path, []).append(int(row))
+
+        # 排序让输出稳定, 方便前端展示和 grep
+        return sorted(
+            ({"path": p, "rows": sorted(set(rs))} for p, rs in invalid.items()),
+            key=lambda x: x["path"],
+        )
+
+    @classmethod
+    def _prepare_case_data(
+            cls,
+            case_data: Dict[str, Any],
+            project_id: int,
+            module_id: Optional[int],
+            user: User,
+            is_common: bool
+    ) -> TestCase:
+        """
+        准备单个用例数据
+
+        :param case_data: 用例原始数据
+        :param project_id: 项目ID
+        :param module_id: 模块ID
+        :param user: 操作用户
+        :param is_common: 是否公共用例
+        :return: 用例模型实例
+        """
+        case_data.pop("action", None)
+        case_data.pop("expected_result", None)
+        # group_path 是解析阶段预留给 UploadModuleResolver 的字段,
+        # 已经在 insert_upload_case 里解析成 module_id, 这里必须弹出
+        case_data.pop("group_path", None)
+        # _row 是预览阶段 aioFileReader 注入的"Excel 行号"元数据, 仅供错误提示,
+        # 提交入库时已无意义, 必须弹出, 否则 TestCase(**case_data) 会抛
+        # `_row is an invalid keyword argument`.
+        case_data.pop("_row", None)
+        # case_id 是 M2 协议 (导出-编辑-导回 导回) 用的字段, M2 commit 端走
+        # case_id 同步. M1 老插入路径不识别, 必须在入库前弹出, 否则
+        # TestCase(**case_data) 会抛 `case_id is an invalid keyword argument`.
+        # 兜底 None (字段不存在 / Excel 没这列), 不影响 M1 文件.
+        case_data.pop("case_id", None)
+        case_data.update({
+            "project_id": project_id,
+            "module_id": module_id,
+            "creator": user.id,
+            "creatorName": user.username,
+            "is_common": is_common,
+        })
+        return cls.__model__(**case_data)
+
+    @classmethod
+    def _prepare_steps(
+            cls,
+            action: Optional[str],
+            expected_result: Optional[str],
+            case_index: int,
+            user: User
+    ) -> List[Dict[str, Any]]:
+        """
+        准备用例步骤数据
+
+        :param action: 操作步骤文本
+        :param expected_result: 预期结果文本
+        :param case_index: 用例索引
+        :param user: 操作用户
+        :return: 步骤数据字典列表
+        """
+        steps = _parse_steps(action, expected_result)
+        result = []
+        for step_index, step_data in enumerate(steps):
+            step_data.update({
+                "test_case_index": case_index,
+                "order": step_index,
+                "creator": user.id,
+                "creatorName": user.username,
+            })
+            result.append(step_data)
+        return result
+
+    @classmethod
+    def _prepare_requirement_associations(
+            cls,
+            case_index: int,
+            requirement_id: int,
+            last_order: int,
+            case_data: Dict[str, Any]
+    ) -> RequirementCaseAssociation:
+        """
+        准备需求关联数据
+
+        :param case_index: 用例临时索引 (flush 前无真实 id, flush 后用 case_id_map 替换)
+        :param requirement_id: 需求ID
+        :param last_order: 当前最大排序号, 由调用方维护累加器
+            (用累加器而非每次查 max(order) 是为了避免 N 次 round-trip;
+             累加器初值来自一次性的 get_last_index 查询)
+        :param case_data: 用例数据 (仅取 case_type / case_status)
+        :return: 需求用例关联模型
+        """
+        return RequirementCaseAssociation(
+            requirement_id=requirement_id,
+            case_id=case_index,
+            order=last_order + 1,
+            is_review=0,
+            case_type=case_data.get("case_type", None),
+            case_status=case_data.get("case_status", None),
+        )
+
+    @classmethod
+    async def insert_upload_case(
+            cls,
+            cases: List[Dict[str, Any]],
+            project_id: int,
+            user: User,
+            module_id: Optional[int] = None,
+            requirement_id: Optional[int] = None,
+            is_common: bool = True,
+            on_duplicate: str = "create",
+    ) -> Tuple[int, int]:
+        """
+        从Excel批量导入用例
+
+        处理流程：
+        1. 批量插入用例记录
+        2. 解析步骤并关联到用例
+        3. 关联需求（如有）并更新需求用例数量
+        4. 记录用例动态
+
+        :param cases: 用例数据列表
+        :param project_id: 项目ID
+        :param module_id: 模块ID（可选）
+        :param requirement_id: 需求ID（可选）
+        :param user: 操作用户
+        :param is_common: 是否公共用例
+        :param on_duplicate: 相同用例处理.
+            - "skip":   Excel 中 (module_id, case_name) 与已有 case 完全一致的行,
+                        整行跳过 (计入 skipped_count)
+            - "create": 不检查, 全部写入 (默认)
+        :return: Tuple[int, int]: (imported_count, skipped_count).
+                 - imported_count: 实际写入的用例数
+                 - skipped_count: 因 on_duplicate="skip" 跳过的用例数
+        """
+        if not cases:
+            return 0, 0
+
+        # 预校验 group_path -> module_id (在事务外, 避免嵌套事务破坏原子性)
+        # 业务约定: Excel 中的"所属分组"必须已存在于用例库 module 树
+        # (module_type=ModuleEnum.CASE=10), 不再自动建目录. 任一行缺失即整批拒绝.
+        # - 先 dedupe paths: N 条 case 经常只有 K 个 unique path (K << N)
+        # - 每个 unique path 只 find 一次, 大幅减少数据库调用
+        # - 任一 unique path 缺失, 把对应的原始 raw 字符串收集到 invalid_paths
+        #   整批 raise, 由 controller 转 400
+        from utils.caseEnumResolver import find_group_path, _split_group_path
+        from app.exception import CommonError
+        case_module_map: Dict[int, int] = {}
+        unique_path_resolved: Dict[str, Optional[int]] = {}
+        invalid_paths: List[str] = []
+        for case_index, case_data in enumerate(cases):
+            raw_path = case_data.get("group_path")
+            if not raw_path:
+                continue
+            # 用拆分后的 tuple 当 cache key.
+            # 同一原始字符串可能有多种写法 (e.g. "a/b/" vs "a/b"), tuple 形态能 dedupe
+            titles = _split_group_path(raw_path)
+            # 0x1f = Unit Separator, ASCII 控制符, 业务字符串中不可能出现, 用作连接符安全无歧义
+            cache_key = "\x1f".join(titles)
+            if cache_key not in unique_path_resolved:
+                unique_path_resolved[cache_key] = await find_group_path(
+                    project_id=project_id,
+                    raw_group_path=raw_path,
+                )
+            resolved = unique_path_resolved[cache_key]
+            if resolved is None:
+                invalid_paths.append(raw_path)
+            else:
+                case_module_map[case_index] = resolved
+
+        if invalid_paths:
+            # dedupe + sort 让错误输出稳定, 方便用户批量改 Excel
+            unique_invalid = sorted(set(invalid_paths))
+            preview = unique_invalid[:5]
+            more = "" if len(unique_invalid) <= 5 else f" (还有 {len(unique_invalid) - 5} 个...)"
+            raise CommonError(
+                message=(
+                    f"用例库分组校验失败, 以下目录不存在: {preview}{more}. "
+                    f"请先在用例库中创建对应目录后再导入."
+                ),
+                data={"invalid_paths": unique_invalid},
+            )
+
+        # 0.5) 相同用例过滤 (on_duplicate="skip").
+        #      业务约定: 已有 case (TestCase) 中, 当 (module_id, case_name)
+        #      与当前导入行完全一致时, 该行整条跳过, 不入库.
+        #      注意: 这里的"已有"指同一 project_id + is_common=True 范围 (即用例库).
+        #      与 plan upload 的 skip_duplicate (按 plan_id 范围 + case_name) 是两套独立语义.
+        skipped_dup_indices: set = set()
+        if on_duplicate == "skip" and cases:
+            # 先按 (module_id, case_name) 聚合要查的 key, dedupe
+            dup_lookup_keys: set = set()
+            for idx, case_data in enumerate(cases):
+                mid = case_module_map.get(idx, module_id)
+                name = (case_data.get("case_name") or "").strip()
+                if mid is not None and name:
+                    dup_lookup_keys.add((mid, name))
+
+            existing_dup_keys: set = set()
+            if dup_lookup_keys:
+                # 按 (module_id, case_name) 拆批 IN 查询, 避免超长 SQL;
+                # 通常 K << 拆批阈值, 一次查即可
+                from sqlalchemy import tuple_
+                dup_stmt = select(TestCase.module_id, TestCase.case_name).where(
+                    TestCase.project_id == project_id,
+                    TestCase.is_common.is_(True),
+                    tuple_(TestCase.module_id, TestCase.case_name).in_(
+                        list(dup_lookup_keys)
+                    ),
+                )
+                async with cls.transaction() as session:
+                    rows = (await session.execute(dup_stmt)).all()
+                for r in rows:
+                    if r[0] is not None:
+                        existing_dup_keys.add((int(r[0]), r[1]))
+
+            for idx, case_data in enumerate(cases):
+                mid = case_module_map.get(idx, module_id)
+                name = (case_data.get("case_name") or "").strip()
+                if mid is not None and name and (mid, name) in existing_dup_keys:
+                    skipped_dup_indices.add(idx)
+
+        if skipped_dup_indices:
+            cases = [c for i, c in enumerate(cases) if i not in skipped_dup_indices]
+            log.info(
+                f"insert_upload_case: on_duplicate=skip 跳过 {len(skipped_dup_indices)} 条"
+            )
+
+        if not cases:
+            return 0, len(skipped_dup_indices)
+
+        log.info(f"开始导入用例，共 {len(cases)} 条")
+        async with cls.transaction() as session:
+            case_objects = []
+            all_steps = []
+            requirement_associations = []
+            last_order = await get_last_index(session, requirement_id) if requirement_id else 0
+
+            for case_index, case_data in enumerate(cases):
+                case_data.pop("case_id", None) # 导入时 case_id 为 None 兼容
+                effective_module_id = case_module_map.get(case_index, module_id)
+                case_obj = cls._prepare_case_data(
+                    case_data=case_data.copy(),
+                    project_id=project_id,
+                    module_id=effective_module_id,
+                    user=user,
+                    is_common=is_common
+                )
+                case_objects.append(case_obj)
+
+                steps = cls._prepare_steps(
+                    action=case_data.get("action"),
+                    expected_result=case_data.get("expected_result"),
+                    case_index=case_index,
+                    user=user
+                )
+                all_steps.extend(steps)
+
+                if requirement_id:
+                    assoc = cls._prepare_requirement_associations(
+                        case_index=case_index,
+                        requirement_id=requirement_id,
+                        last_order=last_order,
+                        case_data=case_data
+                    )
+                    requirement_associations.append(assoc)
+                    last_order += 1
+
+            session.add_all(case_objects)
+            await session.flush()
+
+            case_id_map = {i: case_obj.id for i, case_obj in enumerate(case_objects)}
+
+            step_objects = [
+                TestCaseStepMapper.__model__(**cls._map_step_id(step_data, case_id_map))
+                for step_data in all_steps
+            ]
+            session.add_all(step_objects)
+
+            if requirement_associations:
+                for assoc in requirement_associations:
+                    assoc.case_id = case_id_map[assoc.case_id]
+                session.add_all(requirement_associations)
+
+                req = await RequirementMapper.get_by_id(ident=requirement_id, session=session)
+                req.case_number += len(case_objects)
+
+            # 写创建动态 (跟 save_case / M1 plan insert_plan_case / M2 路径走
+            # new_dynamic 一致). 之前漏写导致 M1 批量导入的用例在 case_dynamic
+            # 留不下审计, 现在补回来. 跟 insert_plan_case 一样, 这里传 plan_id=None
+            # 标记"用例自身创建", 跟 update_dynamic / update_plan_case_dynamic
+            # 的 plan_id IS NULL vs NOT NULL 二分语义保持一致.
+            # 批量构造后 add_all, 避免 N 条用例产生 N 次 flush.
+            dynamic_records = [
+                CaseStepDynamic(
+                    description=f"{user.username} 创建了测试用例。 {case_obj.case_name}",
+                    test_case_id=case_obj.id,
+                    creator=user.id,
+                    creatorName=user.username,
+                )
+                for case_obj in case_objects
+            ]
+            session.add_all(dynamic_records)
+
+            log.info(f"成功导入用例 {len(case_objects)} 条")
+            return len(case_objects), len(skipped_dup_indices)
+
+    @staticmethod
+    def _map_step_id(step_data: Dict[str, Any], case_id_map: Dict[int, int]) -> Dict[str, Any]:
+        """将步骤的临时索引替换为实际用例ID"""
+        case_index = step_data.pop("test_case_index")
+        step_data["test_case_id"] = case_id_map[case_index]
+        return step_data
+
+    @classmethod
+    async def remove_case(cls, caseId: int, requirement_id: Optional[int]):
+        """
+        删除测试用例
+
+        数据库已配置 ON DELETE CASCADE：
+        - TestCaseStep / CaseStepDynamic / PlanCaseAssociation / RequirementCaseAssociation
+          都会在 test_case 删除时自动被数据库清理
+
+        :param caseId: 用例ID
+        :param requirement_id: 需求ID（可选，用于更新需求用例数量）
+        """
+        try:
+            async with cls.transaction() as session:
+                case_obj: TestCase = await cls.get_by_id(ident=caseId, session=session)
+
+                # 有需求关联时，先更新需求计数（公共/非公共都需要）
+                if requirement_id:
+                    req = await RequirementMapper.get_by_id(ident=requirement_id, session=session)
+                    if req and req.case_number > 0:
+                        req.case_number -= 1
+
+                if case_obj.is_common and requirement_id:
+                    # 公共用例只解除当前需求关联，不删本体
+                    # 数据库不会触发级联（因为没删 test_case），需手动删关联
+                    await session.execute(
+                        delete(RequirementCaseAssociation).where(
+                            and_(
+                                RequirementCaseAssociation.requirement_id == requirement_id,
+                                RequirementCaseAssociation.case_id == caseId
+                            )
+                        )
+                    )
+                else:
+                    # 非公共用例直接删除本体，数据库级联自动清理所有子表
+                    await session.delete(case_obj)
+        except Exception as e:
+            log.exception(f"remove_case error: caseId={caseId}, requirement_id={requirement_id}, error={e}")
+            raise
+
+    @classmethod
+    async def query_case_by_field(cls, requirement_id: int, **kwargs):
+        """
+        根据条件过滤查询用例
+
+        :param requirement_id: 需求ID
+        :param kwargs: 过滤条件
+            - TestCase字段: case_name, case_tag
+            - RequirementCaseAssociation字段: is_review, case_status, case_type, case_level
+        :return: 符合条件的用例列表（包含关联表的 is_review 和 case_status）
+        """
+        ASSOCIATION_FIELDS = {'is_review', 'case_status', 'case_type', 'case_level'}
+
+        case_filters = {k: v for k, v in kwargs.items() if k not in ASSOCIATION_FIELDS}
+        association_filters = {k: v for k, v in kwargs.items() if k in ASSOCIATION_FIELDS}
+
+        try:
+            async with cls.session_scope() as session:
+                case_conditions = await cls.search_conditions(**case_filters)
+
+                query = (
+                    select(TestCase,
+                           RequirementCaseAssociation.is_review,
+                           RequirementCaseAssociation.case_status,
+                           RequirementCaseAssociation.case_type,
+                           RequirementCaseAssociation.case_level)
+                    .join(RequirementCaseAssociation, RequirementCaseAssociation.case_id == TestCase.id)
+                    .where(RequirementCaseAssociation.requirement_id == requirement_id)
+                )
+
+                if case_conditions:
+                    query = query.where(and_(*case_conditions))
+
+                for field_name, value in association_filters.items():
+                    if hasattr(RequirementCaseAssociation, field_name):
+                        field = getattr(RequirementCaseAssociation, field_name)
+                        if value is None:
+                            query = query.where(field.is_(None))
+                        elif isinstance(value, (int, float, bool)):
+                            query = query.where(field == value)
+                        elif isinstance(value, str):
+                            query = query.where(field.like(f"%{value}%"))
+                        else:
+                            query = query.where(field == value)
+
+                query = query.order_by(RequirementCaseAssociation.order)
+
+                result = await session.execute(query)
+                rows = result.all()
+
+                return [
+                    {
+                        **(row[0].to_dict()),
+                        "is_review": row[1],
+                        "case_status": row[2],
+                        "case_type": row[3],
+                        "case_level": row[4],
+
+                    }
+                    for row in rows
+                ]
+
+        except Exception as e:
+            log.exception(f"query_case_by_field error: requirement_id={requirement_id}, kwargs={kwargs}, error={e}")
+            raise
+
+    @classmethod
+    async def query_tags(cls, requirement_id: int):
+        """
+        获取需求下所有用例的标签集合
+
+        :param requirement_id: 需求ID
+        :return: 标签集合
+        """
+        try:
+            async with cls.session_scope() as session:
+                tags = await session.scalars(
+                    select(TestCase.case_tag)
+                    .join(RequirementCaseAssociation, RequirementCaseAssociation.case_id == TestCase.id)
+                    .where(
+                        RequirementCaseAssociation.requirement_id == requirement_id,
+                        TestCase.case_tag.isnot(None)
+                    )
+                )
+                # debug 级别: 标签通常很少, 仅调试时打开; 原 info 会把所有 tag 刷到日志
+                all_tags = tags.all()
+                log.debug(f"query_tags: requirement_id={requirement_id}, tag_count={len(all_tags)}")
+                return set(all_tags) if all_tags else []
+        except Exception as e:
+            log.exception(f"query_tags error: requirement_id={requirement_id}, error={e}")
+            raise
+
+    @classmethod
+    async def save_case(cls, user: User, requirement_id: Optional[int] = None, **kwargs):
+        """
+        创建测试用例及其步骤
+
+        :param user: 创建者用户
+        :param requirement_id: 关联的需求ID（可选）
+        :param kwargs: 用例字段数据
+        :return: 创建的用例对象
+        """
+        case_sub_steps = kwargs.pop("case_sub_steps", [])
+
+        kwargs = set_creator(user, **kwargs)
+
+        try:
+            async with cls.transaction() as session:
+                case_obj: TestCase = await cls.save(session=session, **kwargs)
+
+                if case_sub_steps:
+                    steps = [TestCaseStep(
+                        **i,
+                        test_case_id=case_obj.id,
+                        creator=user.id,
+                        creatorName=user.username
+                    )  for i in case_sub_steps]
+                    session.add_all(steps)
+
+                if requirement_id:
+                    await insert_requirement_case(
+                        session=session,
+                        requirement_id=requirement_id,
+                        case_id=case_obj.id
+                    )
+       
+                await CaseDynamicMapper.new_dynamic(
+                    cr=user,
+                    test_case=case_obj,
+                    session=session
+                )
+
+                return case_obj
+        except Exception as e:
+            log.exception(f"save_case error: kwargs={kwargs}, error={e}")
+            raise
+    
+    @classmethod
+    async def delete_batch_cases(cls, delete_case_list: List[int]) -> int:
+        """
+        批量删除测试用例
+
+        本方法走 bulk delete (``session.execute(delete(TestCase).where(...))``),
+        **不会**触发 ORM 级 relationship cascade (cascade="all, delete-orphan" 只对
+        ``session.delete(obj)`` 生效). 走 bulk delete 时, 子表清理完全依赖 DDL 级
+        ``ON DELETE CASCADE`` 声明, 散落在以下子表 Model 里 (改 TestCase 同步检查):
+
+        - ``TestCaseStep.test_case_id``           → ondelete="cascade"
+              app/model/caseHub/test_case_step.py:16
+        - ``CaseStepDynamic.test_case_id``        → ondelete="cascade"
+              app/model/caseHub/case_step_dynamic.py:15
+        - ``RequirementCaseAssociation.case_id``  → ondelete="CASCADE"
+              app/model/caseHub/association.py:17
+        - ``PlanCaseAssociation.case_id``         → ondelete="CASCADE"
+              app/model/caseHub/association.py:50
+        - ``TestCaseStepResult`` 链式级联: 上面 ``TestCaseStep`` 被 DB 删掉之后,
+              ``TestCaseStepResult.step_id`` 的 ondelete="cascade" 顺势清理
+              (test_case_step.py:40)
+
+        ⚠ 注意:
+        - 老库 / 手工 DDL 迁移可能漏加 ON DELETE CASCADE, 此时 bulk delete 会被
+          MySQL 拒绝并抛 IntegrityError. 下面 except IntegrityError 显式识别这种
+          场景, 给 DBA / 维护者一个明确信号.
+        - 若想对单条用例做删除并走 ORM 级 cascade, 请用 ``remove_case`` (它内部
+          调 ``session.delete(case_obj)``).
+
+        :param delete_case_list: 用例ID列表
+        :return: 删除的用例数量 (仅 test_case 主表行数, 不含级联子表)
+        :raises IntegrityError: DDL 级 CASCADE 缺失或被其他约束阻止
+        """
+        if not delete_case_list:
+            return 0
+        from sqlalchemy.exc import IntegrityError
+        try:
+            async with cls.transaction() as session:
+                case_stmt = delete(TestCase).where(TestCase.id.in_(delete_case_list))
+                result = await session.execute(case_stmt)
+                delete_count = result.rowcount
+                log.info(f"批量删除成功: 删除{delete_count}条用例, ids={delete_case_list}")
+                return delete_count
+        except IntegrityError as e:
+            # 兜底: DDL 级 ON DELETE CASCADE 未生效 (老库/手工 DDL), MySQL 拒删
+            # 并抛 IntegrityError. 区别于普通异常, 给维护者一个明确信号: 不是
+            # mapper 逻辑出错, 是数据库约束不一致, 需补 DDL 或手工清理子表.
+            log.exception(
+                f"delete_batch_cases: DDL 级 ON DELETE CASCADE 缺失或约束违反, "
+                f"ids={delete_case_list}, error={e}"
+            )
+            raise
+        except Exception as e:
+            log.exception(f"delete_batch_cases error: ids={delete_case_list}, error={e}")
+            raise
+    
+    @classmethod
+    async def update_batch_cases(cls, update_case_list: List[int], user: User, **kwargs):
+        """
+        批量更新测试用例信息，并记录变更动态
+
+        使用高性能的批量更新策略：
+        1. 单次 UPDATE 语句更新所有记录
+        2. 批量获取更新前的数据
+        3. 批量记录变更动态
+
+        :param update_case_list: 用例ID列表
+        :param user: 更新者用户
+        :param kwargs: 更新字段数据（排除id）
+        """
+        if not update_case_list or not kwargs:
+            return 0
+
+        log.info(f"批量更新用例: ids={update_case_list}, fields={kwargs}")
+
+        try:
+            async with cls.transaction() as session:
+                old_cases_stmt = select(TestCase).where(TestCase.id.in_(update_case_list))
+                old_cases_result = await session.execute(old_cases_stmt)
+                old_cases_list = old_cases_result.scalars().all()
+
+                if not old_cases_list:
+                    log.warning(f"未找到要更新的用例: {update_case_list}")
+                    return 0
+
+                old_cases_map = {case.id: case.map for case in old_cases_list}
+
+                stmt = update(TestCase).where(TestCase.id.in_(update_case_list))
+                update_fields = {k: v for k, v in kwargs.items() if k != 'id'}
+                stmt = stmt.values(**update_fields)
+                result = await session.execute(stmt)
+                log.info(f"批量更新影响行数: {result.rowcount}")
+
+                new_cases_stmt = select(TestCase).where(TestCase.id.in_(update_case_list))
+                new_cases_result = await session.execute(new_cases_stmt)
+                new_cases_list = new_cases_result.scalars().all()
+
+                dynamic_records = []
+                renderer = await CaseDynamicRenderer.from_db(session=session)
+                for new_case in new_cases_list:
+                    old_data = old_cases_map.get(new_case.id, {})
+                    new_data = new_case.map
+
+                    if old_data != new_data:
+                        diff_info = renderer.diff_dict(old_data, new_data)
+                        if diff_info:
+                            dynamic_records.append(
+                                CaseStepDynamic(
+                                    description=f"{user.username} 批量更新了测试用例 :{diff_info}",
+                                    test_case_id=new_case.id,
+                                    creator=user.id,
+                                    creatorName=user.username
+                                )
+                            )
+
+                if dynamic_records:
+                    session.add_all(dynamic_records)
+                    await session.flush()
+
+                log.info(f"批量更新成功: 更新{result.rowcount}条, 记录{len(dynamic_records)}条动态")
+                return result.rowcount
+
+        except Exception as e:
+            log.exception(f"update_batch_cases error: ids={update_case_list}, kwargs={kwargs}, error={e}")
+            raise
+    
+    @classmethod
+    async def update_case(cls, ur: User, **kwargs):
+        """
+        更新测试用例信息，并记录变更动态
+
+        :param ur: 更新者用户
+        :param kwargs: 更新字段数据（必须包含id）
+        """
+        log.info(f"更新用例参数: {kwargs}")
+
+        try:
+            async with cls.transaction() as session:
+                case_obj = await cls.get_by_id(ident=kwargs.get("id"), session=session)
+                old_data = case_obj.map
+                kwargs.pop("id", None)
+                new_case = await cls.update_cls(case_obj, session, **kwargs)
+
+                await CaseDynamicMapper.update_dynamic(
+                        cr=ur,
+                        case_id=case_obj.id,
+                        old_case=old_data,
+                        new_case=new_case.map,
+                        session=session
+                    )
+        except Exception as e:
+            log.exception(f"update_case error: kwargs={kwargs}, error={e}")
+            raise
+
+    @classmethod
+    async def _fetch_source_cases_and_steps(cls, case_ids: List[int], session: AsyncSession) -> tuple:
+        """
+        获取源用例及其步骤（内部方法）
+
+        :param case_ids: 用例ID列表
+        :param session: 数据库会话
+        :return: (源用例列表, 步骤映射字典)
+        """
+        source_cases = await cls.query_by_in_clause("id", case_ids, session)
+
+        source_steps_map = {}
+        if source_cases:
+            steps_result = await session.execute(
+                select(TestCaseStep)
+                .where(TestCaseStep.test_case_id.in_(case_ids))
+                .order_by(TestCaseStep.order)
+            )
+            all_steps = steps_result.scalars().all()
+            for step in all_steps:
+                source_steps_map.setdefault(step.test_case_id, []).append(step)
+
+        return source_cases, source_steps_map
+
+    @classmethod
+    def _build_new_cases(
+            cls,
+            source_cases,
+            source_steps_map: dict,
+            user: User
+    ) -> List[TestCase]:
+        """
+        构建新的用例副本（内部方法）
+
+        :param source_cases: 源用例列表
+        :param source_steps_map: 步骤映射字典
+        :param user: 操作用户
+        :return: 新用例列表
+        """
+        new_case_list = []
+        for source_case in source_cases:
+            new_case_data = source_case.copy_map()
+            new_case_data["case_name"] += " - 副本"
+            new_case_data["creator"] = user.id
+            new_case_data["creatorName"] = user.username
+            new_case_model = TestCase(**new_case_data)
+
+            steps = source_steps_map.get(source_case.id, [])
+            # 不设置 test_case_id，由 SQLAlchemy relationship 在 flush 时自动填充
+            # 但需要 pop 掉 copy_map() 中残留的旧 test_case_id，避免指向源用例
+            new_case_model.case_sub_steps = [
+                TestCaseStep(
+                    **{
+                        **step.copy_map(),
+                        "creator": user.id,
+                        "creatorName": user.username
+                    }
+                )
+                for step in steps
+            ]
+            # 显式清除旧外键，确保 SQLAlchemy 重新绑定到新用例
+            for sub_step in new_case_model.case_sub_steps:
+                sub_step.test_case_id = None
+            new_case_list.append(new_case_model)
+
+        return new_case_list
+
+    @classmethod
+    async def _create_requirement_associations(
+            cls,
+            new_case_list: List[TestCase],
+            requirement_id: int,
+            session: AsyncSession
+    ):
+        """
+        创建需求关联记录（内部方法）
+
+        :param new_case_list: 新用例列表
+        :param requirement_id: 需求ID
+        :param session: 数据库会话
+        """
+        req = await RequirementMapper.get_by_id(ident=requirement_id, session=session)
+        req.case_number += len(new_case_list)
+
+        max_order_result = await session.execute(
+            select(func.max(RequirementCaseAssociation.order))
+            .where(RequirementCaseAssociation.requirement_id == requirement_id)
+        )
+        max_order = max_order_result.scalar() or 0
+
+        assoc_values = [
+            {
+                "requirement_id": requirement_id,
+                "case_id": new_case_obj.id,
+                "order": max_order + idx + 1
+            }
+            for idx, new_case_obj in enumerate(new_case_list)
+        ]
+        await session.execute(insert(RequirementCaseAssociation).values(assoc_values))
+
+    @classmethod
+    async def copy_cases(cls, case_ids: List[int], user: User, requirement_id: Optional[int]=None, session: Optional[AsyncSession]=None):
+        """
+        复制用例及其步骤
+
+        :param case_ids: 被复制的源用例ID列表
+        :param user: 操作用户
+        :param requirement_id: 目标需求ID（可选）
+        :param session: 异步会话（可选）。传入时复用外部 session（事务由调用方管理），
+                        未传入时由 transaction() 自动创建新 session 并开启事务
+        :return: 复制的用例对象
+        """
+        try:
+            # 使用 transaction() 统一处理 session 生命周期：
+            # - 未传 session：内部创建新 session + session.begin()，退出时自动 commit/rollback
+            # - 传入 session：直接复用，避免在已有事务的 session 上再次 begin() 触发
+            #   "A transaction is already begun on this Session."
+            async with cls.transaction(session) as session:
+                source_cases, source_steps_map = await cls._fetch_source_cases_and_steps(case_ids, session)
+
+                new_case_list = cls._build_new_cases(source_cases, source_steps_map, user)
+
+                session.add_all(new_case_list)
+                await session.flush()
+
+                if requirement_id and source_cases:
+                    await cls._create_requirement_associations(new_case_list, requirement_id, session)
+
+                for new_case_obj in new_case_list:
+                    await CaseDynamicMapper.new_dynamic(
+                        cr=user,
+                        test_case=new_case_obj,
+                        session=session
+                    )
+                log.info(f"copy_cases success: case_ids={case_ids}, requirement_id={requirement_id}")
+                return new_case_list
+        except Exception as e:
+            log.exception(f"copy_cases error: case_ids={case_ids}, requirement_id={requirement_id}, error={e}")
+            raise
+
+    @classmethod
+    async def add_next_case(cls, requirement_id: int, case_id: int, user: User):
+        """
+        在当前用例后快速创建下一条用例（复制）
+
+        ⚠ TODO(known issue): 当前实现存在短板:
+        - 新建的 case 没有关联到 requirement (RequirementCaseAssociation 未插)
+        - order 未设置 (不会出现在需求的用例列表)
+        - 步骤 case_sub_steps 未拷贝 (用例是空壳)
+        - 操作动态 CaseDynamicMapper 未记录
+        今后如果调用方依赖事件发生改变, 请及时修复.
+
+        :param requirement_id: 需求ID
+        :param case_id: 当前用例ID
+        :param user: 操作用户
+        """
+        try:
+            async with cls.transaction() as session:
+                req = await RequirementMapper.get_by_id(ident=requirement_id, session=session)
+                current_case = await cls.get_by_id(ident=case_id, session=session)
+
+                new_case = await cls._copy_case_data(
+                    source=current_case,
+                    user=user,
+                    session=session
+                )
+
+                req.case_number += 1
+                await cls.add_flush_expunge(session=session, model=new_case)
+        except Exception as e:
+            log.exception(f"add_next_case error: requirement_id={requirement_id}, case_id={case_id}, error={e}")
+            raise
+
+    @classmethod
+    async def _copy_case_data(cls, source: TestCase, user: User, session: AsyncSession) -> TestCase:
+        """
+        复制用例数据（内部方法）
+
+        :param source: 源用例对象
+        :param user: 操作用户
+        :param session: 数据库会话
+        :return: 新的用例对象
+        """
+        new_data = source.copy_map()
+        new_data["case_name"] += " - 副本"
+        new_data["creator"] = user.id
+        new_data["creatorName"] = user.username
+        return await cls.save(session=session, **new_data)
+
+    @classmethod
+    async def add_default_case(cls, requirement_id: int, user: User):
+        """
+        # 需求默认用例添加 暂不使用
+        在需求下添加一条默认模板用例
+
+        流程:
+        1. 需求 case_number +1 (新加一条占位)
+        2. 用 TestCase.set_default 初始化一个空壳用例
+        3. module_id / project_id 继承自需求
+        4. flush 取真实 id 后, 在 RequirementCaseAssociation 里建关联
+           (order = 当前 max + 1, 追加到末尾)
+
+        :param requirement_id: 需求ID
+        :param user: 操作用户
+        """
+        warnings.warn("需求默认用例添加 暂不使用")
+        try:
+            async with cls.transaction() as session:
+                req = await RequirementMapper.get_by_id(ident=requirement_id, session=session)
+                req.case_number += 1
+
+                new_case = TestCase()
+                new_case = TestCase.new_default(user)
+
+                new_case.module_id = req.module_id
+                new_case.project_id = req.project_id
+
+                await cls.add_flush_expunge(session=session, model=new_case)
+                last_order = await get_last_index(session, requirement_id)
+                await session.execute(
+                    insert(RequirementCaseAssociation).values(
+                        requirement_id=requirement_id,
+                        case_id=new_case.id,
+                        order=last_order + 1
+                    )
+                )
+        except Exception as e:
+            log.exception(f"add_default_case error: requirement_id={requirement_id}, error={e}")
+            raise
+
+
+
+# ============================================================
+# 用例 module 维度排序 (DragSortTable 拖拽)
+# 设计思路: 完全参照 planCaseMapper.reorder_plan_case 的实现
+#   - 越权前置: 校验所有 case_id + 锚点都属于 project_id
+#   - 单条 reorder: 读 module 全量 → 按锚点算新下标 → 内存重排 → 单条 UPDATE 回写
+#   - 批量 reorder: 聚合去重后一次越权校验, 同一事务内顺序应用
+# ============================================================
+
+async def reorder_test_case(
+    project_id: int,
+    case_id: int,
+    before_id: Optional[int] = None,
+    after_id: Optional[int] = None,
+    target_module_id: Optional[int] = None,
+) -> int:
+    """单 case 移动 / 跨 module 移动（推荐走 ``reorder_test_cases_bulk``）。
+
+    实现：开 1 个事务 → 越权前置校验 → 调一次
+    ``_apply_single_reorder`` 完成单 case 重排。
+
+    复杂度（单条）
+    --------
+    - 1 次 SELECT (读 module 全量)
+    - 1 次 UPDATE (整组回写 order，可顺带切 module)
+    - 1 次越权校验 SELECT
+    - IO 共 3 次，与目标 module 的 case 数无关
+
+    Args:
+        project_id: 项目ID
+        case_id: 被移动的用例ID
+        before_id: 锚点：被移动 case 放在此 case 之前
+        after_id: 锚点：被移动 case 放在此 case 之后
+        target_module_id: 目标模块；None 表示不切换 module
+
+    Returns:
+        int: 实际更新行数；位置无变化且 module 未切换时返回 0（幂等）
+
+    Raises:
+        CommonError: 越权 / 用例不存在 / 锚点不在目标 module 等业务错误
+    """
+    async with TestCaseMapper.transaction() as session:
+        await _assert_cases_belong_to_project(
+            session=session,
+            project_id=project_id,
+            case_ids=[case_id, before_id, after_id],
+        )
+        return await _apply_single_reorder(
+            session=session,
+            project_id=project_id,
+            case_id=case_id,
+            before_id=before_id,
+            after_id=after_id,
+            target_module_id=target_module_id,
+        )
+
+
+async def reorder_test_cases_bulk(
+    project_id: int,
+    items: List[Dict[str, Any]],
+) -> List[int]:
+    """批量重排序（多选拖拽 / 跨 module 批量调整）。
+
+    行为
+    ----
+    - 所有 items 在 **同一事务** 内顺序应用；任一失败整体回滚
+    - 越权前置：聚合所有 case_id + 锚点去重后一次性校验,
+      避免每条都重复一次 SELECT
+
+    复杂度
+    --------
+    - 1 次越权校验 SELECT（聚合 N 条的所有 case_id + 锚点）
+    - N 次 _apply_single_reorder，每次含 1 次 SELECT + 1 次 UPDATE
+    - 总 IO = 1 + 2N
+
+    Args:
+        project_id: 项目ID
+        items: 重排序条目列表, 每条形如
+            ``{"case_id": int, "before_id"?: int, "after_id"?: int, "target_module_id"?: int}``
+
+    Returns:
+        List[int]: 每条 item 的 affected 行数（与 items 等长）,
+            0 表示该条幂等无变化
+
+    Raises:
+        CommonError: items 为空 / 越权 / 用例不存在 / 锚点非法
+    """
+    from app.exception import CommonError
+
+    if not items:
+        raise CommonError("批量重排序 items 不能为空")
+
+    # 1) 聚合所有需要校验的 case_id（去重 + 过滤 None）
+    all_ids: set = set()
+    for it in items:
+        cid = it.get("case_id")
+        if cid is None:
+            raise CommonError("item.case_id 不能为空")
+        all_ids.add(cid)
+        for anchor_key in ("before_id", "after_id"):
+            v = it.get(anchor_key)
+            if v is not None:
+                all_ids.add(v)
+
+    async with TestCaseMapper.transaction() as session:
+        # 2) 一次越权前置
+        await _assert_cases_belong_to_project(
+            session=session,
+            project_id=project_id,
+            case_ids=list(all_ids),
+        )
+
+        # 3) 顺序应用每条（同一事务内复用 session）
+        results: List[int] = []
+        for it in items:
+            affected = await _apply_single_reorder(
+                session=session,
+                project_id=project_id,
+                case_id=it["case_id"],
+                before_id=it.get("before_id"),
+                after_id=it.get("after_id"),
+                target_module_id=it.get("target_module_id"),
+            )
+            results.append(affected)
+
+        log.info(
+            f"reorder_test_cases_bulk project={project_id} items={len(items)} total_affected={sum(results)}"
+        )
+        return results
+
+
+async def _assert_cases_belong_to_project(
+    session: AsyncSession,
+    project_id: int,
+    case_ids: List[Optional[int]],
+) -> None:
+    """断言所有非 None 的 case_id 都属于 project_id, 否则抛 ``CommonError``。
+    """
+    from app.exception import CommonError
+
+    valid_ids = [cid for cid in case_ids if cid is not None]
+    if not valid_ids:
+        return
+    existing = await _filter_case_ids_belong_to_project(
+        session=session,
+        project_id=project_id,
+        case_id_list=valid_ids,
+    )
+    missing = set(valid_ids) - existing
+    if missing:
+        raise CommonError(
+            f"以下 case 不属于项目 {project_id}, 已拒绝: {sorted(missing)[:5]}"
+        )
+
+
+async def _filter_case_ids_belong_to_project(
+    session: AsyncSession,
+    project_id: int,
+    case_id_list: List[int],
+) -> set:
+    """校验并返回 project 下真实存在的 case_id 集合。
+
+    越权防护: 调用方传 ``(project_id, case_id_list)`` 时, 先用一次 SELECT
+    过滤出真正属于该项目的 case_id, 供调用方与入参做差集。
+    """
+    if not case_id_list:
+        return set()
+    stmt = select(TestCase.id).where(
+        and_(
+            TestCase.project_id == project_id,
+            TestCase.id.in_(case_id_list),
+        )
+    )
+    result = await session.execute(stmt)
+    return {row[0] for row in result.all()}
+
+
+async def _apply_single_reorder(
+    session: AsyncSession,
+    project_id: int,
+    case_id: int,
+    before_id: Optional[int],
+    after_id: Optional[int],
+    target_module_id: Optional[int],
+) -> int:
+    """应用单条重排序（核心执行逻辑）。
+
+    假设：调用方已在事务中持有 ``session``, 且 case_id + 锚点已通过越权校验。
+    内部不做任何额外 session 开关或权限检查。
+
+    步骤
+    ----
+    1. 读 case 当前所在 module
+    2. 读目标 module 全量 case 序列（按 order 升序, 同序用 id 兜底）
+    3. 按锚点计算新下标
+    4. 内存 pop + insert 重排
+    5. 单条 ``UPDATE ... CASE`` 一次回写 order；跨 module 顺带改 module_id
+
+    Returns:
+        int: affected 行数；幂等时返回 0
+    """
+    from app.exception import CommonError
+
+    # 1) 当前 module
+    origin_stmt = select(TestCase.module_id).where(
+        and_(
+            TestCase.project_id == project_id,
+            TestCase.id == case_id,
+        )
+    )
+    origin_module_id = (await session.execute(origin_stmt)).scalar_one_or_none()
+    if origin_module_id is None:
+        raise CommonError(f"用例 {case_id} 不在项目 {project_id} 中")
+
+    target_module_id = (
+        target_module_id if target_module_id is not None else origin_module_id
+    )
+
+    # 2) 目标 module 全量
+    list_stmt = (
+        select(TestCase.id)
+        .where(
+            and_(
+                TestCase.project_id == project_id,
+                TestCase.module_id == target_module_id,
+            )
+        )
+        .order_by(TestCase.order.asc(), TestCase.id.asc())
+    )
+    case_ids_in_module: List[int] = [
+        row[0] for row in (await session.execute(list_stmt)).all()
+    ]
+
+    # 3) 新下标
+    new_index = _resolve_reorder_index(
+        case_ids=case_ids_in_module,
+        moved_id=case_id,
+        before_id=before_id,
+        after_id=after_id,
+    )
+
+    # 4) 内存重排：区分同 module / 跨 module 两种场景
+    is_cross_module = target_module_id != origin_module_id
+    old_index: Optional[int] = None
+    if case_id in case_ids_in_module:
+        old_index = case_ids_in_module.index(case_id)
+        if new_index == old_index and not is_cross_module:
+            return 0  # 幂等（同 module 且位置未变）
+        case_ids_in_module.pop(old_index)
+        insert_index = new_index if new_index <= old_index else new_index - 1
+    else:
+        # 跨 module: 当作新成员, 按 new_index 插入
+        insert_index = min(new_index, len(case_ids_in_module))
+    case_ids_in_module.insert(insert_index, case_id)
+
+    # 5) 单条 UPDATE 回写
+    order_case = case(
+        *[
+            (TestCase.id == cid, idx)
+            for idx, cid in enumerate(case_ids_in_module, start=1)
+        ],
+        else_=TestCase.order,
+    )
+    update_values: Dict[str, Any] = {"order": order_case}
+    if target_module_id != origin_module_id:
+        update_values["module_id"] = target_module_id
+
+    update_stmt = (
+        update(TestCase)
+        .where(
+            and_(
+                TestCase.project_id == project_id,
+                TestCase.id.in_(case_ids_in_module),
+            )
+        )
+        .values(update_values)
+    )
+    result = await session.execute(update_stmt)
+    log.debug(
+        f"_apply_single_reorder project={project_id} case={case_id} "
+        f"old={old_index} new={new_index} "
+        f"module={origin_module_id}→{target_module_id} affected={result.rowcount}"
+    )
+    return result.rowcount
+
+
+def _resolve_reorder_index(
+    case_ids: List[int],
+    moved_id: int,
+    before_id: Optional[int],
+    after_id: Optional[int],
+) -> int:
+    """根据锚点解析被移动 case 的新下标。
+
+    规则
+    ----
+    - ``before_id`` 优先：返回 ``before_id`` 在当前列表中的下标
+    - ``after_id`` 次之：返回 ``after_id`` 在当前列表中下标 + 1
+    - 都为空：返回 ``len(case_ids)``（追加到末尾）
+
+    锚点不在列表时（极端 case：刚被删除/换 module），
+    一律回退到末尾, 避免越界。
+    """
+    if before_id is not None and before_id in case_ids:
+        return case_ids.index(before_id)
+    if after_id is not None and after_id in case_ids:
+        return case_ids.index(after_id) + 1
+    return len(case_ids)

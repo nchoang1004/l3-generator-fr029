@@ -1,0 +1,263 @@
+"use client";
+
+import { useUiLocale } from "@/lib/i18n";
+
+import { Suspense, useEffect, useState, useSyncExternalStore } from "react";
+import { useRouter, usePathname } from "@/lib/navigation";
+import { Link } from "@/lib/link";
+import {
+  BarChart3,
+  Bell,
+  Box,
+  ChevronDown,
+  BookOpen,
+  Inbox,
+  LogOut,
+  Printer,
+  Settings,
+  SlidersHorizontal,
+} from "lucide-react";
+import { useAuth } from "@/lib/auth-context";
+import { useLibraryStartup } from "@/lib/library-startup-context";
+import { lastVaultHref } from "@/lib/last-collection";
+import { LibrarySearch } from "@/components/library-search";
+import { BrandMark } from "@/components/brand-mark";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { LocaleToggle } from "@/components/locale-toggle";
+import { useI18n } from "@/lib/i18n";
+import { TaskList } from "@/components/task-list";
+import { subscribeArchiveReviewRequests } from "@/lib/archive-review-events";
+import { DropdownMenu } from "@/components/ui/dropdown-menu";
+import {
+  clearCompletedTasks,
+  listTasks,
+  needsArchiveReview,
+  subscribeTasks,
+  startImportJobSync,
+  TaskItem,
+} from "@/lib/task-center";
+
+const WIKI_URL = "https://xiao-villamor.github.io/PrintStash/";
+
+// `lastVaultHref` reads the remembered collection out of localStorage — an
+// external store. Same-tab writes are picked up on the next render (a route
+// change re-renders the bar); the `storage` event covers other tabs.
+function subscribeLastVaultHref(onStoreChange: () => void): () => void {
+  window.addEventListener("storage", onStoreChange);
+  return () => window.removeEventListener("storage", onStoreChange);
+}
+
+export function TopBar() {
+  useUiLocale();
+  const { t } = useI18n();
+  const pathname = usePathname();
+  const router = useRouter();
+  const { user, loading, logout } = useAuth();
+  const startup = useLibraryStartup();
+  const activityEnabled = startup.canLoad("activity");
+  const [tasks, setTasks] = useState<TaskItem[]>(() => listTasks());
+  const [tasksOpen, setTasksOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  // The logo returns to the model browser, restoring the last folder the user
+  // was in rather than always resetting to "All Models", so it reflects the
+  // remembered collection at click time.
+  const homeHref = useSyncExternalStore(subscribeLastVaultHref, lastVaultHref);
+
+  useEffect(() => {
+    const unsubscribe = subscribeTasks(() => setTasks(listTasks()));
+    const stopSync = activityEnabled ? startImportJobSync() : () => {};
+    return () => {
+      unsubscribe();
+      stopSync();
+    };
+  }, [activityEnabled]);
+
+  useEffect(() => subscribeArchiveReviewRequests(() => setTasksOpen(false)), []);
+
+  async function handleLogout() {
+    await logout();
+    setProfileOpen(false);
+    router.push("/login");
+  }
+
+  return (
+    <header className="h-16 bg-background border-b border-border flex items-center justify-between px-4 z-dropdown relative">
+      {/* Logo */}
+      <Link
+        href={homeHref}
+        className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
+      >
+        <div className="w-8 h-8 bg-primary rounded flex items-center justify-center flex-shrink-0">
+          <BrandMark className="h-6 w-6 text-primary-foreground" />
+        </div>
+        <span className="text-xl font-bold text-foreground tracking-tight hidden sm:block">
+          PrintStash
+        </span>
+      </Link>
+
+      {/* Search */}
+      <Suspense fallback={<span className="flex-1" />}>
+        <LibrarySearch />
+      </Suspense>
+
+      {/* Right Actions & Profile */}
+      <div className="flex items-center space-x-4">
+        <a
+          href={WIKI_URL}
+          className="hidden sm:flex items-center gap-1.5 rounded border border-border px-2.5 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <BookOpen className="h-4 w-4" />
+          {t("nav.wiki")}
+        </a>
+        <ThemeToggle />
+        <LocaleToggle />
+        <DropdownMenu
+          open={tasksOpen}
+          onOpenChange={(open) => {
+            if (open) startup.request("activity");
+            setTasksOpen(open);
+          }}
+          align="end"
+          role="dialog"
+          className="hidden sm:flex"
+          trigger={
+            <button
+              type="button"
+              data-menu-trigger
+              onClick={() => {
+                startup.request("activity");
+                setTasksOpen((v) => !v);
+              }}
+              className="relative text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-muted transition-colors"
+              aria-label={t("nav.notifications")}
+              title={t("nav.notifications")}
+              aria-haspopup="dialog"
+              aria-expanded={tasksOpen}
+            >
+              <Bell className="h-4 w-4" />
+              {tasks.some(
+                (t) => t.status === "pending" || t.status === "running" || needsArchiveReview(t),
+              ) && (
+                <span className="absolute top-0.5 right-0.5 h-2 w-2 rounded-full bg-primary ring-2 ring-background" />
+              )}
+            </button>
+          }
+        >
+          <TaskList
+            tasks={tasks}
+            onClear={() => {
+              clearCompletedTasks();
+              setTasks(listTasks());
+            }}
+          />
+        </DropdownMenu>
+        <div className="h-8 w-px bg-muted hidden sm:block" />
+        {/* Profile — hidden on mobile, where the bottom nav's "More" sheet owns
+            the account actions (the avatar menu only duplicated nav links). */}
+        {!loading && !user ? (
+          <div className="relative hidden sm:block">
+            <Link
+              href="/login"
+              className="flex items-center px-3 py-1.5 text-sm font-medium text-primary-foreground bg-primary rounded hover:bg-primary-hover transition-colors"
+            >
+              {t("nav.logIn")}
+            </Link>
+          </div>
+        ) : (
+          <DropdownMenu
+            open={profileOpen}
+            onOpenChange={setProfileOpen}
+            align="end"
+            role="menu"
+            className="hidden sm:block"
+            trigger={
+              <button
+                type="button"
+                data-menu-trigger
+                onClick={() => setProfileOpen((v) => !v)}
+                className="group flex items-center space-x-2 rounded-md px-1.5 py-1 transition-[background-color,transform] duration-press active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 hover:bg-muted"
+                aria-haspopup="menu"
+                aria-expanded={profileOpen}
+              >
+                <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground font-medium text-sm">
+                  {user?.username.charAt(0).toUpperCase() ?? "…"}
+                </div>
+                <span className="text-sm font-medium text-foreground group-hover:text-foreground hidden sm:block">
+                  {user?.username ?? "…"}
+                </span>
+                <ChevronDown
+                  className={`h-4 w-4 text-muted-foreground transition-transform group-hover:text-muted-foreground hidden sm:block ${profileOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+            }
+          >
+            <ProfileMenu
+              pathname={pathname}
+              isAdmin={!!user?.is_superuser}
+              onNavigate={() => setProfileOpen(false)}
+              onLogout={handleLogout}
+            />
+          </DropdownMenu>
+        )}
+      </div>
+    </header>
+  );
+}
+
+function ProfileMenu({
+  pathname,
+  isAdmin,
+  onNavigate,
+  onLogout,
+}: {
+  pathname: string;
+  isAdmin: boolean;
+  onNavigate: () => void;
+  onLogout: () => void;
+}) {
+  useUiLocale();
+  const { t } = useI18n();
+  const items = [
+    { href: "/", label: t("nav.vault"), icon: Box },
+    { href: "/inbox", label: t("nav.inbox"), icon: Inbox },
+    { href: "/printers", label: t("nav.printers"), icon: Printer, adminOnly: true },
+    { href: "/statistics", label: t("nav.statistics"), icon: BarChart3, adminOnly: true },
+    { href: "/profiles", label: t("nav.profiles"), icon: SlidersHorizontal },
+    { href: "/settings", label: t("nav.settings"), icon: Settings },
+  ].filter((item) => !item.adminOnly || isAdmin);
+
+  return (
+    <div className="w-48 overflow-hidden rounded-lg border border-border bg-popover py-1 shadow-xl">
+      {items.map((item) => {
+        const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+        const className = `flex items-center gap-3 px-3 py-2.5 text-sm transition-colors ${
+          active
+            ? "bg-accent text-accent-foreground"
+            : "text-foreground hover:bg-popover-hover hover:text-foreground"
+        } focus-visible:bg-popover-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset`;
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            role="menuitem"
+            aria-current={active ? "page" : undefined}
+            onClick={onNavigate}
+            className={className}
+          >
+            <item.icon className="h-4 w-4" />
+            <span>{item.label}</span>
+          </Link>
+        );
+      })}
+      <button
+        type="button"
+        role="menuitem"
+        onClick={onLogout}
+        className="flex w-full items-center gap-3 rounded-md border-t border-border px-3 py-2.5 text-left text-sm text-destructive transition-colors hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+      >
+        <LogOut className="h-4 w-4" />
+        <span>{t("nav.logOut")}</span>
+      </button>
+    </div>
+  );
+}

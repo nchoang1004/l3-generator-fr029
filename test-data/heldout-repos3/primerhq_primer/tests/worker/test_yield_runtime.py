@@ -1,0 +1,405 @@
+"""Unit tests for primer.worker.yield_runtime — park/resume serialisation.
+
+Verifies the ParkedState JSON round-trip, the resume-payload
+classifier (real event / timeout / cancelled), and the publisher
+helpers. No I/O, no DB, no server.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime, timedelta, timezone
+
+import pytest
+
+from primer.model.yield_ import YieldCancelled, YieldTimeout, Yielded
+from primer.worker.yield_runtime import (
+    PARKED_STATE_SCHEMA_VERSION,
+    ParkedState,
+    classify_approval_payload,
+    classify_resume_payload,
+    make_cancelled_payload,
+    make_timeout_payload,
+)
+
+
+# ===========================================================================
+# Fixtures
+# ===========================================================================
+
+
+@pytest.fixture
+def t0() -> datetime:
+    """A fixed UTC instant; deterministic across all tests in this module."""
+    return datetime(2026, 5, 22, 12, 0, 0, tzinfo=timezone.utc)
+
+
+@pytest.fixture
+def yielded_sleep() -> Yielded:
+    return Yielded(
+        tool_name="sleep",
+        event_key="timer:tc-1",
+        timeout=300.0,
+        resume_metadata={"requested_seconds": 300.0},
+    )
+
+
+@pytest.fixture
+def parked_state(yielded_sleep: Yielded, t0: datetime) -> ParkedState:
+    return ParkedState(
+        yielded=yielded_sleep,
+        llm_messages=[
+            {"role": "user", "content": "wait 5 minutes then continue"},
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": "tc-1",
+                        "name": "sleep",
+                        "arguments": {"seconds": 300},
+                    }
+                ],
+            },
+        ],
+        turn_no=3,
+        started_at=t0,
+    )
+
+
+# ===========================================================================
+# ParkedState serialisation
+# ===========================================================================
+
+
+class TestParkedStateRoundTrip:
+    def test_minimal_roundtrip(self, parked_state: ParkedState):
+        round_tripped = ParkedState.from_jsonable(parked_state.to_jsonable())
+        # A non-graph park with no explicit continuation stack carries NO
+        # nested-invocation frames: the session's own turn lives in
+        # ``llm_messages``, not a frame, so the back-compat shim reconstructs an
+        # EMPTY stack (see ParkedState.from_jsonable).
+        assert round_tripped.yielded == parked_state.yielded
+        assert round_tripped.llm_messages == parked_state.llm_messages
+        assert round_tripped.turn_no == parked_state.turn_no
+        assert round_tripped.started_at == parked_state.started_at
+        assert round_tripped.graph_checkpoint == parked_state.graph_checkpoint
+        assert round_tripped.frames == []
+
+    def test_roundtrip_with_resume_event_payload(self, parked_state: ParkedState):
+        resumed = ParkedState(
+            yielded=parked_state.yielded,
+            llm_messages=parked_state.llm_messages,
+            turn_no=parked_state.turn_no,
+            started_at=parked_state.started_at,
+            resume_event_payload={"response": "yes please"},
+        )
+        round_tripped = ParkedState.from_jsonable(resumed.to_jsonable())
+        assert round_tripped.resume_event_payload == resumed.resume_event_payload
+        assert round_tripped.yielded == resumed.yielded
+        assert round_tripped.llm_messages == resumed.llm_messages
+        assert round_tripped.turn_no == resumed.turn_no
+        assert round_tripped.started_at == resumed.started_at
+        assert round_tripped.frames == []
+
+    def test_roundtrip_with_scoped_tool_call_id(self, parked_state: ParkedState):
+        # 01a068ea-dc95: the id the paired durable TOOL_CALL record was
+        # minted with (persistence.py's ToolCallStart), distinct from
+        # ParkedState.tool_call_id (the raw provider id).
+        scoped = ParkedState(
+            yielded=parked_state.yielded,
+            llm_messages=parked_state.llm_messages,
+            turn_no=parked_state.turn_no,
+            started_at=parked_state.started_at,
+            tool_call_id="tc-1",
+            scoped_tool_call_id="x:tool:3:1",
+        )
+        round_tripped = ParkedState.from_jsonable(scoped.to_jsonable())
+        assert round_tripped.scoped_tool_call_id == "x:tool:3:1"
+        assert round_tripped.tool_call_id == "tc-1"
+
+    def test_legacy_blob_without_scoped_tool_call_id_loads_as_none(
+        self, parked_state: ParkedState,
+    ):
+        # A park written before this field existed has no such key at
+        # all -- from_jsonable must not KeyError, and the resume write
+        # falls back to the raw id (today's pre-fix behaviour).
+        blob = parked_state.to_jsonable()
+        del blob["scoped_tool_call_id"]
+        round_tripped = ParkedState.from_jsonable(blob)
+        assert round_tripped.scoped_tool_call_id is None
+
+    def test_unknown_schema_version_raises_loudly(self, parked_state: ParkedState):
+        blob = parked_state.to_jsonable()
+        blob["schema_version"] = 9999
+        with pytest.raises(ValueError, match="schema_version"):
+            ParkedState.from_jsonable(blob)
+
+    def test_serialised_blob_is_pure_json(self, parked_state: ParkedState):
+        # Every value in the blob must be a JSON-safe primitive
+        # (postgres' jsonb_set chokes on Python datetimes etc.) —
+        # verifies via a real json.dumps round-trip.
+        import json
+        blob = parked_state.to_jsonable()
+        reparsed = json.loads(json.dumps(blob))
+        # Schema fields stay intact through json round-trip.
+        assert reparsed["schema_version"] == PARKED_STATE_SCHEMA_VERSION
+        assert reparsed["yielded"]["tool_name"] == "sleep"
+        assert reparsed["turn_no"] == 3
+        # started_at is ISO-8601 string post-serialisation, not a
+        # Python datetime.
+        assert isinstance(reparsed["started_at"], str)
+
+
+# ===========================================================================
+# classify_resume_payload
+# ===========================================================================
+
+
+class TestClassifyResumePayload:
+    def test_real_event_payload_passes_through(
+        self, yielded_sleep: Yielded, t0: datetime,
+    ):
+        state = ParkedState(
+            yielded=yielded_sleep,
+            llm_messages=[],
+            turn_no=1,
+            started_at=t0,
+            resume_event_payload={"response": "ok", "extra": 42},
+        )
+        result = classify_resume_payload(
+            state, parked_at=t0, now=t0 + timedelta(seconds=10),
+        )
+        assert result.payload == {"response": "ok", "extra": 42}
+        assert result.elapsed_seconds == pytest.approx(10.0)
+
+    def test_timeout_marker_synthesises_YieldTimeout(
+        self, yielded_sleep: Yielded, t0: datetime,
+    ):
+        state = ParkedState(
+            yielded=yielded_sleep,
+            llm_messages=[],
+            turn_no=1,
+            started_at=t0,
+            resume_event_payload=make_timeout_payload(),
+        )
+        result = classify_resume_payload(
+            state, parked_at=t0, now=t0 + timedelta(seconds=300),
+        )
+        assert isinstance(result.payload, YieldTimeout)
+        assert result.payload.elapsed_seconds == pytest.approx(300.0)
+        assert result.elapsed_seconds == pytest.approx(300.0)
+
+    def test_cancelled_marker_synthesises_YieldCancelled(
+        self, yielded_sleep: Yielded, t0: datetime,
+    ):
+        cancelled_at = t0 + timedelta(seconds=42)
+        state = ParkedState(
+            yielded=yielded_sleep,
+            llm_messages=[],
+            turn_no=1,
+            started_at=t0,
+            resume_event_payload=make_cancelled_payload(
+                reason="operator changed mind",
+                cancelled_at=cancelled_at,
+            ),
+        )
+        result = classify_resume_payload(
+            state, parked_at=t0, now=cancelled_at,
+        )
+        assert isinstance(result.payload, YieldCancelled)
+        assert result.payload.reason == "operator changed mind"
+        assert result.payload.cancelled_at == cancelled_at
+        assert result.payload.elapsed_seconds == pytest.approx(42.0)
+
+    def test_cancelled_with_no_reason(
+        self, yielded_sleep: Yielded, t0: datetime,
+    ):
+        state = ParkedState(
+            yielded=yielded_sleep,
+            llm_messages=[],
+            turn_no=1,
+            started_at=t0,
+            resume_event_payload=make_cancelled_payload(reason=None),
+        )
+        result = classify_resume_payload(state, parked_at=t0, now=t0)
+        assert isinstance(result.payload, YieldCancelled)
+        assert result.payload.reason is None
+
+    def test_missing_resume_event_payload_raises(
+        self, yielded_sleep: Yielded, t0: datetime,
+    ):
+        # Caller invoked classify before publishing the event —
+        # programming bug, fail loud.
+        state = ParkedState(
+            yielded=yielded_sleep,
+            llm_messages=[],
+            turn_no=1,
+            started_at=t0,
+            resume_event_payload=None,
+        )
+        with pytest.raises(ValueError, match="resume_event_payload"):
+            classify_resume_payload(state, parked_at=t0)
+
+    def test_real_payload_strips_internal_keys(
+        self, yielded_sleep: Yielded, t0: datetime,
+    ):
+        # If a publisher inadvertently includes one of our marker
+        # keys alongside real data, the marker wins. Defensive: we
+        # don't want a real "response" payload that also has
+        # __yield_timeout__ to silently mis-route. But once the
+        # marker is detected, the real payload is dropped — that's
+        # documented behaviour.
+        state = ParkedState(
+            yielded=yielded_sleep,
+            llm_messages=[],
+            turn_no=1,
+            started_at=t0,
+            resume_event_payload={
+                "__yield_timeout__": True,
+                "response": "ignored",
+            },
+        )
+        result = classify_resume_payload(
+            state, parked_at=t0, now=t0 + timedelta(seconds=5),
+        )
+        assert isinstance(result.payload, YieldTimeout)
+
+
+# ===========================================================================
+# Publisher helpers
+# ===========================================================================
+
+
+class TestPublisherHelpers:
+    def test_make_timeout_payload_round_trips_to_YieldTimeout(
+        self, yielded_sleep: Yielded, t0: datetime,
+    ):
+        state = ParkedState(
+            yielded=yielded_sleep,
+            llm_messages=[],
+            turn_no=1,
+            started_at=t0,
+            resume_event_payload=make_timeout_payload(),
+        )
+        result = classify_resume_payload(state, parked_at=t0, now=t0)
+        assert isinstance(result.payload, YieldTimeout)
+
+    def test_make_cancelled_payload_round_trips_to_YieldCancelled(
+        self, yielded_sleep: Yielded, t0: datetime,
+    ):
+        when = t0 + timedelta(seconds=15)
+        state = ParkedState(
+            yielded=yielded_sleep,
+            llm_messages=[],
+            turn_no=1,
+            started_at=t0,
+            resume_event_payload=make_cancelled_payload(
+                reason="x", cancelled_at=when,
+            ),
+        )
+        result = classify_resume_payload(state, parked_at=t0, now=when)
+        assert isinstance(result.payload, YieldCancelled)
+        assert result.payload.reason == "x"
+        assert result.payload.cancelled_at == when
+
+    def test_make_cancelled_payload_default_cancelled_at(self):
+        # When cancelled_at omitted, defaults to "now" — exact value
+        # is hard to test, but it must be tz-aware and parseable.
+        payload = make_cancelled_payload(reason="x")
+        assert payload["__yield_cancelled__"] is True
+        # cancelled_at is an ISO string; parsing it must yield a
+        # tz-aware datetime.
+        parsed = datetime.fromisoformat(payload["cancelled_at"])
+        assert parsed.tzinfo is not None
+
+
+# ===========================================================================
+# classify_approval_payload
+# ===========================================================================
+
+
+class TestClassifyApprovalPayload:
+    """01a07be5 gate-review-2 finding 3: classify_approval_payload must
+    recognise the RAW __yield_timeout__/__yield_cancelled__ marker dict
+    shape, not just the already-classified YieldTimeout/YieldCancelled
+    instances classify_resume_payload builds for the single-event resume
+    path. The multi-event graph drain (resume_graph_engine's
+    payloads_map branch) replays resume_event_payloads entries as plain
+    JSON dicts, never converting them to typed instances first -- before
+    this fix, a genuine multi-event timeout/cancel classified here as
+    "malformed approval payload (missing decision)", landing the wrong
+    reason in the durable audit record.
+
+    01a08be8: added a third field, `kind`, alongside the existing
+    (decision, reason) pair - additive by construction (a NamedTuple, so
+    ``result == (decision, reason, kind)`` still reads naturally) rather
+    than changing what `decision`/`reason` mean for any input. `kind`
+    distinguishes WHY a rejection happened (an explicit human "no", an
+    approval timeout, or a cancellation) - the exact distinction this
+    function already computed internally and discarded before this
+    change, folding all three into `decision="rejected"` with only the
+    free-text `reason` string (a different spelling each time: "timed-
+    out", "cancelled", or the caller-supplied text) to tell them apart.
+    """
+
+    def test_typed_yield_timeout_instance(self):
+        assert classify_approval_payload(YieldTimeout(elapsed_seconds=5)) == (
+            "rejected", "timed-out", "timeout",
+        )
+
+    def test_typed_yield_cancelled_instance_with_reason(self, t0: datetime):
+        result = classify_approval_payload(
+            YieldCancelled(reason="user closed", cancelled_at=t0, elapsed_seconds=1),
+        )
+        assert result == ("rejected", "user closed", "cancelled")
+
+    def test_typed_yield_cancelled_instance_defaults_reason(self, t0: datetime):
+        result = classify_approval_payload(
+            YieldCancelled(reason=None, cancelled_at=t0, elapsed_seconds=1),
+        )
+        assert result == ("rejected", "cancelled", "cancelled")
+
+    def test_raw_timeout_marker_dict(self):
+        """The multi-event graph drain's shape: a raw marker dict, never
+        converted to a YieldTimeout instance."""
+        assert classify_approval_payload({"__yield_timeout__": True}) == (
+            "rejected", "timed-out", "timeout",
+        )
+
+    def test_raw_cancelled_marker_dict_with_reason(self):
+        assert classify_approval_payload({
+            "__yield_cancelled__": True, "reason": "user closed",
+            "cancelled_at": "2026-01-01T00:00:00+00:00",
+        }) == ("rejected", "user closed", "cancelled")
+
+    def test_raw_cancelled_marker_dict_defaults_reason(self):
+        assert classify_approval_payload({
+            "__yield_cancelled__": True,
+            "cancelled_at": "2026-01-01T00:00:00+00:00",
+        }) == ("rejected", "cancelled", "cancelled")
+
+    def test_real_approved_decision(self):
+        """kind is None on the approved path - it only ever disambiguates
+        WHY a rejection happened, there's no rejection to explain here."""
+        assert classify_approval_payload(
+            {"decision": "approved", "reason": "fine"},
+        ) == ("approved", "fine", None)
+
+    def test_real_rejected_decision(self):
+        assert classify_approval_payload(
+            {"decision": "rejected", "reason": "no"},
+        ) == ("rejected", "no", "rejected")
+
+    def test_malformed_dict_missing_decision(self):
+        """Malformed payloads fail closed to kind="rejected", the same
+        bucket an explicit human rejection produces - not a 4th kind.
+        Rare/defensive-only; an anonymous rejection is the right read."""
+        assert classify_approval_payload({"reason": "huh"}) == (
+            "rejected", "malformed approval payload (missing decision)",
+            "rejected",
+        )
+
+    def test_malformed_non_dict(self):
+        assert classify_approval_payload("not a payload") == (
+            "rejected", "malformed approval payload (non-dict)", "rejected",
+        )

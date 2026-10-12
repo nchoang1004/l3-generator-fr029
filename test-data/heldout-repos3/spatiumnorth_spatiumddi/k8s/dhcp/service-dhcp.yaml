@@ -1,0 +1,47 @@
+# Per-server external Service.
+# NOTE: a DHCP relay (option 82 / ip helper-address) can only forward to
+# UDP/67. On a NodePort Service `port: 67` is the in-cluster port — the
+# node-facing port is a random 30000-32767 pick unless `nodePort` is
+# pinned — so a NodePort does not answer a relay on port 67. For relayed
+# deployments either run the pod with hostNetwork (see
+# kea-statefulset.yaml), so the node itself listens on UDP/67, or use
+# this LoadBalancer Service and point the relay at the LB address.
+# A pinned NodePort (`type: NodePort` plus the `nodePort` line below)
+# only helps a relay that can forward to a non-standard port.
+apiVersion: v1
+kind: Service
+metadata:
+  name: dhcp-kea-dhcp1
+  namespace: spatiumddi
+  labels:
+    app.kubernetes.io/name: spatium-dhcp
+    app.kubernetes.io/instance: dhcp1
+spec:
+  type: LoadBalancer
+  selector:
+    app.kubernetes.io/name: spatium-dhcp
+    app.kubernetes.io/instance: dhcp1
+  # DHCP only. TCP 8000 is the Kea HA hook's peer listener, which has no
+  # authentication or TLS; it must never be published on a NodePort or
+  # LoadBalancer. HA peers reach each other pod-to-pod, and the headless
+  # Service below carries the port for in-cluster DNS names.
+  ports:
+    - name: dhcp-udp
+      port: 67
+      targetPort: 67
+      protocol: UDP
+      # nodePort: 30067  # only with type: NodePort
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dhcp-kea-dhcp1-headless
+  namespace: spatiumddi
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: spatium-dhcp
+    app.kubernetes.io/instance: dhcp1
+  ports:
+    - { name: dhcp-udp,  port: 67,   protocol: UDP }
+    - { name: ctrl-http, port: 8000, protocol: TCP }

@@ -1,0 +1,191 @@
+{
+  "schema": "fr029-gold-v1",
+  "fixture": "BlackIQ_tgju-api",
+  "repository": "BlackIQ/tgju-api",
+  "commit": "82578875caf421b61d39b830c2d7cbc169817ccd",
+  "root": ".",
+  "pydantic_major": 2,
+  "fastapi_version": "0.140.0",
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/api/price/currency",
+      "handler": "routers/price.py::currency",
+      "declared_at": "routers/price.py:22",
+      "params": [],
+      "request_body": null,
+      "response": {
+        "model": "PriceItem",
+        "model_file": "schemas/price.py",
+        "array": true
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "GET",
+      "path": "/api/price/gold",
+      "handler": "routers/price.py::gold",
+      "declared_at": "routers/price.py:92",
+      "params": [],
+      "request_body": null,
+      "response": {
+        "model": "PriceCategory",
+        "model_file": "schemas/price.py",
+        "array": true
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    },
+    {
+      "method": "GET",
+      "path": "/api/price/oil",
+      "handler": "routers/price.py::oil",
+      "declared_at": "routers/price.py:159",
+      "params": [],
+      "request_body": null,
+      "response": {
+        "model": "PriceCategory",
+        "model_file": "schemas/price.py",
+        "array": true
+      },
+      "status": [
+        200
+      ],
+      "status_source": "default"
+    }
+  ],
+  "models": [
+    {
+      "name": "PriceItem",
+      "file": "schemas/price.py",
+      "line": 4,
+      "fields": [
+        {
+          "name": "title",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "price",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "key",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "status",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "low_price",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        },
+        {
+          "name": "high_price",
+          "alias": null,
+          "type": "string",
+          "required": false,
+          "nullable": true
+        }
+      ]
+    },
+    {
+      "name": "PriceCategory",
+      "file": "schemas/price.py",
+      "line": 13,
+      "fields": [
+        {
+          "name": "title",
+          "alias": null,
+          "type": "string",
+          "required": true,
+          "nullable": false
+        },
+        {
+          "name": "prices",
+          "alias": null,
+          "type": "array[PriceItem]",
+          "required": true,
+          "nullable": false
+        }
+      ]
+    }
+  ],
+  "excluded_routes": [],
+  "limitations": [],
+  "http_calls": [
+    {
+      "where": "scrap/tgju.py:27",
+      "library": "httpx",
+      "method": "GET",
+      "target": {
+        "kind": "unknown",
+        "value": null,
+        "reason": "url là tham số của _get_soup (scrap/tgju.py:21); nơi gọi truyền CURRENCY_URL, GOLD_URL hoặc OIL_URL (dòng 88, 98, 118), nên một dòng gọi có ba đích"
+      }
+    }
+  ],
+  "non_http_calls": [
+    {
+      "where": "middlewares/request.py:23",
+      "detail": "request.headers.get(\"X-Request-ID\") đọc header request đến, không phải HTTP ra ngoài (cùng loại: dòng 37, 38)"
+    },
+    {
+      "where": "scrap/tgju.py:39",
+      "detail": "status.get(\"class\", []) là Tag.get của BeautifulSoup"
+    },
+    {
+      "where": "scrap/tgju.py:68",
+      "detail": "link.get(\"href\") là Tag.get của BeautifulSoup"
+    },
+    {
+      "where": "scrap/tgju.py:22",
+      "detail": "httpx.AsyncClient(...) chỉ tạo client; lời gọi HTTP là dòng 27"
+    },
+    {
+      "where": "routers/price.py:75",
+      "detail": "# data = await redis.get(...) là dòng comment (cùng loại: dòng 142, 238), và là Redis, không phải HTTP"
+    },
+    {
+      "where": "services/price.py:21",
+      "detail": "redis.set(...) là client Redis (core/redis_sync.py:7), không phải HTTP"
+    }
+  ],
+  "notes": [
+    "root = \".\": code import theo gốc repository (main.py:7 from routers import price); pyproject.toml [tool.fastapi] entrypoint = \"main:app\".",
+    "fastapi_version = 0.140.0 lấy từ uv.lock:223-224; pyproject.toml chỉ ghi fastapi[standard]>=0.140.0. pydantic 2.13.4 (uv.lock:633-634) nên pydantic_major = 2.",
+    "Prefix: main.py:44 include_router(price.router, prefix=\"/api\") + routers/price.py:16-17 APIRouter(prefix=\"/price\") + path route => /api/price/currency|gold|oil.",
+    "Ba route không có tham số; response_model=list[...] ở decorator (routers/price.py:22, 92, 159) nên response là model với array=true. Handler không có kiểu trả về.",
+    "Status [200] mặc định. HTTPException(503) chỉ có trong code đã comment (routers/price.py:78-81, 145-148, 241-244), không tính.",
+    "PriceItem.status/low_price/high_price: str | None = None (schemas/price.py:8-10) => required=false, nullable=true. PriceCategory.prices: list[PriceItem] (schemas/price.py:15) => array[PriceItem], bắt buộc.",
+    "PriceItem là model lồng của PriceCategory và cũng là response model trực tiếp của /currency.",
+    "Không vào models: base/schema.py:6 BaseSchema (không route nào dùng), core/settings.py:6 Settings (BaseSettings, không phải request/response), models/request.py:12 Request và base/model.py:9 BaseModel (SQLAlchemy, không phải Pydantic).",
+    "HTTP call duy nhất: scrap/tgju.py:27 client.get(url) trên httpx.AsyncClient mở ở dòng 22. Đích unknown vì url là tham số; không ghi literal vì có ba URL khả dĩ (scrap/tgju.py:16-18).",
+    "Lời gọi tới lớp scrap đi qua cả route (routers/price.py:89, 156, 252) lẫn Celery task (tasks/price.py:21 -> services/price.py:14, 25, 36); cùng một dòng gọi HTTP nên chỉ một mục.",
+    "@celery.task (tasks/price.py:21) không phải route FastAPI; Celery broker/Redis (core/celery.py:8, core/redis_*.py:7) không phải HTTP.",
+    "Middleware RequestMiddleware (main.py:40, middlewares/request.py:15) đọc header X-Request-ID, User-Agent, X-Client-ID nhưng không phải tham số route, không vào params.",
+    "Không có add_api_route/add_route/add_websocket_route, mount, urllib/urllib3/http.client/requests/aiohttp => limitations rỗng. bs4 chỉ parse HTML, không gọi mạng.",
+    "Repository không có thư mục tests => excluded_routes rỗng. migrations/ (alembic) không khai route.",
+    "Route tài liệu tự sinh (/openapi.json, /docs, /docs/oauth2-redirect, /redoc) bỏ theo quy ước, không ghi vào excluded_routes."
+  ]
+}

@@ -1,0 +1,257 @@
+#!/bin/sh
+set -e
+
+SEEDED_CONFIG="${SEEDED_CONFIG:-/config/scoring_config.json}"
+IMAGE_CONFIG="${IMAGE_CONFIG:-/app/scoring_config.json}"
+PYTHON_BIN="${FACET_ENTRYPOINT_PYTHON:-python3}"
+
+# Unset FACET_CONFIG when the seed does not exist AND could not be created --
+# and ONLY then. An UNSET variable is the supported zero-override state: it
+# resolves to a repo-root path that is equally absent, and an absent path nobody
+# named resolves to the defaults packaged in the image. That is a safe answer
+# for a mount holding no config, and a catastrophic one for a mount holding a
+# config this process merely could not seed over.
+#
+# So this must never run while $SEEDED_CONFIG exists. Unsetting the variable
+# LAUNDERS a named path into an inherited one: api/config.py then reads
+# _CONFIG_PATH_IS_EXPLICIT as False, takes the "never configured" branch without
+# arming config_load_failed(), and resolves to defaults carrying an empty
+# viewer.password, an empty viewer.edition_password and no users -- so
+# api.auth._is_open_install answers True and an anonymous caller gets edition
+# read access to the whole library. The fail-closed branch this bypasses is the one
+# a2ec64f and 5e36b4d exist to add. A variable aimed anywhere other than the
+# seed is the operator's choice and none of this seed's business.
+fall_back_to_packaged_defaults() {
+    if [ "${FACET_CONFIG:-}" = "$SEEDED_CONFIG" ]; then
+        unset FACET_CONFIG
+    fi
+}
+
+# The bytes a fresh seed lands with.
+#
+# Almost empty, because the config file is now the operator's override and a
+# fresh install overrides nothing: every value comes from the defaults packaged
+# in the image. That is the whole point -- what lands in /config is the handful
+# of lines someone actually changed, not a 3700-line copy of the shipped config
+# in which their own three edits are invisible. The one override a fresh seed
+# carries is a generated viewer.edition_password: an install with an empty one
+# refuses every edit (it is read-only), so a fresh container would otherwise
+# start unable to rate, cull or edit anything. It is generated ONLY when
+# FACET_CONFIG names $SEEDED_CONFIG (the compose setup): otherwise the server
+# reads some other file, and a password printed for this one would never work,
+# so the seed stays `{}`. seed_config prints it once to stdout after the seed
+# is written; an existing or mounted config is never touched, and keeps
+# whatever password it had, including none.
+#
+# $IMAGE_CONFIG is not baked into the image any more, so it exists only when an
+# operator mounted their own file there -- the upgrade path from a compose that
+# mounted `./scoring_config.json:/app/scoring_config.json`. That file is copied
+# across verbatim, with whatever edition password it held (including none, which
+# leaves the install read-only), and NO generated one: seeding a fresh override
+# over it would silently reset their weights, categories and viewer password. A
+# full config still resolves to itself, so nothing about carrying it across is
+# lossy.
+# Owner-only from the moment the file exists, not owner-only afterwards. The
+# `chmod 600` further down is 77 lines late: on the supported upgrade path the
+# operator still mounts their own full config at $IMAGE_CONFIG, so `cp` creates
+# /config/scoring_config.json at that mode masked by the umask -- 0644 -- and it
+# holds viewer.password, every users.*.password_hash, upload.password,
+# frame.tokens and immich.api_key in plaintext, on a HOST bind mount, until the
+# chmod lands. api/config_writes.py:write_owner_only_backup was rewritten to
+# close exactly this window ("the bytes are on disk at the loose mode first, and
+# any local account only has to read them inside that window"); the two writers
+# of these same secrets must not disagree. The subshell keeps the tightened
+# umask off the rest of the entrypoint, and the later chmod stays as the
+# belt-and-braces it already was.
+write_seed() {
+    # Reset first so an inherited GENERATED_PASSWORD is never announced.
+    GENERATED_PASSWORD=
+    if [ -e "$IMAGE_CONFIG" ]; then
+        ( umask 077; cp "$IMAGE_CONFIG" "$SEEDED_CONFIG" 2>/dev/null )
+    else
+        # Generation must never abort the start (set -e) nor print the password:
+        # a failure falls back to the empty override, and the password is only
+        # announced by seed_config once the seed file has really been written.
+        # Only when FACET_CONFIG names this seed: any other path means the server
+        # reads a different file and the password could never work.
+        # Run isolated (-I: no CWD or PYTHON* env on sys.path) and from /, since
+        # this runs as root and /app is writable by `facet`: a planted secrets.py
+        # would otherwise execute as root.
+        if [ "${FACET_CONFIG:-}" = "$SEEDED_CONFIG" ]; then
+            GENERATED_PASSWORD="$(cd / && "$PYTHON_BIN" -I -c 'import secrets; print(secrets.token_urlsafe(18))' 2>/dev/null)" || GENERATED_PASSWORD=""
+            if [ -z "$GENERATED_PASSWORD" ]; then
+                echo "facet: could not generate a viewer.edition_password; no password was set and the install stays read-only until you set viewer.edition_password" >&2
+            fi
+        fi
+        if [ -n "$GENERATED_PASSWORD" ]; then
+            ( umask 077; printf '{"viewer": {"edition_password": "%s"}}\n' "$GENERATED_PASSWORD" > "$SEEDED_CONFIG" 2>/dev/null )
+        else
+            ( umask 077; printf '{}\n' > "$SEEDED_CONFIG" 2>/dev/null )
+        fi
+    fi
+}
+
+# Put a real, editable scoring_config.json where FACET_CONFIG points, so that
+# every runtime write (the viewer password upgrade, the share-secret eviction,
+# weights, priorities, scoring contexts) lands on the /config bind mount and
+# survives `docker compose down && up` instead of dying with the container.
+#
+# Best-effort, like the chown below: a `:ro` mount or an NFS root_squash export
+# makes the copy fail, and aborting on it (set -e) would refuse to start a
+# container whose own image already carries a working config. `|| true` would
+# not be enough, so fall_back_to_packaged_defaults names the alternative -- but
+# only for the one case where nothing is lost by it, an absent config that could
+# not be created.
+#
+# `-e` not `-f`, plus an explicit symlink refusal: under the root branch this
+# runs over a directory chowned to the unprivileged `facet` user, so anyone with
+# code execution as `facet` could plant $SEEDED_CONFIG as a symlink to a
+# root-owned path and have the `cp` write through it -- an arbitrary write as
+# root. `[ ! -f ]` does not even see a dangling one, and `chmod` follows the
+# link, so it would re-mode the target too. api/config.py guards the identical
+# threat with lstat.
+#
+# A symlink therefore SKIPS the seed and the chmod, and leaves FACET_CONFIG
+# pointing at it. It must not fall back: the link may be the operator's own
+# indirection at a secrets store, and reading through it is safe -- only writing
+# through it was ever the problem, and every later write goes through
+# api.config.atomic_write_json, which stages under a temp name and os.replace()s
+# the link itself rather than writing to its target. A DANGLING link then
+# resolves to a named path that does not exist, which is exactly the state
+# api/config.py refuses: it arms config_load_failed() and the install stays
+# locked. That is the correct answer for a config this process cannot see.
+#
+# A REGULAR file that already exists is left just as alone, and checked
+# before `write_seed` is ever called rather than folded into its guard, so
+# the skip is unmistakable in a diff and cannot be quietly reintroduced by an
+# edit to `write_seed` alone. This is the fix for issue #127: under rootless
+# Podman "root" inside the container is the operator's own host uid via a
+# subuid range, so re-chmodding (and, in the root branch below, re-chowning)
+# an EXISTING file on every restart is not a no-op on the host -- it strips
+# the mode and ownership the operator chose, one restart after they chose it,
+# and locks them out of editing their own config without sudo. That is
+# exactly the policy `api/config.py`'s `_warn_if_config_readable_by_others`
+# already promises for the live file ("Facet leaves the mode you chose
+# alone"); this entrypoint was the one caller that still broke it.
+#
+# 0600, not the 0644 `cp` leaves under the default umask -- for a file THIS
+# SEED creates. This file legitimately holds viewer.password,
+# users.*.password_hash, upload.password, frame.tokens and immich.api_key in
+# plaintext, and api.config.atomic_write_json PRESERVES the destination mode
+# on every later write, so whatever bits a fresh seed lands with are
+# permanent. That permanence is exactly why the chmod is gated on
+# `SEEDED_NOW` and never runs over the file the guard above already left
+# alone: "permanent" must mean "whatever the seed picked," not "reset to
+# 0600 every time this script runs." The module's own backup writer already
+# forces 0600 for its own, separate copy.
+seed_config() {
+    if [ -L "$SEEDED_CONFIG" ]; then
+        echo "facet: $SEEDED_CONFIG is a symlink — not seeding or re-moding it," \
+            "and reading the config through it as named. A dangling link will" \
+            "refuse the open-install auth path rather than start unlocked." >&2
+        return
+    fi
+    if [ -e "$SEEDED_CONFIG" ]; then
+        return
+    fi
+    if ! write_seed; then
+        echo "facet: cannot seed $SEEDED_CONFIG (read-only or root_squash mount) —" \
+            "falling back to the defaults packaged in the image, whose edits are" \
+            "lost when the container is removed" >&2
+        fall_back_to_packaged_defaults
+        return
+    fi
+    SEEDED_NOW=1
+    chmod 600 "$SEEDED_CONFIG" 2>/dev/null || true
+    if [ -n "${GENERATED_PASSWORD:-}" ]; then
+        echo "facet: generated viewer.edition_password for this new install: $GENERATED_PASSWORD" \
+            "(stored in $SEEDED_CONFIG; it is required to rate, cull or edit)"
+    fi
+}
+
+# The Docker daemon creates any absent bind-mount source on the host as root,
+# which the unprivileged "facet" user cannot write — breaking the SQLite DB at
+# DB_PATH ("unable to open database file"). When the container starts as root,
+# take ownership of the writable mounts, then drop privileges to "facet". When
+# already running unprivileged (a `user:` override in compose), just exec.
+if [ "$(id -u)" = '0' ]; then
+    mkdir -p /app/data /app/storage /app/pretrained_models /config \
+        /home/facet/.cache/huggingface /home/facet/.insightface
+    seed_config
+    # A freshly seeded file (`$SEEDED_NOW` = 1) is root:root the moment
+    # `write_seed` creates it, even though /config itself is chowned below —
+    # chowning the DIRECTORY does not retroactively chown a file already
+    # inside it, and seed_config just chmod'd it 0600, which leaves it
+    # unreadable by `facet`. Every config WRITER now goes through
+    # atomic_write_json (mkstemp + os.replace) and needs only the DIRECTORY,
+    # chowned below anyway: ScoringConfig.save_config was the last in-place
+    # `open(path, 'w')` and became atomic too. So for a fresh seed this chown
+    # is about the READ, not the write — without it the first `load_resolved`
+    # fails with EACCES — and it is unconditional because nobody but this
+    # entrypoint has touched the file yet.
+    #
+    # A file that already existed before this run is different, and
+    # re-chowning it unconditionally is issue #127: under rootless Podman the
+    # container's "root" maps to the operator's own host uid through a subuid
+    # range, so a chown that looks like a no-op in here reassigns the file to
+    # a subuid ON THE HOST, one restart after the operator last touched it —
+    # they can no longer edit their own config without sudo. `api/config.py`
+    # already documents the policy this chown must not override, in
+    # `_warn_if_config_readable_by_others` ("Facet leaves the mode you chose
+    # alone").
+    #
+    # So it only fires as a LAST RESORT, gated on whether `facet` can actually
+    # read the file — probed as that real user (`gosu facet sh -c '[ -r ... ]'`)
+    # rather than approximated from uid/gid numbers, which permission bits, ACLs
+    # and group membership can all override. An unreadable pre-existing config
+    # is not a theoretical risk: `api/config.py`'s `_read_config` treats it as a
+    # load failure and `config_load_failed()` locks every route, with no UI left
+    # to fix it from — so taking ownership here is the difference between a
+    # locked-out install and a working one. The stderr line says what happened
+    # and how to avoid it next time (make the file group/other readable, e.g.
+    # `chmod o+r`), so the operator keeps their own uid on the next restart
+    # instead of losing it to root's.
+    #
+    # The probe runs AFTER the directory chown below, and the order is not
+    # cosmetic: a `facet` that cannot yet SEARCH /config cannot read anything
+    # inside it, so probing first reports every pre-existing config as
+    # unreadable and takes ownership of all of them — the exact behaviour this
+    # branch exists to stop, reintroduced through the directory instead of the
+    # file. A bind mount the operator created 0700 for themselves is enough to
+    # trigger it. Probed last, the answer describes the state the server will
+    # actually start in.
+    #
+    # Skipped for a symlink either way, which seed_config already refused to
+    # touch: chown without -h would follow it to whatever it names.
+    #
+    # Best-effort: on read-only / NFS root_squash / already-correct mounts the
+    # chown may fail harmlessly — don't abort startup over it (set -e). A real
+    # permission problem still surfaces with a clear error when SQLite opens.
+    # -h so a planted symlink among these names is retargeted rather than
+    # followed to whatever it points at.
+    chown -h facet:facet /app/data /app/storage /app/pretrained_models /config \
+        /home/facet/.cache/huggingface /home/facet/.insightface 2>/dev/null || true
+    if [ ! -L "$SEEDED_CONFIG" ]; then
+        if [ "${SEEDED_NOW:-0}" = 1 ]; then
+            chown facet:facet "$SEEDED_CONFIG" 2>/dev/null || true
+        elif [ -e "$SEEDED_CONFIG" ] && ! gosu facet sh -c '[ -r "$1" ]' _ "$SEEDED_CONFIG"; then
+            echo "facet: $SEEDED_CONFIG exists but the 'facet' user cannot read" \
+                "it (issue #127) — taking ownership so the server can start." \
+                "Keep your own ownership on the next restart by making it" \
+                "readable instead, e.g. \`chmod o+r $SEEDED_CONFIG\`." >&2
+            chown facet:facet "$SEEDED_CONFIG" 2>/dev/null || true
+        fi
+    fi
+    exec gosu facet "$@"
+fi
+
+# A `user:` override in compose skips everything above, including the seed — but
+# docker-compose.yml still sets FACET_CONFIG unconditionally, so without this
+# the one configuration that avoids a root startup is the one that cannot start:
+# ScoringConfig raises FileNotFoundError on the /config/scoring_config.json
+# nothing created. Seed it where this user can write, name the baked fallback
+# where it cannot.
+mkdir -p /config 2>/dev/null || true
+seed_config
+
+exec "$@"

@@ -1,0 +1,788 @@
+"""
+VLM Tagger Module for Facet
+
+Unified vision-language model tagger supporting Qwen2.5-VL, Qwen3-VL, and Qwen3.5
+model families. Generates semantic tags from images using the config-driven tag
+vocabulary, with true batched inference, edit-distance tag matching, and logprob
+confidence scores.
+"""
+
+import logging
+from typing import List, Dict, Any
+import math
+import PIL.Image
+
+from utils.device import clear_device_cache, is_out_of_memory_error
+
+logger = logging.getLogger("facet.vlm_tagger")
+
+# Every tag in the config vocabulary is one or two words. A candidate longer than
+# this is a sentence, not a tag, so it is dropped rather than snake-cased whole.
+MAX_TAG_WORDS = 4
+
+# Lazy imports
+torch = None
+AutoProcessor = None
+
+
+def _ensure_imports():
+    """Lazy load heavy dependencies."""
+    global torch, AutoProcessor
+    if torch is None:
+        import torch as _torch
+        torch = _torch
+    if AutoProcessor is None:
+        from transformers import AutoProcessor as _Processor
+        AutoProcessor = _Processor
+
+
+def _levenshtein(a: str, b: str) -> int:
+    """Compute Levenshtein edit distance between two strings."""
+    if len(a) < len(b):
+        return _levenshtein(b, a)
+    if len(b) == 0:
+        return len(a)
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a):
+        curr = [i + 1]
+        for j, cb in enumerate(b):
+            cost = 0 if ca == cb else 1
+            curr.append(min(curr[j] + 1, prev[j + 1] + 1, prev[j] + cost))
+        prev = curr
+    return prev[-1]
+
+
+class VLMTagger:
+    """
+    Unified VLM tagger supporting Qwen2.5-VL, Qwen3-VL, and Qwen3.5 model families.
+
+    Auto-detects model family from model_path and handles the API differences:
+    - Different transformers model class per family
+    - Qwen3/Qwen3.5 use processor.apply_chat_template(tokenize=True, return_dict=True)
+      vs Qwen2.5 uses separate apply_chat_template + processor()
+    - Qwen3 needs token_type_ids removal; Qwen3.5 uses mm_token_type_ids natively
+    - Qwen3/Qwen3.5 support max_pixels on the processor
+    - Qwen3.5 needs thinking mode pinned off (see _template_kwargs)
+    """
+
+    def __init__(self, model_config: Dict[str, Any], scoring_config=None, backend=None):
+        """
+        Initialize the VLM tagger.
+
+        Args:
+            model_config: Dict with model settings (model_path, torch_dtype, etc.)
+            scoring_config: Optional ScoringConfig instance for loading vocabulary
+            backend: Optional remote VLMBackend. When set, generate()/tag_*()
+                delegate to it and the local transformers model is never loaded.
+        """
+        self.model_config = model_config
+        self.scoring_config = scoring_config
+        self.backend = backend
+        self.model = None
+        self.processor = None
+        from utils.device import get_device
+        self.device = get_device()
+
+        # Detect model family from path, with explicit override via config.
+        # The override lets power users point at a non-Qwen model path while
+        # forcing one of the existing families (e.g. set family='qwen3' and
+        # model_path='custom/finetuned-qwen3' to bypass the name-based heuristic).
+        # Non-Qwen architectures (Pixtral, InternVL, ...) still need a new
+        # branch in `load()` below — the override alone won't make them work.
+        model_path = model_config.get('model_path', '')
+        family_override = model_config.get('family')
+        if family_override in ('qwen3_5', 'qwen3', 'qwen2_5'):
+            self.family = family_override
+        elif 'Qwen3.5' in model_path or 'qwen3_5' in model_path or 'qwen3.5' in model_path:
+            self.family = 'qwen3_5'
+        elif 'Qwen3' in model_path or 'qwen3' in model_path:
+            self.family = 'qwen3'
+        else:
+            self.family = 'qwen2_5'
+
+        # Batch size for VLM inference
+        self.batch_size = model_config.get('vlm_batch_size', 4 if self.family in ('qwen3', 'qwen3_5') else 2)
+
+        # Qwen3.5 checkpoints disagree on the thinking-mode default: the only line
+        # that differs between Qwen3.5-2B's and Qwen3.5-4B's chat_template.jinja is
+        # the generation-prompt branch, which the 2B renders as
+        # "<|im_start|>assistant\n<think>\n\n</think>\n\n" (thinking off, opt-in) and
+        # the 4B as "<|im_start|>assistant\n<think>\n" (thinking on, opt-out). Left
+        # on, the 4B's prompt ends inside an open <think> block, so it spends the
+        # whole max_new_tokens budget on reasoning prose and never emits the tag
+        # list. Pinning the flag off renders the 2B prompt byte-identically, so its
+        # validated output is unchanged.
+        self._template_kwargs = {'enable_thinking': False} if self.family == 'qwen3_5' else {}
+
+        # Build valid tag set from config
+        self.valid_tags = set()
+        if scoring_config:
+            vocab = scoring_config.get_tag_vocabulary()
+            self.valid_tags = set(vocab.keys())
+
+        # Build prompt from config vocabulary (cached after first build)
+        self._prompt = None
+
+    def _build_prompt(self) -> str:
+        """Build a dynamic prompt from the config tag vocabulary.
+
+        Groups tags by category for clarity. Uses tag names only (not synonyms).
+        """
+        if self._prompt is not None:
+            return self._prompt
+
+        if not self.scoring_config:
+            self._prompt = self._fallback_prompt()
+            return self._prompt
+
+        lines = ["Analyze this photo and provide semantic tags.",
+                 "",
+                 "Return ONLY a comma-separated list of relevant tags from this exact list:"]
+
+        # Group tags by category
+        categories = self.scoring_config.get_categories()
+        seen_tags = set()
+        for cat in categories:
+            cat_tags = cat.get('tags', {})
+            if not cat_tags:
+                continue
+            tag_names = [name for name in cat_tags.keys() if name not in seen_tags]
+            if not tag_names:
+                continue
+            seen_tags.update(tag_names)
+            lines.append(f"- {cat['name'].replace('_', ' ').title()}: {', '.join(tag_names)}")
+
+        # Add standalone tags
+        standalone = self.scoring_config.config.get('standalone_tags', {})
+        if standalone:
+            standalone_names = [name for name in standalone.keys() if name not in seen_tags]
+            if standalone_names:
+                seen_tags.update(standalone_names)
+                lines.append(f"- Other: {', '.join(standalone_names)}")
+
+        lines.append("")
+        lines.append("Tags:")
+
+        self._prompt = '\n'.join(lines)
+        return self._prompt
+
+    @staticmethod
+    def _fallback_prompt() -> str:
+        """Fallback prompt when no scoring config is available."""
+        return """Analyze this photo and provide semantic tags.
+
+Return ONLY a comma-separated list of relevant tags from these categories:
+- Scene: landscape, portrait, street, architecture, macro, wildlife, aerial, concert, night, astro, food, sports, travel, fashion, urban
+- Subject: person, animal, building, nature, water, sky, mountain, beach, forest, flower, vehicle
+- Style: black_and_white, silhouette, long_exposure, dramatic, minimalist, vintage, cinematic, abstract
+- Mood: dramatic, peaceful, energetic, intimate, moody
+
+Tags:"""
+
+    def load(self):
+        """Load the model (deferred until first use)."""
+        if self.backend is not None:
+            return
+        if self.model is not None:
+            return
+
+        _ensure_imports()
+
+        default_paths = {
+            'qwen3_5': 'Qwen/Qwen3.5-2B',
+            'qwen3': 'Qwen/Qwen3-VL-2B-Instruct',
+            'qwen2_5': 'Qwen/Qwen2.5-VL-7B-Instruct',
+        }
+        model_path = self.model_config.get('model_path', default_paths[self.family])
+        dtype_str = self.model_config.get('torch_dtype', 'bfloat16')
+        torch_dtype = getattr(torch, dtype_str, torch.bfloat16)
+
+        family_labels = {'qwen3_5': 'Qwen3.5', 'qwen3': 'Qwen3-VL', 'qwen2_5': 'Qwen2.5-VL'}
+        family_label = family_labels[self.family]
+        logger.info("Loading %s from %s...", family_label, model_path)
+
+        # Import the correct model class
+        if self.family == 'qwen3_5':
+            from transformers import Qwen3_5ForConditionalGeneration
+            model_cls = Qwen3_5ForConditionalGeneration
+        elif self.family == 'qwen3':
+            from transformers import Qwen3VLForConditionalGeneration
+            model_cls = Qwen3VLForConditionalGeneration
+        else:
+            from transformers import Qwen2_5_VLForConditionalGeneration
+            model_cls = Qwen2_5_VLForConditionalGeneration
+
+        self.model = model_cls.from_pretrained(
+            model_path,
+            dtype=torch_dtype,
+            device_map="auto",
+            trust_remote_code=True,
+        )
+
+        # Qwen3/Qwen3.5 support max_pixels to control VRAM during inference
+        processor_kwargs = {'trust_remote_code': True}
+        if self.family in ('qwen3', 'qwen3_5'):
+            max_pixels = self.model_config.get('max_pixels', 512 * 28 * 28)
+            processor_kwargs['max_pixels'] = max_pixels
+
+        self.processor = AutoProcessor.from_pretrained(model_path, **processor_kwargs)
+
+        logger.info("%s loaded successfully", family_label)
+
+    def unload(self):
+        """Free VRAM by unloading the model."""
+        if self.backend is not None:
+            return
+        model_device = str(self.model.device) if self.model is not None else None
+        if self.model is not None:
+            del self.model
+            self.model = None
+        if self.processor is not None:
+            del self.processor
+            self.processor = None
+
+        clear_device_cache(model_device)
+        family_labels = {'qwen3_5': 'Qwen3.5', 'qwen3': 'Qwen3-VL', 'qwen2_5': 'Qwen2.5-VL'}
+        logger.info("%s tagger unloaded", family_labels[self.family])
+
+    def tag_image(self, image: PIL.Image.Image, max_tags: int = 5) -> List[str]:
+        """
+        Generate tags for a single image.
+
+        Args:
+            image: PIL Image to tag
+            max_tags: Maximum number of tags to return (default: 5)
+
+        Returns:
+            List of tag names
+        """
+        prompt = self._build_prompt()
+        max_new_tokens = self.model_config.get('max_new_tokens', 100)
+
+        if self.backend is not None:
+            return self._parse_tags(
+                self.backend.generate(image, prompt, max_new_tokens), max_tags
+            )
+
+        if self.model is None:
+            self.load()
+
+        _ensure_imports()
+
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image", "image": image},
+                    {"type": "text", "text": prompt},
+                ],
+            }
+        ]
+
+        if self.family in ('qwen3', 'qwen3_5'):
+            inputs = self.processor.apply_chat_template(
+                messages,
+                tokenize=True,
+                add_generation_prompt=True,
+                return_dict=True,
+                return_tensors="pt",
+                **self._template_kwargs,
+            )
+            inputs.pop("token_type_ids", None)
+        else:
+            text = self.processor.apply_chat_template(
+                messages, tokenize=False, add_generation_prompt=True
+            )
+            inputs = self.processor(
+                text=[text],
+                images=[image],
+                return_tensors="pt",
+                padding=True,
+            )
+
+        inputs = {k: v.to(self.model.device) if hasattr(v, 'to') else v
+                  for k, v in inputs.items()}
+
+        with torch.no_grad():
+            output_ids = self.model.generate(
+                **inputs,
+                max_new_tokens=max_new_tokens,
+                do_sample=False,
+            )
+
+        generated_ids = [
+            out[len(inp):]
+            for inp, out in zip(inputs["input_ids"], output_ids)
+        ]
+        output_text = self.processor.batch_decode(
+            generated_ids, skip_special_tokens=True
+        )[0]
+
+        return self._parse_tags(output_text, max_tags)
+
+    def generate(self, image: 'PIL.Image.Image', prompt: str, max_new_tokens: int = 200) -> str:
+        """Generate free-form text response for an image with a custom prompt."""
+        if self.backend is not None:
+            return self.backend.generate(image, prompt, max_new_tokens)
+
+        if self.model is None:
+            self.load()
+
+        _ensure_imports()
+
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image", "image": image},
+                    {"type": "text", "text": prompt},
+                ],
+            }
+        ]
+
+        if self.family in ('qwen3', 'qwen3_5'):
+            inputs = self.processor.apply_chat_template(
+                messages,
+                tokenize=True,
+                add_generation_prompt=True,
+                return_dict=True,
+                return_tensors="pt",
+                **self._template_kwargs,
+            )
+            inputs.pop("token_type_ids", None)
+        else:
+            text = self.processor.apply_chat_template(
+                messages, tokenize=False, add_generation_prompt=True
+            )
+            inputs = self.processor(
+                text=[text],
+                images=[image],
+                return_tensors="pt",
+                padding=True,
+            )
+
+        inputs = {k: v.to(self.model.device) if hasattr(v, 'to') else v
+                  for k, v in inputs.items()}
+
+        with torch.no_grad():
+            output_ids = self.model.generate(
+                **inputs,
+                max_new_tokens=max_new_tokens,
+                do_sample=False,
+            )
+
+        generated_ids = [
+            out[len(inp):]
+            for inp, out in zip(inputs["input_ids"], output_ids)
+        ]
+        return self.processor.batch_decode(
+            generated_ids, skip_special_tokens=True
+        )[0]
+
+    def tag_batch(self, images: List[PIL.Image.Image], max_tags: int = 5) -> List[List[str]]:
+        """
+        Generate tags for a batch of images with true sub-batching.
+
+        Processes images in sub-batches of vlm_batch_size. Qwen2.5-VL batches
+        natively via processor(text=[...], images=[...], padding=True). Qwen3-VL
+        processes individually then pads. Falls back to sequential on OOM.
+
+        Args:
+            images: List of PIL Images to tag
+            max_tags: Maximum number of tags per image
+
+        Returns:
+            List of tag lists, one per image
+        """
+        if self.backend is not None:
+            return self._tag_batch_remote(images, max_tags)
+
+        if self.model is None:
+            self.load()
+
+        _ensure_imports()
+
+        device = str(self.model.device)
+        results = []
+        for i in range(0, len(images), self.batch_size):
+            sub_batch = images[i:i + self.batch_size]
+            try:
+                batch_results = self._tag_sub_batch(sub_batch, max_tags)
+                results.extend(batch_results)
+            except RuntimeError as ex:
+                if not is_out_of_memory_error(ex):
+                    raise
+                logger.warning("OOM on batch of %d, falling back to sequential...", len(sub_batch))
+                clear_device_cache(device)
+                for img in sub_batch:
+                    try:
+                        results.append(self.tag_image(img, max_tags))
+                    except RuntimeError as img_ex:
+                        if not is_out_of_memory_error(img_ex):
+                            raise
+                        logger.warning("OOM on single image, skipping...")
+                        clear_device_cache(device)
+                        results.append([])
+
+        return results
+
+    def _tag_batch_remote(self, images: List[PIL.Image.Image], max_tags: int) -> List[List[str]]:
+        """Tag a batch through the remote backend, one image per request.
+
+        Remote backends have no native batching; a failing image records empty
+        tags and the run continues instead of crashing the whole batch.
+        """
+        results = []
+        for image in images:
+            try:
+                results.append(self.tag_image(image, max_tags))
+            except Exception as ex:
+                logger.warning("Remote VLM tagging failed for one image: %s", ex)
+                results.append([])
+        return results
+
+    def _tag_sub_batch(self, images: List[PIL.Image.Image], max_tags: int) -> List[List[str]]:
+        """Process a sub-batch of images through the model.
+
+        Qwen2.5 supports native batching via processor(text=[...], images=[...]).
+        Qwen3 processes inputs individually then pads manually.
+        """
+        if len(images) == 1:
+            return [self.tag_image(images[0], max_tags)]
+
+        prompt = self._build_prompt()
+        max_new_tokens = self.model_config.get('max_new_tokens', 100)
+
+        if self.family == 'qwen2_5':
+            return self._batch_qwen2_5(images, prompt, max_new_tokens, max_tags)
+        else:
+            return self._batch_qwen3(images, prompt, max_new_tokens, max_tags)
+
+    def _batch_qwen2_5(self, images: List[PIL.Image.Image], prompt: str,
+                        max_new_tokens: int, max_tags: int) -> List[List[str]]:
+        """Batch inference for Qwen2.5-VL using native processor batching."""
+        texts = []
+        for _ in images:
+            messages = [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "image", "image": None},  # placeholder
+                        {"type": "text", "text": prompt},
+                    ],
+                }
+            ]
+            text = self.processor.apply_chat_template(
+                messages, tokenize=False, add_generation_prompt=True
+            )
+            texts.append(text)
+
+        original_padding_side = self.processor.tokenizer.padding_side
+        self.processor.tokenizer.padding_side = "left"
+        try:
+            inputs = self.processor(
+                text=texts,
+                images=images,
+                return_tensors="pt",
+                padding=True,
+            )
+        finally:
+            self.processor.tokenizer.padding_side = original_padding_side
+        inputs = {k: v.to(self.model.device) if hasattr(v, 'to') else v
+                  for k, v in inputs.items()}
+
+        with torch.no_grad():
+            output_ids = self.model.generate(
+                **inputs,
+                max_new_tokens=max_new_tokens,
+                do_sample=False,
+            )
+
+        results = []
+        for idx in range(len(images)):
+            generated = output_ids[idx][inputs['input_ids'].shape[1]:]
+            text = self.processor.decode(generated, skip_special_tokens=True)
+            results.append(self._parse_tags(text, max_tags))
+
+        return results
+
+    def _batch_qwen3(self, images: List[PIL.Image.Image], prompt: str,
+                      max_new_tokens: int, max_tags: int) -> List[List[str]]:
+        """Batch inference for Qwen3-VL by processing individually then padding."""
+        all_inputs = []
+        for image in images:
+            messages = [
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "image", "image": image},
+                        {"type": "text", "text": prompt},
+                    ],
+                }
+            ]
+            inputs = self.processor.apply_chat_template(
+                messages,
+                tokenize=True,
+                add_generation_prompt=True,
+                return_dict=True,
+                return_tensors="pt",
+                **self._template_kwargs,
+            )
+            inputs.pop("token_type_ids", None)
+            all_inputs.append(inputs)
+
+        # Pad to same length. Per-token keys — (1, seq_len) tensors whose length dim
+        # matches input_ids (input_ids, attention_mask, and mm_token_type_ids, which
+        # transformers >= 5.3 adds for Qwen3.5) — must be left-padded to max_len; a raw
+        # torch.cat(dim=0) on differing-length mm_token_type_ids otherwise fails with
+        # "sizes must match". Vision keys (pixel_values, image_grid_thw) concat on dim 0.
+        max_len = max(inp['input_ids'].shape[1] for inp in all_inputs)
+        pad_token_id = self.processor.tokenizer.pad_token_id or 0
+        ref_len = all_inputs[0]['input_ids'].shape[1]
+        token_keys = [k for k, v in all_inputs[0].items()
+                      if hasattr(v, 'shape') and v.dim() == 2
+                      and v.shape[0] == 1 and v.shape[1] == ref_len]
+        pad_values = {'input_ids': pad_token_id, 'attention_mask': 0}
+
+        batched = {}
+        for key in token_keys:
+            pad_val = pad_values.get(key, 0)
+            rows = []
+            for inp in all_inputs:
+                tensor = inp[key]
+                pad_len = max_len - tensor.shape[1]
+                if pad_len > 0:
+                    rows.append(torch.cat([
+                        torch.full((1, pad_len), pad_val, dtype=tensor.dtype),
+                        tensor,
+                    ], dim=1))
+                else:
+                    rows.append(tensor)
+            batched[key] = torch.cat(rows, dim=0).to(self.model.device)
+
+        # Remaining keys are vision inputs (e.g. pixel_values) — concatenate on dim 0
+        for key in all_inputs[0]:
+            if key in token_keys:
+                continue
+            tensors = [inp[key] for inp in all_inputs if key in inp]
+            if tensors and hasattr(tensors[0], 'to'):
+                batched[key] = torch.cat(tensors, dim=0).to(self.model.device)
+
+        with torch.no_grad():
+            output_ids = self.model.generate(
+                **batched,
+                max_new_tokens=max_new_tokens,
+                do_sample=False,
+            )
+
+        results = []
+        for idx in range(len(images)):
+            generated = output_ids[idx][max_len:]
+            text = self.processor.decode(generated, skip_special_tokens=True)
+            results.append(self._parse_tags(text, max_tags))
+
+        return results
+
+    def _parse_tags(self, text: str, max_tags: int) -> List[str]:
+        """
+        Parse and validate tags from model output using edit-distance matching.
+
+        Uses Levenshtein distance (threshold <= 2) to match model output tags
+        to the valid vocabulary, replacing the fragile substring matching.
+
+        Prose answers are rejected rather than repaired: a reasoning preamble is
+        dropped, and any candidate longer than MAX_TAG_WORDS is discarded instead
+        of being snake-cased into a sentence-shaped tag.
+        """
+        text = text.strip()
+
+        # Drop a reasoning preamble. <think>/</think> are ordinary tokens in the
+        # Qwen3.5 vocabulary, so they survive skip_special_tokens=True decoding.
+        if '</think>' in text:
+            text = text.rsplit('</think>', 1)[1].strip()
+
+        # Remove common prefixes the model might add
+        for prefix in ['Tags:', 'tags:', 'Here are the tags:', 'The tags are:']:
+            if text.startswith(prefix):
+                text = text[len(prefix):].strip()
+
+        # Split by comma and clean each tag
+        raw_tags = [t.strip().lower() for t in text.split(',')]
+
+        tags = []
+        for tag in raw_tags:
+            # Collapse newlines and runs of spaces — prose answers wrap lines
+            tag = ' '.join(tag.split())
+            # Remove markdown emphasis, then numbering or bullets
+            tag = tag.strip('*#`').lstrip('0123456789.-) ')
+            # Remove quotes and trailing sentence punctuation
+            tag = tag.strip('"\'').rstrip('.!?;')
+            # Strip category prefixes the model may echo (e.g. "Art: painting")
+            if ':' in tag:
+                tag = tag.split(':', 1)[1].strip()
+            # Replace spaces with underscores for consistency
+            tag = tag.replace(' ', '_')
+
+            if not tag or len(tag) <= 1:
+                continue
+            # More words than any real tag has means the model answered in prose
+            if tag.count('_') + 1 > MAX_TAG_WORDS:
+                continue
+
+            # Match to valid vocabulary using edit distance
+            if self.valid_tags:
+                if tag not in self.valid_tags:
+                    best_match = None
+                    best_dist = 3  # threshold + 1
+                    for valid_tag in self.valid_tags:
+                        dist = _levenshtein(tag, valid_tag)
+                        if dist < best_dist:
+                            best_dist = dist
+                            best_match = valid_tag
+                    if best_match is not None:
+                        tag = best_match
+                    # If no close match, keep the tag as-is
+
+            if tag not in tags:  # Avoid duplicates
+                tags.append(tag)
+
+        return tags[:max_tags]
+
+    def tag_image_with_scores(self, image: PIL.Image.Image, max_tags: int = 5) -> Dict[str, float]:
+        """
+        Generate tags with logprob-based confidence scores.
+
+        Uses output_scores=True in model.generate() to compute average
+        log-probability per tag segment, converted to probability via exp().
+
+        Args:
+            image: PIL Image to tag
+            max_tags: Maximum number of tags to return
+
+        Returns:
+            Dict mapping tag names to confidence scores in [0, 1]
+        """
+        if self.backend is not None:
+            return {tag: 1.0 for tag in self.tag_image(image, max_tags)}
+
+        if self.model is None:
+            self.load()
+
+        _ensure_imports()
+
+        prompt = self._build_prompt()
+        max_new_tokens = self.model_config.get('max_new_tokens', 100)
+
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image", "image": image},
+                    {"type": "text", "text": prompt},
+                ],
+            }
+        ]
+
+        if self.family in ('qwen3', 'qwen3_5'):
+            inputs = self.processor.apply_chat_template(
+                messages,
+                tokenize=True,
+                add_generation_prompt=True,
+                return_dict=True,
+                return_tensors="pt",
+                **self._template_kwargs,
+            )
+            inputs.pop("token_type_ids", None)
+        else:
+            text = self.processor.apply_chat_template(
+                messages, tokenize=False, add_generation_prompt=True
+            )
+            inputs = self.processor(
+                text=[text],
+                images=[image],
+                return_tensors="pt",
+                padding=True,
+            )
+
+        inputs = {k: v.to(self.model.device) if hasattr(v, 'to') else v
+                  for k, v in inputs.items()}
+
+        with torch.no_grad():
+            outputs = self.model.generate(
+                **inputs,
+                max_new_tokens=max_new_tokens,
+                do_sample=False,
+                output_scores=True,
+                return_dict_in_generate=True,
+            )
+
+        # Decode the generated text
+        generated_ids = outputs.sequences[0][inputs['input_ids'].shape[1]:]
+        output_text = self.processor.decode(generated_ids, skip_special_tokens=True)
+
+        # Parse tags from text
+        tags = self._parse_tags(output_text, max_tags)
+
+        if not tags or not outputs.scores:
+            return {tag: 1.0 for tag in tags}
+
+        # Compute per-token log probabilities
+        token_logprobs = []
+        for step_idx, score in enumerate(outputs.scores):
+            # score shape: (batch_size, vocab_size)
+            log_probs = torch.log_softmax(score[0], dim=-1)
+            token_id = generated_ids[step_idx]
+            token_logprobs.append(log_probs[token_id].item())
+
+        # Decode individual tokens to find comma boundaries
+        token_texts = [
+            self.processor.decode([tid], skip_special_tokens=False)
+            for tid in generated_ids
+        ]
+
+        # Split logprobs by comma tokens to get per-tag confidence
+        tag_segments = []
+        current_logprobs = []
+        for tok_text, logprob in zip(token_texts, token_logprobs):
+            if ',' in tok_text and current_logprobs:
+                tag_segments.append(current_logprobs)
+                current_logprobs = []
+            else:
+                current_logprobs.append(logprob)
+        if current_logprobs:
+            tag_segments.append(current_logprobs)
+
+        # Assign confidence to tags
+        result = {}
+        for i, tag in enumerate(tags):
+            if i < len(tag_segments) and tag_segments[i]:
+                avg_logprob = sum(tag_segments[i]) / len(tag_segments[i])
+                confidence = math.exp(avg_logprob)
+                confidence = max(0.0, min(1.0, confidence))
+            else:
+                confidence = 1.0
+            result[tag] = confidence
+
+        return result
+
+    def get_tags_with_scores(self, image: PIL.Image.Image, threshold: float = 0.0) -> Dict[str, float]:
+        """
+        Get tags with confidence scores.
+
+        Uses logprob-based confidence from tag_image_with_scores().
+
+        Args:
+            image: PIL Image to tag
+            threshold: Minimum confidence threshold (tags below are filtered)
+
+        Returns:
+            Dict mapping tag names to confidence scores
+        """
+        scores = self.tag_image_with_scores(image)
+        if threshold > 0:
+            scores = {tag: conf for tag, conf in scores.items() if conf >= threshold}
+        return scores
+
+    def is_loaded(self) -> bool:
+        """Check if the model is currently loaded."""
+        return self.model is not None

@@ -1,0 +1,368 @@
+"""Integration tests for the browser-device auth dependency and its pairing workflow.
+
+The pairing service issues opaque tokens stored only as sha256 hashes in ``browser_devices``.
+This suite verifies that an issued token authenticates exactly its owner on import routes,
+fails everywhere else, cannot be used after revocation, and does not open a route that does
+not explicitly declare ``require_browser_import_user``.
+
+The authorization-surface check is structural: the set of routes accepting browser devices
+is asserted here against the real router, not inferred from the dependency list.
+
+Every rejection answers with the same `invalid_browser_credential`: unknown, revoked, and
+owned-by-a-deactivated-user must be indistinguishable, or the error becomes an oracle for
+which credentials exist.
+"""
+
+from __future__ import annotations
+
+import pytest
+from fastapi import HTTPException, Request
+from fastapi.testclient import TestClient
+from sqlmodel import Session, select
+
+from app.core.browser_device_auth import (
+    require_browser_import_user,
+    require_user_or_browser_import_user,
+)
+from app.core.time import utcnow
+from app.db.models import BrowserDevice
+from app.modules.ingestion import inbox
+
+
+@pytest.fixture
+def paired(client: TestClient, user_headers):
+    """Pair a browser for a fresh user and hand back its credential."""
+
+    def run(username: str, name: str = "Paired browser") -> str:
+        headers = user_headers(username)
+        code = client.post("/api/v1/browser-pairings", headers=headers).json()["code"]
+        claimed = client.post(
+            "/api/v1/browser-pairings/claim", json={"code": code, "name": name}
+        )
+        assert claimed.status_code == 200, claimed.text
+        return claimed.json()["credential"]
+
+    return run
+
+
+@pytest.fixture
+def importable(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Let an inbox capture land without reaching out to the source URL."""
+    monkeypatch.setattr(inbox.importer, "validate_public_url", lambda _url: None)
+
+    async def no_resolve(_item_id: int) -> None:
+        return None
+
+    monkeypatch.setattr(inbox, "resolve", no_resolve)
+
+
+class TestRequireBrowserImportUser:
+    def test_returns_the_account_the_browser_was_paired_with(
+        self, db_session: Session, paired
+    ) -> None:
+        credential = paired("device-owner")
+
+        user = require_browser_import_user(credential, db_session)
+
+        assert user.username == "device-owner"
+
+    def test_records_when_the_credential_was_last_used(
+        self, db_session: Session, paired
+    ) -> None:
+        credential = paired("device-last-used")
+
+        require_browser_import_user(credential, db_session)
+
+        assert db_session.exec(select(BrowserDevice)).one().last_used_at is not None
+
+    def test_rejects_a_value_that_matches_no_device(self, db_session: Session) -> None:
+        with pytest.raises(HTTPException) as exc_info:
+            require_browser_import_user("not-a-browser-credential", db_session)
+
+        assert exc_info.value.status_code == 401
+        assert exc_info.value.detail == "invalid_browser_credential"
+
+    def test_rejects_an_empty_credential(self, db_session: Session) -> None:
+        with pytest.raises(HTTPException) as exc_info:
+            require_browser_import_user(None, db_session)
+
+        assert exc_info.value.status_code == 401
+        assert exc_info.value.detail == "invalid_browser_credential"
+
+    def test_rejects_a_revoked_devices_credential(
+        self, db_session: Session, paired
+    ) -> None:
+        credential = paired("device-revoked")
+        device = db_session.exec(select(BrowserDevice)).one()
+        device.revoked_at = utcnow()
+        db_session.commit()
+
+        with pytest.raises(HTTPException) as exc_info:
+            require_browser_import_user(credential, db_session)
+
+        assert exc_info.value.detail == "invalid_browser_credential"
+
+    def test_rejects_a_credential_whose_owner_was_deactivated(
+        self, db_session: Session, paired
+    ) -> None:
+        from app.db.models import User
+
+        credential = paired("device-deactivated")
+        owner = db_session.exec(
+            select(User).where(User.username == "device-deactivated")
+        ).one()
+        owner.is_active = False
+        db_session.commit()
+
+        with pytest.raises(HTTPException) as exc_info:
+            require_browser_import_user(credential, db_session)
+
+        # Same message as an unknown credential: no oracle.
+        assert exc_info.value.detail == "invalid_browser_credential"
+
+
+class TestRequireUserOrBrowserImportUser:
+    def test_accepts_a_write_scoped_login(
+        self, db_session: Session, make_user, headers_for
+    ) -> None:
+        owner = make_user("dual-auth-jwt")
+        token = headers_for(owner)["Authorization"].removeprefix("Bearer ")
+
+        assert (
+            require_user_or_browser_import_user(
+                token, db_session, request=Request({"type": "http", "headers": []})
+            ).username
+            == "dual-auth-jwt"
+        )
+
+    def test_accepts_a_paired_browser(self, db_session: Session, paired) -> None:
+        credential = paired("dual-auth-device")
+
+        assert (
+            require_user_or_browser_import_user(
+                credential, db_session, request=Request({"type": "http", "headers": []})
+            ).username
+            == "dual-auth-device"
+        )
+
+    def test_rejects_a_read_scoped_login(
+        self, db_session: Session, make_user, headers_for
+    ) -> None:
+        owner = make_user("dual-auth-read")
+        token = headers_for(owner, scope="read")["Authorization"].removeprefix(
+            "Bearer "
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            require_user_or_browser_import_user(
+                token, db_session, request=Request({"type": "http", "headers": []})
+            )
+
+        assert exc_info.value.status_code == 401
+        assert exc_info.value.detail == "not_authenticated"
+
+    def test_rejects_a_malformed_token_without_falling_back_to_a_device(
+        self, db_session: Session
+    ) -> None:
+        with pytest.raises(HTTPException) as exc_info:
+            require_user_or_browser_import_user(
+                "not.a.jwt",
+                db_session,
+                request=Request({"type": "http", "headers": []}),
+            )
+
+        # Three segments means "this is a JWT"; it must not reach the device path.
+        assert exc_info.value.detail == "not_authenticated"
+
+    def test_rejects_a_token_whose_subject_is_not_an_account_id(
+        self, db_session: Session
+    ) -> None:
+        from app.modules.identity.auth import create_access_token
+
+        # A well-signed token can still carry a subject this deployment never
+        # issued — a legacy or tampered payload must not reach a user lookup.
+        forged = create_access_token("not-an-id", "ghost", scope="write")  # type: ignore[arg-type]
+
+        with pytest.raises(HTTPException) as exc_info:
+            require_user_or_browser_import_user(
+                forged, db_session, request=Request({"type": "http", "headers": []})
+            )
+
+        assert exc_info.value.detail == "not_authenticated"
+
+    def test_accepts_a_cookie_session(
+        self, client: TestClient, make_user, headers_for, importable
+    ) -> None:
+        owner = make_user("cookie-user")
+        token = headers_for(owner)["Authorization"].removeprefix("Bearer ")
+
+        client.cookies.set("printstash_session", token)
+        response = client.post(
+            "/api/v1/inbox",
+            json={"url": "https://example.com/model", "title": "Cookie import"},
+        )
+
+        assert response.status_code == 202, response.text
+
+    def test_rejects_a_read_scoped_cookie(
+        self, client: TestClient, make_user, headers_for, importable
+    ) -> None:
+        owner = make_user("cookie-read")
+        token = headers_for(owner, scope="read")["Authorization"].removeprefix(
+            "Bearer "
+        )
+        client.cookies.set("printstash_session", token)
+
+        response = client.post(
+            "/api/v1/inbox", json={"url": "https://example.com/model"}
+        )
+
+        assert response.status_code == 401
+
+    @pytest.mark.parametrize(
+        "token",
+        ["not.a.jwt", "opaque-token", ""],
+        ids=["malformed-jwt", "opaque", "empty"],
+    )
+    def test_rejects_an_invalid_cookie(
+        self, client: TestClient, importable, token
+    ) -> None:
+        client.cookies.set("printstash_session", token)
+
+        response = client.post(
+            "/api/v1/inbox", json={"url": "https://example.com/model"}
+        )
+
+        assert response.status_code == 401
+
+    def test_bearer_owner_takes_precedence_over_cookie(
+        self, client: TestClient, make_user, headers_for, importable
+    ) -> None:
+        cookie_owner = make_user("cookie-owner")
+        bearer_owner = make_user("bearer-owner")
+        cookie_token = headers_for(cookie_owner)["Authorization"].removeprefix(
+            "Bearer "
+        )
+        client.cookies.set("printstash_session", cookie_token)
+
+        response = client.post(
+            "/api/v1/inbox",
+            headers=headers_for(bearer_owner),
+            json={"url": "https://example.com/model"},
+        )
+
+        assert response.status_code == 202, response.text
+        assert response.json()["owner_user_id"] == bearer_owner.id
+
+    def test_read_bearer_cannot_fall_back_to_cookie(
+        self, client: TestClient, make_user, headers_for, importable
+    ) -> None:
+        owner = make_user("cookie-with-read-bearer")
+        client.cookies.set(
+            "printstash_session",
+            headers_for(owner)["Authorization"].removeprefix("Bearer "),
+        )
+
+        response = client.post(
+            "/api/v1/inbox",
+            headers=headers_for(owner, scope="read"),
+            json={"url": "https://example.com/model"},
+        )
+
+        assert response.status_code == 401
+
+    def test_invalid_bearer_cannot_fall_back_to_cookie(
+        self, client: TestClient, make_user, headers_for, importable
+    ) -> None:
+        owner = make_user("cookie-with-invalid-bearer")
+        client.cookies.set(
+            "printstash_session",
+            headers_for(owner)["Authorization"].removeprefix("Bearer "),
+        )
+
+        response = client.post(
+            "/api/v1/inbox",
+            headers={"Authorization": "Bearer not.a.jwt"},
+            json={"url": "https://example.com/model"},
+        )
+
+        assert response.status_code == 401
+
+    def test_device_bearer_takes_precedence_over_cookie(
+        self,
+        client: TestClient,
+        make_user,
+        headers_for,
+        paired,
+        importable,
+        db_session: Session,
+    ) -> None:
+        cookie_owner = make_user("cookie-with-device-bearer")
+        credential = paired("paired-owner")
+        device = db_session.exec(select(BrowserDevice)).one()
+        client.cookies.set(
+            "printstash_session",
+            headers_for(cookie_owner)["Authorization"].removeprefix("Bearer "),
+        )
+
+        response = client.post(
+            "/api/v1/inbox",
+            headers={"Authorization": f"Bearer {credential}"},
+            json={"url": "https://example.com/model"},
+        )
+
+        assert response.status_code == 202, response.text
+        assert response.json()["owner_user_id"] == device.user_id
+
+
+class TestBrowserCredentialConfinement:
+    def test_a_paired_browser_can_capture_a_url(
+        self, client: TestClient, paired, importable
+    ) -> None:
+        credential = paired("confined-capture")
+
+        response = client.post(
+            "/api/v1/inbox",
+            headers={"Authorization": f"Bearer {credential}"},
+            json={"url": "https://example.com/model", "title": "Browser capture"},
+        )
+
+        assert response.status_code == 202, response.text
+
+    def test_a_paired_browser_can_upload_a_captured_file(
+        self, client: TestClient, paired, importable
+    ) -> None:
+        credential = paired("confined-upload")
+
+        response = client.post(
+            "/api/v1/inbox/browser-upload",
+            headers={"Authorization": f"Bearer {credential}"},
+            data={"source_url": "https://makerworld.com/en/models/1"},
+            files={
+                "file": ("widget.3mf", b"browser-owned", "application/octet-stream")
+            },
+        )
+
+        assert response.status_code == 201, response.text
+
+    def test_a_paired_browser_cannot_read_the_account(
+        self, client: TestClient, paired
+    ) -> None:
+        credential = paired("confined-account")
+
+        response = client.get(
+            "/api/v1/auth/me", headers={"Authorization": f"Bearer {credential}"}
+        )
+
+        assert response.status_code == 401, response.text
+
+    def test_a_paired_browser_cannot_read_the_library(
+        self, client: TestClient, paired
+    ) -> None:
+        credential = paired("confined-library")
+
+        response = client.get(
+            "/api/v1/models", headers={"Authorization": f"Bearer {credential}"}
+        )
+
+        assert response.status_code == 401, response.text

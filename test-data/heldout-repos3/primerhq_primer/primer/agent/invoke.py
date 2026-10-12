@@ -1,0 +1,502 @@
+"""Shared subagent invocation: a one-shot agent runner + a process-wide
+invocation-depth guard reused by the invoke_agent and invoke_graph tools.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import contextlib
+import contextvars
+import os
+import uuid
+from typing import TYPE_CHECKING, Any
+
+from primer.agent.call_scope import current_interrupt
+from primer.model.chat import Message, TextPart, ToolTurnCapReached
+
+
+if TYPE_CHECKING:
+    from primer.model.principal import PrincipalRef
+
+
+MAX_INVOCATION_DEPTH = int(os.environ.get("PRIMER_MAX_INVOCATION_DEPTH", "8"))
+
+_DEPTH: contextvars.ContextVar[int] = contextvars.ContextVar(
+    "primer_invocation_depth", default=0,
+)
+
+
+#: The id of the delegated run this task is running inside (``None`` in the parent turn itself): the next ``run_subagent`` reads
+#: it as its parent's run id. Inherited by the tool tasks the run starts, which is where a nested delegation is made.
+_RUN_ID: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "primer_delegated_run_id", default=None,
+)
+
+
+class InvocationDepthExceeded(Exception):
+    """Raised when nested invoke_agent / invoke_graph exceeds the max depth."""
+
+
+@contextlib.contextmanager
+def invocation_depth_guard():
+    """Increment the invocation depth for the duration of a nested run; raise
+    InvocationDepthExceeded if it would exceed MAX_INVOCATION_DEPTH."""
+    depth = _DEPTH.get()
+    if depth >= MAX_INVOCATION_DEPTH:
+        raise InvocationDepthExceeded(
+            f"invocation depth {depth} would exceed max {MAX_INVOCATION_DEPTH}"
+        )
+    token = _DEPTH.set(depth + 1)
+    try:
+        yield
+    finally:
+        _DEPTH.reset(token)
+
+
+class _SubagentSession:
+    """Minimal session-identity shim bound to a subagent's tool manager.
+
+    The :class:`~primer.agent.tool_manager.ToolExecutionManager` derives the
+    approval-gate event key and the yielding-tool ToolContext from its bound
+    ``workspace_session`` (reading ``session_id`` / ``workspace_id`` /
+    ``agent_id``). A subagent invoked via ``system__invoke_agent`` runs WITHIN
+    the parent's session but is not itself a workspace-bound session with
+    workspace tools, so we hand the manager this lightweight stand-in carrying
+    the inherited identity. ``workspace_tools`` is empty: the subagent's tool
+    surface is its own ``agent.tools``, never the parent's workspace tools.
+    """
+
+    workspace_tools: list = []
+
+    def __init__(
+        self, *, session_id: str, workspace_id: str | None, agent_id: str
+    ) -> None:
+        self.session_id = session_id
+        self.workspace_id = workspace_id
+        self.agent_id = agent_id
+
+
+@contextlib.contextmanager
+def _depth_set(depth: int):
+    """Pin the invocation depth contextvar to ``depth`` for the duration.
+
+    Used by ``resume_subagent``: a resumed frame must keep counting from the
+    depth it was parked at (so nested re-entry keeps loop-guarding) rather than
+    restarting at zero. Restores the prior depth on exit.
+    """
+    token = _DEPTH.set(depth)
+    try:
+        yield
+    finally:
+        _DEPTH.reset(token)
+
+
+async def build_subagent_toolmanager(
+    context: Any,
+    *,
+    storage_provider: Any = None,
+    provider_registry: Any,
+    approval_resolver: Any | None = None,
+) -> Any:
+    """Build the :class:`ToolExecutionManager` for a subagent turn.
+
+    Resolves the toolset providers backing ``context.tools`` from
+    ``provider_registry`` and wires the manager exactly as the worker wires a
+    normal turn: the approval gate (``approval_resolver`` + ``provider_registry``
+    so the gate enforces session-scoped approvals) and a session-identity shim
+    (``_SubagentSession``) derived from ``context`` so the gate's event key and
+    the yielding-tool ToolContext are scoped to the inherited session. When the
+    context carries no ``session_id`` the manager binds ``chat_id`` instead,
+    mirroring the chat path. The full ``context.tools`` surface is passed
+    UNFILTERED so yielding tools can park.
+
+    ``context`` is an :class:`~primer.worker.frames.AgentResumeContext`
+    (``session_id``, ``workspace_id``, ``chat_id``, ``principal``, ``tools``).
+    ``storage_provider`` wires the platform event recorder so nested
+    subagent tool calls land ``tool.called`` / ``llm.called`` like
+    top-level ones (None keeps the manager recorder-less).
+
+    Shared by :func:`run_subagent` (initial dispatch), :func:`resume_subagent`
+    (rebuild-and-continue), and ``frames.apply_leaf`` (re-dispatch of an
+    approved original_call), so the manager wiring lives in exactly one place.
+    """
+    from primer.agent.tool_manager import ToolExecutionManager
+    from primer.model.principal import PrincipalRef
+    from primer.worker.pool import _toolset_ids_from_scoped
+
+    tools = list(context.tools or [])
+    toolset_ids = _toolset_ids_from_scoped(tools)
+    toolset_providers: dict[str, Any] = {}
+    for tid in toolset_ids:
+        toolset_providers[tid] = await provider_registry.get_toolset(tid)
+
+    session_id = context.session_id
+    subagent_session = (
+        _SubagentSession(
+            session_id=session_id,
+            workspace_id=context.workspace_id,
+            agent_id=getattr(context, "agent_id", None) or "subagent",
+        )
+        if session_id is not None
+        else None
+    )
+    # A subagent runs as the SAME invoker as its parent turn: the parent's
+    # ``initiated_by`` rides on the ``AgentResumeContext`` (persisted across
+    # park/resume) so the child manager's RBAC tool floor is authorised
+    # identically. System fallback keeps a None invoker from failing closed
+    # and denying every toolset call the subagent makes.
+    initiated_by = getattr(context, "initiated_by", None) or PrincipalRef.system()
+    # 01a0518b: mirrors initiated_by's propagation immediately above - the
+    # parent turn's own turn_no rides on the AgentResumeContext (persisted
+    # across park/resume) so a nested subagent's tool dispatch stamps the
+    # SAME turn_no onto its own ToolContext, not a freshly-minted one.
+    turn_no = getattr(context, "turn_no", None)
+    recorder = None
+    if storage_provider is not None:
+        from primer.events.recorder import recorder_for
+
+        recorder = recorder_for(storage_provider)
+    return ToolExecutionManager(
+        toolset_providers=toolset_providers,
+        workspace_session=subagent_session,
+        approval_resolver=approval_resolver,
+        provider_registry=provider_registry,
+        tools=tools,
+        chat_id=context.chat_id if subagent_session is None else None,
+        initiated_by=initiated_by,
+        event_recorder=recorder,
+        turn_no=turn_no,
+    )
+
+
+def _push_agent_frame_on_yield(
+    yld: Any,
+    *,
+    agent_id: str,
+    produced: list,
+    invoke_tool_call_id: str | None,
+    depth: int,
+    context: Any,
+) -> None:
+    """Prepend a fresh :class:`AgentFrame` onto ``yld.frames`` (in place).
+
+    Captures the in-progress turn (``produced``, serialised to ``list[dict]``)
+    plus the ids/context needed to rebuild the agent, ahead of any frames a
+    deeper invocation already pushed. Shared by :func:`run_subagent` and
+    :func:`resume_subagent` so the yield-to-frame wiring lives in one place.
+    """
+    from primer.worker.frames import AgentFrame
+
+    existing = list(getattr(yld, "frames", []) or [])
+    frame = AgentFrame(
+        agent_id=agent_id,
+        llm_messages=[m.model_dump(mode="json") for m in produced],
+        tool_call_id=invoke_tool_call_id,
+        depth=depth,
+        context=context,
+    )
+    yld.frames = [frame] + existing
+
+
+async def run_subagent(
+    *,
+    agent_id: str,
+    prompt: str,
+    storage_provider: Any,
+    provider_registry: Any,
+    principal: str | None = None,
+    approval_resolver: Any | None = None,
+    session_id: str | None = None,
+    workspace_id: str | None = None,
+    chat_id: str | None = None,
+    invoke_tool_call_id: str | None = None,
+    identity: "PrincipalRef | None" = None,
+    turn_no: int | None = None,
+) -> str:
+    """Run agent ``agent_id`` once on ``prompt`` (stateless: system prompt +
+    prompt, no shared history) and return the final assistant text.
+
+    The subagent runs with its FULL ``agent.tools`` surface - including
+    yielding tools - and the inherited approval gate. If a tool yields (an
+    approval gate fires or a yielding tool parks), the in-progress turn's
+    messages are captured into an :class:`AgentFrame` prepended onto the
+    :class:`YieldToWorker`'s ``frames`` stack, and the exception is re-raised
+    so the worker can park the whole nested-invocation chain. Wrap calls in
+    ``invocation_depth_guard()``.
+
+    ``turn_no`` (01a0518b) is the ENCLOSING session turn's own turn number,
+    read straight off the calling tool's :class:`~primer.model.yield_.ToolContext`
+    and passed through unchanged - a nested subagent call belongs to the
+    outer turn, not a freshly-minted one, so it is threaded through
+    verbatim rather than re-derived here.
+    """
+    from primer.agent.loop import run_agent_turn
+    from primer.model.yield_ import YieldToWorker
+    from primer.worker.frames import AgentResumeContext
+
+    agent, llm, llm_model = await _resolve_agent_runtime(
+        agent_id, storage_provider=storage_provider,
+        provider_registry=provider_registry,
+    )
+
+    # Wire the manager the same way the worker wires a normal turn (the
+    # approval gate + provider_registry + a session-identity shim, with the
+    # full agent.tools surface UNFILTERED so yielding tools can park). The
+    # context carries the inherited ids: build_subagent_toolmanager derives
+    # the shim (or the chat binding) from it. Shared with resume_subagent and
+    # frames.apply_leaf so the manager wiring lives in exactly one place.
+    # One id per delegated run, minted here and carried in the resume context so a resumed run keeps it (the raw call id is NOT
+    # a run's identity: it is reused across streams and levels). The parent's is whatever run this call is made inside.
+    run_id = uuid.uuid4().hex
+    parent_run_id = _RUN_ID.get()
+    context = AgentResumeContext(
+        session_id=session_id,
+        workspace_id=workspace_id,
+        chat_id=chat_id,
+        principal=principal,
+        tools=list(agent.tools),
+        # Carry the parent run's invoker so the subagent's tool floor is
+        # authorised as the same identity (and survives a park/resume).
+        initiated_by=identity,
+        turn_no=turn_no,
+        delegate_run_id=run_id,
+        delegate_parent_run_id=parent_run_id,
+    )
+    tool_manager = await build_subagent_toolmanager(
+        context,
+        storage_provider=storage_provider,
+        provider_registry=provider_registry,
+        approval_resolver=approval_resolver,
+    )
+
+    from primer.model.graph import build_execution_context
+    from primer.agent.prompt_render import render_system_prompt_or_raw
+
+    surface = "workspace" if workspace_id else ("chat" if chat_id else "memory")
+    _sub_ctx = build_execution_context(
+        surface=surface,
+        workspace_id=workspace_id,
+        session_id=session_id,
+        identity=identity,
+    )
+    sys_text = (
+        render_system_prompt_or_raw(agent.system_prompt, _sub_ctx)
+        if agent.system_prompt else ""
+    )
+    prompt_msgs: list[Message] = []
+    if sys_text:
+        prompt_msgs.append(Message(role="system", parts=[TextPart(text=sys_text)]))
+    prompt_msgs.append(Message(role="user", parts=[TextPart(text=prompt)]))
+
+    # ``produced`` is the authoritative in-progress conversation at the yield
+    # point: run_agent_turn appends the assistant message that carried the
+    # tool_use into this buffer BEFORE dispatching the tool (loop.py), and the
+    # tool dispatch is what raises YieldToWorker. Unlike the base executor,
+    # run_agent_turn does NOT stamp ``yld.llm_messages`` (no executor frame in
+    # this path), so this buffer - not ``yld.llm_messages`` - is the source of
+    # truth for the AgentFrame's mid-flight history.
+    produced: list[Message] = []
+    # The Stop event of the turn this call belongs to (its scope, see ``primer.agent.call_scope``), so the subagent's own
+    # loop stops at its next check instead of relying on the parent's cancel of this task, which can be swallowed (the MCP
+    # stdio handshake clears every pending cancel): a subagent whose cancel was swallowed would otherwise go on with its
+    # next model call and its tools after the Stop. None outside a stoppable call: nothing changes there.
+    stop = current_interrupt()
+    interrupted: list[bool] = []
+    capped: list[bool] = []
+    run_token = _RUN_ID.set(run_id)
+    try:
+        from primer.session.delegation import current_delegation_sink
+
+        _sink = current_delegation_sink()
+        # No artifact_storage: this subagent path is scope-cut from the
+        # vision-attachments hydration seam (01a052d9) -- it's a third,
+        # nested-invocation surface, text-in/text-out today, that nobody
+        # has asked to carry vision attachments yet.
+        async for _ev in run_agent_turn(
+            agent=agent, llm=llm, llm_model=llm_model, tool_manager=tool_manager,
+            prompt=prompt_msgs, principal=principal, messages_out=produced,
+            turn_no=turn_no, interrupt=stop, interrupted_out=interrupted, capped_out=capped,
+        ):
+            if _sink is not None:
+                await _sink.on_event(
+                    _ev, delegate_tool_call_id=invoke_tool_call_id,
+                    delegate_run_id=run_id, delegate_parent_run_id=parent_run_id,
+                    delegate_depth=_DEPTH.get(),
+                )
+    except YieldToWorker as yld:
+        _push_agent_frame_on_yield(
+            yld,
+            agent_id=agent_id,
+            produced=produced,
+            invoke_tool_call_id=invoke_tool_call_id,
+            depth=_DEPTH.get(),
+            context=context,
+        )
+        raise
+    finally:
+        _RUN_ID.reset(run_token)
+
+    if interrupted:
+        # The subagent's turn ended because the Stop was set, not because it had an answer. What it produced so far is not
+        # a result, and returning it would hand the parent a partial answer as the call's REAL result (a call that
+        # finishes after the Stop with a value is used as it is). Re-deliver the cancel that may have been swallowed on
+        # the way: the call task then ends cancelled, which ``run_stoppable`` answers as ``interrupted: stopped by user``.
+        raise asyncio.CancelledError("subagent stopped by user")
+
+    if capped:
+        # The turn stopped at the subagent's max_tool_turns: every call of its last round was answered with an error
+        # result, but it did not finish. Returning its last text would hand the caller a half-done answer as the
+        # call's real result; the caller turns this into an error result that carries the text (a Stop beats it above).
+        raise ToolTurnCapReached.after(
+            agent_id=agent_id, max_tool_turns=agent.max_tool_turns, produced=produced, subject=f"subagent {agent_id!r}",
+        )
+
+    return _final_assistant_text(produced)
+
+
+async def _resolve_agent_runtime(
+    agent_id: str,
+    *,
+    storage_provider: Any,
+    provider_registry: Any,
+) -> tuple[Any, Any, Any]:
+    """Resolve ``(agent, llm, llm_model)`` for a subagent run.
+
+    Shared by :func:`run_subagent` and :func:`resume_subagent` so both
+    paths resolve the agent definition, its LLM client and the concrete
+    model row identically. Raises ``ValueError`` if the agent or its model
+    cannot be found.
+    """
+    from primer.model.agent import Agent
+    from primer.model.provider import LLMProvider
+
+    agents = storage_provider.get_storage(Agent)
+    agent = await agents.get(agent_id)
+    if agent is None:
+        raise ValueError(f"agent {agent_id!r} does not exist")
+
+    from primer.model_profile import resolve_llm
+
+    llm, llm_model = await resolve_llm(
+        storage_provider, provider_registry,
+        default_profile_id=agent.model.profile_id,
+    )
+    return agent, llm, llm_model
+
+
+def _final_assistant_text(produced: list[Message]) -> str:
+    """Extract the final assistant message's text from a turn's output buffer.
+
+    Mirrors the text extraction shared by :func:`run_subagent` and
+    :func:`resume_subagent`: the last assistant message's ``TextPart``s,
+    joined.
+    """
+    texts: list[str] = []
+    for m in reversed(produced):
+        if m.role == "assistant":
+            texts = [p.text for p in m.parts if isinstance(p, TextPart)]
+            break
+    return "".join(texts)
+
+
+async def resume_subagent(
+    *,
+    agent_id: str,
+    context: Any,
+    llm_messages: list[dict[str, Any]],
+    child_result: Any,
+    depth: int,
+    storage_provider: Any,
+    provider_registry: Any,
+    approval_resolver: Any | None = None,
+    invoke_tool_call_id: str | None = None,
+) -> str:
+    """Resume a parked subagent turn and return its final assistant text.
+
+    Resume-by-rerun: rather than rehydrating a stateful executor, we rebuild
+    the agent runtime + tool manager and re-run a single turn whose prompt is
+    the parked mid-flight history followed by the now-completed child's tool
+    result. The LLM continues past the tool call exactly as if the result had
+    arrived synchronously.
+
+    Parameters mirror an :class:`~primer.worker.frames.AgentFrame`'s payload:
+    ``llm_messages`` is the serialised mid-flight history (``list[dict]``),
+    ``child_result`` is the resolved tool result for the call that parked,
+    ``depth`` is the nesting depth this frame was parked at, and ``context``
+    is the :class:`~primer.worker.frames.AgentResumeContext` carrying the
+    inherited ids + tool surface.
+
+    The run is pinned to ``depth`` (via ``_depth_set``) so nested re-entry
+    keeps counting from where it parked. If the continuation yields again, a
+    FRESH :class:`AgentFrame` (carrying the new in-progress history) is
+    prepended onto the yield's ``frames`` stack and the yield is re-raised,
+    so the worker can re-park the whole chain.
+    """
+    from primer.agent.loop import run_agent_turn
+    from primer.model.chat import Message
+    from primer.model.yield_ import YieldToWorker
+
+    agent, llm, llm_model = await _resolve_agent_runtime(
+        agent_id, storage_provider=storage_provider,
+        provider_registry=provider_registry,
+    )
+
+    tool_manager = await build_subagent_toolmanager(
+        context,
+        storage_provider=storage_provider,
+        provider_registry=provider_registry,
+        approval_resolver=approval_resolver,
+    )
+
+    rehydrated = [Message.model_validate(m) for m in (llm_messages or [])]
+    resume_prompt = rehydrated + [Message(role="tool", parts=[child_result])]
+
+    produced: list[Message] = []
+    capped: list[bool] = []
+    # The continuation is the SAME run as the one that parked: its records carry the run id it started with (a frame parked before
+    # run ids existed has none, and gets a fresh one so its records are still told apart from every other run's).
+    run_id = getattr(context, "delegate_run_id", None) or uuid.uuid4().hex
+    parent_run_id = getattr(context, "delegate_parent_run_id", None)
+    run_token = _RUN_ID.set(run_id)
+    try:
+        with _depth_set(depth):
+            from primer.session.delegation import current_delegation_sink
+
+            _sink = current_delegation_sink()
+            # No artifact_storage -- see the invoke_agent call site above;
+            # same scope-cut applies to this resume path.
+            async for _ev in run_agent_turn(
+                agent=agent, llm=llm, llm_model=llm_model,
+                tool_manager=tool_manager, prompt=resume_prompt,
+                principal=context.principal, messages_out=produced, capped_out=capped,
+                turn_no=getattr(context, "turn_no", None),
+            ):
+                if _sink is not None:
+                    # The delegating call's id is ``invoke_tool_call_id`` (the frame's ``tool_call_id``): this used to read
+                    # ``context.tool_call_id``, which an ``AgentResumeContext`` does not have, so every record of a RESUMED
+                    # run was stamped ``delegate_tool_call_id: None`` and nested under nothing.
+                    await _sink.on_event(
+                        _ev,
+                        delegate_tool_call_id=invoke_tool_call_id,
+                        delegate_run_id=run_id, delegate_parent_run_id=parent_run_id,
+                        delegate_depth=depth,
+                    )
+    except YieldToWorker as yld:
+        _push_agent_frame_on_yield(
+            yld,
+            agent_id=agent_id,
+            produced=produced,
+            invoke_tool_call_id=invoke_tool_call_id,
+            depth=depth,
+            context=context,
+        )
+        raise
+    finally:
+        _RUN_ID.reset(run_token)
+
+    if capped:
+        raise ToolTurnCapReached.after(
+            agent_id=agent_id, max_tool_turns=agent.max_tool_turns, produced=produced, subject=f"subagent {agent_id!r}",
+        )
+
+    return _final_assistant_text(produced)

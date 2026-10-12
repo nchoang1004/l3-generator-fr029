@@ -1,0 +1,96 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+.venv*/
+venv/
+*.egg-info/
+.pytest_cache/
+.testmondata
+.ruff_cache/
+
+# Local data / dev
+.env
+_data/
+backend/_data/
+backend/dev.sqlite*
+*.sqlite
+backend/.coverage
+# Parallel data files (`concurrency`/`parallel` in backend/pyproject.toml) and the
+# reports the coverage lane writes from them.
+backend/.coverage.*
+backend/coverage.json
+backend/.coverage-html/
+backend/packages/printstash-core/.coverage
+backend/packages/printstash-core/coverage.json
+backend/packages/printstash-core/.coverage-html/
+
+# Local-only large sample meshes/gcode for manual mesh/OOM testing (issue #29).
+# Too big to commit; point PRINTSTASH_MESH_CORPUS at them locally instead.
+testdata/
+
+# Node / Next.js
+node_modules/
+
+# Rust
+backend/rust/target/
+backend/rust/.maturin/
+.next/
+frontend/.next/
+frontend/tsconfig.tsbuildinfo
+frontend/out/
+frontend/dist/
+frontend/coverage/
+frontend/packages/*/coverage/
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
+
+# Project tools — ignore local config, keep docs and skills
+.opencode/openai-key.txt
+.opencode/opencode.json
+.opencode/local.settings.json
+.opencode/opencode.json.lock
+
+# Internal/private planning docs
+reports/
+docs/feature-inventory.md
+docs/internal/
+docs/*-internal.md
+**/plans/
+**/plan/
+**/*-plan.md
+**/*-plans.md
+
+# AI assistant tooling. `.agents/` is the source of truth and is tracked in full:
+# it holds the shared skills every assistant reads. The per-tool entry points are
+# tracked symlinks into it — `.claude/skills` -> `.agents/skills` and
+# `CLAUDE.md` -> `AGENTS.md` — so a fresh clone works for each tool with no
+# second copy to keep in sync. Everything else here stays local.
+.codex/
+.mcp.json
+.claude/*
+!.claude/skills
+.opencode/
+skills-lock.json
+docs/agents/
+frontend/test-results/
+frontend/playwright-report/
+frontend/tests/e2e-real/.data/
+frontend/tests/e2e-real/.storage-data/
+frontend/tests/e2e-real/.delivery-data/
+.playwright-mcp/
+screenshots/gif-frames/
+
+# Local integration worktrees
+.cloud-integration-*/
+
+# Windows "downloaded from internet" metadata streams (WSL surfaces these)
+*:Zone.Identifier
+
+/frontend/tests/performance/.startup-data/
+
+/frontend/.startup-results/

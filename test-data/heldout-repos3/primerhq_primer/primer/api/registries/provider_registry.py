@@ -1,0 +1,889 @@
+"""Lazy, invalidatable adapter registry for provider rows.
+
+Holds one adapter instance per ``(LLMProvider, EmbeddingProvider,
+CrossEncoderProvider, Toolset)`` row id; constructs adapters on first
+read; drops the cached adapter (after calling its ``aclose``) when the
+underlying row is mutated or deleted.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
+
+from primer.int.coordinator import InvalidationBus, InvalidationSubscription, RateLimiter
+from primer.int.cross_encoder import CrossEncoder
+from primer.int.embedder import Embedder
+from primer.int.llm import LLM
+from primer.int.toolset import ToolsetProvider
+from primer.model.except_ import ConfigError, NotFoundError
+from primer.model.model_profile import ModelProfile
+from primer.model.provider import (
+    CrossEncoderProvider,
+    CrossEncoderProviderType,
+    EmbeddingProvider,
+    EmbeddingProviderType,
+    LLMProvider,
+    LLMProviderType,
+    Toolset,
+)
+
+
+if TYPE_CHECKING:
+    from primer.int.storage_provider import StorageProvider
+    from primer.llm.aggregated import AggregatedLLM
+
+
+logger = logging.getLogger(__name__)
+
+
+def _build_default_llm_factory(
+    *,
+    rate_limiter: "RateLimiter | None" = None,
+    trace_llm_io: bool = False,
+) -> Callable[[LLMProvider], LLM]:
+    """Build the default ``llm_factory`` closure.
+
+    ``rate_limiter`` is forwarded to every LLM adapter so all providers
+    participate in the global concurrency limiter. ``None`` causes each
+    adapter to fall back to a local :class:`~primer.coordinator.in_memory.InMemoryRateLimiter`.
+    ``trace_llm_io`` controls whether prompt messages are included in spans.
+    """
+    def _construct(provider: LLMProvider) -> LLM:  # pragma: no cover
+        match provider.provider:
+            case LLMProviderType.OPENRESPONSES:
+                from primer.llm.openresponses import OpenResponsesLLM
+                return OpenResponsesLLM(
+                    provider, rate_limiter=rate_limiter, trace_llm_io=trace_llm_io,
+                )
+            case LLMProviderType.OPENCHAT:
+                from primer.llm.openchat import OpenChatLLM
+                return OpenChatLLM(
+                    provider, rate_limiter=rate_limiter, trace_llm_io=trace_llm_io,
+                )
+            case LLMProviderType.ANTHROPIC:
+                from primer.llm.anthropic import AnthropicLLM
+                return AnthropicLLM(
+                    provider, rate_limiter=rate_limiter, trace_llm_io=trace_llm_io,
+                )
+            case LLMProviderType.GEMINI:
+                from primer.llm.gemini import GeminiLLM
+                return GeminiLLM(
+                    provider, rate_limiter=rate_limiter, trace_llm_io=trace_llm_io,
+                )
+            case LLMProviderType.OLLAMA:
+                from primer.llm.ollama import OllamaLLM
+                return OllamaLLM(
+                    provider, rate_limiter=rate_limiter, trace_llm_io=trace_llm_io,
+                )
+            case LLMProviderType.OPENROUTER:
+                from primer.llm.openrouter import OpenRouterLLM
+                return OpenRouterLLM(
+                    provider, rate_limiter=rate_limiter, trace_llm_io=trace_llm_io,
+                )
+            case _:
+                raise ConfigError(
+                    f"unknown LLM provider type {provider.provider!r}"
+                )
+
+    def _factory(provider: LLMProvider) -> LLM:
+        adapter = _construct(provider)
+        from primer.llm.retrying import RetryingLLM
+        return RetryingLLM(adapter, provider)
+
+    return _factory
+
+
+def _default_llm_factory(provider: LLMProvider) -> LLM:  # pragma: no cover
+    """Dispatch on ``provider.provider`` to the right adapter constructor."""
+    return _build_default_llm_factory()(provider)
+
+
+def _build_default_embedder_factory(
+    *,
+    rate_limiter: "RateLimiter | None" = None,
+) -> Callable[[EmbeddingProvider], Embedder]:
+    """Build the default ``embedder_factory`` closure.
+
+    ``rate_limiter`` is forwarded to every embedder adapter so all
+    providers participate in the global concurrency limiter. ``None``
+    causes each adapter to fall back to a local
+    :class:`~primer.coordinator.in_memory.InMemoryRateLimiter`.
+    """
+    def _factory(provider: EmbeddingProvider) -> Embedder:  # pragma: no cover
+        match provider.provider:
+            case EmbeddingProviderType.HUGGINGFACE:
+                from primer.common.optional import require_extra
+
+                require_extra("huggingface", "the HuggingFace embedder")
+                from primer.embedder.huggingface import HuggingFaceEmbedder
+                return HuggingFaceEmbedder(provider, rate_limiter=rate_limiter)
+            case EmbeddingProviderType.OPENAI:
+                from primer.embedder.openai import OpenAIEmbedder
+                return OpenAIEmbedder(provider, rate_limiter=rate_limiter)
+            case EmbeddingProviderType.GEMINI:
+                from primer.embedder.gemini import GeminiEmbedder
+                return GeminiEmbedder(provider, rate_limiter=rate_limiter)
+            case _:
+                raise ConfigError(
+                    f"unknown embedding provider type {provider.provider!r}"
+                )
+    return _factory
+
+
+def _default_embedder_factory(  # pragma: no cover
+    provider: EmbeddingProvider,
+) -> Embedder:
+    return _build_default_embedder_factory()(provider)
+
+
+def _build_default_cross_encoder_factory(
+    *,
+    rate_limiter: "RateLimiter | None" = None,
+) -> Callable[[CrossEncoderProvider], CrossEncoder]:
+    """Build the default ``cross_encoder_factory`` closure.
+
+    ``rate_limiter`` is forwarded to every cross-encoder adapter so all
+    providers participate in the global concurrency limiter. ``None``
+    causes each adapter to fall back to a local
+    :class:`~primer.coordinator.in_memory.InMemoryRateLimiter`.
+    """
+    def _factory(provider: CrossEncoderProvider) -> CrossEncoder:  # pragma: no cover
+        match provider.provider:
+            case CrossEncoderProviderType.HUGGINGFACE:
+                from primer.common.optional import require_extra
+
+                require_extra("huggingface", "the HuggingFace cross-encoder")
+                from primer.cross_encoder.huggingface import (
+                    HuggingFaceCrossEncoder,
+                )
+                return HuggingFaceCrossEncoder(provider, rate_limiter=rate_limiter)
+            case _:
+                raise ConfigError(
+                    f"unknown cross-encoder provider type {provider.provider!r}"
+                )
+    return _factory
+
+
+def _default_cross_encoder_factory(  # pragma: no cover
+    provider: CrossEncoderProvider,
+) -> CrossEncoder:
+    return _build_default_cross_encoder_factory()(provider)
+
+
+_SYSTEM_TOOLSET_ID = "system"
+_WORKSPACES_TOOLSET_ID = "workspaces"
+_MISC_TOOLSET_ID = "misc"
+# `web` has always been prefix-less; unchanged.
+_WEB_TOOLSET_ID = "web"
+_HARNESS_TOOLSET_ID = "harness"
+_TRIGGER_TOOLSET_ID = "trigger"
+_WORKSPACE_EXT_TOOLSET_ID = "workspace_ext"
+_COLLECTIONS_TOOLSET_ID = "collections"
+_CRUD_TOOLSET_ID = "crud"
+
+# Public: ids that are always resolvable by the live registry (built-in
+# providers), so external reference-integrity checks can skip the
+# Toolset storage lookup for them.
+RESERVED_TOOLSET_IDS: frozenset[str] = frozenset({
+    _SYSTEM_TOOLSET_ID,
+    _WORKSPACES_TOOLSET_ID,
+    _MISC_TOOLSET_ID,
+    _WEB_TOOLSET_ID,
+    _HARNESS_TOOLSET_ID,
+    _TRIGGER_TOOLSET_ID,
+    _WORKSPACE_EXT_TOOLSET_ID,
+    _COLLECTIONS_TOOLSET_ID,
+    _CRUD_TOOLSET_ID,
+})
+
+# Toolset ids that are SCOPES of the tool manager, not built-in providers: ``external`` is the invoker-supplied per-invocation
+# tool scope, ``workspace`` / ``workspace_ext`` the workspace-tool scopes. None of them may exist as a stored Toolset row.
+RESERVED_TOOLSET_SCOPE_IDS: frozenset[str] = frozenset({"external", "workspace", "workspace_ext"})
+
+# Every id a STORED Toolset row may not take: the built-in providers above (get_toolset answers them before it reads storage, so a
+# row under one is a ghost that GET /v1/toolsets lists and nothing ever runs) plus the tool-manager scopes. The toolset REST router
+# and the system toolset's ``create_toolset`` both refuse exactly this set (one definition, so they cannot drift). The REST hook
+# used to refuse only the scope ids, because a module-local alias rebound the name RESERVED_TOOLSET_IDS to them.
+RESERVED_TOOLSET_ROW_IDS: frozenset[str] = RESERVED_TOOLSET_IDS | RESERVED_TOOLSET_SCOPE_IDS
+
+# ---------------------------------------------------------------------------
+# Reserved ids for auto-bootstrap provider kinds
+#
+# These ids are protected at the API layer (POST → 409, DELETE → 403).
+# The factory specs that describe how to create these rows live in
+# :mod:`primer.bootstrap.defaults`; the rows are upserted idempotently
+# by :class:`primer.bootstrap.runner.BootstrapRunner` at first boot.
+#
+# Design: factories are NOT consulted at lookup time.  After bootstrap
+# the row exists in storage like any other.  The reserved-id sets below
+# are used exclusively by the router guards (Task 3).
+# ---------------------------------------------------------------------------
+
+# Embedding providers: id "huggingface" is the local sentence-transformers
+# provider and must not be overwritten by operator POST.
+RESERVED_EMBEDDER_IDS: frozenset[str] = frozenset({"huggingface"})
+
+# Semantic-search providers: id "lance" is the local LanceDB backend.
+RESERVED_SSP_IDS: frozenset[str] = frozenset({"lance"})
+
+# Cross-encoder providers: id "huggingface-ce" is the local reranker.
+RESERVED_CROSS_ENCODER_IDS: frozenset[str] = frozenset({"huggingface-ce"})
+
+# LLM providers: no reserved ids — LLMs always require explicit operator
+# provisioning (API keys); the set is defined here for symmetry so
+# router guards can import a uniform name.
+RESERVED_LLM_IDS: frozenset[str] = frozenset()
+
+# Workspace providers: id "local" is the local-filesystem backend.
+RESERVED_WORKSPACE_PROVIDER_IDS: frozenset[str] = frozenset({"local"})
+
+# Backward-compat: the four `_*` ids shipped before the underscore-
+# prefix convention was retired. Agents persisted before the rename
+# may still reference them, so the registry maps the old ids to the
+# new ones transparently on lookup. Remove this map after a deprecation
+# window (when the operator-saved configs have been re-saved).
+_TOOLSET_ID_ALIASES: dict[str, str] = {
+    "_system": "system",
+    "_workspaces": "workspaces",
+    "_search": "search",
+    "_misc": "misc",
+}
+
+
+def _build_default_toolset_factory(
+    *,
+    allowed_stdio_commands: frozenset[str] | None = None,
+) -> Callable[[Toolset], ToolsetProvider]:
+    """Build the default ``toolset_factory`` closure.
+
+    ``allowed_stdio_commands`` is forwarded to every constructed
+    :class:`McpToolsetProvider` so stdio launches are restricted to the
+    operator-supplied safelist. ``None`` disables the check (acceptable
+    only when Toolset creation is operator-restricted upstream).
+    """
+    def _factory(toolset: Toolset) -> ToolsetProvider:  # pragma: no cover
+        from primer.model.provider import ToolsetProviderType
+
+        if toolset.provider == ToolsetProviderType.MCP:
+            from primer.toolset.mcp import McpToolsetProvider
+            return McpToolsetProvider(
+                toolset_id=toolset.id,
+                config=toolset.config,
+                allowed_stdio_commands=allowed_stdio_commands,
+            )
+        if toolset.provider == ToolsetProviderType.PYTHON:
+            from primer.toolset.python_runner.provider import PythonToolsetProvider
+            from primer.toolset.python_runner.runners import LocalHardenedRunner
+
+            return PythonToolsetProvider(
+                toolset_id=toolset.id,
+                config=toolset.config,
+                runner=LocalHardenedRunner(
+                    env={
+                        k: v.get_secret_value()
+                        for k, v in (toolset.config.env or {}).items()
+                    }
+                ),
+            )
+        if toolset.provider == ToolsetProviderType.INTERNAL:
+            raise ConfigError(
+                f"toolset {toolset.id!r} declares provider='internal' "
+                "but internal toolsets are constructed by the app "
+                "lifespan, not from a row. Reserved internal toolset "
+                "ids are: system, workspaces, search, misc, web."
+            )
+        raise ConfigError(
+            f"unknown toolset provider type {toolset.provider!r}"
+        )
+
+    return _factory
+
+
+def _default_toolset_factory(toolset: Toolset) -> ToolsetProvider:  # pragma: no cover
+    """No-allowlist default. Tests use this directly; the production
+    lifespan calls :func:`_build_default_toolset_factory` with the
+    AppConfig allowlist instead."""
+    return _build_default_toolset_factory()(toolset)
+
+
+class ProviderRegistry:
+    """Lazy adapter cache keyed by provider row id."""
+
+    def __init__(
+        self,
+        storage_provider: "StorageProvider",
+        *,
+        llm_factory: Callable[[LLMProvider], LLM] | None = None,
+        embedder_factory: Callable[[EmbeddingProvider], Embedder] | None = None,
+        cross_encoder_factory: (
+            Callable[[CrossEncoderProvider], CrossEncoder] | None
+        ) = None,
+        toolset_factory: Callable[[Toolset], ToolsetProvider] | None = None,
+        system_toolset_provider: ToolsetProvider | None = None,
+        workspaces_toolset_provider: ToolsetProvider | None = None,
+        misc_toolset_provider: ToolsetProvider | None = None,
+        collections_toolset_provider: ToolsetProvider | None = None,
+        web_toolset_provider: ToolsetProvider | None = None,
+        harness_toolset_provider: ToolsetProvider | None = None,
+        trigger_toolset_provider: ToolsetProvider | None = None,
+        workspace_ext_toolset_provider: ToolsetProvider | None = None,
+        crud_toolset_provider: ToolsetProvider | None = None,
+        rate_limiter: RateLimiter | None = None,
+        trace_llm_io: bool = False,
+    ) -> None:
+        self._sp = storage_provider
+        self._rate_limiter: RateLimiter | None = rate_limiter
+        self._trace_llm_io = trace_llm_io
+        self._llm_factory = llm_factory or _build_default_llm_factory(
+            rate_limiter=rate_limiter,
+            trace_llm_io=trace_llm_io,
+        )
+        self._embedder_factory = embedder_factory or _build_default_embedder_factory(
+            rate_limiter=rate_limiter,
+        )
+        self._cross_encoder_factory = (
+            cross_encoder_factory or _build_default_cross_encoder_factory(
+                rate_limiter=rate_limiter,
+            )
+        )
+        self._toolset_factory = toolset_factory or _default_toolset_factory
+        # Reserved id ``system`` resolves to this immutable provider
+        # without consulting storage. Set via app lifespan; tests
+        # may leave it None and use the row-based path.
+        self._system_toolset_provider = system_toolset_provider
+        # Reserved id ``search`` resolves to this provider when the
+        # internal collections subsystem is active. Set lazily by the
+        # subsystem bootstrap (or the lifespan handler if a config row
+        # already exists at startup); ``None`` means the subsystem is
+        # inactive and ``get_toolset('search')`` raises NotFoundError.
+        # Reserved id ``workspaces`` resolves to this immutable
+        # provider — always built at app startup. Mirrors ``system``:
+        # its tools dogfood the workspace REST API to agents.
+        self._workspaces_toolset_provider = workspaces_toolset_provider
+        # Reserved id ``misc`` resolves to this immutable provider —
+        # always built at app startup. Stateless utilities
+        # (get_datetime, sleep, uuid_v4, hash, calculate).
+        self._misc_toolset_provider = misc_toolset_provider
+        # Reserved id ``collections`` resolves to the always-on
+        # document-tree toolset: list / tree / read / grep and the
+        # write side, with semantic_search pointing at grep when a
+        # collection has no search block.
+        self._collections_toolset_provider = collections_toolset_provider
+        # Reserved id ``web`` (no underscore prefix) resolves to the
+        # immutable web toolset built at app startup.
+        # DuckDuckGo search + http-request primitives.
+        self._web_toolset_provider = web_toolset_provider
+        # Reserved id ``harness`` resolves to the harness management
+        # toolset built at app startup. Agents can manage harnesses
+        # (register, fetch, install, sync, uninstall) via this toolset.
+        self._harness_toolset_provider = harness_toolset_provider
+        # Reserved id ``trigger`` resolves to the trigger management
+        # toolset built at app startup. Agents can manage triggers /
+        # subscriptions through it. (The ``subscribe_to_trigger``
+        # yielding tool moved to the ``workspace_ext`` toolset.)
+        self._trigger_toolset_provider = trigger_toolset_provider
+        # Reserved id ``workspace_ext`` resolves to the workspace-only
+        # yielding toolset built at app startup (sleep, watch_files,
+        # invoke_graph, subscribe_to_trigger). Special: an agent can bind
+        # it, but its tools are registered into the agent's tool context
+        # ONLY in a workspace session (filtered out on chats by the
+        # ToolExecutionManager resolution choke point).
+        self._workspace_ext_toolset_provider = workspace_ext_toolset_provider
+        self._crud_toolset_provider = crud_toolset_provider
+
+        self._llm_cache: dict[str, LLM] = {}
+        self._embedder_cache: dict[str, Embedder] = {}
+        self._cross_encoder_cache: dict[str, CrossEncoder] = {}
+        self._toolset_cache: dict[str, ToolsetProvider] = {}
+        # Keyed by ModelProfile id (kind="aggregated"), not LLMProvider id
+        # -- aggregation moved to the model-profile layer, so this is a
+        # SEPARATE cache from _llm_cache, not a reuse of it. Exists so
+        # AggregatedLLM's round-robin _cursor persists across calls: a
+        # fresh instance per resolve_llm() call (the alternative) would
+        # reset the cursor every time, so RANDOM/ROUND_ROBIN routing would
+        # never actually rotate past member[0]. See get_aggregated_llm.
+        self._aggregated_llm_cache: dict[str, "AggregatedLLM"] = {}
+        self._lock = asyncio.Lock()
+        # Bumped by every cache flush. Each ``get_*`` samples it before the
+        # storage await and refuses to cache the adapter it built if the
+        # value moved while it was suspended -- that adapter was built from
+        # a row read BEFORE the flush, so caching it would resurrect exactly
+        # the staleness the flush exists to clear (see arch-review batch 1,
+        # MEDIUM-2).
+        self._cache_generation = 0
+        self._invalidation_bus: InvalidationBus | None = None
+        self._invalidation_subs: list[InvalidationSubscription] = []
+
+    # ---- Lookups ----------------------------------------------------------
+
+    async def get_llm(self, provider_id: str) -> LLM:
+        async with self._lock:
+            cached = self._llm_cache.get(provider_id)
+            if cached is not None:
+                return cached
+            generation = self._cache_generation
+            row = await self._sp.get_storage(LLMProvider).get(provider_id)
+            if row is None:
+                raise NotFoundError(
+                    f"LLMProvider {provider_id!r} does not exist"
+                )
+            adapter = self._llm_factory(row)
+            if self._cache_generation == generation:
+                self._llm_cache[provider_id] = adapter
+            return adapter
+
+    async def get_aggregated_llm(
+        self,
+        profile_id: str,
+        *,
+        resolve_member: "Callable[[str], Any]",
+    ) -> "AggregatedLLM":
+        """Return the cached :class:`AggregatedLLM` for ``profile_id``.
+
+        Keyed by ModelProfile id (``kind="aggregated"``) in a cache
+        SEPARATE from :attr:`_llm_cache` -- aggregation lives at the
+        model-profile layer, not the LLMProvider layer, so there is no
+        provider row to key on. Exists so :attr:`AggregatedLLM._cursor`
+        (round-robin rotation state) persists across calls: without this,
+        a caller that builds a fresh ``AggregatedLLM`` on every
+        ``resolve_llm()`` call would reset the cursor every time, and
+        ROUND_ROBIN routing would never rotate past member[0].
+
+        Takes an id and re-fetches the row itself, INSIDE the lock,
+        exactly mirroring :meth:`get_llm` -- an earlier version took the
+        caller's (:func:`primer.model_profile.resolve_llm`) already-fetched
+        row instead, on the reasoning that the caller's own fetch already
+        told it which branch to take. That was a real bug, not a style
+        choice: the caller's fetch happens OUTSIDE this lock, across a
+        multi-await window (its own row fetch plus per-member fetches in
+        ``_flatten``), so an invalidation landing in that window was
+        invisible here -- the generation sample below had zero awaits
+        between it and the cache insert, so it could never observe a
+        flush that happened before this method was even entered. Caching
+        is what introduces the race (a fresh-construction-per-call design
+        could never go stale); re-fetching in-lock is what closes it, the
+        same way it's already closed for every other cache in this class.
+        One redundant read per cache-miss is negligible at
+        once-per-turn-build call frequency.
+
+        ``resolve_member`` is only consulted on a cache MISS: a cache hit
+        reuses the instance (and its closure) built on the FIRST call for
+        this profile id, matching :meth:`get_llm`'s own precedent of
+        ignoring anything about the calling context beyond the id once
+        cached.
+        """
+        async with self._lock:
+            cached = self._aggregated_llm_cache.get(profile_id)
+            if cached is not None:
+                return cached
+            generation = self._cache_generation
+            row = await self._sp.get_storage(ModelProfile).get(profile_id)
+            if row is None:
+                raise NotFoundError(
+                    f"ModelProfile {profile_id!r} does not exist"
+                )
+            from primer.llm.aggregated import AggregatedLLM
+            adapter = AggregatedLLM(row, resolve_member=resolve_member)
+            if self._cache_generation == generation:
+                self._aggregated_llm_cache[profile_id] = adapter
+            return adapter
+
+    async def get_embedder(self, provider_id: str) -> Embedder:
+        async with self._lock:
+            cached = self._embedder_cache.get(provider_id)
+            if cached is not None:
+                return cached
+            generation = self._cache_generation
+            row = await self._sp.get_storage(EmbeddingProvider).get(provider_id)
+            if row is None:
+                raise NotFoundError(
+                    f"EmbeddingProvider {provider_id!r} does not exist"
+                )
+            adapter = self._embedder_factory(row)
+            if self._cache_generation == generation:
+                self._embedder_cache[provider_id] = adapter
+            return adapter
+
+    async def get_cross_encoder(self, provider_id: str) -> CrossEncoder:
+        async with self._lock:
+            cached = self._cross_encoder_cache.get(provider_id)
+            if cached is not None:
+                return cached
+            generation = self._cache_generation
+            row = await self._sp.get_storage(CrossEncoderProvider).get(provider_id)
+            if row is None:
+                raise NotFoundError(
+                    f"CrossEncoderProvider {provider_id!r} does not exist"
+                )
+            adapter = self._cross_encoder_factory(row)
+            if self._cache_generation == generation:
+                self._cross_encoder_cache[provider_id] = adapter
+            return adapter
+
+    async def get_toolset(self, toolset_id: str) -> ToolsetProvider:
+        # Transparently resolve old `_*` ids to new prefix-less ids so
+        # agent rows persisted before the rename continue to work.
+        toolset_id = _TOOLSET_ID_ALIASES.get(toolset_id, toolset_id)
+        # Reserved id `system` short-circuits storage. Returns the
+        # singleton built at app startup; immutable, never re-created.
+        if (
+            self._system_toolset_provider is not None
+            and toolset_id == _SYSTEM_TOOLSET_ID
+        ):
+            return self._system_toolset_provider
+        # Reserved id `workspaces` resolves to the always-on
+        # workspace dogfood toolset built at app startup.
+        if (
+            self._workspaces_toolset_provider is not None
+            and toolset_id == _WORKSPACES_TOOLSET_ID
+        ):
+            return self._workspaces_toolset_provider
+        # Reserved id `misc` resolves to the always-on misc utility
+        # toolset built at app startup.
+        if (
+            self._misc_toolset_provider is not None
+            and toolset_id == _MISC_TOOLSET_ID
+        ):
+            return self._misc_toolset_provider
+        # Reserved id `collections` resolves to the always-on document
+        # tree toolset built at app startup.
+        if (
+            self._collections_toolset_provider is not None
+            and toolset_id == _COLLECTIONS_TOOLSET_ID
+        ):
+            return self._collections_toolset_provider
+        # Reserved id `web` resolves to the always-on web toolset
+        # built at app startup.
+        if (
+            self._web_toolset_provider is not None
+            and toolset_id == _WEB_TOOLSET_ID
+        ):
+            return self._web_toolset_provider
+        # Reserved id `harness` resolves to the harness management
+        # toolset built at app startup.
+        if (
+            self._harness_toolset_provider is not None
+            and toolset_id == _HARNESS_TOOLSET_ID
+        ):
+            return self._harness_toolset_provider
+        # Reserved id `trigger` resolves to the trigger management +
+        # yielding toolset built at app startup.
+        if (
+            self._trigger_toolset_provider is not None
+            and toolset_id == _TRIGGER_TOOLSET_ID
+        ):
+            return self._trigger_toolset_provider
+        # Reserved id `workspace_ext` resolves to the always-on
+        # workspace-only yielding toolset built at app startup.
+        if (
+            self._workspace_ext_toolset_provider is not None
+            and toolset_id == _WORKSPACE_EXT_TOOLSET_ID
+        ):
+            return self._workspace_ext_toolset_provider
+        # Reserved id `crud` resolves to the always-on platform-construction
+        # toolset built at app startup (S5). Approval policies keyed on
+        # toolset_id="crud" gate every tool in it.
+        if (
+            self._crud_toolset_provider is not None
+            and toolset_id == _CRUD_TOOLSET_ID
+        ):
+            return self._crud_toolset_provider
+        async with self._lock:
+            cached = self._toolset_cache.get(toolset_id)
+            if cached is not None:
+                return cached
+            generation = self._cache_generation
+            row = await self._sp.get_storage(Toolset).get(toolset_id)
+            if row is None:
+                raise NotFoundError(
+                    f"Toolset {toolset_id!r} does not exist"
+                )
+            adapter = self._toolset_factory(row)
+            if self._cache_generation == generation:
+                self._toolset_cache[toolset_id] = adapter
+            return adapter
+
+    # ---- Invalidation (private local helpers) ----------------------------
+
+    async def _invalidate_llm_local(self, provider_id: str) -> None:
+        async with self._lock:
+            adapter = self._llm_cache.pop(provider_id, None)
+        if adapter is not None:
+            try:
+                await adapter.aclose()
+            except Exception as exc:  # noqa: BLE001 -- best-effort
+                logger.warning(
+                    "ProviderRegistry: aclose failed on LLM %r: %s",
+                    provider_id,
+                    exc,
+                )
+
+    async def _invalidate_aggregated_llm_local(self, profile_id: str) -> None:
+        async with self._lock:
+            adapter = self._aggregated_llm_cache.pop(profile_id, None)
+        if adapter is not None:
+            try:
+                await adapter.aclose()
+            except Exception as exc:  # noqa: BLE001 -- best-effort
+                logger.warning(
+                    "ProviderRegistry: aclose failed on AggregatedLLM %r: %s",
+                    profile_id,
+                    exc,
+                )
+
+    async def _invalidate_embedder_local(self, provider_id: str) -> None:
+        async with self._lock:
+            adapter = self._embedder_cache.pop(provider_id, None)
+        if adapter is not None:
+            try:
+                await adapter.aclose()
+            except Exception as exc:  # noqa: BLE001 -- best-effort
+                logger.warning(
+                    "ProviderRegistry: aclose failed on Embedder %r: %s",
+                    provider_id,
+                    exc,
+                )
+
+    async def _invalidate_cross_encoder_local(self, provider_id: str) -> None:
+        async with self._lock:
+            adapter = self._cross_encoder_cache.pop(provider_id, None)
+        if adapter is not None:
+            try:
+                await adapter.aclose()
+            except Exception as exc:  # noqa: BLE001 -- best-effort
+                logger.warning(
+                    "ProviderRegistry: aclose failed on CrossEncoder %r: %s",
+                    provider_id,
+                    exc,
+                )
+
+    async def _invalidate_toolset_local(self, toolset_id: str) -> None:
+        # Transparently resolve old `_*` ids to new prefix-less ids.
+        toolset_id = _TOOLSET_ID_ALIASES.get(toolset_id, toolset_id)
+        # The reserved internal toolsets are immutable; invalidation
+        # is a no-op so the singletons survive any cascade triggered
+        # by an accidental write to the reserved ids.
+        if toolset_id in (
+            _SYSTEM_TOOLSET_ID,
+            _WORKSPACES_TOOLSET_ID,
+            _MISC_TOOLSET_ID,
+            _WEB_TOOLSET_ID,
+            _HARNESS_TOOLSET_ID,
+            _TRIGGER_TOOLSET_ID,
+            _WORKSPACE_EXT_TOOLSET_ID,
+            _CRUD_TOOLSET_ID,
+        ):
+            return
+        async with self._lock:
+            adapter = self._toolset_cache.pop(toolset_id, None)
+        if adapter is not None:
+            try:
+                await adapter.aclose()
+            except Exception as exc:  # noqa: BLE001 -- best-effort
+                logger.warning(
+                    "ProviderRegistry: aclose failed on Toolset %r: %s",
+                    toolset_id,
+                    exc,
+                )
+
+    # ---- Invalidation (public — routes through bus when bound) -----------
+
+    async def invalidate_llm(self, provider_id: str) -> None:
+        if self._invalidation_bus is not None:
+            from primer.int.coordinator import InvalidationTopic
+            await self._invalidation_bus.publish(
+                InvalidationTopic.LLM_PROVIDER, provider_id,
+            )
+        else:
+            await self._invalidate_llm_local(provider_id)
+
+    async def invalidate_aggregated_llm(self, profile_id: str) -> None:
+        if self._invalidation_bus is not None:
+            from primer.int.coordinator import InvalidationTopic
+            await self._invalidation_bus.publish(
+                InvalidationTopic.AGGREGATED_MODEL_PROFILE, profile_id,
+            )
+        else:
+            await self._invalidate_aggregated_llm_local(profile_id)
+
+    async def invalidate_embedder(self, provider_id: str) -> None:
+        if self._invalidation_bus is not None:
+            from primer.int.coordinator import InvalidationTopic
+            await self._invalidation_bus.publish(
+                InvalidationTopic.EMBEDDING_PROVIDER, provider_id,
+            )
+        else:
+            await self._invalidate_embedder_local(provider_id)
+
+    async def invalidate_cross_encoder(self, provider_id: str) -> None:
+        if self._invalidation_bus is not None:
+            from primer.int.coordinator import InvalidationTopic
+            await self._invalidation_bus.publish(
+                InvalidationTopic.CROSS_ENCODER_PROVIDER, provider_id,
+            )
+        else:
+            await self._invalidate_cross_encoder_local(provider_id)
+
+    async def invalidate_toolset(self, toolset_id: str) -> None:
+        if self._invalidation_bus is not None:
+            from primer.int.coordinator import InvalidationTopic
+            await self._invalidation_bus.publish(
+                InvalidationTopic.TOOLSET, toolset_id,
+            )
+        else:
+            await self._invalidate_toolset_local(toolset_id)
+
+    # ---- Bus wiring -------------------------------------------------------
+
+    async def bind_rate_limiter(self, rate_limiter: RateLimiter) -> None:
+        """Wire the registry's adapter construction to the rate limiter.
+        Idempotent."""
+        self._rate_limiter = rate_limiter
+        self._llm_factory = _build_default_llm_factory(
+            rate_limiter=rate_limiter, trace_llm_io=self._trace_llm_io,
+        )
+        self._embedder_factory = _build_default_embedder_factory(rate_limiter=rate_limiter)
+        self._cross_encoder_factory = _build_default_cross_encoder_factory(rate_limiter=rate_limiter)
+
+    def _flush_caches_local(self) -> None:
+        """Drop every cached adapter WITHOUT closing it.
+
+        Invoked (synchronously) when an invalidation subscription
+        reconnects: a NOTIFY dropped during the LISTEN blip may have left
+        a stale adapter (e.g. a rotated API key) cached, so treat all
+        cached adapters as potentially stale and force reconstruction on
+        the next ``get_*``. This mirrors the cache-clearing half of
+        :meth:`aclose` (minus the ``aclose()`` calls).
+
+        No lock is taken: the reconnect hook runs synchronously in the
+        bus supervisor task, and clearing dicts has no ``await`` points,
+        so no coroutine can observe a half-cleared state. We deliberately
+        do NOT ``aclose()`` the dropped adapters -- one may still be in
+        use by an in-flight request, and closing its transport out from
+        under it would break that request; dropping the cache entry alone
+        is enough to force a fresh build next time.
+
+        Because no lock is taken, this CAN land while a ``get_*`` is
+        suspended at its storage await (``get_*`` holds ``self._lock``
+        across that await, which does not exclude this hook). That get
+        would then re-populate the cache with an adapter built from a
+        pre-flush row, leaving the stale adapter cached until restart --
+        the exact bug the flush exists to fix. Bumping the generation
+        makes any such in-flight get skip its cache insert (it still
+        returns its adapter to its caller, whose request completes
+        normally); the next get rebuilds from a post-flush row.
+        """
+        self._cache_generation += 1
+        self._llm_cache.clear()
+        self._aggregated_llm_cache.clear()
+        self._embedder_cache.clear()
+        self._cross_encoder_cache.clear()
+        self._toolset_cache.clear()
+
+    async def bind_invalidation_bus(self, bus: InvalidationBus) -> None:
+        """Wire the registry's cache eviction to the bus. Idempotent."""
+        if self._invalidation_bus is not None:
+            return
+        from primer.int.coordinator import InvalidationTopic
+
+        self._invalidation_bus = bus
+
+        async def _llm(key: str) -> None:
+            await self._invalidate_llm_local(key)
+
+        async def _agg_llm(key: str) -> None:
+            await self._invalidate_aggregated_llm_local(key)
+
+        async def _embed(key: str) -> None:
+            await self._invalidate_embedder_local(key)
+
+        async def _cross(key: str) -> None:
+            await self._invalidate_cross_encoder_local(key)
+
+        async def _tool(key: str) -> None:
+            await self._invalidate_toolset_local(key)
+
+        # Every topic shares one broadcast channel, so a reconnect on any
+        # subscription means invalidations on ALL topics may have been
+        # dropped during the blip. Flush every cache on any reconnect --
+        # over-invalidation (an extra rebuild) is safe; a stale adapter
+        # (e.g. a rotated API key) cached until restart is not.
+        self._invalidation_subs.append(
+            await bus.subscribe(
+                InvalidationTopic.LLM_PROVIDER, _llm,
+                on_reconnect=self._flush_caches_local,
+            )
+        )
+        self._invalidation_subs.append(
+            await bus.subscribe(
+                InvalidationTopic.AGGREGATED_MODEL_PROFILE, _agg_llm,
+                on_reconnect=self._flush_caches_local,
+            )
+        )
+        self._invalidation_subs.append(
+            await bus.subscribe(
+                InvalidationTopic.EMBEDDING_PROVIDER, _embed,
+                on_reconnect=self._flush_caches_local,
+            )
+        )
+        self._invalidation_subs.append(
+            await bus.subscribe(
+                InvalidationTopic.CROSS_ENCODER_PROVIDER, _cross,
+                on_reconnect=self._flush_caches_local,
+            )
+        )
+        self._invalidation_subs.append(
+            await bus.subscribe(
+                InvalidationTopic.TOOLSET, _tool,
+                on_reconnect=self._flush_caches_local,
+            )
+        )
+
+    # ---- Lifecycle --------------------------------------------------------
+
+    async def aclose(self) -> None:
+        """Close every cached adapter and clear all caches."""
+        for sub in self._invalidation_subs:
+            try:
+                await sub.aclose()
+            except Exception:  # noqa: BLE001 -- best-effort
+                pass
+        self._invalidation_subs.clear()
+        async with self._lock:
+            adapters: list[Any] = (
+                list(self._llm_cache.values())
+                + list(self._aggregated_llm_cache.values())
+                + list(self._embedder_cache.values())
+                + list(self._cross_encoder_cache.values())
+                + list(self._toolset_cache.values())
+            )
+            self._llm_cache.clear()
+            self._aggregated_llm_cache.clear()
+            self._embedder_cache.clear()
+            self._cross_encoder_cache.clear()
+            self._toolset_cache.clear()
+        for adapter in adapters:
+            try:
+                await adapter.aclose()
+            except Exception as exc:  # noqa: BLE001 -- best-effort
+                logger.warning(
+                    "ProviderRegistry: aclose failed on %s: %s",
+                    type(adapter).__name__,
+                    exc,
+                )
+
+
+__all__ = [
+    "ProviderRegistry",
+    "RESERVED_CROSS_ENCODER_IDS",
+    "RESERVED_EMBEDDER_IDS",
+    "RESERVED_LLM_IDS",
+    "RESERVED_SSP_IDS",
+    "RESERVED_TOOLSET_IDS",
+    "RESERVED_TOOLSET_ROW_IDS",
+    "RESERVED_TOOLSET_SCOPE_IDS",
+    "RESERVED_WORKSPACE_PROVIDER_IDS",
+]

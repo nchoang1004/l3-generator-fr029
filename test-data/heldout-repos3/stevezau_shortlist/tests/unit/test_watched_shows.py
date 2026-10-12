@@ -1,0 +1,232 @@
+"""Tests for the watched-show filter — the logic that decides when a show is "finished" and should
+not be recommended back to a user (issue #12: in-progress shows were being recommended).
+
+The counts are Plex's OWN per-user ``viewedLeafCount`` / ``leafCount`` (marks included), passed to
+``_watched_titles`` as ``{tmdb_id: (viewed_episodes, total_episodes)}``."""
+
+from datetime import UTC, datetime
+from unittest.mock import MagicMock
+
+from shortlist.engine.models import MediaType, WatchedItem
+from shortlist.engine.rows import RowPolicy, _engaged_floor, _watched_titles
+
+
+class TestWatchedShowFilter:
+    """The ``_watched_titles`` function decides which shows count as "finished" (already watched) based
+    on episodes watched vs. total episodes. A show is finished when the user has watched either:
+
+    - >= ``show_pct`` of its episodes (default 0.8 = 80%), OR
+    - >= a length-scaled "engaged" floor (``_engaged_floor``): ``max(3, 15% of episodes)``.
+
+    The bar is ``min(total * show_pct, _engaged_floor(total))``, so for a short show the percentage is
+    tighter, and for a long show the scaled floor is tighter — but that floor is no longer a flat 3:
+    3 episodes of a 200-episode run is still a discovery, so the floor grows with length."""
+
+    def test_a_show_with_3_episodes_watched_of_a_short_series_is_finished(self):
+        """3 episodes of a 6-episode limited series = past the pilot, given it a real try → finished.
+        For a short show the engaged floor is still 3 (15% of 6 = 0.9, below the minimum)."""
+        finished = _watched_titles(set(), {100: (3, 6)}, 0.8)
+        assert (100, MediaType.SHOW) in finished, "3 of 6 (>= floor 3) → finished"
+
+    def test_a_few_episodes_of_a_long_series_is_not_finished(self):
+        """The fix: 3 episodes of a 60-episode show is 5% — plainly still a discovery, NOT finished.
+        The engaged floor scales to 15% of length (9 here), so a light sample no longer suppresses a
+        long show the way the old flat-3 floor did."""
+        # bar = min(60*0.8=48, floor=max(3, 60*0.15=9)=9) = 9; 3 < 9 → still a fresh pick
+        finished = _watched_titles(set(), {100: (3, 60)}, 0.8)
+        assert (100, MediaType.SHOW) not in finished, "3 of 60 (< floor 9) → not finished"
+
+    def test_a_long_series_watched_to_its_scaled_floor_is_finished(self):
+        """Once past ~15% of a long run, the person is engaged, not discovering → finished."""
+        finished = _watched_titles(set(), {100: (9, 60)}, 0.8)  # 9 = exactly the 15%-of-60 floor
+        assert (100, MediaType.SHOW) in finished, "9 of 60 (>= floor 9) → finished"
+
+    def test_two_episodes_of_a_short_series_is_not_finished(self):
+        """2 episodes = still sampling, below the floor-of-3 → not finished yet."""
+        finished = _watched_titles(set(), {100: (2, 6)}, 0.8)
+        assert (100, MediaType.SHOW) not in finished, "2 < floor 3 → not finished"
+
+    def test_a_short_show_at_80_percent_is_finished(self):
+        """For a 10-episode show, the percentage bar (8) is tighter than the scaled floor (max(3,1.5)=3)."""
+        finished = _watched_titles(set(), {200: (8, 10)}, 0.8)  # 8 of 10 = 80%
+        assert (200, MediaType.SHOW) in finished, "8/10 = 80% → finished"
+
+    def test_a_short_show_at_70_percent_is_finished_by_the_floor(self):
+        """7 of 10 = 70% (< 80%) but well past the floor of 3 → finished by the floor bar."""
+        # 7 >= min(10*0.8=8, floor=max(3, 1.5)=3) = 3 → finished
+        finished = _watched_titles(set(), {200: (7, 10)}, 0.8)
+        assert (200, MediaType.SHOW) in finished, "7 episodes >= floor 3 → finished"
+
+    def test_a_long_returning_series_never_hits_80_percent(self):
+        """Gold Rush on SFLIX: 160 episodes of 226 = 71%, never hits 80%. The scaled floor
+        (15% of 226 ≈ 34) catches it — and 160 is well past that."""
+        # 160 >= min(226*0.8=180.8, floor=max(3, 226*0.15=33.9)=33.9) = 33.9 → finished
+        finished = _watched_titles(set(), {300: (160, 226)}, 0.8)
+        assert (300, MediaType.SHOW) in finished, "160 watched >> floor 34 → finished by the floor bar"
+
+    def test_a_show_with_unknown_total_is_treated_as_finished(self):
+        """If Plex reports episodes watched but no total (leafCount absent/0), treat it as finished to
+        be conservative — better to skip a potential recommendation than to re-recommend something the
+        user has already worked through."""
+        assert (400, MediaType.SHOW) in _watched_titles(set(), {400: (5, None)}, 0.8)
+        assert (401, MediaType.SHOW) in _watched_titles(set(), {401: (5, 0)}, 0.8)
+
+    def test_movies_are_always_finished(self):
+        """Movies have no episode complexity — any watch = finished."""
+        finished = _watched_titles({500, 600}, {}, 0.8)
+        assert (500, MediaType.MOVIE) in finished
+        assert (600, MediaType.MOVIE) in finished
+
+
+class TestEngagedFloor:
+    """``_engaged_floor`` scales the "watched enough to not be a discovery" bar with series length."""
+
+    def test_short_series_uses_the_minimum(self):
+        """Below the crossover (~20 episodes), the flat 3-episode minimum holds."""
+        assert _engaged_floor(6) == 3  # 15% of 6 = 0.9, floored to 3
+        assert _engaged_floor(10) == 3  # 15% of 10 = 1.5, floored to 3
+
+    def test_long_series_scales_up(self):
+        """Past the crossover the floor grows to ~15% of length, so a light sample stays a discovery."""
+        assert _engaged_floor(60) == 9.0  # 15% of 60
+        assert _engaged_floor(200) == 30.0  # 15% of 200
+
+    def test_crossover_is_around_twenty_episodes(self):
+        """15% of 20 = 3, exactly the minimum — the two bars meet here."""
+        assert _engaged_floor(20) == 3.0
+
+
+class TestWhatAZeroPctRowExcludes:
+    """`zero_pct_exclusions` — what "already-watched titles: 0%" means, as of 1.2.
+
+    It used to mean "0% FINISHED", so a show under the bar above was, to a 0% row, a fresh
+    discovery. Plex itself draws no such line: its watched filter returns a show from the first
+    episode. A live probe of a real server (2026-08-05) found `?type=2&unwatched=0` returning shows
+    as little as 1.1% watched (2 of 176), and five of ten started shows there were still eligible to
+    be recommended straight back to the person watching them.
+    """
+
+    @staticmethod
+    def _excluded(watched_movies: set[int], watched_shows: dict[int, tuple[int, int | None]]):
+        """The real `RowPolicy.zero_pct_exclusions`, assembled without a whole engine context.
+
+        `SimpleNamespace` rather than a constructed RowPolicy: the method reads exactly three
+        attributes, and building the real dataclass would need a context, a config and a user for no
+        extra coverage of the thing under test.
+        """
+        from types import SimpleNamespace
+
+        from shortlist.engine.rows import RowPolicy, _watched_titles
+
+        finished = _watched_titles(watched_movies, watched_shows, 0.8)
+        stub = SimpleNamespace(watched_titles=finished, watched_shows=watched_shows)
+        return RowPolicy.zero_pct_exclusions(stub)
+
+    def test_a_show_one_episode_in_is_excluded(self):
+        """The reported bug. Two of eight is under the old 3-episode floor and was therefore offered
+        back to the person who had started it."""
+        assert (100, MediaType.SHOW) in self._excluded(set(), {100: (2, 8)})
+
+    def test_a_single_episode_of_a_long_run_is_excluded(self):
+        """1 of 176 — 0.6%, and nowhere near any fraction. Plex still calls it watched."""
+        assert (100, MediaType.SHOW) in self._excluded(set(), {100: (1, 176)})
+
+    def test_an_untouched_show_is_not_excluded(self):
+        """The rule must not empty the row: zero episodes is still a fresh discovery."""
+        assert (100, MediaType.SHOW) not in self._excluded(set(), {100: (0, 8)})
+
+    def test_a_finished_show_is_still_excluded(self):
+        assert (100, MediaType.SHOW) in self._excluded(set(), {100: (8, 8)})
+
+    def test_watched_movies_are_unaffected(self):
+        """A movie is finished the moment it is watched — there was never a fraction to loosen."""
+        excluded = self._excluded({949}, {})
+        assert (949, MediaType.MOVIE) in excluded
+
+    def test_a_show_with_no_episode_total_survives_the_union(self):
+        """Why it is a UNION and not a swap.
+
+        `_started_shows` needs `viewed > 0`; `_watched_titles` also counts a show whose episode total
+        Plex could not report, on the reasoning that re-surfacing one someone worked through is worse
+        than omitting it. Swapping one rule for the other would have quietly re-admitted those.
+        """
+        assert (100, MediaType.SHOW) in self._excluded(set(), {100: (0, None)})
+        assert (101, MediaType.SHOW) in self._excluded(set(), {101: (0, 0)})
+
+
+class TestBreakdownAcrossLibraryCopies:
+    """A show held in two Plex libraries arrives as TWO history items with the same tmdb_id.
+
+    `load_watched_breakdown` keys `watched_shows` on the tmdb_id, so before issue #111 the last item
+    written won — and history is newest-first, which made that the OLDEST, least-watched copy.
+    Someone who finished all 28 episodes in one library but sampled three in another landed in the
+    engine as 3 of 28, fell under the finished bar, and got recommended a show they had finished.
+    """
+
+    @staticmethod
+    def _policy(history: list[WatchedItem]) -> RowPolicy:
+        """A RowPolicy with only what `load_watched_breakdown` and `mark_finished_titles` read."""
+        return RowPolicy(
+            ctx=MagicMock(),
+            user=MagicMock(history=history),
+            cfg=MagicMock(watched_show_pct=0.8),
+            specs=[],
+            library_index={},
+            report=MagicMock(),
+            resolve=lambda item: None,
+        )
+
+    @staticmethod
+    def _copy(viewed: int, total: int, *, watched_at: datetime) -> WatchedItem:
+        return WatchedItem(
+            title="The Bear",
+            media_type=MediaType.SHOW,
+            watched_at=watched_at,
+            tmdb_id=500,
+            viewed_leaf_count=viewed,
+            leaf_count=total,
+            watch_count=viewed,
+        )
+
+    def test_the_furthest_watched_copy_wins_whatever_order_history_arrives_in(self):
+        finished = self._copy(28, 28, watched_at=datetime(2026, 8, 20, tzinfo=UTC))
+        sampled = self._copy(3, 28, watched_at=datetime(2026, 1, 5, tzinfo=UTC))
+
+        newest_first = self._policy([finished, sampled])
+        newest_first.load_watched_breakdown()
+        oldest_first = self._policy([sampled, finished])
+        oldest_first.load_watched_breakdown()
+
+        assert newest_first.watched_shows[500] == (28, 28)
+        assert oldest_first.watched_shows[500] == (28, 28)
+
+    def test_a_show_finished_in_one_library_is_not_recommended_back(self):
+        """The symptom the merge exists to stop: real history order (newest first), and the sampled
+        copy is the older one — exactly what a last-write-wins assignment would keep."""
+        policy = self._policy(
+            [
+                self._copy(28, 28, watched_at=datetime(2026, 8, 20, tzinfo=UTC)),
+                self._copy(3, 28, watched_at=datetime(2026, 1, 5, tzinfo=UTC)),
+            ]
+        )
+
+        policy.load_watched_breakdown()
+        policy.mark_finished_titles()
+
+        assert (500, MediaType.SHOW) in policy.watched_titles
+
+    def test_a_show_genuinely_only_sampled_in_both_libraries_stays_eligible(self):
+        """The other half of the matrix — keeping the deepest copy must not mark a show finished that
+        nobody got far into. 3 of 28 is under the 15%-scaled engaged floor."""
+        policy = self._policy(
+            [
+                self._copy(3, 28, watched_at=datetime(2026, 8, 20, tzinfo=UTC)),
+                self._copy(2, 28, watched_at=datetime(2026, 1, 5, tzinfo=UTC)),
+            ]
+        )
+
+        policy.load_watched_breakdown()
+        policy.mark_finished_titles()
+
+        assert policy.watched_shows[500] == (3, 28)
+        assert (500, MediaType.SHOW) not in policy.watched_titles

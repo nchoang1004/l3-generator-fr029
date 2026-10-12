@@ -1,0 +1,337 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  python-tests:
+    name: Python Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: "pip"
+      - name: Install test dependencies
+        run: pip install pytest pytest-asyncio pytest-cov fastapi[standard] httpx pyjwt pillow pillow-heif numpy scipy scikit-learn opencv-python-headless tqdm aiosqlite sqlite-vec imagehash psutil watchdog send2trash tifffile imagecodecs lupa
+      - name: Run tests
+        run: python -m pytest --tb=short -q --cov=api --cov=processing --cov=analyzers --cov=config --cov=utils --cov-report=term-missing
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+      - name: schema.d.ts is regenerated from the live OpenAPI schema
+        # This job is the only one whose pip install makes `api` importable, so
+        # the dump has to run here; `lint` installs ruff and mypy only. The
+        # generator falls back to `npx --yes openapi-typescript@<pinned>` when
+        # client/node_modules is absent, so this costs no Angular install.
+        env:
+          PYTHON: python
+        run: npm run gen:api
+        working-directory: client
+      - name: schema.d.ts is up to date
+        # Catches the subtractive direction the compiler cannot see: deleting a
+        # response_model, or a field from one, still type-checks on both sides.
+        run: |
+          # `git diff --exit-code` exits 0 for an UNTRACKED path, which would make
+          # this gate silently vacuous if the generated file ever stopped being
+          # committed. Assert it is tracked first.
+          if ! git ls-files --error-unmatch client/src/app/core/api/schema.d.ts > /dev/null 2>&1; then
+            echo "::error file=client/src/app/core/api/schema.d.ts::schema.d.ts is not tracked by git, so the staleness check below cannot fail. Commit it."
+            exit 1
+          fi
+          if ! git diff --exit-code client/src/app/core/api/schema.d.ts; then
+            echo "::error file=client/src/app/core/api/schema.d.ts::schema.d.ts is out of date with the FastAPI response models."
+            echo "Run 'cd client && npm run gen:api' and commit the result."
+            exit 1
+          fi
+
+  windows-tests:
+    name: Python Tests (Windows)
+    # Runs after the Linux suite: no point spending a Windows runner on a tree
+    # that is already red, and this is the last gate rather than a parallel one.
+    needs: python-tests
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: "pip"
+      - name: Install test dependencies
+        run: pip install pytest pytest-asyncio pytest-cov fastapi[standard] httpx pyjwt pillow pillow-heif numpy scipy scikit-learn opencv-python-headless tqdm aiosqlite sqlite-vec imagehash psutil send2trash
+      - name: Run the platform-sensitive suites
+        # Deliberately NOT the whole suite. Much of it hard-codes POSIX paths
+        # ("/lib/a.jpg") that no Windows path ever matches, so a full run is
+        # permanently red and therefore ignored. These two files are the actual
+        # platform surface: the library lock picks a different backend here
+        # (msvcrt byte-range locks, which have no shared mode), and the device
+        # policy resolves CUDA/MPS/CPU. Both were unexercised until this job.
+        run: python -m pytest tests/test_scan.py tests/test_device.py -q --tb=short
+
+  angular-tests:
+    name: Angular Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: client
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: client/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm test
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: pip install ruff mypy
+      - run: ruff check . --select E,F,W --ignore E501
+      - name: Type check (ratchet against mypy-baseline.txt)
+        # Not advisory: fails when the error count exceeds the committed
+        # baseline. See scripts/check_mypy_ratchet.py's docstring for the
+        # full rationale, including why the count is environment-dependent
+        # (this job installs only `ruff mypy` above, so mypy resolves far
+        # fewer imports than a dev venv with the project's own dependencies
+        # installed, which reports a different, higher count).
+        run: python scripts/check_mypy_ratchet.py
+      - name: docker-entrypoint.sh parses (sh -n)
+        # A syntax error here is a container that never starts -- POSIX sh
+        # gives no other static check, and the Python test suite below drives
+        # behaviour, not parseability. Catches the shape of mistake a shell
+        # edit makes easiest: an unmatched quote or a stray fi/then.
+        run: sh -n docker-entrypoint.sh
+      - name: Forbid broken FastAPI auth mock pattern
+        run: |
+          # Catches both direct ("api.routers.albums.require_edition") and
+          # f-string interpolated (f"{_ALBUMS_MODULE}.get_optional_user")
+          # forms. Anchored on the auth function name, not the module prefix.
+          if grep -rEn 'mock\.patch\([^)]*\.(require_[a-z_]+|get_optional_user)' tests/ ; then
+            echo "::error::Found broken Pattern A — mock.patch on module-level FastAPI auth dependencies."
+            echo "::error::These patches are no-ops against Depends()-captured references; tests will pass-by-accident."
+            echo "Use the conftest fixtures (edition_client / regular_client / superadmin_client / anonymous_client)"
+            echo "or app.dependency_overrides[require_edition] = lambda: ... instead. See tests/conftest.py."
+            exit 1
+          fi
+      - name: Forbid Dockerfile COPY of untracked paths
+        run: |
+          # A clean clone contains only git-tracked files. If the Dockerfile
+          # COPYs a path that isn't tracked (e.g. a leftover dir that only
+          # exists on a contributor's machine), `docker build` fails on a fresh
+          # checkout with `"/<path>": not found` (issue #10). Assert every local
+          # COPY source is tracked. `--from=<stage>` COPYs read from a build
+          # stage rather than the git context, so they are skipped.
+          set -f
+          fail=0
+          while IFS= read -r line; do
+            set -- $line
+            shift                          # drop the COPY keyword
+            srcs=(); from_stage=0
+            for tok in "$@"; do
+              case "$tok" in
+                --from=*) from_stage=1 ;;
+                --*) ;;                    # ignore other flags (e.g. --chown)
+                *) srcs+=("$tok") ;;
+              esac
+            done
+            [ "$from_stage" = 1 ] && continue
+            (( ${#srcs[@]} >= 2 )) || continue
+            unset 'srcs[${#srcs[@]}-1]'    # drop the destination (last token)
+            for s in "${srcs[@]}"; do
+              if [ -z "$(git ls-files -- "$s")" ]; then
+                echo "::error file=Dockerfile::COPY source '$s' is not git-tracked; it is absent on a clean clone and the build will fail."
+                fail=1
+              fi
+            done
+          done < <(grep -iE '^[[:space:]]*COPY[[:space:]]' Dockerfile)
+          [ "$fail" = 0 ] && echo "All Dockerfile COPY sources are git-tracked."
+          exit $fail
+      - name: Every top-level module/package is packaged
+        # Catches the other direction from the check above: a top-level *.py
+        # module or __init__.py package that IS git-tracked but was never
+        # added to the Dockerfile's COPY set or to pyproject.toml's
+        # py-modules / packages.find.include -- how sync/ shipped 2026-07-01
+        # and was absent from both until this gate existed.
+        run: python scripts/check_packaging.py
+      - name: The two dependency locks differ only in the sympy pin
+        # requirements.lock.txt (CUDA + CPU images, torch 2.11.0, needs
+        # sympy>=1.13.3) and requirements.legacy.lock.txt (cuda-legacy image,
+        # torch 2.6.0, needs sympy==1.13.1 exactly) must be identical apart
+        # from that one pin -- any other drift (a Dependabot bump landing in
+        # one file only, a hand edit, a package added to one but not the
+        # other) makes `pip install` settle the mismatch by silently
+        # REPLACING the base image's torch with a PyPI build (an 8.75 GB
+        # regression that shipped once already, issue #119). Diffs with
+        # comments and blank lines stripped so header-comment edits (dates,
+        # container-validation notes) don't trip this gate.
+        run: |
+          strip() { grep -vE '^[[:space:]]*(#|$)' "$1"; }
+          if diff -q <(strip requirements.lock.txt) <(strip requirements.legacy.lock.txt) > /dev/null; then
+            echo "::error::requirements.lock.txt and requirements.legacy.lock.txt are identical once comments are stripped -- the sympy pins must differ (issue #119); if they don't, the split has no purpose."
+            exit 1
+          fi
+          bad=$(diff <(strip requirements.lock.txt) <(strip requirements.legacy.lock.txt) | grep -E '^[<>]' | grep -vE '^[<>] sympy==[0-9]+(\.[0-9]+)*$' || true)
+          if [ -n "$bad" ]; then
+            echo "::error::requirements.lock.txt and requirements.legacy.lock.txt must be identical outside the sympy pin. These lines differ -- apply the same change to both files (or revert whichever one drifted):"
+            echo "$bad"
+            exit 1
+          fi
+          base_sympy=$(grep -oE '^sympy==[0-9]+(\.[0-9]+)*$' requirements.lock.txt | cut -d= -f3)
+          legacy_sympy=$(grep -oE '^sympy==[0-9]+(\.[0-9]+)*$' requirements.legacy.lock.txt | cut -d= -f3)
+          # A pin that is missing, or written in a form this pattern does not
+          # match (a .post/.dev suffix, an environment marker), makes grep emit
+          # nothing while the pipeline still exits 0 -- both variables come out
+          # empty and EQUAL, so the next check would report "pinned to the same
+          # version ()" and send the reader after a pin that is not there.
+          if [ -z "$base_sympy" ] || [ -z "$legacy_sympy" ]; then
+            echo "::error::no plain '^sympy==<version>' pin found in requirements.lock.txt (got '$base_sympy') or requirements.legacy.lock.txt (got '$legacy_sympy'). Each lock must carry one, because the base image's torch dictates it (issue #119)."
+            exit 1
+          fi
+          if [ "$base_sympy" = "$legacy_sympy" ]; then
+            echo "::error::sympy is pinned to the same version ($base_sympy) in both locks. torch 2.6.0 (legacy) needs sympy==1.13.1 exactly and torch 2.11.0 (base/cpu) needs sympy>=1.13.3 -- they cannot share one pin. Re-derive requirements.lock.txt's sympy pin from its own base image's torch, per issue #119."
+            exit 1
+          fi
+          if [ "$(printf '%s\n%s\n' "$base_sympy" "$legacy_sympy" | sort -V | tail -1)" != "$base_sympy" ]; then
+            echo "::error::requirements.lock.txt's sympy ($base_sympy) is not newer than requirements.legacy.lock.txt's ($legacy_sympy). The CUDA/CPU lock (newer torch, sympy>=1.13.3) is expected to carry the newer pin and the legacy CUDA lock (torch 2.6.0, sympy==1.13.1 exactly) the older one -- check which file's pin actually moved and why."
+            exit 1
+          fi
+          echo "requirements.lock.txt (sympy==$base_sympy) and requirements.legacy.lock.txt (sympy==$legacy_sympy) differ only in the sympy pin, as expected."
+          # Packages that api/ imports behind a try/except ImportError which
+          # turns that absence into an HTTP error must be pinned in BOTH
+          # locks -- an extra (pyproject.toml optional-dependencies) never
+          # reaches the Docker/Podman image, which installs only from these
+          # lock files, so a package left extra-only answers HTTP 400 at
+          # runtime for a feature the docs say is available. This is exactly
+          # how send2trash shipped (issue #125): `.[cull]` gated it, the
+          # image never installed it, and POST /api/cull/apply's
+          # trash_rejects action 400'd on every container.
+          #
+          # This does NOT close the class of bug automatically -- the array
+          # below is hand-maintained, so it only closes the class as far as
+          # whoever adds the next such import remembers to also list it here.
+          # List every such package here as it is added. The class is
+          # currently mechanically derivable (`grep -rn "except ImportError"
+          # api/` returns exactly this one HTTP-converting hit today), which
+          # is a candidate for automating this list instead of hand-tracking
+          # it, should a second hit ever land.
+          optional_import_gated_packages=(send2trash)
+          for pkg in "${optional_import_gated_packages[@]}"; do
+            for lock in requirements.lock.txt requirements.legacy.lock.txt; do
+              # Anchored to a bare `pkg==<version>` line: `[^;]*$` rejects a
+              # trailing PEP 508 environment marker (e.g.
+              # `send2trash==2.1.0 ; sys_platform == "win32"`), which would
+              # otherwise pass this gate while pip installs nothing on the
+              # platforms that marker excludes -- the exact "pinned but never
+              # installed" shape this gate exists to catch.
+              if ! grep -qiE "^${pkg}==[0-9][^;]*\$" "$lock"; then
+                echo "::error::'${pkg}' is imported behind a try/except ImportError in api/ and turned into an HTTP error when the import fails, but it is not pinned in ${lock}. An image built from this lock answers HTTP 400 at runtime for a feature the docs say is available. Add '${pkg}==<version>' to ${lock}."
+                exit 1
+              fi
+            done
+          done
+          echo "All optional-import-gated packages (${optional_import_gated_packages[*]}) are pinned in both locks."
+      - name: dependabot.yml ignore lists are intact
+        # yaml.safe_load is not a sufficient check here: a dropped '-' before
+        # a "dependency-name:" line indents that entry into its predecessor,
+        # YAML merges it as a duplicate key of the SAME mapping, safe_load
+        # returns success, and the earlier entry is silently gone -- exactly
+        # how a "tokenizers" ignore once vanished past every naive check.
+        # Assert each load-bearing ecosystem's ignore: list by exact name and
+        # count instead of trusting a parsed structure a merge could have
+        # shrunk, and confirm no ecosystem block itself was lost the same way.
+        # docker is asserted as well as pip because its single
+        # "pytorch/pytorch" entry is what pins ARG BASE_IMAGE, and the base
+        # image decides which sm_ architectures each published tag covers
+        # (issue #119). Nothing else would notice it going: docker-publish.yml
+        # runs on v* tags only, so its expect_arch smoke test never sees a
+        # Dependabot bump until release, long after the PR merged.
+        # npm and github-actions are deliberately left unasserted -- neither
+        # pins anything a build decision rests on, and gating lists that
+        # legitimately churn is how a gate turns into noise.
+        run: |
+          assert_ignore_list() {
+            eco="$1"
+            expected="$2"
+            block=$(awk -v e="  - package-ecosystem: \"$eco\"" '$0==e{f=1; next} /^  - package-ecosystem: /{f=0} f' .github/dependabot.yml)
+            actual=$(echo "$block" | grep -E '^      - dependency-name: "' | sed -E 's/^      - dependency-name: "([^"]*)".*/\1/' | sort | tr '\n' ' ' | sed 's/ $//')
+            if [ "$actual" != "$expected" ]; then
+              echo "::error file=.github/dependabot.yml::$eco ecosystem ignore: list is {$actual}, expected {$expected}."
+              echo "::error file=.github/dependabot.yml::Check for a dropped '-' before a dependency-name: line -- it merges silently into the previous entry instead of raising a YAML error."
+              exit 1
+            fi
+          }
+          for eco in pip npm github-actions docker; do
+            # `|| true` because grep -c exits 1 on zero matches, and the step
+            # runs under GitHub's default `bash -e {0}` -- so a MISSING block,
+            # the very case this loop exists to catch, would abort here with a
+            # bare red X and none of the message below ever printed.
+            count=$(grep -cE "^  - package-ecosystem: \"$eco\"\$" .github/dependabot.yml || true)
+            if [ "$count" != "1" ]; then
+              echo "::error file=.github/dependabot.yml::expected exactly one \"$eco\" package-ecosystem entry, found $count."
+              exit 1
+            fi
+          done
+          assert_ignore_list pip "* mpmath pydantic-core sympy tokenizers"
+          assert_ignore_list docker "* pytorch/pytorch"
+          echo "dependabot.yml: pip and docker ignore lists and all four ecosystems intact."
+      - name: Translation bundles agree with en.json
+        # Stdlib-only and self-locating, so it needs no pip install and no venv.
+        # tests/test_audit_i18n.py already exercises this script's logic against
+        # temp fixtures -- nothing gated the REAL bundles until this step.
+        # Linux only, but no longer for a portability reason -- the script now
+        # reads with an explicit encoding, so a cp1252 runner would be fine. The
+        # bundles are platform-independent, so a second run would add cost and
+        # no signal. Checks both directions: a key missing from a translation,
+        # and a stray key absent from en.json.
+        run: python scripts/audit_i18n.py
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: client/package-lock.json
+      - name: keys.ts is regenerated from en.json
+        # Catches the subtractive direction the compiler cannot see: deleting a
+        # key from en.json without regenerating keys.ts still type-checks today.
+        # The generator imports only node:fs/node:path, so it runs before
+        # npm install and costs nothing.
+        run: |
+          node client/scripts/gen-i18n-keys.mjs
+          if ! git diff --exit-code client/src/app/core/i18n/keys.ts; then
+            echo "::error file=client/src/app/core/i18n/keys.ts::keys.ts is out of date with i18n/translations/en.json."
+            echo "Run 'cd client && npm run gen:i18n' and commit the result."
+            exit 1
+          fi
+      - name: Icon-only buttons have an accessible name
+        # <mat-icon> renders aria-hidden internally and matTooltip is not an
+        # accessible name, so an icon-only mat-icon-button with neither
+        # aria-label nor [attr.aria-label] is announced as just "button" by a
+        # screen reader. Stdlib-only (node:fs/node:path), so it runs before
+        # npm install and costs nothing.
+        run: node client/scripts/check-icon-button-labels.mjs
+      - run: node --test client/scripts/check-icon-button-labels.test.mjs
+      - run: npm ci --no-audit --no-fund
+        working-directory: client
+      - run: npx ng lint
+        working-directory: client
+      - name: Typecheck the client
+        # The two leaf projects, never the root tsconfig.json: that one is
+        # solution-style ("files": [] plus references), so -p tsconfig.json
+        # compiles nothing and exits 0 however broken the tree is.
+        working-directory: client
+        run: |
+          npx tsc --noEmit -p tsconfig.app.json
+          npx tsc --noEmit -p tsconfig.spec.json

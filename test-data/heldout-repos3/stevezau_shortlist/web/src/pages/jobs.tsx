@@ -1,0 +1,1042 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  CheckCircle2,
+  ChevronRight,
+  Cog,
+  Database,
+  Eraser,
+  Lock,
+  RefreshCw,
+  ShieldCheck,
+  Users as UsersIcon,
+} from "lucide-react";
+import { useState } from "react";
+import { Link, useSearchParams } from "react-router";
+
+import { CronPicker } from "@/components/cron-picker";
+import { ActivityFeed } from "@/components/jobs/activity-feed";
+import { BackupPanel } from "@/components/jobs/backup-panel";
+import { JobRow } from "@/components/jobs/job-row";
+import { MutationAlert } from "@/components/mutation-alert";
+import { RowSchedules } from "@/components/jobs/row-schedules";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ProgressBar } from "@/components/ui/progress-bar";
+import { Skeleton } from "@/components/ui/skeleton";
+import { api } from "@/lib/api";
+import { queuedReason, useRunActive, useWritesPlex } from "@/lib/job-activity";
+import {
+  queryKeys,
+  useBuiltInScheduleLabel,
+  useSchedule,
+  useSettings,
+  useSaveSettings,
+} from "@/lib/queries";
+import { useSSE } from "@/lib/sse";
+import type {
+  JobCatalogEntry,
+  SyncFinishedEvent,
+  SyncProgressEvent,
+} from "@/lib/types";
+
+/** Names for rows that render before the catalogue arrives, so a row is never blank-titled. The
+ *  server's catalogue is authoritative and replaces these the moment it lands. */
+const PENDING_LABELS: Record<string, string> = {
+  "sync.history": "Sync watch history",
+  "sync.users": "Sync people from Plex",
+  "sync.check": "Check and fix rows on Plex",
+  "privacy.sync": "Privacy sync",
+  "backup.take": "Back up the database",
+  "maintenance.prune": "Clear out old records",
+  "themes.rotate": "Pick new row themes",
+};
+
+/**
+ * What each job you can press CHANGES, on the line rather than a paragraph deep.
+ *
+ * "Run now" mixes jobs with wildly different consequences: one only reads, two only touch
+ * Shortlist's own database, and one can delete a collection off your Plex server for good. They all
+ * looked identical until you expanded them. A job with no tag here changes nothing outside
+ * Shortlist's own records — which is a claim each of those three descriptions makes too.
+ */
+const EFFECT_TAGS: Record<
+  string,
+  { text: string; title: string; destructive?: boolean; note?: string }
+> = {
+  "sync.users": {
+    text: "Changes Plex",
+    title:
+      "Adds and removes people, and takes the rows of anyone who has lost access off your Plex server.",
+  },
+  "sync.check": {
+    text: "Can delete",
+    title:
+      "Writes corrections to Plex, and after you have read the preview and pressed Fix it can delete a collection for good. Nothing is deleted before you press Fix.",
+    destructive: true,
+    // The reassurance was in the `title` above and nowhere else, so the only visible thing on the
+    // row was a red "Can delete" — hover-only on a desktop, unreachable on a phone, next to a
+    // button people then did not dare press. The scary half must never outlive the calming half.
+    note: "Nothing is deleted until you read the preview and press Fix.",
+  },
+  "privacy.sync": {
+    text: "Changes Plex",
+    title:
+      "Rewrites every account's share filter. It only ever hides things, so it can only make your server more private.",
+  },
+};
+
+function pendingEntry(kind: string): JobCatalogEntry {
+  return {
+    kind,
+    label: PENDING_LABELS[kind] ?? kind,
+    description: "",
+    manual: true,
+    schedule_optional: false,
+    schedule_setting: "",
+    trigger: "",
+    scheduled: false,
+    next_run: null,
+    last: null,
+    total: 0,
+    queued: 0,
+    running: 0,
+    failed: 0,
+  };
+}
+
+function GroupHeading({
+  title,
+  hint,
+  note,
+}: {
+  title: string;
+  hint?: string;
+  /** A second line, for something too important to be a trailing aside on the heading. */
+  note?: string;
+}) {
+  return (
+    <div className="space-y-1 px-1">
+      <div className="flex flex-wrap items-baseline gap-x-2">
+        <h2 className="text-sm font-semibold text-foreground">
+          {title}
+        </h2>
+        {hint && (
+          <span className="text-sm text-muted-foreground">{hint}</span>
+        )}
+      </div>
+      {note && <p className="text-sm text-muted-foreground">{note}</p>}
+    </div>
+  );
+}
+
+// --- panels: settings and reference, revealed when a row is expanded -----------------------------
+
+/**
+ * The frequency editor, for any job that owns a cron.
+ *
+ * Generic on purpose. Panels used to be wired job by job, so the two that nobody wired — privacy sync
+ * and the drift check — had no way to set a schedule at all: you could see when they would next run
+ * and not change it. Anything with a `schedule_setting` now gets this.
+ */
+function SchedulePanel({ entry }: { entry: JobCatalogEntry }) {
+  const queryClient = useQueryClient();
+  const settings = useSettings();
+  const schedule = useSchedule();
+  const saveSettings = useSaveSettings();
+  // Blank means the built-in default below, not off, so the blank preset itself says what it runs at.
+  const blankLabel = useBuiltInScheduleLabel(entry.kind);
+  if (!entry.schedule_setting) return null;
+
+  // `null` is not "blank": it deletes the stored cron, which is the only way to say "use the
+  // built-in default" for a schedule where a stored blank means OFF (server: scheduler._OFF_ABLE).
+  const save = (cron: string | null) =>
+    saveSettings.mutate(
+      { [entry.schedule_setting]: cron },
+      {
+        onSuccess: () => {
+          // Both, and both matter: the panel reads the EFFECTIVE cron from /api/schedule, and the
+          // row's next-run comes from the catalogue. Without these a schedule you just changed goes
+          // on showing the old one until the catalogue's idle poll comes round.
+          queryClient.invalidateQueries({ queryKey: queryKeys.schedule });
+          queryClient.invalidateQueries({ queryKey: queryKeys.jobsCatalog });
+        },
+      },
+    );
+
+  // A schedule that can be switched OFF has to be edited against the cron it ACTUALLY runs on, not
+  // the stored setting: for those, a stored blank means off while an absent row means "the built-in
+  // default", and `GET /api/settings` folds the default in, so the two are the same "" there. Reading
+  // that made the off switch appear only once some other frequency had been saved — on a default
+  // install there was no off control at all, for the one job the code goes out of its way to let you
+  // switch off (scheduler._register_sync_check).
+  if (entry.schedule_optional) {
+    // A failed fetch is not a slow one. Treating them alike left a permanent skeleton where the off
+    // switch belongs — the only control on this page that could get stuck with no way back.
+    if (schedule.isError) {
+      return (
+        <p role="alert" className="text-sm text-destructive-text">
+          Couldn&rsquo;t load this schedule, so it can&rsquo;t be changed here
+          right now.{" "}
+          <button
+            type="button"
+            onClick={() => schedule.refetch()}
+            className="underline underline-offset-4"
+          >
+            Try again
+          </button>
+        </p>
+      );
+    }
+    if (!schedule.data) return <Skeleton className="h-8 w-72" />;
+    const job = schedule.data.jobs.find((j) => j.kind === entry.kind);
+    return (
+      <div className="space-y-2">
+        <CronPicker
+          value={job?.cron ?? ""}
+          onChange={save}
+          blankLabel="Off"
+          // The way back from Off. The cron comes from the server so the SPA never holds a second
+          // copy of it, and picking it saves `null` rather than a cron, so the setting goes back to
+          // inheriting the built-in time instead of pinning today's value of it.
+          defaultCron={job?.default_cron ?? ""}
+          onRestoreDefault={() => save(null)}
+        />
+        <p className="text-xs text-muted-foreground">
+          Off means it never runs on its own &mdash; the button on this row
+          still works whenever you press it.
+        </p>
+      </div>
+    );
+  }
+
+  const stored =
+    ((settings.data ?? {})[entry.schedule_setting] as string | undefined) ?? "";
+
+  return <CronPicker value={stored} onChange={save} blankLabel={blankLabel} />;
+}
+
+// --- live slots: what is happening, or just happened, because you pressed the button -------------
+
+function SyncBar({
+  done,
+  total,
+  label,
+  line,
+}: {
+  // SSE fields are optional AND nullable (Pydantic `int | None`, not just "absent"): normalise
+  // before handing off to ProgressBar, which only knows "omit for indeterminate".
+  done?: number | null;
+  total?: number | null;
+  label: string;
+  line: string;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <ProgressBar
+        done={done ?? undefined}
+        total={total ?? undefined}
+        label={label}
+      />
+      <p role="status" className="text-xs text-muted-foreground">
+        {line}
+      </p>
+    </div>
+  );
+}
+
+function Succeeded({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="flex items-center gap-2 text-sm text-foreground">
+      <CheckCircle2
+        aria-hidden="true"
+        className="size-4 shrink-0 text-success"
+      />
+      {children}
+    </p>
+  );
+}
+
+/**
+ * The job catalogue: every kind, its health, and its next run.
+ *
+ * Fast while something is in flight, SLOW when idle — never `false`. Stopping altogether meant a job
+ * queued anywhere else (the scheduler firing, another tab, a row edit) never showed up here: the page
+ * that exists to show background work was the one place that didn't know it had started, while the
+ * header's activity icon — which always polls — did.
+ */
+function useJobCatalog() {
+  return useQuery({
+    queryKey: queryKeys.jobsCatalog,
+    queryFn: api.getJobCatalog,
+    refetchInterval: (query) =>
+      (query.state.data ?? []).some((e) => e.running + e.queued > 0)
+        ? 3_000
+        : 15_000,
+  });
+}
+
+/**
+ * The Job history tab of the Activity page: every job run across every kind, newest first.
+ *
+ * It was the "Activity" half of a "Jobs | Activity" switch inside the Jobs tab — a second row of tabs
+ * under the page's own. Its own tab answers the same question ("what has my server been doing?") with
+ * one level of navigation, and the Jobs tab's "N failed" badge still lands here filtered to failures
+ * (`?tab=history&filter=failed`).
+ */
+export function JobHistoryPanel() {
+  const [searchParams] = useSearchParams();
+  const catalog = useJobCatalog();
+  return (
+    <div className="space-y-3">
+      {catalog.isError && (
+        <MutationAlert
+          error={catalog.error}
+          fallback="Couldn't load the job names, so jobs show by their internal kind."
+          onRetry={() => catalog.refetch()}
+        />
+      )}
+      <ActivityFeed
+        catalog={catalog.data ?? []}
+        initialFilter={searchParams.get("filter") === "failed" ? "failed" : "all"}
+      />
+    </div>
+  );
+}
+
+/**
+ * The Jobs tab of the Activity page (it was the Jobs page until the two merged): every piece of
+ * background maintenance Shortlist does, as a compact list — name, health, next run, and the button.
+ * A job is a LINE, and its description, settings and history open on demand.
+ *
+ * The previous design gave each job a full card with its paragraph and its controls permanently on
+ * screen: nine of those was ~1800px of scrolling, four of them jobs you can never start, and no
+ * cross-job feed at all. That feed is the Job history tab now.
+ */
+export function JobsPanel() {
+  const queryClient = useQueryClient();
+  const [, setSearchParams] = useSearchParams();
+  // `?tab=` belongs to the Activity page this panel sits in; the badges below move it to the history.
+  const showHistory = (filter?: "failed") =>
+    setSearchParams(filter ? { tab: "history", filter } : { tab: "history" }, { replace: true });
+
+  const catalog = useJobCatalog();
+
+  // One EventSource for the whole page (rules/frontend.md); the two sync jobs read the slice of
+  // `sync.*` events carrying their own `kind`. `null` = idle, so no bar shows until a run starts.
+  const [watchedProgress, setWatchedProgress] =
+    useState<SyncProgressEvent | null>(null);
+  const [usersProgress, setUsersProgress] = useState<SyncProgressEvent | null>(
+    null,
+  );
+  // The watched sync's POST returns the moment it's queued (202 "started"), so its OUTCOME only
+  // arrives on the bus. The users sync's POST awaits the whole thing, so its mutation result is
+  // authoritative — the bus just drives its live bar.
+  const [watchedResult, setWatchedResult] = useState<SyncFinishedEvent | null>(
+    null,
+  );
+  // Gate on the one irreversible half of "Fix N rows" — see the button's own comment.
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  useSSE({
+    onSyncProgress: (event) => {
+      if (event.kind === "watched") {
+        setWatchedProgress(event);
+        setWatchedResult(null); // a fresh run supersedes the last result line
+      } else if (event.kind === "users") {
+        setUsersProgress(event);
+      }
+    },
+    onSyncFinished: (event) => {
+      if (event.kind === "watched") {
+        setWatchedProgress(null);
+        setWatchedResult(event);
+        // The watched sync refreshes each user's picks-watched — repaint the users list once done.
+        queryClient.invalidateQueries({ queryKey: queryKeys.users });
+        queryClient.invalidateQueries({ queryKey: queryKeys.jobs });
+      } else if (event.kind === "users") {
+        setUsersProgress(null);
+      }
+      // `credited` is ignored on purpose: it is the live credit pass, not a sync, and this page's
+      // success line says "watch history is up to date", which that pass never did.
+    },
+  });
+
+  const settings = useSettings();
+  const saveSettings = useSaveSettings();
+  const watchCron = ((settings.data ?? {})["sync.watch_cron"] as string) ?? "";
+  const usersCron = ((settings.data ?? {})["sync.users_cron"] as string) ?? "";
+  const watchBlankLabel = useBuiltInScheduleLabel("sync.history");
+  const usersBlankLabel = useBuiltInScheduleLabel("sync.users");
+
+  // Every job's action lives here rather than inside its panel: the button is on the ROW, which
+  // stays visible when the panel is closed.
+  const invalidateJobs = () =>
+    queryClient.invalidateQueries({ queryKey: queryKeys.jobs });
+  const syncWatched = useMutation({
+    mutationFn: api.syncWatched,
+    onSettled: invalidateJobs,
+  });
+  const syncUsers = useMutation({
+    mutationFn: api.syncUsers,
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.users });
+      invalidateJobs();
+    },
+  });
+  // Preview first, then act. Converge only ever REMOVES visibility so a live pass is never unsafe,
+  // but "press a button, we silently rewrite every library" is the wrong default.
+  const driftPreview = useMutation({
+    mutationFn: () => api.runJob("sync.check", { dry_run: true }),
+    onSettled: invalidateJobs,
+  });
+  const driftFix = useMutation({
+    // `confirmed` is what authorises the DELETE half. The scheduled pass and the preview both omit
+    // it, so an unattended run demotes and reports what it would remove — only this button, pressed
+    // after reading that, can destroy a collection.
+    mutationFn: () => api.runJob("sync.check", { confirmed: true }),
+    onSuccess: () => driftPreview.reset(),
+    onSettled: invalidateJobs,
+  });
+  const privacySync = useMutation({
+    // background: returns as soon as the job is queued and the row polls for the outcome, so a slow
+    // job can't end in a proxy timeout that reads as a failure.
+    mutationFn: () => api.runJob("privacy.sync", {}, true),
+    onSettled: invalidateJobs,
+  });
+  const backupNow = useMutation({
+    mutationFn: api.createBackup,
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.backups });
+      invalidateJobs();
+    },
+  });
+  // Foreground, unlike the privacy pass: this one deletes rows from Shortlist's own SQLite and comes
+  // back in well under a second, so waiting for the real "pruned N runs" line beats a toast that
+  // only says it started. It takes no arguments — the retention limits come from settings.
+  const pruneNow = useMutation({
+    mutationFn: () => api.runJob("maintenance.prune", {}),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.runs });
+      invalidateJobs();
+    },
+  });
+
+  const entries = catalog.data ?? [];
+  const byKind = Object.fromEntries(entries.map((e) => [e.kind, e]));
+  const entryFor = (kind: string) => byKind[kind] ?? pendingEntry(kind);
+  // Automatic jobs are queued by the mutation that knows their target (disabling someone, renaming
+  // a row). No button may start them — but a cleanup that ran out of retries must still be visible.
+  const automatic = entries.filter((e) => !e.manual);
+  // Split by whether the job has ever HAPPENED. On a fresh install none of them has, so this
+  // section was nine rows of internal machinery ("Credit a finished playback", "Undo a watch-history
+  // copy") each stamped "never run" — the job registry rendered as a to-do list the owner cannot
+  // act on, and "never run" fifteen times down one page. The ones that have run, or are running,
+  // are the ones worth a row; the rest go behind a disclosure so they are still findable when
+  // something does go wrong with one.
+  const hasHappened = (entry: JobCatalogEntry) =>
+    entry.last !== null || entry.running + entry.queued + entry.failed > 0;
+  const automaticSeen = automatic.filter(hasHappened);
+  const automaticIdle = automatic.filter((entry) => !hasHappened(entry));
+  const totals = entries.reduce(
+    (acc, e) => ({
+      running: acc.running + e.running,
+      queued: acc.queued + e.queued,
+      failed: acc.failed + e.failed,
+    }),
+    { running: 0, queued: 0, failed: 0 },
+  );
+  const active = totals.running + totals.queued;
+  // "2 running · 1 queued" rather than "3 in flight": queued and running are different situations —
+  // one is working, the other is waiting on the writer lock or a busy queue — and lumping them hides
+  // which. Clicking goes to the Job history tab, where you can see WHICH jobs they are.
+  const activeLabel = [
+    totals.running > 0 ? `${totals.running} running` : null,
+    totals.queued > 0 ? `${totals.queued} queued` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  // The same "why is this queued" explanation the activity popover gives, on the row's status
+  // chip — the maintainer looks at both, and a queued job used to say nothing more than "Queued"
+  // in either place.
+  const writesPlexFor = useWritesPlex();
+  const runActive = useRunActive(totals.queued > 0);
+  const queuedTitleFor = (kind: string): string | undefined =>
+    entryFor(kind).queued > 0
+      ? queuedReason(writesPlexFor(kind), runActive).title
+      : undefined;
+
+  const watchedRunning = watchedProgress !== null;
+  const drifted =
+    driftPreview.data?.status === "done" ? (driftPreview.data.fixed ?? []) : [];
+  const orphans =
+    driftPreview.data?.status === "done"
+      ? (driftPreview.data.orphans ?? [])
+      : [];
+
+  return (
+    <div className="space-y-5">
+      <Dialog open={confirmDelete} onOpenChange={setConfirmDelete}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Delete {orphans.length} collection
+              {orphans.length === 1 ? "" : "s"}?
+            </DialogTitle>
+            <DialogDescription>
+              {orphans.join(", ")} will be removed from Plex for good. Shortlist
+              no longer knows who they belong to, so it cannot hide them
+              instead. The titles themselves stay in your library. This can’t be
+              undone.
+            </DialogDescription>
+          </DialogHeader>
+          {/* Inside the dialog, not beside the button that opened it: a failure leaves this dialog
+              open, and everything behind an open dialog is aria-hidden — an alert out there would be
+              invisible to a screen reader and buried under the overlay for everyone else. */}
+          {driftFix.isError && (
+            <p role="alert" className="text-sm text-destructive-text">
+              Couldn’t fix those rows. Try again.
+            </p>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDelete(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              loading={driftFix.isPending}
+              onClick={() =>
+                driftFix.mutate(undefined, {
+                  onSuccess: () => setConfirmDelete(false),
+                })
+              }
+            >
+              Delete and fix
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Not "the nightly run": these are five separate jobs on five separate timers, and rows
+          build on their own schedules again — there is no one nightly thing to wait for. */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">
+          Background upkeep, each on its own timer. Press Run to do one now instead.
+        </p>
+        {/* Health at a glance, and only when there is something to say — a permanent "0 failed"
+            teaches you to stop reading it. */}
+        <div className="flex flex-wrap items-center gap-2">
+          {active > 0 && (
+            <button
+              type="button"
+              onClick={() => showHistory()}
+              className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              title="See which jobs are running"
+            >
+              <span className="size-1.5 animate-pulse rounded-full bg-primary" />
+              {activeLabel}
+            </button>
+          )}
+          {/* A BUTTON, like its "N running" sibling above. It was a bare span: the badge that
+              reports the healthy state was clickable and the one reporting the problem was a dead
+              end. Worse, nothing else on this tab pointed at the failures either — a job's status
+              chip shows only its LAST attempt, so eight failed `privacy.sync` runs sat behind a
+              green tick and the badge was the sole evidence they existed. */}
+          {totals.failed > 0 && (
+            <button
+              type="button"
+              onClick={() => showHistory("failed")}
+              className="inline-flex items-center gap-1.5 rounded-full bg-destructive/10 px-2.5 py-1 text-xs font-medium text-destructive-text hover:bg-destructive/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              title="See what failed, and why"
+            >
+              {totals.failed} failed
+            </button>
+          )}
+          {active === 0 && totals.failed === 0 && entries.length > 0 && (
+            <span className="text-xs text-muted-foreground">
+              All jobs healthy
+            </span>
+          )}
+        </div>
+      </div>
+
+      {catalog.isError && (
+        <MutationAlert
+          error={catalog.error}
+          fallback="Couldn't load the job list."
+          onRetry={() => catalog.refetch()}
+        />
+      )}
+
+      {catalog.isPending ? (
+        <Skeleton className="h-72 w-full" />
+      ) : (
+        <div className="space-y-5">
+          <section className="space-y-2">
+            {/* The page subtitle already says "each on its own timer", and the tag note is a
+                legend for something that appears three rows down — three explainers stacked
+                between the page title and the first job. One is enough here; the tags carry
+                their own meaning (a job with no tag changes nothing on Plex). */}
+            <GroupHeading
+              title="Run now"
+              hint="open one to see or change when it runs"
+            />
+            <div className="overflow-hidden rounded-md border">
+              <JobRow
+                first
+                entry={entryFor("sync.users")}
+                queuedTitle={queuedTitleFor("sync.users")}
+                tag={EFFECT_TAGS["sync.users"]}
+                icon={UsersIcon}
+                action={{
+                  label: "Run",
+                  run: () => syncUsers.mutate(),
+                  pending: syncUsers.isPending,
+                }}
+                live={
+                  syncUsers.isPending || syncUsers.isError || syncUsers.data ? (
+                    <div className="flex flex-col gap-3">
+                      {syncUsers.isPending && (
+                        <SyncBar
+                          label="Syncing users"
+                          done={
+                            usersProgress?.phase === "save"
+                              ? usersProgress.done
+                              : undefined
+                          }
+                          total={
+                            usersProgress?.phase === "save"
+                              ? usersProgress.total
+                              : undefined
+                          }
+                          line={
+                            usersProgress?.phase === "save" &&
+                            usersProgress.total
+                              ? `Saving ${usersProgress.done ?? 0} of ${usersProgress.total} ${usersProgress.total === 1 ? "user" : "users"}…`
+                              : "Contacting plex.tv…"
+                          }
+                        />
+                      )}
+                      {syncUsers.isError && (
+                        <MutationAlert
+                          error={syncUsers.error}
+                          fallback="Couldn't reach plex.tv to refresh the user list. Try again."
+                          onRetry={() => syncUsers.mutate()}
+                        />
+                      )}
+                      {syncUsers.data && !syncUsers.isPending && (
+                        <Succeeded>
+                          {syncUsers.data.added > 0 ||
+                          syncUsers.data.updated > 0
+                            ? `Synced ${syncUsers.data.total} ${syncUsers.data.total === 1 ? "user" : "users"} — ${syncUsers.data.added} added, ${syncUsers.data.updated} updated.`
+                            : `All ${syncUsers.data.total} ${syncUsers.data.total === 1 ? "user is" : "users are"} already up to date.`}
+                        </Succeeded>
+                      )}
+                    </div>
+                  ) : null
+                }
+                panel={
+                  <CronPicker
+                    value={usersCron}
+                    blankLabel={usersBlankLabel}
+                    onChange={(cron) =>
+                      saveSettings.mutate(
+                        { "sync.users_cron": cron },
+                        {
+                          onSuccess: () =>
+                            queryClient.invalidateQueries({
+                              queryKey: queryKeys.syncs,
+                            }),
+                        },
+                      )
+                    }
+                  />
+                }
+              />
+
+              <JobRow
+                entry={entryFor("sync.history")}
+                queuedTitle={queuedTitleFor("sync.history")}
+                icon={RefreshCw}
+                action={{
+                  label: "Run",
+                  run: () => syncWatched.mutate(),
+                  pending: syncWatched.isPending || watchedRunning,
+                }}
+                live={
+                  watchedRunning ||
+                  syncWatched.isError ||
+                  watchedResult ||
+                  syncWatched.isSuccess ? (
+                    <div className="flex flex-col gap-3">
+                      {watchedRunning && (
+                        <SyncBar
+                          label="Syncing watch history"
+                          done={watchedProgress.done}
+                          total={watchedProgress.total}
+                          line={
+                            watchedProgress.total
+                              ? `Syncing ${watchedProgress.done ?? 0} of ${watchedProgress.total} ${watchedProgress.total === 1 ? "user" : "users"}…`
+                              : "Syncing…"
+                          }
+                        />
+                      )}
+                      {syncWatched.isError && (
+                        <MutationAlert
+                          error={syncWatched.error}
+                          fallback="Couldn't start the sync. Check the Plex connection and try again."
+                          onRetry={() => syncWatched.mutate()}
+                        />
+                      )}
+                      {!watchedRunning && watchedResult?.ok === false && (
+                        <p
+                          role="alert"
+                          className="text-sm text-destructive-text"
+                        >
+                          The sync couldn&rsquo;t finish
+                          {watchedResult.error
+                            ? ` (${watchedResult.error})`
+                            : ""}
+                          . Check the Plex connection and try again.
+                        </p>
+                      )}
+                      {!watchedRunning && watchedResult?.ok && (
+                        <Succeeded>
+                          Synced {watchedResult.count ?? 0}{" "}
+                          {watchedResult.count === 1 ? "user" : "users"} — watch
+                          history is up to date and the effectiveness report
+                          reflects it now.
+                        </Succeeded>
+                      )}
+                      {/* No bus result yet (SSE not connected) but the POST was accepted. */}
+                      {!watchedRunning &&
+                        !watchedResult &&
+                        syncWatched.isSuccess && (
+                          <Succeeded>
+                            Sync started — it runs in the background across
+                            every user. The effectiveness report updates on its
+                            own once it finishes.
+                          </Succeeded>
+                        )}
+                    </div>
+                  ) : null
+                }
+                panel={
+                  <CronPicker
+                    value={watchCron}
+                    blankLabel={watchBlankLabel}
+                    onChange={(cron) =>
+                      saveSettings.mutate(
+                        { "sync.watch_cron": cron },
+                        {
+                          onSuccess: () =>
+                            queryClient.invalidateQueries({
+                              queryKey: queryKeys.syncs,
+                            }),
+                        },
+                      )
+                    }
+                  />
+                }
+              />
+
+              <JobRow
+                entry={entryFor("sync.check")}
+                queuedTitle={queuedTitleFor("sync.check")}
+                tag={EFFECT_TAGS["sync.check"]}
+                icon={ShieldCheck}
+                panel={<SchedulePanel entry={entryFor("sync.check")} />}
+                action={{
+                  // Not "Check for drift": "drift" is our word for it, not anyone else's, and the
+                  // button has to read as the safe half of a two-step — this one only looks.
+                  label: "Check now",
+                  run: () => driftPreview.mutate(),
+                  pending: driftPreview.isPending,
+                }}
+                // The preview's verdict is live, NOT panel: a result you have to expand a row to
+                // read is a result you won't read, and the Fix button hangs off it.
+                live={
+                  driftPreview.isError ||
+                  driftFix.isError ||
+                  driftPreview.data ||
+                  driftFix.data ? (
+                    <div className="flex flex-col gap-3">
+                      {driftPreview.isError && (
+                        <MutationAlert
+                          error={driftPreview.error}
+                          fallback="Couldn't run the sync check. Try again."
+                        />
+                      )}
+                      {driftFix.isError && (
+                        <MutationAlert
+                          error={driftFix.error}
+                          fallback="Couldn't fix those rows. Try again."
+                        />
+                      )}
+                      {/* Deletions get their own callout above the summary. Folding them into the "N
+                        rows" count would hide the one irreversible action behind a number. */}
+                      {orphans.length > 0 && (
+                        <p className="rounded-md border border-dashed border-destructive/50 bg-destructive/5 p-3 text-sm text-muted-foreground">
+                          <strong className="text-foreground">
+                            This will delete {orphans.length} collection
+                            {orphans.length === 1 ? "" : "s"}
+                          </strong>{" "}
+                          &mdash; {orphans.join(", ")}. Shortlist no longer
+                          knows who they belong to, so hiding them would leave
+                          them in your Collections tab for ever. This cannot be
+                          undone.
+                        </p>
+                      )}
+                      {/* `status` matters: the queue skips a drain while a run is writing to Plex,
+                        which is exactly when someone presses this. Reporting "everything is in
+                        sync" for a check that never ran would be a lie. */}
+                      {driftPreview.data &&
+                        !driftPreview.data.error &&
+                        driftPreview.data.status !== "done" && (
+                          <p className="text-sm text-muted-foreground">
+                            Waiting for the current run to finish — the check
+                            will run straight after.
+                          </p>
+                        )}
+                      {driftPreview.data &&
+                        !driftPreview.data.error &&
+                        driftPreview.data.status === "done" && (
+                          <p className="text-sm text-muted-foreground">
+                            {drifted.length === 0 && orphans.length === 0
+                              ? "Everything is in sync — nothing to fix."
+                              : `${drifted.length} row${drifted.length === 1 ? "" : "s"} drifted onto your Home screen: ${drifted.join(", ")}`}
+                          </p>
+                        )}
+                      {drifted.length + orphans.length > 0 && (
+                        <div>
+                          <Button
+                            size="sm"
+                            loading={driftFix.isPending}
+                            // Confirm at the CLICK when this will delete, which every other
+                            // irreversible Plex write in the app already does (row delete, row
+                            // cleanup, disable-everyone, backup restore). The callout above already
+                            // names each collection, so the audit's "no confirm at all" was half
+                            // wrong — but one verb still fired reversible demotions and an
+                            // unrecoverable delete together, with nothing between the press and the
+                            // destruction. Only when something will actually be deleted: a confirm
+                            // on every fix teaches people to click through the one that matters.
+                            onClick={() =>
+                              orphans.length > 0
+                                ? setConfirmDelete(true)
+                                : driftFix.mutate()
+                            }
+                          >
+                            Fix {drifted.length + orphans.length} row
+                            {drifted.length + orphans.length === 1 ? "" : "s"}
+                          </Button>
+                        </div>
+                      )}
+                      {driftFix.data && !driftFix.data.error && (
+                        <p className="text-sm text-muted-foreground">
+                          {driftFix.data.detail}
+                        </p>
+                      )}
+                    </div>
+                  ) : null
+                }
+              />
+
+              <JobRow
+                entry={entryFor("privacy.sync")}
+                queuedTitle={queuedTitleFor("privacy.sync")}
+                tag={EFFECT_TAGS["privacy.sync"]}
+                icon={Lock}
+                panel={<SchedulePanel entry={entryFor("privacy.sync")} />}
+                action={{
+                  label: "Run",
+                  run: () => privacySync.mutate(),
+                  pending: privacySync.isPending,
+                }}
+                live={
+                  privacySync.isError ? (
+                    <MutationAlert
+                      error={privacySync.error}
+                      fallback="Couldn't start that job. Try again."
+                      onRetry={() => privacySync.mutate()}
+                    />
+                  ) : null
+                }
+              />
+
+              <JobRow
+                entry={entryFor("backup.take")}
+                queuedTitle={queuedTitleFor("backup.take")}
+                icon={Database}
+                action={{
+                  label: "Back up now",
+                  run: () => backupNow.mutate(),
+                  pending: backupNow.isPending,
+                }}
+                live={
+                  backupNow.isError || backupNow.isSuccess ? (
+                    <>
+                      {/* "Backup failed." was the whole message — no cause, no next step, on the
+                          one operation whose entire purpose is to be there when something else
+                          goes wrong. The server's own detail is terse too ("backup failed"), so
+                          the standing line under it carries what the owner can actually check. */}
+                      {backupNow.isError && (
+                        <div className="space-y-1">
+                          <MutationAlert
+                            error={backupNow.error}
+                            fallback="Couldn’t take a backup."
+                            onRetry={() => backupNow.mutate()}
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Backups are written next to your database, in{" "}
+                            <span className="font-mono">/config/backups</span>.
+                            Check the disk has room and that Shortlist can write
+                            there — the{" "}
+                            <Link
+                              to="/activity?tab=log"
+                              className="font-medium underline underline-offset-2"
+                            >
+                              Activity log
+                            </Link>{" "}
+                            has the reason it gave.
+                          </p>
+                        </div>
+                      )}
+                      {backupNow.isSuccess && !backupNow.isPending && (
+                        <Succeeded>
+                          Backed up as{" "}
+                          <span className="font-mono text-xs">
+                            {backupNow.data.name}
+                          </span>
+                          .
+                        </Succeeded>
+                      )}
+                    </>
+                  ) : null
+                }
+                panel={<BackupPanel />}
+              />
+
+              {/* The retention pass. It was `manual: true` — so the "Automatic" group filtered it
+                  out — and it was not one of the hardcoded rows here either, which left it in the
+                  page totals with no row anywhere. A prune that failed showed "1 failed" in the
+                  header and there was nothing to click, nothing to read, and no way to retry. */}
+              <JobRow
+                entry={entryFor("maintenance.prune")}
+                queuedTitle={queuedTitleFor("maintenance.prune")}
+                icon={Eraser}
+                action={{
+                  label: "Clear now",
+                  run: () => pruneNow.mutate(),
+                  pending: pruneNow.isPending,
+                }}
+                live={
+                  pruneNow.isError || pruneNow.data ? (
+                    <div className="flex flex-col gap-3">
+                      {pruneNow.isError && (
+                        <MutationAlert
+                          error={pruneNow.error}
+                          fallback="Couldn't clear out old records. Try again."
+                          onRetry={() => pruneNow.mutate()}
+                        />
+                      )}
+                      {/* `status` matters here for the same reason it does on the check above: the
+                          job can come back still queued, and reporting a tidy-up that never ran
+                          would be a lie. */}
+                      {pruneNow.data &&
+                        !pruneNow.data.error &&
+                        pruneNow.data.status !== "done" && (
+                          <p className="text-sm text-muted-foreground">
+                            Queued — it will run as soon as there's a free slot.
+                          </p>
+                        )}
+                      {pruneNow.data?.status === "done" && (
+                        <Succeeded>
+                          {pruneNow.data.detail ||
+                            "There was nothing old enough to clear out."}
+                        </Succeeded>
+                      )}
+                      {pruneNow.data?.error && (
+                        <p
+                          role="alert"
+                          className="text-sm text-destructive-text"
+                        >
+                          {pruneNow.data.error}
+                        </p>
+                      )}
+                    </div>
+                  ) : null
+                }
+                panel={<SchedulePanel entry={entryFor("maintenance.prune")} />}
+              />
+            </div>
+          </section>
+
+          {/* Row schedules were the ONLY thing the separate Timeline tab showed that this list didn't
+              — every job already carries its own next-run. Listing them here makes Jobs the single
+              answer to "what runs on a timer", instead of two pages that each held half of it. */}
+          <RowSchedules />
+
+          {automatic.length > 0 && (
+            <section className="space-y-2">
+              <GroupHeading
+                title="Automatic"
+                hint="queued for you when something changes"
+                note={
+                  automaticSeen.length === 0
+                    ? "Nothing has needed one of these yet. They queue themselves when you change something — there is nothing to do here."
+                    : undefined
+                }
+              />
+              {automaticSeen.length > 0 && (
+                <div className="overflow-hidden rounded-md border">
+                  {automaticSeen.map((entry, index) => (
+                    <JobRow
+                      key={entry.kind}
+                      first={index === 0}
+                      entry={entry}
+                      queuedTitle={queuedTitleFor(entry.kind)}
+                      icon={Cog}
+                    />
+                  ))}
+                </div>
+              )}
+              {/* Behind a disclosure, not deleted: when one of these DOES misbehave, its
+                  description and history are the only explanation of what it was for. Shut by
+                  default because a list of jobs that have never happened is not news. */}
+              {automaticIdle.length > 0 && (
+                <details className="group rounded-md border">
+                  <summary className="flex cursor-pointer list-none items-center gap-1.5 px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden">
+                    <ChevronRight
+                      className="size-3.5 shrink-0 transition-transform group-open:rotate-90"
+                      aria-hidden="true"
+                    />
+                    {automaticIdle.length === 1
+                      ? "1 job that hasn’t needed to run"
+                      : `${automaticIdle.length} jobs that haven’t needed to run`}
+                  </summary>
+                  <div className="border-t">
+                    {automaticIdle.map((entry, index) => (
+                      <JobRow
+                        key={entry.kind}
+                        first={index === 0}
+                        entry={entry}
+                        queuedTitle={queuedTitleFor(entry.kind)}
+                        icon={Cog}
+                      />
+                    ))}
+                  </div>
+                </details>
+              )}
+            </section>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

@@ -1,0 +1,82 @@
+/** Where Help / Report-a-bug send people: the project's GitHub. */
+export const GITHUB_REPO = "https://github.com/stevezau/shortlist";
+
+/** The documentation SITE, not the repo README. "Help & docs" used to open GitHub, which drops a
+ *  non-technical owner into a source tree with a long README at the bottom of it; the site has the
+ *  same material split into pages, searchable, and readable on a phone. */
+export const DOCS_URL = "https://shortlistapp.dev/";
+
+/** The guides section on tools that fight Shortlist for the Plex Recommended shelf. Linked from
+ *  Settings → Row placement, which used to carry the whole explanation inline.
+ *
+ *  Points at the Agregarr VERSION check, not the shelf-shuffling section next to it. The sentence
+ *  in the app names one specific exposure — an out-of-date Agregarr putting other people's rows on
+ *  your Home — and only this section says which build you are on and which one fixes it. The
+ *  general section covers label exclusion and shuffling, and never mentions it. */
+export const DOCS_SHELF_CONTENTION_URL =
+  "https://shortlistapp.dev/guides/rows/#check-which-agregarr-you-are-running";
+
+/** Where "Star on GitHub" goes. There is no URL that stars a repo — Orca can offer one click only
+ *  because it drives the `gh` CLI on a developer's machine — so this opens the repo, where the Star
+ *  button is. */
+export const STAR_URL = GITHUB_REPO;
+
+/** Where "Buy me a coffee" goes. Ko-fi rather than GitHub Sponsors: Sponsors needs a GitHub account
+ *  and a card, which most Plex owners reading this sidebar do not have to hand, while Ko-fi takes a
+ *  guest checkout (card, Apple/Google Pay, PayPal) and charges no fee on one-time tips. GitHub
+ *  Sponsors is still offered on the repo, via FUNDING.yml, to the people who arrive there. */
+export const COFFEE_URL = "https://ko-fi.com/stevezau";
+
+/** Where "Ask a question" goes: the Q&A category, NOT `discussions/new`.
+ *
+ *  The new-discussion form does not search anything, so linking it straight would ask every person
+ *  to type a question that may already have an accepted answer two rows down. The category page
+ *  lists those and carries its own "New discussion" button, which costs one click and saves a
+ *  duplicate. Q&A specifically because it is the one answerable category — a question posted to
+ *  General can never be marked answered, so the next person searching finds a thread with no
+ *  visible resolution. */
+export const DISCUSSIONS_URL =
+  "https://github.com/stevezau/shortlist/discussions/categories/q-a";
+
+/** A "new issue" URL with the bug body pre-filled — the build and browser are the two facts every
+ *  report needs and users never think to include, so we add them for free. Everything else is a
+ *  prompt they fill in. GitHub reads `body`/`labels` from the query string.
+ *
+ *  Takes the whole version payload rather than a bare version STRING, because on a `:dev` build the
+ *  version alone is wrong in the place it does the most damage: `current_version` is the last
+ *  released version, so a report from five commits past 1.4.0 would be triaged against 1.4.0. On a
+ *  pre-release the commit is what identifies the build, so that is what gets stamped. */
+export function newBugReportUrl(
+  info?: {
+    current_version?: string;
+    git_branch?: string;
+    git_sha?: string;
+  } | null,
+): string {
+  const branch = info?.git_branch;
+  const version = info?.current_version;
+  const build =
+    branch && !branch.startsWith("v")
+      ? `${branch} ${info?.git_sha?.slice(0, 7) ?? ""}`.trim()
+      : version;
+  const body = [
+    "**What happened?**",
+    "",
+    "",
+    "**What did you expect instead?**",
+    "",
+    "",
+    "**Steps to reproduce**",
+    "1. ",
+    "2. ",
+    "",
+    "**Diagnostics** (Have an issue? → Copy the full report — it's secrets-free)",
+    "",
+    "",
+    "---",
+    `Shortlist build: \`${build || "unknown"}\``,
+    `Browser: \`${typeof navigator === "undefined" ? "unknown" : navigator.userAgent}\``,
+  ].join("\n");
+  const params = new URLSearchParams({ labels: "bug", body });
+  return `${GITHUB_REPO}/issues/new?${params.toString()}`;
+}

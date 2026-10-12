@@ -1,0 +1,1064 @@
+"""Smoke tests for 闲鱼 account management (Cookie CRUD)."""
+import asyncio
+import concurrent.futures
+import time
+from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
+
+import reply_server
+
+
+class TestAccounts:
+    """Cookie / account management smoke tests."""
+
+    def test_list_cookies_empty(self, client, auth):
+        """GET /cookies returns empty list when no cookies."""
+        resp = client.get("/cookies", headers=auth)
+        assert resp.status_code == 200
+        assert resp.json() == []
+
+    def test_add_cookie_success(self, client, auth):
+        """POST /cookies adds a new cookie."""
+        resp = client.post(
+            "/cookies",
+            json={"id": "cookie_test_001", "value": "unb=test; _m_h5_tk=abc123"},
+            headers=auth,
+        )
+        assert resp.status_code == 200
+        assert resp.json() == {"msg": "success"}
+
+    def test_add_cookie_duplicate_own_ok(self, client, auth):
+        """POST /cookies with duplicate id for same user succeeds (update)."""
+        # Add first
+        client.post(
+            "/cookies",
+            json={"id": "cookie_dup_001", "value": "unb=test; _m_h5_tk=abc123"},
+            headers=auth,
+        )
+        # Add again with same id
+        resp = client.post(
+            "/cookies",
+            json={"id": "cookie_dup_001", "value": "unb=updated; _m_h5_tk=xyz789"},
+            headers=auth,
+        )
+        assert resp.status_code == 200
+
+    def test_toggle_cookie_status(self, client, auth):
+        """PATCH /cookies/{cid}/status toggles enabled state."""
+        # Add a cookie first
+        client.post(
+            "/cookies",
+            json={"id": "cookie_toggle_001", "value": "unb=test"},
+            headers=auth,
+        )
+        # Disable it
+        resp = client.put(
+            "/cookies/cookie_toggle_001/status",
+            json={"enabled": False, "pause_duration": 10},
+            headers=auth,
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data.get("enabled") is False
+        assert "msg" in data
+
+    def test_account_info_cookie_update_surfaces_future_runtime_handoff_failure(self, client, auth, monkeypatch):
+        cookie_id = "account_info_runtime_fail_cookie"
+        reply_server.db_manager.save_cookie(cookie_id, "unb=old; token=old", user_id=1)
+
+        class FailingManager:
+            def update_cookie(self, *args, **kwargs):
+                future = concurrent.futures.Future()
+                future.set_exception(RuntimeError("runtime switch failed"))
+                return future
+
+        monkeypatch.setattr(reply_server.cookie_manager, "manager", FailingManager())
+
+        resp = client.post(
+            f"/cookie/{cookie_id}/account-info",
+            json={"value": "unb=new; token=new"},
+            headers=auth,
+        )
+
+        assert resp.status_code == 400
+        assert resp.json()["detail"]
+
+    def test_cookie_update_surfaces_future_runtime_handoff_failure(self, client, auth, monkeypatch):
+        cookie_id = "cookie_runtime_update_fail"
+        reply_server.db_manager.save_cookie(cookie_id, "unb=old; token=old", user_id=1)
+
+        class FailingManager:
+            def update_cookie(self, *args, **kwargs):
+                future = concurrent.futures.Future()
+                future.set_exception(RuntimeError("runtime switch failed"))
+                return future
+
+        monkeypatch.setattr(reply_server.cookie_manager, "manager", FailingManager())
+
+        resp = client.put(
+            f"/cookies/{cookie_id}",
+            json={"id": cookie_id, "value": "unb=new; token=new"},
+            headers=auth,
+        )
+
+        assert resp.status_code == 400
+        assert resp.json()["detail"]
+
+    def test_cookie_details_requires_manager(self, client, auth):
+        """GET /cookies/details returns empty when no cookies exist."""
+        resp = client.get("/cookies/details", headers=auth)
+        assert resp.status_code == 200
+        assert resp.json() == []
+
+    def test_runtime_status_is_read_only_monitoring_snapshot(self, client, auth, monkeypatch):
+        cookie_id = "runtime_monitor_read_only_cookie"
+        reply_server.db_manager.save_cookie(cookie_id, "unb=runtime; token=local", user_id=1)
+
+        class ProbeForbiddenManager:
+            cookies = {cookie_id: "unb=runtime; token=local"}
+            tasks = {cookie_id: object()}
+
+            def get_cookie_status(self, requested_cookie_id):
+                assert requested_cookie_id == cookie_id
+                return True
+
+            def update_cookie(self, *args, **kwargs):
+                raise AssertionError("runtime status must not update cookies")
+
+            def add_cookie(self, *args, **kwargs):
+                raise AssertionError("runtime status must not start account tasks")
+
+        class FakeConnectionState:
+            value = "reconnecting"
+
+        class FakeXianyuLive:
+            connection_state = FakeConnectionState()
+            ws = None
+            session = SimpleNamespace(closed=False)
+            current_token = None
+            last_token_refresh_status = "captcha_max_retries_exceeded"
+            last_token_refresh_error_message = "FAIL_SYS_USER_VALIDATE"
+            last_session_keepalive_status = None
+            last_session_keepalive_error_message = None
+            last_heartbeat_response = 0
+            last_heartbeat_time = 0
+            last_token_refresh_time = 0
+            last_session_keepalive_time = 0
+            last_non_heartbeat_message_time = 0
+            last_sync_package_time = 0
+            last_user_chat_time = 0
+            last_stream_watchdog_reconnect_time = 0
+            last_message_received_time = 0
+            last_successful_connection = 0
+            last_state_change_time = time.time()
+            heartbeat_interval = 15
+            heartbeat_timeout = 30
+            token_refresh_interval = 72000
+            token_retry_interval = 180
+            session_keepalive_interval = 600
+            session_keepalive_retry_interval = 180
+            stream_watchdog_grace_period = 60
+            message_stream_watchdog_timeout = 1800
+            cookie_refresh_enabled = True
+
+            @classmethod
+            def get_instance(cls, requested_cookie_id):
+                assert requested_cookie_id == cookie_id
+                return cls()
+
+            @classmethod
+            def get_auth_recovery_lock_state(cls, requested_cookie_id):
+                assert requested_cookie_id == cookie_id
+                return {"owner": "token_refresh"}
+
+            @classmethod
+            def is_manual_refresh_active(cls, requested_cookie_id, allow_handoff_recovery=False):
+                assert requested_cookie_id == cookie_id
+                return False
+
+            async def perform_session_keepalive(self):
+                raise AssertionError("runtime status must not perform keepalive")
+
+            async def refresh_token(self):
+                raise AssertionError("runtime status must not refresh token")
+
+        monkeypatch.setattr(reply_server.cookie_manager, "manager", ProbeForbiddenManager())
+        monkeypatch.setattr("XianyuAutoAsync.XianyuLive", FakeXianyuLive)
+
+        resp = client.get(f"/cookies/{cookie_id}/runtime-status", headers=auth)
+
+        assert resp.status_code == 200
+        runtime_status = resp.json()["runtime_status"]
+        assert runtime_status["monitoring_safe"] is True
+        assert runtime_status["monitoring_mode"] == "local_snapshot"
+        assert runtime_status["external_probe_performed"] is False
+        assert runtime_status["risk_control_status"] == "captcha_max_retries_exceeded"
+        assert "闲鱼仍要求账号验证" in runtime_status["risk_control_summary"]
+        assert "FAIL_SYS_USER_VALIDATE" in runtime_status["risk_control_detail"]
+        assert runtime_status["operator_action_required"] is True
+
+    def test_manual_cookie_import_requires_body(self, client, auth):
+        """POST /manual-cookie-import without required fields returns 422."""
+        resp = client.post("/manual-cookie-import", json={}, headers=auth)
+        # FastAPI validation error
+        assert resp.status_code == 422
+
+    def test_password_login_session_is_forbidden_for_other_user(self, client, auth, user_auth):
+        session_id = "password_login_owner_only_session"
+        reply_server.password_login_sessions[session_id] = {
+            "session_id": session_id,
+            "user_id": 2,
+            "account_id": "owner-cookie",
+            "status": "processing",
+            "timestamp": 9999999999,
+            "error": None,
+        }
+
+        check = client.get(f"/password-login/check/{session_id}", headers=auth)
+        assert check.status_code == 200
+        assert check.json()["status"] == "forbidden"
+
+        cancel = client.post(f"/password-login/cancel/{session_id}", headers=auth)
+        assert cancel.status_code == 200
+        assert cancel.json()["success"] is False
+        assert cancel.json()["status"] == "forbidden"
+
+        owner_check = client.get(f"/password-login/check/{session_id}", headers=user_auth)
+        assert owner_check.status_code == 200
+        assert owner_check.json()["status"] == "processing"
+
+    def test_password_login_marks_failed_when_runtime_handoff_future_fails(self, mocker):
+        session_id = "password_login_runtime_handoff_failed_session"
+        account_id = "password_login_runtime_handoff_failed_account"
+        reply_server.password_login_sessions[session_id] = {
+            "session_id": session_id,
+            "account_id": account_id,
+            "account": "login-account",
+            "show_browser": False,
+            "refresh_mode": False,
+            "risk_control_log_id": None,
+            "risk_session_id": session_id,
+            "status": "processing",
+            "verification_url": None,
+            "screenshot_path": None,
+            "qr_code_url": None,
+            "verification_type": None,
+            "slider_instance": None,
+            "task": None,
+            "timestamp": time.time(),
+            "completed_at": None,
+            "user_id": 1,
+        }
+
+        class FakeSlider:
+            last_login_error = None
+
+            def login_with_password_playwright(self, *args, **kwargs):
+                return {
+                    "unb": "login-account",
+                    "_m_h5_tk": "new-token",
+                    "cookie2": "new-cookie2",
+                }
+
+        class FakeXianyuLive:
+            def __init__(self, *args, **kwargs):
+                self.cookies_str = kwargs.get("cookies_str", "")
+
+            @classmethod
+            def begin_auth_recovery_session(cls, *args, **kwargs):
+                return {"started": True}
+
+            @classmethod
+            def end_auth_recovery_session(cls, *args, **kwargs):
+                return None
+
+            @classmethod
+            def protected_merge_cookie_dicts(cls, existing, incoming):
+                return {
+                    "incoming_missing_protected_fields": [],
+                    "preserved_protected_fields": [],
+                    "account_switched": False,
+                    "merged_cookies_dict": dict(incoming),
+                    "incoming_count": len(incoming),
+                    "existing_count": len(existing),
+                    "merged_count": len(incoming),
+                    "would_remove_fields": [],
+                    "missing_required_fields": [],
+                }
+
+            def reset_qr_cookie_refresh_flag(self):
+                return None
+
+            async def _refresh_cookies_via_browser(self, *args, **kwargs):
+                return False
+
+        def failed_handoff(*args, **kwargs):
+            future = concurrent.futures.Future()
+            future.set_exception(RuntimeError("runtime handoff failed"))
+            return future
+
+        fake_manager = SimpleNamespace(
+            cookies={},
+            add_cookie=failed_handoff,
+            update_cookie=failed_handoff,
+        )
+
+        mocker.patch.object(reply_server, "_load_slider_runtime", return_value=(
+            lambda **kwargs: FakeSlider(),
+            None,
+            lambda **kwargs: SimpleNamespace(),
+            SimpleNamespace(unregister_instance=lambda *args, **kwargs: True),
+        ))
+        import XianyuAutoAsync
+
+        mocker.patch.object(XianyuAutoAsync, "XianyuLive", FakeXianyuLive)
+        mocker.patch.object(reply_server.cookie_manager, "manager", fake_manager)
+        mocker.patch.object(reply_server.db_manager, "get_cookie_details", return_value={})
+        mocker.patch.object(reply_server.db_manager, "get_all_cookies", return_value={})
+        mocker.patch.object(reply_server.db_manager, "update_cookie_account_info", return_value=True)
+        mocker.patch.object(reply_server, "dispatch_account_notifications_sync", return_value=False)
+        mocker.patch.object(reply_server, "log_with_user")
+
+        async def invoke():
+            await reply_server._execute_password_login(
+                session_id=session_id,
+                account_id=account_id,
+                account="login-account",
+                password="secret",
+                show_browser=False,
+                user_id=1,
+                current_user={"user_id": 1, "username": "admin"},
+            )
+
+        asyncio.run(invoke())
+
+        deadline = time.time() + 2
+        while (
+            reply_server.password_login_sessions[session_id]["status"] == "processing"
+            and time.time() < deadline
+        ):
+            time.sleep(0.01)
+
+        session = reply_server.password_login_sessions[session_id]
+        assert session["status"] == "failed"
+        assert "runtime handoff failed" in session["error"]
+
+    def test_manual_cookie_import_session_is_forbidden_for_other_user(self, client, auth, user_auth):
+        session_id = "manual_cookie_import_owner_only_session"
+        reply_server.manual_cookie_import_sessions[session_id] = {
+            "session_id": session_id,
+            "user_id": 2,
+            "account_id": "owner-cookie",
+            "status": "processing",
+            "timestamp": 9999999999,
+            "error": None,
+        }
+
+        foreign_check = client.get(f"/manual-cookie-import/check/{session_id}", headers=auth)
+        assert foreign_check.status_code == 200
+        assert foreign_check.json()["status"] == "forbidden"
+
+        owner_check = client.get(f"/manual-cookie-import/check/{session_id}", headers=user_auth)
+        assert owner_check.status_code == 200
+        assert owner_check.json()["status"] == "processing"
+
+    def test_qr_login_session_is_forbidden_for_other_user(self, client, auth, user_auth, monkeypatch):
+        class FakeQrSession:
+            def __init__(self, session_id, user_id):
+                self.session_id = session_id
+                self.user_id = user_id
+                self.status = "waiting"
+                self.verification_url = None
+                self.screenshot_path = None
+                self.cookies = {}
+                self.unb = None
+
+            def is_expired(self):
+                return False
+
+        async def fake_generate_qr_code(*, user_id=None):
+            session_id = "qr_login_owner_only_session"
+            reply_server.qr_login_manager.sessions[session_id] = FakeQrSession(session_id, user_id)
+            return {"success": True, "session_id": session_id, "qr_code_url": "data:image/png;base64,stub"}
+
+        monkeypatch.setattr(reply_server.qr_login_manager, "generate_qr_code", fake_generate_qr_code)
+
+        generated = client.post("/qr-login/generate", headers=user_auth)
+        assert generated.status_code == 200
+        session_id = generated.json()["session_id"]
+
+        foreign_check = client.get(f"/qr-login/check/{session_id}", headers=auth)
+        assert foreign_check.status_code == 200
+        assert foreign_check.json()["status"] == "forbidden"
+
+        owner_check = client.get(f"/qr-login/check/{session_id}", headers=user_auth)
+        assert owner_check.status_code == 200
+        assert owner_check.json()["status"] == "waiting"
+
+    def test_qr_login_refresh_cookies_is_owner_only(self, client, other_user_auth, user_auth, monkeypatch):
+        class FakeXianyuLive:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            async def refresh_cookies_from_qr_login(self, qr_cookies_str, cookie_id=None, user_id=None):
+                return True
+
+        import XianyuAutoAsync
+
+        monkeypatch.setattr(XianyuAutoAsync, "XianyuLive", FakeXianyuLive)
+
+        cookie_id = "qr_refresh_owner_only_cookie"
+        reply_server.db_manager.save_cookie(cookie_id, "unb=owner; token=value", user_id=2)
+
+        foreign_resp = client.post(
+            "/qr-login/refresh-cookies",
+            json={"cookie_id": cookie_id, "qr_cookies": "unb=foreign; token=value"},
+            headers=other_user_auth,
+        )
+        assert foreign_resp.status_code == 200
+        assert foreign_resp.json()["success"] is False
+
+        owner_resp = client.post(
+            "/qr-login/refresh-cookies",
+            json={"cookie_id": cookie_id, "qr_cookies": "unb=owner-new; token=value"},
+            headers=user_auth,
+        )
+        assert owner_resp.status_code == 200
+        assert owner_resp.json()["success"] is True
+
+    def test_qr_login_refresh_cookies_surfaces_runtime_handoff_failure(
+        self,
+        client,
+        user_auth,
+        monkeypatch,
+    ):
+        class FakeXianyuLive:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            async def refresh_cookies_from_qr_login(self, qr_cookies_str, cookie_id=None, user_id=None):
+                return True
+
+        class FailingManager:
+            def update_cookie(self, *args, **kwargs):
+                future = concurrent.futures.Future()
+                future.set_exception(RuntimeError("runtime handoff failed"))
+                return future
+
+        import XianyuAutoAsync
+
+        monkeypatch.setattr(XianyuAutoAsync, "XianyuLive", FakeXianyuLive)
+        monkeypatch.setattr(reply_server.cookie_manager, "manager", FailingManager())
+
+        cookie_id = "qr_refresh_runtime_handoff_failed_cookie"
+        reply_server.db_manager.save_cookie(cookie_id, "unb=owner; token=value", user_id=2)
+
+        resp = client.post(
+            "/qr-login/refresh-cookies",
+            json={"cookie_id": cookie_id, "qr_cookies": "unb=owner-new; token=value"},
+            headers=user_auth,
+        )
+
+        assert resp.status_code == 200
+        assert resp.json()["success"] is False
+        assert "runtime handoff failed" in resp.json()["message"]
+
+    def test_qr_login_cooldown_routes_are_owner_only(self, client, other_user_auth, user_auth, monkeypatch):
+        class FakeCooldownInstance:
+            qr_cookie_refresh_cooldown = 600
+            last_qr_cookie_refresh_time = 123
+
+            def get_qr_cookie_refresh_remaining_time(self):
+                return 45
+
+            def reset_qr_cookie_refresh_flag(self):
+                return None
+
+        cookie_id = "qr_cooldown_owner_only_cookie"
+        reply_server.db_manager.save_cookie(cookie_id, "unb=owner; token=value", user_id=2)
+
+        fake_instance = FakeCooldownInstance()
+        manager = reply_server.cookie_manager.manager
+        monkeypatch.setattr(manager, "get_xianyu_instance", lambda cid: fake_instance if cid == cookie_id else None)
+
+        foreign_status = client.get(f"/qr-login/cooldown-status/{cookie_id}", headers=other_user_auth)
+        assert foreign_status.status_code == 200
+        assert foreign_status.json()["success"] is False
+
+        owner_status = client.get(f"/qr-login/cooldown-status/{cookie_id}", headers=user_auth)
+        assert owner_status.status_code == 200
+        assert owner_status.json()["success"] is True
+        assert owner_status.json()["remaining_time"] == 45
+
+        foreign_reset = client.post(f"/qr-login/reset-cooldown/{cookie_id}", headers=other_user_auth)
+        assert foreign_reset.status_code == 200
+        assert foreign_reset.json()["success"] is False
+
+        owner_reset = client.post(f"/qr-login/reset-cooldown/{cookie_id}", headers=user_auth)
+        assert owner_reset.status_code == 200
+        assert owner_reset.json()["success"] is True
+        assert owner_reset.json()["previous_remaining_time"] == 45
+
+    def test_qr_login_processed_runtime_handoff_failure_is_error(self, client, user_auth):
+        session_id = "qr_login_runtime_handoff_failed"
+        reply_server.qr_check_processed[session_id] = {
+            "processed": True,
+            "processing": False,
+            "timestamp": 9999999999,
+            "account_info": {
+                "account_id": "qr-runtime-failed",
+                # 真实 Cookie 已获取（否则不会走到任务切换），只是任务切换失败被回滚
+                "real_cookie_refreshed": True,
+                "task_restarted": False,
+                "manual_disabled_skip_restart": False,
+                "warning_message": "真实Cookie已获取，但任务管理器未初始化，未启动账号任务",
+            },
+        }
+
+        resp = client.get(f"/qr-login/check/{session_id}", headers=user_auth)
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "error"
+        assert "任务" in data["message"]
+
+    def test_incomplete_qr_cookie_is_reported_as_error(self, client, user_auth):
+        """真实 Cookie 没落库时，轮询必须是失败，不能因为有 fallback_reason 报成功。"""
+        session_id = "qr_login_incomplete_cookie_failed"
+        reply_server.qr_check_processed[session_id] = {
+            "processed": True,
+            "processing": False,
+            "timestamp": 9999999999,
+            "account_info": {
+                "account_id": "1926782908",
+                "is_new_account": False,
+                "real_cookie_refreshed": False,
+                "task_restarted": False,
+                "fallback_reason": "真实cookie获取失败",
+                "warning_message": "扫码登录未获取完整Cookie，已保留原账号会话: 真实cookie获取失败",
+            },
+        }
+
+        resp = client.get(f"/qr-login/check/{session_id}", headers=user_auth)
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "error"
+        assert "未获取完整Cookie" in data["message"]
+
+    def test_qr_login_processed_manual_disabled_is_success_not_error(self, client, user_auth):
+        """手动禁用账号扫码成功：真 Cookie 已更新，轮询必须报 success 而非 error。"""
+        session_id = "qr_login_manual_disabled_success"
+        reply_server.qr_check_processed[session_id] = {
+            "processed": True,
+            "processing": False,
+            "timestamp": 9999999999,
+            "account_info": {
+                "account_id": "qr-manual-disabled",
+                "real_cookie_refreshed": True,
+                "task_restarted": False,
+                "manual_disabled_skip_restart": True,
+                "warning_message": "真实Cookie已获取；账号处于手动禁用状态，Cookie已更新落库，任务保持停止（启用账号后生效）",
+            },
+        }
+
+        resp = client.get(f"/qr-login/check/{session_id}", headers=user_auth)
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["status"] == "success"
+        assert data["account_info"]["manual_disabled_skip_restart"] is True
+        assert data["account_info"]["real_cookie_refreshed"] is True
+
+    @pytest.mark.asyncio
+    async def test_qr_login_lite_runtime_handoff_failure_is_error(self, user_auth, monkeypatch):
+        session_id = "qr_lite_runtime_handoff_failed"
+        reply_server.qr_lite_sessions[session_id] = {
+            "state": "confirmed",
+            "qr_data_url": "data:image/png;base64,stub",
+            "error_message": None,
+            "account_info": None,
+            "started_at": 9999999999,
+            "finished": False,
+            "user_id": 2,
+        }
+
+        def fake_qrcode_login_lite(**kwargs):
+            return {"unb": "qr-lite-failed", "cookie2": "v"}, {"unb": "qr-lite-failed"}
+
+        async def fake_process_qr_login_cookies(cookies, unb, current_user):
+            return {
+                "account_id": unb,
+                "real_cookie_refreshed": True,
+                "task_restarted": False,
+                "manual_disabled_skip_restart": False,
+                "warning_message": "真实Cookie已获取，但任务管理器未初始化，未启动账号任务",
+            }
+
+        monkeypatch.setattr(reply_server, "qrcode_login_lite", fake_qrcode_login_lite)
+        monkeypatch.setattr(reply_server, "process_qr_login_cookies", fake_process_qr_login_cookies)
+
+        await reply_server._run_qr_login_lite(session_id, {"user_id": 2, "username": "user"})
+
+        state = reply_server.qr_lite_sessions[session_id]
+        assert state["state"] == "error"
+        assert "任务" in state["error_message"]
+
+    @pytest.mark.asyncio
+    async def test_qr_login_reuses_account_when_stored_unb_was_blanked(self, user_auth, monkeypatch):
+        """旧 Cookie 被写成 unb= 后，再次扫同一 UNB 必须更新原账号，不能新建 _1。"""
+        account_id = "1926782908"
+
+        class FakeXianyuLive:
+            def __init__(self, *args, **kwargs):
+                self.cookies_str = "unb=1926782908; cna=real-cna; _m_h5_tk=real-token"
+
+            async def refresh_cookies_from_qr_login(self, qr_cookies_str, cookie_id=None, user_id=None):
+                reply_server.db_manager.update_cookie_account_info(
+                    cookie_id,
+                    cookie_value=self.cookies_str,
+                    user_id=user_id,
+                )
+                return True
+
+            @classmethod
+            def mark_qr_login_grace(cls, *args, **kwargs):
+                return None
+
+            @classmethod
+            def clear_qr_login_grace(cls, *args, **kwargs):
+                return None
+
+            @classmethod
+            def clear_password_login_failure_backoff(cls, *args, **kwargs):
+                return None
+
+        class FakeManager:
+            def __init__(self):
+                self.updated = []
+
+            def update_cookie(self, cookie_id, new_value, save_to_db=True):
+                self.updated.append(cookie_id)
+                future = concurrent.futures.Future()
+                future.set_result(None)
+                return future
+
+            def add_cookie(self, *args, **kwargs):
+                raise AssertionError("blank-unb account must not be treated as new")
+
+        import XianyuAutoAsync
+
+        reply_server.db_manager.save_cookie(account_id, "unb=; cookie2=old; cna=old-cna", user_id=2)
+        fake_manager = FakeManager()
+        monkeypatch.setattr(XianyuAutoAsync, "XianyuLive", FakeXianyuLive)
+        monkeypatch.setattr(reply_server.cookie_manager, "manager", fake_manager)
+
+        result = await reply_server.process_qr_login_cookies(
+            "unb=1926782908; cookie2=qr",
+            "1926782908",
+            {"user_id": 2, "username": "user"},
+        )
+
+        assert result["account_id"] == account_id
+        assert result["is_new_account"] is False
+        assert result["task_restarted"] is True
+        assert fake_manager.updated == [account_id]
+        assert "1926782908_1" not in reply_server.db_manager.get_all_cookies(2)
+        saved = reply_server.db_manager.get_cookie_details(account_id)
+        assert "cna=real-cna" in (saved.get("value") or "")
+
+    @pytest.mark.asyncio
+    async def test_incomplete_qr_login_does_not_create_account(self, user_auth, monkeypatch):
+        """真实 Cookie 缺少核心字段时，不能把原始扫码 Cookie 降级存成新账号。"""
+
+        class FakeXianyuLive:
+            def __init__(self, *args, **kwargs):
+                self.cookies_str = ""
+
+            async def refresh_cookies_from_qr_login(self, qr_cookies_str, cookie_id=None, user_id=None):
+                return False
+
+        class FakeManager:
+            def add_cookie(self, *args, **kwargs):
+                raise AssertionError("incomplete QR cookie must not start a new account")
+
+        import XianyuAutoAsync
+
+        monkeypatch.setattr(XianyuAutoAsync, "XianyuLive", FakeXianyuLive)
+        monkeypatch.setattr(reply_server.cookie_manager, "manager", FakeManager())
+
+        result = await reply_server.process_qr_login_cookies(
+            "unb=fresh-user; cookie2=qr",
+            "fresh-user",
+            {"user_id": 2, "username": "user"},
+        )
+
+        assert result["account_id"] == "fresh-user"
+        assert result["is_new_account"] is True
+        assert result["real_cookie_refreshed"] is False
+        assert result["task_restarted"] is False
+        assert "fresh-user" not in reply_server.db_manager.get_all_cookies(2)
+
+    @pytest.mark.asyncio
+    async def test_incomplete_qr_login_does_not_overwrite_existing_account(self, user_auth, monkeypatch):
+        """真实 Cookie 刷新失败时，不能用缺令牌的扫码 Cookie 覆盖已有账号。"""
+        account_id = "keep-existing"
+
+        class FakeXianyuLive:
+            def __init__(self, *args, **kwargs):
+                self.cookies_str = ""
+
+            async def refresh_cookies_from_qr_login(self, qr_cookies_str, cookie_id=None, user_id=None):
+                return False
+
+        class FakeManager:
+            def update_cookie(self, *args, **kwargs):
+                raise AssertionError("incomplete QR cookie must not replace the stored session")
+
+        import XianyuAutoAsync
+
+        reply_server.db_manager.save_cookie(account_id, "unb=keep-existing; cookie2=old; _m_h5_tk=old-token", user_id=2)
+        monkeypatch.setattr(XianyuAutoAsync, "XianyuLive", FakeXianyuLive)
+        monkeypatch.setattr(reply_server.cookie_manager, "manager", FakeManager())
+
+        result = await reply_server.process_qr_login_cookies(
+            "unb=keep-existing; cookie2=qr",
+            "keep-existing",
+            {"user_id": 2, "username": "user"},
+        )
+
+        assert result["account_id"] == account_id
+        assert result["is_new_account"] is False
+        assert result["real_cookie_refreshed"] is False
+        assert result["task_restarted"] is False
+        saved = reply_server.db_manager.get_cookie_details(account_id)
+        assert "_m_h5_tk=old-token" in (saved.get("value") or "")
+        assert "cookie2=qr" not in (saved.get("value") or "")
+
+    @pytest.mark.asyncio
+    async def test_qr_login_prefers_complete_account_over_partial_unb_duplicate(self, user_auth, monkeypatch):
+        """原账号 UNB 被抹空后，残缺的 UNB_1 不能凭非空 UNB 抢走这次扫码。"""
+        original_id = "1926782908"
+        partial_id = "1926782908_1"
+
+        class FakeXianyuLive:
+            def __init__(self, *args, **kwargs):
+                self.cookies_str = "unb=1926782908; cna=real-cna; _m_h5_tk=real-token"
+
+            async def refresh_cookies_from_qr_login(self, qr_cookies_str, cookie_id=None, user_id=None):
+                assert cookie_id == original_id
+                reply_server.db_manager.update_cookie_account_info(
+                    cookie_id,
+                    cookie_value=self.cookies_str,
+                    user_id=user_id,
+                )
+                return True
+
+            @classmethod
+            def mark_qr_login_grace(cls, *args, **kwargs):
+                return None
+
+            @classmethod
+            def clear_qr_login_grace(cls, *args, **kwargs):
+                return None
+
+            @classmethod
+            def clear_password_login_failure_backoff(cls, *args, **kwargs):
+                return None
+
+        class FakeManager:
+            def __init__(self):
+                self.updated = []
+
+            def update_cookie(self, cookie_id, new_value, save_to_db=True):
+                self.updated.append(cookie_id)
+                future = concurrent.futures.Future()
+                future.set_result(None)
+                return future
+
+        import XianyuAutoAsync
+
+        reply_server.db_manager.save_cookie(
+            original_id,
+            "cookie2=old; _m_h5_tk=old-token; cna=old-cna",
+            user_id=2,
+        )
+        reply_server.db_manager.save_cookie(partial_id, "unb=1926782908; cookie2=partial", user_id=2)
+        fake_manager = FakeManager()
+        monkeypatch.setattr(XianyuAutoAsync, "XianyuLive", FakeXianyuLive)
+        monkeypatch.setattr(reply_server.cookie_manager, "manager", fake_manager)
+
+        result = await reply_server.process_qr_login_cookies(
+            "unb=1926782908; cookie2=qr",
+            "1926782908",
+            {"user_id": 2, "username": "user"},
+        )
+
+        assert result["account_id"] == original_id
+        assert result["is_new_account"] is False
+        assert fake_manager.updated == [original_id]
+        original = reply_server.db_manager.get_cookie_details(original_id)
+        partial = reply_server.db_manager.get_cookie_details(partial_id)
+        assert "cna=real-cna" in (original.get("value") or "")
+        assert "cookie2=partial" in (partial.get("value") or "")
+
+
+    @pytest.mark.asyncio
+    async def test_qr_login_process_waits_for_async_runtime_handoff(self, user_auth, monkeypatch):
+        class FakeXianyuLive:
+            def __init__(self, *args, **kwargs):
+                self.cookies_str = "unb=async-fail; token=real"
+
+            async def refresh_cookies_from_qr_login(self, qr_cookies_str, cookie_id=None, user_id=None):
+                reply_server.db_manager.update_cookie_account_info(
+                    cookie_id,
+                    cookie_value=self.cookies_str,
+                    user_id=user_id,
+                )
+                return True
+
+            @classmethod
+            def mark_qr_login_grace(cls, *args, **kwargs):
+                return None
+
+            @classmethod
+            def clear_qr_login_grace(cls, *args, **kwargs):
+                return None
+
+            @classmethod
+            def clear_password_login_failure_backoff(cls, *args, **kwargs):
+                return None
+
+        class AsyncFailingManager:
+            async def _fail_later(self):
+                raise RuntimeError("runtime handoff exploded")
+
+            def add_cookie(self, *args, **kwargs):
+                return asyncio.create_task(self._fail_later())
+
+        import XianyuAutoAsync
+
+        monkeypatch.setattr(XianyuAutoAsync, "XianyuLive", FakeXianyuLive)
+        monkeypatch.setattr(reply_server.cookie_manager, "manager", AsyncFailingManager())
+
+        result = await reply_server.process_qr_login_cookies(
+            "unb=async-fail; token=qr",
+            "async-fail",
+            {"user_id": 2, "username": "user"},
+        )
+
+        assert result["task_restarted"] is False
+        assert "runtime handoff exploded" in result["warning_message"]
+
+    @pytest.mark.asyncio
+    async def test_qr_login_restores_system_paused_account(self, user_auth, monkeypatch):
+        """系统保护性停用（status_note 非空）的账号，扫码成功后应自动恢复启用并清标记。"""
+        cookie_id = "qr_paused_restore_cookie"
+
+        class FakeXianyuLive:
+            def __init__(self, *args, **kwargs):
+                self.cookies_str = "unb=qr-paused-restore; token=real"
+
+            async def refresh_cookies_from_qr_login(self, qr_cookies_str, cookie_id=None, user_id=None):
+                reply_server.db_manager.update_cookie_account_info(
+                    cookie_id,
+                    cookie_value=self.cookies_str,
+                    user_id=user_id,
+                )
+                return True
+
+            @classmethod
+            def mark_qr_login_grace(cls, *args, **kwargs):
+                return None
+
+            @classmethod
+            def clear_qr_login_grace(cls, *args, **kwargs):
+                return None
+
+            @classmethod
+            def clear_password_login_failure_backoff(cls, *args, **kwargs):
+                return None
+
+        class FakeManager:
+            def __init__(self):
+                self.cookie_status = {}
+                self.updated = []
+
+            def update_cookie(self, cookie_id, new_value, save_to_db=True):
+                self.updated.append(cookie_id)
+                future = concurrent.futures.Future()
+                future.set_result(None)
+                return future
+
+        import XianyuAutoAsync
+
+        reply_server.db_manager.save_cookie(cookie_id, "unb=qr-paused-restore; token=old", user_id=2)
+        reply_server.db_manager.save_cookie_status(cookie_id, False)
+        reply_server.db_manager.update_cookie_status_note(cookie_id, "待二维码验证")
+
+        fake_manager = FakeManager()
+        monkeypatch.setattr(XianyuAutoAsync, "XianyuLive", FakeXianyuLive)
+        monkeypatch.setattr(reply_server.cookie_manager, "manager", fake_manager)
+
+        result = await reply_server.process_qr_login_cookies(
+            "unb=qr-paused-restore; token=qr",
+            "qr-paused-restore",
+            {"user_id": 2, "username": "user"},
+        )
+
+        assert result["task_restarted"] is True
+        assert fake_manager.updated == [cookie_id]
+        assert reply_server.db_manager.get_cookie_status(cookie_id) is True
+        details = reply_server.db_manager.get_cookie_details(cookie_id)
+        assert details["status_note"] == ""
+        assert fake_manager.cookie_status.get(cookie_id) is True
+
+    @pytest.mark.asyncio
+    async def test_qr_login_keeps_manually_disabled_account(self, user_auth, monkeypatch):
+        """用户手动禁用（status_note 为空）的账号，扫码成功后不自动启用。"""
+        cookie_id = "qr_manual_disabled_cookie"
+
+        class FakeXianyuLive:
+            def __init__(self, *args, **kwargs):
+                self.cookies_str = "unb=qr-manual-disabled; token=real"
+
+            async def refresh_cookies_from_qr_login(self, qr_cookies_str, cookie_id=None, user_id=None):
+                reply_server.db_manager.update_cookie_account_info(
+                    cookie_id,
+                    cookie_value=self.cookies_str,
+                    user_id=user_id,
+                )
+                return True
+
+            @classmethod
+            def mark_qr_login_grace(cls, *args, **kwargs):
+                return None
+
+            @classmethod
+            def clear_qr_login_grace(cls, *args, **kwargs):
+                return None
+
+            @classmethod
+            def clear_password_login_failure_backoff(cls, *args, **kwargs):
+                return None
+
+        class FakeManager:
+            def __init__(self):
+                self.cookie_status = {}
+                self.updated = []
+
+            def update_cookie(self, cookie_id, new_value, save_to_db=True):
+                self.updated.append(cookie_id)
+                future = concurrent.futures.Future()
+                future.set_result(None)
+                return future
+
+        import XianyuAutoAsync
+
+        reply_server.db_manager.save_cookie(cookie_id, "unb=qr-manual-disabled; token=old", user_id=2)
+        reply_server.db_manager.save_cookie_status(cookie_id, False)
+
+        fake_manager = FakeManager()
+        monkeypatch.setattr(XianyuAutoAsync, "XianyuLive", FakeXianyuLive)
+        monkeypatch.setattr(reply_server.cookie_manager, "manager", fake_manager)
+
+        result = await reply_server.process_qr_login_cookies(
+            "unb=qr-manual-disabled; token=qr",
+            "qr-manual-disabled",
+            {"user_id": 2, "username": "user"},
+        )
+
+        assert result["task_restarted"] is False
+        assert result["manual_disabled_skip_restart"] is True
+        # 真实 Cookie 已成功落库——"是否获取到真实Cookie"与"是否切换任务"是两件事，
+        # 手动禁用只是不启动任务，不能误判成"真实Cookie获取失败"
+        assert result["real_cookie_refreshed"] is True
+        assert fake_manager.updated == []  # 手动禁用：不启动任务（无 handoff）
+        assert reply_server.db_manager.get_cookie_status(cookie_id) is False
+        assert fake_manager.cookie_status.get(cookie_id) is None
+        details = reply_server.db_manager.get_cookie_details(cookie_id)
+        assert details["status_note"] == ""
+        # Cookie 保留更新后的值（不回滚），启用后直接生效
+        assert "token=real" in (details.get("value") or "")
+        assert "手动禁用" in (result.get("warning_message") or "")
+
+    def test_qr_refresh_cookies_restores_system_paused_account(self, client, user_auth, monkeypatch):
+        """扫码刷新 Cookie 路径：系统停用账号应恢复启用，且内存翻转先于任务切换。"""
+        cookie_id = "qr_refresh_paused_restore_cookie"
+
+        class FakeXianyuLive:
+            def __init__(self, *args, **kwargs):
+                self.cookies_str = "unb=refresh-restore; token=real"
+
+            async def refresh_cookies_from_qr_login(self, qr_cookies_str, cookie_id=None, user_id=None):
+                reply_server.db_manager.update_cookie_account_info(
+                    cookie_id,
+                    cookie_value=self.cookies_str,
+                    user_id=user_id,
+                )
+                return True
+
+        class FakeManager:
+            def __init__(self):
+                self.cookie_status = {}
+                self.status_at_update = []
+
+            def update_cookie(self, cookie_id, new_value, save_to_db=True):
+                # 钉住时序：update_cookie 读取 original_status 时内存必须已翻转
+                # 为 True，否则真实实例会读到禁用状态自查退出
+                self.status_at_update.append(self.cookie_status.get(cookie_id))
+                future = concurrent.futures.Future()
+                future.set_result(None)
+                return future
+
+        import XianyuAutoAsync
+
+        reply_server.db_manager.save_cookie(cookie_id, "unb=refresh-restore; token=old", user_id=2)
+        reply_server.db_manager.save_cookie_status(cookie_id, False)
+        reply_server.db_manager.update_cookie_status_note(cookie_id, "待二维码验证")
+
+        fake_manager = FakeManager()
+        monkeypatch.setattr(XianyuAutoAsync, "XianyuLive", FakeXianyuLive)
+        monkeypatch.setattr(reply_server.cookie_manager, "manager", fake_manager)
+
+        resp = client.post(
+            "/qr-login/refresh-cookies",
+            json={"cookie_id": cookie_id, "qr_cookies": "unb=refresh-restore; token=qr"},
+            headers=user_auth,
+        )
+
+        assert resp.status_code == 200
+        assert resp.json()["success"] is True
+        assert fake_manager.status_at_update == [True]
+        assert reply_server.db_manager.get_cookie_status(cookie_id) is True
+        details = reply_server.db_manager.get_cookie_details(cookie_id)
+        assert details["status_note"] == ""
+        assert fake_manager.cookie_status.get(cookie_id) is True
+
+    def test_face_verification_screenshot_is_owner_only(self, client, other_user_auth, user_auth):
+        account_id = "face_verify_owner_only_account"
+        reply_server.db_manager.save_cookie(account_id, "unb=owner; token=value", user_id=2)
+
+        screenshots_dir = Path(reply_server.static_dir) / "uploads" / "images"
+        screenshots_dir.mkdir(parents=True, exist_ok=True)
+        screenshot_path = screenshots_dir / f"face_verify_{account_id}_owner.jpg"
+        screenshot_path.write_bytes(b"fake-jpg-data")
+
+        foreign_read = client.get(f"/face-verification/screenshot/{account_id}", headers=other_user_auth)
+        assert foreign_read.status_code == 200
+        assert foreign_read.json()["success"] is False
+
+        owner_read = client.get(f"/face-verification/screenshot/{account_id}", headers=user_auth)
+        assert owner_read.status_code == 200
+        assert owner_read.json()["success"] is True
+
+        foreign_delete = client.delete(f"/face-verification/screenshot/{account_id}", headers=other_user_auth)
+        assert foreign_delete.status_code == 200
+        assert foreign_delete.json()["success"] is False
+
+        owner_delete = client.delete(f"/face-verification/screenshot/{account_id}", headers=user_auth)
+        assert owner_delete.status_code == 200
+        assert owner_delete.json()["success"] is True
+        assert not screenshot_path.exists()

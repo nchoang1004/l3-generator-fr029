@@ -1,0 +1,359 @@
+"""Session auto-wake — the keystone that unifies invoke = steer = resume.
+
+An inbound user message re-arms a session's scheduler claim so the worker
+runs a fresh turn, regardless of the session's current lifecycle state.
+Mirrors the deleted chat surface's persist+wake
+tail: the session's on-disk ``messages.jsonl`` IS the FIFO queue
+(``AgentSession.append_instruction``); the scheduler-visible
+``WorkspaceSession`` row carries the claim state (``turn_status`` +
+``ClaimEngine`` lease + scheduler enqueue).
+
+Behaviour by status (studio-agents-interact §4.2 / §5.1):
+  * CREATED           -> invoke  (transition to RUNNING; run with the message)
+  * RUNNING / WAITING -> steer   (queue as the next turn; re-arm the claim)
+  * PAUSED, human_intent=True  -> resume (clear pause; transition to RUNNING)
+  * PAUSED, human_intent=False -> hold   (queue the message; pause untouched
+                                          -- 01a08c08, see ``human_intent``)
+  * ENDED             -> restart (reopen + invocation divider, then invoke)
+
+Uniform "send a message" semantics: every clean agent turn ends the session,
+and sending a NEW message to an ENDED session reopens it (reopen the on-disk
+slot, write an invocation divider, run a fresh turn) instead of erroring. A
+non-restartable ``ended_reason`` (``workspace_lost``/``force_deleted``) still
+raises ConflictError.
+"""
+
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from typing import Any
+
+from primer.int.claim import ClaimKind
+from primer.model.except_ import NotFoundError
+from primer.model.workspace_session import (
+    SessionMessageKind,
+    SessionMessageRecord,
+    SessionStatus,
+    WorkspaceSession,
+)
+from primer.session.mutation_lock import session_lifecycle_lock
+from primer.session.persistence import WorkspaceMessageWriter
+from primer.session.reset import _reopen_ended_locked
+from primer.session.title import derive_title_from_text
+
+logger = logging.getLogger(__name__)
+
+_RESUMABLE = {
+    SessionStatus.CREATED,
+    SessionStatus.PAUSED,
+    SessionStatus.WAITING,
+}
+
+
+@dataclass
+class SessionWakeDeps:
+    """Collaborators :func:`wake_session` needs.
+
+    ``event_bus`` is optional: when present a ``session:{sid}:claimable``
+    event is published for observability (the scheduler enqueue + claim
+    upsert are the load-bearing pulse). ``workspace_registry`` is required
+    when an ``instruction`` is supplied (to reach the on-disk slot's FIFO).
+    """
+
+    storage_provider: Any
+    scheduler: Any
+    claim_engine: Any
+    workspace_registry: Any
+    event_bus: Any | None = None
+
+
+async def wake_session(
+    *,
+    workspace_id: str,
+    session_id: str,
+    instruction: str | None,
+    deps: SessionWakeDeps,
+    human_intent: bool,
+    external_tools: "list | None" = None,
+    extra_parts: "list | None" = None,
+    extra_payload: "dict | None" = None,
+) -> WorkspaceSession:
+    """Append ``instruction`` (if any) and re-arm the session's claim.
+
+    ``extra_parts`` (vision/document attachments, already resolved to
+    artifact-backed :class:`~primer.model.chat.Part` objects) rides the
+    same :class:`~primer.model.chat.Message` the instruction's
+    :class:`~primer.model.chat.TextPart` does -- forwarded to
+    :meth:`AgentSession.append_instruction`. ``extra_payload`` merges into
+    the USER_INPUT display record's ``payload`` dict (e.g. attachment
+    paths) so the transcript surface can show what was attached without
+    reconstructing it from the full Message. Both ``None`` (every
+    existing caller) is unchanged behaviour.
+
+    ``human_intent`` (01a08c08, REQUIRED, no default on purpose): does a
+    live human's decision to re-engage stand behind THIS wake? True for
+    the console steer endpoint and a channel thread reply. False for a
+    trigger's session_append subscription, an agent-to-agent steer tool
+    call, and a queued message's own later realization (a replay of an
+    EARLIER human action, not fresh intent). A pause is a control a human
+    exercised on purpose; wake_session must not be the place that quietly
+    decides an unrelated automated event counts as that human changing
+    their mind. See the ``pause_requested`` handling below -- a non-human
+    wake queues instead of clearing it, so a new caller literally cannot
+    compile without someone consciously stating which side of that line
+    they're on.
+
+    Raises NotFoundError (missing / workspace mismatch). An ENDED session is
+    reopened in place (reopen slot + invocation divider + ENDED->CREATED)
+    before the normal invoke flow, so a new message restarts it; a
+    non-restartable ``ended_reason`` (``workspace_lost``/``force_deleted``)
+    still raises ConflictError. Serialised against concurrent
+    cancel/pause/resume via the session lifecycle lock so the ``turn_status``
+    flip + status transition never interleave with a racing cancel's ENDED
+    write.
+    """
+    sessions = deps.storage_provider.get_storage(WorkspaceSession)
+    async with session_lifecycle_lock().acquire(session_id):
+        row = await sessions.get(session_id)
+        if row is None or row.workspace_id != workspace_id:
+            raise NotFoundError(
+                f"Session {session_id!r} does not exist on workspace "
+                f"{workspace_id!r}"
+            )
+        if row.status == SessionStatus.ENDED:
+            # Reopen the ended session in place so a NEW message restarts it
+            # (reopen slot + invocation divider + ENDED->CREATED). We hold the
+            # non-reentrant session_lifecycle_lock, and reset_session acquires
+            # the SAME lock -- calling it here would deadlock -- so we share
+            # its lock-free reopen body via _reopen_ended_locked. The helper
+            # raises ConflictError for non-restartable ended_reasons. After
+            # this, row is CREATED and the normal wake flow below appends the
+            # USER_INPUT (after the divider) and runs the turn.
+            row, _invocation = await _reopen_ended_locked(
+                row=row,
+                workspace_id=workspace_id,
+                session_id=session_id,
+                sessions=sessions,
+                workspace_registry=deps.workspace_registry,
+            )
+            # Surface the invocation divider live before the USER_INPUT tick
+            # below (mirrors reset_session's divider tick). Advisory.
+            if deps.event_bus is not None:
+                try:
+                    await deps.event_bus.publish(
+                        f"session:{session_id}:tick", {"seq": row.last_seq}
+                    )
+                except Exception:  # noqa: BLE001 -- advisory
+                    logger.exception(
+                        "wake_session: failed to publish divider tick for %s",
+                        session_id,
+                    )
+
+        if row.pause_requested and not human_intent:
+            # 01a08c08: the operator paused this session on purpose; a
+            # non-human wake (trigger fire, agent-to-agent steer, a
+            # queued message replaying) must not be the thing that
+            # silently un-pauses it. Queue the instruction through the
+            # SAME pending-message mechanism deliver_steer already uses
+            # for a busy session (store_pending_steer / realize_next_
+            # pending), rather than forcing a resume nobody asked for or
+            # dropping the message outright. The row is NOT written here
+            # -- pause_requested, status, and turn_status all stay exactly
+            # as they were.
+            pending_id = None
+            if instruction:
+                # Deferred: pending_messages.py imports wake_session from
+                # this module, so a top-level import here would cycle.
+                from primer.session.pending_messages import store_pending_steer
+
+                pending = await store_pending_steer(
+                    storage_provider=deps.storage_provider,
+                    session=row,
+                    text=instruction,
+                    workspace_registry=deps.workspace_registry,
+                    event_bus=deps.event_bus,
+                )
+                pending_id = pending.id
+            await _record_pause_superseded(
+                deps, workspace_id=workspace_id, session_id=session_id,
+                row=row, action="queued", pending_id=pending_id,
+            )
+            return row
+
+        # 1. Append the user message to the on-disk slot FIFO (the queue) and
+        #    persist a USER_INPUT record to messages.jsonl so the sent message
+        #    shows in the session transcript. The slot FIFO is the worker's
+        #    queue; messages.jsonl is the display log — separate surfaces, so
+        #    the USER_INPUT record is written even when the slot is absent
+        #    (mirrors the chat lane's append_user_message + reset_session's
+        #    divider write via WorkspaceMessageWriter). Exactly one record per
+        #    supplied instruction, so a steer/invoke never double-records.
+        user_input_seq: int | None = None
+        if instruction:
+            ws = await deps.workspace_registry.get_workspace(workspace_id)
+            # get_workspace() itself is already defended against a
+            # concurrently-destroyed workspace (WorkspaceRegistry.get_workspace
+            # / the local backend's _reattach both degrade a gone/mid-teardown
+            # workspace to a clean NotFoundError). But once a live `ws` handle
+            # is in hand, a workspace DELETE racing this same wake_session can
+            # still tear down the on-disk root out from under the writes below
+            # (WorkspaceRegistry.destroy: pop-from-cache -> aclose -> rmtree,
+            # not serialised against a caller already holding `ws`) - a plain
+            # filesystem OSError (e.g. FileNotFoundError mid-rmtree) from
+            # either write is exactly that race, not a real internal error,
+            # so map it to the same NotFoundError this function already
+            # raises for "workspace not found" rather than letting it surface
+            # as an unhandled 500 (01a0518a/5e4f8c39 follow-up: T0716).
+            try:
+                slot = await ws.get_session(session_id)
+                if slot is not None:
+                    await slot.append_instruction(
+                        instruction, extra_parts=extra_parts,
+                    )
+                writer = WorkspaceMessageWriter(
+                    workspace_io=ws, session_id=session_id, start_seq=row.last_seq,
+                )
+                user_input_seq = await writer.append(SessionMessageRecord(
+                    seq=1,  # overwritten by the writer's monotonic counter
+                    kind=SessionMessageKind.USER_INPUT,
+                    payload={"text": instruction, **(extra_payload or {})},
+                    created_at=datetime.now(timezone.utc),
+                ))
+                await writer.flush()
+            except OSError as exc:
+                raise NotFoundError(
+                    f"workspace {workspace_id!r} was removed while writing "
+                    f"session {session_id!r}'s instruction"
+                ) from exc
+
+        # Replace the active external tool set for the turn this wake
+        # triggers (None = leave the set unchanged; [] = clear it). Dumped
+        # by_alias so the stored dicts carry the wire "schema" key.
+        if external_tools is not None:
+            row.external_tools = [
+                d.model_dump(by_alias=True) for d in external_tools
+            ]
+
+        # 2. Re-arm the scheduler-visible row: claimable + clear pause;
+        #    CREATED/PAUSED/WAITING advance to RUNNING (like /resume).
+        # 01a08c08: a human-intent wake DOES still clear an existing pause
+        # here (Q1's trace: "typing a message while paused means resume"
+        # is the right call for a live human) -- but it must not do so
+        # silently. was_paused is recorded below via PAUSE_SUPERSEDED so an
+        # operator returning to the session can see that their pause was
+        # superseded, and by what.
+        was_paused = row.pause_requested
+        # A human who writes after pressing Stop has re-engaged, so that message wins over the
+        # earlier Stop: left on the row, the flag would stop the very turn their message starts,
+        # before its first token. Only when no turn is executing: a message sent WHILE a turn runs
+        # is queued behind it, and the Stop is aimed at that running turn. And only a human's
+        # message, never an automated wake (a trigger must not override a human's Stop).
+        if human_intent and instruction and row.turn_status != "running":
+            row.interrupt_requested = False
+        row.turn_status = "claimable"
+        row.pause_requested = False
+        row.pause_requested_at = None
+        if user_input_seq is not None:
+            row.last_seq = user_input_seq
+        # Name the session from its opening instruction, once. Sessions
+        # are the only conversational surface now, so the session list
+        # needs the same readable titles the chat list had; a later
+        # rename by the user must never be overwritten, hence the
+        # None check rather than a blanket restamp.
+        if instruction and row.name is None:
+            row.name = derive_title_from_text(instruction)
+        if row.status in _RESUMABLE:
+            row.status = SessionStatus.RUNNING
+            if row.started_at is None:
+                row.started_at = datetime.now(timezone.utc)
+        await sessions.update(row)
+
+        # 3. Pulse the scheduler + claim engine so a worker runs the turn.
+        await deps.scheduler.enqueue(session_id)
+        if deps.claim_engine is not None:
+            await deps.claim_engine.upsert(ClaimKind.SESSION, session_id)
+        if deps.event_bus is not None:
+            try:
+                await deps.event_bus.publish(
+                    f"session:{session_id}:claimable", {}
+                )
+            except Exception:  # noqa: BLE001 -- never break the wake
+                logger.exception(
+                    "wake_session: failed to publish claimable for %s",
+                    session_id,
+                )
+            # Tick so the workspace tap surfaces the just-persisted USER_INPUT
+            # record live (reset_session publishes the same event for its
+            # invocation divider). Advisory — never break the wake.
+            if user_input_seq is not None:
+                try:
+                    await deps.event_bus.publish(
+                        f"session:{session_id}:tick", {"seq": user_input_seq}
+                    )
+                except Exception:  # noqa: BLE001 -- advisory
+                    logger.exception(
+                        "wake_session: failed to publish tick for %s",
+                        session_id,
+                    )
+        if was_paused:
+            await _record_pause_superseded(
+                deps, workspace_id=workspace_id, session_id=session_id,
+                row=row, action="cleared", pending_id=None,
+            )
+        return row
+
+
+async def _record_pause_superseded(
+    deps: SessionWakeDeps,
+    *,
+    workspace_id: str,
+    session_id: str,
+    row: WorkspaceSession,
+    action: str,
+    pending_id: str | None,
+) -> None:
+    """Append a PAUSE_SUPERSEDED record so a touched pause is never silent.
+
+    Best-effort: a missing workspace / write failure is logged and
+    swallowed, mirroring every other advisory write in this module
+    (the divider tick above, wake_session's own claimable/tick publishes)
+    -- an operator losing the ANNOUNCEMENT of a pause change must not
+    also cost them the wake or the queued message it's reporting on.
+    """
+    if deps.workspace_registry is None:
+        return
+    try:
+        ws = await deps.workspace_registry.get_workspace(workspace_id)
+        if ws is None:
+            return
+        writer = WorkspaceMessageWriter(
+            workspace_io=ws, session_id=session_id, start_seq=row.last_seq,
+        )
+        seq = await writer.append(SessionMessageRecord(
+            seq=1,  # overwritten by the writer's monotonic counter
+            kind=SessionMessageKind.PAUSE_SUPERSEDED,
+            payload={"action": action, "pending_id": pending_id},
+            created_at=datetime.now(timezone.utc),
+        ))
+        await writer.flush()
+    except Exception:  # noqa: BLE001 -- advisory, never block the wake
+        logger.exception(
+            "wake_session: failed to record pause-superseded (%s) for %s",
+            action, session_id,
+        )
+        return
+    if deps.event_bus is not None:
+        try:
+            await deps.event_bus.publish(
+                f"session:{session_id}:tick", {"seq": seq}
+            )
+        except Exception:  # noqa: BLE001 -- advisory
+            logger.exception(
+                "wake_session: failed to publish pause-superseded tick for %s",
+                session_id,
+            )
+
+
+__all__ = ["SessionWakeDeps", "wake_session"]

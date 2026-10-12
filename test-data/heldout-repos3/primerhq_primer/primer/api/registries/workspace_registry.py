@@ -1,0 +1,275 @@
+"""Workspace backend registry — caches one backend per ``WorkspaceProvider`` row.
+
+Mirrors the :class:`ProviderRegistry` pattern: lazy lookup, in-memory
+cache keyed by row id, ``invalidate`` after row mutation, ``aclose``
+on shutdown.
+
+Adds two convenience helpers on top:
+
+* :meth:`get_workspace` — given a ``Workspace`` row, finds the right
+  backend (via the row's ``provider_id``) and asks the backend for the
+  live :class:`Workspace` handle. Raises ``NotFoundError`` if the
+  backend has never instantiated this id (e.g. after process restart
+  with an ephemeral backend).
+* :meth:`destroy` — same lookup, then ``backend.destroy(...)`` + row
+  delete.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+from collections.abc import Callable
+from typing import TYPE_CHECKING
+
+from primer.model.except_ import NotFoundError
+from primer.model.workspace_refusal import WorkspaceRefusedError
+from primer.model.workspace import Workspace as WorkspaceRow
+from primer.model.workspace import (
+    WorkspaceProvider,
+    WorkspaceTemplate,
+    WorkspaceTemplateOverrides,
+)
+from primer.workspace.files import FileResolvers
+from primer.workspace.local_policy import LocalWorkspacePolicy
+from primer.workspace.resolvers import (
+    make_document_resolver,
+    make_secret_resolver,
+)
+from primer.workspace.session_reconcile import reconcile_sessions_to_workspace_lost
+
+
+if TYPE_CHECKING:
+    from primer.int.secret_provider import SecretProvider
+    from primer.int.storage_provider import StorageProvider
+    from primer.int.workspace import Workspace, WorkspaceBackend
+
+
+logger = logging.getLogger(__name__)
+
+
+def _make_default_factory(
+    subprocess_timeout_seconds: float = 120.0,
+) -> "Callable[[WorkspaceProvider], WorkspaceBackend]":
+    """Return a backend factory that threads ``subprocess_timeout_seconds`` through."""
+    def _factory(provider: WorkspaceProvider) -> "WorkspaceBackend":  # pragma: no cover
+        from primer.workspace.factory import WorkspaceBackendFactory
+        return WorkspaceBackendFactory.create(
+            provider,
+            subprocess_timeout_seconds=subprocess_timeout_seconds,
+        )
+    return _factory
+
+
+# Back-compat shim: kept so existing test code that imports _default_factory
+# or passes factory=None still works (zero timeout argument -> default 120s).
+def _default_factory(
+    provider: WorkspaceProvider,
+) -> "WorkspaceBackend":  # pragma: no cover
+    """Production dispatch via :class:`WorkspaceBackendFactory`.
+
+    Local import keeps the workspace runtime out of the hot import
+    graph until a backend is actually constructed.
+    """
+    from primer.workspace.factory import WorkspaceBackendFactory
+
+    return WorkspaceBackendFactory.create(provider)
+
+
+class WorkspaceRegistry:
+    """Lazy backend cache keyed by :class:`WorkspaceProvider` row id."""
+
+    def __init__(
+        self,
+        storage_provider: "StorageProvider",
+        *,
+        factory: Callable[[WorkspaceProvider], "WorkspaceBackend"] | None = None,
+        subprocess_timeout_seconds: float = 120.0,
+        secret_provider: "SecretProvider | None" = None,
+        local_policy: LocalWorkspacePolicy | None = None,
+    ) -> None:
+        self._sp = storage_provider
+        self._secret_provider = secret_provider
+        # Where a workspace on a local provider may be used (ticket 01a1072f). The default is the
+        # permissive policy, so a registry built without one behaves exactly as before.
+        self._local_policy = local_policy or LocalWorkspacePolicy()
+        # If a custom factory is supplied, use it as-is; otherwise build a
+        # default factory that captures the configured subprocess timeout.
+        self._factory = factory or _make_default_factory(subprocess_timeout_seconds)
+        self._cache: dict[str, "WorkspaceBackend"] = {}
+        self._lock = asyncio.Lock()
+
+    # ---- backend cache -----------------------------------------------
+
+    @property
+    def local_policy(self) -> LocalWorkspacePolicy:
+        """Where a workspace on a local provider may be used; the health route and the create paths read it."""
+        return self._local_policy
+
+    async def get_backend(self, provider_id: str) -> "WorkspaceBackend":
+        """The backend for *provider_id*; the ONE funnel every workspace access passes through.
+
+        Raises :class:`WorkspaceRefusedError` for a local provider the deployment refuses
+        (:class:`LocalWorkspacePolicy`), BEFORE the backend is built, so a refused provider never creates its
+        directories on this process's disk. The policy is fixed for the registry's life and only an allowed
+        backend is ever cached, so a cache hit needs no check of its own.
+        """
+        async with self._lock:
+            cached = self._cache.get(provider_id)
+            if cached is not None:
+                return cached
+            row = await self._sp.get_storage(WorkspaceProvider).get(provider_id)
+            if row is None:
+                raise NotFoundError(
+                    f"WorkspaceProvider {provider_id!r} does not exist"
+                )
+            self._local_policy.check_provider(row)
+            backend = self._factory(row)
+            await backend.initialize()
+            self._cache[provider_id] = backend
+            return backend
+
+    async def check_workspace_allowed(self, workspace_id: str) -> None:
+        """Raise :class:`WorkspaceRefusedError` when *workspace_id* sits on a provider this deployment refuses.
+
+        A policy-only look (the workspace row and its provider row, no backend built, nothing attached), for a caller
+        that must know BEFORE it reports or clears anything that depends on the workspace being usable. Costs nothing
+        while the policy refuses nothing, which is the default.
+        """
+        if not self._local_policy.refuses_local:
+            return
+        row = await self.get_workspace_row(workspace_id)
+        provider = await self._sp.get_storage(WorkspaceProvider).get(row.provider_id)
+        if provider is None:
+            return
+        try:
+            self._local_policy.check_provider(provider)
+        except WorkspaceRefusedError as exc:
+            raise exc.for_workspace(workspace_id) from None
+
+    async def invalidate(self, provider_id: str) -> None:
+        async with self._lock:
+            backend = self._cache.pop(provider_id, None)
+        if backend is not None:
+            await backend.aclose()
+
+    async def aclose(self) -> None:
+        async with self._lock:
+            backends = list(self._cache.values())
+            self._cache.clear()
+        for backend in backends:
+            try:
+                await backend.aclose()
+            except Exception as exc:  # noqa: BLE001 -- best-effort
+                logger.warning(
+                    "WorkspaceRegistry: aclose failed on %s: %s",
+                    type(backend).__name__,
+                    exc,
+                )
+
+    # ---- per-workspace helpers ---------------------------------------
+
+    async def get_workspace_row(self, workspace_id: str) -> WorkspaceRow:
+        """Fetch the persisted ``Workspace`` row; 404 if missing."""
+        row = await self._sp.get_storage(WorkspaceRow).get(workspace_id)
+        if row is None:
+            raise NotFoundError(
+                f"Workspace {workspace_id!r} does not exist"
+            )
+        return row
+
+    async def get_workspace(self, workspace_id: str) -> "Workspace":
+        """Resolve the live :class:`Workspace` handle.
+
+        After a process restart the backend may have an empty in-memory
+        cache. We load the persisted template and pass it to
+        ``backend.get`` so Container/K8s backends can re-attach to the
+        long-lived sandbox they materialised on a previous boot.
+        """
+        row = await self.get_workspace_row(workspace_id)
+        try:
+            backend = await self.get_backend(row.provider_id)
+        except WorkspaceRefusedError as exc:
+            # The gate only sees a provider; say which workspace the caller was resolving.
+            raise exc.for_workspace(workspace_id) from None
+        template = await self._sp.get_storage(WorkspaceTemplate).get(
+            row.template_id,
+        )
+        ws = await backend.get(workspace_id, template=template)
+        if ws is None:
+            raise NotFoundError(
+                f"Workspace {workspace_id!r} row exists but the backend "
+                "has no live instance and re-attach failed — the "
+                "underlying container/pod may have been destroyed "
+                "out-of-band."
+            )
+        return ws
+
+    async def materialise(
+        self,
+        *,
+        template: WorkspaceTemplate,
+        overrides: WorkspaceTemplateOverrides | None = None,
+        workspace_id: str | None = None,
+    ) -> "Workspace":
+        """Create a new live workspace via the right backend.
+
+        ``workspace_id`` pins the live instance to a caller-supplied id
+        (typically the same id the durable row is keyed by). Forwarding
+        it keeps the row id and the live instance id in sync so re-attach
+        via :meth:`get_workspace` works after the cache is evicted.
+        """
+        backend = await self.get_backend(template.provider_id)
+        resolvers = FileResolvers(
+            document_resolver=make_document_resolver(self._sp),
+            secret_resolver=(
+                make_secret_resolver(self._secret_provider)
+                if self._secret_provider is not None
+                else None
+            ),
+        )
+        return await backend.create(
+            template,
+            overrides=overrides,
+            workspace_id=workspace_id,
+            resolvers=resolvers,
+        )
+
+    async def destroy(self, workspace_id: str) -> None:
+        """Destroy the live workspace AND drop the persisted row.
+
+        Reconciles open sessions to ENDED/``workspace_lost`` BEFORE the
+        row is deleted (real bug fixed here: the row used to be
+        hard-deleted first, but the probe's own ``workspace_lost``
+        reconciliation only runs as a side effect of observing a row
+        transition to ``phase == "failed"`` -- with the row already
+        gone, that transition can never be observed, so sessions in a
+        destroyed workspace were silently orphaned instead of ending).
+        """
+        row = await self.get_workspace_row(workspace_id)
+        try:
+            backend = await self.get_backend(row.provider_id)
+        except WorkspaceRefusedError:
+            # An explicit destroy is how an operator abandons a workspace this deployment refuses
+            # (ticket 01a1072f). The backend is not reachable by policy, so only the row goes (and its
+            # sessions, below): whatever the workspace left on the provider's disk stays for the operator.
+            logger.warning(
+                "WorkspaceRegistry: destroying workspace %s on the refused local provider %s drops "
+                "its row only; its files are left in place",
+                workspace_id, row.provider_id,
+            )
+            backend = None
+        try:
+            if backend is not None:
+                await backend.destroy(workspace_id)
+        except NotFoundError:
+            # Row exists but backend has no live instance; still drop
+            # the row so callers can re-materialise without a stale
+            # collision.
+            pass
+
+        await reconcile_sessions_to_workspace_lost(self._sp, workspace_id)
+        await self._sp.get_storage(WorkspaceRow).delete(workspace_id)
+
+
+__all__ = ["WorkspaceRegistry"]

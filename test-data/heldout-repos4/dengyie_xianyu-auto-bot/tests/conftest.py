@@ -1,0 +1,94 @@
+"""Shared test fixtures — tokens, auth headers, and FastAPI TestClient."""
+import os
+import sys
+import time
+import pytest
+
+PROJECT_ROOT = os.path.dirname(os.path.dirname(__file__))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+os.environ["DB_PATH"] = ":memory:"
+os.environ.setdefault("SQL_LOG_ENABLED", "false")
+# 测试默认禁止真实浏览器兜底（DrissionPage/Chromium）；CI 无浏览器时会卡死到硬超时
+os.environ.setdefault("XY_SLIDER_DRISSION_FALLBACK", "false")
+os.environ.setdefault("XY_SLIDER_REMOTE_ENABLED", "false")
+
+# 让 noVNC 的 /websockify 端点（及其会话鉴权门）在测试环境也注册：
+# 生产里 /usr/share/novnc 存在、该块会执行；Windows 本地测试环境该目录不存在，
+# 整块被跳过，导致鉴权门的运行时行为无法被行为测试覆盖。这里指向一个空的临时
+# 目录——只注册 /websockify，不注册 noVNC 静态页面/挂载（子目录与页面文件都不存在）。
+import tempfile as _tempfile
+_novnc_test_root = _tempfile.mkdtemp(prefix="novnc-test-root-")
+os.environ["NOVNC_WEB_ROOT"] = _novnc_test_root
+
+import reply_server
+
+
+def _make_token(user_id, username="admin", is_admin=True):
+    """Put a token into SESSION_TOKENS and return it."""
+    import secrets
+    token = secrets.token_urlsafe(32)
+    reply_server.SESSION_TOKENS[token] = {
+        "user_id": user_id,
+        "username": username,
+        "is_admin": is_admin,
+        "timestamp": time.time(),
+    }
+    return token
+
+
+@pytest.fixture
+def admin_token() -> str:
+    """Create an admin user in DB and return a valid Bearer token."""
+    db = reply_server.db_manager
+    if db.get_user_by_username("admin"):
+        db.update_user_password("admin", "admin123")
+    else:
+        db.create_user("admin", "admin@test.local", "admin123")
+    return _make_token(1, "admin", True)
+
+
+@pytest.fixture
+def auth(admin_token: str) -> dict:
+    """Return auth headers for admin user."""
+    return {"Authorization": f"Bearer {admin_token}"}
+
+
+@pytest.fixture
+def user_token() -> str:
+    """Create a regular user and return a valid Bearer token."""
+    db = reply_server.db_manager
+    db.create_user("testuser", "test@test.local", "test123")
+    return _make_token(2, "testuser", False)
+
+
+@pytest.fixture
+def user_auth(user_token: str) -> dict:
+    """Return auth headers for regular user."""
+    return {"Authorization": f"Bearer {user_token}"}
+
+
+@pytest.fixture
+def other_user_token() -> str:
+    """Create a second regular user and return a valid Bearer token."""
+    db = reply_server.db_manager
+    username = "testuser2"
+    if db.get_user_by_username(username):
+        db.update_user_password(username, "test123")
+    else:
+        db.create_user(username, "test2@test.local", "test123")
+    return _make_token(3, username, False)
+
+
+@pytest.fixture
+def other_user_auth(other_user_token: str) -> dict:
+    """Return auth headers for a second regular user."""
+    return {"Authorization": f"Bearer {other_user_token}"}
+
+
+@pytest.fixture
+def client():
+    """Return a FastAPI TestClient for the app."""
+    from fastapi.testclient import TestClient
+    return TestClient(reply_server.app)

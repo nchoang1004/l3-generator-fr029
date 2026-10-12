@@ -1,0 +1,69 @@
+# Personal / local-only — never commit
+CLAUDE.local.md
+.claude/settings.local.json
+.env
+.env.*
+
+# App runtime
+/config/
+*.db
+*.sqlite
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Node / frontend
+node_modules/
+web/dist/
+web/.vite/
+
+# OS / editor
+.DS_Store
+.idea/
+
+# Browser/session artifacts (ad hoc screenshots dropped at the repo root — not fixture images,
+# which live under tests/fixtures/ or docs/images/ and must stay tracked)
+.playwright-mcp/
+/*.jpeg
+
+# hypothesis's own example database (test_privacy.py's @given properties) — not fixtures, and one
+# `git add -A` away from being committed if left untracked-but-unignored
+.hypothesis/
+
+# npm's lockfile. This project is pnpm (`packageManager` in web/package.json, and CI installs with
+# `pnpm --frozen-lockfile` against pnpm-lock.yaml). A stray `npm install` writes one of these, and a
+# second competing lockfile drifts from the real one and misleads anyone who reads it.
+package-lock.json
+
+# Scratch worktrees created by background agents — full repo copies, never committed.
+.claude/worktrees/
+
+# Jekyll, when the docs site is built locally to check a change. GitHub Pages builds the real
+# thing; these are a vendored Ruby toolchain and its output, and none of it belongs in the repo.
+docs/_site/
+docs/.jekyll-cache/
+docs/.jekyll-vendor/
+docs/.bundle/
+docs/Gemfile.local
+docs/Gemfile.local.lock
+
+# Real cover art for the demo library, fetched by scripts/fetch_demo_posters.py. Third-party
+# posters: the repo ships the finished screenshots, never a library of them.
+tests/e2e/assets/posters/
+
+# Impeccable working files: review captures, critique snapshots and approval mockups stay local.
+# PRODUCT.md, DESIGN.md, .impeccable/design.json and .impeccable/surfaces/ are committed.
+.impeccable/review/
+.impeccable/critique/
+.impeccable/mocks/

@@ -1,0 +1,164 @@
+# SpatiumDDI headless install preseed — CONTROL-PLANE (first node).
+# Issue #549. Drives `spatium-install` non-interactively at install
+# time. Copy to `spatium-preseed.yaml`, edit, and deliver it via one of
+# the transports in appliance/cloud-init/README.md (NoCloud CIDATA ISO,
+# kernel cmdline `spatium.preseed=`, or a file on the install medium).
+#
+# Every field is OPTIONAL. Anything omitted falls through to the
+# interactive whiptail prompt, so you can preseed everything-but-the-disk
+# and let an operator pick the target at the console. A field that is
+# PRESENT but invalid halts the install loudly (never a silent default).
+#
+# The block may sit at the top level of a cloud-init `user-data`
+# document too — cloud-init ignores the unknown `spatium_preseed` key,
+# and the installer reads it directly (see the Azure / AWS recipes in
+# README.md).
+spatium_preseed:
+  # ── Role ────────────────────────────────────────────────────────────
+  # control-plane = the FIRST SpatiumDDI node (api + db + web UI + k3s
+  # seed). Aliases: first-node, control.
+  role: control-plane
+
+  # ── Destructive-disk safety ─────────────────────────────────────────
+  # An unattended install WIPES this disk with no human in the loop.
+  # BOTH of these are required for the installer to auto-select + wipe:
+  #   * confirm_wipe: true
+  #   * target_disk resolving to exactly one whole disk.
+  # Prefer a STABLE id under /dev/disk/by-id or /dev/disk/by-path — a
+  # bare /dev/sda can renumber between boots. If target_disk is omitted
+  # (or unresolvable), the console disk-picker runs instead.
+  confirm_wipe: true
+  target_disk: /dev/disk/by-id/ata-QEMU_HARDDISK_QM00001
+
+  # ── Storage redundancy (#999 Part C2) ───────────────────────────────
+  # Optional. Install onto a two-disk software RAID1 mirror, so the
+  # appliance keeps running AND keeps booting when one disk dies.
+  #
+  # The OS slots, STATE and /var become md members. The EFI system
+  # partition cannot (firmware reads it before the RAID driver exists),
+  # so each disk keeps its own and SpatiumDDI syncs them on every
+  # upgrade. ALL DATA on the mirror member is destroyed too.
+  #
+  # Refused rather than silently downgraded to a single-disk install:
+  #   * a member that does not exist or is not a whole disk,
+  #   * a member that resolves to the same device as target_disk,
+  #   * a member SMALLER than target_disk — a RAID1 is the size of its
+  #     smallest member, so it would quietly shrink /var.
+  # mirror_disk: /dev/disk/by-id/ata-QEMU_HARDDISK_QM00002
+
+  # ── Identity ────────────────────────────────────────────────────────
+  hostname: ddi-control-1          # RFC 1123: alnum + hyphen, <= 63 chars
+
+  # ── OS admin account (for SSH + sudo) ───────────────────────────────
+  admin_user: admin
+  # Supply EITHER admin_password (plaintext) OR admin_password_hash (a
+  # crypt(3) hash from e.g. `openssl passwd -6` / `mkpasswd -m sha-512`).
+  # The hash form keeps the cleartext out of the answer file. Never
+  # echoed to the console dashboard or logs.
+  admin_password: "change-me-please"
+  # admin_password_hash: "$6$rounds=4096$abcd...$..."
+
+  # Since #995 root is LOCKED (`passwd -l`) and you use sudo. sshd
+  # refused root either way, so this removes a console login, not a
+  # recovery path — `sudo -i`, `su -` and single-user mode all still
+  # work. Set true for the pre-#995 behaviour, where root got the same
+  # password as the admin account.
+  set_root_password: false
+
+  # ── Timezone (IANA name; default UTC) ───────────────────────────────
+  # Must be a real compiled zone file: a traversal, a directory
+  # ("America") and a non-zone file ("leapseconds") are all refused.
+  timezone: UTC
+
+  # ── Console keyboard layout (#995 item 17; default us) ──────────────
+  # An XKB layout code — the two-letter country code in most cases.
+  # Applied on the live console before the password prompt (so a
+  # passphrase with symbols is typed on the layout you meant) and
+  # persisted to /etc/default/keyboard. `localectl list-x11-keymap-layouts`
+  # lists them. A few console-style aliases are mapped for you:
+  # uk -> gb, br-abnt2 -> br+abnt2, jp106 -> jp, dvorak, us-acentos.
+  keymap: us
+
+  # ── Time source (#995 item 16) ──────────────────────────────────────
+  # String or list. Written to /etc/chrony/sources.d/spatium-install.sources
+  # AND seeded as the control plane's initial ntp_pool_servers (#1003
+  # item 2), so an air-gapped site's own server survives the first
+  # heartbeat instead of being replaced by the public pool.
+  #
+  # Empty writes no installer sources file, which is NOT the same as no
+  # time source: Debian's chrony.conf keeps its own `pool` directive
+  # (see issue #1002).
+  ntp_servers: pool.ntp.org
+  # ntp_servers:
+  #   - ntp1.corp.internal
+  #   - ntp2.corp.internal
+
+  # ── SSH access for the admin account (#995 item 18) ─────────────────
+  # String or list of OpenSSH public keys. A BOOTSTRAP, not a permanent
+  # grant: once the control plane manages SSH keys (#157) its list
+  # replaces this file. Validated with ssh-keygen, so a truncated paste
+  # is refused rather than silently ignored.
+  # ssh_authorized_keys:
+  #   - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA... ops@corp"
+  #
+  # Turn off password SSH. REFUSED (not warned) when no
+  # ssh_authorized_keys is set — an unattended install that disables
+  # password SSH with no key produces a box nobody can reach.
+  # ssh_disable_password: false
+
+  # ── Network ─────────────────────────────────────────────────────────
+  network:
+    mode: dhcp                     # dhcp | static
+    # For a static address, uncomment + fill ALL of interface/ip/prefix/
+    # gateway (all four are required for static; IPv4 only). dns is
+    # optional (defaults to 1.1.1.1 1.0.0.1):
+    # mode: static
+    # interface: eth0              # the NIC name, e.g. eth0 / enp1s0
+    # ip: 192.168.1.10
+    # prefix: 24
+    # gateway: 192.168.1.1
+    # dns: "1.1.1.1 1.0.0.1"
+    #
+    # `interface` is OPTIONAL in dhcp mode too (#995 item 19), where it
+    # PINS the lease to one port. Omitting it keeps the old behaviour:
+    # NetworkManager DHCPs every ethernet interface and the appliance
+    # answers on whichever replied first — a coin toss on a multi-NIC
+    # server, and the wrong network is not obvious afterwards.
+    # interface: enp1s0
+    #
+    # Optional static IPv6 alongside the v4 address, `static` mode only
+    # (#995 item 21). Default is RA / SLAAC. prefix6 defaults to 64. A
+    # LINK-LOCAL gateway6 (fe80::…) is normal and accepted — that is what
+    # a router advertising a /64 answers on; a global one must be inside
+    # the prefix. prefix6 or gateway6 without ip6 is refused.
+    # ip6: 2001:db8:1::10
+    # prefix6: 64
+    # gateway6: fe80::1
+    #
+    # Optional interface MTU (#1017). Blank / absent means
+    # NetworkManager's default, which is what every install has had so
+    # far and is almost always right.
+    #
+    # Set it to MATCH a link that needs a SMALLER MTU: a WireGuard /
+    # IPsec / GRE tunnel, PPPoE, or a provider underlay. That failure is
+    # nasty and common — ping and small requests work, large TCP hangs,
+    # and it reads as an application fault. This is NOT a performance
+    # knob: SpatiumDDI's own traffic is small UDP and small JSON, and
+    # raising the MTU on a DHCP-served segment is actively hazardous
+    # because PXE ROMs are 1500.
+    #
+    # Range 576-9000. Below 1280 is REFUSED alongside a static ip6 —
+    # IPv6 cannot run on such a link at all (RFC 8200). In dhcp mode it
+    # REQUIRES `interface`: with no port pinned the appliance uses
+    # NetworkManager's own profile, which carries no MTU from
+    # SpatiumDDI, so the value would be stored and never applied.
+    # Applied at boot, not live.
+    # mtu: 1400
+
+  # ── k3s pod + service CIDRs (#302) ──────────────────────────────────
+  # Defaults match k3s upstream. Override only if your LAN already uses
+  # 10.42.x / 10.43.x. Validated: valid IPv4, <= /22, disjoint, and (on
+  # a static install) non-overlapping with the LAN subnet.
+  k3s:
+    pod_cidr: 10.42.0.0/16
+    service_cidr: 10.43.0.0/16

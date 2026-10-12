@@ -1,0 +1,578 @@
+import { TestBed } from '@angular/core/testing';
+import { Router } from '@angular/router';
+import { Provider, signal } from '@angular/core';
+import { NEVER, Subject, of } from 'rxjs';
+import { App } from './app';
+import { GalleryStore, GalleryFilters, DEFAULT_FILTERS } from './features/gallery/gallery.store';
+import { AuthService } from './core/services/auth.service';
+import { ApiService } from './core/services/api.service';
+import { I18nService } from './core/services/i18n.service';
+import { ThemeService } from './core/services/theme.service';
+import { CompareFiltersService } from './features/comparison/compare-filters.service';
+import { StatsFiltersService } from './features/stats/stats-filters.service';
+import { PersonsFiltersService } from './features/persons/persons-filters.service';
+import { MatDialog } from '@angular/material/dialog';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { SwUpdate } from '@angular/service-worker';
+import { I18N } from './core/i18n/keys';
+
+function createApp(routerUrl = '/', extraProviders: Provider[] = []) {
+  const filtersSignal = signal<GalleryFilters>({ ...DEFAULT_FILTERS });
+  const personsSignal = signal<{ id: number; name: string | null }[]>([]);
+  const compareCategorySig = signal('');
+  const selectionCountSignal = signal(0);
+  const viewFilterParamsSignal = signal({
+    hide_blinks: '0', hide_bursts: '0', hide_duplicates: '0', hide_brackets: '0', hide_panoramas: '0',
+  });
+  const mockStore = {
+    filters: filtersSignal,
+    persons: personsSignal,
+    selectionCount: selectionCountSignal,
+    updateFilter: vi.fn(),
+    resetFilters: vi.fn(() => Promise.resolve()),
+    config: signal(null),
+    types: signal<{ id: string; count: number }[]>([]),
+    loadTypeCounts: vi.fn(() => Promise.resolve()),
+    loadConfig: vi.fn(),
+    viewFilterParams: viewFilterParamsSignal,
+    showAllHidden: vi.fn(),
+  };
+
+  const mockRouter = { url: routerUrl, events: NEVER, navigate: vi.fn() };
+
+  TestBed.configureTestingModule({
+    providers: [
+      App,
+      { provide: Router, useValue: mockRouter },
+      { provide: GalleryStore, useValue: mockStore },
+      { provide: AuthService, useValue: { isAuthenticated: vi.fn(() => true), checkStatus: vi.fn(() => Promise.resolve()) } },
+      { provide: I18nService, useValue: { load: vi.fn(() => Promise.resolve()), loadLanguages: vi.fn(() => Promise.resolve()), languages: signal([]), t: vi.fn((k: string) => k), translations: signal({}) } },
+      { provide: StatsFiltersService, useValue: { filterCategory: signal(''), dateFrom: signal(''), dateTo: signal('') } },
+      { provide: CompareFiltersService, useValue: { selectedCategory: compareCategorySig } },
+      { provide: MatDialog, useValue: { open: vi.fn() } },
+      { provide: ApiService, useValue: { get: vi.fn(() => NEVER), post: vi.fn(() => NEVER) } },
+      { provide: ThemeService, useValue: { theme: signal(''), darkMode: signal(true), THEMES: [], setTheme: vi.fn(), toggleDarkMode: vi.fn(), accentColor: signal('#ff6600'), complementaryColor: signal('#0099ff') } },
+      ...extraProviders,
+    ],
+  });
+
+  return {
+    app: TestBed.inject(App),
+    filtersSignal,
+    personsSignal,
+    mockStore,
+    mockRouter,
+    compareCategorySig,
+    selectionCountSignal,
+    viewFilterParamsSignal,
+    personsFilters: TestBed.inject(PersonsFiltersService),
+  };
+}
+
+describe('App', () => {
+  describe('route detection', () => {
+    it('isGalleryRoute returns true for /', () => {
+      const { app } = createApp('/');
+      expect((app as any).isGalleryRoute()).toBe(true);
+    });
+
+    it('isGalleryRoute returns false for /compare', () => {
+      const { app } = createApp('/compare');
+      expect((app as any).isGalleryRoute()).toBe(false);
+    });
+
+    it('isCompareRoute returns true for /compare', () => {
+      const { app } = createApp('/compare');
+      expect((app as any).isCompareRoute()).toBe(true);
+    });
+
+    it('isCompareRoute returns false for /', () => {
+      const { app } = createApp('/');
+      expect((app as any).isCompareRoute()).toBe(false);
+    });
+
+    it('isStatsRoute returns true for /stats', () => {
+      const { app } = createApp('/stats');
+      expect((app as any).isStatsRoute()).toBe(true);
+    });
+
+    it('isGalleryRoute ignores query string', () => {
+      const { app } = createApp('/?sort=aggregate&type=portrait');
+      expect((app as any).isGalleryRoute()).toBe(true);
+    });
+
+    it('isCompareRoute ignores query string', () => {
+      const { app } = createApp('/compare?category=portrait');
+      expect((app as any).isCompareRoute()).toBe(true);
+    });
+  });
+
+  describe('mobile timeline bottom bar — reachability affordance', () => {
+    it('is false when every hide toggle is off', () => {
+      const { app } = createApp('/timeline');
+      expect((app as any).anyTimelinePhotosHiddenByFilters()).toBe(false);
+    });
+
+    it('is true when at least one hide toggle is on', () => {
+      const { app, viewFilterParamsSignal } = createApp('/timeline');
+      viewFilterParamsSignal.set({
+        hide_blinks: '0', hide_bursts: '1', hide_duplicates: '0', hide_brackets: '0', hide_panoramas: '0',
+      });
+      expect((app as any).anyTimelinePhotosHiddenByFilters()).toBe(true);
+    });
+  });
+
+  describe('mobile bottom bar vs selection (issue #73)', () => {
+    it('shows the gallery bottom bar when nothing is selected', () => {
+      const { app } = createApp('/');
+      expect((app as any).mobileGalleryBarVisible()).toBe(true);
+    });
+
+    it('hides the gallery bottom bar while photos are selected', () => {
+      const { app, selectionCountSignal } = createApp('/');
+      selectionCountSignal.set(3);
+      expect((app as any).mobileGalleryBarVisible()).toBe(false);
+    });
+
+    it('hides the gallery bottom bar on an album route while photos are selected', () => {
+      const { app, selectionCountSignal } = createApp('/album/12');
+      selectionCountSignal.set(1);
+      expect((app as any).mobileGalleryBarVisible()).toBe(false);
+    });
+
+    it('shows the persons bottom bar when nothing is selected', () => {
+      const { app } = createApp('/persons');
+      expect((app as any).mobilePersonsBarVisible()).toBe(true);
+    });
+
+    it('hides the persons bottom bar while persons are selected', () => {
+      const { app, personsFilters } = createApp('/persons');
+      personsFilters.selectedIds.set(new Set([1, 2]));
+      expect((app as any).mobilePersonsBarVisible()).toBe(false);
+    });
+
+    it('leaves the persons bar alone when the gallery has a selection', () => {
+      const { app, selectionCountSignal } = createApp('/persons');
+      selectionCountSignal.set(5);
+      expect((app as any).mobilePersonsBarVisible()).toBe(true);
+    });
+  });
+
+  describe('activeFilterChips', () => {
+    it('returns empty array when not on gallery route', () => {
+      const { app, filtersSignal } = createApp('/compare');
+      filtersSignal.set({ ...DEFAULT_FILTERS, tag: 'nature' });
+      expect((app as any).activeFilterChips()).toEqual([]);
+    });
+
+    it('returns empty array when no active filters', () => {
+      const { app } = createApp('/');
+      expect((app as any).activeFilterChips()).toEqual([]);
+    });
+
+    it('produces chip for active tag filter', () => {
+      const { app, filtersSignal } = createApp('/');
+      filtersSignal.set({ ...DEFAULT_FILTERS, tag: 'nature' });
+      const chip = (app as any).activeFilterChips().find((c: any) => c.id === 'tag');
+      expect(chip).toBeDefined();
+      expect(chip?.value).toBe('nature');
+    });
+
+    it('produces chip for active search filter', () => {
+      const { app, filtersSignal } = createApp('/');
+      filtersSignal.set({ ...DEFAULT_FILTERS, search: 'paris' });
+      const chip = (app as any).activeFilterChips().find((c: any) => c.id === 'search');
+      expect(chip?.value).toBe('paris');
+    });
+
+    it('produces chip for active camera filter', () => {
+      const { app, filtersSignal } = createApp('/');
+      filtersSignal.set({ ...DEFAULT_FILTERS, camera: 'Canon R5' });
+      expect((app as any).activeFilterChips().some((c: any) => c.id === 'camera' && c.value === 'Canon R5')).toBe(true);
+    });
+
+    it('produces one chip per person in comma-separated person_id', () => {
+      const { app, filtersSignal } = createApp('/');
+      filtersSignal.set({ ...DEFAULT_FILTERS, person_id: '1,2,3' });
+      const personChips = (app as any).activeFilterChips().filter((c: any) => c.id.startsWith('person_'));
+      expect(personChips).toHaveLength(3);
+      expect(personChips.map((c: any) => c.id)).toEqual(['person_1', 'person_2', 'person_3']);
+    });
+
+    it('uses person name when available', () => {
+      const { app, filtersSignal, personsSignal } = createApp('/');
+      personsSignal.set([{ id: 1, name: 'Alice' }]);
+      filtersSignal.set({ ...DEFAULT_FILTERS, person_id: '1' });
+      const chip = (app as any).activeFilterChips().find((c: any) => c.id === 'person_1');
+      expect(chip?.value).toBe('Alice');
+    });
+
+    it('falls back to #pid when person name is null', () => {
+      const { app, filtersSignal, personsSignal } = createApp('/');
+      personsSignal.set([{ id: 2, name: null }]);
+      filtersSignal.set({ ...DEFAULT_FILTERS, person_id: '2' });
+      const chip = (app as any).activeFilterChips().find((c: any) => c.id === 'person_2');
+      expect(chip?.value).toBe('#2');
+    });
+
+    it('falls back to #pid when person is not in persons list', () => {
+      const { app, filtersSignal, personsSignal } = createApp('/');
+      personsSignal.set([]);
+      filtersSignal.set({ ...DEFAULT_FILTERS, person_id: '99' });
+      const chip = (app as any).activeFilterChips().find((c: any) => c.id === 'person_99');
+      expect(chip?.value).toBe('#99');
+    });
+
+    it('shows min–max format when both range bounds are set', () => {
+      const { app, filtersSignal } = createApp('/');
+      filtersSignal.set({ ...DEFAULT_FILTERS, min_score: '6', max_score: '9' });
+      const chip = (app as any).activeFilterChips().find((c: any) => c.id === 'min_score');
+      expect(chip?.value).toBe('6–9');
+    });
+
+    it('shows ≥min format when only min bound is set', () => {
+      const { app, filtersSignal } = createApp('/');
+      filtersSignal.set({ ...DEFAULT_FILTERS, min_score: '7', max_score: '' });
+      const chip = (app as any).activeFilterChips().find((c: any) => c.id === 'min_score');
+      expect(chip?.value).toBe('≥7');
+    });
+
+    it('shows ≤max format when only max bound is set', () => {
+      const { app, filtersSignal } = createApp('/');
+      filtersSignal.set({ ...DEFAULT_FILTERS, min_score: '', max_score: '8' });
+      const chip = (app as any).activeFilterChips().find((c: any) => c.id === 'min_score');
+      expect(chip?.value).toBe('≤8');
+    });
+
+    it('range chip clearKeys includes both min and max keys', () => {
+      const { app, filtersSignal } = createApp('/');
+      filtersSignal.set({ ...DEFAULT_FILTERS, min_score: '5', max_score: '9' });
+      const chip = (app as any).activeFilterChips().find((c: any) => c.id === 'min_score');
+      expect(chip?.clearKeys).toEqual(['min_score', 'max_score']);
+    });
+
+    it('produces chip for favorites_only = true', () => {
+      const { app, filtersSignal } = createApp('/');
+      filtersSignal.set({ ...DEFAULT_FILTERS, favorites_only: true });
+      expect((app as any).activeFilterChips().some((c: any) => c.id === 'favorites_only')).toBe(true);
+    });
+
+    it('does not produce chip for favorites_only = false', () => {
+      const { app } = createApp('/');
+      expect((app as any).activeFilterChips().some((c: any) => c.id === 'favorites_only')).toBe(false);
+    });
+
+    it('produces chip for is_monochrome = true', () => {
+      const { app, filtersSignal } = createApp('/');
+      filtersSignal.set({ ...DEFAULT_FILTERS, is_monochrome: true });
+      expect((app as any).activeFilterChips().some((c: any) => c.id === 'is_monochrome')).toBe(true);
+    });
+
+    it('topiq chip uses gallery.topiq_range (not aesthetic_range)', () => {
+      const { app, filtersSignal } = createApp('/');
+      filtersSignal.set({ ...DEFAULT_FILTERS, min_topiq: '5', max_topiq: '' });
+      const topiqChip = (app as any).activeFilterChips().find((c: any) => c.id === 'min_topiq');
+      expect(topiqChip?.labelKey).toBe('gallery.topiq_range');
+    });
+
+    it('aesthetic chip uses gallery.aesthetic_range', () => {
+      const { app, filtersSignal } = createApp('/');
+      filtersSignal.set({ ...DEFAULT_FILTERS, min_aesthetic: '5', max_aesthetic: '' });
+      const aestheticChip = (app as any).activeFilterChips().find((c: any) => c.id === 'min_aesthetic');
+      expect(aestheticChip?.labelKey).toBe('gallery.aesthetic_range');
+    });
+
+    it('topiq and aesthetic chips have distinct label keys', () => {
+      const { app, filtersSignal } = createApp('/');
+      filtersSignal.set({ ...DEFAULT_FILTERS, min_topiq: '5', min_aesthetic: '5', max_topiq: '', max_aesthetic: '' });
+      const chips = (app as any).activeFilterChips();
+      const topiq = chips.find((c: any) => c.id === 'min_topiq');
+      const aesthetic = chips.find((c: any) => c.id === 'min_aesthetic');
+      expect(topiq?.labelKey).not.toBe(aesthetic?.labelKey);
+    });
+  });
+
+  describe('clearFilterChip', () => {
+    it('removes one person without affecting other person ids', () => {
+      const { app, filtersSignal, mockStore } = createApp('/');
+      filtersSignal.set({ ...DEFAULT_FILTERS, person_id: '1,2,3' });
+      (app as any).clearFilterChip({ id: 'person_2', clearKeys: ['person_2'] });
+      expect(mockStore.updateFilter).toHaveBeenCalledWith('person_id', '1,3');
+    });
+
+    it('sets person_id to empty string when last person is removed', () => {
+      const { app, filtersSignal, mockStore } = createApp('/');
+      filtersSignal.set({ ...DEFAULT_FILTERS, person_id: '5' });
+      (app as any).clearFilterChip({ id: 'person_5', clearKeys: ['person_5'] });
+      expect(mockStore.updateFilter).toHaveBeenCalledWith('person_id', '');
+    });
+
+    it('calls updateFilter with false for favorites_only', () => {
+      const { app, mockStore } = createApp('/');
+      (app as any).clearFilterChip({ id: 'favorites_only', clearKeys: ['favorites_only'] });
+      expect(mockStore.updateFilter).toHaveBeenCalledWith('favorites_only', false);
+    });
+
+    it('calls updateFilter with false for is_monochrome', () => {
+      const { app, mockStore } = createApp('/');
+      (app as any).clearFilterChip({ id: 'is_monochrome', clearKeys: ['is_monochrome'] });
+      expect(mockStore.updateFilter).toHaveBeenCalledWith('is_monochrome', false);
+    });
+
+    it('calls updateFilter with empty string for string filters', () => {
+      const { app, mockStore } = createApp('/');
+      (app as any).clearFilterChip({ id: 'tag', clearKeys: ['tag'] });
+      expect(mockStore.updateFilter).toHaveBeenCalledWith('tag', '');
+    });
+
+    it('calls updateFilter for both min and max keys of a range chip', () => {
+      const { app, filtersSignal, mockStore } = createApp('/');
+      filtersSignal.set({ ...DEFAULT_FILTERS, min_score: '5', max_score: '9' });
+      const chip = (app as any).activeFilterChips().find((c: any) => c.id === 'min_score')!;
+      (app as any).clearFilterChip(chip);
+      expect(mockStore.updateFilter).toHaveBeenCalledWith('min_score', '');
+      expect(mockStore.updateFilter).toHaveBeenCalledWith('max_score', '');
+    });
+  });
+
+  describe('onCompareCategoryChange', () => {
+    it('sets selectedCategory on compareFilters service', () => {
+      const { app, compareCategorySig } = createApp('/');
+      (app as any).onCompareCategoryChange('portrait');
+      expect(compareCategorySig()).toBe('portrait');
+    });
+  });
+
+  describe('resetAllFilters', () => {
+    it('navigates to / and calls store.resetFilters', () => {
+      const { app, mockStore, mockRouter } = createApp('/');
+      (app as any).resetAllFilters();
+      expect(mockRouter.navigate).toHaveBeenCalledWith(['/']);
+      expect(mockStore.resetFilters).toHaveBeenCalled();
+    });
+
+    it('navigates to / even when on a different route', () => {
+      const { app, mockStore, mockRouter } = createApp('/stats');
+      (app as any).resetAllFilters();
+      expect(mockRouter.navigate).toHaveBeenCalledWith(['/']);
+      expect(mockStore.resetFilters).toHaveBeenCalled();
+    });
+  });
+
+  describe('service worker update toast', () => {
+    function withSw(isEnabled: boolean) {
+      const versionUpdates = new Subject<unknown>();
+      const onAction = vi.fn(() => new Subject<void>());
+      const open = vi.fn(() => ({ onAction }));
+      const { app } = createApp('/', [
+        { provide: SwUpdate, useValue: { isEnabled, versionUpdates } },
+        { provide: MatSnackBar, useValue: { open } },
+      ]);
+      return { app, versionUpdates, open, onAction };
+    }
+
+    it('opens a reload snackbar and wires its action on VERSION_READY', () => {
+      const { app, versionUpdates, open, onAction } = withSw(true);
+      (app as any).setupUpdateNotifications();
+      versionUpdates.next({ type: 'VERSION_READY' });
+      expect(open).toHaveBeenCalledWith(I18N.pwa.update_available, I18N.pwa.reload);
+      expect(onAction).toHaveBeenCalled();
+    });
+
+    it('ignores version events other than VERSION_READY', () => {
+      const { app, versionUpdates, open } = withSw(true);
+      (app as any).setupUpdateNotifications();
+      versionUpdates.next({ type: 'VERSION_DETECTED' });
+      expect(open).not.toHaveBeenCalled();
+    });
+
+    it('does nothing when the service worker is disabled', () => {
+      const { app, versionUpdates, open } = withSw(false);
+      (app as any).setupUpdateNotifications();
+      versionUpdates.next({ type: 'VERSION_READY' });
+      expect(open).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('new release notice', () => {
+    const RELEASE_NOTICE_KEY = 'facet_release_notice_shown';
+
+    function withRelease(payload: unknown, { edition = true } = {}) {
+      const actionSubject = new Subject<void>();
+      const onAction = vi.fn(() => actionSubject);
+      const open = vi.fn(() => ({ onAction }));
+      const get = vi.fn(() => of(payload));
+      const t = vi.fn((key: string, vars?: Record<string, string>) => (vars ? `${key}:${vars['version']}` : key));
+      const { app } = createApp('/', [
+        {
+          provide: AuthService,
+          useValue: {
+            isAuthenticated: vi.fn(() => true),
+            checkStatus: vi.fn(() => Promise.resolve()),
+            isEdition: vi.fn(() => edition),
+          },
+        },
+        { provide: ApiService, useValue: { get, post: vi.fn(() => NEVER) } },
+        { provide: MatSnackBar, useValue: { open } },
+        {
+          provide: I18nService,
+          useValue: {
+            load: vi.fn(() => Promise.resolve()),
+            loadLanguages: vi.fn(() => Promise.resolve()),
+            languages: signal([]),
+            t,
+            translations: signal({}),
+          },
+        },
+      ]);
+      return { app, get, open, actionSubject };
+    }
+
+    const AVAILABLE = { update_available: true, latest: 'v9.9.9', release_url: 'https://example/r' };
+
+    beforeEach(() => localStorage.clear());
+
+    it('requests the endpoint path ApiService expects, not a doubled /api prefix', async () => {
+      const { app, get } = withRelease(AVAILABLE);
+      await (app as any).maybeAnnounceNewRelease();
+      // ApiService prepends /api itself. Passing '/api/updates/check' here asked
+      // for /api/api/updates/check, which 404s, and the catch below swallowed it
+      // -- so the notice could never fire and no test noticed.
+      expect(get).toHaveBeenCalledWith('/updates/check');
+    });
+
+    it('opens the notice with the interpolated version and a View action', async () => {
+      const { app, open } = withRelease(AVAILABLE);
+      await (app as any).maybeAnnounceNewRelease();
+      expect(open).toHaveBeenCalledWith(
+        `${I18N.updates.available}:${AVAILABLE.latest}`,
+        I18N.updates.view,
+        { duration: 15000 },
+      );
+    });
+
+    it('drives window.open with the release URL when the View action fires', async () => {
+      const { app, actionSubject } = withRelease(AVAILABLE);
+      const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+      await (app as any).maybeAnnounceNewRelease();
+      actionSubject.next();
+      expect(openSpy).toHaveBeenCalledWith(AVAILABLE.release_url, '_blank', 'noopener');
+      openSpy.mockRestore();
+    });
+
+    it('stamps the notice as shown once it fires, so a reload cannot re-show it', async () => {
+      const { app } = withRelease(AVAILABLE);
+      expect(localStorage.getItem(RELEASE_NOTICE_KEY)).toBeNull();
+      await (app as any).maybeAnnounceNewRelease();
+      expect(localStorage.getItem(RELEASE_NOTICE_KEY)).not.toBeNull();
+    });
+
+    it('stays quiet when the server reports no update', async () => {
+      const { app, open } = withRelease({ update_available: false, latest: null, release_url: null });
+      await (app as any).maybeAnnounceNewRelease();
+      expect(open).not.toHaveBeenCalled();
+    });
+
+    it('does not stamp the notice when there is no update to report', async () => {
+      const { app } = withRelease({ update_available: false, latest: null, release_url: null });
+      await (app as any).maybeAnnounceNewRelease();
+      expect(localStorage.getItem(RELEASE_NOTICE_KEY)).toBeNull();
+    });
+
+    it('never reaches the endpoint outside edition mode', async () => {
+      const { app, get } = withRelease(AVAILABLE, { edition: false });
+      await (app as any).maybeAnnounceNewRelease();
+      expect(get).not.toHaveBeenCalled();
+    });
+
+    describe('on startup', () => {
+      function withStartup(payload: unknown, { edition = true } = {}) {
+        const onAction = vi.fn(() => new Subject<void>());
+        const open = vi.fn(() => ({ onAction }));
+        const get = vi.fn((path: string) => of(path === '/updates/check' ? payload : {}));
+        const { app } = createApp('/', [
+          {
+            provide: AuthService,
+            useValue: {
+              isAuthenticated: vi.fn(() => true),
+              checkStatus: vi.fn(() => Promise.resolve()),
+              isEdition: vi.fn(() => edition),
+            },
+          },
+          { provide: ApiService, useValue: { get, post: vi.fn(() => NEVER) } },
+          { provide: MatSnackBar, useValue: { open } },
+        ]);
+        return { app, get, open };
+      }
+
+      it('checks for a release when the app loads already in edition mode', async () => {
+        const { app, get, open } = withStartup(AVAILABLE);
+        await app.ngOnInit();
+        expect(get).toHaveBeenCalledWith('/updates/check');
+        expect(open).toHaveBeenCalled();
+      });
+
+      it('never reaches the endpoint when the app loads outside edition mode', async () => {
+        const { app, get } = withStartup(AVAILABLE, { edition: false });
+        await app.ngOnInit();
+        expect(get).not.toHaveBeenCalledWith('/updates/check');
+      });
+
+      it('stays quiet when this week already had a notice', async () => {
+        localStorage.setItem(RELEASE_NOTICE_KEY, String(Date.now()));
+        const { app, get, open } = withStartup(AVAILABLE);
+        await app.ngOnInit();
+        expect(get).not.toHaveBeenCalledWith('/updates/check');
+        expect(open).not.toHaveBeenCalled();
+      });
+    });
+  });
+  describe('read-only banner', () => {
+    function render(isReadOnlyInstall: boolean) {
+      const mockRouter = { url: '/', events: NEVER, navigate: vi.fn(), config: [] };
+      TestBed.configureTestingModule({
+        providers: [
+          { provide: Router, useValue: mockRouter },
+          { provide: GalleryStore, useValue: { filters: signal({ ...DEFAULT_FILTERS }), persons: signal([]), selectionCount: signal(0), config: signal(null), types: signal([]), loadTypeCounts: vi.fn(), loadConfig: vi.fn(), viewFilterParams: signal({}) } },
+          { provide: AuthService, useValue: { isAuthenticated: signal(false), isReadOnlyInstall: signal(isReadOnlyInstall), isEdition: signal(false), status: signal(null), editionPasswordRequired: signal(false), isMultiUser: signal(false), loginPasswordRequired: signal(false), checkStatus: vi.fn(() => Promise.resolve()) } },
+          { provide: I18nService, useValue: { load: vi.fn(() => Promise.resolve()), loadLanguages: vi.fn(() => Promise.resolve()), languages: signal([]), t: vi.fn((k: string) => k), translations: signal({}) } },
+          { provide: StatsFiltersService, useValue: { filterCategory: signal(''), dateFrom: signal(''), dateTo: signal('') } },
+          { provide: CompareFiltersService, useValue: { selectedCategory: signal('') } },
+          { provide: MatDialog, useValue: { open: vi.fn() } },
+          { provide: ApiService, useValue: { get: vi.fn(() => NEVER), post: vi.fn(() => NEVER) } },
+          { provide: ThemeService, useValue: { theme: signal(''), darkMode: signal(true), THEMES: [], setTheme: vi.fn(), toggleDarkMode: vi.fn(), accentColor: signal('#ff6600'), complementaryColor: signal('#0099ff') } },
+        ],
+      });
+      const fixture = TestBed.createComponent(App);
+      fixture.detectChanges();
+      return fixture.nativeElement as HTMLElement;
+    }
+
+    const BANNER = `a[href*="VIEWER.md#single-user-mode-default"]`;
+
+    it('renders the hint on a read-only install', () => {
+      expect(render(true).querySelector(BANNER)?.textContent).toContain(I18N.edition.read_only_hint);
+    });
+
+    it('does not render it otherwise', () => {
+      expect(render(false).querySelector(BANNER)).toBeNull();
+    });
+  });
+
+  describe('lockEdition', () => {
+    it('leaves a page the route table flags data.edition, and only those', async () => {
+      const config = [{ path: 'compare', data: { edition: true } }, { path: 'stats' }];
+      const lock = async (url: string) => {
+        TestBed.resetTestingModule();
+        const { app, mockRouter } = createApp(url, [
+          { provide: Router, useValue: { url, events: NEVER, navigate: vi.fn(), config } },
+          { provide: AuthService, useValue: { isAuthenticated: vi.fn(() => true), checkStatus: vi.fn(), dropEdition: vi.fn(() => Promise.resolve()) } },
+        ]);
+        await (app as any).lockEdition();
+        return { app, router: TestBed.inject(Router) as unknown as { navigate: ReturnType<typeof vi.fn> }, mockRouter };
+      };
+      expect((await lock('/compare?x=1')).router.navigate).toHaveBeenCalledWith(['/']);
+      expect((await lock('/stats')).router.navigate).not.toHaveBeenCalled();
+    });
+  });
+});

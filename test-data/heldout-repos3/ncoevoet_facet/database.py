@@ -1,0 +1,578 @@
+"""
+Database CLI for Facet.
+
+Thin wrapper around the db package for command-line usage.
+
+Usage:
+    python database.py              # Initialize/upgrade schema
+    python database.py --info       # Show schema information
+    python database.py --migrate-tags
+    python database.py --refresh-stats
+    python database.py --stats-info
+    python database.py --vacuum
+    python database.py --analyze
+    python database.py --optimize
+    python database.py --backup      # Timestamped WAL-safe DB snapshot
+    python database.py --add-user USERNAME --role ROLE [--display-name NAME]
+    python database.py --rotate-secret   # New session/frame signing secret
+    python database.py --migrate-user-preferences --user USERNAME
+    python database.py --migrate-storage-fs   # Migrate BLOBs to filesystem
+    python database.py --migrate-storage-db   # Migrate filesystem back to DB
+"""
+
+import logging
+import os
+import sys
+from datetime import datetime
+
+logger = logging.getLogger("facet.database")
+
+from db import (
+    DEFAULT_DB_PATH,
+    init_database,
+    get_schema_info,
+    get_user_version,
+    get_photo_tags_count,
+    get_vec_count,
+    get_stats_cache_info,
+    refresh_stats_cache,
+    migrate_tags_to_lookup,
+    populate_vec_table,
+    rebuild_fts,
+    optimize_database,
+    vacuum_database,
+    analyze_database,
+    cleanup_orphaned_persons,
+    export_viewer_db,
+    cleanup_missing_photos,
+    backup_database,
+)
+from config import default_config_path
+from config_resolve import load_resolved, write_user_config
+
+CONFIG_PATH = default_config_path()
+
+
+def _drop_legacy_secret(config):
+    """Strip the pre-``.facet_secret`` server secret from a config dict.
+
+    The key's NAME comes from ``api.config`` rather than being spelled again
+    here: that module owns the migration end to end — it evicts the key,
+    persists the value to ``.facet_secret`` and checks it against the
+    published-secret list — and a second copy of the string in this file is one
+    rename away from a CLI that quietly writes the secret back into a
+    git-tracked config.
+
+    The import is function-local on purpose. Importing ``api.config`` RESOLVES
+    the server secret as a side effect of the import itself (minting
+    ``.facet_secret``, evicting a legacy ``share_secret`` from
+    scoring_config.json, refusing to start on a store it cannot read), and it
+    pulls in FastAPI through ``api/__init__.py``. At module level that would
+    attach all of it to every ``python database.py`` invocation, including
+    ``--info`` and the schema init that never touch the config. Deferred, it
+    costs only the commands whose subject IS this key — and on those it runs
+    BEFORE the config is read, so the dict this returns comes from the
+    post-eviction file rather than needing the key removed from it.
+    """
+    from api.config import _LEGACY_SECRET_KEY
+    config.pop(_LEGACY_SECRET_KEY, None)
+    return config
+
+
+def _load_config():
+    """Load scoring_config.json, minus the legacy server secret.
+
+    The key is dropped on the way in as well as on the way out
+    (:func:`_save_config`) so that no code path in between can carry it: this
+    module's config round-trip is read-whole / write-whole, and a single caller
+    that forwarded the dict it was handed would republish the secret into a
+    git-tracked file.
+    """
+    return _drop_legacy_secret(load_resolved(CONFIG_PATH))
+
+
+def _save_config(config):
+    """Write scoring_config.json (creates a 0600 timestamped backup first).
+
+    Importing ``api.config_writes`` pulls in ``api.config``, whose import
+    resolves the server secret — which for a not-yet-booted install means
+    migrating ``share_secret`` out of scoring_config.json into
+    ``.facet_secret`` and rewriting the file WITHOUT it. Everything after that
+    import therefore works against a config the key has already left, which is
+    why the import comes first: the backup below copies the post-eviction file
+    rather than a copy of the secret.
+
+    ``config`` is stripped of the key regardless of where it came from: a dict
+    built by hand, or read from anywhere but :func:`_load_config`, may predate
+    that eviction, and ``json.dump`` would write the stale copy — secret
+    included — straight back into the tracked file, undoing the migration that
+    had just happened one line above. The value is not lost: the same import is
+    what persisted it to ``.facet_secret``.
+
+    The backup goes through the shared owner-only primitive rather than
+    ``shutil.copy2``, which copies the config's own mode (0664 under a default
+    umask) onto a file holding every ``users.*.password_hash`` this command
+    just wrote.
+    """
+    from api.config_writes import write_owner_only_backup
+    _drop_legacy_secret(config)
+    backup_path = f"{CONFIG_PATH}.backup.{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    if write_owner_only_backup(CONFIG_PATH, backup_path):
+        logger.info("Backup saved to %s", backup_path)
+    write_user_config(CONFIG_PATH, config)
+    logger.info("Config saved to %s", CONFIG_PATH)
+
+
+def _compact_config():
+    """Rewrite the config as the override it is, dropping the shipped defaults.
+
+    An install that predates the split, or one that was seeded from a full
+    template, carries every shipped value as though it were a choice: 3700 lines
+    in which the operator's own three edits are invisible, and which a later
+    release cannot update. Every writer already compacts as a side effect of
+    writing -- ``config_resolve.write_user_config`` subtracts the defaults again
+    before any save, whether that save came from the viewer UI or a scan -- but a
+    read must not rewrite the operator's file, and a config edited only by hand
+    may never see a write at all. This is the explicit way to do it on demand,
+    and the only one that takes a backup first.
+
+    Lossless by construction: the file resolves to the same config afterwards,
+    which is what :func:`config_resolve.delta_for_write` guarantees. A backup is
+    taken first anyway, at 0600, because the file holds plaintext credentials.
+    """
+    from api.config_writes import backup_config
+
+    before = os.path.getsize(CONFIG_PATH) if os.path.exists(CONFIG_PATH) else 0
+    config = _load_config()
+    backup_path = backup_config(CONFIG_PATH, prune=False)
+    if backup_path:
+        logger.info("Backup saved to %s", backup_path)
+    write_user_config(CONFIG_PATH, config)
+    after = os.path.getsize(CONFIG_PATH)
+    logger.info("Compacted %s: %d -> %d bytes", CONFIG_PATH, before, after)
+
+
+def add_user(username, role, display_name=None):
+    """Add a user to scoring_config.json with a hashed password."""
+    import getpass
+    import hashlib
+
+    if role not in ('user', 'admin', 'superadmin'):
+        logger.error("Role must be 'user', 'admin', or 'superadmin' (got '%s')", role)
+        return
+
+    config = _load_config()
+    if 'users' not in config:
+        config['users'] = {'shared_directories': []}
+
+    if username in config['users'] and isinstance(config['users'][username], dict):
+        logger.error("User '%s' already exists. Remove manually from config to re-add.", username)
+        return
+
+    password = getpass.getpass(f"Password for {username}: ")
+    confirm = getpass.getpass("Confirm password: ")
+    if password != confirm:
+        logger.error("Passwords do not match.")
+        return
+
+    # Hash with PBKDF2
+    salt = os.urandom(16)
+    dk = hashlib.pbkdf2_hmac('sha256', password.encode(), salt, 100000)
+    password_hash = f"{salt.hex()}:{dk.hex()}"
+
+    config['users'][username] = {
+        'password_hash': password_hash,
+        'display_name': display_name or username,
+        'role': role,
+        'directories': [],
+    }
+
+    _save_config(config)
+    logger.info("User '%s' added with role '%s'.", username, role)
+    logger.info("Edit %s to set their directories.", CONFIG_PATH)
+
+
+def rotate_server_secret():
+    """Replace the secret that signs session JWTs and frame links.
+
+    Deliberate rotation, for an install whose secret may have been exposed —
+    a config that was once committed, a backup that leaked, a departing admin.
+    Every logged-in session and every signed frame URL stops working the moment
+    the server picks the new secret up, so it is announced rather than silent.
+
+    Returns True when the rotation happened. A refusal returns False and the
+    caller exits non-zero: this is a security operation run from deploy
+    scripts and runbooks, where a zero exit is read as "the key is now
+    rotated" and the next step proceeds on a secret that never changed.
+    """
+    from api.config import rotate_secret
+
+    try:
+        path = rotate_secret()
+    except RuntimeError as ex:
+        logger.error("%s", ex)
+        return False
+    logger.info("Server secret rotated: %s", path)
+    logger.info("All existing sessions and signed frame links are now invalid.")
+    logger.info("Restart the viewer for running workers to pick up the new secret.")
+    return True
+
+
+def migrate_user_preferences(username, db_path=DEFAULT_DB_PATH):
+    """Copy non-zero ratings from photos table to user_preferences for a user."""
+    import sqlite3
+
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+
+    # Check if user_preferences table exists
+    tables = [r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
+    if 'user_preferences' not in tables:
+        logger.error("user_preferences table not found. Run 'python database.py' to initialize schema first.")
+        conn.close()
+        return
+
+    # Count existing photos with ratings
+    row = conn.execute("""
+        SELECT COUNT(*) FROM photos
+        WHERE star_rating > 0 OR is_favorite = 1 OR is_rejected = 1
+    """).fetchone()
+    count = row[0] if row else 0
+
+    if count == 0:
+        logger.info("No ratings to migrate.")
+        conn.close()
+        return
+
+    logger.info("Migrating %d photo rating(s) to user_preferences for user '%s'...", count, username)
+
+    conn.execute("""
+        INSERT OR IGNORE INTO user_preferences (user_id, photo_path, star_rating, is_favorite, is_rejected)
+        SELECT ?, path, COALESCE(star_rating, 0), COALESCE(is_favorite, 0), COALESCE(is_rejected, 0)
+        FROM photos
+        WHERE star_rating > 0 OR is_favorite = 1 OR is_rejected = 1
+    """, (username,))
+    row = conn.execute("SELECT changes()").fetchone()
+    migrated = row[0] if row else 0
+    conn.commit()
+    conn.close()
+
+    logger.info("Done. %d preference(s) migrated for '%s'.", migrated, username)
+
+LIBRARY_REWRITING_ARGS = (
+    'analyze',
+    'cleanup_missing_photos',
+    'cleanup_orphaned_persons',
+    'migrate_storage_db',
+    'migrate_storage_fs',
+    'migrate_tags',
+    'optimize',
+    'populate_vec',
+    'rebuild_fts',
+    'vacuum',
+)
+
+# Flags that route to a branch OTHER than the default init/upgrade. When none of
+# these is set the command falls through to init_database, which runs
+# ALTER/CREATE INDEX/ANALYZE DDL and so rewrites the library like any other job.
+_NON_INIT_ARGS = (
+    'stats_info', 'refresh_stats', 'info', 'migrate_tags', 'rebuild_fts',
+    'populate_vec', 'optimize', 'vacuum', 'analyze', 'backup',
+    'cleanup_orphaned_persons', 'cleanup_missing_photos', 'export_viewer_db',
+    'add_user', 'rotate_secret', 'migrate_user_preferences', 'migrate_storage_fs',
+    'migrate_storage_db',
+)
+
+
+def _is_default_init(args):
+    """True when the parsed args select the default init/upgrade (schema) path."""
+    return not any(getattr(args, name, None) for name in _NON_INIT_ARGS)
+
+
+def _hold_library_lock(args):
+    """Take the library mutex when the selected command rewrites the database.
+
+    VACUUM takes SQLite's exclusive lock and the migrations (including the
+    default init/upgrade's ALTER/CREATE INDEX/ANALYZE DDL) rewrite the
+    ``photos`` schema, so any of these landing inside a scan or a
+    ``--recompute-average`` transaction dies with ``database is locked`` — or,
+    worse for a DDL step that auto-commits, leaves a half-applied schema.
+    A ``--dry-run`` inspection writes nothing and stays unguarded.
+    """
+    if args.dry_run:
+        return None
+    rewrites = (_is_default_init(args)
+                or any(getattr(args, name, False) for name in LIBRARY_REWRITING_ARGS))
+    if not rewrites:
+        return None
+    from facet import LIBRARY_JOB_MAINTENANCE, hold_library_lock_or_exit
+    return hold_library_lock_or_exit(args.db, LIBRARY_JOB_MAINTENANCE)
+
+
+def main():
+    import argparse
+
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+
+    parser = argparse.ArgumentParser(
+        description='Initialize Facet database schema'
+    )
+    parser.add_argument(
+        '--db',
+        default=DEFAULT_DB_PATH,
+        help=f'Database path (default: {DEFAULT_DB_PATH})'
+    )
+    parser.add_argument(
+        '--info',
+        action='store_true',
+        help='Display schema information'
+    )
+    parser.add_argument(
+        '--migrate-tags',
+        action='store_true',
+        help='Populate photo_tags lookup table from tags column for fast queries'
+    )
+    parser.add_argument(
+        '--refresh-stats',
+        action='store_true',
+        help='Refresh statistics cache for improved viewer performance'
+    )
+    parser.add_argument(
+        '--stats-info',
+        action='store_true',
+        help='Show statistics cache info (age, freshness)'
+    )
+    parser.add_argument(
+        '--compact-config',
+        action='store_true',
+        help='Rewrite scoring_config.json as the override it is, dropping every '
+             'value equal to the shipped default'
+    )
+    parser.add_argument(
+        '--vacuum',
+        action='store_true',
+        help='Reclaim space and defragment the database'
+    )
+    parser.add_argument(
+        '--analyze',
+        action='store_true',
+        help='Update query planner statistics for better performance'
+    )
+    parser.add_argument(
+        '--optimize',
+        action='store_true',
+        help='Run VACUUM + ANALYZE for full database optimization'
+    )
+    parser.add_argument(
+        '--cleanup-orphaned-persons',
+        action='store_true',
+        help='Delete persons with no assigned faces'
+    )
+    parser.add_argument(
+        '--cleanup-missing-photos',
+        action='store_true',
+        help='Remove deleted files from the database'
+    )
+    parser.add_argument(
+        '--dry-run',
+        action='store_true',
+        help='Preview missing files without deleting (use with --cleanup-missing-photos)'
+    )
+    parser.add_argument(
+        '--force',
+        action='store_true',
+        help='Delete even if every photo appears missing (use with --cleanup-missing-photos)'
+    )
+    parser.add_argument(
+        '--export-viewer-db',
+        nargs='?',
+        const='photo_scores_viewer.db',
+        metavar='OUTPUT_PATH',
+        help='Export lightweight viewer database (incremental if output exists, strips BLOBs, downsizes thumbnails)'
+    )
+    parser.add_argument(
+        '--force-export',
+        action='store_true',
+        help='Force full re-export even if viewer DB already exists (use with --export-viewer-db)'
+    )
+    parser.add_argument(
+        '--add-user',
+        metavar='USERNAME',
+        help='Add a user to scoring_config.json (prompts for password)'
+    )
+    parser.add_argument(
+        '--role',
+        choices=['user', 'admin', 'superadmin'],
+        default='user',
+        help='Role for --add-user (default: user)'
+    )
+    parser.add_argument(
+        '--display-name',
+        metavar='NAME',
+        help='Display name for --add-user'
+    )
+    parser.add_argument(
+        '--rotate-secret',
+        action='store_true',
+        help='Generate a new session/frame signing secret (logs everyone out)'
+    )
+    parser.add_argument(
+        '--migrate-user-preferences',
+        action='store_true',
+        help='Copy ratings from photos table to user_preferences for a user'
+    )
+    parser.add_argument(
+        '--user',
+        metavar='USERNAME',
+        help='Username for --migrate-user-preferences'
+    )
+    parser.add_argument(
+        '--rebuild-fts',
+        action='store_true',
+        help='Rebuild FTS5 full-text search index from existing captions and tags'
+    )
+    parser.add_argument(
+        '--populate-vec',
+        action='store_true',
+        help='Populate photos_vec vector search table from existing CLIP/SigLIP embeddings'
+    )
+    parser.add_argument(
+        '--migrate-storage-fs',
+        action='store_true',
+        help='Migrate thumbnails and embeddings from database BLOBs to filesystem'
+    )
+    parser.add_argument(
+        '--migrate-storage-db',
+        action='store_true',
+        help='Migrate thumbnails and embeddings from filesystem back to database'
+    )
+    parser.add_argument(
+        '--backup',
+        action='store_true',
+        help='Write a timestamped, WAL-safe snapshot of the database (rotates to --keep copies)'
+    )
+    parser.add_argument(
+        '--keep',
+        type=int,
+        default=3,
+        metavar='N',
+        help='Number of database backups to retain with --backup (default: 3)'
+    )
+
+    args = parser.parse_args()
+
+    if args.dry_run and not args.cleanup_missing_photos:
+        parser.error("--dry-run can only be used with --cleanup-missing-photos")
+
+    _hold_library_lock(args)
+
+    if args.stats_info:
+        # Show stats cache status
+        logger.info("Statistics cache status:")
+        cache_info = get_stats_cache_info(args.db)
+        if not cache_info:
+            logger.info("  No cached statistics found. Run --refresh-stats to populate.")
+        else:
+            for key, info in cache_info.items():
+                fresh_mark = "[fresh]" if info['fresh'] else "[stale]"
+                logger.info("  %s: %s old %s", key, info['age_human'], fresh_mark)
+    elif args.compact_config:
+        _compact_config()
+    elif args.refresh_stats:
+        # Refresh the stats cache
+        refresh_stats_cache(args.db, verbose=True)
+        # Pre-warm smart-album covers so the albums list never pays the per-album
+        # gallery sort on a cold cache.
+        from api.routers.albums import warm_smart_album_covers
+        warmed = warm_smart_album_covers(args.db)
+        logger.info("  Warmed %d smart-album cover(s)", warmed)
+    elif args.info:
+        info = get_schema_info()
+        try:
+            db_version = get_user_version(args.db)
+            status = "up to date" if db_version == info['schema_version'] else "NEEDS UPGRADE"
+            logger.info("Schema version: %d (code expects %d) — %s",
+                        db_version, info['schema_version'], status)
+        except Exception as ex:
+            logger.warning("Could not read schema version: %s", ex)
+        logger.info("Photos table: %d columns", info['photos_columns'])
+        logger.info("Faces table: %d columns", info['faces_columns'])
+        logger.info("Persons table: %d columns", info['persons_columns'])
+        logger.info("Photo tags table: %d columns", info['photo_tags_columns'])
+        logger.info("Indexes: %d", info['indexes'])
+        logger.info("Photos columns: %s", ', '.join(info['column_names']))
+        # Show photo_tags status
+        tag_count = get_photo_tags_count(args.db)
+        logger.info("Photo tags lookup: %d entries", tag_count)
+        if tag_count == 0:
+            logger.info("  Run --migrate-tags to populate for faster tag queries")
+        # Show vector search status
+        vec_count = get_vec_count(args.db)
+        logger.info("Vector search (photos_vec): %d entries", vec_count)
+        if vec_count == 0:
+            logger.info("  Run --populate-vec to populate for fast semantic search")
+        # Show stats cache status
+        logger.info("Statistics cache:")
+        cache_info = get_stats_cache_info(args.db)
+        if not cache_info:
+            logger.info("  No cached statistics. Run --refresh-stats to populate.")
+        else:
+            fresh_count = sum(1 for info in cache_info.values() if info['fresh'])
+            logger.info("  %d cached stats (%d fresh)", len(cache_info), fresh_count)
+    elif args.migrate_tags:
+        migrate_tags_to_lookup(args.db)
+    elif args.rebuild_fts:
+        rebuild_fts(args.db)
+    elif args.populate_vec:
+        populate_vec_table(args.db)
+    elif args.optimize:
+        optimize_database(args.db, verbose=True)
+    elif args.vacuum:
+        vacuum_database(args.db, verbose=True)
+    elif args.analyze:
+        analyze_database(args.db, verbose=True)
+    elif args.backup:
+        backup_database(args.db, keep=args.keep)
+    elif args.cleanup_orphaned_persons:
+        cleanup_orphaned_persons(args.db, verbose=True)
+    elif args.cleanup_missing_photos:
+        cleanup_missing_photos(args.db, dry_run=args.dry_run, force=args.force, verbose=True)
+    elif args.export_viewer_db:
+        export_viewer_db(args.db, output_path=args.export_viewer_db, verbose=True, force=args.force_export)
+    elif args.add_user:
+        add_user(args.add_user, args.role, args.display_name)
+    elif args.rotate_secret:
+        if not rotate_server_secret():
+            sys.exit(1)
+    elif args.migrate_user_preferences:
+        if not args.user:
+            logger.error("--user USERNAME is required with --migrate-user-preferences")
+        else:
+            migrate_user_preferences(args.user, args.db)
+    elif args.migrate_storage_fs:
+        from storage.migrate import migrate_to_filesystem
+        config = _load_config()
+        fs_path = config.get("storage", {}).get("filesystem_path", "./storage")
+        count = migrate_to_filesystem(args.db, fs_path)
+        logger.info("Exported %d thumbnails to %s", count, fs_path)
+        logger.info("Set storage.mode to \"filesystem\" in scoring_config.json to use filesystem storage.")
+    elif args.migrate_storage_db:
+        from storage.migrate import migrate_to_database
+        config = _load_config()
+        fs_path = config.get("storage", {}).get("filesystem_path", "./storage")
+        count = migrate_to_database(args.db, fs_path)
+        logger.info("Imported %d thumbnails to database", count)
+        logger.info("Set storage.mode to \"database\" in scoring_config.json to use database storage.")
+    else:
+        init_database(args.db)
+        logger.info("Database initialized: %s", args.db)
+        info = get_schema_info()
+        logger.info("  - photos: %d columns", info['photos_columns'])
+        logger.info("  - faces: %d columns", info['faces_columns'])
+        logger.info("  - persons: %d columns", info['persons_columns'])
+        logger.info("  - photo_tags: %d columns", info['photo_tags_columns'])
+        logger.info("  - %d indexes", info['indexes'])
+
+
+if __name__ == '__main__':
+    main()

@@ -1,0 +1,447 @@
+import { Component, inject, signal, computed, output } from '@angular/core';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import { FormsModule } from '@angular/forms';
+import { MatCardModule } from '@angular/material/card';
+import { MatButtonModule } from '@angular/material/button';
+import { MatSelectModule } from '@angular/material/select';
+import { MatIconModule } from '@angular/material/icon';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { firstValueFrom, filter } from 'rxjs';
+import { ApiService } from '../../core/services/api.service';
+import type { ComparisonStats } from '../../core/api/types';
+import { AuthService } from '../../core/services/auth.service';
+import { I18nService } from '../../core/services/i18n.service';
+import { TranslatePipe } from '../../shared/pipes/translate.pipe';
+import { FixedPipe } from '../../shared/pipes/fixed.pipe';
+import { ThumbnailUrlPipe } from '../../shared/pipes/thumbnail-url.pipe';
+import { CompareFiltersService } from './compare-filters.service';
+import { WeightLabelKeyPipe } from './comparison.pipes';
+import { I18N, I18N_KEYS } from '../../core/i18n/keys';
+
+interface PairResponse {
+  a?: string;
+  b?: string;
+  score_a?: number;
+  score_b?: number;
+  error?: string;
+}
+
+interface LearnedWeightsResponse {
+  available: boolean;
+  message?: string;
+  current_weights?: Record<string, number>;
+  suggested_weights?: Record<string, number>;
+  accuracy_before?: number;
+  accuracy_after?: number;
+  improvement?: number;
+  suggest_changes?: boolean;
+  comparisons_used?: number;
+  ties_included?: number;
+  mispredicted_count?: number;
+  category?: string;
+}
+
+@Component({
+  selector: 'app-comparison-ab-tab',
+  standalone: true,
+  imports: [
+    FormsModule,
+    MatCardModule,
+    MatButtonModule,
+    MatSelectModule,
+    MatIconModule,
+    MatProgressSpinnerModule,
+    MatTooltipModule,
+    TranslatePipe,
+    FixedPipe,
+    ThumbnailUrlPipe,
+    WeightLabelKeyPipe,
+  ],
+  host: { '(window:keydown)': 'onKeydown($event)' },
+  template: `
+    <div class="mt-4">
+      <!-- Strategy selector + keyboard hints -->
+      <div class="flex flex-wrap items-center gap-3 mb-4">
+        <mat-form-field class="w-56" subscriptSizing="dynamic">
+          <mat-label>{{ I18N.compare.strategy | translate }}</mat-label>
+          <mat-select [value]="strategy()" (selectionChange)="onStrategyChange($event.value)">
+            @for (s of strategies; track s) {
+              <mat-option [value]="s">{{ ('compare.strategies.' + s) | translate }}</mat-option>
+            }
+          </mat-select>
+        </mat-form-field>
+        <button mat-icon-button (click)="showStrategyHelp.set(!showStrategyHelp())"
+          [matTooltip]="I18N.compare.tooltips.strategy_info | translate" [attr.aria-label]="I18N.compare.tooltips.strategy_info | translate">
+          <mat-icon>help_outline</mat-icon>
+        </button>
+        <span class="ml-auto text-xs text-gray-500 hidden md:inline">
+          {{ I18N.compare.keyboard.hint | translate }}
+          <kbd class="px-1 rounded bg-neutral-700 text-gray-300">&#8592;</kbd> {{ I18N.compare.keyboard.left_wins | translate }} ·
+          <kbd class="px-1 rounded bg-neutral-700 text-gray-300">&#8594;</kbd> {{ I18N.compare.keyboard.right_wins | translate }} ·
+          <kbd class="px-1 rounded bg-neutral-700 text-gray-300">T</kbd> {{ I18N.compare.keyboard.equal | translate }} ·
+          <kbd class="px-1 rounded bg-neutral-700 text-gray-300">S</kbd> {{ I18N.compare.keyboard.skip | translate }}
+        </span>
+      </div>
+
+      <!-- Strategy help panel -->
+      @if (showStrategyHelp()) {
+        <mat-card class="mb-4">
+          <mat-card-content class="!py-3">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+              @for (s of strategies; track s) {
+                <div>
+                  <div class="font-medium">{{ ('compare.strategy_help.' + s + '_title') | translate }}</div>
+                  <div class="text-gray-400 text-xs">{{ ('compare.strategy_help.' + s + '_desc') | translate }}</div>
+                </div>
+              }
+            </div>
+          </mat-card-content>
+        </mat-card>
+      }
+
+      <!-- Photos + stats sidebar -->
+      <div class="grid grid-cols-1 lg:grid-cols-[1fr_260px] gap-4">
+        <!-- Photo pair -->
+        <mat-card>
+          <mat-card-content class="!pt-4">
+            @if (pairError()) {
+              <div class="text-red-400 text-sm mb-4">{{ pairError() }}</div>
+            }
+            @if (!pairA() && !pairLoading()) {
+              <div class="flex flex-col items-center py-8 gap-4">
+                <p class="text-sm text-gray-400">{{ I18N.comparison.compare_description | translate }}</p>
+                <button mat-flat-button (click)="loadNextPair()">
+                  <mat-icon>play_arrow</mat-icon>
+                  {{ I18N.comparison.start_comparing | translate }}
+                </button>
+              </div>
+            } @else if (pairLoading()) {
+              <div class="flex justify-center py-8">
+                <mat-spinner diameter="40" [attr.aria-label]="I18N.ui.labels.loading | translate" />
+              </div>
+            } @else if (pairA() && pairB()) {
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <button
+                  class="relative rounded-lg overflow-hidden bg-[var(--mat-sys-surface-container)] cursor-pointer border-2 border-transparent hover:border-[var(--mat-sys-primary)] transition-colors text-left p-0"
+                  [disabled]="pairSubmitting()"
+                  (click)="submitComparison('a')">
+                  <img [src]="pairA()! | thumbnailUrl:640" alt="Photo A" class="w-full max-h-[60vh] object-contain" />
+                  <div class="absolute top-2 left-2 text-xs font-mono bg-black/60 px-2 py-0.5 rounded">A</div>
+                  <div class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent px-3 py-2">
+                    <span class="text-sm font-mono text-white">{{ pairScoreA() | fixed:1 }}</span>
+                  </div>
+                </button>
+                <button
+                  class="relative rounded-lg overflow-hidden bg-[var(--mat-sys-surface-container)] cursor-pointer border-2 border-transparent hover:border-[var(--mat-sys-primary)] transition-colors text-left p-0"
+                  [disabled]="pairSubmitting()"
+                  (click)="submitComparison('b')">
+                  <img [src]="pairB()! | thumbnailUrl:640" alt="Photo B" class="w-full max-h-[60vh] object-contain" />
+                  <div class="absolute top-2 right-2 text-xs font-mono bg-black/60 px-2 py-0.5 rounded">B</div>
+                  <div class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent px-3 py-2">
+                    <span class="text-sm font-mono text-white">{{ pairScoreB() | fixed:1 }}</span>
+                  </div>
+                </button>
+              </div>
+              <div class="flex justify-center gap-3">
+                <button mat-stroked-button [disabled]="pairSubmitting()" (click)="submitComparison('tie')">
+                  <mat-icon>drag_handle</mat-icon>
+                  {{ I18N.comparison.tie | translate }}
+                </button>
+                <button mat-stroked-button [disabled]="pairSubmitting()" (click)="skipPair()">
+                  <mat-icon>skip_next</mat-icon>
+                  {{ I18N.comparison.skip | translate }}
+                </button>
+                @if (comparisonCount() > 0) {
+                  <span class="flex items-center text-sm text-gray-400 ml-2">
+                    {{ comparisonCount() }} {{ I18N.comparison.comparisons_completed | translate }}
+                  </span>
+                }
+              </div>
+            } @else {
+              <div class="text-center py-8 text-gray-400">
+                {{ I18N.comparison.no_more_pairs | translate }}
+              </div>
+            }
+          </mat-card-content>
+        </mat-card>
+
+        <!-- Sidebar: Stats + Weight suggestions -->
+        <div class="flex flex-col gap-4">
+          <!-- Stats -->
+          <mat-card>
+            <mat-card-header>
+              <mat-card-title class="!text-sm">{{ I18N.compare.stats.title | translate }}</mat-card-title>
+            </mat-card-header>
+            <mat-card-content class="!pt-2">
+              @if (comparisonStats(); as stats) {
+                <div class="grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
+                  <span class="text-gray-400">{{ I18N.compare.stats.total_comparisons | translate }}</span>
+                  <span class="text-right font-mono">{{ stats.total_comparisons }}</span>
+                  <span class="text-gray-400">{{ I18N.compare.stats.a_wins | translate }}</span>
+                  <span class="text-right font-mono">{{ stats.winner_breakdown?.['a'] || 0 }}</span>
+                  <span class="text-gray-400">{{ I18N.compare.stats.b_wins | translate }}</span>
+                  <span class="text-right font-mono">{{ stats.winner_breakdown?.['b'] || 0 }}</span>
+                  <span class="text-gray-400">{{ I18N.compare.stats.ties_label | translate }}</span>
+                  <span class="text-right font-mono">{{ stats.winner_breakdown?.['tie'] || 0 }}</span>
+                </div>
+              } @else {
+                <p class="text-xs text-gray-500">{{ I18N.comparison.no_data_yet | translate }}</p>
+              }
+            </mat-card-content>
+          </mat-card>
+
+          <!-- Weight Suggestions -->
+          <mat-card>
+            <mat-card-header>
+              <mat-card-title class="!text-sm">{{ I18N.compare.actions.suggest_weights | translate }}</mat-card-title>
+            </mat-card-header>
+            <mat-card-content class="!pt-2">
+              <button mat-stroked-button class="w-full mb-3" [disabled]="suggestDisabled()"
+                (click)="loadLearnedWeights()" [matTooltip]="suggestTooltip()">
+                @if (learnedWeightsLoading()) {
+                  <mat-spinner diameter="16" class="inline-flex !w-4 !h-4" [attr.aria-label]="I18N.ui.labels.loading | translate" />
+                } @else {
+                  <mat-icon>auto_fix_high</mat-icon>
+                }
+                {{ I18N.compare.actions.suggest_weights | translate }}
+              </button>
+              @if (learnedWeights(); as lw) {
+                @if (lw.available) {
+                  <div class="text-xs space-y-2">
+                    <div class="text-gray-400">
+                      {{ I18N.compare.weights.learned_from | translate:{ count: lw.comparisons_used ?? 0 } }}
+                      @if (lw.ties_included) {
+                        ({{ I18N.compare.weights.incl_ties | translate:{ count: lw.ties_included } }})
+                      }
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <span class="text-gray-400">{{ I18N.compare.weights.prediction_accuracy | translate }}:</span>
+                      <span class="font-mono">{{ (lw.accuracy_before ?? 0) | fixed:0 }}%</span>
+                      <span class="text-gray-500">&rarr;</span>
+                      <span class="font-mono text-[var(--facet-accent-text)]">{{ (lw.accuracy_after ?? 0) | fixed:0 }}%</span>
+                    </div>
+                    @if (lw.mispredicted_count) {
+                      <div class="text-gray-500">
+                        {{ I18N.compare.weights.mispredicted | translate:{ count: lw.mispredicted_count } }}
+                      </div>
+                    }
+                    @if (lw.suggest_changes && lw.suggested_weights) {
+                      <div class="space-y-0.5 mb-3">
+                        @for (key of currentWeightKeys(); track key) {
+                          <div class="flex items-center text-xs">
+                            <span class="w-28 shrink-0 truncate text-gray-400">{{ key | weightLabelKey | translate }}</span>
+                            <span class="font-mono w-10 shrink-0 text-right tabular-nums">{{ lw.current_weights?.[key] || 0 }}</span>
+                            <span class="w-6 shrink-0 text-center text-gray-500">&rarr;</span>
+                            <span class="font-mono w-10 shrink-0 text-right tabular-nums text-[var(--facet-accent-text)]">{{ lw.suggested_weights[key] || 0 }}</span>
+                          </div>
+                        }
+                      </div>
+                      <button mat-flat-button class="w-full" [disabled]="!auth.isEdition()" (click)="applyWeights()">
+                        <mat-icon>auto_fix_high</mat-icon>
+                        {{ I18N.comparison.apply_suggested | translate }}
+                      </button>
+                    } @else {
+                      <p class="text-amber-400">{{ I18N.compare.weights.already_good | translate }}</p>
+                    }
+                  </div>
+                } @else {
+                  <p class="text-xs text-gray-500">{{ I18N.compare.tooltips.suggest_weights_disabled | translate:{ count: (comparisonStats()?.total_comparisons ?? 0), min: (comparisonStats()?.min_comparisons_for_optimization ?? 30) } }}</p>
+                }
+              }
+            </mat-card-content>
+          </mat-card>
+        </div>
+      </div>
+    </div>
+  `,
+})
+export class ComparisonAbTabComponent {
+  protected readonly I18N = I18N_KEYS;
+  private readonly api = inject(ApiService);
+  private readonly i18n = inject(I18nService);
+  private readonly snackBar = inject(MatSnackBar);
+  protected readonly auth = inject(AuthService);
+  private readonly compareFilters = inject(CompareFiltersService);
+
+  /** Emitted when user applies learned weight suggestions — parent updates the weights tab */
+  readonly weightsApplied = output<Record<string, number>>();
+
+  protected readonly strategies = ['uncertainty', 'boundary', 'active', 'random'] as const;
+
+  constructor() {
+    toObservable(this.compareFilters.selectedCategory).pipe(
+      filter(Boolean),
+      takeUntilDestroyed(),
+    ).subscribe(() => {
+      this.pairA.set(null);
+      this.pairB.set(null);
+      this.pairError.set(null);
+      this.comparisonStats.set(null);
+      this.learnedWeights.set(null);
+      this.comparisonCount.set(0);
+      void this.loadNextPair();
+    });
+  }
+
+  readonly pairA = signal<string | null>(null);
+  readonly pairLoading = signal(false);
+  protected readonly pairB = signal<string | null>(null);
+  protected readonly pairScoreA = signal(0);
+  protected readonly pairScoreB = signal(0);
+  protected readonly pairSubmitting = signal(false);
+  protected readonly pairError = signal<string | null>(null);
+  protected readonly comparisonCount = signal(0);
+  protected readonly strategy = signal<string>('uncertainty');
+  protected readonly comparisonStats = signal<ComparisonStats | null>(null);
+  protected readonly learnedWeights = signal<LearnedWeightsResponse | null>(null);
+  protected readonly learnedWeightsLoading = signal(false);
+  protected readonly showStrategyHelp = signal(false);
+
+  protected readonly currentWeightKeys = computed(() =>
+    Object.keys(this.learnedWeights()?.current_weights ?? {}).filter(k => k.endsWith('_percent')),
+  );
+
+  protected readonly suggestDisabled = computed(() => {
+    if (this.learnedWeightsLoading()) return true;
+    const stats = this.comparisonStats();
+    if (!stats) return true;
+    return (stats.total_comparisons ?? 0) < (stats.min_comparisons_for_optimization ?? 30);
+  });
+
+  protected readonly suggestTooltip = computed(() => {
+    const stats = this.comparisonStats();
+    if (!stats) return '';
+    const min = stats.min_comparisons_for_optimization ?? 30;
+    const done = stats.total_comparisons ?? 0;
+    if (done < min) {
+      return this.i18n.t(I18N.compare.tooltips.suggest_weights_disabled, { count: done, min });
+    }
+    return this.i18n.t(I18N.compare.tooltips.suggest_weights);
+  });
+
+  protected onStrategyChange(value: string): void {
+    this.strategy.set(value);
+    if (this.pairA()) void this.loadNextPair();
+  }
+
+  async loadNextPair(): Promise<void> {
+    const cat = this.compareFilters.selectedCategory();
+    if (!cat) return;
+
+    this.pairLoading.set(true);
+    this.pairError.set(null);
+    void this.loadComparisonStats();
+    try {
+      const data = await firstValueFrom(
+        this.api.get<PairResponse>('/comparison/next_pair', { category: cat, strategy: this.strategy() }),
+      );
+      if (this.compareFilters.selectedCategory() !== cat) return;
+      if (data.error) {
+        this.pairA.set(null);
+        this.pairB.set(null);
+        this.pairError.set(data.error);
+      } else if (data.a && data.b) {
+        this.pairA.set(data.a);
+        this.pairB.set(data.b);
+        this.pairScoreA.set(data.score_a ?? 0);
+        this.pairScoreB.set(data.score_b ?? 0);
+      } else {
+        this.pairA.set(null);
+        this.pairB.set(null);
+        this.pairError.set(this.i18n.t(I18N.comparison.no_more_pairs));
+      }
+    } catch {
+      this.pairError.set(this.i18n.t(I18N.comparison.error_loading_pair));
+    } finally {
+      this.pairLoading.set(false);
+    }
+  }
+
+  protected async submitComparison(winner: 'a' | 'b' | 'tie'): Promise<void> {
+    const a = this.pairA();
+    const b = this.pairB();
+    const cat = this.compareFilters.selectedCategory();
+    if (!a || !b || !cat) return;
+
+    this.pairSubmitting.set(true);
+    try {
+      await firstValueFrom(
+        this.api.post('/comparison/submit', { photo_a: a, photo_b: b, winner, category: cat }),
+      );
+      this.comparisonCount.update(c => c + 1);
+      void this.loadComparisonStats();
+      await this.loadNextPair();
+    } catch {
+      this.pairError.set(this.i18n.t(I18N.comparison.error_submitting));
+    } finally {
+      this.pairSubmitting.set(false);
+    }
+  }
+
+  protected async skipPair(): Promise<void> {
+    const a = this.pairA();
+    const b = this.pairB();
+    const cat = this.compareFilters.selectedCategory();
+    if (!a || !b || !cat) return;
+
+    this.pairSubmitting.set(true);
+    try {
+      await firstValueFrom(
+        this.api.post('/comparison/submit', { photo_a: a, photo_b: b, winner: 'skip', category: cat }),
+      );
+      void this.loadComparisonStats();
+      await this.loadNextPair();
+    } catch {
+      this.pairError.set(this.i18n.t(I18N.comparison.error_submitting));
+    } finally {
+      this.pairSubmitting.set(false);
+    }
+  }
+
+  private async loadComparisonStats(): Promise<void> {
+    try {
+      const data = await firstValueFrom(this.api.get<ComparisonStats>('/comparison/stats'));
+      this.comparisonStats.set(data);
+    } catch { /* non-critical */ }
+  }
+
+  protected async loadLearnedWeights(): Promise<void> {
+    const cat = this.compareFilters.selectedCategory();
+    if (!cat) return;
+    this.learnedWeightsLoading.set(true);
+    try {
+      const data = await firstValueFrom(
+        this.api.get<LearnedWeightsResponse>('/comparison/learned_weights', { category: cat }),
+      );
+      this.learnedWeights.set(data);
+    } catch {
+      this.snackBar.open(this.i18n.t(I18N.comparison.error_loading_suggestions), '', { duration: 4000 });
+    } finally {
+      this.learnedWeightsLoading.set(false);
+    }
+  }
+
+  protected applyWeights(): void {
+    const lw = this.learnedWeights();
+    if (!lw?.suggested_weights) return;
+    const merged = { ...(lw.current_weights ?? {}), ...lw.suggested_weights };
+    this.weightsApplied.emit(merged);
+    this.snackBar.open(this.i18n.t(I18N.comparison.optimized), '', { duration: 3000 });
+  }
+
+  protected onKeydown(event: KeyboardEvent): void {
+    const target = event.target as HTMLElement;
+    const tag = target?.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    if (target?.closest('mat-select, .cdk-overlay-container, [role="combobox"], [role="listbox"], [role="option"]')) return;
+    if (!this.pairA() || !this.pairB() || this.pairSubmitting() || this.pairLoading()) return;
+    switch (event.key) {
+      case 'ArrowLeft': void this.submitComparison('a'); event.preventDefault(); break;
+      case 'ArrowRight': void this.submitComparison('b'); event.preventDefault(); break;
+      case 't': case 'T': void this.submitComparison('tie'); event.preventDefault(); break;
+      case 's': case 'S': void this.skipPair(); event.preventDefault(); break;
+    }
+  }
+}

@@ -1,0 +1,7 @@
+README.md
+architecture.mmd
+architecture.svg
+result.json
+
+model_not_run: Giới hạn MODEL_NOT_RUN
+slice_scope: Giới hạn SLICE_SCOPE

@@ -1,0 +1,16 @@
+.git
+.github
+.pytest_cache
+.mypy_cache
+.ruff_cache
+__pycache__
+*.pyc
+tests
+docs
+scripts
+.devcontainer
+render.yaml
+poetry.lock
+requirements-dev.txt
+*.md
+LICENSE

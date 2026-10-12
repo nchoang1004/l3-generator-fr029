@@ -1,0 +1,296 @@
+# spatiumddi-metallb — MetalLB in its own metallb-system namespace.
+#
+# Deployed by firstboot as a SEPARATE ``spatium-metallb`` HelmChart CR
+# (targetNamespace: metallb-system, createNamespace: true), NOT as a
+# subchart of spatium-bootstrap — the upstream MetalLB chart hardcodes
+# ``namespace: {{ .Release.Namespace }}`` with no override, so a
+# separate release is the only way to land it in metallb-system. The
+# moved IPAddressPool / L2Advertisement render in the release namespace
+# (metallb-system) automatically; the frontend LoadBalancer Service
+# stays in spatium and references the pool by name.
+#
+# VERSION PIN — the full v0.15.3 release (chart + images + CRDs), NOT
+# v0.16.0. v0.16.0 regressed the speaker's ServiceL2Status reconciler
+# into an apiserver-flooding create-fail/not-found loop
+# (metallb/metallb#3063; clean v0.15.3->v0.16.0 bisection — v0.15.3 ~0
+# errs, v0.16.0 ~200 errs/30s on the same cluster + CRDs). Pinning only
+# the images while keeping the v0.16.0 chart does NOT work: the v0.16.0
+# chart's speaker liveness probe hits /healthz:17472, which the v0.15.3
+# binary doesn't serve (it exposes /metrics on the monitoring port), so
+# the speaker crashloops. The dependency in Chart.yaml is therefore
+# pinned to the 0.15.3 chart end-to-end. Revert to the chart default
+# once #3063 is fixed upstream. KEEP the image tags below in lock-step
+# with the chart version + appliance/scripts/bake-images.sh
+# ``METALLB_IMAGES``.
+# POD POSTURE (#983) — the ``priorityClassName`` values below name classes
+# rendered by a DIFFERENT release (spatium-bootstrap, the spatiumddi-appliance
+# chart), which normally needs care: the apiserver REFUSES a pod naming a
+# PriorityClass that does not exist. It is safe here specifically because
+# MetalLB ships disabled and is only ever enabled by the supervisor when an
+# operator sets a VIP — and the supervisor itself comes from that same
+# bootstrap release. If bootstrap never succeeded there is nothing to turn
+# MetalLB on, so there are no speaker/controller pods to refuse.
+metallb:
+  enabled: false
+
+  # CRDs are pre-loaded as a k3s auto-deploy manifest at firstboot
+  # (spatiumddi-firstboot place_metallb_crds → cluster-scoped, version-
+  # matched), so the chart's CRD sub-subchart stays OFF to avoid a
+  # double-owner conflict on the metallb.io CRDs.
+  crds:
+    enabled: false
+    # Fail OPEN when the validating webhook is unreachable (#1103). Helm 4
+    # (klipper-helm, inside k3s) applies the ValidatingWebhookConfigurations
+    # before the IPAddressPool / L2Advertisement below, so those are admitted
+    # while the controller Deployment backing the webhook, created in the
+    # same pass, is not yet ready. At the upstream default ``Fail`` that is a
+    # hard rejection, and every k3s HelmChart retry uninstalls first, deleting
+    # the controller again: setting a control-plane VIP never converged.
+    # ``Ignore`` only changes what happens when the validator cannot be
+    # REACHED (or times out); once the controller is up, the CRs are
+    # validated as before. A CR admitted in that window is not checked by
+    # MetalLB at all: the pool, VIPs and BGP peer ASNs / addresses are
+    # validated by the API (``MetalLBConfigUpdate``) before they reach this
+    # chart, but a BGP ``hold_time`` / community string is passed through
+    # verbatim and only MetalLB would have refused it. Not
+    # ``webhookMode: disabled``, which drops validation entirely. This does
+    # not cover the BGPPeer CONVERSION webhook, which has no failure policy;
+    # templates/metallb-bgp.yaml avoids it by writing the storage version.
+    # MetalLB 0.16.1 still defaults to ``Fail`` (metallb/metallb#3133).
+    # ``chart-webhooks-fail-open.py`` checks the rendered policy, since
+    # ``helm lint`` and ``helm template`` both pass with ``Fail``.
+    validationFailurePolicy: Ignore
+
+  # ── L2 (native) mode ──────────────────────────────────────────────
+  # Native L2 — no FRR, no frr-k8s. ``frrk8s.enabled=false`` matches the
+  # 0.15.3 chart default but is set explicitly so a future chart bump
+  # (0.16.0 flips it TRUE) can't silently pull the frr-k8s + frr images
+  # we don't bake. ``speaker.frr.enabled=false`` is load-bearing: the
+  # 0.15.3 chart defaults it TRUE, which would run the in-speaker FRR
+  # sidecar (another unbaked image). L2 ARP/NDP needs neither.
+  frrk8s:
+    enabled: false
+  speaker:
+    frr:
+      enabled: false
+    image:
+      repository: quay.io/metallb/speaker
+      tag: v0.15.3  # lock-step with the 0.15.3 chart — metallb#3063 (header note)
+    # Speaker DaemonSet answers ARP for the VIP; gate it onto the
+    # control-plane nodes via the per-role label (CLAUDE.md non-neg #16).
+    nodeSelector:
+      spatium.io/role-control-plane: "true"
+    # #983 — the speaker is ON THE DATA PATH. It answers ARP/NDP for the
+    # control-plane VIP and, with ``dns.useMetalLBVIP=true``, for the DNS
+    # VIP too — so evicting it takes out the address that dns-bind9's
+    # ``spatium-service`` ranking exists to protect. Leaving it at priority
+    # 0 while everything around it moved to 90000/100000 would have made
+    # the ARP responder the FIRST thing the kubelet reclaims under memory
+    # pressure. Same class as the DNS/DHCP pods, for the same reason.
+    priorityClassName: spatium-service
+    # #965 — requests only, a floor rather than a measurement. Upstream
+    # ships ``resources: {}``, which is BestEffort: cgroup cpu.weight 1 and
+    # first in the OOM queue, on the pod that owns the VIP.
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+    # #983 — upstream leaves the speaker's pod securityContext empty (it
+    # needs to run as root for raw ARP/NDP), so nothing asked for a seccomp
+    # profile and the container ran ``Unconfined``. ``RuntimeDefault`` under
+    # containerd permits ``socket(AF_PACKET, …)`` for a container holding
+    # CAP_NET_RAW, which the speaker does — the capability, not the profile,
+    # is what gates the raw socket.
+    securityContext:
+      seccompProfile:
+        type: RuntimeDefault
+  controller:
+    image:
+      repository: quay.io/metallb/controller
+      tag: v0.15.3  # lock-step with the 0.15.3 chart — metallb#3063 (header note)
+    nodeSelector:
+      spatium.io/role-control-plane: "true"
+    # #983 — the controller allocates IPs from the pool; it is not on the
+    # packet path, so it ranks with the rest of the control plane rather
+    # than with the speaker.
+    priorityClassName: spatium-control-plane
+    # #965 — see the speaker's note.
+    resources:
+      requests:
+        cpu: 10m
+        memory: 64Mi
+    # #983 — MUST repeat upstream's three keys: the chart renders this map
+    # wholesale (``toYaml .Values.controller.securityContext``), so a
+    # values override REPLACES it rather than merging, and dropping
+    # runAsNonRoot / runAsUser / fsGroup here would silently put the
+    # controller back to running as root.
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 65534    # nobody
+      fsGroup: 65534
+      seccompProfile:
+        type: RuntimeDefault
+
+  # ── L2 IP pool ────────────────────────────────────────────────────
+  # ``ipPool.addresses`` is the L2 range MetalLB hands out. The operator
+  # picks a free slice via the Fleet → Network & Host UI; the supervisor
+  # writes it into this chart's HelmChartConfig on save. Empty → no
+  # IPAddressPool/L2Advertisement rendered even when ``enabled: true``.
+  ipPool:
+    addresses: []
+    # Only Services that explicitly request an IP (loadBalancerIPs
+    # annotation) draw from this pool — the control-plane VIP Service
+    # does exactly that. Flip true only for generic LB auto-assignment.
+    autoAssign: false
+
+  # ── BGP (issue #566 decision D1 — light-up) ───────────────────────
+  # No behavior change while ``enabled: false``. This chart peers through
+  # the frr-k8s backend (#566 D1; MetalLB's native BGP mode could peer
+  # without FRR, but is not what this chart runs), so the seed supervisor
+  # flips BOTH this AND
+  # ``frrk8s.enabled`` above together (apply_metallb_overrides) the
+  # instant an operator configures a BGP peer via Fleet → Network &
+  # Host, so the two flags never drift apart in practice.
+  bgp:
+    enabled: false
+    peers: []
+    advertisements: []
+
+  # ── frr-k8s subchart config (issue #566 decision D1 — BGP mode) ────
+  # NOTE the hyphen: this is a DIFFERENT key from `frrk8s:` above, and
+  # it MUST live nested inside this `metallb:` block (same indent as
+  # `frrk8s:` / `speaker:` / `bgp:`), NOT as a top-level sibling of
+  # `metallb:` — Helm only threads subchart overrides through a chart's
+  # OWN values scope. Our wrapper Chart.yaml depends on `metallb`
+  # (unaliased), so wrapper `metallb.*` becomes the metallb chart's own
+  # `.Values.*`; the metallb chart's OWN Chart.yaml then depends on
+  # `frr-k8s` (also unaliased), so ITS `.Values.frr-k8s.*` — i.e. our
+  # `metallb.frr-k8s.*` — is what reaches the nested frr-k8s dependency.
+  # A top-level (0-indent) `frr-k8s:` key here never reaches it at all
+  # (verified empirically via `helm template` — every field silently
+  # fell back to the frr-k8s chart's own bundled defaults, including
+  # `crds.enabled: true`, re-introducing the double-owner CRD conflict
+  # §0c exists to avoid).
+  #
+  # `frrk8s:` (no hyphen, above) is the metallb chart's own "am I
+  # frrk8s-backed" flag; `frr-k8s:` (hyphen) is the values block for the
+  # nested frr-k8s dependency chart itself (matches its Chart.yaml
+  # `name:`).
+  #
+  # A SECOND, easy-to-miss nesting quirk lives one level further down:
+  # the frr-k8s chart's OWN values.yaml has a top-level `crds:` key
+  # (its nested CRDs sub-subchart, gated by `condition: crds.enabled`
+  # in ITS Chart.yaml — reached at exactly `frr-k8s.crds.enabled` from
+  # here) but puts image/nodeSelector/frr-image config under its OWN
+  # internal (also no-hyphen) `frrk8s:` key instead of at its top level
+  # — verified against the vendored tarball's
+  # `charts/frr-k8s/templates/controller.yaml`, which reads
+  # `.Values.frrk8s.image.repository` / `.Values.frrk8s.nodeSelector` /
+  # `.Values.frrk8s.frr.image...`. So from OUR root values.yaml, the
+  # working paths are `metallb.frr-k8s.crds.enabled` (no extra nesting)
+  # but `metallb.frr-k8s.frrk8s.nodeSelector` /
+  # `metallb.frr-k8s.frrk8s.image.*` /
+  # `metallb.frr-k8s.frrk8s.frr.image.*` (one extra `frrk8s:` level) —
+  # confirmed empirically via `helm template` after the first attempt
+  # (image/nodeSelector at `frr-k8s.*` directly) silently no-op'd and
+  # every field rendered as the chart's own bundled default instead.
+  #
+  # Gated off in step with `frrk8s.enabled` above — the frr-k8s
+  # DaemonSet only actually deploys when BOTH `metallb.enabled` AND
+  # `metallb.frrk8s.enabled` are true (see the metallb chart's
+  # speaker.yaml / controller.yaml
+  # `{{- if or .Values.frrk8s.enabled .Values.frrk8s.external }}` gates),
+  # so leaving this block populated while frrk8s.enabled stays false is
+  # inert.
+  frr-k8s:
+    # CRDs (frrconfigurations / frrnodestates / bgpsessionstates,
+    # frrk8s.metallb.io group) are pre-loaded outside Helm exactly like
+    # the metallb.io CRDs above — same "no double-owner conflict" reason.
+    crds:
+      enabled: false
+    # #575 — the frr-k8s controller wires a kube-rbac-proxy sidecar (twice
+    # per pod) whose image defaults to `gcr.io/kubebuilder/kube-rbac-proxy`,
+    # which Google sunset (now 404 — broke the bake + any non-airgap pull).
+    # Repoint to kube-rbac-proxy's maintained upstream home, quay.io/brancz
+    # (same image, same v0.12.0 tag). NOTE `rbacProxy` lives at the frr-k8s
+    # chart's TOP level under `prometheus:` (controller.yaml:397/423 read
+    # `.Values.prometheus.rbacProxy.*`), NOT under the `frrk8s:` block below.
+    # KEEP in lock-step with appliance/scripts/bake-images.sh METALLB_IMAGES.
+    prometheus:
+      rbacProxy:
+        repository: quay.io/brancz/kube-rbac-proxy
+        tag: v0.12.0
+    # frr-k8s chart's OWN internal `frrk8s:` key (see the long comment
+    # above) — nodeSelector / image / frr-image config all live here,
+    # NOT at this block's top level.
+    frrk8s:
+      # Same control-plane-only placement as the speaker/controller
+      # above (non-negotiable #16) — BGP is a control-plane concern.
+      nodeSelector:
+        spatium.io/role-control-plane: "true"
+      # #983 — in BGP mode frr-k8s IS the data path: the speaker delegates
+      # advertisement to it, so an evicted frr-k8s withdraws the VIP's route
+      # exactly as an evicted speaker stops answering ARP in L2 mode. Same
+      # class as the speaker for the same reason. One key covers both the
+      # DaemonSet and the status-cleaner Deployment (the chart reads
+      # ``.Values.frrk8s.priorityClassName`` in both templates).
+      priorityClassName: spatium-service
+      # #965 — floors, not measurements. Upstream ships ``resources: {}`` for
+      # all five containers, i.e. a five-container BestEffort pod holding the
+      # BGP session. ``frrk8s.resources`` covers the controller container AND
+      # the status-cleaner Deployment; the other four are per-container keys.
+      resources:
+        requests:
+          cpu: 10m
+          memory: 64Mi
+      reloader:
+        resources:
+          requests:
+            cpu: 5m
+            memory: 32Mi
+      frrMetrics:
+        resources:
+          requests:
+            cpu: 5m
+            memory: 32Mi
+      frrStatus:
+        resources:
+          requests:
+            cpu: 5m
+            memory: 32Mi
+      # #983 — NO seccomp profile here, and it is not an oversight: the
+      # frr-k8s 0.0.21 chart exposes no pod-securityContext knob at all
+      # (grep its templates — ``.Values.frrk8s.*`` covers image, nodeSelector,
+      # resources and priorityClassName, nothing else), so no values override
+      # can supply one. The render check therefore exempts these two
+      # workloads by name rather than skipping the chart, which is how they
+      # went unnoticed until #983. Revisit on a chart bump.
+      # Explicit image tags, locked to what the vendored 0.15.3 metallb
+      # package's frr-k8s@0.0.21 subchart defaults to (verified by
+      # inspecting charts/frr-k8s/values.yaml + Chart.yaml inside the
+      # tarball) — pin explicitly so a `helm dependency update` re-fetch
+      # that silently changes upstream defaults can't drift the pin
+      # unnoticed. KEEP in lock-step with
+      # appliance/scripts/bake-images.sh ``METALLB_IMAGES``.
+      image:
+        repository: quay.io/metallb/frr-k8s
+        tag: v0.0.21
+      frr:
+        image:
+          repository: quay.io/frrouting/frr
+          tag: 10.4.1
+        # #965 — the FRR daemon itself; see the resources note above.
+        resources:
+          requests:
+            cpu: 10m
+            memory: 64Mi
+
+# Cross-namespace pod-read for the control-plane api SA so the
+# Network & Host MetalLB status card works now that MetalLB is in
+# metallb-system (the api SA is in spatium). The control chart's release
+# is always ``spatium-control`` on the appliance, so its api SA is
+# ``spatium-control-spatiumddi-api`` in ``spatium``.
+apiReader:
+  enabled: true
+  serviceAccountName: spatium-control-spatiumddi-api
+  serviceAccountNamespace: spatium

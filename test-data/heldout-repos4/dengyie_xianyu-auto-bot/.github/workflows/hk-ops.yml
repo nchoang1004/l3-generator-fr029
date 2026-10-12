@@ -1,0 +1,45 @@
+name: Tencent Ops (manual SSH command)
+
+# 腾讯轻量云生产的手动运维通道，与部署任务共用 deploy key。
+# 与 docker-image.yml 的 deploy job 共用同一 deploy key；只应在需要时手动触发。
+on:
+  workflow_dispatch:
+    inputs:
+      command:
+        description: '要在腾讯轻量云生产机上执行的 shell 命令'
+        required: true
+        type: string
+
+concurrency:
+  group: tencent-docker-serial
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    env:
+      SSH_HOST: ${{ secrets.XIANYU_DEPLOY_HOST }}
+    steps:
+      - name: Setup deploy key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.XIANYU_DEPLOY_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Run command on tencent
+        env:
+          # 供命令经 $HOME_NODE_MIHOMO_CONFIG_B64 引用节点配置（公开仓库：凭据只在
+          # secret 里，严禁写进 dispatch input——input 在 run 页面原文可见，2026-09-13 踩过）
+          HOME_NODE_MIHOMO_CONFIG_B64: ${{ secrets.HOME_NODE_MIHOMO_CONFIG_B64 }}
+        run: |
+          # 经 stdin + bash -s 执行：input 不再嵌入 ssh 参数，双引号/引号配对不再影响
+          # 解析。定界符不加引号 = 与旧双引号包裹一致的 runner 侧 $VAR 展开语义
+          # （HOME_NODE_MIHOMO_CONFIG_B64 在 runner 展开）。命令体请勿读 stdin。
+          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o User=root "$SSH_HOST" 'bash -s' <<TENCENT_OPS_SCRIPT
+          ${{ inputs.command }}
+          TENCENT_OPS_SCRIPT
+
+      - name: Cleanup key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

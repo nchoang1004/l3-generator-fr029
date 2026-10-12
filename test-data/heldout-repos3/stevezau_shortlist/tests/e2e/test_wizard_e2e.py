@@ -1,0 +1,353 @@
+"""E2E: the setup wizard, driven end to end in a real browser against the fake Plex.
+
+This is the highest-value test in the suite: the wizard is the only path a new owner takes,
+it crosses every boundary (plex.tv PIN, PMS probe, plex.tv user sync, SSE, the engine), and
+every one of those crossings is a contract two unit suites can each pass while disagreeing
+with the other.
+
+Everything except the plex.tv PIN handshake is real: the SPA calls the real API, which drives
+the real engine against the fake PMS/plex.tv/TMDB.
+"""
+
+from __future__ import annotations
+
+import re
+
+import pytest
+from playwright.sync_api import Page, expect
+
+from shortlist.engine.delivery import row_marker
+from tests.e2e.conftest import ShortlistApp, stub_plex_pin
+from tests.fakes.fake_plex import DEMO_MOVIES, DEMO_SHOWS, FakePlexState
+
+pytestmark = pytest.mark.e2e
+
+# The engine run does history -> TMDB -> curate -> deliver -> filter-merge for every user, and the
+# share-filter writes hit plex.tv with a 1s throttle. Seconds, not milliseconds — so every wait
+# here is an expect() with a generous ceiling, never a sleep.
+SLOW = 90_000
+LOAD = 20_000
+
+
+def _connect_plex(page: Page, pms_url: str) -> None:
+    """Steps 0-1: welcome -> connect the Plex account -> pick the server -> probe it -> link it.
+
+    Nobody signed in to reach this wizard — on a fresh install there is nothing to sign in TO.
+    Connecting your Plex account is step 1, and it is what claims the instance. Once connected,
+    the picker opens straight onto your servers, with every address Plex advertises for them
+    already tried from where Shortlist actually runs.
+    """
+    expect(page.get_by_role("heading", name="Welcome")).to_be_visible(timeout=LOAD)
+    # The welcome CTA just advances to the sign-in step; it must NOT pre-empt it with "Connect Plex".
+    page.get_by_role("button", name="Get started").click()
+    expect(page.get_by_role("heading", name="Connect Plex")).to_be_visible()
+
+    # THE sign-in — exactly one, and it happens here, inside the step that needs it.
+    page.get_by_role("button", name="Sign in with Plex").click()
+    expect(page.get_by_role("button", name="Sign in with Plex")).to_have_count(0, timeout=LOAD)
+
+    # The picker lists the server and marks the address that answered. The unreachable one it
+    # also advertises must be offered but disabled — a guess would have picked the wrong one.
+    # SLOW, not LOAD: proving an address is unreachable means waiting for it to time out, which is
+    # the entire point of testing rather than guessing.
+    expect(page.get_by_text(FakePlexState.friendly_name, exact=True).first).to_be_visible(timeout=SLOW)
+    working = page.locator("button", has_text=pms_url).first
+    expect(working).to_be_enabled(timeout=LOAD)
+    # An unreachable address stays CLICKABLE by design — the probe only tried the plex.direct URL
+    # and can be a false negative, so it's marked "couldn't reach" as a hint, not disabled outright.
+    unreachable = page.locator("button", has_text="10.255.255.1").first
+    expect(unreachable).to_contain_text("reach")
+
+    # It preselects the address that worked, so the common case is one click.
+    url_field = page.get_by_label("Plex server URL")
+    expect(url_field).to_have_value(pms_url, timeout=LOAD)
+    page.get_by_role("button", name="Run checks").click()
+
+    # The capability checklist is the whole point of this step — assert every line, and that
+    # the libraries the fake PMS actually reports come back through the real probe endpoint.
+    expect(page.get_by_text("Plex version:")).to_be_visible(timeout=LOAD)
+    expect(page.get_by_text("Plex Media Server 1.43.3.10793 supports private rows")).to_be_visible()
+    expect(page.get_by_text("Plex Pass active")).to_be_visible()
+    expect(page.get_by_text("2 libraries found")).to_be_visible()
+    expect(page.get_by_text("Movies (30 movies)")).to_be_visible()
+    expect(page.get_by_text("TV Shows (30 shows)")).to_be_visible()
+
+    page.get_by_role("button", name="Link this server").click()
+    expect(page.get_by_text(f"Linked to {FakePlexState.friendly_name}")).to_be_visible(timeout=LOAD)
+
+
+def _skip_history(page: Page) -> None:
+    """Step 2: TMDB is required, Tautulli is not.
+
+    Without a TMDB key there is nothing to recommend FROM — every run dies at the first user
+    with a 401 — so the wizard must not let you past this step until a key is on file. Tautulli
+    stays optional (it only supplies friendlier display names); skipping uses Plex usernames.
+    """
+    page.get_by_role("button", name="Next").click()
+    expect(page.get_by_role("heading", name="Recommendations & history")).to_be_visible()
+
+    # The gate: you cannot leave, or even skip Tautulli, without TMDB.
+    expect(page.get_by_role("button", name="Skip — use Plex usernames")).to_be_disabled()
+
+    page.get_by_label("The Movie Database (TMDB) API key (required)").fill("fake-tmdb-key")
+    page.get_by_role("button", name="Save TMDB key").click()
+    expect(page.get_by_text("TMDB key works")).to_be_visible(timeout=LOAD)
+
+    page.get_by_role("button", name="Skip — use Plex usernames").click()
+
+
+def _choose_no_curator(page: Page) -> None:
+    """Step 3: "None" is a first-class choice, not a degraded mode — the copy must say so."""
+    expect(page.get_by_role("heading", name="Add an AI provider (optional)")).to_be_visible()
+    none_card = page.get_by_role("button", name=re.compile(r"^None\b"))
+    expect(none_card).to_be_visible()
+    expect(none_card).to_contain_text("Fully functional")
+    none_card.click()
+    expect(none_card).to_have_attribute("aria-pressed", "true")
+    expect(page.get_by_text("Built-in picker ready — no AI provider needed.")).to_be_visible(timeout=LOAD)
+
+
+#: Everyone step 4 offers: the three accounts plex.tv shares the server with, plus the owner —
+#: whom plex.tv's user list never returns and Shortlist has to add itself (issue #1).
+WIZARD_USERS = ("sarah", "mike", "jess", "steve")
+
+
+def _pick_users(page: Page, *usernames: str) -> None:
+    """Step 4: users sync from plex.tv on entry; enable the named ones."""
+    page.get_by_role("button", name="Next").click()
+    expect(page.get_by_role("heading", name="Pick your users")).to_be_visible()
+
+    # The owner caveat is a design requirement, not decoration: the owner CANNOT be hidden
+    # from, and they must learn that here rather than from their own Home screen tonight.
+    expect(page.get_by_text("Heads up, server owner")).to_be_visible()
+    expect(
+        page.get_by_text(re.compile("cannot hide other people.s rows from you in a library.s Collections tab"))
+    ).to_be_visible()
+
+    for username in WIZARD_USERS:
+        expect(page.get_by_role("cell", name=username, exact=True)).to_be_visible(timeout=LOAD)
+
+    # First sync pre-selects everyone (so the default click-through builds rows), so wait for that
+    # to land, then turn OFF anyone this test doesn't want enabled.
+    for username in WIZARD_USERS:
+        expect(page.get_by_role("switch", name=f"Give {username} a row")).to_be_checked(timeout=LOAD)
+    for username in WIZARD_USERS:
+        if username not in usernames:
+            toggle = page.get_by_role("switch", name=f"Give {username} a row")
+            toggle.click()
+            expect(toggle).not_to_be_checked(timeout=LOAD)
+
+
+def test_full_wizard_builds_real_rows(fresh_page: Page, fresh_app: ShortlistApp, fake_plex):
+    """The whole wizard, start to finish, exactly as an owner would walk it."""
+    page, app = fresh_page, fresh_app
+    pms_url, _, state = fake_plex
+    stub_plex_pin(page, app)
+
+    page.goto("/")
+    expect(page).to_have_url(re.compile(r"/setup$"), timeout=LOAD)
+
+    _connect_plex(page, pms_url)
+    _skip_history(page)
+    _choose_no_curator(page)
+    # Enable the jess too: with no watch history they exercise the cold-start path, where the row
+    # falls back to the default "✨ Picked for You" title (asserted below).
+    _pick_users(page, "sarah", "mike", "jess")
+
+    # --- No privacy step: rows are made private by the share-filter excludes the run writes, so the
+    # wizard goes Users -> Make it yours directly. --------------------------------------------------
+    page.get_by_role("button", name="Next").click()
+    expect(page.get_by_role("heading", name="Make it yours")).to_be_visible()
+
+    # The card shows the RENDERED name now, not the raw template — asserting the literal
+    # "{top_seed}" was pinning the bug where the button printed template syntax.
+    page.get_by_role("button", name=re.compile(r"Because you watched \S+")).click()
+    # The live preview renders the template the way Plex will, not the raw template string.
+    # Two matches now the card itself renders the name: the card, and the live preview
+    # below it. Both are correct — .first keeps the assertion about "it is shown", not "it
+    # is shown exactly once".
+    expect(page.get_by_text("Because you watched Fargo", exact=True).first).to_be_visible()
+
+    # 10, not the 15 default: the seeded library can suggest exactly 10 unwatched titles per
+    # user, so this is the largest row every user can actually fill (the engine never invents).
+    size_field = page.get_by_label("How many titles")
+    size_field.fill("10")
+    size_field.blur()  # the free number field commits on blur
+    expect(size_field).to_have_value("10")
+    page.get_by_role("button", name="Save & continue").click()
+
+    # --- Step 7: the first real run -------------------------------------------------------
+    expect(page.get_by_role("heading", name="First run")).to_be_visible(timeout=LOAD)
+    page.get_by_role("button", name="Build my rows").click()
+
+    expect(page.get_by_text("Rows are live on Plex")).to_be_visible(timeout=SLOW)
+    expect(page.get_by_text("run ok")).to_be_visible()
+
+    # Every person's final counts remain visible, including the cold-start picks. A candidate set
+    # is not proof of delivery: Jess has no watched seed for this row's name, so the existing Plex
+    # assertions below require that only Sarah and Mike receive rows.
+    for username in ("sarah", "mike", "jess"):
+        expect(page.get_by_text(username, exact=True)).to_be_visible()
+    expect(page.get_by_text(re.compile(r"^row built — \d+ picks"))).to_have_count(2)
+    expect(page.get_by_text(re.compile(r"^popular-title picks — 20 found"))).to_have_count(1)
+
+    page.get_by_role("button", name="Finish setup").click()
+    expect(page.get_by_role("heading", name="Dashboard")).to_be_visible(timeout=LOAD)
+
+    # --- What actually happened on the server ---------------------------------------------
+    setup_state = app.api("GET", "/api/setup/state").json()
+    assert setup_state["completed"] is True
+
+    settings = app.api("GET", "/api/settings").json()
+    assert settings["row.size"] == 10
+    assert settings["row.name_template"] == "Because you watched {top_seed}"
+
+    # A user gets one row per library they have picks in, so a label can map to several rows.
+    rows: dict[str, list] = {}
+    for collection in state.collections.values():
+        for label in collection.labels:
+            if label.lower().startswith("shortlist_"):
+                rows.setdefault(label.lower(), []).append(collection)
+
+    # The jess has NO watch history, and this wizard set the row name to "Because you watched
+    # {top_seed}" — a name that needs a watch. Since issue #84 Shortlist will not invent one, so the
+    # jess gets no row rather than one titled something the operator never wrote. The two people who
+    # HAVE watched are unaffected, which is the line this asserts: the rule costs exactly the rows it
+    # cannot name honestly, and no others.
+    assert set(rows) == {"shortlist_sarah", "shortlist_mike"}, (
+        "a row whose name needs a watch must be built for everyone who has one — and only them"
+    )
+    for label, collections in rows.items():
+        # A row runs PER LIBRARY: EACH library the user has picks in fills to the chosen size on its
+        # own — not one budget of 10 split across libraries. So a 'both' watcher gets a full movie
+        # row AND a full TV row, and every row is big enough for Plex to render.
+        for collection in collections:
+            assert len(collection.item_keys) <= 10, f"{label} library row exceeds the chosen size"
+            assert len(collection.item_keys) >= 2, f"{label} has a row too small for Plex to render"
+            assert collection.promoted_shared_home, f"{label} was never promoted onto shared Home"
+    # sarah watches movies AND TV, so she gets a full row in each of her two libraries (10 + 10).
+    assert sum(len(c.item_keys) for c in rows["shortlist_sarah"]) == 20, "sarah's two library rows each fill to 10"
+    # mike watches only TV, so exactly one full row of 10.
+    assert sum(len(c.item_keys) for c in rows["shortlist_mike"]) == 10, "mike's single TV row fills to 10"
+
+    # The dynamic template renders per row, from the top seed of that row's own picks — so a TV
+    # row says "Because you watched <a show>", not whatever movie happened to rank first.
+    assert len(rows["shortlist_sarah"]) == 2, "sarah watches movies and TV: one row in each library"
+    assert {c.section_id for c in rows["shortlist_sarah"]} == {state.section_id, state.show_section_id}
+    # Checked against the demo library rather than a "Movie NN" / "Show NN" prefix: those are real
+    # film and show titles now, chosen so the docs screenshots look like a real library.
+    films = {title for title, _year in DEMO_MOVIES}
+    shows = {title for title, _year in DEMO_SHOWS}
+
+    def seed_of(title: str) -> str:
+        """The title a row is named after, with Shortlist's invisible ownership marker taken off.
+
+        Every delivered row carries `row_marker`'s zero-width run, which a `startswith` check never
+        had to think about and an exact match does.
+        """
+        return title.removeprefix("Because you watched ").rstrip("\u200b\u200c")
+
+    for collection in rows["shortlist_sarah"]:
+        wanted = films if collection.section_id == state.section_id else shows
+        seed = seed_of(collection.title)
+        assert seed in wanted, f"a {'movie' if wanted is films else 'TV'} row is named after {seed!r}"
+    # mike only watches TV, so his row must be named after a show and never after a film.
+    seeded_by = seed_of(rows["shortlist_mike"][0].title)
+    assert seeded_by in shows, f"mike's row is seeded by {seeded_by!r}, which is not a show"
+    # And the jess — no watch history, so nothing to fill {top_seed} with — gets NO row rather than
+    # one Shortlist named for itself (issue #84). It used to land as the hardcoded English
+    # "✨ Picked for You", which on a server with a row name in another language read as a stray row
+    # appearing from nowhere, and claimed a watch that never happened over a list of merely popular
+    # titles. The operator gives the row a fallback name if they want these people to have one.
+    assert "shortlist_jess" not in rows
+    assert not any(c.title.startswith("✨ Picked for You") for c in state.collections.values()), (
+        "no collection may wear a title Shortlist invented"
+    )
+
+    # Every row carries its owner's INVISIBLE marker, so no two rows in a library share a title —
+    # and a Plex collection is a tag keyed by title, so identically-titled rows would be ONE tag
+    # holding everyone's picks. Users still read exactly the title they were promised.
+    accounts = {user.username.lower(): user.id for user in state.users.values()}
+    for label, collections in rows.items():
+        account_id = accounts[label.removeprefix("shortlist_")]
+        for collection in collections:
+            assert collection.title.endswith(row_marker(account_id)), (
+                f"{label}'s row has no marker — it shares a collection tag with everyone else's"
+            )
+    for library in (state.section_id, state.show_section_id):
+        titles = [c.title for c in state.collections.values() if c.section_id == library]
+        assert len(titles) == len(set(titles)), f"two rows share a collection tag in library {library}"
+
+    # Every user's share now excludes the OTHER users' labels — the whole point of the product.
+    # The jess is excluded from nobody's filter, because the jess HAS no row — excludes are built
+    # from the rows that exist on the server, not from the roster, so a person Shortlist could not
+    # name has nothing to hide. 203 is the jess: they are still excluded from both of the others.
+    assert state.users[201].filters["filterMovies"] == "label!=Shortlist_mike"
+    assert state.users[202].filters["filterMovies"] == "label!=Shortlist_sarah"
+    # One clause, exactly these two labels; their order is the order the first rows were merged in.
+    jess_filter = state.users[203].filters["filterMovies"]
+    assert jess_filter.startswith("label!=") and "&" not in jess_filter and "|" not in jess_filter, jess_filter
+    assert set(jess_filter.removeprefix("label!=").split(",")) == {"Shortlist_mike", "Shortlist_sarah"}
+    # And nothing empty ever reaches a filter — `label!=A,,B` is malformed and fails OPEN.
+    for user in state.users.values():
+        assert ",," not in (user.filters.get("filterMovies") or "")
+        assert not (user.filters.get("filterMovies") or "").endswith(",")
+
+    run = app.api("GET", "/api/runs").json()[0]
+    assert run["status"] == "ok"
+    assert run["dry_run"] is False
+    assert run["stats"]["users_ok"] == 3
+
+
+def test_choosing_a_local_curator_saves_its_url(fresh_page: Page, fresh_app: ShortlistApp, fake_plex):
+    """A self-hosted server takes a URL and no key. That key used to be unknown to the settings
+    store, so the whole payload 422'd — taking curator.provider down with it and blocking setup.
+
+    One card now covers Ollama, llama.cpp, LM Studio, vLLM and LocalAI: they all speak the same
+    OpenAI-compatible API, so a card per runtime was one capability wearing several hats."""
+    page, app = fresh_page, fresh_app
+    pms_url, _, _ = fake_plex
+    stub_plex_pin(page, app)
+
+    page.goto("/")
+    _connect_plex(page, pms_url)
+    _skip_history(page)
+
+    page.get_by_role("button", name=re.compile(r"^Local")).click()
+    page.get_by_label("Server URL").fill("http://127.0.0.1:11434")
+    page.get_by_role("button", name="Save & test").click()
+
+    for _ in range(20):
+        settings = app.api("GET", "/api/settings").json()
+        if settings.get("curator.provider") == "openai_compatible":
+            break
+        page.wait_for_timeout(250)
+    settings = app.api("GET", "/api/settings").json()
+    assert settings["curator.provider"] == "openai_compatible"
+    assert settings["curator.openai_base_url"] == "http://127.0.0.1:11434"
+
+
+def test_wizard_resumes_on_the_same_step_after_a_reload(fresh_page: Page, fresh_app: ShortlistApp, fake_plex):
+    """A refresh mid-wizard must not restart it: progress is persisted server-side per step."""
+    page, app = fresh_page, fresh_app
+    pms_url, _, _ = fake_plex
+    stub_plex_pin(page, app)
+
+    page.goto("/")
+    _connect_plex(page, pms_url)
+    _skip_history(page)
+    _choose_no_curator(page)
+
+    saved = fresh_app.api("GET", "/api/setup/state").json()
+    assert saved["step"] == 3
+    assert saved["state"]["curator_provider"] == "none"
+    assert saved["completed"] is False
+
+    page.reload()
+
+    # Same step, same choices — and the link survives without re-authenticating with Plex.
+    expect(page.get_by_role("heading", name="Add an AI provider (optional)")).to_be_visible(timeout=LOAD)
+    expect(page.get_by_role("button", name=re.compile(r"^None\b"))).to_have_attribute("aria-pressed", "true")
+    page.get_by_role("button", name="Back").click()
+    page.get_by_role("button", name="Back").click()
+    expect(page.get_by_text(f"Linked to {FakePlexState.friendly_name}")).to_be_visible()

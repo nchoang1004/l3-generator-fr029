@@ -1,0 +1,992 @@
+/* global React, Icon, Btn, Modal, Banner, confirmDialog */
+// Admin Users console page — RBAC user management (Spec §6/§12).
+//
+// Prefix ADM_ on every top-level name: the server-side JSX bundle
+// (primer.api._jsx_bundle) flattens top-level const/let/function into ONE
+// shared global scope, so any duplicate name across files clobbers the
+// other. Every component is published on window.* at the bottom.
+//
+// CRUD over /v1/admin/users (require_admin — Task 11). The anti-lockout
+// guard (refusing to delete / demote / disable / clear-password the last
+// enabled admin) lives server-side; this page just surfaces the error
+// envelope it returns. Real authorization is enforced by the backend —
+// hiding this page from non-admins (Task 13) is COSMETIC only.
+//
+// Do NOT destructure window.primerApi at module top level (see
+// providers.jsx) — read it inside each render.
+
+// ============================================================================
+// Constants
+// ============================================================================
+
+// Roles mirror primer/model/user.py::User.role (Literal, Task 2), ordered
+// most -> least privileged. "restricted" users are parked on the
+// PendingAccessScreen (Task 13) until an admin promotes them.
+const ADM_ROLE_OPTIONS = [
+  { value: "admin", label: "admin", description: "Full access incl. user management + provider config." },
+  { value: "user", label: "user", description: "Standard operator: agents, graphs, chats, workspaces." },
+  { value: "restricted", label: "restricted", description: "No console access until promoted." },
+];
+
+// ============================================================================
+// Helpers
+// ============================================================================
+
+// {code, message} out of an ApiError envelope. The server wraps a raw
+// HTTPException({error, message}) dict detail (anti-lockout / duplicate
+// username / not-found) as RFC7807's own string `detail` PLUS the full
+// dict verbatim under `extensions` (primer/api/errors.py's
+// _http_exception_handler + _detail_from_mapping) - `envelope.detail` is
+// therefore always a STRING here, never the {error, message} object this
+// used to check `typeof ... === "object"` against, so `code` was
+// silently always null (R5 fix: the message still rendered correctly
+// via the string fallback below, so this was invisible in the UI - only
+// the "(code)" suffix on the banner title was ever missing).
+function ADM_extractError(err) {
+  const env = err && err.envelope;
+  const ext = env && env.extensions;
+  let code = null;
+  let msg = null;
+  if (ext && typeof ext === "object") {
+    code = ext.error || ext.code || null;
+    msg = ext.message || null;
+  }
+  if (!msg && typeof err.detail === "string") msg = err.detail;
+  if (!msg) msg = (err && (err.title || err.message)) || "Request failed";
+  return { code, message: msg };
+}
+
+// Pill colour per role: admin=green, restricted=red, user=grey.
+function ADM_roleClass(role) {
+  if (role === "admin") return "pill-claimed";
+  if (role === "restricted") return "pill-failed";
+  return "pill-paused";
+}
+
+// ============================================================================
+// ADM_AdminUsersPage — list view + create / edit / delete entry points
+// ============================================================================
+
+function ADM_AdminUsersPage() {
+  const { useResource, apiFetch } = window.primerApi;
+  const [createOpen, setCreateOpen] = React.useState(false);
+  const [editUser, setEditUser] = React.useState(null);    // user | null
+  const [deleteUser, setDeleteUser] = React.useState(null); // user | null
+  const [keysUser, setKeysUser] = React.useState(null);     // user | null
+
+  const list = useResource(
+    "admin-users:list",
+    (signal) => apiFetch("GET", "/admin/users", null, { signal }),
+    { pollMs: 10000 },
+  );
+
+  const items = list.data?.items ?? [];
+
+  return (
+    <div className="col" style={{ gap: 14 }}>
+      <div className="filter-bar">
+        <span style={{ fontSize: 13, fontWeight: 600 }}>Users</span>
+        <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+          <Btn size="sm" kind="ghost" icon="refresh" onClick={list.refetch}>Refresh</Btn>
+          <Btn
+            size="sm"
+            kind="primary"
+            icon="plus"
+            data-testid="create-user-btn"
+            onClick={() => setCreateOpen(true)}
+          >
+            Create user
+          </Btn>
+        </div>
+      </div>
+
+      {list.loading && items.length === 0 && (
+        <div className="muted text-sm" style={{ padding: 40, textAlign: "center" }}>Loading…</div>
+      )}
+      {list.error && items.length === 0 && (
+        <Banner
+          kind="error"
+          title={list.error.title || "Couldn't load users"}
+          detail={list.error.detail || list.error.message}
+          actions={<Btn size="sm" icon="refresh" onClick={list.refetch}>Retry</Btn>}
+        />
+      )}
+      {!list.loading && !list.error && items.length === 0 && (
+        <div className="empty" style={{ padding: "40px 20px" }}>
+          <div className="ico-wrap"><Icon name="user" size={22} /></div>
+          <div className="head">No users yet</div>
+          <div className="sub">Create an account to grant console access.</div>
+          <div className="actions">
+            <Btn kind="primary" icon="plus" onClick={() => setCreateOpen(true)}>Create user</Btn>
+          </div>
+        </div>
+      )}
+
+      {items.length > 0 && (
+        <div data-testid="admin-users-table" className="tbl-wrap">
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th>Username</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th style={{ textAlign: "right" }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((u) => (
+                <ADM_UserRow
+                  key={u.id}
+                  user={u}
+                  onEdit={() => setEditUser(u)}
+                  onDelete={() => setDeleteUser(u)}
+                  onKeys={() => setKeysUser(u)}
+                  onChanged={list.refetch}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {createOpen && (
+        <ADM_CreateUserDialog
+          onClose={() => setCreateOpen(false)}
+          onCreated={() => { setCreateOpen(false); list.refetch(); }}
+        />
+      )}
+      {editUser && (
+        <ADM_EditUserDialog
+          user={editUser}
+          onClose={() => setEditUser(null)}
+          onSaved={() => { setEditUser(null); list.refetch(); }}
+        />
+      )}
+      {deleteUser && (
+        <ADM_DeleteUserDialog
+          user={deleteUser}
+          onClose={() => setDeleteUser(null)}
+          onDeleted={() => { setDeleteUser(null); list.refetch(); }}
+        />
+      )}
+      {keysUser && (
+        <ADM_UserKeysDialog
+          user={keysUser}
+          onClose={() => setKeysUser(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// ADM_UserRow — one row of the table.
+// ============================================================================
+
+// notes section 4 wants Force-rotation + Disable per row, not buried in
+// the Edit modal. Both are one-click PATCH quick actions
+// (primer/api/routers/admin_users.py's AdminUserUpdateBody): Disable
+// flips the plain `disabled` field; Force rotation sends
+// `generate_password: true`, which server-mints a random temp password,
+// hashes it, sets must_change_password, and returns the plaintext once
+// as `generated_password` (BACKEND-GAP #11 closed - was previously the
+// only way to set must_change_password without silently locking the
+// account out with an unrecoverable client-generated password).
+// Reset-with-a-typed-password stays in the Edit dialog, unchanged.
+function ADM_UserRow({ user, onEdit, onDelete, onKeys, onChanged }) {
+  const { apiFetch } = window.primerApi;
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState(null);
+  const [rotated, setRotated] = React.useState(null); // plaintext password | null
+
+  const toggleDisabled = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await apiFetch(
+        "PATCH", "/admin/users/" + encodeURIComponent(user.id),
+        { disabled: !user.disabled },
+      );
+      onChanged && onChanged();
+    } catch (err) {
+      // Anti-lockout can refuse THIS action too (disabling the last
+      // enabled admin) - surfaced inline, not silently dropped.
+      setError(ADM_extractError(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const forceRotation = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const resp = await apiFetch(
+        "PATCH", "/admin/users/" + encodeURIComponent(user.id),
+        { generate_password: true },
+      );
+      onChanged && onChanged();
+      if (resp && resp.generated_password) setRotated(resp.generated_password);
+    } catch (err) {
+      setError(ADM_extractError(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <React.Fragment>
+      <tr data-testid={`admin-user-row-${user.id}`}>
+        <td className="mono">{user.username}</td>
+        <td>
+          {user.email ? user.email : <span className="muted">—</span>}
+        </td>
+        <td>
+          <span className={`pill ${ADM_roleClass(user.role)}`}>
+            {user.role}
+          </span>
+        </td>
+        <td>
+          {user.disabled
+            ? <span className="pill pill-failed">disabled</span>
+            : <span className="pill pill-claimed">enabled</span>}
+          {user.must_change_password && (
+            <span className="pill pill-paused" style={{ marginLeft: 4 }}>must change pw</span>
+          )}
+        </td>
+        <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+          <Btn
+            size="sm"
+            kind="ghost"
+            icon={user.disabled ? "check" : "x-circle"}
+            onClick={toggleDisabled}
+            disabled={busy}
+            data-testid={`toggle-disabled-btn-${user.id}`}
+            title={user.disabled ? "Enable this account" : "Disable this account (blocks sign-in)"}
+          >
+            {busy ? "…" : (user.disabled ? "Enable" : "Disable")}
+          </Btn>
+          <Btn
+            size="sm"
+            kind="ghost"
+            icon="refresh"
+            onClick={forceRotation}
+            disabled={busy}
+            data-testid={`force-rotation-btn-${user.id}`}
+            title="Mint a new temp password and require the user to change it at next sign-in"
+            style={{ marginLeft: 6 }}
+          >
+            {busy ? "…" : "Force rotation"}
+          </Btn>
+          <Btn
+            size="sm"
+            kind="ghost"
+            icon="edit"
+            onClick={onEdit}
+            data-testid={`edit-user-btn-${user.id}`}
+            style={{ marginLeft: 6 }}
+          >
+            Edit
+          </Btn>
+          <Btn
+            size="sm"
+            kind="ghost"
+            icon="key"
+            onClick={onKeys}
+            data-testid={`keys-user-btn-${user.id}`}
+            style={{ marginLeft: 6 }}
+          >
+            Keys
+          </Btn>
+          <Btn
+            size="sm"
+            kind="danger"
+            icon="trash"
+            onClick={onDelete}
+            data-testid={`delete-user-btn-${user.id}`}
+            style={{ marginLeft: 6 }}
+          >
+            Delete
+          </Btn>
+        </td>
+      </tr>
+      {error && (
+        <tr>
+          <td colSpan={5} style={{ padding: "0 12px 8px" }}>
+            <Banner
+              kind="error"
+              title={error.code ? `Action refused (${error.code})` : "Action failed"}
+              detail={error.message || ""}
+            />
+          </td>
+        </tr>
+      )}
+      {rotated && (
+        <ADM_PasswordOneTimeDialog
+          username={user.username}
+          password={rotated}
+          onClose={() => setRotated(null)}
+        />
+      )}
+    </React.Fragment>
+  );
+}
+
+// ============================================================================
+// ADM_PasswordOneTimeDialog — the only place a server-generated temp
+// password is visible. Shared by the create flow and the per-row
+// Force-rotation action. Mirrors api_tokens.jsx's AT_PlaintextOneTimeDialog
+// (copy button + dire warning + separate close button).
+// ============================================================================
+
+function ADM_PasswordOneTimeDialog({ username, password, onClose }) {
+  const [copied, setCopied] = React.useState(false);
+  const [copyError, setCopyError] = React.useState(null);
+
+  const copy = async () => {
+    setCopyError(null);
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(password || "");
+      } else {
+        const ta = document.createElement("textarea");
+        ta.value = password || "";
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        try { document.execCommand("copy"); } finally { document.body.removeChild(ta); }
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (e) {
+      setCopyError(e && e.message ? e.message : "Copy failed");
+    }
+  };
+
+  return (
+    <Modal
+      title="Temp password — copy it now"
+      danger
+      onClose={onClose}
+      footer={
+        <>
+          <Btn
+            kind="primary"
+            icon={copied ? "check" : "copy"}
+            onClick={copy}
+            data-testid="copy-password-btn"
+          >
+            {copied ? "Copied!" : "Copy password"}
+          </Btn>
+          <Btn
+            kind="default"
+            onClick={onClose}
+            data-testid="close-plaintext-btn"
+          >
+            I have saved it — close
+          </Btn>
+        </>
+      }
+    >
+      <div data-testid="adm-plaintext-dialog">
+        <Banner
+          kind="warning"
+          title="This is the only time you'll see this password."
+          detail={`Copy it now and hand it to ${username} out of band - it cannot be retrieved later. They must change it at next sign-in.`}
+        />
+        <div className="field" style={{ marginTop: 12 }}>
+          <label className="field-label">Password</label>
+          <pre
+            data-testid="plaintext-display"
+            className="mono"
+            style={{
+              padding: "10px 12px",
+              border: "1px solid var(--border)",
+              borderRadius: 4,
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-all",
+            }}
+          >
+            {password}
+          </pre>
+        </div>
+        {copyError && (
+          <Banner kind="error" title="Copy failed" detail={copyError} />
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+// ============================================================================
+// ADM_CreateUserDialog — POST /v1/admin/users
+// ============================================================================
+
+function ADM_CreateUserDialog({ onClose, onCreated }) {
+  const { apiFetch } = window.primerApi;
+  const [username, setUsername] = React.useState("");
+  const [email, setEmail] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [generatePassword, setGeneratePassword] = React.useState(false);
+  const [role, setRole] = React.useState("user");
+  const [busy, setBusy] = React.useState(false);
+  const [submitError, setSubmitError] = React.useState(null);
+  const [created, setCreated] = React.useState(null); // {username, generated_password} | null
+
+  const mountedRef = React.useRef(true);
+  React.useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+
+  // Password min length mirrors RegisterBody (Task 2/§6): >= 8 chars. The
+  // server flags must_change_password=true when a password is given
+  // (typed or generated).
+  const canSubmit = !busy && !!username.trim()
+    && (generatePassword || password.length >= 8);
+
+  const submit = async () => {
+    setSubmitError(null);
+    setBusy(true);
+    try {
+      const body = {
+        username: username.trim(),
+        email: email.trim() || null,
+        role,
+        disabled: false,
+      };
+      if (generatePassword) {
+        body.generate_password = true;
+      } else {
+        body.password = password;
+      }
+      const resp = await apiFetch("POST", "/admin/users", body);
+      if (!mountedRef.current) return;
+      if (resp && resp.generated_password) {
+        setCreated(resp);
+      } else {
+        onCreated && onCreated();
+      }
+    } catch (err) {
+      if (!mountedRef.current) return;
+      setSubmitError(ADM_extractError(err));
+    } finally {
+      if (mountedRef.current) setBusy(false);
+    }
+  };
+
+  // Server-generated: show the one-time plaintext instead of the form.
+  // Closing that dialog is what actually finishes the create flow.
+  if (created) {
+    return (
+      <ADM_PasswordOneTimeDialog
+        username={created.username}
+        password={created.generated_password}
+        onClose={() => onCreated && onCreated()}
+      />
+    );
+  }
+
+  return (
+    <Modal
+      title="Create user"
+      onClose={onClose}
+      footer={
+        <>
+          <Btn kind="ghost" onClick={onClose} disabled={busy}>Cancel</Btn>
+          <Btn
+            kind="primary"
+            icon="check"
+            onClick={submit}
+            disabled={!canSubmit}
+            data-testid="create-user-submit"
+          >
+            {busy ? "Creating…" : "Create user"}
+          </Btn>
+        </>
+      }
+    >
+      <div data-testid="adm-create-form">
+        <div className="field">
+          <label className="field-label" htmlFor="adm-username">Username</label>
+          <input
+            id="adm-username"
+            className="input mono"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="lowercase letters, digits, . _ -"
+            style={{ width: "100%" }}
+            autoFocus
+          />
+        </div>
+        <div className="field">
+          <label className="field-label" htmlFor="adm-email">Email <span className="hint">optional</span></label>
+          <input
+            id="adm-email"
+            className="input"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="operator@example.com"
+            style={{ width: "100%" }}
+          />
+        </div>
+        <div className="field">
+          <label className="field-label" htmlFor="adm-password">Password</label>
+          <input
+            id="adm-password"
+            className="input mono"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="at least 8 characters"
+            style={{ width: "100%" }}
+            disabled={generatePassword}
+          />
+          <label
+            className="row"
+            style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", marginTop: 8 }}
+          >
+            <input
+              type="checkbox"
+              data-testid="adm-generate-password"
+              checked={generatePassword}
+              onChange={(e) => setGeneratePassword(e.target.checked)}
+            />
+            <span>Generate a temp password <span className="muted text-sm">— shown once, copy it before closing.</span></span>
+          </label>
+          <div className="field-help muted text-sm" style={{ marginTop: 4 }}>
+            The user must change this on first sign-in.
+          </div>
+        </div>
+        <div className="field">
+          <label className="field-label">Role</label>
+          <div data-testid="adm-role-options">
+            {ADM_ROLE_OPTIONS.map((opt) => (
+              <label
+                key={opt.value}
+                className="row"
+                style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "6px 0", cursor: "pointer" }}
+              >
+                <input
+                  type="radio"
+                  name="adm-create-role"
+                  checked={role === opt.value}
+                  onChange={() => setRole(opt.value)}
+                />
+                <div>
+                  <div style={{ fontWeight: 600 }}>{opt.label}</div>
+                  <div className="muted text-sm">{opt.description}</div>
+                </div>
+              </label>
+            ))}
+          </div>
+        </div>
+        {submitError && (
+          <Banner
+            kind="error"
+            title={submitError.code ? `Create failed (${submitError.code})` : "Create failed"}
+            detail={submitError.message || ""}
+          />
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+// ============================================================================
+// ADM_EditUserDialog — PATCH /v1/admin/users/{id}
+//
+// Sends ONLY the mutable fields {email, role, disabled} plus password
+// when the admin typed a new one — never the full user object (no id /
+// created_at / password_hash on the wire). An optional new password
+// re-flags must_change_password server-side. Anti-lockout violations
+// (demoting / disabling the last admin) come back as a 4xx envelope and
+// render in the banner.
+// ============================================================================
+
+function ADM_EditUserDialog({ user, onClose, onSaved }) {
+  const { apiFetch } = window.primerApi;
+  const [email, setEmail] = React.useState(user.email || "");
+  const [role, setRole] = React.useState(user.role || "user");
+  const [disabled, setDisabled] = React.useState(!!user.disabled);
+  const [password, setPassword] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
+  const [submitError, setSubmitError] = React.useState(null);
+
+  const mountedRef = React.useRef(true);
+  React.useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+
+  const canSubmit = !busy && (password === "" || password.length >= 8);
+
+  const submit = async () => {
+    setSubmitError(null);
+    setBusy(true);
+    try {
+      const body = {
+        email: email.trim() || null,
+        role,
+        disabled,
+      };
+      if (password) body.password = password;
+      await apiFetch("PATCH", "/admin/users/" + encodeURIComponent(user.id), body);
+      if (!mountedRef.current) return;
+      onSaved && onSaved();
+    } catch (err) {
+      if (!mountedRef.current) return;
+      setSubmitError(ADM_extractError(err));
+    } finally {
+      if (mountedRef.current) setBusy(false);
+    }
+  };
+
+  return (
+    <Modal
+      title={`Edit user · ${user.username}`}
+      onClose={onClose}
+      footer={
+        <>
+          <Btn kind="ghost" onClick={onClose} disabled={busy}>Cancel</Btn>
+          <Btn
+            kind="primary"
+            icon="check"
+            onClick={submit}
+            disabled={!canSubmit}
+            data-testid="edit-user-submit"
+          >
+            {busy ? "Saving…" : "Save changes"}
+          </Btn>
+        </>
+      }
+    >
+      <div data-testid="adm-edit-form">
+        <div className="field">
+          <label className="field-label" htmlFor="adm-edit-email">Email <span className="hint">optional</span></label>
+          <input
+            id="adm-edit-email"
+            className="input"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="operator@example.com"
+            style={{ width: "100%" }}
+          />
+        </div>
+        <div className="field">
+          <label className="field-label">Role</label>
+          <div data-testid="adm-edit-role-options">
+            {ADM_ROLE_OPTIONS.map((opt) => (
+              <label
+                key={opt.value}
+                className="row"
+                style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "6px 0", cursor: "pointer" }}
+              >
+                <input
+                  type="radio"
+                  name="adm-edit-role"
+                  checked={role === opt.value}
+                  onChange={() => setRole(opt.value)}
+                />
+                <div>
+                  <div style={{ fontWeight: 600 }}>{opt.label}</div>
+                  <div className="muted text-sm">{opt.description}</div>
+                </div>
+              </label>
+            ))}
+          </div>
+        </div>
+        <div className="field">
+          <label className="row" style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+            <input type="checkbox" checked={disabled} onChange={(e) => setDisabled(e.target.checked)} />
+            <span>Disabled <span className="muted text-sm">— blocks sign-in without deleting the account.</span></span>
+          </label>
+        </div>
+        <div className="field">
+          <label className="field-label" htmlFor="adm-edit-password">
+            Reset password <span className="hint">optional · leave blank to keep current</span>
+          </label>
+          <input
+            id="adm-edit-password"
+            className="input mono"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="at least 8 characters"
+            style={{ width: "100%" }}
+          />
+          <div className="field-help muted text-sm" style={{ marginTop: 4 }}>
+            Setting a new password forces a change on the user's next sign-in.
+          </div>
+        </div>
+        {submitError && (
+          <Banner
+            kind="error"
+            title={submitError.code ? `Save failed (${submitError.code})` : "Save failed"}
+            detail={submitError.message || ""}
+          />
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+// ============================================================================
+// ADM_DeleteUserDialog — DELETE /v1/admin/users/{id}
+// ============================================================================
+
+function ADM_DeleteUserDialog({ user, onClose, onDeleted }) {
+  const { apiFetch } = window.primerApi;
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState(null);
+
+  const mountedRef = React.useRef(true);
+  React.useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+
+  const submit = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await apiFetch("DELETE", "/admin/users/" + encodeURIComponent(user.id));
+      if (!mountedRef.current) return;
+      onDeleted && onDeleted();
+    } catch (err) {
+      if (!mountedRef.current) return;
+      setError(ADM_extractError(err));
+    } finally {
+      if (mountedRef.current) setBusy(false);
+    }
+  };
+
+  return (
+    <Modal
+      title={`Delete user · ${user.username}`}
+      danger
+      onClose={onClose}
+      footer={
+        <>
+          <Btn kind="ghost" onClick={onClose} disabled={busy}>Cancel</Btn>
+          <Btn
+            kind="danger"
+            icon="trash"
+            onClick={submit}
+            disabled={busy}
+            data-testid="delete-user-confirm-btn"
+          >
+            {busy ? "Deleting…" : "Delete user"}
+          </Btn>
+        </>
+      }
+    >
+      <div data-testid="adm-delete-confirm">
+        <p>This permanently removes <span className="mono">{user.username}</span>. Their sessions stay for audit.</p>
+        <ul>
+          <li>Any active browser session for this user is invalidated on their next request.</li>
+          <li>The server refuses this if it would remove the last enabled admin.</li>
+          <li>This action cannot be undone.</li>
+        </ul>
+        {error && (
+          <Banner
+            kind="error"
+            title={error.code ? `Delete failed (${error.code})` : "Delete failed"}
+            detail={error.message || ""}
+          />
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+// ============================================================================
+// ADM_UserKeysDialog — per-user API-key drill-down (Task 2 endpoints).
+//
+// View + revoke ONLY — no create/rename here (that stays self-service on
+// the AT_ApiTokensPage in api_tokens.jsx). Mirrors that page's summary-row
+// markup (AT_TokenRow) but scoped to one user's tokens via the admin
+// routes. Revoke uses confirmDialog() (shared.jsx) rather than a nested
+// <Modal>, since this dialog IS already a Modal.
+// ============================================================================
+
+function ADM_UserKeysDialog({ user, onClose }) {
+  const { useResource, apiFetch } = window.primerApi;
+
+  const list = useResource(
+    "admin-user-tokens:" + user.id,
+    (signal) => apiFetch("GET", "/admin/users/" + encodeURIComponent(user.id) + "/tokens", null, { signal }),
+  );
+
+  const items = list.data?.items ?? [];
+
+  // Revoke opens a SECOND Modal (confirmDialog, shared.jsx) on top of this one.
+  // Modal's Escape handler / backdrop click / X button all just invoke whatever
+  // onClose they were given — both Modals listen for the same global keydown,
+  // so an Escape meant to cancel the revoke confirm would otherwise also close
+  // this dialog. confirmPending suppresses that while a confirm is in flight;
+  // ADM_UserKeyRow bumps it via onConfirmStart/onConfirmEnd around confirmDialog().
+  const confirmPending = React.useRef(0);
+  const requestClose = () => { if (confirmPending.current > 0) return; onClose(); };
+
+  return (
+    <Modal
+      title={`API keys · ${user.username}`}
+      onClose={requestClose}
+      footer={<Btn kind="ghost" onClick={requestClose}>Close</Btn>}
+    >
+      <div data-testid="adm-user-keys-dialog">
+        {list.loading && items.length === 0 && (
+          <div className="muted text-sm" style={{ padding: 20, textAlign: "center" }}>Loading…</div>
+        )}
+        {list.error && items.length === 0 && (
+          <Banner
+            kind="error"
+            title={list.error.title || "Couldn't load API keys"}
+            detail={list.error.detail || list.error.message}
+            actions={<Btn size="sm" icon="refresh" onClick={list.refetch}>Retry</Btn>}
+          />
+        )}
+        {!list.loading && !list.error && items.length === 0 && (
+          <div className="muted text-sm" style={{ padding: "20px 0" }}>No API keys for this user.</div>
+        )}
+        {items.length > 0 && (
+          <div data-testid="adm-user-keys-table" className="tbl-wrap">
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Prefix</th>
+                  <th>Scopes</th>
+                  <th>Created</th>
+                  <th>Last used</th>
+                  <th>Status</th>
+                  <th style={{ textAlign: "right" }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((t) => (
+                  <ADM_UserKeyRow
+                    key={t.id}
+                    user={user}
+                    token={t}
+                    onRevoked={list.refetch}
+                    onConfirmStart={() => { confirmPending.current += 1; }}
+                    onConfirmEnd={() => { confirmPending.current -= 1; }}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+// ============================================================================
+// ADM_UserKeyRow — one read-only token summary row + Revoke action.
+// ============================================================================
+
+function ADM_UserKeyRow({ user, token, onRevoked, onConfirmStart, onConfirmEnd }) {
+  const { apiFetch } = window.primerApi;
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState(null);
+  const isRevoked = !!token.revoked_at;
+
+  const revoke = async () => {
+    onConfirmStart && onConfirmStart();
+    try {
+      const ok = await confirmDialog({
+        title: "Revoke API key?",
+        message: `Revoke "${token.name}" (${token.prefix}…)? Any client using it stops working immediately. This cannot be undone.`,
+        confirmLabel: "Revoke",
+        danger: true,
+      });
+      if (!ok) return;
+      setBusy(true);
+      setError(null);
+      try {
+        await apiFetch(
+          "DELETE",
+          "/admin/users/" + encodeURIComponent(user.id) + "/tokens/" + encodeURIComponent(token.id),
+        );
+        onRevoked && onRevoked();
+      } catch (err) {
+        setError(ADM_extractError(err));
+        setBusy(false);
+      }
+    } finally {
+      onConfirmEnd && onConfirmEnd();
+    }
+  };
+
+  return (
+    <React.Fragment>
+      <tr data-testid={`adm-user-key-row-${token.id}`}>
+        <td>{token.name}</td>
+        <td className="mono">{token.prefix}…</td>
+        <td>
+          {Array.isArray(token.scopes) && token.scopes.length > 0 ? (
+            <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+              {token.scopes.map((s) => (
+                <span key={s} className="pill pill-paused">{s}</span>
+              ))}
+            </div>
+          ) : (
+            <span className="muted text-sm">—</span>
+          )}
+        </td>
+        <td className="mono" title={token.created_at || ""}>{token.created_at || "—"}</td>
+        <td className="mono" title={token.last_used_at || ""}>{token.last_used_at || "—"}</td>
+        <td>
+          {isRevoked
+            ? <span className="pill pill-failed">revoked</span>
+            : <span className="muted text-sm">—</span>}
+        </td>
+        <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+          <Btn
+            size="sm"
+            kind="danger"
+            icon="trash"
+            disabled={isRevoked || busy}
+            onClick={revoke}
+            title={isRevoked ? "Key already revoked" : "Revoke this key"}
+            data-testid={`adm-revoke-key-btn-${token.id}`}
+          >
+            {busy ? "Revoking…" : "Revoke"}
+          </Btn>
+        </td>
+      </tr>
+      {error && (
+        <tr>
+          <td colSpan={7} style={{ padding: "0 12px 8px" }}>
+            <Banner
+              kind="error"
+              title={error.code ? `Revoke failed (${error.code})` : "Revoke failed"}
+              detail={error.message || ""}
+            />
+          </td>
+        </tr>
+      )}
+    </React.Fragment>
+  );
+}
+
+// ============================================================================
+// Exports
+// ============================================================================
+
+window.ADM_AdminUsersPage = ADM_AdminUsersPage;
+window.ADM_UserRow = ADM_UserRow;
+window.ADM_PasswordOneTimeDialog = ADM_PasswordOneTimeDialog;
+window.ADM_CreateUserDialog = ADM_CreateUserDialog;
+window.ADM_EditUserDialog = ADM_EditUserDialog;
+window.ADM_DeleteUserDialog = ADM_DeleteUserDialog;
+window.ADM_UserKeysDialog = ADM_UserKeysDialog;
+window.ADM_UserKeyRow = ADM_UserKeyRow;

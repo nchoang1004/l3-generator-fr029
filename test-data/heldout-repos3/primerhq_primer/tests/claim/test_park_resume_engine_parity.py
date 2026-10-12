@@ -1,0 +1,294 @@
+"""Cross-engine guard tests for F10c park/resume invariants.
+
+These tests PIN the exact failure modes the prior approach missed:
+
+- No-lease-while-parked: after a park release on the IN-MEMORY engine,
+  claim_due returns nothing for that session.  The no-loop guarantee comes
+  from the dropped lease, NOT from eligibility_sql which the in-memory
+  engine ignores.
+
+- Re-arm bridge: after the listener-style flip + engine.mark_resumable,
+  claim_due returns the session.
+
+- mark_resumable idempotency: a second re-arm yields exactly one claimable
+  lease, not duplicates.
+
+Postgres-engine parity for park/resume is covered by the distributed lane
+(SMK-DST-06, Task 8) and is intentionally omitted here.  The in-memory
+engine is the required core for this unit lane.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime, timezone
+
+import pytest
+
+from primer.int.claim import ClaimKind, ParkRequest, ReleaseOutcome
+from primer.claim.adapters.sessions import SessionClaimAdapter
+from primer.claim.in_memory import InMemoryClaimEngine
+from primer.model.workspace_session import (
+    AgentSessionBinding,
+    SessionStatus,
+    WorkspaceSession,
+)
+
+from tests.conftest import _InMemoryStorage
+
+pytestmark = pytest.mark.asyncio
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+_SID = "sess-park-1"
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _make_session(session_id: str) -> WorkspaceSession:
+    return WorkspaceSession(
+        id=session_id,
+        workspace_id="w1",
+        binding=AgentSessionBinding(agent_id="ag1"),
+        status=SessionStatus.RUNNING,
+        created_at=_now(),
+        turn_no=1,
+    )
+
+
+class _FakeStorage(_InMemoryStorage):
+    """One-row in-memory storage (the Storage protocol, ``patch_if`` included); ``_session`` is the stored row."""
+
+    def __init__(self, session: WorkspaceSession) -> None:
+        super().__init__(WorkspaceSession)
+        self._data[session.id] = session
+
+    @property
+    def _session(self) -> WorkspaceSession:
+        return next(iter(self._data.values()))
+
+
+def _make_engine(storage: _FakeStorage) -> InMemoryClaimEngine:
+    adapter = SessionClaimAdapter(session_storage=storage)
+    return InMemoryClaimEngine(adapters={ClaimKind.SESSION: adapter})
+
+
+def _make_park_outcome() -> ReleaseOutcome:
+    now = _now()
+    park = ParkRequest(
+        parked_state={"schema_version": 1, "yielded": {"tool_name": "ask_user"}},
+        parked_event_key=f"ask_user:{_SID}:tc-1",
+        parked_until=now,
+        parked_at=now,
+    )
+    return ReleaseOutcome(success=True, drop_lease=True, park=park)
+
+
+# ---------------------------------------------------------------------------
+# Test 1: No-lease-while-parked
+# ---------------------------------------------------------------------------
+
+
+async def test_no_lease_while_parked_inmemory() -> None:
+    """After a park release, claim_due must return nothing for that session.
+
+    This pins the core F10c invariant on the in-memory engine: the no-loop
+    guarantee comes from the dropped lease (drop_lease=True), not from
+    eligibility_sql (which the in-memory engine does not evaluate).
+    """
+    storage = _FakeStorage(_make_session(_SID))
+    engine = _make_engine(storage)
+
+    # Seed a claimable lease for the session.
+    await engine.upsert(ClaimKind.SESSION, _SID)
+
+    # Claim it.
+    leases = await engine.claim_due("wrk-1", max_count=5)
+    assert len(leases) == 1
+    assert leases[0].entity_id == _SID
+
+    # Release with a park outcome (drop_lease=True, park=ParkRequest).
+    await engine.release(leases[0], outcome=_make_park_outcome())
+
+    # After park: the lease must be gone -- claim_due returns nothing.
+    after_park = await engine.claim_due("wrk-2", max_count=5)
+    entity_ids = [l.entity_id for l in after_park]
+    assert _SID not in entity_ids, (
+        f"F10c regression: parked session {_SID!r} is still claimable "
+        f"(returned leases: {entity_ids})"
+    )
+
+    # The storage row must reflect the parked state.
+    row = await storage.get(_SID)
+    assert row is not None
+    assert row.parked_status == "parked", (
+        f"Expected parked_status='parked', got {row.parked_status!r}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Test 2: Re-arm bridge makes resumable claimable
+# ---------------------------------------------------------------------------
+
+
+async def test_rearm_makes_resumable_claimable_inmemory() -> None:
+    """After a park, simulating the listener flip + mark_resumable re-arms the
+    session so claim_due returns it again.
+
+    This pins the full park-resume round-trip on the in-memory engine.
+    """
+    storage = _FakeStorage(_make_session(_SID))
+    engine = _make_engine(storage)
+
+    # Seed and claim.
+    await engine.upsert(ClaimKind.SESSION, _SID)
+    [lease] = await engine.claim_due("wrk-1", max_count=5)
+
+    # Park it.
+    await engine.release(lease, outcome=_make_park_outcome())
+
+    # Sanity: nothing claimable right after the park.
+    assert _SID not in [l.entity_id for l in await engine.claim_due("wrk-2", max_count=5)]
+
+    # Simulate the resume-event listener:
+    #   1. Load the row and flip parked_status -> "resumable".
+    #   2. Optionally write resume_event_payload into parked_state.
+    row = await storage.get(_SID)
+    assert row is not None
+    updated = row.model_copy(update={
+        "parked_status": "resumable",
+        "parked_state": {
+            **(row.parked_state or {}),
+            "resume_event_payload": {"event": "user_replied", "msg_id": "m1"},
+        },
+    })
+    await storage.update(updated)
+
+    #   3. Re-arm the engine (mark_resumable re-creates the lease).
+    await engine.mark_resumable(ClaimKind.SESSION, _SID)
+
+    # Now claim_due must return the session.
+    resumed = await engine.claim_due("wrk-3", max_count=5)
+    entity_ids = [l.entity_id for l in resumed]
+    assert _SID in entity_ids, (
+        f"F10c regression: re-armed session {_SID!r} not returned by claim_due "
+        f"(returned leases: {entity_ids})"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Test 3: mark_resumable idempotency
+# ---------------------------------------------------------------------------
+
+
+async def test_mark_resumable_idempotent_inmemory() -> None:
+    """Calling mark_resumable twice must produce exactly one claimable lease,
+    not duplicates.
+
+    Idempotency guarantee: a double re-arm should not enqueue the session
+    twice or allow it to be claimed more than once.
+    """
+    storage = _FakeStorage(_make_session(_SID))
+    engine = _make_engine(storage)
+
+    # Start from the parked state (no lease present) by seeding, claiming,
+    # and releasing with a park outcome.
+    await engine.upsert(ClaimKind.SESSION, _SID)
+    [lease] = await engine.claim_due("wrk-1", max_count=5)
+    await engine.release(lease, outcome=_make_park_outcome())
+
+    # Double re-arm.
+    await engine.mark_resumable(ClaimKind.SESSION, _SID)
+    await engine.mark_resumable(ClaimKind.SESSION, _SID)
+
+    # claim_due should return the session exactly once.
+    leases = await engine.claim_due("wrk-2", max_count=10)
+    sid_count = sum(1 for l in leases if l.entity_id == _SID)
+    assert sid_count == 1, (
+        f"mark_resumable idempotency violation: {_SID!r} appeared {sid_count} "
+        f"time(s) in claim_due results (expected 1)"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Test 4: no double-claim of a resumable session across a non-drop release
+# ---------------------------------------------------------------------------
+
+
+class _SlowUpdateStorage(_FakeStorage):
+    """Storage whose ``patch_if`` awaits a barrier so a test can interleave a
+    concurrent ``claim_due`` while the adapter's ``on_release`` park-clear
+    write is in flight.
+
+    The release path (non-drop) runs ``on_release`` -> ``storage.patch_if`` to
+    clear ``parked_status``; the engine must NOT free the lease for
+    re-claiming until that write has landed. This stub lets us prove the
+    ordering by pausing inside the write.
+    """
+
+    def __init__(self, session: WorkspaceSession) -> None:
+        super().__init__(session)
+        self.release_barrier: "object | None" = None
+
+    async def patch_if(self, id, patch=None, *, where, set_paths=None, conn=None):
+        if self.release_barrier is not None:
+            await self.release_barrier.wait()  # type: ignore[union-attr]
+        return await super().patch_if(id, patch, where=where, set_paths=set_paths, conn=conn)
+
+
+async def test_resumable_not_double_claimed_across_release_inmemory() -> None:
+    """A resumable session released with drop_lease=False must not be
+    re-claimable until its park columns are cleared.
+
+    Regression for the approval-resume double-execution bug: the in-memory
+    engine used to free the lease (claimed_by=None) BEFORE the adapter's
+    on_release finished clearing parked_status, so a concurrent claim re-ran
+    the resume and double-executed the approved tool. The release must clear
+    the entity's park state before the lease becomes claimable again
+    (matching the Postgres engine's single-transaction atomicity).
+    """
+    import asyncio
+
+    storage = _SlowUpdateStorage(_make_session(_SID))
+    engine = _make_engine(storage)
+
+    # Put the session in the resumable state with a live claimed lease.
+    await engine.upsert(ClaimKind.SESSION, _SID)
+    [lease] = await engine.claim_due("wrk-1", max_count=5)
+    resumable_row = (await storage.get(_SID)).model_copy(update={
+        "parked_status": "resumable",
+        "parked_state": {"schema_version": 1, "yielded": {"tool_name": "_approval"}},
+    })
+    await storage.update(resumable_row)
+
+    # Pause the next storage.patch_if (the on_release park-clear write).
+    barrier = asyncio.Event()
+    storage.release_barrier = barrier
+
+    # Start the non-drop release; it will block inside on_release's write.
+    release_task = asyncio.create_task(
+        engine.release(lease, outcome=ReleaseOutcome(success=True, drop_lease=False))
+    )
+    await asyncio.sleep(0)  # let release run up to the paused write
+
+    # While the park-clear write is in flight, a concurrent claim attempt
+    # must NOT re-claim the still-resumable session.
+    mid = await engine.claim_due("wrk-2", max_count=5)
+    assert _SID not in [l.entity_id for l in mid], (
+        "regression: resumable session was re-claimable before its park "
+        "columns were cleared (would double-execute the resume)"
+    )
+
+    # Let the release finish.
+    storage.release_barrier = None
+    barrier.set()
+    await release_task
+
+    # Park columns cleared; lease now claimable for the continuation turn.
+    row = await storage.get(_SID)
+    assert row is not None and row.parked_status is None
+    after = await engine.claim_due("wrk-3", max_count=5)
+    assert _SID in [l.entity_id for l in after]
