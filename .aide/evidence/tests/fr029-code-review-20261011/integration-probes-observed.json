@@ -1,0 +1,45 @@
+{
+  "service_without_actual_calls": {
+    "agent": {
+      "status": "completed",
+      "reason": "",
+      "turns": 3,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "usage_missing_turns": 3,
+      "open_problems": []
+    },
+    "rejected": [],
+    "roles": [
+      {
+        "role": "Truy cập dữ liệu",
+        "confidence": "exact"
+      },
+      {
+        "role": "Service",
+        "confidence": "inferred"
+      },
+      {
+        "role": "Điểm vào",
+        "confidence": "exact"
+      }
+    ]
+  },
+  "cli_smoke": {
+    "exit_code": 0,
+    "stdout": "{\"schema_version\": \"0.1.0\", \"command\": \"document\", \"exit_code\": 0, \"run_id\": \"run_9ec400e8601d54b1\", \"agent\": {\"status\": \"completed\", \"reason\": \"\", \"turns\": 4, \"tokens_in\": 0, \"tokens_out\": 0, \"usage_missing_turns\": 4, \"open_problems\": []}, \"coverage_complete\": true, \"architecture_parity\": \"not_evaluated\", \"output_directory\": \"C:\\\\Users\\\\dell\\\\AppData\\\\Local\\\\Temp\\\\tmpueif4pi7\\\\cli-out\", \"files\": [{\"artifact_id\": \"art_322e110b9fd53a5a0be7a74b\", \"path\": \"README.md\"}, {\"artifact_id\": \"art_7a0772777f1e55cd93e49209\", \"path\": \"result.json\"}, {\"artifact_id\": \"art_912be5735bfcd1203047dbf2\", \"path\": \"tech-specs/MUC-HANG/api/API-FR029-E2E-MUC-HANG-v1.md\"}], \"reasons\": [{\"code\": \"diagram_not_provided\", \"message\": \"Chưa được cấp sơ đồ component từ bước kiến trúc (FR-028); README chưa đủ mục sơ đồ của AC-029-06\", \"action\": \"Xem mục Giới hạn trong README.md\"}, {\"code\": \"architecture_not_evaluated\", \"message\": \"Chưa đối chiếu được với archdia.json (AC-029-04): Chưa được cấp archdia.json cùng snapshot\", \"action\": \"Xem mục Giới hạn trong README.md\"}, {\"code\": \"route_not_decorator\", \"message\": \"add_api_route tại app/main.py:13 — Route /ping đăng ký không qua decorator\", \"action\": \"Xem mục Giới hạn trong README.md\"}, {\"code\": \"out_of_scope_files\", \"message\": \"test: 1 file. Route trong các file này không vào tài liệu (FR-028 Phạm vi đọc)\", \"action\": \"Xem mục Giới hạn trong README.md\"}]}\n",
+    "stderr": "Thông báo fr029-egress-v1: luồng tài liệu FR-029 gửi tới scripted (model scripted) nội dung các file trong phạm vi phân tích, theo từng đoạn tối đa 200 dòng, kèm đường dẫn tương đối. Giá trị giống bí mật được che trước khi gửi; bộ lọc bí mật có giới hạn.\n"
+  },
+  "venv_directory_with_project_import": {
+    "snapshot_files": [
+      "main.py"
+    ],
+    "excluded": [
+      {
+        "path": "venv",
+        "reason": "Thư mục công cụ hoặc môi trường (.git, .venv, venv, node_modules, __pycache__), không đọc"
+      }
+    ],
+    "note": "No pyvenv.cfg; directory contains project source importing main."
+  }
+}

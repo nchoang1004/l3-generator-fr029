@@ -20,7 +20,7 @@ Thư mục còn giữ lát cắt cũ (`analyze`, `web`): trích dữ kiện tĩn
 | `l3slice/ui/` | API-001 §8.1 | Trang web tĩnh: gửi repo, trạng thái, artifact, sơ đồ, component, bằng chứng, phạm vi, giới hạn |
 | `tools/run_golden.py`, `golden_adapter.py` | — | Chấm bộ trích trên golden v1 tập development |
 | `tools/d03_experiment.py` | — | So sánh ứng viên chia nhóm D-03 trên 7 case dev có nhãn kiến trúc |
-| `l3slice/source_tools.py`, `docfacts.py`, `docagent.py`, `docpipeline.py` | FR-029 | Luồng tài liệu bằng agent: model đọc source qua công cụ, code kiểm bằng chứng rồi sinh API và README. Component, `archdia.json` và sơ đồ là đầu vào, không tự tạo |
+| `l3slice/source_tools.py`, `docfacts.py`, `docagent.py`, `docpipeline.py`, `tailieu.py` | FR-029 | Luồng tài liệu bằng agent: model đọc source qua công cụ, code kiểm bằng chứng rồi sinh API, README và `TAI-LIEU.md` (một file đọc chính cho người). Component, `archdia.json` và sơ đồ là đầu vào, không tự tạo |
 | `tools/fr029_score.py`, `tools/fr029_oracle.py` | FR-029 | Chấm `result.json` với gold; oracle dựng gold từ `app.openapi()` trong venv riêng (xem `tests/fixtures/fr029/README.md`) |
 
 `evaluation_l3/` và `tools/evaluate_l3.py` là bộ đánh giá CMP-008 độc lập do người khác viết.
@@ -34,6 +34,8 @@ Thư mục còn giữ lát cắt cũ (`analyze`, `web`): trích dữ kiện tĩn
 - Rule `http-binding`, `config-binding` vẫn trả `RULE_UNSUPPORTED`.
 
 ## Chạy
+
+Cài thư viện cần khi chạy: `python -m pip install -r slice/requirements.txt`. Thiếu `openapi-spec-validator` thì file API không được xuất.
 
 ### Giao diện sinh tài liệu FR-029
 
@@ -77,11 +79,13 @@ Cần Python 3.11 trở lên. Code chỉ dùng thư viện chuẩn. Test cần t
 cd slice
 python -m l3slice analyze --source tests/fixtures/shop_full --output <thư mục mới> --membership tests/fixtures/shop_full.membership.json [--llm] [--json]
 python -m l3slice retry --output <thư mục output> --artifact <artifact_id> [--json]
-python -m l3slice document --source <repo> --output <thư mục mới> --membership <component.json> [--archdia <archdia.json>] [--diagram <sơ đồ.mmd>] --base-url <endpoint OpenAI-compatible> --model <tên> --key-env <BIẾN_MÔI_TRƯỜNG> [--json]
+python -m l3slice document --source <repo> --output <thư mục mới> --membership <component.json> [--archdia <archdia.json>] [--diagram <sơ đồ.mmd>] --base-url <endpoint OpenAI-compatible> --model <tên> --key-env <BIẾN_MÔI_TRƯỜNG> [--mode agent|oneshot] [--checkpoint <file.json>] [--max-output-tokens <n>] [--json]
 python -m l3slice.web --workdir <thư mục làm việc> --port 8000 [--demo-partition] [--enable-github] [--llm]
 ```
 
 Mở UI tại `http://127.0.0.1:8000/`.
+
+Lệnh `document` ghi `TAI-LIEU.md`: một file đọc chính cho người, gồm endpoint, model, bảng CSDL, sự kiện, cấu trúc code, gọi HTTP, thư viện, cấu hình, middleware và giới hạn. `--mode oneshot` gửi toàn bộ source trong một request, rồi tối đa 2 vòng sửa; cần `--max-output-tokens` đủ lớn (ví dụ 12000). Repo lớn hơn `--max-context-chars` thì dùng `--mode agent`.
 
 Exit code của CLI:
 

@@ -1,0 +1,87 @@
+type: review
+group: evidence
+scope: lifecycle
+status: completed
+change_set: CHG-L3GEN-2026-002
+change_request: CR-L3GEN-2026-009
+written_late: true
+evidence_mode: agent_review
+author: Phiên Claude chính (Opus 5.5), theo yêu cầu của Hoàng
+key: REVIEW-HELDOUT-L3GEN-2026-009
+gate: GATE-MERGE
+review_class: adversarial
+review_kind: held-out
+batch: 9
+subject: 'Phần bảng CSDL (FR-030): TBL và mục 4 của TAI-LIEU.md, vòng 1'
+reviewer: Agent Claude Sonnet, đề bài cố định trước, không đọc code công cụ hay gold
+repositories:
+- fastapi-practices/fastapi_best_architecture
+- AlexGoster/orderflow-services
+- fastapi/full-stack-fastapi-template
+- tdd-docker (Tortoise)
+receipt:
+  brief: ket-qua-chay/db-check-20261012/judge-brief.md
+  frozen: ket-qua-chay/db-check-20261012/hashes.txt
+  outputs:
+  - ket-qua-chay/db-check-20261012/judge-round1/report.md
+  - ket-qua-chay/db-check-20261012/judge-round1/summary.json
+  report: docs/FR030-kiem-csdl-20261012.md
+decision: changes_needed
+results:
+  tables: 29/29
+  columns: 269/287 (287/287 nếu không tính ràng buộc)
+  readability: 3/5
+note: 'Disposition theo EXEC §D.3: ACCEPTED = lỗi thật; REJECTED = không phải lỗi của công cụ (lý do kèm); NOT_APPLICABLE
+  = ngoài FR hiện tại; NEEDS_MORE_EVIDENCE = cần người quyết. fixed_by_test: test đỏ trước khi sửa, qua sau khi sửa; chưa
+  có giám khảo xác nhận riêng.'
+findings:
+- id: FIND-L3GEN-185
+  severity: medium
+  route: patch
+  disposition: ACCEPTED
+  location: backend/common/model.py:17-40 (fastapi_best_architecture)
+  summary: unique/index khai qua alias id_key không ghi (17 bảng)
+  resolution:
+    status: fixed_by_test
+    tests:
+    - slice/tests/test_tables_db.py::test_unique_and_index_come_through_the_alias
+- id: FIND-L3GEN-186
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location: backend/app/models.py:97 (full-stack)
+  summary: ondelete=CASCADE trong Field(...) của SQLModel không ghi
+  resolution:
+    status: fixed_by_test
+    tests:
+    - slice/tests/test_tables_db.py::test_sqlmodel_on_delete_is_read
+- id: FIND-L3GEN-187
+  severity: medium
+  route: patch
+  disposition: ACCEPTED
+  location: __table_args__ (fastapi_best_architecture, 12 chỗ)
+  summary: Ràng buộc unique nhiều cột không ghi
+  resolution:
+    status: fixed_by_test
+    tests:
+    - slice/tests/test_tables_db.py::test_multi_column_constraints_of_table_args
+- id: FIND-L3GEN-188
+  severity: medium
+  route: patch
+  disposition: ACCEPTED
+  location: migrations/models/0_*_init.py (tdd-docker)
+  summary: Bảng chỉ có trong migration (CREATE TABLE) không nêu tên
+  resolution:
+    status: fixed_by_test
+    tests:
+    - slice/tests/test_tables_db.py::test_create_table_in_a_migration_is_named
+    note: TABLES_NOT_READ kèm file:dòng.
+- id: FIND-L3GEN-189
+  severity: low
+  route: spec
+  disposition: NOT_APPLICABLE
+  location: comment '逻辑外键' (fastapi_best_architecture)
+  summary: Khóa ngoại logic chỉ có trong comment không nêu
+  resolution:
+    status: open
+    note: FR-030 không cho đoán.

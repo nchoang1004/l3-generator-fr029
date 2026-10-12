@@ -1,0 +1,98 @@
+type: review
+group: evidence
+scope: lifecycle
+status: completed
+change_set: CHG-L3GEN-2026-002
+change_request: CR-L3GEN-2026-008
+written_late: true
+evidence_mode: agent_review
+author: Phiên Claude chính (Opus 5.5), theo yêu cầu của Hoàng
+key: REVIEW-HELDOUT-L3GEN-2026-005
+gate: GATE-MERGE
+review_class: adversarial
+review_kind: held-out
+batch: 5
+subject: Gói bộ kiểm FR-029 xuất trên repo chưa dùng để chỉnh
+reviewer: 3 agent Claude general-purpose (Codex hết lượt)
+repositories:
+- ncoevoet/facet
+- spatiumnorth/spatiumddi
+- xiao-villamor/PrintStash
+receipt:
+  packet: ket-qua-chay/fr029-heldout-20261008-r18
+  outputs:
+  - .aide/evidence/reviews/fr029-checker-20261007-09/claude-agents/judge-facet.md
+  - .aide/evidence/reviews/fr029-checker-20261007-09/claude-agents/judge-spatiumddi.md
+  - .aide/evidence/reviews/fr029-checker-20261007-09/claude-agents/judge-printstash.md
+  output_written: 2026-10-08T09:32Z
+decision: changes_needed
+results:
+  dependency_params: facet 5 đúng; spatiumddi 4 đúng; PrintStash 2 đúng; 0 sai thật
+  suspects: facet 0 nhiễu; spatiumddi 6 nhiễu; PrintStash 57 nhiễu
+note: 'Giám khảo đọc gói và source repo, không đọc code bộ kiểm. Disposition theo EXEC §D.3: ACCEPTED = lỗi thật của bộ kiểm;
+  REJECTED = không phải lỗi bộ kiểm (lý do ghi kèm); NOT_APPLICABLE = ngoài định nghĩa hiện tại; NEEDS_MORE_EVIDENCE = cần
+  quyết định phạm vi.'
+findings:
+- id: FIND-L3GEN-145
+  severity: medium
+  route: patch
+  disposition: ACCEPTED
+  location: backend/packages/printstash-core/src/printstash_core/printers/prusalink.py
+  summary: 'PrintStash: 57 dòng nhiễu dict.get vì file dùng cú pháp Python 3.14 except A, B: không parse được trên 3.11'
+  resolution:
+    status: fixed_by_test
+    tests:
+    - slice/tests/test_checker_counterexamples.py::HeldOutFindings::test_python_314_except_without_parentheses_still_parses
+- id: FIND-L3GEN-146
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location: backend/app/services/appliance/k8s.py:32
+  summary: 'spatiumddi: 6 dòng nhiễu: chữ http.client trong import, kiểu trả về, except'
+  resolution:
+    status: fixed_by_test
+    tests:
+    - slice/tests/test_checker_counterexamples.py::HeldOutFindings::test_http_client_module_named_but_not_called
+- id: FIND-L3GEN-147
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location: agent/dhcp/spatium_dhcp_agent/push.py:98
+  summary: 'spatiumddi: self._client_factory = ... or self._default_client rồi c.post(...) bị sót'
+  resolution:
+    status: fixed_by_test
+    tests:
+    - slice/tests/test_checker_counterexamples.py::HeldOutFindings::test_attribute_holding_a_client_factory
+- id: FIND-L3GEN-148
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location: backend/app/drivers/dns/hetzner.py:181
+  summary: 'spatiumddi: getattr(client, method)(path) với tên method động bị sót'
+  resolution:
+    status: fixed_by_test
+    tests:
+    - slice/tests/test_checker_counterexamples.py::HeldOutFindings::test_getattr_with_a_runtime_method_name
+- id: FIND-L3GEN-149
+  severity: low
+  disposition: REJECTED
+  summary: 'facet: album_id ghi query trong gói, đúng phải là path'
+  resolution:
+    status: not_a_defect
+  reason: Gói gom theo tên dependency, không có path route; bộ kiểm thật nhắc path (test HeldOutFindings::test_dependency_scalar_named_in_the_route_path_is_a_path_parameter,
+    qua ngay).
+- id: FIND-L3GEN-150
+  severity: low
+  disposition: REJECTED
+  summary: 'spatiumddi: require_permission ghi query action/resource_type; 2 header X-DNS/X-LG-Agent-Key bị thiếu'
+  resolution:
+    status: not_a_defect
+  reason: Gói suy cờ 'đã gọi' từ dòng tham số và gộp 3 hàm cùng tên; bộ kiểm thật đúng (test HeldOutFindings::test_factory_called_inside_an_annotated_alias,
+    qua ngay). Đã sửa công cụ xuất gói.
+- id: FIND-L3GEN-151
+  severity: low
+  disposition: NOT_APPLICABLE
+  summary: 'spatiumddi, PrintStash: dependency cấp router/handler vắng trong gói nhưng không có tham số request'
+  resolution:
+    status: not_a_defect
+  reason: Không mất tham số; giới hạn của công cụ xuất gói.

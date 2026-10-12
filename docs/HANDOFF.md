@@ -1,5 +1,450 @@
 # Bàn giao — L3 Generator
 
+## Hồ sơ quy trình, hướng dẫn demo, đẩy git — 12/10/2026
+
+Yêu cầu: "viết đầy đủ theo cái bạn đã triển khai và sửa lại cái ux/ui để demo cho chuẩn", "làm đi và viết tài liệu mới luôn", rồi "hoàn thành và đẩy lên git đi".
+
+**Đã viết (chỉ tài liệu và hồ sơ, không sửa code):**
+- Yêu cầu nguyên văn: `.aide/evidence/requests/CR-L3GEN-2026-009.yaml` (11/10 10:33 → 12/10 06:22, kèm 8 quyết định), `CR-L3GEN-2026-008-requests-03.yaml` (2 tin 09/10 còn sót). Trích từ transcript bằng script; ghi muộn.
+- Câu hỏi mở: OQ-L3GEN-019 (đọc tĩnh phần không phải API), 020 (đầu ra/chế độ chưa có trong spec), 021 (waiver NFR-SEC-002 cho các lần chạy 11/10 và oneshot), 022 (dialect, ràng buộc trong TBL).
+- Lifecycle: EPIC-L3GEN-030, 031; STORY-L3GEN-030-01, 031-01; TASK-L3GEN-029-10 … 13, TASK-L3GEN-030-1, 031-1; CTX (hash 12/10), PLAN (ghi muộn, trừ task 13), DIARY từng task; DIARY-CR-L3GEN-2026-009. EPIC-029 và change-set ghi thêm.
+- Review: REVIEW-CODE-L3GEN-2026-013 (review Codex 11/10), REVIEW-HELDOUT-L3GEN-2026-008 (orderflow), 009, 010 (CSDL vòng 1, 2). FIND-L3GEN-166 … 193.
+- Test: `.aide/evidence/tests/fr029-20261011-12/` (README, `suite-before-ui.log`).
+- Tài liệu mới: [HUONG-DAN-DEMO.md](HUONG-DAN-DEMO.md). `L3-Generator-chuong-trinh-hien-tai.md` thêm link và OQ. `AGENTIC_SDLC_LOG.md` thêm mục 25–29.
+
+**Kiểm chứng (đã chạy 12/10):** suite 520/521 (lỗi `test_gateway` cũ); demo offline qua `DocumentService` ra completed, 4 lượt, đủ README/TAI-LIEU/result/API. `gen_uid.py`: 14 uid mới, không file thiếu uid.
+
+**Chưa làm — giao diện demo (TASK-L3GEN-029-13):** skill `taste-skill` chưa cài (`~/.claude/skills/taste-skill/` không có). CLAUDE.md cấm làm UI khi thiếu skill, nên chưa sửa code UI. Plan đã viết trước: `.aide/evidence/plans/PLAN-TASK-L3GEN-029-13.md` (5 việc, chờ người dùng chọn). Cần: cài skill (`git clone https://github.com/leonxlnx/taste-skill` vào `~/.claude/skills/taste-skill`) hoặc người dùng quyết cách khác.
+
+**Lỗi còn mở thấy khi viết hồ sơ:** `TAI-LIEU.md` in `>` thành `&gt;` ở mục thư viện (FIND-L3GEN-179).
+
+**Git:** commit gồm `slice/`, `docs/`, `.aide/` của đợt 07–12/10. Không đưa `ket-qua-chay/` (465 MB kết quả chạy), không đưa 2 file `contract-checks` đã stage từ trước (ngoài phạm vi). Kết quả push: xem nhật ký mục 14.
+
+## Bổ sung tài liệu sinh theo 5 đợt — 11–12/10/2026
+
+Người dùng: "làm đi" theo [FR029-tai-lieu-can-bo-sung-20261011.md](FR029-tai-lieu-can-bo-sung-20261011.md), mục tiêu "làm và test kĩ để hoạt động chuẩn và sử dụng được". Code chưa commit.
+
+**Quyết định Claude tự chọn khi làm (chờ người dùng duyệt):**
+- Bảng CSDL (FR-030), sự kiện/tác vụ nền (FR-031), thư viện và khóa cấu hình (FR-028), middleware/exception_handler, quan hệ component: **đọc tĩnh** bằng `extract.py` có sẵn (module mới `l3slice/docstatic.py`), nhãn "đọc tĩnh". Lý do: không phải dữ kiện API, nên ADR-2026-006 không áp dụng. Route vẫn chỉ do agent đề xuất; test `test_static_parts.test_api_facts_come_only_from_the_agent` giữ điều này. Test end-to-end cũ cấm gọi `extract.extract` đã được nới cho phần này.
+- Lỗi trả về của route, `tags`, `deprecated`, mô tả, ví dụ: **agent đề xuất, bộ kiểm đòi bằng chứng**. Mô tả ghi nhãn "AI viết".
+
+**Đã làm:**
+
+| Đợt | Nội dung | File |
+|---|---|---|
+| 1 | `errors` của route. Bộ kiểm đòi: `raise` tới được từ handler (≤3 lời gọi); với HTTPException, mã ở dòng ném; với lớp lỗi riêng, `code = N` ở lớp hoặc lớp cha, không lớp con nào ghi đè, và có exception_handler dùng thuộc tính đó (không có thì FastAPI trả 500). Mã lỗi vào OpenAPI `responses` | `docfacts.py` (`_route_extras`, `_error_problems`), `render.py` |
+| 2 | Thư viện (manifest + có import không), khóa cấu hình (giá trị bí mật bị che), dòng "Sinh bởi", chú giải nhãn, lý do suy luận thành chú thích [n] | `docstatic.py`, `tailieu.py` |
+| 3 | File TBL và EVT cho từng component; Celery (`.delay`/`.apply_async`/`send_task` → `@app.task`/`@shared_task`) và `BackgroundTasks.add_task` trong `extract.py`; nối gửi↔nhận khi cùng broker, namespace, topic | `extract.py` (`_task_events`), `docpipeline.py` (`_table_event_files`) |
+| 4 | Đường gọi tới dữ liệu cho từng endpoint (từ call_path của Service, kèm bảng nhắc tới); mô tả do AI viết | `docpipeline.py` (`_route_chains`), `docfacts.py` |
+| 5 | `tags`, `deprecated`, `examples` (literal ở handler hoặc model của route), quan hệ giữa component (lời gọi đã nối được) | `docfacts.py`, `docstatic.py` (`component_relations`) |
+
+`TAI-LIEU.md` nay có 11 mục: endpoint, chi tiết, model, bảng CSDL, sự kiện, cấu trúc code (+ quan hệ component), gọi HTTP, thư viện, cấu hình, middleware/xử lý lỗi, giới hạn; cùng phụ lục file cho máy. Prompt: agent v17, đọc một lần v6.
+
+**Kiểm chứng (đã chạy):**
+- Suite 490/491 (lỗi `test_gateway` cũ).
+- Test mới: `test_events_tasks` (5), `test_static_parts` (5), `test_route_extras` (12), `test_tai_lieu` (9).
+- `fr029_checkaudit`: không đổi.
+- Trường model 0/348 từ chối nhầm; Service 1/16 (giới hạn đã biết).
+- Test cũ `test_extract.test_unsupported_queue_library_is_a_limitation` đổi từ Celery sang dramatiq, vì Celery nay đã được đọc.
+
+**Test cả luồng bằng agent Claude đóng vai model (12/10, không tốn API):** [ket-qua-chay/roleplay-20261012/README.md](../ket-qua-chay/roleplay-20261012/README.md).
+- tdd-docker: completed; route 6/6, model 4/4, vai trò 9/9 so với gold.
+- Teamhide: completed sau 1 vòng sửa, lần đầu tiên completed trên repo này; route 5/5, cấu hình 13/13, thư viện 20/20, bảng 9/9 cột so với golden v1.
+- Lần đầu tìm ra 3 lỗi bộ kiểm từ chối nhầm (prefix trên dòng sau của `include_router(`, `pydantic_model_creator`, `Depends(LớpGọiĐược(...))`); đã sửa, có test.
+- Sửa thêm phần trình bày: gộp dòng cấu hình trùng khóa, khớp tên gói `tortoise-orm`→`tortoise`, mã lỗi không lặp, kiểu cột gọn.
+- CLI `document` có thêm `--mode agent|oneshot` và `--checkpoint`; `slice/README.md` đã ghi.
+
+**Kiểm chứng cuối:** suite 495/496 (lỗi `test_gateway` cũ); `fr029_checkaudit` không đổi; trường model 0/348 từ chối nhầm; Service 1/16.
+
+**Chưa làm:**
+- Chạy model thật (gpt-5) với prompt v6/v17. Cần người dùng duyệt tiền, khoảng 0,2 USD/repo nhỏ.
+- Repo lớn (kibo) chưa có chế độ chia gói.
+- FR-028/029/030/031 và ADR chưa ghi các phần mới (TAI-LIEU.md, phần đọc tĩnh, errors/tags/summary/examples); cần CR.
+- Import thừa có từ trước trong `docfacts.py` (`io`, `tokenize`): không xóa, chỉ ghi lại.
+
+## Chế độ "đọc một lần" để giảm token — 11/10/2026
+
+Yêu cầu: luồng agent gọi quá nhiều lần, tốn token; xem các phương án và test lại. Người dùng chọn: đọc một lần + schema + checkpoint. Trần test: 0,20 USD với gpt-4.1-mini, sau đó 0,30 USD với model mạnh hơn.
+
+**Code đã viết (chưa commit):**
+- `slice/l3slice/docagent.py`: thêm `run_oneshot`.
+  - Request đầu gửi toàn bộ source có số dòng, qua `read_file`, nên sổ đọc vẫn đếm đúng.
+  - Model bị buộc trả lời bằng `submit_findings` (`tool_choice`).
+  - Vòng sửa chỉ thêm lỗi, tên mục (`what`) và các dòng source mà mục đó dẫn (`source`). Tối đa `Budget.max_repair_rounds` (mặc định 2).
+  - Phần đầu hội thoại giữ nguyên để provider đọc từ bộ đệm.
+  - Checkpoint JSON được ghi sau mỗi request. Chạy lại trên cùng snapshot và prompt thì làm tiếp, và các mục đã lưu được kiểm lại qua `Claims`.
+  - Source quá `max_context_chars` thì báo `SOURCE_TOO_LARGE`, không gửi gì. Chưa làm chế độ chia gói cho repo lớn.
+  - Provider trả thêm số token `cached`.
+- `docpipeline.run_documents(..., mode="oneshot", checkpoint=...)`. `result.json` ghi `agent.mode`, `agent.requests` (token, cache, chi phí từng request) và `prompt_version` của chế độ đang dùng.
+- **"Schema" chưa phải strict schema.** Khuôn mục vẫn mô tả trong prompt; bộ kiểm `Claims` vẫn là nơi kiểm khuôn.
+- Test: lớp `OneShot` trong `test_docagent.py`, 6 test, offline. `test_docagent` 80/80 qua. Suite đầy đủ chạy lại sau thay đổi cuối: 440/441. Lỗi duy nhất là `test_gateway` cũ.
+- Runner: `ket-qua-chay/run_oneshot_20261011.py`. Model, giá, trần và effort lấy từ biến môi trường. Runner chặn request nếu số đã tiêu cộng mức xấu nhất của request đó vượt trần.
+
+**Đo thật trên Teamhide (cùng snapshot với r3):**
+
+| Lượt | Model | Request | Chi phí | Kết quả |
+|---|---|---|---|---|
+| r3 cũ, agent | gpt-4.1-mini | 67 | 0,218 USD | 4/5 route được nhận; chưa đọc 41 file |
+| `oneshot-20261011` (prompt v1) | gpt-4.1-mini | 3 | 0,024 USD | 0/5 route: id viết dạng module có dấu chấm |
+| `-r2` (v2) | gpt-4.1-mini | 3 | 0,033 USD | 0/5 route (chuỗi prefix sai); 46 vai trò được nhận |
+| `-r3` (v3) | gpt-4.1-mini | 3 | 0,026 USD | 0/5 route; câu trả lời đầu chỉ có model dữ liệu. Kết quả dao động mạnh |
+| `-gpt5` (v3) | gpt-5-2025-08-07, effort low | 2 (request 3 bị chặn ngân sách) | 0,192 USD | Sau 1 vòng sửa, prefix/model/response của 5/5 route đều qua. Route chỉ còn bị từ chối vì lỗi bộ kiểm 2 dưới đây |
+
+Tổng đã tiêu: 0,274 USD. Đọc đủ 100% file trong mọi lượt. Với gpt-5, request đầu tốn 0,109 USD, chủ yếu là token ra (8.237). Vòng sửa đọc 21k/29,6k token đầu vào từ bộ đệm.
+
+Hai lỗi bộ kiểm tìm được ở lượt này (file rỗng, `Depends(Provide[...])`) đã sửa ở mục dưới.
+
+## Sửa 8 lỗi bộ kiểm theo review 11/10 — 11/10/2026
+
+Người dùng nhờ xem lại bản review [FR029-review-code-va-de-bai-20261011.md](FR029-review-code-va-de-bai-20261011.md), test offline trước khi tốn tiền, rồi "làm để chương trình chuẩn nhất". Người dùng đã duyệt sửa lỗi 1–8 và cho chạy thật gpt-5 với trần 0,30 USD.
+
+**Kiểm lại bản review (offline, trên bản sao các phép thử):** mọi ý đều đúng. Công cụ đo cho số giống hệt bản review. Phép thử "agent đọc hết nhưng không nộp gì" cho 0 dữ kiện, 0 file API: AST không tự tạo mục.
+
+**Đã sửa (code chưa commit). Test viết đỏ trước, ở `slice/tests/test_review_20261011.py` (19 test):**
+
+| # | Lỗi | Sửa ở đâu |
+|---|---|---|
+| 1 | Đòi vai trò cho file rỗng | `Claims.open_problems` |
+| 2 | `Depends(Provide[...])` không đặt tên được | `_dep_target`: dạng `X[...]` ghi nguyên văn |
+| 3 | Tham số trùng; OpenAPI hỏng vẫn ready | `Claims.params` từ chối trùng; `render.openapi_problem` chạy bộ kiểm OpenAPI trong `check_doc` (lỗi → FORMAT_INVALID) |
+| 4 | Giá trị ở phần dòng bị cắt vẫn được nhận | `Claims.text`/`shown` chỉ trả phần đã gửi; `_hidden` cho URL HTTP |
+| 5 | Auth bịa vẫn known | dòng `auth.at` phải có Depends/Security hoặc lớp của `fastapi.security` (`AUTH_SIGNAL`) |
+| 6 | Body JSON không có model | `request_body.type`; dữ kiện `request_type`; xuất `requestBody` |
+| 7 | Đường gọi Service bịa | mỗi bước phải tới được hàm chứa bước sau qua ≤3 lời gọi (so theo tên hàm) |
+| 8 | Kiểu/required/nullable không so với source | `_field_check` so với dòng khai báo; không quyết được thì hạ nhãn model xuống inferred |
+
+Prompt agent v16 và prompt đọc một lần v5 đã thêm các luật này.
+
+**Kiểm chứng (đã chạy):**
+- Suite 459/460. Lỗi duy nhất là `test_gateway` cũ.
+- `fr029_checkaudit`: không đổi so với trước khi sửa (0 nhận sai/loại sai).
+- Đo trên gold bằng script scratchpad `measure_fields_service.py`:
+  - trường model: 348 trường gold, 0 bị từ chối nhầm, 311 trường quyết định được cả ba thuộc tính;
+  - Service: 16 đường gọi gold, 1 bị từ chối. Đó là agentgpt `agent_service_provider.py`, nơi hàm được truyền làm tham số (`Depends(validator)`), kiểm theo tên không lần ra.
+- Gold không ghi auth, nên luật 5 chỉ có test.
+- 7/7 phép thử của bản review nay bị chặn; file API vẫn hợp lệ.
+
+**Chạy thật gpt-5, đọc một lần, prompt v4 (`ket-qua-chay/oneshot-20261011-gpt5-r2`):**
+- 0,168 USD, 2 request; request 3 bị chặn ngân sách.
+- 4/5 route, 7 model, 54 vai trò được nhận; đọc đủ 100% file.
+- Route thứ 5 (`get_user_list`) bị từ chối vì prompt v4 viết dễ hiểu sai về tên dependency dạng `Depends(f(...))`. Đã sửa prompt (v5) và thông báo lỗi; **v5 chưa chạy thật**.
+- Tổng tiền OpenAI hôm nay: 0,442 USD.
+
+**Phát hiện sau đó:** file API của lượt gpt-5 trên bị chặn (FORMAT_INVALID, "thiếu thư viện openapi-spec-validator"). Runner chạy bằng Python gốc, vì `with_openai.py` mở tiến trình con bằng lệnh `python`; Python gốc không có thư viện này, còn `scripts/.venv` thì có. `slice/` chưa có file khai báo thư viện. Dựng lại offline từ checkpoint bằng venv thì file API ready. Rà đầu vào/đầu ra: [FR029-dau-vao-dau-ra-20261011.md](FR029-dau-vao-dau-ra-20261011.md). Người dùng yêu cầu đầu ra "một file, dễ đọc"; điều này khác FR-029, đang chờ chọn cách A/B.
+
+**Người dùng chọn cách A, để nguyên archdia, làm các mục còn lại (11/10). Đã làm (code chưa commit):**
+- `slice/l3slice/tailieu.py`: sinh `TAI-LIEU.md`, một file đọc chính cho người. Có 6 mục và phụ lục link OpenAPI; không có mã băm, không có JSON. Loại artifact ghi là `readme`.
+- Loại component: membership không ghi `kind` thì xếp theo phạm vi đọc (`MEMBERSHIP_KIND_DERIVED`); ghi `normal` cho file kiểm thử/migration thì báo `MEMBERSHIP_KIND_SUSPECT`. README ghi "file rỗng" hoặc "ngoài phạm vi đọc".
+- `slice/requirements.txt`, kèm dòng cài đặt ở `slice/README.md`. `with_openai.py` (scratchpad) nay chạy bằng chính Python đang dùng.
+- Test `slice/tests/test_tai_lieu.py` 8/8; suite 467/468 (lỗi `test_gateway` cũ).
+- Mẫu thật: `ket-qua-chay/tai-lieu-mau-teamhide-20261011/output/TAI-LIEU.md`, dựng lại offline từ câu trả lời gpt-5.
+- Còn treo: FR-029 mục "Đầu ra" chưa ghi `TAI-LIEU.md` (cần CR).
+
+**Cách test về sau (người dùng yêu cầu 11/10):** cho Codex hoặc agent Claude đóng vai model, chấm bằng bộ kiểm offline. Cách này không thay được nghiệm thu bằng model thật.
+
+**Việc tiếp:**
+- Chạy lại gpt-5 với v5. Cần thêm tiền: mỗi lượt khoảng 0,17–0,25 USD.
+- Chấm nội dung so với gold Teamhide (route, model, tham số), chưa làm.
+- Khuôn kiến trúc thật (archdia) và thư mục `venv` không có `pyvenv.cfg`: chờ người dùng quyết.
+
+## Gói ZIP bàn giao code — 11/10/2026
+
+Theo yêu cầu gom file cần đưa lên GitLab, đã tạo `D:/VSF/deliverables/L3-Generator-files-gitlab-20261011.zip` (532.416 byte). `repo-files/` chứa 179 file: toàn bộ `slice/`, 10 contract/schema trong `.aide/tech-specs/`, hai file kiểm contract trong `scripts/`, kế hoạch FR029 và hai cấu hình Git. Có README bàn giao, manifest SHA-256 từng file và log test ngoài payload. Không chứa key thật, `.env`, `.git`, venv, cache, output thử nghiệm hoặc các sửa hồ sơ ngoài phạm vi. Fixture RSA giả có nội dung `abc` được kiểm và giữ cho test che bí mật.
+
+Đã chạy trên bản sao chỉ có payload: **434/435 test qua**, còn lỗi đã biết `test_gateway.Gateway.test_unknown_ids_are_dropped`; demo CLI FR029 offline exit 0, sinh API/README/result. Đã kiểm CRC ZIP và hash của cả 179 file. Dùng Python/dependencies hiện có, chưa xác nhận cài mới trên máy khác. Script đóng gói: `.audit-output/package_upload.py`; không nằm trong ZIP. Không sửa production, stage, commit hoặc push. Đề xuất tối ưu model/schema/checkpoint vẫn chưa triển khai. SHA-256 ZIP: `ef38583e9ffdffb37d8c51c40f1717b4263c653e978353129a8f1c76474ac03d`.
+
+## Giao diện FR-029 và kế hoạch hoàn thiện — 11/10/2026
+
+Người dùng yêu cầu thêm giao diện cơ bản và đẩy code mới. Đã thêm `slice/l3slice/docweb.py`, `docui/`, `slice/demo/fr029.script.json`, 9 test HTTP/pipeline và 4 test DOM. Giao diện gọi trực tiếp `run_documents`, không đi qua bộ trích tĩnh của web cũ. Nhập đường dẫn source/membership, nhận tùy chọn archdia/sơ đồ, chạy nền một job, xem agent/coverage/parity/giới hạn, xem văn bản và tải artifact. Provider/key ở server; chỉ loopback, kiểm Host/Origin và header POST. Kịch bản offline dùng fixture fr029_e2e và được ghi rõ trên UI. Lịch sử chỉ trong phiên server; chưa có resume/cancel/upload ZIP.
+
+Đã lưu `docs/FR029-ke-hoach-hoan-thien-yeu-cau.md`: ánh xạ tám AC, sáu OQ mở và T01–T10 có thứ tự, đầu ra, điều kiện hoàn thành. Không sửa quyết định OQ hoặc tuyên bố đã hoàn thiện độ chính xác chỉ nhờ thêm UI.
+
+Kiểm mới: 9/9 test backend UI qua; 4/4 DOM integration qua; JavaScript qua `node --check`; suite Python 434/435 qua trong 18,331 giây, còn lỗi cũ `test_gateway.Gateway.test_unknown_ids_are_dropped`. DOM test dùng jsdom 29.1.1 cài trong thư mục tạm, không thêm dependency runtime. Browser inventory trống, chưa kiểm trực quan desktop/mobile; chưa gọi model thật. Server demo thử ở `http://127.0.0.1:8001/`, workdir `D:/VSF/l3-fr029-ui-output` ngoài repo.
+
+Đã commit **`8accd89`** trên `feature/l3-fr029`: toàn bộ `slice/` (pipeline trước đó còn chưa commit), schema `.aide/tech-specs/` và hai script kiểm hợp đồng cần cho test, cùng kế hoạch mới. Không đưa log `ket-qua-chay/`, evidence cá nhân hoặc các sửa baseline/kiến trúc khác vào commit; giữ staging ngoài phạm vi. Đã xuất checkout riêng từ commit và chạy lại suite: 434/435 qua, đúng một lỗi gateway cũ, không thiếu module/schema. Sau đó chỉ chỉnh README/kế hoạch để không dẫn link tới tài liệu cục bộ chưa commit.
+
+**Push chưa thành công:** `git push -u origin feature/l3-fr029` bị GitLab trả HTTP 403, nguyên văn: `Your top-level group is over the user limit and has been placed in a read-only state.` Đây là khóa từ phía group GitLab, không phải thiếu commit hay lỗi test mới. Remote vẫn là `https://gitlab.com/vinuni1/vinuni-batch-3/group-5/l3-generator.git`. Chủ group cần xử lý giới hạn/tháo trạng thái chỉ đọc; sau đó chạy lại lệnh push trên. Không tạo remote khác hoặc đổi quyền group.
+
+## Đọc code, chạy test và đối chiếu đề bài — 11/10/2026
+
+Người dùng yêu cầu đọc/test kỹ phần l3-generator và đánh giá sinh tài liệu có hợp lý với đề bài. Báo cáo mới: [FR029-review-code-va-de-bai-20261011.md](FR029-review-code-va-de-bai-20261011.md). Giữ phạm vi FR029: nhận component/sơ đồ, không tự dựng; không mở rộng TBL/EVT. Đã đọc code hiện tại sau các sửa 07–09/10, không dùng lại kết luận cũ như kết quả mới.
+
+Kiểm mới: toàn suite **425/426 qua** trong 15,038 giây; lỗi `test_gateway.test_unknown_ids_are_dropped` đã có trong bàn giao trước. `fr029_checkaudit` **37 bộ**, 406 route/408 đăng ký/169 dòng dependency/33 HTTP; không false acceptance/rejection trong các phép đo tương ứng, còn 2 `http_gold_vs_rule` và 4 suspect ngoài gold. Chạy cả sanity accept/reject, phép đo bắt được bộ kiểm giả. CLI offline sinh đủ API/README/result nhưng exit 0 vẫn có parity not_evaluated và thiếu sơ đồ — không đồng nghĩa nghiệm thu.
+
+Probe mới xác nhận: model sai type/required/nullable vẫn exact và completed; parameter trùng tạo OpenAPI invalid nhưng ready; auth bịa vẫn xuất known; chuỗi Service không có cạnh gọi vẫn được publish completed; evidence ở phần dòng bị cắt vẫn nhận; JSON body models=[] bị từ chối; snapshot bỏ venv/ chứa code import repo. Prefix đảo thứ tự đã được bản hiện tại chặn đúng. AC04 chỉ hỗ trợ archdia-fixture-v1, cần tích hợp upstream thực. Báo cáo xếp thứ tự sửa: nghĩa dữ kiện/nhãn và OpenAPI → chứng minh quan hệ → reader/schema/scope → upstream → đo toàn sản phẩm.
+
+Evidence và script tái hiện: [.aide/evidence/tests/fr029-code-review-20261011/](../.aide/evidence/tests/fr029-code-review-20261011/). Chỉ thêm báo cáo/evidence và cập nhật bàn giao; **chưa sửa sản phẩm/golden/spec**, không gọi model trả phí hoặc chạy source repo, không commit/push. Các artifact của probe là dữ liệu giả, không phải tỷ lệ lỗi model thật. Những tuyên bố “đạt” ở lịch sử phía dưới thuộc cấu hình/phép đo cũ; không thay cho nghiệm thu tám AC của code hiện tại.
+
+## Kiểm độ chính xác bộ kiểm trên nhiều repo (cách 1, không LLM) — 08/10/2026
+
+Yêu cầu: "cách 1, làm sao để tỉ lệ chính xác cao với mọi repo… phải làm báo cáo, chấm công bằng, cho dùng Codex astra high". Báo cáo: [FR029-bao-cao-kiem-bo-kiem-20261008.md](FR029-bao-cao-kiem-bo-kiem-20261008.md).
+
+- **Code mới, chưa commit:**
+  - `slice/l3slice/astscan.py`: đọc cây cú pháp cho HTTP, receiver, alias.
+  - `slice/l3slice/docfacts.py`: kiểm route, HTTP, dependency, suspects bằng AST.
+  - `slice/tools/fr029_checkaudit.py`: công cụ đo, có chế độ `--sanity accept|reject` và `--heldout`.
+  - `slice/tests/test_checker_counterexamples.py`: 137 test phản ví dụ.
+- **Hiện trạng (09/10, 04:30):**
+  - Gold r41 (37 bộ): 0 lỗi mọi phép thử, bộ giả bị bắt ở mọi chỉ số (`ket-qua-chay/fr029-checkaudit-20261009-r41*`).
+  - Codex vòng 10: 6/7 ca vòng 9 đã xử lý, ca còn lại và 6 ca mới đã sửa (lớp `RoundTen`). Các bản sửa vòng 10 chưa có Codex kiểm lại.
+  - Held-out đợt 3 (`D:/VSF/l3-heldout-repos4/`, theo thứ tự `gh search`, bỏ scalekit vì là SDK): ai-pdf-autofiller, creatorhub sạch; xianyu 13 nhiễu + 7 bỏ sót → đã sửa 11 nhiễu + 5 bỏ sót. Còn `self.runtime.session.post` chưa xử lý.
+  - Gói cuối của 10 repo held-out: `ket-qua-chay/fr029-heldout-20261009-r32/`.
+  - Toàn suite 425/426 (lỗi `test_gateway` cũ); log mới nhất ở `.aide/evidence/tests/fr029-checker-20261009/unit-tests.log`.
+  - Hồ sơ theo Quy_tac (ghi 09/10): yêu cầu nguyên văn `.aide/evidence/requests/CR-L3GEN-2026-008-requests-02.yaml`; nhật ký `DIARY-CR-L3GEN-2026-008.md` mục "Phiên 07/10 tối – 09/10"; bằng chứng test `.aide/evidence/tests/fr029-checker-20261009/`; đề bài và kết quả giám khảo `.aide/evidence/reviews/fr029-checker-20261007-09/` (bản gốc ở scratchpad có thể mất).
+  - Hồ sơ lifecycle đủ khuôn (09/10, ghi muộn, draft, chưa qua gate): ADR-2026-006; CMP-004/006/007 revision 5; BL-r11 (35 artifact, `prd_package.py check` khớp); `impact.yaml` và `CSV-...-r11.md` sinh lại bằng script; STORY-029-01; TASK-029-6..9 kèm CTX/PLAN/DIARY; OQ-016/017/018 mở, OQ-013 revision 2; 19 file `REVIEW-*.yaml` với finding FIND-L3GEN-001..165.
+  - `impact.yaml` báo API-L3GEN-001..008-v1 stale sau khi CMP lên revision 5: cần xem lại ở bước L3.
+  - Chưa sửa `docs/FR029-quy-tac.md` mục 8, 12, 17 (lỗi thời so với code; lệch 007-6).
+- **Cần người dùng quyết:**
+  1. Lời gọi qua hàm bọc của dự án (`http_retry.get(...)`) có tính là lời gọi HTTP không. Hiện chỉ tính lời gọi trực tiếp httpx/requests/aiohttp.
+  2. Giữ hướng "agent thuần" hay kết hợp phân tích tĩnh.
+- **Tiếp theo (nếu tiếp tục):** Codex vòng 11 (`scratchpad/codex_fairness10.md` đổi số vòng, trỏ r41); chấm lại xianyu bằng gói r32; thêm repo held-out đợt 4 (OpenExecutive là repo kế tiếp trong danh sách). Mỗi nhóm sửa: test đỏ trước, rồi gold + bộ giả + so gói held-out.
+  3. Diễn giải FR-028 cho script trong `scripts/` chỉ import helper cùng thư mục (caura): hiện coi là ngoài phạm vi. Lệnh Codex: `codex exec -m gpt-6-astra -c model_reasoning_effort=high -s read-only --skip-git-repo-check -C D:/VSF -o <out> "$(cat <prompt>)" < /dev/null`.
+- **Kinh nghiệm:**
+  - Mỗi phép đo mới (prefix, chạy trên gold sau mỗi sửa) đều bắt được lỗi thật hoặc hồi quy do chính bản sửa. Luôn chạy gold + bộ giả sau mỗi nhóm sửa.
+  - Khi giám khảo chấm "sai", kiểm trên bộ kiểm thật bằng test trước khi sửa: 4/4 mục "sai tham số" đợt 2 là lỗi trình bày của gói.
+  - Heredoc trong Bash làm hỏng `\n` và `\s`; ghi script ra scratchpad bằng Write hoặc dùng Edit.
+
+## Kiểm chéo golden bằng agent Claude, sửa bộ chấm, gold r2, prompt v14 — 07/10/2026
+
+Yêu cầu: "hoàn thành sao cho hoàn hảo nhất", sau đó đặt `/goal` "tự chạy và kiểm chất lượng đến ổn thì thôi". Người dùng cho phép dùng nhiều agent.
+
+Báo cáo tổng hợp: [FR029-kiem-cheo-golden-claude-20261007.md](FR029-kiem-cheo-golden-claude-20261007.md). Báo cáo từng agent: `.aide/evidence/reviews/fr029-gold-claude-20261007/`.
+
+Đã làm (code đã viết và test đã chạy):
+
+- 6 agent Claude kiểm gold độc lập. Không thấy route nào sai. Lỗi nằm ở phương án thay thế, dòng bằng chứng và gold v1 (4 lỗi A).
+- Bộ chấm (`fr029_score`, `fr029_accept`, `fr029_golden4`, `fr029_golden_routes`, `fr029_grade_merge`, mới `fr029_rescore`):
+  - sửa mọi lỗi đã xác nhận (danh sách ở mục 4 của báo cáo);
+  - thêm `verdict()` theo NFR-ACC-002;
+  - thêm `ERRATA` cho gold v1.
+- Gold r2: `D:/VSF/l3-acceptance-gold/{agentgpt,kibo}/gold.r2.json`, do `.aide/evidence/tests/fr029-gold-r2-20261007/make_gold_r2.py` sinh ra. `fr029_accept.CASES` đã trỏ sang r2. e2e thêm `alt_lines`.
+- Sản phẩm (prompt v14 + bộ kiểm):
+  - nhắc tham số khai trong dependency;
+  - cho nộp model `dynamic`;
+  - bỏ model không có route nào dùng (ghi tên vào `result.json`, mục `unreferenced_models`);
+  - kiểu trả về là lớp Response thì ghi `null`;
+  - đích HTTP `config` kèm `config_at`.
+- Test: `test_fr029_scorer` 25/25. Toàn suite 267/268, lỗi duy nhất là `test_gateway` cũ.
+  - RED: các test mới đều chạy đỏ trước khi sửa code.
+  - Ngoại lệ: lỗi của lượt trước. Các tool chưa có trong git nên không chạy lại được trên code cũ. Bằng chứng code cũ sai là `.aide/evidence/tests/fr029-review-20261007/reproduce_scorer-observed.json` của Codex.
+- Chấm lại output v13 cũ (không gọi model): `ket-qua-chay/fr029-rescore-20261007-gold-r2/`. Trường model kibo 42/42; AgentGPT `exact` sai 9,1%; igorbenav tên model 24/30.
+
+Kết quả đo prompt v14 (luna, không mù): bảng đầy đủ ở mục 6b của [FR029-kiem-cheo-golden-claude-20261007.md](FR029-kiem-cheo-golden-claude-20261007.md).
+
+- **Đạt NFR-ACC-002:** tdd-docker (`tdd-docker-r2`), AgentGPT (`agentgpt-r2`, `exact` sai 4,8%), kibo (`kibo`, `exact` sai 0/20).
+- **igorbenav (`igorbenav-r3`):** đạt. Route P = R = 0,912; model 10/0/2; `exact` sai 0/10. Model chấm bằng gold mới do hai agent độc lập lập và khớp hoàn toàn (`.aide/evidence/tests/fr029-igorbenav-models-20261008/`, `fr029_accept.MODEL_GOLD`).
+- Chấm lần cuối cả 4 lần chạy tốt nhất: `ket-qua-chay/fr029-rescore-20261008-final/`; **cả 4 đạt**.
+- Đã sửa nhưng chưa đo bằng model: response là generic của thư viện (`external`), dependency factory.
+- Chi phí các lần chạy v14 khoảng 2,9 USD. **Tài khoản OpenAI đã hết tiền** (`kibo-r3` dừng với 429 `credit_balance_exhausted`). Muốn đo thêm phải nạp tiền.
+- Test (08/10): toàn suite 283/284, lỗi duy nhất là `test_gateway` cũ; `test_docagent` + `test_fr029_scorer` 92/92.
+- Bản sửa dependency factory (3 route `waitlists` của kibo) mới kiểm offline, chưa đo bằng model.
+
+Còn lại:
+
+- Gold dependency/auth (agent đã liệt kê đáp án cho tdd và AgentGPT).
+- Chấm điều kiện đăng ký route.
+- Các điểm D: OQ-013, OQ-014.
+- Gold r2 và errata cần Khiêm duyệt.
+- Cần tập repo giữ riêng mới để đo mù.
+
+## Ghi quyết định OQ-012 và tổng hợp golden — 07/10/2026
+
+Người dùng trả lời OQ-L3GEN-012: "3 quy tắc này bỏ qua hết". Câu này áp dụng cho NFR-SEC-002, NFR-AI-002 và OQ-009.
+
+- File đã sửa:
+  - thêm `.aide/evidence/requests/CR-L3GEN-2026-008-decisions-01.yaml` (ghi waiver);
+  - OQ-012 lên revision 2, trạng thái `answered`;
+  - thêm mục cuối vào `DIARY-CR-L3GEN-2026-008`.
+- Hệ quả: luồng agent không còn bị 3 quy định trên chặn. Mục "dừng theo luật" bên dưới đã hết hiệu lực.
+- Waiver còn thiếu hai thứ: lý do, và xác nhận của Khiêm nếu Hoàng không sở hữu hai NFR. Text spec không đổi.
+- Đã trả lời người dùng trong chat: cách dựng golden, cách đo, mức tin. Có dùng kết quả của hai mục kiểm chéo bên dưới.
+- Chưa chạy model, chưa sửa code, gold hay bộ chấm. Không commit.
+- Việc còn lại: theo thứ tự ở [FR029-kiem-cheo-golden-20261007.md](FR029-kiem-cheo-golden-20261007.md) mục cuối. Các repo nghiệm thu đã bị mở đáp án, nên lần đo sau cần một tập repo giữ riêng mới.
+
+## Kiểm chéo golden bằng nhiều session — 07/10/2026
+
+Người dùng yêu cầu kiểm chéo các golden hiện tại. Đã giao ba session ngữ cảnh riêng: acceptance, bốn gold v1, fixture/dev; phiên chính đối chiếu lại finding với source. Báo cáo: [FR029-kiem-cheo-golden-20261007.md](FR029-kiem-cheo-golden-20261007.md). Evidence ở [.aide/evidence/reviews/fr029-gold-audit-20261007/](../.aide/evidence/reviews/fr029-gold-audit-20261007/).
+
+Xác nhận ba alternate sai trong AgentGPT: URL f-string được chấp nhận như literal; hai file Service được chấp nhận như Khác. Tách riêng bốn lỗi tái sử dụng gold: Dispatch chỉ chấm case/views nhưng runner chấm toàn source; FBA so đầu span thay dòng HTTP call; OAuth constructor ngoài phạm vi FR029 bị đưa vào HTTP; placeholder prefix của gold v1 bị so như path biết chắc. Chưa thấy sai giá trị chính của 86 route acceptance trong phạm vi đã kiểm. Kibo thiếu oracle.json cạnh gold, 55 file role thiếu dòng bằng chứng; dependency/auth và đủ tám AC chưa được phủ.
+
+Kiểm cấu trúc 33 gold/1.759 tham chiếu không thấy lỗi trong trường đã quét; kiểm lại 401 lượt file gold/source theo hash không đổi. Probe giả cho HTTP dòng 49 tái hiện TP=0 FP=1 FN=3 do matcher/phạm vi, không phải số đo model. Acceptance có báo cáo độc lập; hai reviewer còn lại bị ngắt trước báo cáo cuối. Audit ngữ nghĩa toàn fixture/dev và toàn gold v1 **chưa hoàn tất**, không tuyên bố toàn bộ golden đạt.
+
+Đã mở chi tiết source/gold repo kín theo yêu cầu audit; không đọc output sản phẩm để lập đáp án, không chỉnh prompt. Các dòng lịch sử dưới đây nói “không mở repo kín” chỉ mô tả phiên trước. Giữ nguyên gold/source/spec/scorer; chưa chạy oracle/model/benchmark lại, chưa sửa lỗi. Tiếp theo: đính chính gold bằng revision mới, sửa adapter/scorer, bổ sung coverage/provenance và hoàn tất audit còn dở; rồi chấm lại output cũ với phiên bản phép chấm rõ ràng. Nếu dùng repo đã mở đáp án để tuning, không gọi phép đo sau đó là mù.
+
+## Đánh giá tài liệu mentor và kiểm chéo bộ chấm — 07/10/2026
+
+Người dùng yêu cầu đọc kỹ `FR029-giai-thich-cho-mentor.md`, dự án và đề xuất cải thiện; sau đó yêu cầu nhiều session kiểm bộ chấm cho công bằng. Đã đọc luồng agent/renderer/CLI/scorer và spec liên quan, dùng hai reviewer ngữ cảnh trống (`scorer_review_a`, `scorer_review_b`) không cung cấp kết luận trước. Không đọc source/gold/output chi tiết repo kín; không gọi model trả phí.
+
+Kết luận và thứ tự làm: [FR029-danh-gia-va-huong-cai-thien-20261007.md](FR029-danh-gia-va-huong-cai-thien-20261007.md). Biên bản reviewer: [.aide/evidence/reviews/fr029-scorer-20261007-independent.md](../.aide/evidence/reviews/fr029-scorer-20261007-independent.md). Probe, output thực và hash file đã đọc: [.aide/evidence/tests/fr029-review-20261007/](../.aide/evidence/tests/fr029-review-20261007/).
+
+Đã tái hiện: evidence ở phần dòng bị cắt vẫn được nhận; prefix đảo thứ tự qua kiểm; field model sai vẫn exact; parameter trùng tạo OpenAPI invalid nhưng API ready. Kiểm chéo scorer xác nhận alias làm mất lỗi exact, duplicate đổi điểm theo thứ tự, thiếu gold vẫn vào mẫu số exact, unknown/dynamic rỗng bị tính correct, mất chiều mảng và merge lỗi khác field thành đồng thuận. Hai format gold còn khác phạm vi/matching. Không suy đoán tỷ lệ ảnh hưởng tới số đo repo kín cũ.
+
+Kiểm mới: test_docagent 51/51 qua; toàn suite 238/239, lỗi `test_gateway.test_unknown_ids_are_dropped` trùng lỗi đã ghi trước, 12,523 giây. Các probe dùng dữ liệu giả, không là số đo model. Đã thêm báo cáo/evidence và cập nhật HANDOFF; **chưa sửa code sản phẩm/scorer/gold/spec, chưa sửa tài liệu mentor gốc, không commit/push**.
+
+Ưu tiên tiếp: sửa scorer + test bất biến (alias, trùng/đảo thứ tự, unknown, thiếu gold, chiều mảng, merge); chấm lại output cũ bằng số tổng và giữ phiên bản phép chấm. Sau đó sửa evidence/OpenAPI, mở schema/nhãn theo field, cải thiện sổ trạng thái agent, đồng bộ CLI/upstream và đo cấu hình mới. Tài liệu mentor trộn hiện trạng v13 với lịch sử v8, cần cập nhật bảng AC/chi phí và tên chỉ số.
+
+Đính chính trạng thái quyết định: OQ-012 đã `answered`, evidence `CR-L3GEN-2026-008-decisions-01.yaml` ghi người dùng trả lời bỏ qua ba quy tắc; mục “dừng theo luật” bên dưới là ghi chú trước cập nhật này. Hồ sơ còn nêu việc hoàn thiện waiver theo quy trình; phiên đánh giá không yêu cầu người dùng trả lời lại hoặc sửa spec.
+
+## FR-029: đối chiếu với Quy_tac và dừng theo luật — 07/10/2026
+
+Người dùng yêu cầu đọc kỹ `Quy_tac/` (execution guide) và làm theo. Kết quả đối chiếu:
+
+- **Mâu thuẫn spec (chặn):** luồng agent gửi nguyên file source, gọi OpenAI trực tiếp, nhiều request, vượt trần 0,20 USD/300K token. Như vậy trái NFR-L3GEN-SEC-002, NFR-L3GEN-AI-002 và OQ-L3GEN-009. EXEC §B.15 luật 1: tạo OQ và dừng. Đã mở **OQ-L3GEN-012** (blocking FR-029). **Dừng chạy luồng agent trên repo thật cho tới khi OQ-012 đóng.**
+- Mở thêm OQ-L3GEN-013 (route không gắn app), OQ-L3GEN-014 (status trong thân handler), OQ-L3GEN-015 (đáp án repo kín do agent lập; igorbenav kín hay chỉnh prompt). Owner Hoàng, due 2026-10-10. `uid` cấp bằng `scripts/gen_uid.py`.
+- Ghi muộn **CR-L3GEN-2026-008** (nguyên văn yêu cầu phiên 07/10) và **DIARY-CR-L3GEN-2026-008** (4 mục; liệt kê các chỗ đi chệch: không OQ, thiếu Task/CTX/PLAN, review package có lý lẽ tác giả, không RED-first, sửa lan, số đo ngoài `evidence/tests/`).
+- `prd_package.py check --baseline BL-r10.yaml`: 34 artifact khớp; không đụng spec đã duyệt.
+- Chưa làm (cần người dùng quyết):
+  - tạo Task/Story ghi muộn cho phần việc đã làm, hay chờ Change Set mới;
+  - ghi FIND-L3GEN-120+ cho 20 phát hiện của Codex;
+  - chép số đo vào `.aide/evidence/tests/`;
+  - review lại bằng package không có lý lẽ tác giả.
+
+## FR-029: đo nghiệm thu trên 4 repo kín — 07/10/2026
+
+- Người dùng chọn chỉ dùng luna cho nghiệm thu, trần 1,2 USD (đã tiêu khoảng 1,15). Tổng chi tiêu OpenAI cả phiên khoảng 3,0 USD.
+- Source 3 repo kín tải đúng commit OBS-001 vào `D:/VSF/l3-acceptance-repos/`. Gold do 3 agent độc lập dựng (oracle `app.openapi()` chạy được cả 3) ở `D:/VSF/l3-acceptance-gold/{tdd-docker,agentgpt,kibo}/` (gold.json, membership.json, oracle.json). `igorbenav` dùng golden v1 (Khiêm duyệt). Một agent dựng gold (kibo) lỡ báo vài loại phán đoán chi tiết; ghi nhận, và từ đó không chỉnh prompt trước khi đo.
+- Script đo: `slice/tools/fr029_accept.py` (1 lần mỗi repo, chỉ in số tổng; chi tiết vào `private/`). Bộ chấm `fr029_score.py` đã hiểu các phương án gold khai: `alt_roles`, `alt_where`, `alt_names`, `alt_types`, `alt_methods`, `accept_alt_target`, `optional`, `dynamic.unknown_fields_acceptable`, response dạng `type`.
+- Kết quả (prompt v13): route đạt trên cả 4; **không đạt** `exact` sai (AgentGPT 18%, kibo 56%), HTTP AgentGPT (P 0,60, R 0,50), model tdd-docker (R 0,75) và igorbenav (tên model 6/30). Tham số yếu (5/16, 11/64). AgentGPT và kibo dừng `partial` vì trần chi phí. Bảng đầy đủ ở mục 1 của `FR029-giai-thich-cho-mentor.md`.
+- Việc tiếp (không xem chi tiết repo kín):
+  1. Cải thiện tham số, trường model, đích HTTP và nhãn `exact` bằng repo lộ và fixture.
+  2. Cân nhắc để nhãn `exact` chỉ dành cho giá trị có literal; còn lại `inferred`.
+  3. Nâng trần chi phí cho repo vừa.
+  4. Đo lại bằng cấu hình mới, 1 lần mỗi repo.
+
+## FR-029: kiểm toán Codex và sửa theo kiểm toán — 07/10/2026
+
+- Codex `gpt-6-astra` (high, chỉ đọc) kiểm toán toàn bộ: **chưa đủ, chưa đúng với toàn bộ yêu cầu**. Bản đầy đủ: `ket-qua-chay/fr029-pilot-20261007/reviews/codex_audit_out.md`. Claude đã tái hiện F01–F04, F14 trước khi sửa.
+- Lỗi code F01–F20: 13 sửa xong có test hồi quy (lớp `AuditFixes` trong `test_docagent.py`), 6 sửa một phần (F03 thứ tự prefix, F04 không có OpenAPI validator trong pipeline, F05 `db.get`, F10 `venv/` cũ, F12 sơ đồ, F15 bộ chấm), 1 còn mở (F07 bằng chứng auth/vai trò không liên quan). Prompt `v13`.
+- Suite 238/239; log `ket-qua-chay/fr029-pilot-20261007/tests-after-audit.log`.
+- **Phát hiện theo OBS-001:** nghiệm thu tính trên từng repo kín nhỏ và vừa: tdd-docker, AgentGPT, igorbenav, kibo-backend. Repo kín lớn (fastapi_best_architecture, lnbits) chỉ báo số. teamhide và full-stack là repo lộ. Mới chạy igorbenav (route 30/34, tên model 6/30, partial); 3 repo kín còn lại chưa chạy. File duyệt golden v1 gọi igorbenav là "chỉnh prompt", mâu thuẫn với OBS; chưa xem chi tiết lỗi igorbenav.
+- Báo cáo mentor đã sửa theo kiểm toán: số file thật (84/22/112/296), prompt golden-luna là v5, luna3/luna4 có 2 lỗi đích HTTP, ý nghĩa "unknown khớp unknown", phạm vi bộ chấm, tên model 6/30 và 0/1, HTTP 0/3, Groq base3, nguyên nhân repo lớn là giả thuyết. Bài chấm và review lưu ở `ket-qua-chay/fr029-pilot-20261007/reviews/`.
+- Việc tiếp:
+  1. Người dùng quyết 3 câu hỏi và trần chi phí.
+  2. Lấy source 3 repo kín còn lại đúng commit trong OBS-001, dựng gold (oracle `app.openapi()` cho route/tham số/model), chạy bản v13 **một lần mỗi repo**, chỉ xem số tổng.
+  3. Thêm OpenAPI validator vào pipeline (F04).
+
+## FR-029: cập nhật cuối phiên — 07/10/2026
+
+Đọc trước: [FR029-giai-thich-cho-mentor.md](FR029-giai-thich-cho-mentor.md). File đó có cơ chế, số liệu đầy đủ và lệnh chạy lại.
+
+- Prompt hiện tại `fr029-agent-prompt-v12`. Từ v8 đến v12 sửa theo golden v1 (repo "chỉnh prompt") và chấm đa model; v11 thêm thứ tự làm việc cho repo lớn; v12 thêm kiểu `uuid`/`datetime`/`date`/`email`. **v9–v12 chưa được đo lại.**
+- Kết quả gần nhất:
+  - `luna5` (v8): fixture 18/18, 0 lỗi.
+  - golden dev (v7): TP 40, FP 2, FN 0.
+  - golden v1 4 repo (v8): teamhide 5/5; full-stack 23/23; igorbenav 30/34 (partial, chạm trần chi phí); fastapi_best_architecture 1/139 (partial, chạm trần chi phí).
+- Repo lớn thất bại vì agent nộp vai trò file trước, route dồn cuối, cộng ngữ cảnh ~125K token mỗi lượt. Sửa ở v11, kèm `--max-context-chars` 150000 mặc định trong `fr029_golden4.py`; chưa chạy lại.
+- Chấm đa model (Codex `gpt-6-astra`, Claude Opus, Claude Sonnet) không xem gold; gộp bằng `slice/tools/fr029_grade_merge.py`, chọn mẫu bằng `fr029_sample.py`. Lỗi ở repo "đo" (teamhide: `permission.py` phải là Service, 3/3 người chấm) chỉ ghi nhận, không dùng để chỉnh prompt.
+- Chi tiêu OpenAI: 1,62/2 USD. Cần người dùng cho phép thêm trước khi chạy lại repo lớn.
+- Suite 229/230 (lỗi gateway có từ trước). Chưa commit/push.
+- Chờ quyết định: (1) route ở file production mà router không được gắn vào app nào; (2) status trong thân hàm (`HTTPException`, `Response(status_code=...)`); (3) nâng trần chi phí.
+
+## FR-029 bằng agent: đã chạy model thật — 07/10/2026 (lịch sử)
+
+Tài liệu dễ đọc để trình bày với mentor: [FR029-giai-thich-cho-mentor.md](FR029-giai-thich-cho-mentor.md). Mục này giữ phần cần để làm tiếp.
+
+**Quyết định của người dùng:** agent thuần; cho chạy oracle `app.openapi()` để dựng gold; dùng nhiều agent kiểm chéo; dùng Groq rồi OpenAI; chọn model luna/terra; trần chi phí 2 USD; được dùng khóa ở biến `open_ai` trong `D:/VSF/VSF-L3 Generator/.env` (file đã git-ignore). Không in hay ghi khóa.
+
+**Code** (chưa commit): `slice/l3slice/source_tools.py`, `docfacts.py`, `docagent.py` (vòng agent; `OpenAICompatProvider`, `ResponsesProvider`; giãn nhịp theo token/phút; thử lại khi lỗi mạng; trần USD), `docpipeline.py`, lệnh `document` trong `__main__.py`; sửa nhỏ `render.py`, `common.py:13`. Công cụ: `slice/tools/fr029_pilot.py` (chạy fixture + chấm), `fr029_score.py`, `fr029_golden_routes.py` (route trên golden v1), `fr029_oracle.py`. Test: `slice/tests/test_docagent.py`. Gold: `slice/tests/fixtures/fr029/`. Prompt hiện tại `fr029-agent-prompt-v7`.
+
+**Số đo** (kết quả ở `ket-qua-chay/fr029-pilot-20261007/`):
+- Groq `gpt-oss-120b` miễn phí: không đo được, vì trần 8K token/request làm agent quên file (413, 429).
+- OpenAI `gpt-6-luna` qua Responses API, suy luận `medium`:
+  - `luna3`: 6 fixture × 3 lần, 18/18 hoàn tất; mọi route/model/HTTP/vai trò/giới hạn đúng; 1/3 lần ghi khóa cấu hình dạng `settings.X`. Khoảng 0,05 USD.
+  - `luna4` (prompt v6): 6/6 đúng, còn lỗi `settings.X`; đã chuẩn hóa trong code.
+  - `golden-luna` (19 case dev, chỉ route): TP 39, FP 3, FN 1, 0,07 USD. Lỗi: prefix truyền qua hàm bọc (đã sửa bộ kiểm + prompt v7); route `/healthcheck` của Netflix Dispatch không có trong gold case.
+- Gold golden v1 là `candidate`, `independent_humans` rỗng: chưa có người review. Gold fixture do agent G viết, Codex review một lượt.
+- Tổng chi tiêu OpenAI đến lúc ghi: khoảng 0,15 USD.
+
+**Kiểm chéo bằng Codex `gpt-6-astra` (high):** review code 2 lượt, review gold 1 lượt, review mù tài liệu vòng 1 (4 fixture, đã sửa phần thuộc code: dependency, truy vết model, nhãn, vai trò Hạ tầng, giới hạn thiếu sơ đồ). Vòng 2 trên `luna4` đang chạy; golden v1 với prompt v7 đang chạy.
+
+**Kiểm chứng:** suite 228/229; lỗi duy nhất `test_gateway.test_unknown_ids_are_dropped` có từ trước.
+
+**Chờ người dùng quyết:** route ở file production chỉ được gắn trong `conftest.py`; `HTTPException(404)` có tính là status khai trong code không; tham số `Optional` có ghi `| null`.
+
+**Bẫy:** công cụ Bash làm hỏng `\` trong heredoc; sửa file có `\` bằng Edit hoặc script ghi qua Write. Groq chặn User-Agent mặc định của urllib (403). `gpt-6.1-sol` không nhận tool + reasoning trên chat completions; dùng `/v1/responses`.
+
+**Việc tiếp:** xử lý kết quả review mù vòng 2 và golden v7; nếu sạch thì chạy lại `luna` 3 lần làm số đo cuối; cập nhật tài liệu mentor.
+
+## Triển khai FR-029 bằng agent: đợt 1 và ca xuyên suốt — 07/10/2026 (lịch sử; hiện trạng ở mục đầu)
+
+Người dùng yêu cầu triển khai kế hoạch và kiểm chéo với Codex. Đợt này làm N1–N4, ca xuyên suốt, CLI tối thiểu, bộ chấm và gold. Tất cả chạy offline bằng provider giả. **Chưa gọi model thật lần nào**: chưa chọn provider, và máy không có khóa API trong biến môi trường.
+
+Code mới (tên module khác tên dự kiến trong kế hoạch, ranh giới giữ nguyên):
+
+| File | Task | Làm gì |
+|---|---|---|
+| `slice/l3slice/source_tools.py` | N2 | `list_files`/`read_file`/`search_text`; phạm vi theo FR-028 do code quyết (kể cả thư mục có `pyvenv.cfg`, layout `src/`); sổ `delivered`/`processed`; che bí mật giữ số dòng |
+| `slice/l3slice/docfacts.py` | N1, N4, A03 | Khuôn dữ liệu agent nộp; kiểm dòng đã đọc, literal, dạng decorator/lời gọi, dấu hiệu vai trò, thứ tự vai trò; quy tắc `inferred` lấy từ danh sách cố định `RULES`; dòng nghi ngờ (`suspects`) phải có item hoặc bị bác kèm lý do; chuyển sang fact API-004 |
+| `slice/l3slice/docagent.py` | N3 | Vòng agent; ngân sách lượt, token, thời gian; từ chối `finish` khi còn dòng chưa đọc hoặc lỗi chưa sửa; `ScriptedProvider`, `OpenAICompatProvider`; prompt `fr029-agent-prompt-v2` |
+| `slice/l3slice/docpipeline.py` | A04, A06, V2 | Nhận membership có `kind`; đối chiếu `archdia.json` (định dạng tạm `archdia-fixture-v1`, thiếu `snapshot_id` thì `not_evaluated`); README đủ mục; `result.json`; publish |
+| `slice/l3slice/__main__.py` | V2 | Lệnh `document` |
+| `slice/tools/fr029_score.py` | V1 | Chấm `result.json` với gold: TP/FP/FN từng loại, lỗi từng thuộc tính, số file ngoài phạm vi |
+| `slice/tests/test_docagent.py` | — | 35 test: phạm vi, độ phủ, che bí mật, bộ kiểm, ngân sách, ca xuyên suốt, đối chiếu kiến trúc, hồi quy theo review Codex, bộ chấm |
+
+Sửa code cũ:
+- `render.py`: OpenAPI dùng alias của trường; body Form/File và body được bọc hiển thị dạng object inline; câu nguồn gốc là tham số.
+- `common.py:13`: mẫu che mật khẩu có ký tự `\x02` thay cho `\2`, nên `password = "..."` không bao giờ được che. Đã sửa. Lỗi có từ trước, ảnh hưởng cả luồng cũ.
+
+Gold (agent G viết, không đọc code agent): `slice/tests/fixtures/fr029/`, gồm 6 fixture, oracle `slice/tools/fr029_oracle.py` và README ghi các chỗ phán đoán. Venv oracle nằm ở scratchpad của phiên, không nằm trong repo. Khi chạy lại oracle trong Git Bash phải đặt `MSYS_NO_PATHCONV=1`.
+
+Kiểm chéo bằng Codex (`codex exec -s read-only`; prompt và kết quả ở scratchpad của phiên):
+- Review code lượt 1: 22 phát hiện. Đã sửa các mục là lỗi thật. #6 và #7 (nghĩa của kiểu, required, model ref) chủ ý để gold đo, vì đi theo hướng agent thuần. #21 (retry riêng cho bundle FR-029) chưa làm.
+- Review gold: 3 sai, 2 đáng ngờ. Đã thêm `out_of_scope` vào gold. Vai trò Khác vẫn phải có dòng bằng chứng. `embedded` chỉ áp cho body JSON. **Chờ người dùng quyết:** route trong `exclusions/app/routers/internal.py` chỉ được gắn trong `conftest.py`. Kế hoạch A05 nói loại route này; Codex đọc FR-029 cho rằng phải giữ, với path `unknown`.
+- Review lượt 2 (xác nhận bản sửa): 7 mục đã đóng, 12 mục đóng một phần, 3 mục không sửa (#6, #7 để gold đo; #21 retry chưa làm). Có 6 lỗi mới do bản sửa gây ra, đều đã sửa và có test: crash StopIteration, body Form bị `check_doc` từ chối, HTTP dùng keyword `method=`/`url=`, mất unknown của required trong body inline, không lưu `dismissed`, bộ chấm bỏ qua trường của body. Cũng đã sửa thêm: che bí mật ba nháy nhiều dòng, decorator thứ hai trên cùng handler vẫn là dòng nghi ngờ, decorator của đối tượng không phải FastAPI, URL còn bí mật bị từ chối, khóa claim/fact đồng nhất, đối chiếu kiến trúc chỉ tính file API xuất được, membership khác snapshot bị từ chối.
+- Còn mở sau 2 lượt (chưa sửa): thứ tự prefix (#4) và cạnh gọi của Service (#10) chỉ gold bắt được; auth có thể dẫn dòng không liên quan (#8); client HTTP không truy được nguồn tạo (#9); `snapshot.py` loại `venv/` vô điều kiện, có từ trước (#14); chưa có retry cho bundle FR-029 (#21).
+
+Kiểm chứng: toàn suite 222/223 qua; lỗi duy nhất là `test_gateway.test_unknown_ids_are_dropped`, có từ trước. Test offline chỉ chứng minh luồng đọc → kiểm → xuất, không chứng minh model thật đọc đúng.
+
+Bẫy: công cụ Bash của Claude Code làm hỏng `\\` và `\` cuối dòng trong heredoc. Muốn sửa file có dấu `\` thì ghi script bằng Write rồi chạy, hoặc dùng Edit.
+
+Việc tiếp:
+1. Người dùng chọn provider và model cho pilot.
+2. Người dùng quyết ca `internal.py`.
+3. Chạy pilot trên 6 fixture: `python -m l3slice document ... --base-url --model --key-env`, rồi chấm bằng `python slice/tools/fr029_score.py --result <out>/result.json --gold slice/tests/fixtures/fr029/<tên>.gold.json`.
+
+## Bổ sung kế hoạch FR-029 theo quyết định người dùng — 07/10/2026
+
+Người dùng chốt ba điểm: **giữ hướng agent thuần** (agent đọc source, không lấy dữ kiện từ extractor AST); **cho chạy `app.openapi()` trong sandbox để dựng gold**; ghi các bổ sung vào kế hoạch của Codex.
+
+Đã sửa [kế hoạch](L3-ke-hoach-agent-sinh-tai-lieu.md):
+- N4: thêm nguồn gold là oracle `app.openapi()` trong sandbox, cùng giới hạn của oracle.
+- A01, A02: thêm ca bắt buộc theo luật FastAPI/Pydantic (gộp tham số `Depends`, body bọc tầng, `response_model`, `Optional` v1/v2…).
+- A08: thêm checklist dạng gọi lấy từ CodeQL.
+- V1: thêm sàn "agent không kém extractor 61/0/0" và chạy 3 lần đo dao động. Hai phép này chỉ là kiểm nội bộ, vì OBS-001 quy định đo 1 lần và bỏ so với bộ luật tĩnh.
+- Thêm mục phân vai agent khi phát triển: G gold, C1–C4 code, K kiểm; mỗi agent một worktree.
+
+Bản nghiên cứu có thêm mục 7 (nguồn CodeQL, route-detect, source FastAPI/Pydantic). Source FastAPI và Pydantic chưa đọc ở version ghim. Chỉ sửa tài liệu, chưa sửa code, chưa chạy test hay model. Bước kế tiếp không đổi: N1 và agent G chạy song song.
+
+## Kế hoạch agent sinh tài liệu FR-029 sau nghiên cứu GitHub — 07/10/2026
+
+Người dùng yêu cầu nghiên cứu kỹ các repo đã tìm và lập kế hoạch thực hiện. Phạm vi vẫn là **8 AC của FR-029 revision 3**, agent đọc source, không tạo/chia component hoặc dựng sơ đồ. Yêu cầu mới mở rộng tham khảo sang OpenDeepWiki, CodeWiki của FSoft, RepoAgent và mẫu API Docs Generator của pnp; giới hạn “chỉ GitDiagram” ở ghi chú ngày 06/10 bên dưới là lịch sử.
+
+Đã tạo [bản nghiên cứu](L3-nghien-cuu-repo-sinh-tai-lieu.md) ghi 4 commit cố định, file nguồn, phần học được và giới hạn. Đã cập nhật [kế hoạch triển khai](L3-ke-hoach-agent-sinh-tai-lieu.md): vẫn 14 nhiệm vụ/6 đợt, thêm giao diện dữ liệu, công cụ agent, luồng đọc đủ từng phần, mapping file/test và ca xuyên suốt đầu tiên. Thiết kế đề xuất dùng một vòng điều phối tuần tự; agent trả dữ kiện có evidence, code kiểm rồi render API/README/result. Chưa chọn thêm framework hoặc fork repo bên ngoài.
+
+Đối chiếu code tại checkout `feature/l3-fr029`: `gateway.read_code` chặn đọc hết file và chỉ nhận label_components; renderer đòi graph/accepted decisions rồi dựng hình; kiểm path cũ sắp xếp các đoạn; mask private key nhiều dòng chưa giữ tọa độ. Kế hoạch tách luồng tài liệu và chỉ tái dùng helper phù hợp. NFR-AI hiện dành cho FR-028, NFR-SEC dẫn lại giới hạn gửi source: cần đồng bộ hợp đồng FR-029 và chốt ngân sách trước pilot; offline có thể làm trước. AC04/06 phải kiểm artifact upstream thật cùng snapshot, không tự đánh dấu đạt khi chỉ có fixture.
+
+Kiểm chứng phiên này: cấu trúc kế hoạch đủ 14 mã nhiệm vụ, 8 hàng AC, 6 đợt; liên kết nội bộ của 2 tài liệu không thiếu; không có ký tự điều khiển lỗi. **Chỉ sửa tài liệu; chưa sửa code/spec, chạy test sản phẩm, gọi model, cài/chạy repo tham khảo hay benchmark.** Không commit/push. Thông tin UAT của worktree khác bên dưới được giữ nguyên và không phải kết quả phiên này.
+
+Bước triển khai đầu tiên: N1 chốt schema/mẫu đầu vào và ca gold; N2 reader/receipt/coverage; N3 fake provider; N4 kiểm evidence. Sau đó chạy ca nhỏ xuyên suốt tới API/README/result khi chặn extractor, model.build, annotate và bộ dựng hình. Kết quả offline không thay phép đo ngữ nghĩa với model thật.
+
+## UAT bản Khiêm và bổ sung golden v1 — 06/10/2026
+
+Bản Khiêm: `origin/feature/l3-template-10-phan` (5777d9d). Worktree `D:\VSF\l3-uat`, Python 3.12, Windows. lần đầu 85 qua, 4 lỗi; `test_dieu_phoi.py` không chạy được (`import fcntl`). 2 lỗi thiếu quyền symlink; 2 lỗi do code trích dữ kiện giữ ký tự xuống dòng CRLF trong quote (sửa trong `trich_du_kien.py`, `kiem_trich_dan` trước đó loại sai). Sau sửa: 87 qua, 4 bỏ qua (`test_dieu_phoi.py` và test symlink bỏ qua trên Windows). Ghi chú cũ: lệch `
+` (`test_pyproject_project`, `test_bo_ket_qua_day_du`), đã rõ là lỗi code. Mutex Windows trong `dieu_phoi.py` thử tay hai tiến trình: tiến trình sau bị chặn đúng; chưa xem dòng vào khóa vì script thử lỗi mã hóa. Chưa chạy CLI `l3gen` thật.
+
+Golden v1: Codex xác nhận teamhide dùng Click, fba dùng Cappa, mà `project.frameworks` thiếu (luật 1.4). Theo AGENTS.md mục 9 (nhánh song song chỉ thêm file mới, không ghi đè bản đã duyệt): thêm `final-r4.json` (teamhide), `final-r3.json` (fba), hai file check (75 và 662 bằng chứng, 0 lỗi) và `DE-XUAT-click-cappa.md`; không sửa APPROVAL. Đã push hai branch tách từ `feature/l3-template-10-phan`: `feature/golden-v1-click-cappa` (golden) và `feature/l3gen-windows-crlf` (sửa lỗi và test Windows). Đã xóa hai branch cũ trên origin. Việc còn lại: tạo hai merge request vào `feature/l3-template-10-phan`; Khiêm duyệt đề xuất và cấp APPROVAL mới ở nhánh chính.
+
+## Cập nhật kế hoạch phần tài liệu — 06/10/2026
+
+**Đã xác định đúng phạm vi qua xác nhận trực tiếp của người dùng: A — FR-L3GEN-029 revision 3, đủ 8 AC (01–08).** Không phải 10 mục phát hiện trong đề bài, 8 FR cũ hoặc 8 CMP. Không hỏi lại cách chia 8/10. Người dùng muốn kế hoạch chi tiết chuyển sang agent đọc source để tài liệu chính xác; không tạo/chia component hoặc dựng sơ đồ. Không triển khai FR-030 TBL/DDL, FR-031 EVT, web trong kế hoạch này. Nhận component từ upstream; AC-04 đối chiếu `archdia.json`; AC-06 nhận sơ đồ có sẵn cho README. Thiếu upstream phải ghi phần chưa kiểm/thiếu, không bỏ AC và không tự dựng thay. Chỉ tham khảo ngoài GitDiagram.
+
+Đã viết lại [L3-ke-hoach-agent-sinh-tai-lieu.md](L3-ke-hoach-agent-sinh-tai-lieu.md): 14 nhiệm vụ, gồm N1–N4 nền tảng, A01–A08 theo đúng từng AC, V1–V2 kiểm/bàn giao; 6 đợt thực hiện. Mỗi task có việc làm, output, ca kiểm, phụ thuộc và tiêu chí xong. Bản mới thay mọi diễn giải phạm vi sai ở các lần trước. Bước đầu khi triển khai: N1 schema/giao diện upstream, N2 reader/coverage, N3 vòng model, N4 evidence/gold; sau đó A01/A03/A05, A02, A07/A08/A06, tích hợp A04 và đo V1/V2. Chỉ sửa kế hoạch/HANDOFF; chưa sửa code/spec, chưa chạy test hay model. Pipeline hiện tại vẫn dùng extractor, renderer còn phụ thuộc graph; phải tách khi triển khai. Không commit/push, giữ thay đổi local có từ trước.
+
+## Cập nhật phần L3 — 02/10/2026, FR-029
+
+Đã bổ sung T1–T5 theo HANDOFF-CODEX-FR029: route test/không decorator, HTTP client/aiohttp và README, response danh sách model. Báo cáo: docs/FR029-ket-qua-hoan-thien.md. Code ở slice/l3slice/extract.py và render.py; 11 test mới ở test_fr029.py. Kết quả cuối 187/188 qua; lỗi gateway cũ giữ nguyên. Contract và BL-r10 kiểm qua; không phải Gate approval. Golden 38 case không đổi; bốn repo vẫn tổng 58 route. Teamhide xuất sáu artifact ready, GET user có list[GetUserListResponseDTO]. Output mới ở ket-qua-chay/fr029-20261002/teamhide-export. Chưa sửa AC-029-04/07 và Cấu trúc component (phụ thuộc pipeline Khiêm). Không commit/push, không sửa server demo hoặc D:/FPT3. Hồ sơ mới có plan/context r2 đính chính encoding và hash; giữ plan r1. Phần lịch sử pipeline Khiêm bên dưới không phải hiện trạng triển khai FR-029.
+
+
 Cập nhật: 01/10/2026, cuối phiên 9. File cục bộ, không commit. Mục đích: phiên mới làm tiếp đúng nhịp, không phải hỏi lại.
 
 Lịch sử đầy đủ:
@@ -114,6 +559,7 @@ Hiện trạng phiên 4 (theo prompt Khiêm giao cuối phiên 3: bước 1 đ�
 
 | Repo | A tầng đúng: khối; file neo | B: P / Pk / R | B' (tầng do code): P / Pk / R | Ngoài: P / R | C cạnh không qua import | D dùng chung: P / R | E khối không ai gọi |
 |---|---|---|---|---|---|---|---|
+| 06/10/2026 | UAT bản Khiêm trên Windows; sửa quote CRLF và test Windows; Codex kiểm rồi bổ sung Click (teamhide), Cappa (fba) vào golden v1 | pytest 87 qua/4 bỏ qua; `golden_tool.py check` 0 lỗi; đã push `feature/golden-v1-click-cappa`, `feature/l3gen-windows-crlf` (golden thành file revision mới, không ghi đè bản đã duyệt) |
 | rhoboro | 5/5; 7/7 | 1,00 / 0,80 / 1,00 | 1,00 / 0,80 / 1,00 | 1,00 / 1,00 | 1/1 | 0,25 / 1,00 | 0/0 |
 | fullstack | 6/6; 12/12 | 1,00 / 1,00 / 1,00 | 1,00 / 1,00 / 1,00 | 1,00 / 1,00 | 1/1 | 1,00 / 1,00 | 0/0 |
 | realworld | 5/5; 12/12 | 1,00 / 0,75 / 1,00 | 1,00 / 0,75 / 1,00 | 1,00 / 1,00 | 1/1 | 0,71 / 1,00 | 1/1 |
@@ -424,6 +870,29 @@ Các dòng chi tiết của 28/09 nằm trong [HANDOFF-luu-tru-28-09-phien-2.md]
 
 | Ngày | Việc | Kiểm chứng |
 |---|---|---|
+| 12/10/2026 | Hồ sơ quy trình đợt 11–12/10 (CR-009, OQ-019…022, Epic/Story/Task, CTX/PLAN/DIARY, 4 REVIEW), `HUONG-DAN-DEMO.md`, SDLC log 25–29; commit và push | Chỉ tài liệu/hồ sơ. Suite 520/521. UI chưa sửa: thiếu `taste-skill` |
+| 12/10/2026 | Viết `docs/L3-Generator-chuong-trinh-hien-tai.md`: chương trình hiện tại, đầu vào, luồng 12 bước, hai chế độ model, ai đề xuất/ai kiểm, đầu ra, cách chạy, module, số đo, giới hạn | Chỉ sửa tài liệu; số liệu lấy từ các lần đo 11–12/10 đã ghi |
+| 12/10/2026 | Kiểm kỹ phần bảng CSDL (FR-030): đo gold 4 repo, đối chiếu chuẩn, 2 vòng giám khảo độc lập (Sonnet, đề cố định, đầu ra đóng băng). Sửa 8 nhóm lỗi: crash `IDENTITY_COLLISION`, khóa chính qua alias Annotated, bảng `extend_existing`, AC-04 (`TABLES_NOT_READ`), TBL thiếu lớp/bằng chứng/nhãn từng cột, ràng buộc, `sa_type`/`max_length`, trình bày. Báo cáo `FR030-kiem-csdl-20261012.md`; bằng chứng `ket-qua-chay/db-check-20261012/` | Gold: bảng 32/32, cột/khóa chính/khóa ngoại 341/341. Giám khảo vòng 2: 285/287 cột (2 sai đã sửa sau). Suite 520/521; checkaudit không đổi. Chưa commit |
+| 12/10/2026 | Đánh giá trên repo held-out orderflow-services: agent Claude đóng vai model (đọc một lần), đóng băng đầu ra (hash), chấm gold + giám khảo độc lập (Sonnet; Codex 401). Sửa 4 lỗi tìm được: mã lỗi qua `super().__init__(status_code=)`, cảnh báo Redis pub/sub, khóa ngoại, thư viện lặp. Báo cáo `FR029-danh-gia-heldout-orderflow-20261012.md` | Gold: route 23/23, model 9/9, HTTP 2/2. Giám khảo 202/213 đúng, dễ dùng 3/5 (trước sửa). Suite 500/501; checkaudit không đổi. Chưa chấm lại bằng giám khảo sau sửa. Chưa commit |
+| 11–12/10/2026 | Làm 5 đợt bổ sung tài liệu sinh (lỗi trả về, tags/deprecated/mô tả/ví dụ, bảng CSDL, sự kiện Celery/BackgroundTasks, thư viện, cấu hình, middleware, quan hệ component, đường gọi endpoint); TAI-LIEU.md 11 mục; CLI `--mode oneshot`; agent Claude đóng vai model trên tdd-docker và Teamhide, sửa 3 lỗi bộ kiểm tìm được | Suite 495/496; checkaudit không đổi; tdd-docker khớp gold hoàn toàn; Teamhide completed, khớp golden v1. Không gọi model trả phí. Chưa commit/push |
+| 11/10/2026 | Nghiên cứu tài liệu sinh còn thiếu gì: `FR029-tai-lieu-can-bo-sung-20261011.md` (15 mục, đề xuất 5 đợt) | Chỉ đọc đề bài, FR, mẫu mentor, nguồn web; không sửa code. Đề xuất chưa duyệt |
+| 11/10/2026 | Rà đầu vào/đầu ra (`FR029-dau-vao-dau-ra-20261011.md`); cách A: `TAI-LIEU.md` (`tailieu.py`); suy loại component từ phạm vi đọc; `slice/requirements.txt` | `test_tai_lieu` 8/8; suite 467/468. Không gọi model. Chưa commit/push |
+| 11/10/2026 | Kiểm lại review 11/10 (đúng cả); sửa 8 lỗi bộ kiểm (file rỗng, `Provide[...]`, tham số trùng + kiểm OpenAPI, dòng cắt, auth, body JSON có type, đường gọi Service, trường model); prompt v16/v5; chạy gpt-5 | Suite 459/460; checkaudit không đổi; trường model 0/348 từ chối nhầm; Service 1/16. gpt-5 (v4): 4/5 route, 0,168 USD. v5 chưa chạy. Chưa commit/push |
+| 11/10/2026 | Chế độ "đọc một lần" (`run_oneshot`, checkpoint, vòng sửa kèm source) và runner; 4 lượt thật trên Teamhide (3 mini, 1 gpt-5); tìm 2 lỗi bộ kiểm (file rỗng, `Depends(Provide[...])`) | `test_docagent` 80/80; suite 440/441. Mini 0,024–0,033 USD/lượt, 0/5 route; gpt-5 0,192 USD, 5/5 route chỉ vướng lỗi bộ kiểm. Tổng 0,274 USD. Chưa commit/push |
+| 11/10/2026 | Review code sinh tài liệu với đề bài/8 AC; thêm báo cáo, probe, log và manifest; giữ nguyên sản phẩm/golden/spec | Suite 425/426; checker 37 bộ + hai sanity; tái hiện lỗi model/exact, OpenAPI trùng param, auth/Service, dòng cắt, body JSON, scope venv. Prefix đảo đã bị chặn. Không chạy model thật |
+| 09/10/2026 | Lập đủ hồ sơ lifecycle theo EXEC cho việc FR-029 bằng agent và bộ kiểm: ADR-2026-006, CMP-004/006/007 r5, BL-r11, impact + CSV-r11 (sinh bằng script), AVW cập nhật tay, STORY-029-01, TASK-029-6..9 + CTX/PLAN/DIARY, OQ-016/017/018, OQ-013 r2, 19 REVIEW-*.yaml (FIND-L3GEN-001..165) | `gen_uid --check`: không thiếu uid; `prd_package check BL-r11`: khớp toàn bộ; `l1_coverage`: xanh; `check_l3_contracts`: qua cấu trúc; 44 file YAML/frontmatter parse được. Mọi file ghi muộn, draft; không lập approval, chưa qua gate. Chưa commit/push |
+| 09/10/2026 | Đọc Quy_tac/EXEC, ghi hồ sơ theo lựa chọn của người dùng: `CR-L3GEN-2026-008-requests-02.yaml` (nguyên văn yêu cầu 07/10 tối – 09/10), mục mới trong `DIARY-CR-L3GEN-2026-008.md`, `.aide/evidence/tests/fr029-checker-20261009/` (log test, summary gold r41, gói held-out r32), `.aide/evidence/reviews/fr029-checker-20261007-09/` (45 đề bài/kết quả Codex, 3 báo cáo agent, ghi chú agent vòng 7 và 9); thêm mục bài học vào `AGENTIC_SDLC_LOG.md` | Chỉ sửa tài liệu và evidence. Chạy lại suite: 426 test, 1 lỗi `test_gateway` cũ. Người dùng không chọn mở OQ mới và không chọn sửa `FR029-quy-tac.md` (mục 8, 12, 17 đang lỗi thời so với code). Chưa commit/push |
+| 08–09/10/2026 | Codex vòng 6–10 và 2 agent Claude (vòng 7, 9; dừng giữa chừng) tìm phản ví dụ; held-out đợt 2 (facet, spatiumddi, PrintStash) và đợt 3 (ai-pdf-autofiller, xianyu, creatorhub); sửa khoảng 70 dạng code trong `docfacts.py`/`astscan.py`, mỗi dạng một test; công cụ đo thêm phép đo prefix, kiểm loại dòng nghi ngờ, gói held-out không gộp sai; cache theo file | Gold r41: 0 lỗi mọi chỉ số, bộ kiểm giả bị bắt hết. Suite 425/426. Codex chấm lại: PrintStash 57 → 2 dòng nhiễu, caura 0 sót. Bản sửa vòng 10 và đợt held-out 3 chưa có giám khảo kiểm lại. Chưa đo sản phẩm bằng LLM. Chưa commit/push |
+| 07/10 tối – 08/10/2026 | Theo yêu cầu "cách 1": công cụ đo `fr029_checkaudit.py` (mutation, ca âm, bộ kiểm giả, `--heldout`); chuyển bộ kiểm sang đọc cây cú pháp (`astscan.py`); Codex vòng 1–5 kiểm công bằng; held-out 4 repo đợt đầu và case_auto_hub; thêm gold 4 repo do 2 agent viết độc lập (`D:/VSF/l3-heldout-gold2/`); viết `docs/FR029-bao-cao-kiem-bo-kiem-20261008.md` | Gold r20: 0 lỗi. Codex chấm held-out đợt đầu: 19/19 tham số, 15/15 dòng nghi ngờ. Số phản ví dụ mỗi vòng 25 → 10 → 7 → 8 → 7, đều đã sửa. Chưa commit/push |
+| 07/10/2026 | Kiểm chéo golden bằng ba session; thêm báo cáo/evidence, giữ nguyên gold/source/code/spec | Xác nhận 3 alternate sai AgentGPT và 4 vấn đề adapter/phạm vi; 33 gold/1.759 tham chiếu kiểm cấu trúc; 401 lượt hash không đổi. Audit ngữ nghĩa toàn bộ còn dở vì session bị ngắt; không chạy lại benchmark |
+| 07/10/2026 | Đánh giá tài liệu mentor và luồng FR029; hai reviewer ngữ cảnh riêng kiểm scorer; thêm báo cáo và probe/evidence, giữ nguyên code/spec/gold và báo cáo gốc | Test agent 51/51; toàn suite 238/239, lỗi gateway cũ; tái hiện lỗi evidence/OpenAPI/scorer bằng dữ liệu giả. Không đọc chi tiết repo kín, không gọi model trả phí, không commit/push |
+| 07/10/2026 | Chạy model thật cho FR-029: Groq gpt-oss-120b (hạn mức chặn), OpenAI gpt-6-luna qua Responses API; pilot 6 fixture × 3 lần, golden v1 19 case route; Codex gpt-6-astra review mù vòng 1, sửa dependency/truy vết model/nhãn/vai trò/giới hạn/prefix qua hàm bọc; viết docs/FR029-giai-thich-cho-mentor.md | luna3 18/18 đúng toàn bộ (1/3 lỗi cách ghi khóa cấu hình); golden TP 39 FP 3 FN 1; suite 228/229. Chưa commit/push |
+| 07/10/2026 | Triển khai đợt 1 FR-029 theo hướng agent thuần: reader/độ phủ, bộ kiểm bằng chứng, vòng agent, pipeline, lệnh `document`, bộ chấm; agent G viết 6 fixture gold + oracle; Codex review code (22 mục) và gold (5 mục), đã sửa phần lỗi thật; sửa lỗi che mật khẩu `common.py:13` | Codex review lượt 2 xác nhận bản sửa và báo 6 lỗi mới, đã sửa. Suite 222/223 (lỗi gateway có từ trước). Chưa gọi model thật; chưa commit/push |
+| 07/10/2026 | Người dùng chốt agent thuần, cho chạy oracle `app.openapi()` trong sandbox, ghi bổ sung vào kế hoạch Codex. Thêm vào kế hoạch: nguồn gold (N4), ca luật FastAPI/Pydantic (A01/A02), checklist CodeQL (A08), sàn và dao động nội bộ (V1), phân vai agent khi phát triển; thêm mục 7 bản nghiên cứu | Chỉ sửa 3 file docs. Phát hiện OBS-001 đo 1 lần/bỏ so luật tĩnh nên ghi sàn và 3 lần chạy là kiểm nội bộ. Chưa chạy test/model, chưa commit/push |
+| 07/10/2026 | Nghiên cứu mã liên quan của OpenDeepWiki, CodeWiki, RepoAgent và mẫu pnp ở commit cố định; thêm bản nghiên cứu, bổ sung kế hoạch 14 nhiệm vụ/6 đợt và cập nhật hiện trạng bàn giao | Đối chiếu FR029/028, NFR/OBS và code slice; kiểm đủ 8 AC, link nội bộ hợp lệ. Chỉ sửa 3 file docs; chưa chạy test sản phẩm/model hoặc benchmark; không sửa spec/code, không commit/push |
+| 06/10/2026 | Người dùng xác nhận chính xác 8 AC của FR-029; viết lại kế hoạch thành 14 task/6 đợt, loại TBL/EVT/web và tạo component/sơ đồ khỏi phần triển khai; AC-04/06 chỉ nhận dữ liệu/artifact kiến trúc | Đọc lại FR-029 r3 và điểm nối code; kiểm cấu trúc kế hoạch và link. Chưa viết code, chạy test/model hay sửa spec. Các dòng xác định nhầm phạm vi trước đây chỉ là lịch sử |
+| 06/10/2026 | Đính chính kế hoạch theo phản hồi phần người dùng không dựng sơ đồ và là 8/10 yêu cầu; thêm bảng đủ 10 mục từ Đề bài §3.6, nêu thiếu sót config/library/module/service/data access; chuyển H1 ra ngoài nhiệm vụ và gỡ điều kiện nghiệm thu sơ đồ | Đã đọc đề bài gốc, FR/glossary và báo cáo phân công. Chưa tìm thấy nguồn chỉ rõ hai mục ngoài phân công 8–2; đã hỏi, chưa tự chọn. Chỉ sửa kế hoạch/HANDOFF |
+| 06/10/2026 | Lập kế hoạch agent sinh tài liệu theo yêu cầu mới; 23 nhiệm vụ, không tạo component, ưu tiên độ đúng API/TBL/EVT; thêm `docs/L3-ke-hoach-agent-sinh-tai-lieu.md` và cập nhật hiện trạng bàn giao | Chỉ nghiên cứu và viết tài liệu; đối chiếu 17 AC và code hiện có. Chưa chạy test/model, chưa sửa code/spec, chưa commit/push |
 | 28/09/2026 | Phiên 2, tóm tắt: code v5 rồi v6 ((a') + (b) chỉ luật gộp lớp); thử (c) và bỏ; chạy `v5-lnbits` (key chính), `v6-fba` (key phụ); viết lại 8 đáp án bản 2 theo chuẩn mới rồi chuyển sang chỉ luồng; chuẩn đáp án và prompt subagent; trang sơ đồ đáp án phiên bản 3; 3 memory mới | 22 test đạt. Số đo ở mục 4. Chưa chạy v6 trên 7 repo còn lại |
 | 28/09/2026 | Viết lại HANDOFF gọn (bản cũ lưu ở `HANDOFF-luu-tru-28-09-phien-2.md`); cập nhật README thư mục pipeline theo v6 và đáp án bản 2 | Chỉ sửa tài liệu |
 | 28/09/2026 | Phiên 3: hỏi Khiêm chỗ chưa ưng ở trang (repo lớn rối, chưa nhóm vùng); trình bày pipeline mục 6 (chưa duyệt). Chép bản 2 sang `oracle/rev2/`. Chuẩn bản 3 (tầng, nhãn pass) trong `CHUAN-DAP-AN.md`, `PROMPT-SUBAGENT.md`. `oracle_tool.py`: báo `no layer`, `--finalize` giữ `pass`. `make_oracle_page.py`: khung theo tầng, cột tầng, danh sách pass, cột điểm bản 3. Giao subagent nâng fba; đăng trang phiên bản 4. Sau góp ý của Khiêm: sửa bổ sung chuẩn (quy tắc 7, `check`, `up`, pass mở rộng, worker sang service) và prompt mục 4; `oracle_tool.py` báo `upward`, giữ nhãn `check`/`up`; trang liệt kê cạnh không vẽ theo từng nhãn; gửi lại subagent fba | `upward` thử trên bản sao fba: báo đúng 5 cạnh, còn 3 sau khi chuyển 2; trang thử trên bản sao: fba 4 nhóm cạnh không vẽ, repo bản 2 chỉ nhóm lắp ráp. Subagent áp sửa bổ sung cho fba (44 cạnh bắt buộc), trang phiên bản 5. Khiêm yêu cầu tự đọc source, tự vẽ: vẽ tay fba (`oracle/ve-tay/fba.md`, 31 cạnh, mọi dòng bằng chứng đã mở đối chiếu), trang phiên bản 6. Khiêm duyệt, bảo làm 7 repo còn lại: vẽ tay xong cả 7 (mọi dòng bằng chứng đã mở đối chiếu), trang phiên bản 7; fullstack chuyển Email sang Hạ tầng cho khớp bảng tầng. Chưa thấy Mermaid kết xuất thật. Không chạy AI. `oracle_tool.py` chạy lại trên fba thật: không còn `no layer`, `required without import` chỉ còn `plugin_core -> plugins` (có từ bản 2). `oracle_tool.py` thử trên bản sao rhoboro: báo thiếu tầng, tầng sai tên, giữ `pass`. Script trang chạy trên bản sao (rhoboro tầng giả): 5 khung đúng thứ tự. Chưa xem Mermaid kết xuất thật. Không chạy AI |

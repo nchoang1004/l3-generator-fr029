@@ -18,7 +18,7 @@ coordination:
 derived_from: []
 supersedes: CHG-L3GEN-2026-001
 change_request: CR-L3GEN-2026-002
-follow_up_requests: [CR-L3GEN-2026-003, CR-L3GEN-2026-004]
+follow_up_requests: [CR-L3GEN-2026-003, CR-L3GEN-2026-004, CR-L3GEN-2026-008, CR-L3GEN-2026-009]
 intake_status: done
 impact_status: done_local_graph
 scope_gate_status: approved
@@ -36,5 +36,5 @@ intake:
   role_confirmed: true
   date: "2026-09-23"
   decisions: "Mở Change Set mới thay cho CHG-L3GEN-2026-001; mọi GOAL/KPI/FR/NFR mang key mới, không dùng lại key cũ; PRD là nguồn đúng, tài liệu khác chỉ để tham khảo."
-baseline_candidate: baseline/BL-r10.yaml
-note: "Scope Gate đã duyệt trên BL-r8/commit c736c11 ngày 02/10/2026. Từ 02/10/2026 (CR-L3GEN-2026-004): FR chia theo chiều dọc FR-L3GEN-028 đến 031. BL-r6 đã review (REVIEW-SCOPE-L3GEN-2026-002, changes_needed); BL-r7 recovery review (REVIEW-SCOPE-L3GEN-2026-003, changes_needed); candidate BL-r8 sửa theo finding, Khiêm quyết ký không review lại; OQ-L3GEN-009 closed. Approval 18/09/2026 của CHG-L3GEN-2026-001 giữ nguyên làm lịch sử. Impact dùng graph cục bộ từ frontmatter. Từ 02/10/2026 (phiên 12): candidate BL-r9 (33 artifact) cho Architecture Gate của FR-L3GEN-029 — glossary r9, CAP-007 đến 012, CMP-001 đến 008 r3, ADR-2026-003 r3, ADR-2026-004 r1, TM r5; BL-r8 giữ là bản đã ký ở Scope Gate. BL-r9 đã review (REVIEW-ARCH-L3GEN-2026-001, changes_needed); candidate BL-r10 (34 artifact) sửa theo finding và quyết định của Khiêm, thêm ADR-2026-005."
+baseline_candidate: baseline/BL-r11.yaml
+note: "Scope Gate đã duyệt trên BL-r8/commit c736c11 ngày 02/10/2026. Từ 02/10/2026 (CR-L3GEN-2026-004): FR chia theo chiều dọc FR-L3GEN-028 đến 031. BL-r6 đã review (REVIEW-SCOPE-L3GEN-2026-002, changes_needed); BL-r7 recovery review (REVIEW-SCOPE-L3GEN-2026-003, changes_needed); candidate BL-r8 sửa theo finding, Khiêm quyết ký không review lại; OQ-L3GEN-009 closed. Approval 18/09/2026 của CHG-L3GEN-2026-001 giữ nguyên làm lịch sử. Impact dùng graph cục bộ từ frontmatter. Từ 02/10/2026 (phiên 12): candidate BL-r9 (33 artifact) cho Architecture Gate của FR-L3GEN-029 — glossary r9, CAP-007 đến 012, CMP-001 đến 008 r3, ADR-2026-003 r3, ADR-2026-004 r1, TM r5; BL-r8 giữ là bản đã ký ở Scope Gate. BL-r9 đã review (REVIEW-ARCH-L3GEN-2026-001, changes_needed); candidate BL-r10 (34 artifact) sửa theo finding và quyết định của Khiêm, thêm ADR-2026-005. Từ 09/10/2026 (ghi muộn, CR-L3GEN-2026-008): candidate BL-r11 (35 artifact) thêm ADR-2026-006 (draft: FR-029 do model đề xuất, code kiểm bằng chứng) và CMP-L3GEN-004, 006, 007 revision 5 (draft); BL-r10 chưa review, BL-r11 thay làm candidate; chờ OQ-L3GEN-018 trước Architecture Gate. Thêm STORY-L3GEN-029-01, TASK-L3GEN-029-6 đến 9 (ghi muộn); OQ-L3GEN-016, 017, 018 mở; OQ-L3GEN-013 revision 2. Từ 12/10/2026 (ghi muộn, CR-L3GEN-2026-009): thêm EPIC-L3GEN-030, 031, STORY-L3GEN-030-01, 031-01, TASK-L3GEN-029-10 đến 13, TASK-L3GEN-030-1, 031-1; OQ-L3GEN-019 đến 022 mở. Baseline candidate chưa đổi; FR/ADR/CMP chưa sửa cho phần mới."

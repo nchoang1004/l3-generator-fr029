@@ -352,6 +352,8 @@ def _summary_row(f, comp, facts) -> str:
     if is_known(a.get("request_inline")):
         inline = a["request_inline"]["value"]
         request = md(f"{inline['media_type']}: " + ", ".join(f["name"] for f in inline["fields"]))
+    elif is_known(a.get("request_type")):
+        request = md(_type_text(a["request_type"]["value"]["schema"], facts))
     return "| " + " | ".join([cell(a.get("method")), path, _params_cell(a, facts), request,
                               response, _status_cell(a), _auth_cell(a),
                               _label(f, completeness, conf), f"`{_short(f['id'])}`"]) + " |"
@@ -427,10 +429,22 @@ def render_api(comp, routes, path, title, facts=None, link=None, origin="phân t
             else:
                 resp["description"] += "; nội dung response chưa xác định"
             responses[str(code)] = resp
+        for e in (a["errors"]["value"] if is_known(a.get("errors")) else []):  # raised and turned into a status
+            responses.setdefault(str(e["status"]), {"description": f"Lỗi {e['exception']}, suy từ chỗ ném lỗi {e['raised_at']}",
+                                                    "x-analysis": {"inferred": "raise + exception_handler"}})
         op = {"operationId": "op_" + f["id"].split(":", 1)[1][:16], "responses": responses,
               "x-analysis": {"fact_ids": [f["id"]], "evidence_ids": ev_ids,
                              "application_id": a["application_id"]["value"] if is_known(a.get("application_id")) else None,
                              "unknowns": _unknowns(f)}}
+        if is_known(a.get("tags")):
+            op["tags"] = a["tags"]["value"]
+        if is_known(a.get("deprecated")):
+            op["deprecated"] = True
+        if is_known(a.get("examples")):
+            op["x-analysis"]["examples"] = a["examples"]["value"]
+        if is_known(a.get("summary")):
+            op["summary"] = a["summary"]["value"]
+            op["x-analysis"]["summary_origin"] = "AI viết, không phải dữ kiện đã kiểm"
         if params is not None and params:
             op["parameters"] = params
         elif params is None:
@@ -452,6 +466,13 @@ def render_api(comp, routes, path, title, facts=None, link=None, origin="phân t
             op["requestBody"] = {"content": {inline["media_type"]: {"schema": schema}}}
             if is_known(inline["required"]):
                 op["requestBody"]["required"] = inline["required"]["value"]
+            else:
+                op["x-analysis"]["request_body_required"] = "unknown"
+        elif is_known(a.get("request_type")):  # JSON body declared as a type, not a model (payload: dict)
+            rq = a["request_type"]["value"]
+            op["requestBody"] = {"content": {rq["media_type"]: {"schema": _resolve_refs(rq["schema"], facts, components)}}}
+            if isinstance(rq["required"], bool):
+                op["requestBody"]["required"] = rq["required"]
             else:
                 op["x-analysis"]["request_body_required"] = "unknown"
         elif len(requests) == 1:
@@ -479,6 +500,10 @@ def render_api(comp, routes, path, title, facts=None, link=None, origin="phân t
         for mid in _nested_ids(args):  # Page[Item]: Item is used
             if mid in facts:
                 uses.setdefault(mid, set()).add("response")
+        qtype = f["attributes"].get("request_type")
+        for mid in _nested_ids([qtype["value"]["schema"]] if is_known(qtype) else []):  # items: list[Item]
+            if mid in facts:
+                uses.setdefault(mid, set()).add("request")
     todo = list(uses)
     while todo:  # models used inside a field (`notes: list[NoteSchema]`) are listed too
         mf = facts[todo.pop()]
@@ -596,6 +621,49 @@ def _ddl(fact) -> tuple[str | None, str | None, list[str]]:
     return f"-- fact: {fact['id']}\nCREATE TABLE {table} (\n" + ",\n".join(lines) + "\n);", None, []
 
 
+TBL_HEAD = "| Cột | Kiểu | PK | FK | Nullable | Nhãn | Bằng chứng |"
+
+
+def _tbl_value(field) -> str:
+    """A TBL cell: yes/no for flags, table.column for a foreign key, "—" when not applicable."""
+    if isinstance(field, dict) and field.get("state") == "not_applicable":
+        return "—"
+    if is_known(field) and isinstance(field["value"], bool):
+        return "có" if field["value"] else "không"
+    if is_known(field) and isinstance(field["value"], dict) and "table" in field["value"]:
+        return md(f"{field['value']['table']}.{field['value'].get('column', '?')}")
+    return cell(field)
+
+
+def _tbl_row(fact, col) -> str:
+    """One column row (FR-030: tên, kiểu, PK, FK, nullable; AC-030-01 nhãn; API-008 §6 bằng chứng)."""
+    rules = col["inferred_by"]["value"] if is_known(col.get("inferred_by")) else []
+    fields = col["inferred_fields"]["value"] if is_known(col.get("inferred_fields")) else []
+    unknown_keys = [k for k in ("type", "primary_key", "foreign_key", "nullable")
+                    if isinstance(col.get(k), dict) and col[k].get("state") == "unknown"]
+    said = f"{', '.join(fields)} ({', '.join(rules)})" if fields else ", ".join(rules)  # which values, by which rule
+    label = "; ".join(([f"inferred: {said}"] if rules else []) +
+                      ([f"unknown: {', '.join(unknown_keys)}"] if unknown_keys else [])) or "exact"
+    ids = set(col["name"].get("evidence_ids", [])) if isinstance(col.get("name"), dict) else set()
+    ev = next((e for e in fact["evidence"] if e["id"] in ids), None)
+    where = f"`{ev['path']}:{ev['start_line']}`" if ev else "—"
+    return "| " + " | ".join([cell(col.get("name")), cell(col.get("type"))] +
+                             [_tbl_value(col.get(k)) for k in ("primary_key", "foreign_key", "nullable")] +
+                             [label, where]) + " |"
+
+
+def _tbl_class_line(fact) -> str:
+    a = fact["attributes"]
+    decl = a.get("declaration_evidence_id")
+    ev = next((e for e in fact["evidence"] if is_known(decl) and e["id"] == decl["value"]), None)
+    where = f"`{ev['path']}:{ev['start_line']}`" if ev else "vị trí chưa rõ"
+    if is_known(a.get("class_name")):
+        return f"Lớp model `{a['class_name']['value']}`, khai ở {where}."
+    if is_known(a.get("variable_name")):
+        return f"Khai bằng `{a['variable_name']['value']} = Table(...)` ở {where}."
+    return f"Cách khai chưa rõ, ở {where}."
+
+
 def render_tbl(comp, tables, path, title, link=None):
     notices, body = [], [f"# TBL — {md(title)}", "", "Bản sinh tự động từ phân tích tĩnh, chưa được chủ repository duyệt.", ""]
     ddl_parts, emitted = [], 0
@@ -603,15 +671,18 @@ def render_tbl(comp, tables, path, title, link=None):
     for f in tables:
         a = f["attributes"]
         conf, completeness = _row_label(f, comp)
+        rules = sorted({r.split(":")[0] for r in re.split(r"; (?=[a-z][\w.-]*-v\d+: )", f.get("confidence_reason") or "")
+                        if re.match(r"[a-z][\w.-]*-v\d+: ", r)})
         body += [f"## Bảng {cell(a.get('name'))}", "",
-                 f"Dialect: {cell(a.get('dialect'))}. Fact `{f['id']}`. Confidence {conf}, completeness {completeness}.", "",
-                 f"Evidence: {ev_cell(f['evidence'], link)}.", "",
-                 "| Cột | Kiểu | PK | FK | Nullable |", "|---|---|---|---|---|"]
+                 f"Dialect: {cell(a.get('dialect'))}. Fact `{f['id']}`. Confidence {conf}"
+                 + (f" ({', '.join(rules)})" if rules else "") + f", completeness {completeness}.", "",
+                 f"{_tbl_class_line(f)} Evidence: {ev_cell(f['evidence'], link)}.", "",
+                 TBL_HEAD, "|---|---|---|---|---|---|---|"]
         columns = a["columns"]["value"] if is_known(a.get("columns")) else []
         for col in columns:
-            body.append("| " + " | ".join(cell(col.get(k)) for k in ("name", "type", "primary_key", "foreign_key", "nullable")) + " |")
+            body.append(_tbl_row(f, col))
         if not columns:
-            body.append(f"| {cell(a.get('columns'))} | | | | |")
+            body.append(f"| {cell(a.get('columns'))} | | | | | | |")
         body.append("")
         ddl, reason, fields = _ddl(f)
         if ddl:
@@ -819,7 +890,23 @@ def check_doc(kind: str, text: str, cov: dict) -> str | None:
             return f"{part} trong file khác kế hoạch sinh"
     if set(got["machine"]) & set(got["omitted"]) or set(got["rows"]) != set(got["machine"]) | set(got["omitted"]):
         return "Mỗi dòng phải có trong khối máy hoặc được ghi là bị bỏ, không cả hai"
-    return _value_problem(kind, text, cov.get("facts", {}))
+    return _value_problem(kind, text, cov.get("facts", {})) or (openapi_problem(text) if kind == "api" else None)
+
+
+def openapi_problem(text: str) -> str | None:
+    """The OpenAPI block of an API file must pass the OpenAPI validator; a file that does not is not published."""
+    try:
+        from openapi_spec_validator import validate
+    except ImportError:
+        return "Thiếu thư viện openapi-spec-validator; chưa kiểm được OpenAPI"
+    blocks = re.findall(r"^```json\n(.*?)^```", text, re.M | re.S)
+    if not blocks:  # every operation omitted: the file says so in notices and has no block (API-008)
+        return None
+    try:
+        validate(json.loads(blocks[0]))
+    except Exception as e:  # noqa: BLE001 - the validator raises several error types
+        return "OpenAPI không hợp lệ: " + (str(e).splitlines() or [type(e).__name__])[0][:200]
+    return None
 
 
 def _cells(line: str) -> list[str]:
@@ -867,7 +954,8 @@ def _value_problem(kind: str, text: str, facts: dict) -> str | None:
                     if not (is_known(a.get("method")) and a["method"]["value"].lower() == method
                             and is_known(a.get("path")) and a["path"]["value"] == path
                             and is_known(a.get("status_codes"))
-                            and sorted(op["responses"]) == sorted(str(c) for c in a["status_codes"]["value"])):
+                            and sorted(op["responses"]) == sorted({str(c) for c in a["status_codes"]["value"]} | {
+                                str(e["status"]) for e in (a["errors"]["value"] if is_known(a.get("errors")) else [])})):
                         return f"OpenAPI khác dữ kiện ở {f['id']}"
                     bodies = a["bodies"]["value"] if is_known(a.get("bodies")) else []
                     req = [b for b in bodies if b["direction"] == "request"]
@@ -880,6 +968,10 @@ def _value_problem(kind: str, text: str, facts: dict) -> str | None:
                     elif len(req) == 1 and isinstance(req[0].get("required"), bool) and (
                             body is None or body.get("required") is not req[0]["required"]):
                         return f"requestBody.required khác dữ kiện ở {f['id']}"
+                    elif is_known(a.get("request_type")):
+                        want = a["request_type"]["value"]["required"]
+                        if body is None or (isinstance(want, bool) and body.get("required") is not want):
+                            return f"requestBody khác dữ kiện ở {f['id']}"
                     elif not req and body is not None:
                         return f"requestBody không có trong dữ kiện ở {f['id']}"
                     for response_body in (b for b in bodies if b['direction'] == 'response' and b.get('array')):
@@ -894,8 +986,7 @@ def _value_problem(kind: str, text: str, facts: dict) -> str | None:
             part = re.search(rf"^## Bảng ([^\n]*)\n\nDialect: ([^\n]*?)\. Fact `{fid}`[^\n]*\n\n[^\n]*\n\n"
                              rf"\| Cột [^\n]*\n\|---[^\n]*\n((?:\|[^\n]*(?:\n|$))*)", text, re.M)
             cols = a["columns"]["value"] if is_known(a.get("columns")) else []
-            want = ["| " + " | ".join(cell(c.get(k)) for k in ("name", "type", "primary_key", "foreign_key", "nullable")) + " |"
-                    for c in cols] or [f"| {cell(a.get('columns'))} | | | | |"]
+            want = [_tbl_row(f, c) for c in cols] or [f"| {cell(a.get('columns'))} | | | | | | |"]
             if part is None or part.group(1) != cell(a.get("name")) or part.group(2) != cell(a.get("dialect")) \
                     or part.group(3).strip("\n").split("\n") != want:
                 return f"Bảng cột khác dữ kiện ở {fid}"

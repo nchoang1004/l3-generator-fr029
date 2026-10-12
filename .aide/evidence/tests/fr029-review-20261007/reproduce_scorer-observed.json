@@ -1,0 +1,36 @@
+{
+  "duplicates_POST,GET": {
+    "tp": 1,
+    "fp": 0,
+    "method_correct": 1,
+    "exact": {
+      "exact_facts": 2,
+      "exact_wrong": 0,
+      "rate": 0.0
+    }
+  },
+  "duplicates_GET,POST": {
+    "tp": 1,
+    "fp": 0,
+    "method_correct": 0,
+    "exact": {
+      "exact_facts": 2,
+      "exact_wrong": 2,
+      "rate": 1.0
+    }
+  },
+  "unscored_exact": {
+    "http": {
+      "status": "not_evaluated",
+      "reason": "Gold không có mục này"
+    },
+    "exact": {
+      "exact_facts": 1,
+      "exact_wrong": 0,
+      "rate": 0.0
+    }
+  },
+  "array_rank_collapsed": true,
+  "dynamic_empty_fields_accepted": true,
+  "different_fields_same_consensus_key": true
+}

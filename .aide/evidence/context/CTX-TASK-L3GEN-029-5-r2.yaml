@@ -1,0 +1,49 @@
+{
+  "key": "CTX-TASK-L3GEN-029-5-r2",
+  "objective": "TASK-L3GEN-029-5",
+  "requirements": [
+    "FR-L3GEN-029",
+    "AC-L3GEN-029-02"
+  ],
+  "design": [
+    "CMP-L3GEN-004",
+    "CMP-L3GEN-008"
+  ],
+  "decisions": [
+    "ADR-2026-003",
+    "ADR-2026-004"
+  ],
+  "contracts": [
+    "API-L3GEN-004-v1",
+    "API-L3GEN-008-v1"
+  ],
+  "constraints": [
+    "NFR-L3GEN-ACC-002",
+    "NFR-L3GEN-OPS-001",
+    "NFR-L3GEN-SEC-002"
+  ],
+  "inputs": {
+    ".aide\\requirements\\fr\\FR-L3GEN-029.md": {
+      "revision": 3,
+      "sha256": "6996ad38a106aeb38ee97826ba14cd9d0404188f2bfbd80fcaf623090793a847"
+    },
+    ".aide\\tech-specs\\CMP-L3GEN-004\\api\\API-L3GEN-004-v1.md": {
+      "revision": 6,
+      "sha256": "8d1f260f852497afb0ef95892237c9907b34d9c4b3b26869ca28e368f23c0426"
+    },
+    ".aide\\tech-specs\\CMP-L3GEN-008\\api\\API-L3GEN-008-v1.md": {
+      "revision": 5,
+      "sha256": "4da02bcd03a7b5d46cb43a6507c986cda74881f17c51c8344e775bd949b872a2"
+    }
+  },
+  "authority": {
+    "baseline": "BL-CHG-L3GEN-2026-002-r10",
+    "status": "nháp, chưa ký",
+    "note": "Context cục bộ; không tuyên bố aide context compile đã chạy."
+  },
+  "code_scope": [
+    "slice/l3slice/extract.py",
+    "slice/l3slice/render.py",
+    "slice/tests/test_fr029.py"
+  ]
+}

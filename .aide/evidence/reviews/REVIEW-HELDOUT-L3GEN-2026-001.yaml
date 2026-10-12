@@ -1,0 +1,68 @@
+type: review
+group: evidence
+scope: lifecycle
+status: completed
+change_set: CHG-L3GEN-2026-002
+change_request: CR-L3GEN-2026-008
+written_late: true
+evidence_mode: agent_review
+author: Phiên Claude chính (Opus 5.5), theo yêu cầu của Hoàng
+key: REVIEW-HELDOUT-L3GEN-2026-001
+gate: GATE-MERGE
+review_class: adversarial
+review_kind: held-out
+batch: 1
+subject: Gói bộ kiểm FR-029 xuất trên repo chưa dùng để chỉnh
+reviewer: Codex gpt-6-astra high
+repositories:
+- Netflix/dispatch
+- nsidnev/fastapi-realworld-example-app
+- rhoboro/async-fastapi-sqlalchemy
+- rafsaf/minimal-fastapi-postgres-template
+receipt:
+  packet: gói bản đầu (chưa đánh số)
+  outputs:
+  - .aide/evidence/reviews/fr029-checker-20261007-09/codex/codex_heldout_out.md
+  output_written: 2026-10-07T21:05Z
+decision: changes_needed
+results:
+  route_decorators_refused_wrongly: 0
+  dependency_params: 12 đúng, 6 sai, 7 thiếu
+  suspects_noise: 0
+note: 'Giám khảo đọc gói và source repo, không đọc code bộ kiểm. Disposition theo EXEC §D.3: ACCEPTED = lỗi thật của bộ kiểm;
+  REJECTED = không phải lỗi bộ kiểm (lý do ghi kèm); NOT_APPLICABLE = ngoài định nghĩa hiện tại; NEEDS_MORE_EVIDENCE = cần
+  quyết định phạm vi.'
+findings:
+- id: FIND-L3GEN-130
+  severity: medium
+  route: patch
+  disposition: ACCEPTED
+  location: app/api/dependencies/*.py
+  summary: 'nsidnev: 6 tham số query ''required'' là đối số cấu hình factory, bị nhắc nhầm; 6 header Authorization của hàm
+    do factory trả về bị thiếu'
+  resolution:
+    status: fixed_confirmed
+- id: FIND-L3GEN-131
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location: app/auth/dependencies.py:4
+  summary: 'rafsaf: thiếu header Authorization của dependencies.get_current_user (dependency viết dạng module.hàm)'
+  resolution:
+    status: fixed_confirmed
+- id: FIND-L3GEN-132
+  severity: low
+  disposition: NOT_APPLICABLE
+  location: src/dispatch/plugins/dispatch_zoom/plugin.py:31,51
+  summary: 'dispatch: client.delete/post trong plugin Zoom'
+  resolution:
+    status: not_a_defect
+  reason: 'Lời gọi qua lớp/hàm bọc của dự án, không phải lời gọi trực tiếp httpx/requests/aiohttp; ngoài định nghĩa hiện tại
+    (câu hỏi mở: hàm bọc có tính là HTTP không).'
+- id: FIND-L3GEN-133
+  severity: low
+  disposition: NOT_APPLICABLE
+  summary: 'nsidnev, rhoboro, rafsaf: lời gọi HTTP trong thư mục tests'
+  resolution:
+    status: not_a_defect
+  reason: Nằm trong file test hoặc script ngoài phạm vi đọc FR-028.

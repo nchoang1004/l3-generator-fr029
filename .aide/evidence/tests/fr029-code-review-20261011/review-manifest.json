@@ -1,0 +1,30 @@
+{
+  "review_date": "2026-10-11",
+  "sha256": {
+    "Đề bài.md": "b5492de857e5ac21016e8b709d30311a1c05ef7551ab0d90e8f6e13e058ce58f",
+    ".aide/requirements/fr/FR-L3GEN-029.md": "6996ad38a106aeb38ee97826ba14cd9d0404188f2bfbd80fcaf623090793a847",
+    ".aide/requirements/fr/FR-L3GEN-028.md": "db23514615e131dbdf28ed32538a5ca537cf331bc55618d1c8c3bbf01f3455f5",
+    ".aide/requirements/nfr/NFR-L3GEN-ACC-002.md": "0cf4515263185292dcd32a424dae6fc9cc317bac200855fc3932cf11d5b32014",
+    ".aide/observability/OBS-L3GEN-001.md": "620bccba2fc487f8be2944eb3b91b96cb12ff58937263f1e694b49bff5f6503f",
+    "slice/l3slice/docagent.py": "75712700eb4aa8ff2dd3ad934df5ae38f3e31ce3cc7ab43307950fff6e31c5e1",
+    "slice/l3slice/docfacts.py": "5184c29e38d298efa6d0c6e912f3829ed109594bf17407051a6e1a8ec6edbfc0",
+    "slice/l3slice/docpipeline.py": "b69def38cd0efa84db12254605bf34af88a3fb9c49e8d29eb22269cfcaf103fd",
+    "slice/l3slice/astscan.py": "dae4b67e345607ef0f5359361c13968d316d6b00f49ecd20d4ebfffaebeb7764",
+    "slice/l3slice/source_tools.py": "a22ab06ff05b4c1ff6bab76cdb94213555967df886b93731577a96af8f405659",
+    "slice/l3slice/snapshot.py": "56a1d28e6af3104a5075f9a54f9f5b730adb37dae2409a22a2ff7a2db331b820",
+    "slice/l3slice/render.py": "09c8ae87fec9c3e2eada7c0777aeb709ed87c5467fdafa3bf3a0c47ad63cf5ac",
+    "slice/l3slice/__main__.py": "1e3fa4acfb9a2a1d71d0868b3fc3987952909d2ccb2a45ae2e5e0cc41789af21",
+    "slice/tools/fr029_checkaudit.py": "f70c8b5e0d60e5ca915f538ee197583ae196d3e77efb048484e9a38561749a8e",
+    "slice/tests/test_docagent.py": "5d678b681f72842679e5e183d813c0988b5bd8a1237640f0d895f9ba339b597d",
+    "slice/tests/test_checker_counterexamples.py": "4e6a210928d855ddee787a5103c141e6ca7ba8ff596a542c5e11c7aa998745f6"
+  },
+  "suite": {
+    "run": 426,
+    "passed": 425,
+    "failed": 1,
+    "seconds": 15.038,
+    "failure": "test_gateway.test_unknown_ids_are_dropped"
+  },
+  "paid_model_calls": 0,
+  "product_code_modified": false
+}

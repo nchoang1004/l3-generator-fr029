@@ -1,0 +1,32 @@
+{
+  "date": "2026-10-07",
+  "scope": "Offline review; no paid model, no held-out detailed data",
+  "checks_run_earlier_in_same_session": [
+    {
+      "command": "scripts/.venv/Scripts/python.exe -m unittest discover -s slice/tests -p test_docagent.py",
+      "total": 51,
+      "passed": 51,
+      "seconds": 0.593
+    },
+    {
+      "command": "scripts/.venv/Scripts/python.exe -m unittest discover -s slice/tests",
+      "total": 239,
+      "passed": 238,
+      "seconds": 12.523,
+      "failure": "test_gateway.test_unknown_ids_are_dropped"
+    }
+  ],
+  "sha256": {
+    "docs/FR029-giai-thich-cho-mentor.md": "7fdacc5389b2212f7c51a509b3847a11c8a63ba52fd866dea23d62d6aa67e00e",
+    "slice/l3slice/source_tools.py": "a22ab06ff05b4c1ff6bab76cdb94213555967df886b93731577a96af8f405659",
+    "slice/l3slice/docagent.py": "535813ca42933175f3b7bc85a48ff01a3ac0f197a4ea0a3a7b5abfeb037a6dda",
+    "slice/l3slice/docfacts.py": "5e80e0e5f5b97d8bd7140c3f9cc62223a144972898fd9dcbbe113060cedac5db",
+    "slice/l3slice/docpipeline.py": "e5f56eeddd32c1be920e701b760858d253b3172dd98f28fa4c78aeae09b1cc21",
+    "slice/l3slice/render.py": "2380a14fdbf0c7aea5b45075269ba2dbfc1adf0cd49ecd1ad2d11f22e9132f25",
+    "slice/tools/fr029_score.py": "21d69b9702008af47175c03ab72c1275027d3b137f8bac5a530945a83e79c74b",
+    "slice/tools/fr029_accept.py": "2d470161daad6f4433ff80d22a3e94a71f39bfbb4343d9fb1d12ec6a441fb576",
+    "slice/tools/fr029_golden4.py": "8203c155e7c91fb2d5f4e9294496e150cc048cfc182cd7ccf129f4fc138b2331",
+    "slice/tools/fr029_grade_merge.py": "b1d40e72196ae7fcf50e88dd54c80c3ae0c067aa113eb5daae87a88eaa08c082",
+    "slice/tests/test_docagent.py": "f43b39a0348652b83f2f36515c69dc60947db99fe699b420cc2a7b319d3f8d8b"
+  }
+}

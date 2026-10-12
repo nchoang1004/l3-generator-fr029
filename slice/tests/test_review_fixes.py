@@ -154,8 +154,9 @@ class Finding3DocumentValues(unittest.TestCase):
                 self.assertIsNotNone(render.check_doc("api", self.api.replace(old, new, 1), self.api_cov))
 
     def test_changed_table_values_are_caught(self):
-        for old, new in [("| cat_id | INTEGER | False |", "| cat_id | TEXT | False |"),
-                         ('"table": "cats"', '"table": "dogs"'), ('"cat_id" INTEGER,', '"cat_id" INTEGER NOT NULL,'),
+        # TBL cells since 12/10/2026: có/không for flags, table.column for a foreign key
+        for old, new in [("| cat_id | INTEGER | không |", "| cat_id | TEXT | không |"),
+                         ("| cats.id |", "| dogs.id |"), ('"cat_id" INTEGER,', '"cat_id" INTEGER NOT NULL,'),
                          ('REFERENCES "cats"', 'REFERENCES "dogs"')]:
             with self.subTest(change=new):
                 self.assertIn(old, self.tbl)
@@ -163,8 +164,8 @@ class Finding3DocumentValues(unittest.TestCase):
 
     def test_nullable_cell_change_is_caught(self):
         rows = [ln for ln in self.tbl.splitlines() if ln.startswith("| cat_id")]
-        self.assertTrue(rows[0].endswith("| True |"))
-        broken = self.tbl.replace(rows[0], rows[0][:-len("| True |")] + "| False |")
+        self.assertIn("| cats.id | có |", rows[0])  # nullable, before the label and evidence cells
+        broken = self.tbl.replace(rows[0], rows[0].replace("| cats.id | có |", "| cats.id | không |"))
         self.assertIsNotNone(render.check_doc("table", broken, self.tbl_cov))
 
 

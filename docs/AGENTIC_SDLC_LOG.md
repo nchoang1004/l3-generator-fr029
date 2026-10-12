@@ -200,3 +200,86 @@ HANDOFF cũng được cập nhật. COMPETITOR_RESEARCH được đánh dấu r
 để roadmap cũ không bị đọc như requirement hiện hành. Chưa sửa code, chưa chạy
 test/benchmark và chưa cập nhật EVALUATION/examples. Bước implementation kế tiếp phải
 bắt đầu từ acceptance test cho Architecture IAM/projection và component relation.
+
+---
+
+## 07–09/10 — Bộ kiểm FR-029 trên nhiều repo
+
+Mục này ghi chỗ spec thiếu, chỗ agent đi sai hướng và chỗ phải sửa tay trong đợt nâng bộ kiểm FR-029. Chi tiết: `docs/FR029-bao-cao-kiem-bo-kiem-20261008.md`, `.aide/evidence/diaries/DIARY-CR-L3GEN-2026-008.md`.
+
+### 17. Spec thiếu: thế nào là "lời gọi HTTP ra ngoài"
+
+AC-L3GEN-029-08 không nói lời gọi qua hàm bọc của dự án có tính không. Ví dụ `http_retry.get(url)` gọi tiếp `httpx.request` (shortlist), hay lớp `HttpxClient` (case_auto_hub). Hai giám khảo hiểu khác nhau. Bộ kiểm hiện chỉ tính lời gọi trực tiếp httpx/requests/aiohttp. Chưa chốt.
+
+### 18. Spec thiếu: phạm vi đọc của `scripts/`
+
+FR-028 chỉ đọc file trong `scripts/` khi nó "import code của repo". Ở caura, 6 script chỉ import một file helper nằm cùng `scripts/`. Code coi là ngoài phạm vi; Codex khi chấm lại coi là trong. Chưa chốt.
+
+### 19. Đính chính mục 5: `except A, B:` không còn là lỗi
+
+Mục 5 (14/09) gọi `except InvalidTokenError, ValidationError:` là cú pháp Python 2. Điều đó chỉ đúng với Python dưới 3.14. Từ 3.14 (PEP 758), cú pháp này hợp lệ. Bộ kiểm chạy Python 3.11 nên không đọc được file dùng nó: PrintStash bị 57 dòng nhiễu vì vậy. Đã sửa bằng cách thử đọc lại sau khi thêm ngoặc, giữ nguyên số dòng.
+
+**Tín hiệu cho quy trình:** repo thật có thể dùng Python mới hơn công cụ. Cần ghi phiên bản Python của công cụ trong giới hạn của báo cáo.
+
+### 20. Agent đi sai hướng: bộ kiểm lớn dần thành extractor
+
+Người dùng đã chọn "agent thuần" (CR-L3GEN-2026-008). Mỗi lần sửa một phản ví dụ, bộ kiểm hiểu thêm một dạng code. Sau 10 vòng, nó dựng đồ thị `include_router`, theo client qua nhiều file và nhắc dependency cấp router. Code vẫn không tự tạo dữ kiện, nhưng ranh giới mờ dần. Agent không dừng để mở OQ như EXEC §B.15 yêu cầu.
+
+**Tín hiệu cho quy trình:** cần một ranh giới kiểm được cho bộ kiểm, ví dụ: "chỉ được từ chối hoặc nhắc, không được tạo mục". Trước mỗi luật mới, hỏi: đây là kiểm bằng chứng hay đang tự trích dữ kiện?
+
+### 21. Lỗi tự mắc: 5 hồi quy do chính bản sửa
+
+Năm bản sửa gây lỗi mới: mất thư viện của client, crash, và ba lần tăng nhiễu (primer +32 dòng; module dự án tên `requests`; chuỗi `.requests.`). Gold bắt được 2 lỗi. Việc so gói held-out trước và sau mỗi lần sửa bắt được 3 lỗi còn lại: chúng không có trong gold.
+
+**Bài học:** sau mỗi nhóm sửa, chạy gold, bộ kiểm giả, và diff dòng nghi ngờ của các repo held-out. Diff rẻ và bắt được nhiễu mà gold không có.
+
+### 22. Lỗi đo: gói đem chấm trình bày khác thứ agent nhận
+
+Gói held-out gom tham số theo tên dependency, không theo route. Vì vậy giám khảo chấm "sai" 4 mục mà bộ kiểm thật làm đúng: `album_id` có trong path route; 3 hàm cùng tên ở 3 module bị gộp. Đã kiểm bằng test trên bộ kiểm thật, rồi sửa công cụ đo.
+
+**Bài học:** thứ đem chấm phải giống thứ người dùng cuối nhận. Nếu không, giám khảo đang chấm công cụ đo chứ không chấm sản phẩm.
+
+### 23. Kiểm đối kháng không hội tụ nhanh
+
+Số phản ví dụ mỗi vòng Codex: 25 → 10 → 7 → 8 → 7 → 8 → 8 → 7 → 7 → 6. Mỗi vòng xác nhận gần hết ca cũ đã sửa, nhưng luôn còn dạng mới. Mức tin cậy Codex đánh giá không đổi qua 6 vòng.
+
+**Bài học:** số vòng đối kháng không thay được phép đo trên repo chọn ngẫu nhiên. Muốn ước tỉ lệ lỗi thật trên repo mới thì phải đo trên repo held-out, không chỉ đếm phản ví dụ.
+
+### 24. Phải sửa tay và thay giám khảo
+
+- Heredoc trong Bash làm hỏng `\n`, `\s` trong script vá code nhiều lần. Phải ghi script bằng công cụ Write hoặc sửa bằng Edit.
+- Codex và agent Claude hết lượt nhiều lần. Một đợt chấm held-out (3 repo) và hai vòng đối kháng phải dùng agent Claude; hai agent bị dừng giữa chừng. Agent ghi phát hiện ra file (`notes.md`) sau mỗi bước nên không mất việc đã làm.
+
+## 11–12/10 — Giảm token, TAI-LIEU.md, bảng và sự kiện
+
+Hồ sơ: CR-L3GEN-2026-009, DIARY-CR-L3GEN-2026-009, OQ-L3GEN-019 đến 022.
+
+### 25. Giảm số request không đủ, phải đổi model
+
+Chế độ đọc một lần giảm từ 67 request (0,218 USD) xuống 3 request. Với gpt-4.1-mini, chi phí còn ~0,03 USD nhưng 0/5 route được nhận. gpt-5 cho 4–5/5 route, 0,17–0,19 USD.
+
+**Bài học:** đo chi phí phải đi cùng số mục được nhận. Rẻ mà không ra kết quả thì không phải cải thiện.
+
+### 26. Agent tự mở rộng phạm vi khi người dùng nói "làm đi"
+
+Claude làm cả 5 đợt đề xuất, tự chọn đọc tĩnh cho bảng, sự kiện, thư viện, cấu hình, và thêm đầu ra ngoài FR. Code có test, nhưng spec chưa ghi và người dùng chưa duyệt từng quyết định.
+
+**Bài học:** "làm đi" duyệt danh sách việc, không duyệt các quyết định thiết kế bên trong. Quyết định đó phải mở OQ trước khi làm.
+
+### 27. Test không tốn tiền bằng agent đóng vai model
+
+Agent Claude đọc đúng prompt và request như model thật, nộp câu trả lời; bộ kiểm chấm offline. Lần đầu dùng (12/10) tìm được 3 lỗi bộ kiểm từ chối nhầm: prefix trên dòng sau của `include_router(`, `pydantic_model_creator`, `Depends(LớpGọiĐược(...))`.
+
+**Bài học:** kiểm được bộ kiểm và prompt gần như miễn phí. Không đo được model thật, nên vẫn cần một lần nghiệm thu bằng model thật.
+
+### 28. Đóng băng đầu ra trước khi chấm
+
+Với repo held-out và phần CSDL: đề giám khảo viết trước khi có đầu ra; hash đầu ra trước khi chấm; vòng 2 dùng giám khảo mới không xem vòng 1. Giám khảo tìm ra lỗi mà gold không có (Redis pub/sub bị sót không cảnh báo; ràng buộc bảng).
+
+**Bài học:** gold chỉ chấm được thứ gold có. Cần giám khảo đọc source để tìm phần thiếu.
+
+### 29. Hồ sơ quy trình lại ghi muộn
+
+CR, Task, PLAN của đợt này ghi ngày 12/10, sau khi code xong. Chỉ task giao diện (TASK-L3GEN-029-13) có plan trước khi code.
+
+**Bài học:** như mục 20: phải ghi CR và plan ngay khi nhận yêu cầu, kể cả khi người dùng giục "làm đi".

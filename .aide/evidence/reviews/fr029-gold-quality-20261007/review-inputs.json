@@ -1,0 +1,213 @@
+{
+  "gold_files": [
+    {
+      "case": "fixture/exclusions",
+      "gold": "D:\\VSF\\l3-generator-l3\\slice\\tests\\fixtures\\fr029\\exclusions.gold.json",
+      "sha256": "b83e80bc0d3e9ee559c9c481f1ee45fdc7f59b4a639c77dbaa2495d781647fe7",
+      "same_as_prior_audit": true
+    },
+    {
+      "case": "fixture/file_roles",
+      "gold": "D:\\VSF\\l3-generator-l3\\slice\\tests\\fixtures\\fr029\\file_roles.gold.json",
+      "sha256": "6c2b822ed5efb060effb319fe1db57bb6120a7198609af6e1b326fc257417d6d",
+      "same_as_prior_audit": true
+    },
+    {
+      "case": "fixture/http_calls",
+      "gold": "D:\\VSF\\l3-generator-l3\\slice\\tests\\fixtures\\fr029\\http_calls.gold.json",
+      "sha256": "1b5daf05eb712a7586bdf05a4f69bdb4764323fafe18d84d2869e84b4fc2b6ba",
+      "same_as_prior_audit": true
+    },
+    {
+      "case": "fixture/params_models",
+      "gold": "D:\\VSF\\l3-generator-l3\\slice\\tests\\fixtures\\fr029\\params_models.gold.json",
+      "sha256": "a29673124ae1ebf697c024b7da31e2a604854bbc91c0701f59e4e9ce8258f4b6",
+      "same_as_prior_audit": true
+    },
+    {
+      "case": "fixture/prefix_chain",
+      "gold": "D:\\VSF\\l3-generator-l3\\slice\\tests\\fixtures\\fr029\\prefix_chain.gold.json",
+      "sha256": "d57e0c3e92969896cfef019dc3c4c66f5d873ce8b221568047b3a274d9ca68e7",
+      "same_as_prior_audit": true
+    },
+    {
+      "case": "fixture/pydantic_v1",
+      "gold": "D:\\VSF\\l3-generator-l3\\slice\\tests\\fixtures\\fr029\\pydantic_v1.gold.json",
+      "sha256": "07540b3051ea7995ee3a1b659528a0fe7f90d4c2dad5911f109752815a85d8d8",
+      "same_as_prior_audit": true
+    },
+    {
+      "case": "fixture/fr029_e2e",
+      "gold": "D:\\VSF\\l3-generator-l3\\slice\\tests\\fixtures\\fr029_e2e.gold.json",
+      "sha256": "c417d856973d3cf3fb3db4b04d3d1819ad07ce4091d2437f2fabacc7622a7ccf",
+      "same_as_prior_audit": true
+    },
+    {
+      "case": "dev/orders-base",
+      "gold": "D:\\VSF\\VSF-L3 Generator\\evaluation\\golden\\v1\\cases\\orders-base\\gold.json",
+      "sha256": "da2f4e8979818e787c84352543918e1e5948bb078e5b066927e8b360874aaf8a",
+      "same_as_prior_audit": true
+    },
+    {
+      "case": "dev/orders-prefix",
+      "gold": "D:\\VSF\\VSF-L3 Generator\\evaluation\\golden\\v1\\cases\\orders-prefix\\gold.json",
+      "sha256": "758f2a75cdf61fb30114607887a391032495b0e5882c6630140777fd2a4f27ab",
+      "same_as_prior_audit": true
+    },
+    {
+      "case": "dev/orders-two-apps",
+      "gold": "D:\\VSF\\VSF-L3 Generator\\evaluation\\golden\\v1\\cases\\orders-two-apps\\gold.json",
+      "sha256": "f28e794d5b3ea6a669156cddcc0a853ca6f202150b5f46d7ede43f4a3d6377d3",
+      "same_as_prior_audit": true
+    },
+    {
+      "case": "dev/orders-wrapper-real",
+      "gold": "D:\\VSF\\VSF-L3 Generator\\evaluation\\golden\\v1\\cases\\orders-wrapper-real\\gold.json",
+      "sha256": "31082351784408f6373f742a1275054954e0c171170cc8f1318e0a23e6b6d16c",
+      "same_as_prior_audit": true
+    },
+    {
+      "case": "dev/orders-wrapper-fake",
+      "gold": "D:\\VSF\\VSF-L3 Generator\\evaluation\\golden\\v1\\cases\\orders-wrapper-fake\\gold.json",
+      "sha256": "bdfdee8bcb670bc3fa6df77fbf595a0e9264b572c822d6754d59f1f12d11a812",
+      "same_as_prior_audit": true
+    },
+    {
+      "case": "dev/orders-dynamic-prefix",
+      "gold": "D:\\VSF\\VSF-L3 Generator\\evaluation\\golden\\v1\\cases\\orders-dynamic-prefix\\gold.json",
+      "sha256": "d2e99a90b43f9e237c7266afb6fc2f6b4b6a20a4c0bbe56f3089ce3ae138cd31",
+      "same_as_prior_audit": true
+    },
+    {
+      "case": "dev/dispatch-case-read",
+      "gold": "D:\\VSF\\VSF-L3 Generator\\evaluation\\golden\\v1\\cases\\dispatch-case-read\\gold.json",
+      "sha256": "e43dc984eb0dccbc9ef558f2cac76a7b66af532a0d2473c3dc45de3f3327b7c2",
+      "same_as_prior_audit": true
+    },
+    {
+      "case": "dev/fastapi-docs-body_updates-tutorial001",
+      "gold": "D:\\VSF\\VSF-L3 Generator\\evaluation\\golden\\v1\\cases\\fastapi-docs-body_updates-tutorial001\\gold.json",
+      "sha256": "11210f10c458316c6da2878da47ff4277289211d39864000540ad6eb6136bd78",
+      "same_as_prior_audit": true
+    },
+    {
+      "case": "dev/fastapi-docs-first_steps-tutorial001",
+      "gold": "D:\\VSF\\VSF-L3 Generator\\evaluation\\golden\\v1\\cases\\fastapi-docs-first_steps-tutorial001\\gold.json",
+      "sha256": "e918c035d1214a7495c79e4b7c3813caf8f6728ee513f4519f602179a3112c9e",
+      "same_as_prior_audit": true
+    },
+    {
+      "case": "dev/fastapi-docs-handling_errors-tutorial001",
+      "gold": "D:\\VSF\\VSF-L3 Generator\\evaluation\\golden\\v1\\cases\\fastapi-docs-handling_errors-tutorial001\\gold.json",
+      "sha256": "52f92f7653b74ccbcc3257b3bf703a54f94cbb53aa56aa8e16a9a19ccf86260e",
+      "same_as_prior_audit": true
+    },
+    {
+      "case": "dev/fastapi-docs-path_params-tutorial001",
+      "gold": "D:\\VSF\\VSF-L3 Generator\\evaluation\\golden\\v1\\cases\\fastapi-docs-path_params-tutorial001\\gold.json",
+      "sha256": "a93e9ab9165d40155715ff760b8610ad297e84883040cf0c57ce8d923d0319ba",
+      "same_as_prior_audit": true
+    },
+    {
+      "case": "dev/fastapi-docs-query_params_str_validations-tutorial001",
+      "gold": "D:\\VSF\\VSF-L3 Generator\\evaluation\\golden\\v1\\cases\\fastapi-docs-query_params_str_validations-tutorial001\\gold.json",
+      "sha256": "e7647eec65038cab13fbe1a819a2415a99398fa3749dab1d1b6f171a4bc5c046",
+      "same_as_prior_audit": true
+    },
+    {
+      "case": "dev/fastapi-docs-schema_extra_example-tutorial001",
+      "gold": "D:\\VSF\\VSF-L3 Generator\\evaluation\\golden\\v1\\cases\\fastapi-docs-schema_extra_example-tutorial001\\gold.json",
+      "sha256": "e4bb73b548ccaf6f6558b35de27ad3a8819cfa0dbb286beb081e4c4dbe8f84c7",
+      "same_as_prior_audit": true
+    },
+    {
+      "case": "dev/orders-conditional-route",
+      "gold": "D:\\VSF\\VSF-L3 Generator\\evaluation\\golden\\v1\\cases\\orders-conditional-route\\gold.json",
+      "sha256": "4d0c5add307ac8b7ba47e5832c8d09227b1ae3aa5b2c7d72708644d1d58b9ee0",
+      "same_as_prior_audit": true
+    },
+    {
+      "case": "dev/orders-derived-tablename",
+      "gold": "D:\\VSF\\VSF-L3 Generator\\evaluation\\golden\\v1\\cases\\orders-derived-tablename\\gold.json",
+      "sha256": "8da1ff691aa3ab86937a130f21b77680e78b339784350b8fdcf3a3e8e6c90cef",
+      "same_as_prior_audit": true
+    },
+    {
+      "case": "dev/orders-mount",
+      "gold": "D:\\VSF\\VSF-L3 Generator\\evaluation\\golden\\v1\\cases\\orders-mount\\gold.json",
+      "sha256": "a6bae4d7ad6ef0efa76a0a5e97dbe438df7efdfe7ce12581f3274f282d20b874",
+      "same_as_prior_audit": true
+    },
+    {
+      "case": "dev/orders-plugin-import",
+      "gold": "D:\\VSF\\VSF-L3 Generator\\evaluation\\golden\\v1\\cases\\orders-plugin-import\\gold.json",
+      "sha256": "55679976380bba4b72bbb4066e6cc2959e702de50353af04754054cec294c314",
+      "same_as_prior_audit": true
+    },
+    {
+      "case": "dev/orders-runtime-dispatch",
+      "gold": "D:\\VSF\\VSF-L3 Generator\\evaluation\\golden\\v1\\cases\\orders-runtime-dispatch\\gold.json",
+      "sha256": "872819575a5ef6cd1474e3fd4a2b44e83fd949f8dfd81a5a5e388052d5f73536",
+      "same_as_prior_audit": true
+    },
+    {
+      "case": "dev/orders-syntax-error",
+      "gold": "D:\\VSF\\VSF-L3 Generator\\evaluation\\golden\\v1\\cases\\orders-syntax-error\\gold.json",
+      "sha256": "d4d8216e8e03d82c17493358e7bcc9c149cc7c4a37f6dbda945773febfc8b6bc",
+      "same_as_prior_audit": true
+    },
+    {
+      "case": "full/teamhide-fastapi-boilerplate",
+      "gold": "D:\\VSF\\l3-generator-golden-v2\\.aide\\evidence\\tests\\golden-v1\\teamhide-fastapi-boilerplate\\final-r3.json",
+      "sha256": "38e1e94e412e79f1ddd4a1758b48b9aeeebc73d932c192531a88fff16d6d25a5",
+      "same_as_prior_audit": true
+    },
+    {
+      "case": "full/fastapi_best_architecture",
+      "gold": "D:\\VSF\\l3-generator-golden-v2\\.aide\\evidence\\tests\\golden-v1\\fastapi_best_architecture\\final-r2.json",
+      "sha256": "a1c978433200757564d14f5807596a786cfdf1c049f2ecd3ffa6711c9c62dcd5",
+      "same_as_prior_audit": true
+    },
+    {
+      "case": "full/full-stack-fastapi-template",
+      "gold": "D:\\VSF\\l3-generator-golden-v2\\.aide\\evidence\\tests\\golden-v1\\full-stack-fastapi-template\\final-r2.json",
+      "sha256": "e8ec9549ae2bb520a5302973d901f2f68d01932995105c0d1f493ca2da55a697",
+      "same_as_prior_audit": true
+    },
+    {
+      "case": "full/igorbenav-FastAPI-boilerplate",
+      "gold": "D:\\VSF\\l3-generator-golden-v2\\.aide\\evidence\\tests\\golden-v1\\igorbenav-FastAPI-boilerplate\\final-r3.json",
+      "sha256": "4c888caa65415261f09f3ac34941638e4e828ab856968a38dbf75b5f2677465e",
+      "same_as_prior_audit": true
+    },
+    {
+      "case": "accept/tdd-docker",
+      "gold": "D:\\VSF\\l3-acceptance-gold\\tdd-docker\\gold.json",
+      "sha256": "12d7a0bcb18d1e7aa0e7dbb56c7443eadd977e4b6da0e5551bd4516aaf7d5d37",
+      "same_as_prior_audit": true
+    },
+    {
+      "case": "accept/agentgpt",
+      "gold": "D:\\VSF\\l3-acceptance-gold\\agentgpt\\gold.json",
+      "sha256": "d3916c80766c756fdadb6539ec19566ecb8636367824dfb9883d4057c6e3dd4b",
+      "same_as_prior_audit": true
+    },
+    {
+      "case": "accept/kibo",
+      "gold": "D:\\VSF\\l3-acceptance-gold\\kibo\\gold.json",
+      "sha256": "db831c31453fc5bf365db5f14a154cc8b8986800a30fe67e9fa6576bed7836f1",
+      "same_as_prior_audit": true
+    }
+  ],
+  "reviewed_spec_and_code": {
+    ".aide/requirements/fr/FR-L3GEN-029.md": "6996ad38a106aeb38ee97826ba14cd9d0404188f2bfbd80fcaf623090793a847",
+    ".aide/requirements/nfr/NFR-L3GEN-ACC-002.md": "0cf4515263185292dcd32a424dae6fc9cc317bac200855fc3932cf11d5b32014",
+    ".aide/observability/OBS-L3GEN-001.md": "620bccba2fc487f8be2944eb3b91b96cb12ff58937263f1e694b49bff5f6503f",
+    "slice/tools/fr029_score.py": "21d69b9702008af47175c03ab72c1275027d3b137f8bac5a530945a83e79c74b",
+    "slice/tools/fr029_accept.py": "2d470161daad6f4433ff80d22a3e94a71f39bfbb4343d9fb1d12ec6a441fb576",
+    "slice/tools/fr029_golden4.py": "8203c155e7c91fb2d5f4e9294496e150cc048cfc182cd7ccf129f4fc138b2331",
+    "slice/tools/fr029_golden_routes.py": "97b44967a98f51cf69663f536a1a870fc9859581996f271324af6f34f2fade9c",
+    "slice/tests/test_docagent.py": "f43b39a0348652b83f2f36515c69dc60947db99fe699b420cc2a7b319d3f8d8b"
+  },
+  "method": "Three fresh independent reviewers, each scoped to a different quality axis. No product output, prompt tuning, external model calls or oracle execution."
+}

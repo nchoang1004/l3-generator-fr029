@@ -1,0 +1,47 @@
+key: CR-L3GEN-2026-008-requests-02
+type: change-request
+group: evidence
+scope: lifecycle
+derived_from: [CR-L3GEN-2026-008]
+touches: [FR-L3GEN-029]
+captured_at_date: "2026-10-09"
+captured_late: true
+captured_late_note: "Ghi muộn: EXEC §B.3 yêu cầu ghi nguyên văn yêu cầu TRƯỚC khi phân tích và triển khai. Các yêu cầu từ 07/10 15:41 tới 09/10 10:10 (giờ Việt Nam) được ghi ngày 09/10, khi người dùng yêu cầu đọc kỹ quy trình để viết đủ hồ sơ."
+source: "Tin nhắn của Hoàng (NguyenCanhHoang) trong phiên Claude Code 498cf361, trích từ bản ghi phiên (transcript JSONL); giữ nguyên chữ, kể cả lỗi gõ. Giờ là giờ Việt Nam (UTC+7)."
+attachments_verbatim:
+  - at: "2026-10-07 15:41"
+    note: "Nội dung dán kèm tin nhắn cùng giờ ở requests_verbatim. Câu trả lời 'bỏ qua hết' đã ghi ở CR-L3GEN-2026-008-decisions-01."
+    text: "Quy định đã duyệt\tLuồng agent đang làm\nNFR-SEC-002: \"Không gửi nguyên file source hoặc cả repository\"\tGửi nguyên nội dung mọi file trong phạm vi đọc\nNFR-AI-002: provider OpenRouter, tối đa 4 request\tGọi OpenAI trực tiếp, từ 6 tới 175 lượt mỗi lần chạy\nOQ-L3GEN-009 (đã chốt): trần mỗi lần chạy 0,20 USD / 300.000 token\tCó lần tốn 0,49 USD, có lần dùng hơn 22 triệu token"
+requests_verbatim:
+  - { at: "2026-10-07 15:41", text: "3 quy tắc này bỏ qua hết , bạn hãy tổng hợp những cái bạn vừa làm , chât lượng golden được làm như nào , đo như nào và liệu có tin tưởng được golden không" }
+  - { at: "2026-10-07 20:11", text: "tiếp tục hoàn thành nốt" }
+  - { at: "2026-10-07 20:18", text: "hoàn thanh sao cho cái của tôi hoàn hảo nhất đi" }
+  - { at: "2026-10-07 20:31", text: "/goal tự chạy và kiểm chất lượng đến ổn thì thôi", note: "lệnh /goal; Claude Code tạo Stop hook với điều kiện này" }
+  - { at: "2026-10-07 20:31", text: "tiếp đi" }
+  - { at: "2026-10-08 01:10", text: "tiếp tục đi" }
+  - { at: "2026-10-08 03:42", text: "vậy là đã ổn hết ròi à bạn" }
+  - { at: "2026-10-08 03:44", text: "thế bây giờ đã đạt chât lượng bao nhiêu % rồi" }
+  - { at: "2026-10-08 03:45", text: "nhưng mà các chỉnh sửa của bạn có làm nó sai khi áp repo khác không?" }
+  - { at: "2026-10-08 03:47", text: "cách 1 , bạn hãy làm sao để nó tỉ lệ chính xác cao với mọi repo cách nào cũng được tùy bạn chọn , nhưng phải làm cái báo cáo cho tôi , phải chấm công bằng , cho phép bạn sử dụng codex astra high" }
+  - { at: "2026-10-08 06:25", text: "tieếp đi" }
+  - { at: "2026-10-08 06:38", text: "chương trình này của tôi là cho agent đcọ repo đúng không chứ không phải code tĩnh đúng k ?" }
+  - { at: "2026-10-08 06:39", text: "/goal hãy nâng cấp agent sao cho chuẩn với nhiều repo nhất ( không test gian dối ) cho phép sử dụng codex astra high hay làm gì khác để nâng cấp và có thể test thêm các test khác  để xác thực", note: "lệnh /goal; Claude Code tạo Stop hook với điều kiện này" }
+  - { at: "2026-10-08 15:26", text: "tiếp tục đi" }
+  - { at: "2026-10-08 15:55", text: "tiếp đi" }
+  - { at: "2026-10-08 21:48", text: "tiếp tục đi" }
+  - { at: "2026-10-09 03:20", text: "tiếp tục đi" }
+  - { at: "2026-10-09 10:08", text: "bây giờ nó đang tỉ lệ bao nhiêu % chuẩn thế" }
+  - { at: "2026-10-09 10:10", text: "đọc kĩ mấy cái quy trình làm trong dự án để viết cho đầy đủ các thứ" }
+requests_from_context_summary:
+  note: "Bốn tin dưới đây chỉ còn trong bản tóm tắt ngữ cảnh mà Claude Code tạo khi phiên bị nén; không tìm thấy trong bất kỳ bản ghi phiên nào của dự án. Chữ lấy theo trích dẫn trong bản tóm tắt, có thể không đúng từng ký tự. Không rõ giờ chính xác."
+  items:
+    - { when: "07/10, sau 15:41", text: "à để ý nội dung dưới đây nữa hãy dùng nhiều session kiểm chéo các golden hiện tại xem sai ở đâu", note: "kèm transcript một phiên Codex kiểm chéo golden (không còn bản gốc)" }
+    - { when: "07/10, sau 15:41", text: "cho phép bạn dùng đa dạng agent để đảm bảo chất lượng nhất cho chương trình của tôi" }
+    - { when: "08/10, trước 06:38", text: "đây là dùng code tĩnh để xuất ra dữ liệu hay llm đây?" }
+    - { when: "08/10, sau 06:39", text: "tôi đã reset codex r", note: "báo Codex dùng được lại sau khi hết lượt" }
+decisions_verbatim:
+  - question: "Tôi viết những phần nào? (chọn nhiều) — Hồ sơ evidence / Mở OQ mới / Cập nhật FR029-quy-tac.md / HANDOFF mục 14 + SDLC log"
+    answer: "Hồ sơ evidence (Khuyên), HANDOFF mục 14 + SDLC log"
+    date: "2026-10-09"
+    note: "Không chọn mở OQ mới và không chọn cập nhật docs/FR029-quy-tac.md; hai việc này chưa làm."
+interpretation_note: "Cách Claude hiểu các yêu cầu trên ghi ở DIARY-CR-L3GEN-2026-008, mục 'Phiên 07/10 tối – 09/10/2026'."

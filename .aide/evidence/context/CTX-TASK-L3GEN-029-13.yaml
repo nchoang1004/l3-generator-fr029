@@ -1,0 +1,74 @@
+{
+  "key": "CTX-TASK-L3GEN-029-13",
+  "objective": "TASK-L3GEN-029-13",
+  "compiled_at": "2026-10-12",
+  "compiled_late": false,
+  "compiled_late_note": "Lập trước khi code. Không tuyên bố aide context compile đã chạy.",
+  "requirements": [
+    "FR-L3GEN-029"
+  ],
+  "design": [
+    "CMP-L3GEN-008",
+    "CMP-L3GEN-001"
+  ],
+  "decisions": [],
+  "contracts": [
+    "API-L3GEN-008-v1"
+  ],
+  "constraints": [],
+  "open_questions": [
+    "OQ-L3GEN-020"
+  ],
+  "previous_findings": "Chưa có.",
+  "inputs": {
+    ".aide/requirements/fr/FR-L3GEN-029.md": {
+      "revision": 3,
+      "sha256": "6996ad38a106aeb38ee97826ba14cd9d0404188f2bfbd80fcaf623090793a847"
+    },
+    ".aide/architecture/l2/CMP-L3GEN-008.md": {
+      "revision": 4,
+      "sha256": "dd997f44260f7c66a4b4036c16ccb3d75d8ce3e3e79ea34ae5109463f10336c0"
+    },
+    ".aide/architecture/l2/CMP-L3GEN-001.md": {
+      "revision": 4,
+      "sha256": "bbbdf43162e73de909dd9adb7a3109f6942ca2b96416bd7e59cfc9cbf094436c"
+    },
+    ".aide/tech-specs/CMP-L3GEN-008/api/API-L3GEN-008-v1.md": {
+      "revision": 5,
+      "sha256": "4da02bcd03a7b5d46cb43a6507c986cda74881f17c51c8344e775bd949b872a2"
+    }
+  },
+  "code_inputs": {
+    "slice/l3slice/docweb.py": {
+      "sha256": "6bfb8d04a03d34ab4b37c4dd05cf4c228369048e15c834d3cc5f1472ad639ef7"
+    },
+    "slice/l3slice/docui/index.html": {
+      "sha256": "35d5d6aa661968bc35b1df64056f12193aacb9d8a45e2c0d2484b9cc6095bba7"
+    },
+    "slice/l3slice/docui/app.js": {
+      "sha256": "1836a975ca1643c8442560ddc1907531747584a5871c2619a1da47aa2a75e875"
+    },
+    "slice/l3slice/docui/app.css": {
+      "sha256": "1058576d7bdb658d0cfd670721ddcbc3bc0e9bd94cf658772c80a04915141f30"
+    },
+    "slice/tests/test_docweb.py": {
+      "sha256": "9b5ab921d1bb82a5953ddaa4d618d931ba6fbab09894453d07746e3f1bfa8ab2"
+    },
+    "slice/tests/ui/docui.test.cjs": {
+      "sha256": "e89a5786eba59afaaf6fd1131ef36d09d63ca4640560112fcfbd5c7bfb503200"
+    }
+  },
+  "authority": {
+    "baseline": "BL-CHG-L3GEN-2026-002-r11",
+    "status": "candidate, chưa ký",
+    "note": "ADR-2026-006 và CMP revision 5 là draft; OQ-L3GEN-019..022 mở."
+  },
+  "code_scope": [
+    "slice/l3slice/docweb.py",
+    "slice/l3slice/docui/index.html",
+    "slice/l3slice/docui/app.js",
+    "slice/l3slice/docui/app.css",
+    "slice/tests/test_docweb.py",
+    "slice/tests/ui/docui.test.cjs"
+  ]
+}

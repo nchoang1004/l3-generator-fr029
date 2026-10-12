@@ -1,0 +1,31 @@
+{
+  "cut_evidence": {
+    "value_visible_to_model": false,
+    "cut_lines": [
+      2
+    ],
+    "claim_errors": [],
+    "coverage_complete": false
+  },
+  "reversed_prefix": {
+    "errors": [],
+    "path": "/v1/api/items/{item_id}"
+  },
+  "wrong_model_attributes": {
+    "errors": [],
+    "confidence": "exact"
+  },
+  "duplicate_openapi_parameter": {
+    "agent_status": "completed",
+    "api_status": "ready",
+    "validation": "ParameterDuplicateError: Duplicate parameter `item_id`"
+  },
+  "exact_score_alias": {
+    "method_wrong_count": 1,
+    "exact": {
+      "exact_facts": 1,
+      "exact_wrong": 0,
+      "rate": 0.0
+    }
+  }
+}

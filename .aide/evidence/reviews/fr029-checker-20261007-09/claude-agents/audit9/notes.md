@@ -1,0 +1,13 @@
+# audit9 notes
+- Env: Python311 (FastAPI 0.115.6, httpx 0.28.1, pydantic 2.13.4); openapi_spec_validator stubbed in boot.py; tempfile.tempdir=audit9/tmp
+- Hash sha256[:16]: docfacts=931205c24ca16fa2 astscan=4796af2f58f01bde audit=e009051fc3222ffb
+- 109/109 tests pass (test_checker_counterexamples)
+- NEW R2 (da tai hien): `from . import items` + include_router(items.router) -> imports() bo ImportFrom module=None (astscan.py:93) -> child None -> incomplete -> nhan path thieu /items. Control absolute import bi tu choi. OpenAPI: /items/list. p_route.py
+- NEW R5 (da tai hien): for r in (items.router, users.router): app.include_router(r, prefix='/api') -> nhan path thieu ca /api va /items. OpenAPI /api/items/list. p_route.py
+- NEW DP1 (da tai hien): APIRouter(dependencies=[Depends(get_token_header)]) / include_router(dependencies=...) -> khong nhac dependency thieu, reminders='' ; OpenAPI header x-token. _handler_depends chi doc chu ky handler + decorator (docfacts.py:411-435). p_dep.py
+- NEW DP2 (da tai hien): PageDep = Annotated[tuple, Depends(pagination)]; def items(p: PageDep) voi dependencies=[] -> khong nhac; OpenAPI query page,size. Control Depends() inline thi co nhac. p_dep.py
+- NEW H2 (da tai hien): app.state.http=httpx.AsyncClient() trong lifespan; deps.get_http(request) KHONG annotation tra request.app.state.http; routes.py (khong import httpx) client=Depends(get_http); client.get(...) -> suspects khong co routes.py:6. Control co '-> httpx.AsyncClient' thi co. Runtime TestClient+MockTransport: 1 GET https://real.example/x. p_http.py, p_http_rt.py
+- NEW H10 (da tai hien): ten `client` httpx o ham/class nay, redis o ham/class khac cung file -> claim HTTP GET tren redis client.get(key) duoc NHAN (sai). local_kind tra None cho Call khong ro -> fallback clients toan file (astscan.py:482); self.client: client_attrs toan file (astscan.py:486), other_attr chi loai khi moi gia tri la literal. redis khong cai, khong chay runtime.
+- NEW H-inherit (da tai hien): base.py tao self._client=httpx.AsyncClient trong BaseAPI; github.py (khong import httpx) class GitHub(BaseAPI) goi self._client.get -> suspects=[]. Neu github.py import httpx thi co suspect nhung claim bi tu choi (can client_at). Cung file thi co suspect. Runtime MockTransport: 1 GET. p_more.py, p_more_rt.py
+- NEW DP-dotted (da tai hien): Depends(deps.common) khi `common` dinh nghia o 2 module (api/v1/deps.py, api/v2/deps.py) -> reminders='' (docfacts.py:1573-1575 loc theo class 'deps' -> rong). OpenAPI header x-tenant. Mot dinh nghia thi nhac dung.
+- vong8 cu: getattr claim van bi tu choi; e(wire) untyped suspects=[]; to_thread & run_in_executor claim nhan. 109/109 test pass.

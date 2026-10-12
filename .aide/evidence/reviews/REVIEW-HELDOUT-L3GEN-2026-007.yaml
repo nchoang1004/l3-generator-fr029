@@ -1,0 +1,105 @@
+type: review
+group: evidence
+scope: lifecycle
+status: completed
+change_set: CHG-L3GEN-2026-002
+change_request: CR-L3GEN-2026-008
+written_late: true
+evidence_mode: agent_review
+author: Phiên Claude chính (Opus 5.5), theo yêu cầu của Hoàng
+key: REVIEW-HELDOUT-L3GEN-2026-007
+gate: GATE-MERGE
+review_class: adversarial
+review_kind: held-out
+batch: 7
+subject: Gói bộ kiểm FR-029 xuất trên repo chưa dùng để chỉnh
+reviewer: Codex gpt-6-astra high (3 phiên song song)
+repositories:
+- lindseystead/ai-pdf-autofiller
+- dengyie/xianyu-auto-bot
+- 3441293738/creatorhub
+receipt:
+  packet: ket-qua-chay/fr029-heldout-20261009-r30
+  outputs:
+  - .aide/evidence/reviews/fr029-checker-20261007-09/codex/codex_heldout7a_out.md
+  - .aide/evidence/reviews/fr029-checker-20261007-09/codex/codex_heldout7b_out.md
+  - .aide/evidence/reviews/fr029-checker-20261007-09/codex/codex_heldout7c_out.md
+  output_written: 2026-10-08T21:00Z
+decision: changes_needed
+results:
+  ai-pdf-autofiller: 4 HTTP thật, 0 nhiễu, 0 sót
+  creatorhub: 7 HTTP, 2 urllib, 2 đăng ký, 39 hợp lý, 0 nhiễu, 0 sót
+  xianyu-auto-bot: '1 tham số đúng; 66 HTTP thật, 13 nhiễu, 7 sót → sau sửa: 2 nhiễu, 2 sót (chưa chấm lại)'
+note: 'Giám khảo đọc gói và source repo, không đọc code bộ kiểm. Disposition theo EXEC §D.3: ACCEPTED = lỗi thật của bộ kiểm;
+  REJECTED = không phải lỗi bộ kiểm (lý do ghi kèm); NOT_APPLICABLE = ngoài định nghĩa hiện tại; NEEDS_MORE_EVIDENCE = cần
+  quyết định phạm vi.'
+findings:
+- id: FIND-L3GEN-154
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location: utils/qr_login.py:454
+  summary: 'xianyu: self.sessions: Dict[...] = {} rồi self.sessions.get(k) bị đánh dấu (11 dòng)'
+  resolution:
+    status: fixed_by_test
+    tests:
+    - slice/tests/test_checker_counterexamples.py::RoundNine::test_dict_attribute_with_annotation_is_not_a_client
+- id: FIND-L3GEN-155
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location: utils/notification_dispatcher.py:454
+  summary: 'xianyu: request = session.post if ... else session.put rồi request(url) bị sót'
+  resolution:
+    status: fixed_by_test
+    tests:
+    - slice/tests/test_checker_counterexamples.py::RoundNine::test_client_method_chosen_by_a_condition
+- id: FIND-L3GEN-156
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location: xianyu_cookie_mixin.py:634
+  summary: 'xianyu: self.session = _host.aiohttp.ClientSession() rồi self.session.get bị sót'
+  resolution:
+    status: fixed_by_test
+    tests:
+    - slice/tests/test_checker_counterexamples.py::RoundNine::test_library_reached_through_another_module
+- id: FIND-L3GEN-157
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location: xianyu_token_mixins.py:222
+  summary: 'xianyu: mixin dùng self.session do lớp con ở file khác tạo bị sót (3 dòng)'
+  resolution:
+    status: fixed_by_test
+    tests:
+    - slice/tests/test_checker_counterexamples.py::RoundNine::test_mixin_using_a_client_its_subclass_creates
+- id: FIND-L3GEN-158
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location: item_polish_module.py:80
+  summary: 'xianyu: self.runtime.session.post(...) bị sót (2 dòng)'
+  resolution:
+    status: open
+  reason: Client nằm trên một đối tượng khác; chưa xử lý.
+- id: FIND-L3GEN-159
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  summary: 'xianyu: 2 dòng nhiễu còn lại trong utils/xianyu_slider_stealth.py'
+  resolution:
+    status: open
+  reason: Chưa xem nguyên nhân.
+self_found_while_fixing:
+- id: FIND-L3GEN-165
+  test: slice/tests/test_checker_counterexamples.py::RoundNine::test_attribute_named_like_a_library_is_not_the_library
+  summary: 'Luật mới cho _host.aiohttp.ClientSession làm chuỗi ''assistant.requests.send'' và report.requests.warnings bị
+    coi là dùng HTTP: shortlist thêm 14 dòng nhiễu'
+  severity: low
+  target: bộ kiểm
+  route: patch
+  disposition: ACCEPTED
+  source: so gói held-out trước/sau sửa
+  resolution:
+    status: fixed_by_test

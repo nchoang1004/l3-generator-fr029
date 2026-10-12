@@ -1,0 +1,97 @@
+{
+  "cut_evidence": {
+    "value_delivered": false,
+    "errors": [],
+    "coverage_complete": false
+  },
+  "reversed_prefix": {
+    "errors": [
+      "path_parts: thứ tự prefix sai; prefix áp dụng từ app vào tới router: app/main.py:6 → app/api/__init__.py:5 → app/api/__init__.py:6"
+    ]
+  },
+  "wrong_model_attributes": {
+    "agent": {
+      "status": "completed",
+      "reason": "",
+      "turns": 4,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "usage_missing_turns": 4,
+      "open_problems": []
+    },
+    "api_status": "ready",
+    "validation": "valid",
+    "rejected_count": 0,
+    "model_confidence": "exact",
+    "rendered_itemin_schema": {
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "price": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "price"
+      ],
+      "type": "object",
+      "x-analysis": {
+        "fact_ids": [
+          "fact:31d45a9293cc95a570746f0e3511cea4c5f66ac08a03c58b652ee857e28e5df2"
+        ]
+      }
+    }
+  },
+  "duplicate_parameter": {
+    "agent": {
+      "status": "completed",
+      "reason": "",
+      "turns": 4,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "usage_missing_turns": 4,
+      "open_problems": []
+    },
+    "api_status": "ready",
+    "validation": "ParameterDuplicateError: Duplicate parameter `item_id`",
+    "rejected_count": 0
+  },
+  "invented_auth": {
+    "agent": {
+      "status": "completed",
+      "reason": "",
+      "turns": 4,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "usage_missing_turns": 4,
+      "open_problems": []
+    },
+    "api_status": "ready",
+    "validation": "valid",
+    "rejected_count": 0,
+    "published_auth": [
+      {
+        "state": "unknown",
+        "reason": "Không thấy dependency; không kết luận route công khai"
+      },
+      {
+        "state": "known",
+        "value": "OAuth2 bearer token required",
+        "evidence_ids": [
+          "ev:94558d859445cd1078eaffbedb42cd5347d1f2344803d096f0c2f238f5a56aa7"
+        ]
+      }
+    ]
+  },
+  "invented_service_chain": {
+    "errors": [],
+    "note": "No call exists between the three functions."
+  },
+  "plain_json_body": {
+    "errors": [
+      "request_body.models: rỗng chỉ dùng cho Form/File"
+    ]
+  }
+}

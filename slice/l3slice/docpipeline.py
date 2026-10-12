@@ -6,15 +6,18 @@ creates, splits or names components and never draws a diagram. Missing upstream 
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 from . import snapshot as snapshot_mod
 from .common import SCHEMA_VERSION, compact, is_known, sha
-from .docagent import PROMPT_VERSION, Budget, run_agent
+from .docagent import Budget, run_agent, run_oneshot
 from .docfacts import LIMIT_KINDS, Claims, build_facts
-from .render import (_artifact, _publish, cell, check_doc, code, dump, frontmatter, md, render_api, slug,
-                     unique_slugs)
+from .docstatic import app_globals, component_relations, declared, event_edges, static_facts
+from .render import (_artifact, _publish, cell, check_doc, code, dump, frontmatter, md, plan_events, render_api,
+                     render_evt, render_tbl, slug, unique_slugs)
 from .source_tools import SourceTools
+from .tailieu import tai_lieu
 
 PIPELINE_VERSION = "fr029-doc-v1"
 KINDS = {"normal", "test", "migration", "other"}
@@ -26,8 +29,15 @@ class InputError(ValueError):
         self.code = code
 
 
-def load_components(membership: dict, snap: dict, unit_id: str) -> list[dict]:
-    """Given components, checked against the snapshot: every file exactly once. Never edited here."""
+def _scope_kind(files, scope: dict) -> str | None:
+    """"test" or "migration" when every .py file of a component has that reading scope (FR-028), else None."""
+    kinds = {scope[p][0] for p in files if p.endswith(".py") and p in scope}
+    return kinds.pop() if len(kinds) == 1 and kinds <= {"test", "migration"} else None
+
+
+def load_components(membership: dict, snap: dict, unit_id: str, scope: dict | None = None) -> list[dict]:
+    """Given components, checked against the snapshot: every file exactly once. Never edited here, except a
+    missing kind: with `scope` (SourceTools.scope) a component of only test or migration files gets that kind."""
     paths = {f["path"]: f["file_id"] for f in snap["files"]}
     if isinstance(membership, dict) and membership.get("snapshot_id") not in (None, snap["snapshot_id"]):
         raise InputError("SNAPSHOT_MISMATCH", "Membership ghi snapshot_id khác snapshot của source")
@@ -44,7 +54,7 @@ def load_components(membership: dict, snap: dict, unit_id: str) -> list[dict]:
         raise InputError("INVALID_INPUT", "Component trùng tên hoặc trùng id")
     out = []
     for g in groups:
-        kind = g.get("kind", "normal")
+        kind = g.get("kind") or (_scope_kind(g.get("files", []), scope) if scope else None) or "normal"
         if kind not in KINDS or not isinstance(g.get("name"), str) or not g["name"].strip():
             raise InputError("INVALID_INPUT", f"Component cần name và kind trong {sorted(KINDS)}")
         files = sorted(g["files"])
@@ -97,7 +107,8 @@ def _key_text(k) -> str:
 
 def run_documents(source: Path, output: Path, membership_path: Path, repository_name: str, provider,
                   archdia_path: Path | None = None, diagram_path: Path | None = None, budget: Budget | None = None,
-                  run_id: str = "run_fr029") -> dict:
+                  run_id: str = "run_fr029", mode: str = "agent", checkpoint: Path | None = None) -> dict:
+    """`mode`: "agent" (the model reads through tools) or "oneshot" (the whole source in one request, see run_oneshot)."""
     if output.exists() and (not output.is_dir() or any(output.iterdir())):  # refuse before any model call costs money
         raise InputError("OUTPUT_UNSAFE", f"Output {output} đã tồn tại và không rỗng; không ghi đè")
     snap, sources = snapshot_mod.take(source)
@@ -105,15 +116,19 @@ def run_documents(source: Path, output: Path, membership_path: Path, repository_
     if not inv["units"]:
         raise InputError("INVALID_INPUT", "Thư mục không có file .py")
     unit_id = inv["units"][0]["id"]
-    components = load_components(json.loads(membership_path.read_text(encoding="utf-8")), snap, unit_id)
+    tools = SourceTools(snap, sources)
+    membership = json.loads(membership_path.read_text(encoding="utf-8"))
+    components = load_components(membership, snap, unit_id, tools.scope)
     archdia = json.loads(archdia_path.read_text(encoding="utf-8")) if archdia_path else None
     diagram = diagram_path.read_text(encoding="utf-8") if diagram_path else None
-    tools = SourceTools(snap, sources)
     claims = Claims(tools)
-    agent = run_agent(tools, claims, components, provider, budget)
-    facts = build_facts(claims, snap, unit_id)
+    agent = (run_oneshot(tools, claims, components, provider, budget, checkpoint) if mode == "oneshot"
+             else run_agent(tools, claims, components, provider, budget))
+    static, static_limits, refs = static_facts(snap, sources, tools, unit_id)  # tables, events, libraries, config
+    facts = build_facts(claims, snap, unit_id) + static
     data, payloads = plan_documents(snap, inv, components, tools, claims, facts, agent, archdia, diagram,
-                                    repository_name, run_id, provider)
+                                    repository_name, run_id, provider,
+                                    _kind_notes(membership, components, tools.scope) + static_limits, refs)
     artifacts = [_artifact(run_id, k, p, m, t.encode("utf-8") if t is not None else None, err)
                  for p, (k, m, t, err) in payloads.items()]
     bundle = dict(data, artifacts=sorted(artifacts, key=lambda a: a["path"]))
@@ -121,8 +136,22 @@ def run_documents(source: Path, output: Path, membership_path: Path, repository_
     return bundle
 
 
+def _kind_notes(membership: dict, components: list[dict], scope: dict) -> list[dict]:
+    """Limitations about component kinds: derived from the scope, or given as normal on test/migration files."""
+    out = []
+    derived = [c for c, g in zip(components, membership["components"]) if not g.get("kind") and c["kind"] != "normal"]
+    if derived:
+        out.append({"code": "MEMBERSHIP_KIND_DERIVED", "stage": "input", "message": "Membership không ghi loại component; "
+                    "xếp theo phạm vi đọc (FR-028): " + ", ".join(f"{c['name']} → {c['kind']}" for c in derived)})
+    suspect = [c["name"] for c in components if c["kind"] == "normal" and _scope_kind(c["files"], scope)]
+    if suspect:
+        out.append({"code": "MEMBERSHIP_KIND_SUSPECT", "stage": "input", "message": "Component ghi loại normal nhưng "
+                    "mọi file .py là file kiểm thử hoặc migration: " + ", ".join(suspect)})
+    return out
+
+
 def plan_documents(snap, inv, components, tools, claims, facts, agent, archdia, diagram, repository_name, run_id,
-                   provider) -> tuple[dict, dict]:
+                   provider, notes=(), refs=()) -> tuple[dict, dict]:
     by_id = {f["id"]: f for f in facts}
     file_owner = {p: c for c in components for p in c["files"]}
     routes = [f for f in facts if f["kind"] == "route"]
@@ -142,39 +171,116 @@ def plan_documents(snap, inv, components, tools, claims, facts, agent, archdia, 
         used_models = sorted({i for f in mine for i in _model_ids(f, by_id)})
         front = {"generated": True, "non_normative": True, "review_status": "Bản sinh tự động, chưa được chủ repository duyệt",
                  "snapshot_id": snap["snapshot_id"], "owner_component_id": comp["id"], "owner_component": comp["name"],
-                 "schema_version": SCHEMA_VERSION, "pipeline_version": PIPELINE_VERSION, "prompt_version": PROMPT_VERSION,
+                 "schema_version": SCHEMA_VERSION, "pipeline_version": PIPELINE_VERSION, "prompt_version": agent.prompt_version,
                  "fact_ids": [f["id"] for f in mine] + used_models,
                  "evidence_ids": sorted({e["id"] for i in [f["id"] for f in mine] + used_models for e in by_id[i]["evidence"]})}
         reason = check_doc("api", text, cov)
         payloads[path] = ("api", "text/markdown", None if reason else frontmatter(front) + text,
                           {"code": "FORMAT_INVALID", "reason": reason, "retryable": False} if reason else None)
         contract_files.append((path, comp, reason))
+    other_files = _table_event_files(snap, components, facts, file_owner, slugs, sys_slug, payloads, notices)
     coverage = tools.coverage()
     unpublished = {c["id"] for _, c, err in contract_files if err}
     exported = [f for f in routes if owners.get(f["id"]) not in unpublished]  # AC-04 compares what was written
     parity = compare_architecture(archdia, snap, exported, owners, components)
-    limitations = _limitations(claims, tools, agent, coverage, parity, diagram)
+    limitations = list(notes) + _limitations(claims, tools, agent, coverage, parity, diagram)
     unassigned = [f["id"] for f in routes if f["id"] not in owners]
     readme_text = readme(repository_name, snap, components, contract_files, facts, file_owner, unassigned, parity,
-                         limitations, coverage, agent, diagram)
+                         limitations, coverage, agent, diagram, other_files)
+    globals_ = app_globals(tools)
+    relations = component_relations(refs, components)
     evidence = {e["id"]: e for f in facts for e in f["evidence"]}
     data = {"run_id": run_id, "schema_version": SCHEMA_VERSION, "pipeline_version": PIPELINE_VERSION,
             "snapshot_id": snap["snapshot_id"], "repository_name": repository_name,
             "provenance": {"provider": getattr(provider, "name", "?"), "model": getattr(provider, "model", "?"),
-                           "prompt_version": PROMPT_VERSION},
-            "agent": {"status": agent.status, "reason": agent.reason, "turns": agent.turns,
+                           "prompt_version": agent.prompt_version},
+            "agent": {"mode": agent.mode, "status": agent.status, "reason": agent.reason, "turns": agent.turns,
                       "tokens_in": agent.tokens_in, "tokens_out": agent.tokens_out,
-                      "usage_missing_turns": agent.usage_missing_turns, "open_problems": agent.open_problems},
+                      "usage_missing_turns": agent.usage_missing_turns, "open_problems": agent.open_problems,
+                      "requests": agent.requests},
             "coverage": coverage, "components": components, "contract_owners": owners, "unassigned": unassigned,
             "facts": facts, "evidence_index": [evidence[k] for k in sorted(evidence)],
             "limitations": limitations, "architecture_parity": parity, "render_notices": notices,
             "rejected_claims": claims.rejected, "unreferenced_models": claims.unreferenced_models,
-            "excluded_from_snapshot": inv["excluded"],
+            "excluded_from_snapshot": inv["excluded"], "app_globals": globals_,
+            "component_relations": relations,
             "dismissed_suspects": [{"at": f"{w[0]}:{w[1]}-{w[2]}", "reason": x["reason"]}
                                    for w, x in ((x["at"], x) for x in claims.dismissed.values())]}
     payloads["README.md"] = ("readme", "text/markdown", readme_text, None)
+    payloads["TAI-LIEU.md"] = ("readme", "text/markdown", tai_lieu(repository_name, agent, coverage, components, facts,
+                                                                  limitations, contract_files, claims.suspects(),
+                                                                  other_files, globals_, data["provenance"],
+                                                                  _route_chains(routes, facts, tools), relations), None)
     payloads["result.json"] = ("json", "application/json", dump(data), None)
     return data, payloads
+
+
+def _route_chains(routes, facts, tools) -> dict:
+    """Route fact id -> [{"steps": [path:line...], "tables": [table names]}]: the accepted Service call paths whose first
+    step lies in the route's handler (from its declaration to the next route declared in that file), and the tables
+    whose model class the last (data access) file names. Shown as inferred."""
+    decl = {f["id"]: declared(f) for f in routes}
+    starts = {}
+    for ev in decl.values():
+        starts.setdefault(ev["path"], []).append(ev["start_line"])
+    classes = []
+    for t in (f for f in facts if f["kind"] == "table" and is_known(f["attributes"].get("name"))):
+        ev = declared(t)
+        m = re.search(r"class\s+(\w+)", tools.lines.get(ev["path"], [""] * ev["start_line"])[ev["start_line"] - 1])
+        if m:
+            classes.append((m.group(1), t["attributes"]["name"]["value"]))
+    out = {}
+    for role in (f for f in facts if f["kind"] == "file_role" and is_known(f["attributes"].get("call_path"))):
+        steps = role["attributes"]["call_path"]["value"]
+        if not steps:
+            continue
+        path, line = steps[0].rsplit(":", 1)[0], int(re.split(r"[:-]", steps[0].rsplit(":", 1)[1])[0])
+        for fid, ev in decl.items():
+            later = [s for s in starts[ev["path"]] if s > ev["start_line"]]
+            if ev["path"] == path and ev["start_line"] <= line < (min(later) if later else 10 ** 9):
+                data_path = steps[-1].rsplit(":", 1)[0]
+                text = tools.raw.get(data_path, "")
+                tables = sorted({name for cls, name in classes if re.search(rf"\b{re.escape(cls)}\b", text)})
+                if not any(c["steps"] == steps for c in out.get(fid, [])):
+                    out.setdefault(fid, []).append({"steps": steps, "tables": tables})
+    return out
+
+
+def _table_event_files(snap, components, facts, file_owner, slugs, sys_slug, payloads, notices) -> list:
+    """TBL (FR-030) and EVT (FR-031) files per component, from the statically read facts. Returns
+    [(label, path, component, error reason or None)] in component order."""
+    def owner_of(f):
+        return file_owner.get(declared(f)["path"])
+    tables = [f for f in facts if f["kind"] == "table"]
+    events = [f for f in facts if f["kind"] == "event"]
+    model = {"edges": event_edges(events, owner_of)}
+    comps = {c["id"]: c for c in components}
+    out = []
+
+    def publish(kind, label, path, comp, group, text, cov):
+        reason = check_doc(kind, text, cov)
+        front = {"generated": True, "non_normative": True, "review_status": "Bản sinh tự động, chưa được chủ repository duyệt",
+                 "snapshot_id": snap["snapshot_id"], "owner_component_id": comp["id"], "owner_component": comp["name"],
+                 "schema_version": SCHEMA_VERSION, "pipeline_version": PIPELINE_VERSION, "origin": "đọc tĩnh",
+                 "fact_ids": [f["id"] for f in group], "evidence_ids": sorted({e["id"] for f in group for e in f["evidence"]})}
+        payloads[path] = (kind, "text/markdown", None if reason else frontmatter(front) + text,
+                          {"code": "FORMAT_INVALID", "reason": reason, "retryable": False} if reason else None)
+        out.append((label, path, comp, reason))
+    for comp in sorted(components, key=lambda c: c["id"]):
+        cslug = slugs[comp["id"]]
+        mine = sorted((f for f in tables if (owner_of(f) or {}).get("id") == comp["id"]), key=lambda f: f["id"])
+        if mine:
+            path = f"tech-specs/{cslug}/schema/TBL-{sys_slug}-{cslug}.md"
+            text, more, cov = render_tbl(comp, mine, path, comp["name"])
+            notices += more
+            publish("table", "TBL", path, comp, mine, text, cov)
+        mine = [f for f in events if (owner_of(f) or {}).get("id") == comp["id"]]
+        for key, label, group in plan_events(mine):
+            path = f"tech-specs/{cslug}/events/EVT-{sys_slug}-{cslug}-{label}.md"
+            text, more, cov = render_evt(comp, group, path, model, comps, key.startswith("chan:"))
+            notices += more
+            publish("event", "EVT", path, comp, group, text, cov)
+    return out
 
 
 def _model_ids(route: dict, by_id: dict) -> list[str]:
@@ -185,8 +291,9 @@ def _model_ids(route: dict, by_id: dict) -> list[str]:
         todo += [i for p in a["parameters"]["value"] if is_known(p.get("schema")) for i in _refs(p["schema"]["value"])]
     if is_known(a.get("bodies")):  # arguments of a generic response model (Page[Item])
         todo += [i for b in a["bodies"]["value"] for i in _refs(b.get("type_args", []))]
-    if is_known(a.get("response_type")):  # a library generic keeps its model arguments here
-        todo += _refs(a["response_type"]["value"]["schema"])
+    for key in ("response_type", "request_type"):  # a library generic, or a JSON body typed list[Item]
+        if is_known(a.get(key)):
+            todo += _refs(a[key]["value"]["schema"])
     seen = []
     while todo:
         i = todo.pop()
@@ -240,8 +347,10 @@ def _limitations(claims, tools, agent, coverage, parity=None, diagram=None) -> l
 
 
 def readme(repository_name, snap, components, contract_files, facts, file_owner, unassigned, parity, limitations,
-           coverage, agent, diagram) -> str:
+           coverage, agent, diagram, other_files=()) -> str:
     roles = {f["attributes"]["file"]["value"]: f for f in facts if f["kind"] == "file_role"}
+    empty = {f["path"] for f in coverage["files"] if f["status"] == "empty"}
+    outside = {x["path"]: x["scope"] for x in coverage["not_readable"]}
     lines = [f"# {md(repository_name)} — tài liệu L3 API (bản sinh tự động)", "",
              "Bản sinh tự động, chưa được chủ repository duyệt.", "",
              f"- Snapshot: `{snap['snapshot_id']}`",
@@ -250,6 +359,8 @@ def readme(repository_name, snap, components, contract_files, facts, file_owner,
              "## Mục lục contract", ""]
     lines += [f"- API: [{p}]({p}) — component {md(c['name'])}" if not err else
               f"- API: {p} — component {md(c['name'])} — chưa xuất được: {md(err)}" for p, c, err in contract_files] \
+        + [f"- {k}: [{p}]({p}) — component {md(c['name'])}" if not err else
+           f"- {k}: {p} — component {md(c['name'])} — chưa xuất được: {md(err)}" for k, p, c, err in other_files] \
         or ["- (không có)"]
     lines += ["", "## Sơ đồ component", ""]
     if diagram is None:
@@ -269,7 +380,8 @@ def readme(repository_name, snap, components, contract_files, facts, file_owner,
             for p in sorted(packages[pkg]):
                 f = roles.get(p)
                 if f is None:
-                    lines.append(f"  - `{md(p)}` — vai trò unknown: agent chưa xác định")
+                    lines.append(f"  - `{md(p)}` — " + ("file rỗng, không có vai trò" if p in empty else
+                                 f"ngoài phạm vi đọc ({outside[p]})" if p in outside else "vai trò unknown: agent chưa xác định"))
                     continue
                 a = f["attributes"]
                 ev = f["evidence"][0] if f["evidence"] else None

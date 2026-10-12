@@ -1,0 +1,72 @@
+{
+  "key": "CTX-TASK-L3GEN-029-7",
+  "objective": "TASK-L3GEN-029-7",
+  "compiled_at": "2026-10-09",
+  "compiled_late": true,
+  "compiled_late_note": "Lập sau khi code đã viết; ghi lại đúng nguồn chuẩn tắc mà việc này dựa vào ở thời điểm 09/10/2026. Không tuyên bố aide context compile đã chạy.",
+  "requirements": [
+    "FR-L3GEN-029",
+    "AC-L3GEN-029-02"
+  ],
+  "design": [
+    "CMP-L3GEN-007"
+  ],
+  "decisions": [
+    "ADR-2026-006"
+  ],
+  "contracts": [],
+  "constraints": [
+    "NFR-L3GEN-ACC-002",
+    "NFR-L3GEN-SEC-002"
+  ],
+  "open_questions": [
+    "OQ-L3GEN-013",
+    "OQ-L3GEN-016",
+    "OQ-L3GEN-017",
+    "OQ-L3GEN-018"
+  ],
+  "previous_findings": "REVIEW-CODE-L3GEN-2026-001..012, REVIEW-HELDOUT-L3GEN-2026-001..007 (finding có resolution.status open)",
+  "inputs": {
+    ".aide/requirements/fr/FR-L3GEN-029.md": {
+      "revision": 3,
+      "sha256": "6996ad38a106aeb38ee97826ba14cd9d0404188f2bfbd80fcaf623090793a847"
+    },
+    ".aide/architecture/l2/CMP-L3GEN-007.md": {
+      "revision": 5,
+      "sha256": "a2800e9832a304cbe233c3bf4c16cd1cce34cd9aef3a751aaee7401956b9fe11"
+    },
+    ".aide/architecture/adr/ADR-2026-006.md": {
+      "revision": 1,
+      "sha256": "5167ba771fb2f13c0e0186947238a8d8c536346ae72c3b75df82dd0e6a4596fe"
+    },
+    ".aide/requirements/nfr/NFR-L3GEN-ACC-002.md": {
+      "revision": 4,
+      "sha256": "0cf4515263185292dcd32a424dae6fc9cc317bac200855fc3932cf11d5b32014"
+    }
+  },
+  "code_inputs": {
+    "slice/l3slice/docfacts.py": {
+      "sha256": "5184c29e38d298efa6d0c6e912f3829ed109594bf17407051a6e1a8ec6edbfc0"
+    },
+    "slice/l3slice/astscan.py": {
+      "sha256": "dae4b67e345607ef0f5359361c13968d316d6b00f49ecd20d4ebfffaebeb7764"
+    },
+    "slice/tools/fr029_checkaudit.py": {
+      "sha256": "f70c8b5e0d60e5ca915f538ee197583ae196d3e77efb048484e9a38561749a8e"
+    },
+    "slice/tests/test_checker_counterexamples.py": {
+      "sha256": "4e6a210928d855ddee787a5103c141e6ca7ba8ff596a542c5e11c7aa998745f6"
+    }
+  },
+  "authority": {
+    "baseline": "BL-CHG-L3GEN-2026-002-r11",
+    "status": "candidate, chưa ký",
+    "note": "ADR-2026-006 và CMP revision 5 là draft; minimum_status approved_in_baseline chưa đạt."
+  },
+  "code_scope": [
+    "slice/l3slice/docfacts.py",
+    "slice/l3slice/astscan.py",
+    "slice/tools/fr029_checkaudit.py",
+    "slice/tests/test_checker_counterexamples.py"
+  ]
+}

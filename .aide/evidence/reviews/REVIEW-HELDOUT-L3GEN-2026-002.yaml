@@ -1,0 +1,51 @@
+type: review
+group: evidence
+scope: lifecycle
+status: completed
+change_set: CHG-L3GEN-2026-002
+change_request: CR-L3GEN-2026-008
+written_late: true
+evidence_mode: agent_review
+author: Phiên Claude chính (Opus 5.5), theo yêu cầu của Hoàng
+key: REVIEW-HELDOUT-L3GEN-2026-002
+gate: GATE-MERGE
+review_class: adversarial
+review_kind: held-out
+batch: 2
+subject: Gói bộ kiểm FR-029 xuất trên repo chưa dùng để chỉnh
+reviewer: Codex gpt-6-astra high
+repositories:
+- Netflix/dispatch
+- nsidnev/fastapi-realworld-example-app
+- rhoboro/async-fastapi-sqlalchemy
+- rafsaf/minimal-fastapi-postgres-template
+receipt:
+  packet: ket-qua-chay/fr029-heldout-20261008-r6
+  outputs:
+  - .aide/evidence/reviews/fr029-checker-20261007-09/codex/codex_heldout2_out.md
+  output_written: 2026-10-07T21:40Z
+decision: pass
+results:
+  dependency_params: 19 đúng, 0 sai, 0 thiếu
+  suspects: 15 HTTP thật, 0 nhiễu
+  decorators_refused: 1, đúng
+note: 'Giám khảo đọc gói và source repo, không đọc code bộ kiểm. Disposition theo EXEC §D.3: ACCEPTED = lỗi thật của bộ kiểm;
+  REJECTED = không phải lỗi bộ kiểm (lý do ghi kèm); NOT_APPLICABLE = ngoài định nghĩa hiện tại; NEEDS_MORE_EVIDENCE = cần
+  quyết định phạm vi.'
+findings:
+- id: FIND-L3GEN-134
+  severity: low
+  disposition: REJECTED
+  summary: 'Chấm lại sau sửa: 19 tham số đúng, 0 sai, 0 thiếu; 15 dòng nghi ngờ đều là HTTP thật; 1 decorator bị từ chối là
+    app.options của Slack Bolt, từ chối đúng'
+  resolution:
+    status: not_a_defect
+  reason: Không còn lỗi bộ kiểm; mục ghi để lưu kết quả xác nhận.
+- id: FIND-L3GEN-135
+  severity: low
+  disposition: NOT_APPLICABLE
+  summary: 'dispatch: client.delete/post trong plugin Zoom'
+  resolution:
+    status: not_a_defect
+  reason: 'Lời gọi qua lớp/hàm bọc của dự án, không phải lời gọi trực tiếp httpx/requests/aiohttp; ngoài định nghĩa hiện tại
+    (câu hỏi mở: hàm bọc có tính là HTTP không).'

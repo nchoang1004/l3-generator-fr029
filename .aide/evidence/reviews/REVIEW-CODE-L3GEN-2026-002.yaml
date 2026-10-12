@@ -1,0 +1,306 @@
+key: REVIEW-CODE-L3GEN-2026-002
+type: review
+group: evidence
+scope: lifecycle
+status: completed
+gate: GATE-MERGE
+review_class: adversarial
+review_kind: re-review
+round: 2
+change_set: CHG-L3GEN-2026-002
+change_request: CR-L3GEN-2026-008
+subject: Bộ kiểm bằng chứng FR-029 (slice/l3slice/docfacts.py, astscan.py) và công cụ đo slice/tools/fr029_checkaudit.py
+reviewer: Codex gpt-6-astra, model_reasoning_effort=high, sandbox read-only, phiên mới mỗi vòng. Được dặn không đọc docs/,
+  HANDOFF, .aide/evidence/reviews/.
+author: Phiên Claude chính (Opus 5.5), theo yêu cầu của Hoàng
+receipt:
+  prompt: .aide/evidence/reviews/fr029-checker-20261007-09/codex/codex_fairness2.md
+  prompt_file_last_modified: 2026-10-07T21:35Z
+  output: .aide/evidence/reviews/fr029-checker-20261007-09/codex/codex_fairness2_out.md
+  output_written: 2026-10-07T21:42Z
+  measurement_referenced: ket-qua-chay/fr029-checkaudit-20261008-r11
+decision: changes_needed
+reviewer_trust_assessment: thap
+evidence_mode: agent_review
+written_late: true
+note: 'Sinh ngày 09/10/2026 bằng script từ JSON Codex trả về (không chép tay). severity do phiên chính gán theo luật: hậu
+  quả là nhận sai hoặc từ chối nhầm thì medium, bỏ sót hoặc nhiễu thì low; Codex không chấm mức độ (trừ vòng 2 có trường muc_do).
+  resolution.status lấy từ phán quyết của các vòng sau: fixed_confirmed (da_xu_ly), fixed_partial (mot_phan), open (chua),
+  fixed_unconfirmed (chưa có vòng sau). Lệch EXEC §B.17: vượt trần 2 vòng của review adversarial theo yêu cầu người dùng;
+  đề bài từ vòng 6 có ghi chú của tác giả.'
+findings:
+- id: FIND-L3GEN-044
+  codex_label: nhan_nham_route_path
+  target: bộ kiểm
+  severity: cao
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:289
+  - slice/l3slice/docfacts.py:292
+  - slice/tools/fr029_checkaudit.py:140
+  summary: 'Đã tái hiện add_route trả [] dù path thật là /real. Checker chỉ yêu cầu literal xuất hiện trong đoạn, không buộc
+    nó là đối số path. slice/l3slice/docfacts.py:289, slice/l3slice/docfacts.py:292. Audit chỉ gọi _decorator_problems nên
+    không bắt lỗi này: slice/tools/fr029_checkaudit.py:140.'
+  reproduction: 'from fastapi import FastAPI
+
+    app = FastAPI()
+
+    @app.get(''/real'', name=''/fake'')
+
+    def e(): return {}
+
+    # Claim: GET /fake, handler main.py::e,
+
+    # decorator main.py:3-4, application main.py:2,
+
+    # path_parts=[{''kind'':''decorator'',''value'':''/fake'',''at'':''main.py:3''}].'
+  resolution:
+    status: fixed_confirmed
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-006
+    tests:
+    - slice/tests/test_checker_counterexamples.py::RoundTwo
+- id: FIND-L3GEN-045
+  codex_label: nhan_nham_dependency_va_nhac_thua
+  target: bộ kiểm
+  severity: cao
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:318
+  - slice/l3slice/docfacts.py:358
+  - slice/l3slice/docfacts.py:982
+  summary: Đã tái hiện add_route nhận dependency other và open_problems nhắc query x, dù route chỉ gọi real. Regex chấp nhận
+    chữ other trong literal. slice/l3slice/docfacts.py:318, slice/l3slice/docfacts.py:358, slice/l3slice/docfacts.py:982.
+  reproduction: 'from fastapi import FastAPI, Depends, Query
+
+    def real(): return 1
+
+    def other(x: str = Query()): return x
+
+    app = FastAPI()
+
+    @app.get(''/e'')
+
+    def e(v=Depends(real), note: str=''other''): return v
+
+    # Claim dependency other tại main.py:6.'
+  resolution:
+    status: fixed_confirmed
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-006
+    tests:
+    - slice/tests/test_checker_counterexamples.py::RoundTwo
+- id: FIND-L3GEN-046
+  codex_label: thieu_tham_so_do_dependency_trung_ten_module
+  target: bộ kiểm
+  severity: cao
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:1011
+  - slice/l3slice/docfacts.py:1017
+  - slice/l3slice/docfacts.py:1088
+  summary: Đã tái hiện claim dependency được nhận nhưng không nhắc x-a; OpenAPI FastAPI xác nhận x-a là header của route.
+    dependency_params thấy hai def dep toàn snapshot rồi trả [], kể cả khi truyền context='a.py'. slice/l3slice/docfacts.py:1011,
+    slice/l3slice/docfacts.py:1017, slice/l3slice/docfacts.py:1088.
+  reproduction: '# a.py
+
+    from fastapi import Header
+
+    def dep(x_a: str = Header()): return x_a
+
+    # b.py
+
+    from fastapi import Header
+
+    def dep(x_b: str = Header()): return x_b
+
+    # main.py
+
+    from fastapi import FastAPI, Depends
+
+    from a import dep
+
+    app = FastAPI()
+
+    @app.get(''/e'')
+
+    def e(v=Depends(dep)): return v'
+  resolution:
+    status: fixed_confirmed
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-006
+    tests:
+    - slice/tests/test_checker_counterexamples.py::RoundTwo
+- id: FIND-L3GEN-047
+  codex_label: nhac_sai_ten_header_va_audit_khong_phat_hien
+  target: bộ kiểm
+  severity: cao
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:1057
+  - slice/l3slice/docfacts.py:1059
+  - slice/tools/fr029_checkaudit.py:232
+  summary: Đã tái hiện checker nhắc x-custom thay vì x_custom; OpenAPI xác nhận tên đúng là x_custom. Audit lại coi hai tên
+    bằng nhau nên báo không sai/không thiếu. slice/l3slice/docfacts.py:1057, slice/l3slice/docfacts.py:1059; slice/tools/fr029_checkaudit.py:232;
+    C:/Users/dell/AppData/Local/Programs/Python/Python311/Lib/site-packages/fastapi/dependencies/utils.py:483.
+  reproduction: 'from fastapi import FastAPI, Depends, Header
+
+    def dep(x_custom: str = Header(convert_underscores=False)): return x_custom
+
+    app = FastAPI()
+
+    @app.get(''/e'')
+
+    def e(v=Depends(dep)): return v'
+  resolution:
+    status: fixed_confirmed
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-006
+    tests:
+    - slice/tests/test_checker_counterexamples.py::RoundTwo
+- id: FIND-L3GEN-048
+  codex_label: thieu_query_khong_annotation
+  target: bộ kiểm
+  severity: vua
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:1046
+  - slice/l3slice/astscan.py:293
+  - slice/l3slice/astscan.py:306
+  summary: Đã tái hiện không có reminder q dù OpenAPI có query q. Checker chỉ nhắc scalar khi annotation được scalar() nhận;
+    annotation None bị bỏ qua. slice/l3slice/docfacts.py:1046, slice/l3slice/astscan.py:293, slice/l3slice/astscan.py:306.
+  reproduction: 'from fastapi import FastAPI, Depends
+
+    def dep(q=''abc''): return q
+
+    app = FastAPI()
+
+    @app.get(''/e'')
+
+    def e(v=Depends(dep)): return v'
+  resolution:
+    status: fixed_confirmed
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-006
+    tests:
+    - slice/tests/test_checker_counterexamples.py::RoundTwo
+- id: FIND-L3GEN-049
+  codex_label: nhan_nham_http_do_trung_ten_bien_khac_scope
+  target: bộ kiểm
+  severity: cao
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/astscan.py:144
+  - slice/l3slice/astscan.py:212
+  - slice/l3slice/astscan.py:232
+  - slice/l3slice/docfacts.py:764
+  summary: Đã tái hiện dòng 10 vừa thành HTTP suspect vừa được add_http nhận với library=httpx, method=GET và target=https://fake.example.
+    Tên c của remote được dùng để xác minh c trong e, dù đó là dict. slice/l3slice/astscan.py:144, slice/l3slice/astscan.py:212,
+    slice/l3slice/astscan.py:232; slice/l3slice/docfacts.py:764.
+  reproduction: "from fastapi import FastAPI\nimport httpx\napp = FastAPI()\ndef remote():\n    c = httpx.Client()\n    return\
+    \ c.get('https://real.example')\n@app.get('/e')\ndef e():\n    c = {'https://fake.example': 1}\n    return c.get('https://fake.example')"
+  resolution:
+    status: fixed_confirmed
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-006
+    tests:
+    - slice/tests/test_checker_counterexamples.py::RoundTwo
+- id: FIND-L3GEN-050
+  codex_label: nhan_nham_http_qua_client_at_khong_ton_tai
+  target: bộ kiểm
+  severity: cao
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:684
+  - slice/l3slice/docfacts.py:686
+  - slice/l3slice/docfacts.py:697
+  - slice/l3slice/docfacts.py:760
+  summary: Đã tái hiện add_http trả []. Khi file đã import httpx, client_at không được loc xác minh; chỉ cần giá trị truthy
+    là bỏ kiểm receiver. slice/l3slice/docfacts.py:684, slice/l3slice/docfacts.py:686, slice/l3slice/docfacts.py:697, slice/l3slice/docfacts.py:760.
+  reproduction: "from fastapi import FastAPI\nimport httpx\napp = FastAPI()\n@app.get('/e')\ndef e():\n    cache = {'https://fake.example':\
+    \ 1}\n    return cache.get('https://fake.example')\n# Nộp HTTP tại main.py:7, library=httpx, method=GET,\n# target literal\
+    \ https://fake.example,\n# client_at='not_exist.py:999'."
+  resolution:
+    status: fixed_confirmed
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-006
+    tests:
+    - slice/tests/test_checker_counterexamples.py::RoundTwo
+- id: FIND-L3GEN-051
+  codex_label: bo_sot_http_client_truyen_qua_depends
+  target: bộ kiểm
+  severity: cao
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/astscan.py:137
+  - slice/l3slice/astscan.py:201
+  - slice/l3slice/astscan.py:223
+  - slice/l3slice/astscan.py:252
+  summary: Đã tái hiện suspects chỉ có route, không có HTTP dòng 9; claim đúng cũng bị từ chối nếu không thêm client_at. Scanner
+    biết factory get_wire nhưng không bind đối số wire từ Depends(get_wire). slice/l3slice/astscan.py:137, slice/l3slice/astscan.py:201,
+    slice/l3slice/astscan.py:223, slice/l3slice/astscan.py:252; slice/l3slice/docfacts.py:764.
+  reproduction: "from fastapi import FastAPI, Depends\nimport httpx\napp = FastAPI()\ndef get_wire():\n    with httpx.Client()\
+    \ as c:\n        yield c\n@app.get('/e')\ndef e(wire=Depends(get_wire)):\n    return wire.get('https://real.example')"
+  resolution:
+    status: fixed_confirmed
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-006
+    tests:
+    - slice/tests/test_checker_counterexamples.py::RoundTwo
+- id: FIND-L3GEN-052
+  codex_label: bo_sot_http_client_import_co_annotation
+  target: bộ kiểm
+  severity: cao
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/astscan.py:264
+  - slice/l3slice/docfacts.py:809
+  - slice/l3slice/astscan.py:122
+  - slice/l3slice/docfacts.py:934
+  summary: Đã tái hiện không có HTTP suspect trong main.py. module_clients chỉ xuất ast.Assign, bỏ ast.AnnAssign; file gọi
+    không import trực tiếp thư viện nên scan.capable=False. Cùng lỗ hổng AST áp dụng với requests.Session và aiohttp.ClientSession
+    khai báo theo dạng này. slice/l3slice/astscan.py:264, slice/l3slice/docfacts.py:809, slice/l3slice/astscan.py:122, slice/l3slice/docfacts.py:934.
+  reproduction: '# clients.py
+
+    import httpx
+
+    wire: httpx.Client = httpx.Client()
+
+    # main.py
+
+    from fastapi import FastAPI
+
+    from clients import wire
+
+    app = FastAPI()
+
+    @app.get(''/e'')
+
+    def e(): return wire.get(''https://real.example'')'
+  resolution:
+    status: fixed_confirmed
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-006
+    tests:
+    - slice/tests/test_checker_counterexamples.py::RoundTwo
+- id: FIND-L3GEN-053
+  codex_label: tu_choi_nham_va_bo_sot_http_thu_hai_cung_dong
+  target: bộ kiểm
+  severity: cao
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/astscan.py:270
+  - slice/l3slice/astscan.py:274
+  - slice/l3slice/docfacts.py:693
+  - slice/l3slice/docfacts.py:923
+  summary: Đã tái hiện claim POST tại main.py:6 bị so với GET đầu tiên nên bị từ chối method/URL. Sau khi nộp GET, POST cũng
+    không còn được nhắc trong suspects. call_at luôn lấy call đầu; coverage HTTP chỉ lưu dòng. slice/l3slice/astscan.py:270,
+    slice/l3slice/astscan.py:274, slice/l3slice/docfacts.py:693, slice/l3slice/docfacts.py:923, slice/l3slice/docfacts.py:940.
+  reproduction: "from fastapi import FastAPI\nimport httpx\napp = FastAPI()\n@app.get('/e')\ndef e():\n    httpx.get('https://a.example');\
+    \ httpx.post('https://b.example')"
+  resolution:
+    status: fixed_confirmed
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-006
+    tests:
+    - slice/tests/test_checker_counterexamples.py::RoundTwo

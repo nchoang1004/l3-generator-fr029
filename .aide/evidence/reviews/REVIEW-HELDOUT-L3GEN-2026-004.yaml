@@ -1,0 +1,85 @@
+type: review
+group: evidence
+scope: lifecycle
+status: completed
+change_set: CHG-L3GEN-2026-002
+change_request: CR-L3GEN-2026-008
+written_late: true
+evidence_mode: agent_review
+author: Phiên Claude chính (Opus 5.5), theo yêu cầu của Hoàng
+key: REVIEW-HELDOUT-L3GEN-2026-004
+gate: GATE-MERGE
+review_class: adversarial
+review_kind: held-out
+batch: 4
+subject: Gói bộ kiểm FR-029 xuất trên repo chưa dùng để chỉnh
+reviewer: Codex gpt-6-astra high (3 phiên song song)
+repositories:
+- primerhq/primer
+- caura-ai/caura
+- stevezau/shortlist
+receipt:
+  packet: ket-qua-chay/fr029-heldout-20261008-r13
+  outputs:
+  - .aide/evidence/reviews/fr029-checker-20261007-09/codex/codex_heldout4a_out.md
+  - .aide/evidence/reviews/fr029-checker-20261007-09/codex/codex_heldout4b_out.md
+  - .aide/evidence/reviews/fr029-checker-20261007-09/codex/codex_heldout4c_out.md
+  output_written: 2026-10-08T08:42Z
+decision: changes_needed
+results:
+  dependency_params: primer 4 đúng; caura, shortlist 0 sai 0 thiếu
+  suspects: primer 26 HTTP + 1 đăng ký + 1 nhiễu; caura 19 HTTP + 2 urllib + 4 đăng ký; shortlist 43 HTTP + 7 hợp lý
+note: 'Giám khảo đọc gói và source repo, không đọc code bộ kiểm. Disposition theo EXEC §D.3: ACCEPTED = lỗi thật của bộ kiểm;
+  REJECTED = không phải lỗi bộ kiểm (lý do ghi kèm); NOT_APPLICABLE = ngoài định nghĩa hiện tại; NEEDS_MORE_EVIDENCE = cần
+  quyết định phạm vi.'
+findings:
+- id: FIND-L3GEN-139
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location: core-api/src/core_api/clients/identity_token.py:101
+  summary: 'caura: super().request(...) trong lớp con requests.Session bị sót (2 dòng)'
+  resolution:
+    status: fixed_by_test
+    tests:
+    - slice/tests/test_checker_counterexamples.py::HeldOutFindings::test_super_call_inside_a_client_subclass
+- id: FIND-L3GEN-140
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location: primer/channel/slack/adapter.py:228
+  summary: 'primer: self._session_threads.get(...) trên dict bị đánh dấu nghi ngờ'
+  resolution:
+    status: open
+  reason: Nhiễu 1/28 dòng; chưa sửa.
+- id: FIND-L3GEN-141
+  severity: low
+  disposition: NOT_APPLICABLE
+  summary: 'caura: 44 lời gọi trong scripts/ và *_test.py'
+  resolution:
+    status: not_a_defect
+  reason: Nằm trong file test hoặc script ngoài phạm vi đọc FR-028.
+- id: FIND-L3GEN-142
+  severity: low
+  disposition: NOT_APPLICABLE
+  summary: 'shortlist: http_retry.get(...) và _send(...) là hàm bọc'
+  resolution:
+    status: not_a_defect
+  reason: 'Lời gọi qua lớp/hàm bọc của dự án, không phải lời gọi trực tiếp httpx/requests/aiohttp; ngoài định nghĩa hiện tại
+    (câu hỏi mở: hàm bọc có tính là HTTP không).'
+- id: FIND-L3GEN-143
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location: shortlist/engine/clients/plex_pms.py:397
+  summary: 'shortlist: super().send(...) trong lớp con HTTPAdapter của requests'
+  resolution:
+    status: open
+  reason: Tầng transport của requests; chưa xử lý.
+- id: FIND-L3GEN-144
+  severity: low
+  disposition: REJECTED
+  summary: 'shortlist: require_support_mode gắn ở cấp router không có trong gói'
+  resolution:
+    status: not_a_defect
+  reason: Giới hạn của công cụ xuất gói; hàm không có tham số request.

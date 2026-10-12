@@ -1,0 +1,1300 @@
+key: REVIEW-CODE-L3GEN-2026-001
+type: review
+group: evidence
+scope: lifecycle
+status: completed
+gate: GATE-MERGE
+review_class: adversarial
+review_kind: initial
+round: 1
+change_set: CHG-L3GEN-2026-002
+change_request: CR-L3GEN-2026-008
+subject: Bộ kiểm bằng chứng FR-029 (slice/l3slice/docfacts.py, astscan.py) và công cụ đo slice/tools/fr029_checkaudit.py
+reviewer: Codex gpt-6-astra, model_reasoning_effort=high, sandbox read-only, phiên mới mỗi vòng. Được dặn không đọc docs/,
+  HANDOFF, .aide/evidence/reviews/.
+author: Phiên Claude chính (Opus 5.5), theo yêu cầu của Hoàng
+receipt:
+  prompt: .aide/evidence/reviews/fr029-checker-20261007-09/codex/codex_fairness.md
+  prompt_file_last_modified: 2026-10-07T20:59Z
+  output: .aide/evidence/reviews/fr029-checker-20261007-09/codex/codex_fairness_out.md
+  output_written: 2026-10-07T21:07Z
+  measurement_referenced: bản đầu của công cụ đo (ket-qua-chay/fr029-checkaudit-20261008-r1..r8)
+decision: changes_needed
+reviewer_trust_assessment: null
+evidence_mode: agent_review
+written_late: true
+note: 'Sinh ngày 09/10/2026 bằng script từ JSON Codex trả về (không chép tay). severity do phiên chính gán theo luật: hậu
+  quả là nhận sai hoặc từ chối nhầm thì medium, bỏ sót hoặc nhiễu thì low; Codex không chấm mức độ (trừ vòng 2 có trường muc_do).
+  resolution.status lấy từ phán quyết của các vòng sau: fixed_confirmed (da_xu_ly), fixed_partial (mot_phan), open (chua),
+  fixed_unconfirmed (chưa có vòng sau). Lệch EXEC §B.17: vượt trần 2 vòng của review adversarial theo yêu cầu người dùng;
+  đề bài từ vòng 6 có ghi chú của tác giả.'
+findings:
+- id: FIND-L3GEN-001
+  codex_label: Alias được gộp theo tên trên toàn snapshot, không theo module/import.
+  target: bộ kiểm
+  severity: medium
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:358
+  - slice/l3slice/docfacts.py:362
+  - slice/l3slice/docfacts.py:363
+  - slice/l3slice/docfacts.py:848
+  summary: 'Bảng UserDep chứa cả dep_a và dep_b. dependency_at có thể nhận claim dep_b tại dòng endpoint dù route chỉ dùng
+    alias từ a; phép nhắc qua alias cũng có thể kéo tham số của b vào. Nguồn: slice/l3slice/docfacts.py:358, slice/l3slice/docfacts.py:362,
+    slice/l3slice/docfacts.py:363, slice/l3slice/docfacts.py:848.'
+  reproduction: '# a.py
+
+    from typing import Annotated
+
+    from fastapi import Depends, Header
+
+    def dep_a(x_a: str = Header()): return x_a
+
+    UserDep = Annotated[str, Depends(dep_a)]
+
+
+    # b.py
+
+    from typing import Annotated
+
+    from fastapi import Depends, Header
+
+    def dep_b(x_b: str = Header()): return x_b
+
+    UserDep = Annotated[str, Depends(dep_b)]
+
+
+    # main.py
+
+    from fastapi import FastAPI
+
+    from a import UserDep
+
+    app = FastAPI()
+
+    @app.get(''/'')
+
+    def endpoint(user: UserDep): return user'
+  resolution:
+    status: fixed_partial
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::Dependencies
+    - slice/tests/test_checker_counterexamples.py::Routes
+    - slice/tests/test_checker_counterexamples.py::HttpClaims
+    - slice/tests/test_checker_counterexamples.py::SuspectRecall
+    reviewer_note: 125/125 test trong module phản ví dụ chạy qua bằng helper RAM; riêng RoundNineCodex 7/7 và RoundNine 9/9.
+      Tuy nhiên sáu ca mới bên dưới vẫn tái hiện; chưa đủ bằng chứng khái quát hóa cao, không suy diễn tác giả cố ý overfit.
+      slice/tests/test_checker_counterexamples.py:17; slice/tests/test_checker_counterexamples.py:959; slice/tests/test_checker_counterexamples.py:1035;
+      slice/l3slice/astscan.py:412; slice/l3slice/docfacts.py:790.
+- id: FIND-L3GEN-002
+  codex_label: Alias chỉ nhận Annotated và Depends trên cùng dòng khai báo.
+  target: bộ kiểm
+  severity: medium
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:352
+  - slice/l3slice/docfacts.py:359
+  - slice/l3slice/docfacts.py:361
+  - slice/l3slice/docfacts.py:848
+  summary: 'Không ghi TokenDep vào bảng alias: claim token tại dòng endpoint bị từ chối, và việc nhắc x-token qua alias bị
+    bỏ sót. Alias dùng Security cũng không được regex Depends nhận. Nguồn: slice/l3slice/docfacts.py:352, slice/l3slice/docfacts.py:359,
+    slice/l3slice/docfacts.py:361, slice/l3slice/docfacts.py:848.'
+  reproduction: "from typing import Annotated\nfrom fastapi import FastAPI, Depends, Header\ndef token(x_token: str = Header()):\
+    \ return x_token\nTokenDep = Annotated[\n    str,\n    Depends(token),\n]\napp = FastAPI()\n@app.get('/')\ndef endpoint(t:\
+    \ TokenDep): return t"
+  resolution:
+    status: fixed_partial
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::Dependencies
+    - slice/tests/test_checker_counterexamples.py::Routes
+    - slice/tests/test_checker_counterexamples.py::HttpClaims
+    - slice/tests/test_checker_counterexamples.py::SuspectRecall
+    reviewer_note: 125/125 test trong module phản ví dụ chạy qua bằng helper RAM; riêng RoundNineCodex 7/7 và RoundNine 9/9.
+      Tuy nhiên sáu ca mới bên dưới vẫn tái hiện; chưa đủ bằng chứng khái quát hóa cao, không suy diễn tác giả cố ý overfit.
+      slice/tests/test_checker_counterexamples.py:17; slice/tests/test_checker_counterexamples.py:959; slice/tests/test_checker_counterexamples.py:1035;
+      slice/l3slice/astscan.py:412; slice/l3slice/docfacts.py:790.
+- id: FIND-L3GEN-003
+  codex_label: Class.method bị rút gọn thành tên method khi kiểm chứng và khi đệ quy dependency.
+  target: bộ kiểm
+  severity: medium
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:350
+  - slice/l3slice/docfacts.py:817
+  - slice/l3slice/docfacts.py:820
+  - slice/l3slice/docfacts.py:862
+  summary: 'Ở dòng Depends(B.inject), claim A.inject vẫn được dependency_at nhận vì chỉ tìm inject. Khi dependency_params
+    đi từ outer tới B.inject, _name_of làm mất B; có hai inject nên trả [] và bỏ x-b. Bộ lọc theo class chỉ giúp khi tên có
+    dấu chấm còn được giữ. Nguồn: slice/l3slice/docfacts.py:350, slice/l3slice/docfacts.py:817, slice/l3slice/docfacts.py:820,
+    slice/l3slice/docfacts.py:862, slice/l3slice/docfacts.py:911.'
+  reproduction: "from fastapi import FastAPI, Depends, Header\nclass A:\n    @staticmethod\n    def inject(x_a: str = Header()):\
+    \ return x_a\nclass B:\n    @staticmethod\n    def inject(x_b: str = Header()): return x_b\ndef outer(v=Depends(B.inject)):\
+    \ return v\napp = FastAPI()\n@app.get('/')\ndef endpoint(v=Depends(outer)): return v"
+  resolution:
+    status: fixed_partial
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::Dependencies
+    - slice/tests/test_checker_counterexamples.py::Routes
+    - slice/tests/test_checker_counterexamples.py::HttpClaims
+    - slice/tests/test_checker_counterexamples.py::SuspectRecall
+    reviewer_note: 125/125 test trong module phản ví dụ chạy qua bằng helper RAM; riêng RoundNineCodex 7/7 và RoundNine 9/9.
+      Tuy nhiên sáu ca mới bên dưới vẫn tái hiện; chưa đủ bằng chứng khái quát hóa cao, không suy diễn tác giả cố ý overfit.
+      slice/tests/test_checker_counterexamples.py:17; slice/tests/test_checker_counterexamples.py:959; slice/tests/test_checker_counterexamples.py:1035;
+      slice/l3slice/astscan.py:412; slice/l3slice/docfacts.py:790.
+- id: FIND-L3GEN-004
+  codex_label: Factory dependency được suy từ việc trả về hàm con, không phân biệt Depends(factory) với Depends(factory(...)).
+  target: bộ kiểm
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:826
+  - slice/l3slice/docfacts.py:830
+  - slice/l3slice/docfacts.py:863
+  summary: 'FastAPI gọi provider nên q là tham số của dependency. Checker chuyển sang inner, nhắc query x và bỏ q. Cách sửa
+    phù hợp factory AgentGPT không đủ để xác định ngữ nghĩa mọi hàm trả callable. Nguồn: slice/l3slice/docfacts.py:826, slice/l3slice/docfacts.py:830,
+    slice/l3slice/docfacts.py:863; việc FastAPI lấy signature của callable dependency: C:/Users/dell/AppData/Local/Programs/Python/Python311/Lib/site-packages/fastapi/dependencies/utils.py:274.'
+  reproduction: "from fastapi import FastAPI, Depends, Query\ndef provider(q: str):\n    def inner(x: str = Query(...)): return\
+    \ x\n    return inner\napp = FastAPI()\n@app.get('/')\ndef endpoint(value=Depends(provider)): return {'ok': True}"
+  resolution:
+    status: fixed_partial
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::Dependencies
+    - slice/tests/test_checker_counterexamples.py::Routes
+    - slice/tests/test_checker_counterexamples.py::HttpClaims
+    - slice/tests/test_checker_counterexamples.py::SuspectRecall
+    reviewer_note: 125/125 test trong module phản ví dụ chạy qua bằng helper RAM; riêng RoundNineCodex 7/7 và RoundNine 9/9.
+      Tuy nhiên sáu ca mới bên dưới vẫn tái hiện; chưa đủ bằng chứng khái quát hóa cao, không suy diễn tác giả cố ý overfit.
+      slice/tests/test_checker_counterexamples.py:17; slice/tests/test_checker_counterexamples.py:959; slice/tests/test_checker_counterexamples.py:1035;
+      slice/l3slice/astscan.py:412; slice/l3slice/docfacts.py:790.
+- id: FIND-L3GEN-005
+  codex_label: _factory_makes_app coi có tạo FastAPI ở đâu đó trong thân hàm là trả về app.
+  target: bộ kiểm
+  severity: medium
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:369
+  - slice/l3slice/docfacts.py:373
+  - slice/l3slice/docfacts.py:394
+  summary: 'Nhận decorator giả: factory có literal FastAPI( nên được coi là tạo receiver hợp lệ dù trả Registry. Không phân
+    tích đối tượng thực sự được return. Nguồn: slice/l3slice/docfacts.py:369, slice/l3slice/docfacts.py:373, slice/l3slice/docfacts.py:394.'
+  reproduction: "from fastapi import FastAPI\nclass Registry:\n    def get(self, path): return lambda fn: fn\ndef build():\n\
+    \    unused = FastAPI()\n    return Registry()\nrouter = build()\n@router.get('/fake')\ndef fake(): return {}"
+  resolution:
+    status: fixed_partial
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::Dependencies
+    - slice/tests/test_checker_counterexamples.py::Routes
+    - slice/tests/test_checker_counterexamples.py::HttpClaims
+    - slice/tests/test_checker_counterexamples.py::SuspectRecall
+    reviewer_note: 125/125 test trong module phản ví dụ chạy qua bằng helper RAM; riêng RoundNineCodex 7/7 và RoundNine 9/9.
+      Tuy nhiên sáu ca mới bên dưới vẫn tái hiện; chưa đủ bằng chứng khái quát hóa cao, không suy diễn tác giả cố ý overfit.
+      slice/tests/test_checker_counterexamples.py:17; slice/tests/test_checker_counterexamples.py:959; slice/tests/test_checker_counterexamples.py:1035;
+      slice/l3slice/astscan.py:412; slice/l3slice/docfacts.py:790.
+- id: FIND-L3GEN-006
+  codex_label: _factory_makes_app không theo chuỗi factory và phụ thuộc tên constructor.
+  target: bộ kiểm
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:374
+  - slice/l3slice/docfacts.py:375
+  - slice/l3slice/docfacts.py:394
+  summary: 'Từ chối decorator thật: thân create không chứa FastAPI(/APIRouter( và không có return annotation tương ứng. Một
+    factory dùng import FastAPI as FA cũng gặp cùng giới hạn tên. Nguồn: slice/l3slice/docfacts.py:374, slice/l3slice/docfacts.py:375,
+    slice/l3slice/docfacts.py:394.'
+  reproduction: 'from fastapi import FastAPI
+
+    def build(): return FastAPI()
+
+    def create(): return build()
+
+    app = create()
+
+    @app.get(''/real'')
+
+    def real(): return {}'
+  resolution:
+    status: fixed_partial
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::Dependencies
+    - slice/tests/test_checker_counterexamples.py::Routes
+    - slice/tests/test_checker_counterexamples.py::HttpClaims
+    - slice/tests/test_checker_counterexamples.py::SuspectRecall
+    reviewer_note: 125/125 test trong module phản ví dụ chạy qua bằng helper RAM; riêng RoundNineCodex 7/7 và RoundNine 9/9.
+      Tuy nhiên sáu ca mới bên dưới vẫn tái hiện; chưa đủ bằng chứng khái quát hóa cao, không suy diễn tác giả cố ý overfit.
+      slice/tests/test_checker_counterexamples.py:17; slice/tests/test_checker_counterexamples.py:959; slice/tests/test_checker_counterexamples.py:1035;
+      slice/l3slice/astscan.py:412; slice/l3slice/docfacts.py:790.
+- id: FIND-L3GEN-007
+  codex_label: Receiver decorator được import mà không có phép gán cùng file không bị xác minh.
+  target: bộ kiểm
+  severity: medium
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/tests/fixtures/fr029/exclusions/app/routers/orders.py:3
+  - slice/tests/fixtures/fr029/exclusions/app/routers/orders.py:13
+  - slice/tests/fixtures/fr029/exclusions/app/hooks.py:5
+  - slice/tests/fixtures/fr029/exclusions/app/hooks.py:13
+  summary: '_decorator_problems chấp nhận GET vì built rỗng, dù registry là Registry tự viết và gold ghi not_fastapi. Đây
+    là phản ví dụ đã nằm trong corpus, không chỉ giả định repo mới. Nguồn: slice/tests/fixtures/fr029/exclusions/app/routers/orders.py:3,
+    slice/tests/fixtures/fr029/exclusions/app/routers/orders.py:13, slice/tests/fixtures/fr029/exclusions/app/hooks.py:5,
+    slice/tests/fixtures/fr029/exclusions/app/hooks.py:13, slice/tests/fixtures/fr029/exclusions.gold.json:51, slice/l3slice/docfacts.py:392,
+    slice/l3slice/docfacts.py:394.'
+  reproduction: "# Trích fixture hiện có:\nfrom app.hooks import registry\n@registry.get('/orders/cached')\ndef cached_orders():\n\
+    \    return []"
+  resolution:
+    status: fixed_partial
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::Dependencies
+    - slice/tests/test_checker_counterexamples.py::Routes
+    - slice/tests/test_checker_counterexamples.py::HttpClaims
+    - slice/tests/test_checker_counterexamples.py::SuspectRecall
+    reviewer_note: 125/125 test trong module phản ví dụ chạy qua bằng helper RAM; riêng RoundNineCodex 7/7 và RoundNine 9/9.
+      Tuy nhiên sáu ca mới bên dưới vẫn tái hiện; chưa đủ bằng chứng khái quát hóa cao, không suy diễn tác giả cố ý overfit.
+      slice/tests/test_checker_counterexamples.py:17; slice/tests/test_checker_counterexamples.py:959; slice/tests/test_checker_counterexamples.py:1035;
+      slice/l3slice/astscan.py:412; slice/l3slice/docfacts.py:790.
+- id: FIND-L3GEN-008
+  codex_label: _decorator_problems tìm method literal trong toàn bộ decorator api_route.
+  target: bộ kiểm
+  severity: medium
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:397
+  - slice/l3slice/docfacts.py:398
+  - slice/tools/fr029_checkaudit.py:130
+  summary: 'Claim POST được chấp nhận dù methods chỉ chứa GET, vì POST có trong name. Mutation hiện tại tránh mọi method literal
+    có trong đoạn nên tránh đúng phản ví dụ này. Nguồn: slice/l3slice/docfacts.py:397, slice/l3slice/docfacts.py:398, slice/tools/fr029_checkaudit.py:130.'
+  reproduction: 'from fastapi import FastAPI
+
+    app = FastAPI()
+
+    @app.api_route(''/x'', methods=[''GET''], name=''POST'')
+
+    def endpoint(): return {}'
+  resolution:
+    status: fixed_partial
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::Dependencies
+    - slice/tests/test_checker_counterexamples.py::Routes
+    - slice/tests/test_checker_counterexamples.py::HttpClaims
+    - slice/tests/test_checker_counterexamples.py::SuspectRecall
+    reviewer_note: 125/125 test trong module phản ví dụ chạy qua bằng helper RAM; riêng RoundNineCodex 7/7 và RoundNine 9/9.
+      Tuy nhiên sáu ca mới bên dưới vẫn tái hiện; chưa đủ bằng chứng khái quát hóa cao, không suy diễn tác giả cố ý overfit.
+      slice/tests/test_checker_counterexamples.py:17; slice/tests/test_checker_counterexamples.py:959; slice/tests/test_checker_counterexamples.py:1035;
+      slice/l3slice/astscan.py:412; slice/l3slice/docfacts.py:790.
+- id: FIND-L3GEN-009
+  codex_label: Scalar trong dependency mặc định luôn được nhắc là query, không xét path của route.
+  target: bộ kiểm
+  severity: medium
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:811
+  - slice/l3slice/docfacts.py:844
+  summary: 'Nhắc thêm query item_id sai, trong khi FastAPI nhận item_id từ path. dependency_params không nhận ngữ cảnh path
+    và luôn phát query cho scalar không marker. Nguồn: slice/l3slice/docfacts.py:811, slice/l3slice/docfacts.py:844; quy tắc
+    thật trong code FastAPI: C:/Users/dell/AppData/Local/Programs/Python/Python311/Lib/site-packages/fastapi/dependencies/utils.py:284,
+    C:/Users/dell/AppData/Local/Programs/Python/Python311/Lib/site-packages/fastapi/dependencies/utils.py:448.'
+  reproduction: 'from fastapi import FastAPI, Depends
+
+    def identify(item_id: int): return item_id
+
+    app = FastAPI()
+
+    @app.get(''/items/{item_id}'')
+
+    def endpoint(value=Depends(identify)): return value'
+  resolution:
+    status: fixed_partial
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::Dependencies
+    - slice/tests/test_checker_counterexamples.py::Routes
+    - slice/tests/test_checker_counterexamples.py::HttpClaims
+    - slice/tests/test_checker_counterexamples.py::SuspectRecall
+    reviewer_note: 125/125 test trong module phản ví dụ chạy qua bằng helper RAM; riêng RoundNineCodex 7/7 và RoundNine 9/9.
+      Tuy nhiên sáu ca mới bên dưới vẫn tái hiện; chưa đủ bằng chứng khái quát hóa cao, không suy diễn tác giả cố ý overfit.
+      slice/tests/test_checker_counterexamples.py:17; slice/tests/test_checker_counterexamples.py:959; slice/tests/test_checker_counterexamples.py:1035;
+      slice/l3slice/astscan.py:412; slice/l3slice/docfacts.py:790.
+- id: FIND-L3GEN-010
+  codex_label: Scalar chỉ được nhận bằng danh sách tên và vài dạng AST.
+  target: bộ kiểm
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:892
+  - slice/l3slice/docfacts.py:895
+  - slice/l3slice/docfacts.py:903
+  summary: 'Bỏ nhắc q: annotation chuỗi là ast.Constant nên _scalar trả false, trong khi FastAPI giải annotation chuỗi trước
+    khi phân tích tham số. Nguồn: slice/l3slice/docfacts.py:892, slice/l3slice/docfacts.py:895, slice/l3slice/docfacts.py:903,
+    C:/Users/dell/AppData/Local/Programs/Python/Python311/Lib/site-packages/fastapi/dependencies/utils.py:247.'
+  reproduction: 'from fastapi import FastAPI, Depends
+
+    def search(q: ''str''): return q
+
+    app = FastAPI()
+
+    @app.get(''/'')
+
+    def endpoint(value=Depends(search)): return value'
+  resolution:
+    status: fixed_partial
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::Dependencies
+    - slice/tests/test_checker_counterexamples.py::Routes
+    - slice/tests/test_checker_counterexamples.py::HttpClaims
+    - slice/tests/test_checker_counterexamples.py::SuspectRecall
+    reviewer_note: 125/125 test trong module phản ví dụ chạy qua bằng helper RAM; riêng RoundNineCodex 7/7 và RoundNine 9/9.
+      Tuy nhiên sáu ca mới bên dưới vẫn tái hiện; chưa đủ bằng chứng khái quát hóa cao, không suy diễn tác giả cố ý overfit.
+      slice/tests/test_checker_counterexamples.py:17; slice/tests/test_checker_counterexamples.py:959; slice/tests/test_checker_counterexamples.py:1035;
+      slice/l3slice/astscan.py:412; slice/l3slice/docfacts.py:790.
+- id: FIND-L3GEN-011
+  codex_label: CLIENT_NAME và tên Client/Session là dấu hiệu từ vựng, không chứng minh receiver HTTP.
+  target: bộ kiểm
+  severity: medium
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:568
+  - slice/l3slice/docfacts.py:576
+  - slice/l3slice/docfacts.py:596
+  - slice/l3slice/docfacts.py:755
+  summary: 'suspects đánh dấu thao tác dict vì tên chứa client. Nếu nộp claim library=httpx, method=GET và URL là khóa dict
+    thì add_http cũng chấp nhận: nó kiểm import và hình dạng lời gọi, không kiểm receiver. R4 vẫn có nhiễu session.delete
+    và redis_client.get. Nguồn: slice/l3slice/docfacts.py:568, slice/l3slice/docfacts.py:576, slice/l3slice/docfacts.py:596,
+    slice/l3slice/docfacts.py:755, slice/l3slice/docfacts.py:922, ket-qua-chay/fr029-checkaudit-20261008-r4/audit.json:78,
+    ket-qua-chay/fr029-checkaudit-20261008-r4/audit.json:537.'
+  reproduction: 'import httpx
+
+    client_cache = {''https://api.example/items'': 1}
+
+    value = client_cache.get(''https://api.example/items'')'
+  resolution:
+    status: fixed_partial
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::Dependencies
+    - slice/tests/test_checker_counterexamples.py::Routes
+    - slice/tests/test_checker_counterexamples.py::HttpClaims
+    - slice/tests/test_checker_counterexamples.py::SuspectRecall
+    reviewer_note: 125/125 test trong module phản ví dụ chạy qua bằng helper RAM; riêng RoundNineCodex 7/7 và RoundNine 9/9.
+      Tuy nhiên sáu ca mới bên dưới vẫn tái hiện; chưa đủ bằng chứng khái quát hóa cao, không suy diễn tác giả cố ý overfit.
+      slice/tests/test_checker_counterexamples.py:17; slice/tests/test_checker_counterexamples.py:959; slice/tests/test_checker_counterexamples.py:1035;
+      slice/l3slice/astscan.py:412; slice/l3slice/docfacts.py:790.
+- id: FIND-L3GEN-012
+  codex_label: add_http không nối library đã khai với receiver thực tế.
+  target: bộ kiểm
+  severity: medium
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:568
+  - slice/l3slice/docfacts.py:576
+  - slice/l3slice/docfacts.py:615
+  summary: 'Claim sai library vẫn được chấp nhận vì file có import httpx; _http_receivers không được add_http dùng để kiểm
+    danh tính lời gọi. Nguồn: slice/l3slice/docfacts.py:568, slice/l3slice/docfacts.py:576, slice/l3slice/docfacts.py:615.'
+  reproduction: 'import httpx
+
+    import requests
+
+    requests.get(''https://api.example/items'')
+
+    # Claim sai: library=''httpx'', method=''GET'', target literal như trên.'
+  resolution:
+    status: fixed_partial
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::Dependencies
+    - slice/tests/test_checker_counterexamples.py::Routes
+    - slice/tests/test_checker_counterexamples.py::HttpClaims
+    - slice/tests/test_checker_counterexamples.py::SuspectRecall
+    reviewer_note: 125/125 test trong module phản ví dụ chạy qua bằng helper RAM; riêng RoundNineCodex 7/7 và RoundNine 9/9.
+      Tuy nhiên sáu ca mới bên dưới vẫn tái hiện; chưa đủ bằng chứng khái quát hóa cao, không suy diễn tác giả cố ý overfit.
+      slice/tests/test_checker_counterexamples.py:17; slice/tests/test_checker_counterexamples.py:959; slice/tests/test_checker_counterexamples.py:1035;
+      slice/l3slice/astscan.py:412; slice/l3slice/docfacts.py:790.
+- id: FIND-L3GEN-013
+  codex_label: _string_rows loại cả dòng đóng chuỗi nhiều dòng.
+  target: bộ kiểm
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:746
+  - slice/l3slice/docfacts.py:749
+  - slice/l3slice/docfacts.py:931
+  - slice/l3slice/docfacts.py:932
+  summary: 'Bỏ sót HTTP thực thi sau dấu đóng chuỗi vì cả dòng nằm trong in_string. Hàm xử lý mọi chuỗi nhiều dòng, không
+    chỉ docstring, và không phân biệt cột chứa chuỗi với cột chứa code. Nguồn: slice/l3slice/docfacts.py:746, slice/l3slice/docfacts.py:749,
+    slice/l3slice/docfacts.py:931, slice/l3slice/docfacts.py:932.'
+  reproduction: 'import httpx
+
+    banner = ''''''hello
+
+    world''''''; response = httpx.get(''https://api.example/items'')'
+  resolution:
+    status: fixed_partial
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::Dependencies
+    - slice/tests/test_checker_counterexamples.py::Routes
+    - slice/tests/test_checker_counterexamples.py::HttpClaims
+    - slice/tests/test_checker_counterexamples.py::SuspectRecall
+    reviewer_note: 125/125 test trong module phản ví dụ chạy qua bằng helper RAM; riêng RoundNineCodex 7/7 và RoundNine 9/9.
+      Tuy nhiên sáu ca mới bên dưới vẫn tái hiện; chưa đủ bằng chứng khái quát hóa cao, không suy diễn tác giả cố ý overfit.
+      slice/tests/test_checker_counterexamples.py:17; slice/tests/test_checker_counterexamples.py:959; slice/tests/test_checker_counterexamples.py:1035;
+      slice/l3slice/astscan.py:412; slice/l3slice/docfacts.py:790.
+- id: FIND-L3GEN-014
+  codex_label: _url_argument tìm literal và url= trên phần văn bản còn lại, không giới hạn AST của lời gọi.
+  target: bộ kiểm
+  severity: medium
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:637
+  - slice/l3slice/docfacts.py:638
+  - slice/l3slice/docfacts.py:645
+  - slice/tools/fr029_checkaudit.py:267
+  summary: 'Chấp nhận URL từ câu lệnh sau vì regex url= quét qua dấu đóng lời gọi. Tương tự, httpx.get(''https://real.example''
+    + suffix) có thể được nhận sai là URL literal chỉ gồm tiền tố. Mutation thêm ''/x-audit'' không thử các literal gây nhiễu
+    có sẵn này. Nguồn: slice/l3slice/docfacts.py:637, slice/l3slice/docfacts.py:638, slice/l3slice/docfacts.py:645, slice/tools/fr029_checkaudit.py:267.'
+  reproduction: 'import httpx
+
+    httpx.get(''https://real.example''); note = dict(url=''https://decoy.example'')
+
+    # Claim URL sai: https://decoy.example'
+  resolution:
+    status: fixed_partial
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::Dependencies
+    - slice/tests/test_checker_counterexamples.py::Routes
+    - slice/tests/test_checker_counterexamples.py::HttpClaims
+    - slice/tests/test_checker_counterexamples.py::SuspectRecall
+    reviewer_note: 125/125 test trong module phản ví dụ chạy qua bằng helper RAM; riêng RoundNineCodex 7/7 và RoundNine 9/9.
+      Tuy nhiên sáu ca mới bên dưới vẫn tái hiện; chưa đủ bằng chứng khái quát hóa cao, không suy diễn tác giả cố ý overfit.
+      slice/tests/test_checker_counterexamples.py:17; slice/tests/test_checker_counterexamples.py:959; slice/tests/test_checker_counterexamples.py:1035;
+      slice/l3slice/astscan.py:412; slice/l3slice/docfacts.py:790.
+- id: FIND-L3GEN-015
+  codex_label: _call_span đếm ngoặc bằng ký tự thô; việc mở rộng span chỉ cứu kiểm URL.
+  target: bộ kiểm
+  severity: medium
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:583
+  - slice/l3slice/docfacts.py:586
+  - slice/l3slice/docfacts.py:597
+  - slice/l3slice/docfacts.py:622
+  summary: 'Nếu dẫn riêng dòng bắt đầu lời gọi, GET thứ nhất bị từ chối URL vì dấu '')'' trong comment làm _call_span kết
+    thúc sớm. Request thứ hai bị từ chối method GET vì kiểm method chỉ đọc span đã dẫn, không mở rộng như kiểm URL. Cả hai
+    có thể xảy ra dù các dòng tiếp theo đã được đọc. Nguồn: slice/l3slice/docfacts.py:583, slice/l3slice/docfacts.py:586,
+    slice/l3slice/docfacts.py:597, slice/l3slice/docfacts.py:622, slice/l3slice/docfacts.py:628, slice/l3slice/docfacts.py:630.'
+  reproduction: "import httpx\nhttpx.get(  # )\n    'https://api.example/items'\n)\nhttpx.request(\n    'GET',\n    'https://api.example/other'\n\
+    )"
+  resolution:
+    status: fixed_partial
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::Dependencies
+    - slice/tests/test_checker_counterexamples.py::Routes
+    - slice/tests/test_checker_counterexamples.py::HttpClaims
+    - slice/tests/test_checker_counterexamples.py::SuspectRecall
+    reviewer_note: 125/125 test trong module phản ví dụ chạy qua bằng helper RAM; riêng RoundNineCodex 7/7 và RoundNine 9/9.
+      Tuy nhiên sáu ca mới bên dưới vẫn tái hiện; chưa đủ bằng chứng khái quát hóa cao, không suy diễn tác giả cố ý overfit.
+      slice/tests/test_checker_counterexamples.py:17; slice/tests/test_checker_counterexamples.py:959; slice/tests/test_checker_counterexamples.py:1035;
+      slice/l3slice/astscan.py:412; slice/l3slice/docfacts.py:790.
+- id: FIND-L3GEN-016
+  codex_label: _url_argument của request/stream chỉ bỏ qua positional method khi đó là literal.
+  target: bộ kiểm
+  severity: medium
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:581
+  - slice/l3slice/docfacts.py:642
+  - slice/l3slice/docfacts.py:643
+  - slice/l3slice/docfacts.py:644
+  summary: 'Vẫn từ chối URL đúng: method là biến làm STRING.match thất bại, args bị đặt thành chuỗi rỗng. Claim method unknown
+    không giải quyết được việc nhận URL positional thứ hai. Nguồn: slice/l3slice/docfacts.py:581, slice/l3slice/docfacts.py:642,
+    slice/l3slice/docfacts.py:643, slice/l3slice/docfacts.py:644.'
+  reproduction: 'import httpx
+
+    verb = ''GET''
+
+    httpx.request(verb, ''https://api.example/items'')
+
+    # Claim method unknown, target literal đúng như trên.'
+  resolution:
+    status: fixed_partial
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::Dependencies
+    - slice/tests/test_checker_counterexamples.py::Routes
+    - slice/tests/test_checker_counterexamples.py::HttpClaims
+    - slice/tests/test_checker_counterexamples.py::SuspectRecall
+    reviewer_note: 125/125 test trong module phản ví dụ chạy qua bằng helper RAM; riêng RoundNineCodex 7/7 và RoundNine 9/9.
+      Tuy nhiên sáu ca mới bên dưới vẫn tái hiện; chưa đủ bằng chứng khái quát hóa cao, không suy diễn tác giả cố ý overfit.
+      slice/tests/test_checker_counterexamples.py:17; slice/tests/test_checker_counterexamples.py:959; slice/tests/test_checker_counterexamples.py:1035;
+      slice/l3slice/astscan.py:412; slice/l3slice/docfacts.py:790.
+- id: FIND-L3GEN-017
+  codex_label: 'Client từ file khác, file gọi không import trực tiếp thư viện; kể cả tên client rõ ràng cũng bị chặn trước
+    CLIENT_NAME. Nguồn: slice/l3slice/docfacts.py:745, slice/l3slice/docfacts.py:752.'
+  target: bộ kiểm
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:745
+  - slice/l3slice/docfacts.py:752
+  summary: 'Client từ file khác, file gọi không import trực tiếp thư viện; kể cả tên client rõ ràng cũng bị chặn trước CLIENT_NAME.
+    Nguồn: slice/l3slice/docfacts.py:745, slice/l3slice/docfacts.py:752.'
+  reproduction: '# clients.py
+
+    import httpx
+
+    client = httpx.Client()
+
+    # routes.py
+
+    from clients import client
+
+    def fetch(): return client.get(''https://api.example/items'')'
+  resolution:
+    status: fixed_partial
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::Dependencies
+    - slice/tests/test_checker_counterexamples.py::Routes
+    - slice/tests/test_checker_counterexamples.py::HttpClaims
+    - slice/tests/test_checker_counterexamples.py::SuspectRecall
+    reviewer_note: 'Chạy lại không đổi: getattr(wire,''get'')(url) có suspect nhưng claim đúng bị từ chối; e(wire) không annotation,
+      không binding client trong file vẫn không có suspect và claim thiếu client_at bị từ chối. slice/l3slice/astscan.py:584;
+      slice/l3slice/astscan.py:545; slice/l3slice/docfacts.py:1133; slice/l3slice/docfacts.py:1262.'
+- id: FIND-L3GEN-018
+  codex_label: 'Thư viện đứng sau trong import nhiều module: regex http_file không thấy. Nguồn: slice/l3slice/docfacts.py:745.'
+  target: bộ kiểm
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:745
+  summary: 'Thư viện đứng sau trong import nhiều module: regex http_file không thấy. Nguồn: slice/l3slice/docfacts.py:745.'
+  reproduction: 'import os, httpx
+
+    httpx.get(''https://api.example/items'')'
+  resolution:
+    status: fixed_partial
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::Dependencies
+    - slice/tests/test_checker_counterexamples.py::Routes
+    - slice/tests/test_checker_counterexamples.py::HttpClaims
+    - slice/tests/test_checker_counterexamples.py::SuspectRecall
+    reviewer_note: 'Chạy lại không đổi: getattr(wire,''get'')(url) có suspect nhưng claim đúng bị từ chối; e(wire) không annotation,
+      không binding client trong file vẫn không có suspect và claim thiếu client_at bị từ chối. slice/l3slice/astscan.py:584;
+      slice/l3slice/astscan.py:545; slice/l3slice/docfacts.py:1133; slice/l3slice/docfacts.py:1262.'
+- id: FIND-L3GEN-019
+  codex_label: 'Import trực tiếp hàm HTTP, gọi không có dấu chấm. Nguồn: slice/l3slice/docfacts.py:66, slice/l3slice/docfacts.py:921.'
+  target: bộ kiểm
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:66
+  - slice/l3slice/docfacts.py:921
+  summary: 'Import trực tiếp hàm HTTP, gọi không có dấu chấm. Nguồn: slice/l3slice/docfacts.py:66, slice/l3slice/docfacts.py:921.'
+  reproduction: 'from requests import get
+
+    get(''https://api.example/items'')
+
+    from httpx import get as fetch
+
+    fetch(''https://api.example/other'')'
+  resolution:
+    status: fixed_partial
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::Dependencies
+    - slice/tests/test_checker_counterexamples.py::Routes
+    - slice/tests/test_checker_counterexamples.py::HttpClaims
+    - slice/tests/test_checker_counterexamples.py::SuspectRecall
+    reviewer_note: 'Chạy lại không đổi: getattr(wire,''get'')(url) có suspect nhưng claim đúng bị từ chối; e(wire) không annotation,
+      không binding client trong file vẫn không có suspect và claim thiếu client_at bị từ chối. slice/l3slice/astscan.py:584;
+      slice/l3slice/astscan.py:545; slice/l3slice/docfacts.py:1133; slice/l3slice/docfacts.py:1262.'
+- id: FIND-L3GEN-020
+  codex_label: 'Đổi tên constructor bằng from-import: không theo alias constructor. Nguồn: slice/l3slice/docfacts.py:923,
+    slice/l3slice/docfacts.py:947, slice/l3slice/docfacts.py:948, slice/l3slice/docfacts.py:970.'
+  target: bộ kiểm
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:923
+  - slice/l3slice/docfacts.py:947
+  - slice/l3slice/docfacts.py:948
+  - slice/l3slice/docfacts.py:970
+  summary: 'Đổi tên constructor bằng from-import: không theo alias constructor. Nguồn: slice/l3slice/docfacts.py:923, slice/l3slice/docfacts.py:947,
+    slice/l3slice/docfacts.py:948, slice/l3slice/docfacts.py:970.'
+  reproduction: 'from httpx import Client as C
+
+    c = C()
+
+    c.get(''https://api.example/items'')
+
+    # Cùng vấn đề với requests.Session as S hoặc aiohttp.ClientSession as S.'
+  resolution:
+    status: fixed_partial
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::Dependencies
+    - slice/tests/test_checker_counterexamples.py::Routes
+    - slice/tests/test_checker_counterexamples.py::HttpClaims
+    - slice/tests/test_checker_counterexamples.py::SuspectRecall
+    reviewer_note: 'Chạy lại không đổi: getattr(wire,''get'')(url) có suspect nhưng claim đúng bị từ chối; e(wire) không annotation,
+      không binding client trong file vẫn không có suspect và claim thiếu client_at bị từ chối. slice/l3slice/astscan.py:584;
+      slice/l3slice/astscan.py:545; slice/l3slice/docfacts.py:1133; slice/l3slice/docfacts.py:1262.'
+- id: FIND-L3GEN-021
+  codex_label: 'Gán client qua biến khác: không truyền nhận diện qua phép gán tên. Nguồn: slice/l3slice/docfacts.py:968, slice/l3slice/docfacts.py:979.'
+  target: bộ kiểm
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:968
+  - slice/l3slice/docfacts.py:979
+  summary: 'Gán client qua biến khác: không truyền nhận diện qua phép gán tên. Nguồn: slice/l3slice/docfacts.py:968, slice/l3slice/docfacts.py:979.'
+  reproduction: 'import httpx
+
+    c = httpx.Client()
+
+    wire = c
+
+    wire.get(''https://api.example/items'')'
+  resolution:
+    status: fixed_partial
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::Dependencies
+    - slice/tests/test_checker_counterexamples.py::Routes
+    - slice/tests/test_checker_counterexamples.py::HttpClaims
+    - slice/tests/test_checker_counterexamples.py::SuspectRecall
+    reviewer_note: 'Chạy lại không đổi: getattr(wire,''get'')(url) có suspect nhưng claim đúng bị từ chối; e(wire) không annotation,
+      không binding client trong file vẫn không có suspect và claim thiếu client_at bị từ chối. slice/l3slice/astscan.py:584;
+      slice/l3slice/astscan.py:545; slice/l3slice/docfacts.py:1133; slice/l3slice/docfacts.py:1262.'
+- id: FIND-L3GEN-022
+  codex_label: 'Client là đối số không annotation, tên không chứa client/session/http. Nguồn: slice/l3slice/docfacts.py:755,
+    slice/l3slice/docfacts.py:922, slice/l3slice/docfacts.py:989.'
+  target: bộ kiểm
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:755
+  - slice/l3slice/docfacts.py:922
+  - slice/l3slice/docfacts.py:989
+  summary: 'Client là đối số không annotation, tên không chứa client/session/http. Nguồn: slice/l3slice/docfacts.py:755, slice/l3slice/docfacts.py:922,
+    slice/l3slice/docfacts.py:989.'
+  reproduction: "import requests\ndef fetch(wire):\n    return wire.get('https://api.example/items')\nfetch(requests.Session())"
+  resolution:
+    status: fixed_partial
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::Dependencies
+    - slice/tests/test_checker_counterexamples.py::Routes
+    - slice/tests/test_checker_counterexamples.py::HttpClaims
+    - slice/tests/test_checker_counterexamples.py::SuspectRecall
+    reviewer_note: 'Chạy lại không đổi: getattr(wire,''get'')(url) có suspect nhưng claim đúng bị từ chối; e(wire) không annotation,
+      không binding client trong file vẫn không có suspect và claim thiếu client_at bị từ chối. slice/l3slice/astscan.py:584;
+      slice/l3slice/astscan.py:545; slice/l3slice/docfacts.py:1133; slice/l3slice/docfacts.py:1262.'
+- id: FIND-L3GEN-023
+  codex_label: 'Client nằm trong list/dict: HTTP_CALL không khớp receiver kết thúc bằng dấu '']''. Nguồn: slice/l3slice/docfacts.py:754,
+    slice/l3slice/docfacts.py:921.'
+  target: bộ kiểm
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:754
+  - slice/l3slice/docfacts.py:921
+  summary: 'Client nằm trong list/dict: HTTP_CALL không khớp receiver kết thúc bằng dấu '']''. Nguồn: slice/l3slice/docfacts.py:754,
+    slice/l3slice/docfacts.py:921.'
+  reproduction: 'import httpx
+
+    pool = [httpx.Client()]
+
+    pool[0].get(''https://api.example/items'')'
+  resolution:
+    status: fixed_partial
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::Dependencies
+    - slice/tests/test_checker_counterexamples.py::Routes
+    - slice/tests/test_checker_counterexamples.py::HttpClaims
+    - slice/tests/test_checker_counterexamples.py::SuspectRecall
+    reviewer_note: 'Chạy lại không đổi: getattr(wire,''get'')(url) có suspect nhưng claim đúng bị từ chối; e(wire) không annotation,
+      không binding client trong file vẫn không có suspect và claim thiếu client_at bị từ chối. slice/l3slice/astscan.py:584;
+      slice/l3slice/astscan.py:545; slice/l3slice/docfacts.py:1133; slice/l3slice/docfacts.py:1262.'
+- id: FIND-L3GEN-024
+  codex_label: 'Client là lớp con mang tên khác: không theo quan hệ kế thừa. Nguồn: slice/l3slice/docfacts.py:923, slice/l3slice/docfacts.py:965,
+    slice/l3slice/docfacts.py:970.'
+  target: bộ kiểm
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:923
+  - slice/l3slice/docfacts.py:965
+  - slice/l3slice/docfacts.py:970
+  summary: 'Client là lớp con mang tên khác: không theo quan hệ kế thừa. Nguồn: slice/l3slice/docfacts.py:923, slice/l3slice/docfacts.py:965,
+    slice/l3slice/docfacts.py:970.'
+  reproduction: 'import httpx
+
+    class Transport(httpx.Client): pass
+
+    wire = Transport()
+
+    wire.get(''https://api.example/items'')'
+  resolution:
+    status: fixed_partial
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::Dependencies
+    - slice/tests/test_checker_counterexamples.py::Routes
+    - slice/tests/test_checker_counterexamples.py::HttpClaims
+    - slice/tests/test_checker_counterexamples.py::SuspectRecall
+    reviewer_note: 'Chạy lại không đổi: getattr(wire,''get'')(url) có suspect nhưng claim đúng bị từ chối; e(wire) không annotation,
+      không binding client trong file vẫn không có suspect và claim thiếu client_at bị từ chối. slice/l3slice/astscan.py:584;
+      slice/l3slice/astscan.py:545; slice/l3slice/docfacts.py:1133; slice/l3slice/docfacts.py:1262.'
+- id: FIND-L3GEN-025
+  codex_label: 'requests.session() viết thường: CLIENT_MAKER chỉ nhận Session, và biến wire không được bind là client. Nguồn:
+    slice/l3slice/docfacts.py:923, slice/l3slice/docfacts.py:970; hàm thật tồn tại tại C:/Users/dell/AppData/Local/Programs/Python/Python311/Lib/site-packages/requests/sessions.py:908.'
+  target: bộ kiểm
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:923
+  - slice/l3slice/docfacts.py:970
+  summary: 'requests.session() viết thường: CLIENT_MAKER chỉ nhận Session, và biến wire không được bind là client. Nguồn:
+    slice/l3slice/docfacts.py:923, slice/l3slice/docfacts.py:970; hàm thật tồn tại tại C:/Users/dell/AppData/Local/Programs/Python/Python311/Lib/site-packages/requests/sessions.py:908.'
+  reproduction: 'import requests
+
+    wire = requests.session()
+
+    wire.get(''https://api.example/items'')'
+  resolution:
+    status: fixed_partial
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::Dependencies
+    - slice/tests/test_checker_counterexamples.py::Routes
+    - slice/tests/test_checker_counterexamples.py::HttpClaims
+    - slice/tests/test_checker_counterexamples.py::SuspectRecall
+    reviewer_note: 'Chạy lại không đổi: getattr(wire,''get'')(url) có suspect nhưng claim đúng bị từ chối; e(wire) không annotation,
+      không binding client trong file vẫn không có suspect và claim thiếu client_at bị từ chối. slice/l3slice/astscan.py:584;
+      slice/l3slice/astscan.py:545; slice/l3slice/docfacts.py:1133; slice/l3slice/docfacts.py:1262.'
+- id: FIND-L3GEN-026
+  codex_label: 'Factory context manager yield biến được bind bằng with: returns_client chỉ thu biến từ Assign. Nguồn: slice/l3slice/docfacts.py:956,
+    slice/l3slice/docfacts.py:959, slice/l3slice/docfacts.py:965, slice/l3slice/docfacts.py:987.'
+  target: bộ kiểm
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:956
+  - slice/l3slice/docfacts.py:959
+  - slice/l3slice/docfacts.py:965
+  - slice/l3slice/docfacts.py:987
+  summary: 'Factory context manager yield biến được bind bằng with: returns_client chỉ thu biến từ Assign. Nguồn: slice/l3slice/docfacts.py:956,
+    slice/l3slice/docfacts.py:959, slice/l3slice/docfacts.py:965, slice/l3slice/docfacts.py:987.'
+  reproduction: "import aiohttp\nfrom contextlib import asynccontextmanager\n@asynccontextmanager\nasync def connection():\n\
+    \    async with aiohttp.ClientSession() as c:\n        yield c\nasync def fetch():\n    async with connection() as wire:\n\
+    \        async with wire.get('https://api.example/items') as response:\n            return await response.text()"
+  resolution:
+    status: fixed_partial
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::Dependencies
+    - slice/tests/test_checker_counterexamples.py::Routes
+    - slice/tests/test_checker_counterexamples.py::HttpClaims
+    - slice/tests/test_checker_counterexamples.py::SuspectRecall
+    reviewer_note: 'Chạy lại không đổi: getattr(wire,''get'')(url) có suspect nhưng claim đúng bị từ chối; e(wire) không annotation,
+      không binding client trong file vẫn không có suspect và claim thiếu client_at bị từ chối. slice/l3slice/astscan.py:584;
+      slice/l3slice/astscan.py:545; slice/l3slice/docfacts.py:1133; slice/l3slice/docfacts.py:1262.'
+- id: FIND-L3GEN-027
+  codex_label: 'Receiver và dấu chấm nằm ở hai dòng khác nhau: quét từng dòng không nối biểu thức. Nguồn: slice/l3slice/docfacts.py:748,
+    slice/l3slice/docfacts.py:754, slice/l3slice/docfacts.py:921.'
+  target: bộ kiểm
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:748
+  - slice/l3slice/docfacts.py:754
+  - slice/l3slice/docfacts.py:921
+  summary: 'Receiver và dấu chấm nằm ở hai dòng khác nhau: quét từng dòng không nối biểu thức. Nguồn: slice/l3slice/docfacts.py:748,
+    slice/l3slice/docfacts.py:754, slice/l3slice/docfacts.py:921.'
+  reproduction: "import httpx\nresponse = (httpx\n    .get('https://api.example/items'))"
+  resolution:
+    status: fixed_partial
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::Dependencies
+    - slice/tests/test_checker_counterexamples.py::Routes
+    - slice/tests/test_checker_counterexamples.py::HttpClaims
+    - slice/tests/test_checker_counterexamples.py::SuspectRecall
+    reviewer_note: 'Chạy lại không đổi: getattr(wire,''get'')(url) có suspect nhưng claim đúng bị từ chối; e(wire) không annotation,
+      không binding client trong file vẫn không có suspect và claim thiếu client_at bị từ chối. slice/l3slice/astscan.py:584;
+      slice/l3slice/astscan.py:545; slice/l3slice/docfacts.py:1133; slice/l3slice/docfacts.py:1262.'
+- id: FIND-L3GEN-028
+  codex_label: 'Giữ bound method rồi gọi qua biến, hoặc dùng getattr: không có .get( tại chỗ thực thi. Nguồn: slice/l3slice/docfacts.py:66,
+    slice/l3slice/docfacts.py:921.'
+  target: bộ kiểm
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:66
+  - slice/l3slice/docfacts.py:921
+  summary: 'Giữ bound method rồi gọi qua biến, hoặc dùng getattr: không có .get( tại chỗ thực thi. Nguồn: slice/l3slice/docfacts.py:66,
+    slice/l3slice/docfacts.py:921.'
+  reproduction: 'import httpx
+
+    wire = httpx.Client()
+
+    fetch = wire.get
+
+    fetch(''https://api.example/items'')
+
+    getattr(wire, ''get'')(''https://api.example/other'')'
+  resolution:
+    status: fixed_partial
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::Dependencies
+    - slice/tests/test_checker_counterexamples.py::Routes
+    - slice/tests/test_checker_counterexamples.py::HttpClaims
+    - slice/tests/test_checker_counterexamples.py::SuspectRecall
+    reviewer_note: 'Chạy lại không đổi: getattr(wire,''get'')(url) có suspect nhưng claim đúng bị từ chối; e(wire) không annotation,
+      không binding client trong file vẫn không có suspect và claim thiếu client_at bị từ chối. slice/l3slice/astscan.py:584;
+      slice/l3slice/astscan.py:545; slice/l3slice/docfacts.py:1133; slice/l3slice/docfacts.py:1262.'
+- id: FIND-L3GEN-029
+  codex_label: 'Gửi Request bằng .send(): không nằm trong tập method được nhận. Nguồn: slice/l3slice/docfacts.py:66, slice/l3slice/docfacts.py:921;
+    API thật tại C:/Users/dell/AppData/Local/Programs/Python/Python311/Lib/site-packages/httpx/_client.py:879 và C:/Users/dell/AppData/Local/Programs/Python/Python311/Lib/s'
+  target: bộ kiểm
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:66
+  - slice/l3slice/docfacts.py:921
+  summary: 'Gửi Request bằng .send(): không nằm trong tập method được nhận. Nguồn: slice/l3slice/docfacts.py:66, slice/l3slice/docfacts.py:921;
+    API thật tại C:/Users/dell/AppData/Local/Programs/Python/Python311/Lib/site-packages/httpx/_client.py:879 và C:/Users/dell/AppData/Local/Programs/Python/Python311/Lib/site-packages/requests/sessions.py:752.'
+  reproduction: 'import httpx
+
+    import requests
+
+    c = httpx.Client()
+
+    c.send(httpx.Request(''GET'', ''https://api.example/items''))
+
+    s = requests.Session()
+
+    p = requests.Request(''GET'', ''https://api.example/other'').prepare()
+
+    s.send(p)'
+  resolution:
+    status: fixed_partial
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::Dependencies
+    - slice/tests/test_checker_counterexamples.py::Routes
+    - slice/tests/test_checker_counterexamples.py::HttpClaims
+    - slice/tests/test_checker_counterexamples.py::SuspectRecall
+    reviewer_note: 'Chạy lại không đổi: getattr(wire,''get'')(url) có suspect nhưng claim đúng bị từ chối; e(wire) không annotation,
+      không binding client trong file vẫn không có suspect và claim thiếu client_at bị từ chối. slice/l3slice/astscan.py:584;
+      slice/l3slice/astscan.py:545; slice/l3slice/docfacts.py:1133; slice/l3slice/docfacts.py:1262.'
+- id: FIND-L3GEN-030
+  codex_label: 'HTTP sau dấu đóng chuỗi nhiều dòng bị loại cả dòng. Nguồn: slice/l3slice/docfacts.py:749, slice/l3slice/docfacts.py:932.'
+  target: bộ kiểm
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:749
+  - slice/l3slice/docfacts.py:932
+  summary: 'HTTP sau dấu đóng chuỗi nhiều dòng bị loại cả dòng. Nguồn: slice/l3slice/docfacts.py:749, slice/l3slice/docfacts.py:932.'
+  reproduction: 'import requests
+
+    text = ''''''a
+
+    b''''''; requests.get(''https://api.example/items'')'
+  resolution:
+    status: fixed_partial
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::Dependencies
+    - slice/tests/test_checker_counterexamples.py::Routes
+    - slice/tests/test_checker_counterexamples.py::HttpClaims
+    - slice/tests/test_checker_counterexamples.py::SuspectRecall
+    reviewer_note: 'Chạy lại không đổi: getattr(wire,''get'')(url) có suspect nhưng claim đúng bị từ chối; e(wire) không annotation,
+      không binding client trong file vẫn không có suspect và claim thiếu client_at bị từ chối. slice/l3slice/astscan.py:584;
+      slice/l3slice/astscan.py:545; slice/l3slice/docfacts.py:1133; slice/l3slice/docfacts.py:1262.'
+- id: FIND-L3GEN-031
+  codex_label: 'Có vòng tròn ở dependency qua alias: route_dependencies() gọi claims._alias_wraps(), rồi lấy claims._aliases
+    làm danh sách dependency đúng để kiểm tra dependency_at(). Nếu bảng alias nhận sai dependency, hai phía có thể cùng sai
+    và vẫn khớp; nếu bảng bỏ sót alias, phép kiểm dependency_lines không tạ'
+  target: công cụ đo (fr029_checkaudit.py)
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/tools/fr029_checkaudit.py:143
+  - slice/tools/fr029_checkaudit.py:159
+  - slice/tools/fr029_checkaudit.py:193
+  - slice/l3slice/docfacts.py:354
+  summary: 'Có vòng tròn ở dependency qua alias: route_dependencies() gọi claims._alias_wraps(), rồi lấy claims._aliases làm
+    danh sách dependency đúng để kiểm tra dependency_at(). Nếu bảng alias nhận sai dependency, hai phía có thể cùng sai và
+    vẫn khớp; nếu bảng bỏ sót alias, phép kiểm dependency_lines không tạo ca thử đó. Nguồn: slice/tools/fr029_checkaudit.py:143,
+    slice/tools/fr029_checkaudit.py:159, slice/tools/fr029_checkaudit.py:193, slice/l3slice/docfacts.py:354.'
+  resolution:
+    status: fixed_partial
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::Dependencies
+    - slice/tests/test_checker_counterexamples.py::Routes
+    - slice/tests/test_checker_counterexamples.py::HttpClaims
+    - slice/tests/test_checker_counterexamples.py::SuspectRecall
+    reviewer_note: Không đổi; r38 vẫn có 2 http_gold_vs_rule. slice/tools/fr029_checkaudit.py:133; slice/tools/fr029_checkaudit.py:146;
+      slice/tools/fr029_checkaudit.py:440; ket-qua-chay/fr029-checkaudit-20261009-r38/summary.json:39.
+- id: FIND-L3GEN-032
+  codex_label: 'Không phải toàn bộ phép đo đều vòng tròn: route method/handler được đọc từ gold JSON; reminders được đối chiếu
+    với params trong gold; vị trí HTTP cũng lấy từ gold. Tuy nhiên, danh sách dependency đúng được dựng từ AST và bảng alias
+    của checker, không phải một danh sách dependency độc lập trong gold.'
+  target: công cụ đo (fr029_checkaudit.py)
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/tools/fr029_checkaudit.py:45
+  - slice/tools/fr029_checkaudit.py:72
+  - slice/tools/fr029_checkaudit.py:192
+  - slice/tools/fr029_checkaudit.py:203
+  summary: 'Không phải toàn bộ phép đo đều vòng tròn: route method/handler được đọc từ gold JSON; reminders được đối chiếu
+    với params trong gold; vị trí HTTP cũng lấy từ gold. Tuy nhiên, danh sách dependency đúng được dựng từ AST và bảng alias
+    của checker, không phải một danh sách dependency độc lập trong gold. Nguồn: slice/tools/fr029_checkaudit.py:45, slice/tools/fr029_checkaudit.py:72,
+    slice/tools/fr029_checkaudit.py:192, slice/tools/fr029_checkaudit.py:203, slice/tools/fr029_checkaudit.py:218.'
+  resolution:
+    status: fixed_partial
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::Dependencies
+    - slice/tests/test_checker_counterexamples.py::Routes
+    - slice/tests/test_checker_counterexamples.py::HttpClaims
+    - slice/tests/test_checker_counterexamples.py::SuspectRecall
+    reviewer_note: Không đổi; r38 vẫn có 2 http_gold_vs_rule. slice/tools/fr029_checkaudit.py:133; slice/tools/fr029_checkaudit.py:146;
+      slice/tools/fr029_checkaudit.py:440; ket-qua-chay/fr029-checkaudit-20261009-r38/summary.json:39.
+- id: FIND-L3GEN-033
+  codex_label: 'Phép HTTP làm yếu claim trước khi kiểm: target không phải literal đều thành unknown; một số method trong gold
+    cũng thành unknown theo hình dạng lời gọi. Vì thế http_false_rejection=0 không có nghĩa checker chấp nhận đầy đủ thông
+    tin đúng trong gold. Hai ca Kibo ở r4 thuộc trường hợp này, nhưng chính'
+  target: công cụ đo (fr029_checkaudit.py)
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/tools/fr029_checkaudit.py:224
+  - slice/tools/fr029_checkaudit.py:253
+  - slice/tools/fr029_checkaudit.py:259
+  summary: 'Phép HTTP làm yếu claim trước khi kiểm: target không phải literal đều thành unknown; một số method trong gold
+    cũng thành unknown theo hình dạng lời gọi. Vì thế http_false_rejection=0 không có nghĩa checker chấp nhận đầy đủ thông
+    tin đúng trong gold. Hai ca Kibo ở r4 thuộc trường hợp này, nhưng chính gold cho phép alt_methods=[''unknown'']; không
+    đủ căn cứ gọi hai ca đó là sửa đáp án trái gold. Vấn đề là audit không đọc alt_methods mà áp dụng phép hạ thông tin chung.
+    Nguồn: slice/tools/fr029_checkaudit.py:224, slice/tools/fr029_checkaudit.py:253, slice/tools/fr029_checkaudit.py:259,
+    ket-qua-chay/fr029-checkaudit-20261008-r4/audit.json:114, D:/VSF/l3-acceptance-gold/kibo/gold.r2.json:4544, D:/VS'
+  resolution:
+    status: fixed_partial
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::Dependencies
+    - slice/tests/test_checker_counterexamples.py::Routes
+    - slice/tests/test_checker_counterexamples.py::HttpClaims
+    - slice/tests/test_checker_counterexamples.py::SuspectRecall
+    reviewer_note: Không đổi; r38 vẫn có 2 http_gold_vs_rule. slice/tools/fr029_checkaudit.py:133; slice/tools/fr029_checkaudit.py:146;
+      slice/tools/fr029_checkaudit.py:440; ket-qua-chay/fr029-checkaudit-20261009-r38/summary.json:39.
+- id: FIND-L3GEN-034
+  codex_label: Phép route để chính _decorator_problems chọn đoạn chứng cứ được chấp nhận trong các hàm trùng tên, rồi mutation
+    đoạn đầu tiên được chọn. Đây là phụ thuộc checker khi chọn chứng cứ, chưa phải đáp án độc lập về đúng vị trí decorator.
+    Tuy vậy, nó vẫn ghi false_rejection nếu mọi ứng viên bị từ chối, nên
+  target: công cụ đo (fr029_checkaudit.py)
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/tools/fr029_checkaudit.py:99
+  - slice/tools/fr029_checkaudit.py:117
+  - slice/tools/fr029_checkaudit.py:122
+  - slice/tools/fr029_checkaudit.py:128
+  summary: 'Phép route để chính _decorator_problems chọn đoạn chứng cứ được chấp nhận trong các hàm trùng tên, rồi mutation
+    đoạn đầu tiên được chọn. Đây là phụ thuộc checker khi chọn chứng cứ, chưa phải đáp án độc lập về đúng vị trí decorator.
+    Tuy vậy, nó vẫn ghi false_rejection nếu mọi ứng viên bị từ chối, nên không phải phép luôn đạt. Nguồn: slice/tools/fr029_checkaudit.py:99,
+    slice/tools/fr029_checkaudit.py:117, slice/tools/fr029_checkaudit.py:122, slice/tools/fr029_checkaudit.py:128.'
+  resolution:
+    status: fixed_partial
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::Dependencies
+    - slice/tests/test_checker_counterexamples.py::Routes
+    - slice/tests/test_checker_counterexamples.py::HttpClaims
+    - slice/tests/test_checker_counterexamples.py::SuspectRecall
+    reviewer_note: Không đổi; r38 vẫn có 2 http_gold_vs_rule. slice/tools/fr029_checkaudit.py:133; slice/tools/fr029_checkaudit.py:146;
+      slice/tools/fr029_checkaudit.py:440; ket-qua-chay/fr029-checkaudit-20261009-r38/summary.json:39.
+- id: FIND-L3GEN-035
+  codex_label: 'Mutation route quá dễ: chọn method không xuất hiện trong toàn bộ đoạn decorator và dùng handler giả khong_co_ham_nay.
+    Nó không thử method xuất hiện ở trường khác, handler có thật nhưng thuộc route khác, receiver giả, hoặc path/application
+    sai. Audit chỉ gọi _decorator_problems, không kiểm cả add_rou'
+  target: công cụ đo (fr029_checkaudit.py)
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/tools/fr029_checkaudit.py:119
+  - slice/tools/fr029_checkaudit.py:129
+  - slice/tools/fr029_checkaudit.py:134
+  summary: 'Mutation route quá dễ: chọn method không xuất hiện trong toàn bộ đoạn decorator và dùng handler giả khong_co_ham_nay.
+    Nó không thử method xuất hiện ở trường khác, handler có thật nhưng thuộc route khác, receiver giả, hoặc path/application
+    sai. Audit chỉ gọi _decorator_problems, không kiểm cả add_route. Nguồn: slice/tools/fr029_checkaudit.py:119, slice/tools/fr029_checkaudit.py:129,
+    slice/tools/fr029_checkaudit.py:134.'
+  resolution:
+    status: fixed_partial
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::Dependencies
+    - slice/tests/test_checker_counterexamples.py::Routes
+    - slice/tests/test_checker_counterexamples.py::HttpClaims
+    - slice/tests/test_checker_counterexamples.py::SuspectRecall
+    reviewer_note: Không đổi. slice/tools/fr029_checkaudit.py:38; slice/tools/fr029_checkaudit.py:207; slice/tools/fr029_checkaudit.py:450.
+- id: FIND-L3GEN-036
+  codex_label: 'Mutation dependency yếu hơn mô tả: MUTATIONS nói đổi sang dependency khác trong cùng file, nhưng thực tế luôn
+    dùng khong_co_dependency_nay. Một bộ kiểm chỉ tìm từ có xuất hiện trên dòng cũng vượt qua dạng mutation này; không cần
+    xác định quan hệ Depends hay đúng Class.method. Nguồn: slice/tools/fr02'
+  target: công cụ đo (fr029_checkaudit.py)
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/tools/fr029_checkaudit.py:36
+  - slice/tools/fr029_checkaudit.py:197
+  - slice/l3slice/docfacts.py:350
+  summary: 'Mutation dependency yếu hơn mô tả: MUTATIONS nói đổi sang dependency khác trong cùng file, nhưng thực tế luôn
+    dùng khong_co_dependency_nay. Một bộ kiểm chỉ tìm từ có xuất hiện trên dòng cũng vượt qua dạng mutation này; không cần
+    xác định quan hệ Depends hay đúng Class.method. Nguồn: slice/tools/fr029_checkaudit.py:36, slice/tools/fr029_checkaudit.py:197,
+    slice/l3slice/docfacts.py:350.'
+  resolution:
+    status: fixed_partial
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::Dependencies
+    - slice/tests/test_checker_counterexamples.py::Routes
+    - slice/tests/test_checker_counterexamples.py::HttpClaims
+    - slice/tests/test_checker_counterexamples.py::SuspectRecall
+    reviewer_note: Không đổi. slice/tools/fr029_checkaudit.py:38; slice/tools/fr029_checkaudit.py:207; slice/tools/fr029_checkaudit.py:450.
+- id: FIND-L3GEN-037
+  codex_label: Mutation HTTP chỉ thêm '/x-audit' vào URL literal và đổi method của lời gọi .get/.post/...; không đổi method
+    của .request/.stream, không đổi library, client_at, khóa config, receiver hoặc vị trí lời gọi. Gold config bị biến thành
+    unknown nên nhánh kiểm config không được đo bằng claim tương ứng. Nguồ
+  target: công cụ đo (fr029_checkaudit.py)
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/tools/fr029_checkaudit.py:259
+  - slice/tools/fr029_checkaudit.py:265
+  - slice/tools/fr029_checkaudit.py:270
+  - slice/l3slice/docfacts.py:600
+  summary: 'Mutation HTTP chỉ thêm ''/x-audit'' vào URL literal và đổi method của lời gọi .get/.post/...; không đổi method
+    của .request/.stream, không đổi library, client_at, khóa config, receiver hoặc vị trí lời gọi. Gold config bị biến thành
+    unknown nên nhánh kiểm config không được đo bằng claim tương ứng. Nguồn: slice/tools/fr029_checkaudit.py:259, slice/tools/fr029_checkaudit.py:265,
+    slice/tools/fr029_checkaudit.py:270, slice/l3slice/docfacts.py:600.'
+  resolution:
+    status: fixed_partial
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::Dependencies
+    - slice/tests/test_checker_counterexamples.py::Routes
+    - slice/tests/test_checker_counterexamples.py::HttpClaims
+    - slice/tests/test_checker_counterexamples.py::SuspectRecall
+    reviewer_note: Không đổi. slice/tools/fr029_checkaudit.py:38; slice/tools/fr029_checkaudit.py:207; slice/tools/fr029_checkaudit.py:450.
+- id: FIND-L3GEN-038
+  codex_label: 'False acceptance của route và HTTP được thử chỉ sau khi claim đúng đã được chấp nhận. Một checker từ chối
+    tất cả vẫn có hai bộ đếm false_acceptance bằng 0, dù false_rejection sẽ tăng. Không có bộ đếm riêng số mutation thực sự
+    chạy để phân biệt 0 lỗi với 0 cơ hội thử. Nguồn: slice/tools/fr029_checkau'
+  target: công cụ đo (fr029_checkaudit.py)
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/tools/fr029_checkaudit.py:122
+  - slice/tools/fr029_checkaudit.py:127
+  - slice/tools/fr029_checkaudit.py:262
+  - slice/tools/fr029_checkaudit.py:264
+  summary: 'False acceptance của route và HTTP được thử chỉ sau khi claim đúng đã được chấp nhận. Một checker từ chối tất
+    cả vẫn có hai bộ đếm false_acceptance bằng 0, dù false_rejection sẽ tăng. Không có bộ đếm riêng số mutation thực sự chạy
+    để phân biệt 0 lỗi với 0 cơ hội thử. Nguồn: slice/tools/fr029_checkaudit.py:122, slice/tools/fr029_checkaudit.py:127,
+    slice/tools/fr029_checkaudit.py:262, slice/tools/fr029_checkaudit.py:264, slice/tools/fr029_checkaudit.py:403, slice/tools/fr029_checkaudit.py:411.'
+  resolution:
+    status: fixed_partial
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::Dependencies
+    - slice/tests/test_checker_counterexamples.py::Routes
+    - slice/tests/test_checker_counterexamples.py::HttpClaims
+    - slice/tests/test_checker_counterexamples.py::SuspectRecall
+    reviewer_note: Không đổi. slice/tools/fr029_checkaudit.py:38; slice/tools/fr029_checkaudit.py:207; slice/tools/fr029_checkaudit.py:450.
+- id: FIND-L3GEN-039
+  codex_label: 'Bỏ qua ca âm đã có trong gold: excluded_routes và limitations chỉ được dùng để miễn tính nhiễu suspects; non_http_calls
+    không được dùng để thử add_http. Ví dụ registry.get được gold ghi rõ not_fastapi nhưng không được nộp như claim route
+    sai. Nguồn: slice/tools/fr029_checkaudit.py:107, slice/tools/f'
+  target: công cụ đo (fr029_checkaudit.py)
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/tools/fr029_checkaudit.py:107
+  - slice/tools/fr029_checkaudit.py:238
+  - slice/tools/fr029_checkaudit.py:280
+  summary: 'Bỏ qua ca âm đã có trong gold: excluded_routes và limitations chỉ được dùng để miễn tính nhiễu suspects; non_http_calls
+    không được dùng để thử add_http. Ví dụ registry.get được gold ghi rõ not_fastapi nhưng không được nộp như claim route
+    sai. Nguồn: slice/tools/fr029_checkaudit.py:107, slice/tools/fr029_checkaudit.py:238, slice/tools/fr029_checkaudit.py:280,
+    slice/tests/fixtures/fr029/exclusions.gold.json:51, slice/tests/fixtures/fr029/http_calls.gold.json:187.'
+  resolution:
+    status: fixed_partial
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::Dependencies
+    - slice/tests/test_checker_counterexamples.py::Routes
+    - slice/tests/test_checker_counterexamples.py::HttpClaims
+    - slice/tests/test_checker_counterexamples.py::SuspectRecall
+    reviewer_note: Không đổi. slice/tools/fr029_checkaudit.py:38; slice/tools/fr029_checkaudit.py:207; slice/tools/fr029_checkaudit.py:450.
+- id: FIND-L3GEN-040
+  codex_label: 'Có chỉ số luôn bằng 0: router_level_routes được khởi tạo nhưng không được cập nhật. Toàn bộ audit_dependencies
+    của định dạng v1/dev cũng trả bộ đếm rỗng vì routes={}; http_items không có nhánh dev. Đây là không đo, không phải kiểm
+    thành công. Ngoài ra main trả exit code 0 sau khi ghi báo cáo, kể cả '
+  target: công cụ đo (fr029_checkaudit.py)
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/tools/fr029_checkaudit.py:184
+  - slice/tools/fr029_checkaudit.py:185
+  - slice/tools/fr029_checkaudit.py:218
+  - slice/tools/fr029_checkaudit.py:233
+  summary: 'Có chỉ số luôn bằng 0: router_level_routes được khởi tạo nhưng không được cập nhật. Toàn bộ audit_dependencies
+    của định dạng v1/dev cũng trả bộ đếm rỗng vì routes={}; http_items không có nhánh dev. Đây là không đo, không phải kiểm
+    thành công. Ngoài ra main trả exit code 0 sau khi ghi báo cáo, kể cả khi đã ghi lỗi checker. Nguồn: slice/tools/fr029_checkaudit.py:184,
+    slice/tools/fr029_checkaudit.py:185, slice/tools/fr029_checkaudit.py:218, slice/tools/fr029_checkaudit.py:233, slice/tools/fr029_checkaudit.py:392,
+    slice/tools/fr029_checkaudit.py:418.'
+  resolution:
+    status: fixed_partial
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::Dependencies
+    - slice/tests/test_checker_counterexamples.py::Routes
+    - slice/tests/test_checker_counterexamples.py::HttpClaims
+    - slice/tests/test_checker_counterexamples.py::SuspectRecall
+    reviewer_note: Không đổi. slice/tools/fr029_checkaudit.py:38; slice/tools/fr029_checkaudit.py:207; slice/tools/fr029_checkaudit.py:450.
+- id: FIND-L3GEN-041
+  codex_label: 'Phép nhắc tham số chưa kiểm đúng nguồn gốc: reminder được coi đúng nếu trùng bất kỳ tham số gold của route;
+    không chứng minh tham số đến từ dependency đang xét. Việc loại tham số trực tiếp còn dựa vào tên đối số hoặc literal bất
+    kỳ trong signature, có thể loại nhầm tham số dependency khỏi mẫu số. Ng'
+  target: công cụ đo (fr029_checkaudit.py)
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/tools/fr029_checkaudit.py:199
+  - slice/tools/fr029_checkaudit.py:203
+  - slice/tools/fr029_checkaudit.py:206
+  summary: 'Phép nhắc tham số chưa kiểm đúng nguồn gốc: reminder được coi đúng nếu trùng bất kỳ tham số gold của route; không
+    chứng minh tham số đến từ dependency đang xét. Việc loại tham số trực tiếp còn dựa vào tên đối số hoặc literal bất kỳ
+    trong signature, có thể loại nhầm tham số dependency khỏi mẫu số. Nguồn: slice/tools/fr029_checkaudit.py:199, slice/tools/fr029_checkaudit.py:203,
+    slice/tools/fr029_checkaudit.py:206.'
+  resolution:
+    status: fixed_partial
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::Dependencies
+    - slice/tests/test_checker_counterexamples.py::Routes
+    - slice/tests/test_checker_counterexamples.py::HttpClaims
+    - slice/tests/test_checker_counterexamples.py::SuspectRecall
+    reviewer_note: Không đổi. slice/tools/fr029_checkaudit.py:38; slice/tools/fr029_checkaudit.py:207; slice/tools/fr029_checkaudit.py:450.
+- id: FIND-L3GEN-042
+  codex_label: 'Phép suspects đối chiếu theo dòng, không theo lời gọi và looks_like; một dấu hiệu khác trên cùng dòng cũng
+    có thể làm HTTP được coi là đã đánh dấu. Khi tính nhiễu, HTTP được miễn thêm ba dòng sau span. Số not_gold_item vì thế
+    không tương đương số HTTP/route nhận nhầm đã được xác minh. Nguồn: slice/t'
+  target: công cụ đo (fr029_checkaudit.py)
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/tools/fr029_checkaudit.py:279
+  - slice/tools/fr029_checkaudit.py:294
+  - slice/tools/fr029_checkaudit.py:300
+  - slice/tools/fr029_checkaudit.py:317
+  summary: 'Phép suspects đối chiếu theo dòng, không theo lời gọi và looks_like; một dấu hiệu khác trên cùng dòng cũng có
+    thể làm HTTP được coi là đã đánh dấu. Khi tính nhiễu, HTTP được miễn thêm ba dòng sau span. Số not_gold_item vì thế không
+    tương đương số HTTP/route nhận nhầm đã được xác minh. Nguồn: slice/tools/fr029_checkaudit.py:279, slice/tools/fr029_checkaudit.py:294,
+    slice/tools/fr029_checkaudit.py:300, slice/tools/fr029_checkaudit.py:317.'
+  resolution:
+    status: fixed_partial
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::Dependencies
+    - slice/tests/test_checker_counterexamples.py::Routes
+    - slice/tests/test_checker_counterexamples.py::HttpClaims
+    - slice/tests/test_checker_counterexamples.py::SuspectRecall
+    reviewer_note: Không đổi. slice/tools/fr029_checkaudit.py:38; slice/tools/fr029_checkaudit.py:207; slice/tools/fr029_checkaudit.py:450.
+- id: FIND-L3GEN-043
+  codex_label: 'Các vòng không chứng minh khả năng tổng quát hóa: đều báo 33 ca; r3 có sáu reminder streaming sai tại AgentGPT,
+    r4 hết lỗi đó. Công cụ hiện tại chạy danh sách repo cố định, gồm cả split development; --heldout chỉ xuất packet, không
+    chấm độc lập. Mẫu số gold_dep_params còn đổi từ 70 ở r1 sang 69 ở r2'
+  target: công cụ đo (fr029_checkaudit.py)
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/tools/fr029_checkaudit.py:65
+  - slice/tools/fr029_checkaudit.py:326
+  - slice/tools/fr029_checkaudit.py:382
+  summary: 'Các vòng không chứng minh khả năng tổng quát hóa: đều báo 33 ca; r3 có sáu reminder streaming sai tại AgentGPT,
+    r4 hết lỗi đó. Công cụ hiện tại chạy danh sách repo cố định, gồm cả split development; --heldout chỉ xuất packet, không
+    chấm độc lập. Mẫu số gold_dep_params còn đổi từ 70 ở r1 sang 69 ở r2, nên không được quy toàn bộ cải thiện cho checker.
+    Nguồn: ket-qua-chay/fr029-checkaudit-20261008-r1/summary.json:2, ket-qua-chay/fr029-checkaudit-20261008-r1/summary.json:13,
+    ket-qua-chay/fr029-checkaudit-20261008-r2/summary.json:13, ket-qua-chay/fr029-checkaudit-20261008-r3/audit.json:61, ket-qua-chay/fr029-checkaudit-20261008-r4/audit.json:60,
+    slice/tools/fr029_checkaudit.py:65, slice/tools/fr0'
+  resolution:
+    status: fixed_partial
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::Dependencies
+    - slice/tests/test_checker_counterexamples.py::Routes
+    - slice/tests/test_checker_counterexamples.py::HttpClaims
+    - slice/tests/test_checker_counterexamples.py::SuspectRecall
+    reviewer_note: Không đổi. slice/tools/fr029_checkaudit.py:38; slice/tools/fr029_checkaudit.py:207; slice/tools/fr029_checkaudit.py:450.

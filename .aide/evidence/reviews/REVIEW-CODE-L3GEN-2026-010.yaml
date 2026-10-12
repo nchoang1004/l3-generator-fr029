@@ -1,0 +1,185 @@
+key: REVIEW-CODE-L3GEN-2026-010
+type: review
+group: evidence
+scope: lifecycle
+status: completed
+gate: GATE-MERGE
+review_class: adversarial
+review_kind: re-review
+round: 10
+change_set: CHG-L3GEN-2026-002
+change_request: CR-L3GEN-2026-008
+subject: Bộ kiểm bằng chứng FR-029 (slice/l3slice/docfacts.py, astscan.py) và công cụ đo slice/tools/fr029_checkaudit.py
+reviewer: Codex gpt-6-astra, model_reasoning_effort=high, sandbox read-only, phiên mới mỗi vòng. Được dặn không đọc docs/,
+  HANDOFF, .aide/evidence/reviews/.
+author: Phiên Claude chính (Opus 5.5), theo yêu cầu của Hoàng
+receipt:
+  prompt: .aide/evidence/reviews/fr029-checker-20261007-09/codex/codex_fairness10.md
+  prompt_file_last_modified: 2026-10-08T20:40Z
+  output: .aide/evidence/reviews/fr029-checker-20261007-09/codex/codex_fairness10_out.md
+  output_written: 2026-10-08T20:47Z
+  measurement_referenced: ket-qua-chay/fr029-checkaudit-20261009-r38
+decision: changes_needed
+reviewer_trust_assessment:
+  route: vua
+  http_claim: thap
+  http_suspects: thap
+  dependency_params: vua
+evidence_mode: agent_review
+written_late: true
+note: 'Sinh ngày 09/10/2026 bằng script từ JSON Codex trả về (không chép tay). severity do phiên chính gán theo luật: hậu
+  quả là nhận sai hoặc từ chối nhầm thì medium, bỏ sót hoặc nhiễu thì low; Codex không chấm mức độ (trừ vòng 2 có trường muc_do).
+  resolution.status lấy từ phán quyết của các vòng sau: fixed_confirmed (da_xu_ly), fixed_partial (mot_phan), open (chua),
+  fixed_unconfirmed (chưa có vòng sau). Lệch EXEC §B.17: vượt trần 2 vòng của review adversarial theo yêu cầu người dùng;
+  đề bài từ vòng 6 có ghi chú của tác giả.'
+findings:
+- id: FIND-L3GEN-106
+  codex_label: route_danh_sach_router_trong_bien_lam_lot_claim_thieu_prefix
+  target: bộ kiểm
+  severity: medium
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:664
+  - slice/l3slice/docfacts.py:771
+  - slice/l3slice/docfacts.py:790
+  summary: Nhận claim GET /x thuộc app dù đường dẫn thực là /api/items/x. Resolver chỉ mở rộng vòng lặp có iterable trực tiếp
+    là List/Tuple; biến routers tạo cạnh chưa giải được, khiến kiểm đăng ký trả thành công. slice/l3slice/docfacts.py:664;
+    slice/l3slice/docfacts.py:771; slice/l3slice/docfacts.py:790.
+  frequency_estimate_by_codex: vua
+  reproduction: "from fastapi import FastAPI, APIRouter\napp=FastAPI()\nr=APIRouter(prefix='/items')\n@r.get('/x')\ndef e():\
+    \ return {}\nrouters=[r]\nfor router in routers:\n    app.include_router(router, prefix='/api')\n"
+  resolution:
+    status: fixed_unconfirmed
+    confirmed_in_review: null
+    tests:
+    - slice/tests/test_checker_counterexamples.py::RoundTen
+    note: Đã sửa và có test; chưa có vòng review sau để xác nhận.
+- id: FIND-L3GEN-107
+  codex_label: http_tham_so_che_bien_client_toan_cuc_van_duoc_nhan
+  target: bộ kiểm
+  severity: medium
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/astscan.py:443
+  - slice/l3slice/astscan.py:494
+  - slice/l3slice/astscan.py:508
+  summary: Nhận claim chắc chắn HTTP dựa vào biến toàn cục cùng tên, dù receiver thực là tham số che biến đó. Tham số không
+    annotation không chặn việc rơi về tập clients toàn file; _binds cũng không tính tham số. slice/l3slice/astscan.py:443;
+    slice/l3slice/astscan.py:494; slice/l3slice/astscan.py:508.
+  frequency_estimate_by_codex: vua
+  reproduction: "import httpx\nwire = httpx.Client()\ndef e(wire):\n    return wire.get('https://example.org/x')\n"
+  resolution:
+    status: fixed_unconfirmed
+    confirmed_in_review: null
+    tests:
+    - slice/tests/test_checker_counterexamples.py::RoundTen
+    note: Đã sửa và có test; chưa có vòng review sau để xác nhận.
+- id: FIND-L3GEN-108
+  codex_label: http_client_qua_async_exit_stack_bi_bo_sot
+  target: bộ kiểm
+  severity: medium
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/astscan.py:262
+  - slice/l3slice/astscan.py:274
+  - slice/l3slice/astscan.py:389
+  summary: Không flag lời gọi HTTP và từ chối claim đúng không có client_at. makes() loại lời gọi phương thức trước khi nhận
+    ra enter_async_context trả lại client được đưa vào. slice/l3slice/astscan.py:262; slice/l3slice/astscan.py:274; slice/l3slice/astscan.py:389.
+  frequency_estimate_by_codex: vua
+  reproduction: "import httpx\nfrom contextlib import AsyncExitStack\nasync def e():\n    async with AsyncExitStack() as stack:\n\
+    \        wire = await stack.enter_async_context(httpx.AsyncClient())\n        return await wire.get('https://example.org/x')\n"
+  resolution:
+    status: fixed_unconfirmed
+    confirmed_in_review: null
+    tests:
+    - slice/tests/test_checker_counterexamples.py::RoundTen
+    note: Đã sửa và có test; chưa có vòng review sau để xác nhận.
+- id: FIND-L3GEN-109
+  codex_label: http_provider_cau_hinh_bang_partial_bi_bo_sot
+  target: bộ kiểm
+  severity: medium
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/astscan.py:270
+  - slice/l3slice/astscan.py:276
+  - slice/l3slice/astscan.py:412
+  summary: Không nối callable partial với provider tạo client, nên bỏ suspect HTTP và từ chối claim đúng. Đây là partial được
+    FastAPI thực thi để cấp dependency, khác partial chỉ được tạo ở phản ví dụ vòng 9. slice/l3slice/astscan.py:270; slice/l3slice/astscan.py:276;
+    slice/l3slice/astscan.py:412.
+  frequency_estimate_by_codex: vua
+  reproduction: "from functools import partial\nimport httpx\nfrom fastapi import FastAPI, Depends\ndef provide(base_url):\
+    \ return httpx.Client(base_url=base_url)\nget_client = partial(provide, base_url='https://example.org')\napp=FastAPI()\n\
+    @app.get('/x')\ndef e(wire=Depends(get_client)):\n    return {'status': wire.get('https://example.org/x').status_code}\n"
+  resolution:
+    status: fixed_unconfirmed
+    confirmed_in_review: null
+    tests:
+    - slice/tests/test_checker_counterexamples.py::RoundTen
+    note: Đã sửa và có test; chưa có vòng review sau để xác nhận.
+- id: FIND-L3GEN-110
+  codex_label: dependency_alias_query_la_hang_bi_nhac_sai_ten
+  target: bộ kiểm
+  severity: medium
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:1685
+  - slice/l3slice/docfacts.py:1689
+  summary: Nhắc query page_size thay vì pageSize. Nhánh đọc alias chỉ nhận ast.Constant và âm thầm dùng tên tham số khi alias
+    là Name. slice/l3slice/docfacts.py:1685; slice/l3slice/docfacts.py:1689.
+  frequency_estimate_by_codex: vua
+  reproduction: 'from fastapi import FastAPI, Depends, Query
+
+    PAGE = ''pageSize''
+
+    def dep(page_size: int = Query(10, alias=PAGE)): return page_size
+
+    app = FastAPI()
+
+    @app.get(''/x'')
+
+    def e(v=Depends(dep)): return {}
+
+    '
+  resolution:
+    status: fixed_unconfirmed
+    confirmed_in_review: null
+    tests:
+    - slice/tests/test_checker_counterexamples.py::RoundTen
+    note: Đã sửa và có test; chưa có vòng review sau để xác nhận.
+- id: FIND-L3GEN-111
+  codex_label: dependency_header_dung_lai_qua_bien_bi_nhac_thanh_query
+  target: bộ kiểm
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:1660
+  - slice/l3slice/docfacts.py:1664
+  - slice/l3slice/docfacts.py:1666
+  summary: Nhắc query tenant thay vì header X-Tenant. Default là Name không được giải tới đối tượng Header; nhánh scalar coi
+    tham số chưa có marker. slice/l3slice/docfacts.py:1660; slice/l3slice/docfacts.py:1664; slice/l3slice/docfacts.py:1666.
+  frequency_estimate_by_codex: vua
+  reproduction: 'from fastapi import FastAPI, Depends, Header
+
+    tenant_header = Header(alias=''X-Tenant'')
+
+    def dep(tenant: str = tenant_header): return tenant
+
+    app = FastAPI()
+
+    @app.get(''/x'')
+
+    def e(v=Depends(dep)): return {}
+
+    '
+  resolution:
+    status: fixed_unconfirmed
+    confirmed_in_review: null
+    tests:
+    - slice/tests/test_checker_counterexamples.py::RoundTen
+    note: Đã sửa và có test; chưa có vòng review sau để xác nhận.

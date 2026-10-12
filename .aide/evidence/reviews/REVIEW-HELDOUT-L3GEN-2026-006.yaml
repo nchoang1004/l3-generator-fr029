@@ -1,0 +1,50 @@
+type: review
+group: evidence
+scope: lifecycle
+status: completed
+change_set: CHG-L3GEN-2026-002
+change_request: CR-L3GEN-2026-008
+written_late: true
+evidence_mode: agent_review
+author: Phiên Claude chính (Opus 5.5), theo yêu cầu của Hoàng
+key: REVIEW-HELDOUT-L3GEN-2026-006
+gate: GATE-MERGE
+review_class: adversarial
+review_kind: held-out
+batch: 6
+subject: Gói bộ kiểm FR-029 xuất trên repo chưa dùng để chỉnh
+reviewer: Codex gpt-6-astra high
+repositories:
+- caura-ai/caura (chấm lại)
+- xiao-villamor/PrintStash (chấm lại)
+receipt:
+  packet: ket-qua-chay/fr029-heldout-20261008-r23
+  outputs:
+  - .aide/evidence/reviews/fr029-checker-20261007-09/codex/codex_heldout6b_out.md
+  - .aide/evidence/reviews/fr029-checker-20261007-09/codex/codex_heldout6c_out.md
+  output_written: 2026-10-08T15:26Z
+decision: changes_needed
+results:
+  PrintStash: 94 → 37 dòng nghi ngờ; 21 HTTP, 3 đăng ký, 11 hợp lý, 2 nhiễu; 0 sót
+  caura: 31 HTTP, 2 urllib, 4 đăng ký, 0 nhiễu; 0 sót theo FR-028 hiện tại
+note: 'Giám khảo đọc gói và source repo, không đọc code bộ kiểm. Disposition theo EXEC §D.3: ACCEPTED = lỗi thật của bộ kiểm;
+  REJECTED = không phải lỗi bộ kiểm (lý do ghi kèm); NOT_APPLICABLE = ngoài định nghĩa hiện tại; NEEDS_MORE_EVIDENCE = cần
+  quyết định phạm vi.'
+findings:
+- id: FIND-L3GEN-152
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location: backend/app/core/http_client.py:37
+  summary: 'PrintStash: còn 2 dòng nhiễu tra cứu dict chứa client (_clients.get(loop), _pooled_clients.get(key))'
+  resolution:
+    status: open
+  reason: Tên biến chứa 'client'; chưa sửa.
+- id: FIND-L3GEN-153
+  severity: low
+  route: intent_gap
+  disposition: NEEDS_MORE_EVIDENCE
+  summary: 'caura: 37 lời gọi trong 6 script scripts/repro_*.py chỉ import helper cùng thư mục'
+  resolution:
+    status: open
+  reason: Phụ thuộc cách hiểu 'import code của repo' trong FR-028; theo luật hiện tại thì ngoài phạm vi.

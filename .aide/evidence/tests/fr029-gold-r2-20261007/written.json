@@ -1,0 +1,29 @@
+[
+  {
+    "case": "agentgpt",
+    "from": "D:\\VSF\\l3-acceptance-gold\\agentgpt\\gold.json",
+    "from_sha256": "d3916c80766c756fdadb6539ec19566ecb8636367824dfb9883d4057c6e3dd4b",
+    "to": "D:\\VSF\\l3-acceptance-gold\\agentgpt\\gold.r2.json",
+    "to_sha256": "45b821ac1997ad338240ecb2d73535b0c5399c654f3a1546cf6205933c328ec7",
+    "corrections": [
+      "G01",
+      "G02",
+      "G03",
+      "G04",
+      "G05",
+      "G06",
+      "G07 (41 mục)"
+    ]
+  },
+  {
+    "case": "kibo",
+    "from": "D:\\VSF\\l3-acceptance-gold\\kibo\\gold.json",
+    "from_sha256": "db831c31453fc5bf365db5f14a154cc8b8986800a30fe67e9fa6576bed7836f1",
+    "to": "D:\\VSF\\l3-acceptance-gold\\kibo\\gold.r2.json",
+    "to_sha256": "433fb6bc73c8680ad631b51f88bbca670adbac00348a6c18609b76572bb67629",
+    "corrections": [
+      "K01",
+      "K02"
+    ]
+  }
+]

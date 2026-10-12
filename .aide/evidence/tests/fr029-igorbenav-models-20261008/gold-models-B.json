@@ -1,0 +1,1150 @@
+{
+ "models": [
+  {
+   "file": "backend/src/modules/api_keys/schemas.py",
+   "name": "APIKeyCreate",
+   "line": 24,
+   "fields": [
+    {
+     "name": "name",
+     "alias": null,
+     "type": "string",
+     "required": true,
+     "nullable": false,
+     "line": 17,
+     "declared_in": "backend/src/modules/api_keys/schemas.py::APIKeyBase"
+    },
+    {
+     "name": "permissions",
+     "alias": null,
+     "type": "object",
+     "required": false,
+     "nullable": false,
+     "line": 18,
+     "declared_in": "backend/src/modules/api_keys/schemas.py::APIKeyBase"
+    },
+    {
+     "name": "usage_limits",
+     "alias": null,
+     "type": "object",
+     "required": false,
+     "nullable": false,
+     "line": 19,
+     "declared_in": "backend/src/modules/api_keys/schemas.py::APIKeyBase"
+    },
+    {
+     "name": "expires_at",
+     "alias": null,
+     "type": "datetime",
+     "required": false,
+     "nullable": true,
+     "line": 20,
+     "declared_in": "backend/src/modules/api_keys/schemas.py::APIKeyBase"
+    },
+    {
+     "name": "key_metadata",
+     "alias": null,
+     "type": "object",
+     "required": false,
+     "nullable": true,
+     "line": 21,
+     "declared_in": "backend/src/modules/api_keys/schemas.py::APIKeyBase"
+    }
+   ]
+  },
+  {
+   "file": "backend/src/modules/api_keys/schemas.py",
+   "name": "APIKeyUpdate",
+   "line": 38,
+   "fields": [
+    {
+     "name": "name",
+     "alias": null,
+     "type": "string",
+     "required": false,
+     "nullable": true,
+     "line": 41,
+     "declared_in": "backend/src/modules/api_keys/schemas.py::APIKeyUpdate"
+    },
+    {
+     "name": "permissions",
+     "alias": null,
+     "type": "object",
+     "required": false,
+     "nullable": true,
+     "line": 42,
+     "declared_in": "backend/src/modules/api_keys/schemas.py::APIKeyUpdate"
+    },
+    {
+     "name": "usage_limits",
+     "alias": null,
+     "type": "object",
+     "required": false,
+     "nullable": true,
+     "line": 43,
+     "declared_in": "backend/src/modules/api_keys/schemas.py::APIKeyUpdate"
+    },
+    {
+     "name": "is_active",
+     "alias": null,
+     "type": "boolean",
+     "required": false,
+     "nullable": true,
+     "line": 44,
+     "declared_in": "backend/src/modules/api_keys/schemas.py::APIKeyUpdate"
+    },
+    {
+     "name": "expires_at",
+     "alias": null,
+     "type": "datetime",
+     "required": false,
+     "nullable": true,
+     "line": 45,
+     "declared_in": "backend/src/modules/api_keys/schemas.py::APIKeyUpdate"
+    },
+    {
+     "name": "key_metadata",
+     "alias": null,
+     "type": "object",
+     "required": false,
+     "nullable": true,
+     "line": 46,
+     "declared_in": "backend/src/modules/api_keys/schemas.py::APIKeyUpdate"
+    }
+   ]
+  },
+  {
+   "file": "backend/src/modules/api_keys/schemas.py",
+   "name": "APIKeyRead",
+   "line": 49,
+   "fields": [
+    {
+     "name": "name",
+     "alias": null,
+     "type": "string",
+     "required": true,
+     "nullable": false,
+     "line": 17,
+     "declared_in": "backend/src/modules/api_keys/schemas.py::APIKeyBase"
+    },
+    {
+     "name": "permissions",
+     "alias": null,
+     "type": "object",
+     "required": false,
+     "nullable": false,
+     "line": 18,
+     "declared_in": "backend/src/modules/api_keys/schemas.py::APIKeyBase"
+    },
+    {
+     "name": "usage_limits",
+     "alias": null,
+     "type": "object",
+     "required": false,
+     "nullable": false,
+     "line": 19,
+     "declared_in": "backend/src/modules/api_keys/schemas.py::APIKeyBase"
+    },
+    {
+     "name": "expires_at",
+     "alias": null,
+     "type": "datetime",
+     "required": false,
+     "nullable": true,
+     "line": 20,
+     "declared_in": "backend/src/modules/api_keys/schemas.py::APIKeyBase"
+    },
+    {
+     "name": "key_metadata",
+     "alias": null,
+     "type": "object",
+     "required": false,
+     "nullable": true,
+     "line": 21,
+     "declared_in": "backend/src/modules/api_keys/schemas.py::APIKeyBase"
+    },
+    {
+     "name": "created_at",
+     "alias": null,
+     "type": "datetime",
+     "required": false,
+     "nullable": false,
+     "line": 8,
+     "declared_in": "backend/src/modules/common/schemas.py::TimestampSchema"
+    },
+    {
+     "name": "updated_at",
+     "alias": null,
+     "type": "datetime",
+     "required": false,
+     "nullable": true,
+     "line": 9,
+     "declared_in": "backend/src/modules/common/schemas.py::TimestampSchema"
+    },
+    {
+     "name": "id",
+     "alias": null,
+     "type": "integer",
+     "required": true,
+     "nullable": false,
+     "line": 54,
+     "declared_in": "backend/src/modules/api_keys/schemas.py::APIKeyRead"
+    },
+    {
+     "name": "user_id",
+     "alias": null,
+     "type": "integer",
+     "required": true,
+     "nullable": false,
+     "line": 55,
+     "declared_in": "backend/src/modules/api_keys/schemas.py::APIKeyRead"
+    },
+    {
+     "name": "key_prefix",
+     "alias": null,
+     "type": "string",
+     "required": true,
+     "nullable": false,
+     "line": 56,
+     "declared_in": "backend/src/modules/api_keys/schemas.py::APIKeyRead"
+    },
+    {
+     "name": "last_used_at",
+     "alias": null,
+     "type": "datetime",
+     "required": true,
+     "nullable": true,
+     "line": 57,
+     "declared_in": "backend/src/modules/api_keys/schemas.py::APIKeyRead"
+    },
+    {
+     "name": "last_used_ip",
+     "alias": null,
+     "type": "string",
+     "required": true,
+     "nullable": true,
+     "line": 58,
+     "declared_in": "backend/src/modules/api_keys/schemas.py::APIKeyRead"
+    },
+    {
+     "name": "is_active",
+     "alias": null,
+     "type": "boolean",
+     "required": true,
+     "nullable": false,
+     "line": 59,
+     "declared_in": "backend/src/modules/api_keys/schemas.py::APIKeyRead"
+    }
+   ]
+  },
+  {
+   "file": "backend/src/modules/api_keys/schemas.py",
+   "name": "KeyUsageRead",
+   "line": 100,
+   "fields": [
+    {
+     "name": "endpoint",
+     "alias": null,
+     "type": "string",
+     "required": true,
+     "nullable": false,
+     "line": 71,
+     "declared_in": "backend/src/modules/api_keys/schemas.py::KeyUsageBase"
+    },
+    {
+     "name": "method",
+     "alias": null,
+     "type": "string",
+     "required": true,
+     "nullable": false,
+     "line": 72,
+     "declared_in": "backend/src/modules/api_keys/schemas.py::KeyUsageBase"
+    },
+    {
+     "name": "status_code",
+     "alias": null,
+     "type": "integer",
+     "required": true,
+     "nullable": false,
+     "line": 73,
+     "declared_in": "backend/src/modules/api_keys/schemas.py::KeyUsageBase"
+    },
+    {
+     "name": "tokens_used",
+     "alias": null,
+     "type": "integer",
+     "required": false,
+     "nullable": true,
+     "line": 74,
+     "declared_in": "backend/src/modules/api_keys/schemas.py::KeyUsageBase"
+    },
+    {
+     "name": "cost_microcents",
+     "alias": null,
+     "type": "integer",
+     "required": false,
+     "nullable": true,
+     "line": 76,
+     "declared_in": "backend/src/modules/api_keys/schemas.py::KeyUsageBase"
+    },
+    {
+     "name": "response_time_ms",
+     "alias": null,
+     "type": "integer",
+     "required": false,
+     "nullable": true,
+     "line": 77,
+     "declared_in": "backend/src/modules/api_keys/schemas.py::KeyUsageBase"
+    },
+    {
+     "name": "ip_address",
+     "alias": null,
+     "type": "string",
+     "required": false,
+     "nullable": true,
+     "line": 78,
+     "declared_in": "backend/src/modules/api_keys/schemas.py::KeyUsageBase"
+    },
+    {
+     "name": "user_agent",
+     "alias": null,
+     "type": "string",
+     "required": false,
+     "nullable": true,
+     "line": 79,
+     "declared_in": "backend/src/modules/api_keys/schemas.py::KeyUsageBase"
+    },
+    {
+     "name": "error_message",
+     "alias": null,
+     "type": "string",
+     "required": false,
+     "nullable": true,
+     "line": 80,
+     "declared_in": "backend/src/modules/api_keys/schemas.py::KeyUsageBase"
+    },
+    {
+     "name": "usage_metadata",
+     "alias": null,
+     "type": "object",
+     "required": false,
+     "nullable": true,
+     "line": 81,
+     "declared_in": "backend/src/modules/api_keys/schemas.py::KeyUsageBase"
+    },
+    {
+     "name": "created_at",
+     "alias": null,
+     "type": "datetime",
+     "required": false,
+     "nullable": false,
+     "line": 8,
+     "declared_in": "backend/src/modules/common/schemas.py::TimestampSchema"
+    },
+    {
+     "name": "updated_at",
+     "alias": null,
+     "type": "datetime",
+     "required": false,
+     "nullable": true,
+     "line": 9,
+     "declared_in": "backend/src/modules/common/schemas.py::TimestampSchema"
+    },
+    {
+     "name": "id",
+     "alias": null,
+     "type": "integer",
+     "required": true,
+     "nullable": false,
+     "line": 105,
+     "declared_in": "backend/src/modules/api_keys/schemas.py::KeyUsageRead"
+    },
+    {
+     "name": "api_key_id",
+     "alias": null,
+     "type": "integer",
+     "required": true,
+     "nullable": false,
+     "line": 106,
+     "declared_in": "backend/src/modules/api_keys/schemas.py::KeyUsageRead"
+    },
+    {
+     "name": "user_id",
+     "alias": null,
+     "type": "integer",
+     "required": true,
+     "nullable": false,
+     "line": 107,
+     "declared_in": "backend/src/modules/api_keys/schemas.py::KeyUsageRead"
+    }
+   ]
+  },
+  {
+   "file": "backend/src/modules/rate_limit/schemas.py",
+   "name": "RateLimitRead",
+   "line": 43,
+   "fields": [
+    {
+     "name": "path",
+     "alias": null,
+     "type": "string",
+     "required": true,
+     "nullable": false,
+     "line": 13,
+     "declared_in": "backend/src/modules/rate_limit/schemas.py::RateLimitBase"
+    },
+    {
+     "name": "limit",
+     "alias": null,
+     "type": "integer",
+     "required": true,
+     "nullable": false,
+     "line": 14,
+     "declared_in": "backend/src/modules/rate_limit/schemas.py::RateLimitBase"
+    },
+    {
+     "name": "period",
+     "alias": null,
+     "type": "integer",
+     "required": true,
+     "nullable": false,
+     "line": 15,
+     "declared_in": "backend/src/modules/rate_limit/schemas.py::RateLimitBase"
+    },
+    {
+     "name": "id",
+     "alias": null,
+     "type": "integer",
+     "required": true,
+     "nullable": false,
+     "line": 46,
+     "declared_in": "backend/src/modules/rate_limit/schemas.py::RateLimitRead"
+    },
+    {
+     "name": "tier_id",
+     "alias": null,
+     "type": "integer",
+     "required": true,
+     "nullable": false,
+     "line": 47,
+     "declared_in": "backend/src/modules/rate_limit/schemas.py::RateLimitRead"
+    },
+    {
+     "name": "name",
+     "alias": null,
+     "type": "string",
+     "required": true,
+     "nullable": false,
+     "line": 48,
+     "declared_in": "backend/src/modules/rate_limit/schemas.py::RateLimitRead"
+    },
+    {
+     "name": "is_deleted",
+     "alias": null,
+     "type": "boolean",
+     "required": false,
+     "nullable": false,
+     "line": 49,
+     "declared_in": "backend/src/modules/rate_limit/schemas.py::RateLimitRead"
+    }
+   ]
+  },
+  {
+   "file": "backend/src/modules/rate_limit/schemas.py",
+   "name": "RateLimitUpdate",
+   "line": 65,
+   "fields": [
+    {
+     "name": "path",
+     "alias": null,
+     "type": "string",
+     "required": false,
+     "nullable": true,
+     "line": 68,
+     "declared_in": "backend/src/modules/rate_limit/schemas.py::RateLimitUpdate"
+    },
+    {
+     "name": "limit",
+     "alias": null,
+     "type": "integer",
+     "required": false,
+     "nullable": true,
+     "line": 69,
+     "declared_in": "backend/src/modules/rate_limit/schemas.py::RateLimitUpdate"
+    },
+    {
+     "name": "period",
+     "alias": null,
+     "type": "integer",
+     "required": false,
+     "nullable": true,
+     "line": 70,
+     "declared_in": "backend/src/modules/rate_limit/schemas.py::RateLimitUpdate"
+    },
+    {
+     "name": "name",
+     "alias": null,
+     "type": "string",
+     "required": false,
+     "nullable": true,
+     "line": 71,
+     "declared_in": "backend/src/modules/rate_limit/schemas.py::RateLimitUpdate"
+    }
+   ]
+  },
+  {
+   "file": "backend/src/modules/tier/schemas.py",
+   "name": "TierRead",
+   "line": 36,
+   "fields": [
+    {
+     "name": "name",
+     "alias": null,
+     "type": "string",
+     "required": true,
+     "nullable": false,
+     "line": 12,
+     "declared_in": "backend/src/modules/tier/schemas.py::TierBase"
+    },
+    {
+     "name": "id",
+     "alias": null,
+     "type": "integer",
+     "required": true,
+     "nullable": false,
+     "line": 39,
+     "declared_in": "backend/src/modules/tier/schemas.py::TierRead"
+    },
+    {
+     "name": "created_at",
+     "alias": null,
+     "type": "datetime",
+     "required": true,
+     "nullable": false,
+     "line": 40,
+     "declared_in": "backend/src/modules/tier/schemas.py::TierRead"
+    },
+    {
+     "name": "description",
+     "alias": null,
+     "type": "string",
+     "required": false,
+     "nullable": true,
+     "line": 41,
+     "declared_in": "backend/src/modules/tier/schemas.py::TierRead"
+    },
+    {
+     "name": "is_deleted",
+     "alias": null,
+     "type": "boolean",
+     "required": false,
+     "nullable": false,
+     "line": 42,
+     "declared_in": "backend/src/modules/tier/schemas.py::TierRead"
+    }
+   ]
+  },
+  {
+   "file": "backend/src/modules/user/schemas.py",
+   "name": "UserCreate",
+   "line": 82,
+   "fields": [
+    {
+     "name": "name",
+     "alias": null,
+     "type": "string",
+     "required": true,
+     "nullable": false,
+     "line": 16,
+     "declared_in": "backend/src/modules/user/schemas.py::UserBase"
+    },
+    {
+     "name": "username",
+     "alias": null,
+     "type": "string",
+     "required": true,
+     "nullable": false,
+     "line": 17,
+     "declared_in": "backend/src/modules/user/schemas.py::UserBase"
+    },
+    {
+     "name": "email",
+     "alias": null,
+     "type": "email",
+     "required": true,
+     "nullable": false,
+     "line": 21,
+     "declared_in": "backend/src/modules/user/schemas.py::UserBase"
+    },
+    {
+     "name": "password",
+     "alias": null,
+     "type": "string",
+     "required": true,
+     "nullable": false,
+     "line": 85,
+     "declared_in": "backend/src/modules/user/schemas.py::UserCreate",
+     "uncertain": "type comes from crudauth.PasswordPolicy.body_field() (external library, not read); string and required assumed from password-field use"
+    },
+    {
+     "name": "google_id",
+     "alias": null,
+     "type": "string",
+     "required": false,
+     "nullable": true,
+     "line": 86,
+     "declared_in": "backend/src/modules/user/schemas.py::UserCreate"
+    },
+    {
+     "name": "github_id",
+     "alias": null,
+     "type": "string",
+     "required": false,
+     "nullable": true,
+     "line": 87,
+     "declared_in": "backend/src/modules/user/schemas.py::UserCreate"
+    },
+    {
+     "name": "oauth_provider",
+     "alias": null,
+     "type": "string",
+     "required": false,
+     "nullable": true,
+     "line": 88,
+     "declared_in": "backend/src/modules/user/schemas.py::UserCreate"
+    },
+    {
+     "name": "email_verified",
+     "alias": null,
+     "type": "boolean",
+     "required": false,
+     "nullable": false,
+     "line": 89,
+     "declared_in": "backend/src/modules/user/schemas.py::UserCreate"
+    },
+    {
+     "name": "oauth_created_at",
+     "alias": null,
+     "type": "datetime",
+     "required": false,
+     "nullable": true,
+     "line": 90,
+     "declared_in": "backend/src/modules/user/schemas.py::UserCreate"
+    },
+    {
+     "name": "oauth_updated_at",
+     "alias": null,
+     "type": "datetime",
+     "required": false,
+     "nullable": true,
+     "line": 91,
+     "declared_in": "backend/src/modules/user/schemas.py::UserCreate"
+    }
+   ]
+  },
+  {
+   "file": "backend/src/modules/user/schemas.py",
+   "name": "UserRead",
+   "line": 64,
+   "fields": [
+    {
+     "name": "id",
+     "alias": null,
+     "type": "integer",
+     "required": true,
+     "nullable": false,
+     "line": 67,
+     "declared_in": "backend/src/modules/user/schemas.py::UserRead"
+    },
+    {
+     "name": "name",
+     "alias": null,
+     "type": "string",
+     "required": true,
+     "nullable": false,
+     "line": 68,
+     "declared_in": "backend/src/modules/user/schemas.py::UserRead"
+    },
+    {
+     "name": "username",
+     "alias": null,
+     "type": "string",
+     "required": true,
+     "nullable": false,
+     "line": 69,
+     "declared_in": "backend/src/modules/user/schemas.py::UserRead"
+    },
+    {
+     "name": "email",
+     "alias": null,
+     "type": "email",
+     "required": true,
+     "nullable": false,
+     "line": 73,
+     "declared_in": "backend/src/modules/user/schemas.py::UserRead"
+    },
+    {
+     "name": "profile_image_url",
+     "alias": null,
+     "type": "string",
+     "required": true,
+     "nullable": false,
+     "line": 74,
+     "declared_in": "backend/src/modules/user/schemas.py::UserRead"
+    },
+    {
+     "name": "is_deleted",
+     "alias": null,
+     "type": "boolean",
+     "required": false,
+     "nullable": false,
+     "line": 75,
+     "declared_in": "backend/src/modules/user/schemas.py::UserRead"
+    },
+    {
+     "name": "tier_id",
+     "alias": null,
+     "type": "integer",
+     "required": true,
+     "nullable": true,
+     "line": 76,
+     "declared_in": "backend/src/modules/user/schemas.py::UserRead"
+    },
+    {
+     "name": "is_superuser",
+     "alias": null,
+     "type": "boolean",
+     "required": false,
+     "nullable": false,
+     "line": 77,
+     "declared_in": "backend/src/modules/user/schemas.py::UserRead"
+    },
+    {
+     "name": "email_verified",
+     "alias": null,
+     "type": "boolean",
+     "required": false,
+     "nullable": false,
+     "line": 78,
+     "declared_in": "backend/src/modules/user/schemas.py::UserRead"
+    },
+    {
+     "name": "oauth_provider",
+     "alias": null,
+     "type": "string",
+     "required": false,
+     "nullable": true,
+     "line": 79,
+     "declared_in": "backend/src/modules/user/schemas.py::UserRead"
+    }
+   ]
+  },
+  {
+   "file": "backend/src/modules/user/schemas.py",
+   "name": "UserProfileRead",
+   "line": 46,
+   "fields": [
+    {
+     "name": "id",
+     "alias": null,
+     "type": "integer",
+     "required": true,
+     "nullable": false,
+     "line": 54,
+     "declared_in": "backend/src/modules/user/schemas.py::UserProfileRead"
+    },
+    {
+     "name": "name",
+     "alias": null,
+     "type": "string",
+     "required": true,
+     "nullable": false,
+     "line": 55,
+     "declared_in": "backend/src/modules/user/schemas.py::UserProfileRead"
+    },
+    {
+     "name": "username",
+     "alias": null,
+     "type": "string",
+     "required": true,
+     "nullable": false,
+     "line": 56,
+     "declared_in": "backend/src/modules/user/schemas.py::UserProfileRead"
+    },
+    {
+     "name": "profile_image_url",
+     "alias": null,
+     "type": "string",
+     "required": true,
+     "nullable": false,
+     "line": 60,
+     "declared_in": "backend/src/modules/user/schemas.py::UserProfileRead"
+    },
+    {
+     "name": "tier_id",
+     "alias": null,
+     "type": "integer",
+     "required": false,
+     "nullable": true,
+     "line": 61,
+     "declared_in": "backend/src/modules/user/schemas.py::UserProfileRead"
+    }
+   ]
+  },
+  {
+   "file": "backend/src/modules/user/schemas.py",
+   "name": "UserUpdate",
+   "line": 108,
+   "fields": [
+    {
+     "name": "name",
+     "alias": null,
+     "type": "string",
+     "required": false,
+     "nullable": true,
+     "line": 113,
+     "declared_in": "backend/src/modules/user/schemas.py::UserUpdate"
+    },
+    {
+     "name": "username",
+     "alias": null,
+     "type": "string",
+     "required": false,
+     "nullable": true,
+     "line": 117,
+     "declared_in": "backend/src/modules/user/schemas.py::UserUpdate"
+    },
+    {
+     "name": "email",
+     "alias": null,
+     "type": "email",
+     "required": false,
+     "nullable": true,
+     "line": 127,
+     "declared_in": "backend/src/modules/user/schemas.py::UserUpdate"
+    },
+    {
+     "name": "profile_image_url",
+     "alias": null,
+     "type": "string",
+     "required": false,
+     "nullable": true,
+     "line": 128,
+     "declared_in": "backend/src/modules/user/schemas.py::UserUpdate"
+    },
+    {
+     "name": "google_id",
+     "alias": null,
+     "type": "string",
+     "required": false,
+     "nullable": true,
+     "line": 136,
+     "declared_in": "backend/src/modules/user/schemas.py::UserUpdate"
+    },
+    {
+     "name": "github_id",
+     "alias": null,
+     "type": "string",
+     "required": false,
+     "nullable": true,
+     "line": 137,
+     "declared_in": "backend/src/modules/user/schemas.py::UserUpdate"
+    },
+    {
+     "name": "oauth_provider",
+     "alias": null,
+     "type": "string",
+     "required": false,
+     "nullable": true,
+     "line": 138,
+     "declared_in": "backend/src/modules/user/schemas.py::UserUpdate"
+    },
+    {
+     "name": "email_verified",
+     "alias": null,
+     "type": "boolean",
+     "required": false,
+     "nullable": true,
+     "line": 139,
+     "declared_in": "backend/src/modules/user/schemas.py::UserUpdate"
+    },
+    {
+     "name": "oauth_updated_at",
+     "alias": null,
+     "type": "datetime",
+     "required": false,
+     "nullable": true,
+     "line": 140,
+     "declared_in": "backend/src/modules/user/schemas.py::UserUpdate"
+    }
+   ]
+  },
+  {
+   "file": "backend/src/modules/user/schemas.py",
+   "name": "UserTierUpdate",
+   "line": 149,
+   "fields": [
+    {
+     "name": "tier_id",
+     "alias": null,
+     "type": "integer",
+     "required": true,
+     "nullable": false,
+     "line": 152,
+     "declared_in": "backend/src/modules/user/schemas.py::UserTierUpdate"
+    }
+   ]
+  }
+ ],
+ "route_models": [
+  {
+   "method": "POST",
+   "path": "/api/v1/auth/login",
+   "handler": "backend/src/infrastructure/auth/routes.py::login",
+   "request_model": null,
+   "response_model": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/v1/auth/logout",
+   "handler": "backend/src/infrastructure/auth/routes.py::logout",
+   "request_model": null,
+   "response_model": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/v1/auth/logout-all",
+   "handler": "backend/src/infrastructure/auth/routes.py::logout_all",
+   "request_model": null,
+   "response_model": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/v1/auth/refresh-csrf",
+   "handler": "backend/src/infrastructure/auth/routes.py::refresh_csrf_token",
+   "request_model": null,
+   "response_model": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/v1/auth/check-auth",
+   "handler": "backend/src/infrastructure/auth/routes.py::check_auth",
+   "request_model": null,
+   "response_model": null
+  },
+  {
+   "method": "GET",
+   "path": "/health",
+   "handler": "backend/src/interfaces/main.py::health_check",
+   "request_model": null,
+   "response_model": null
+  },
+  {
+   "method": "GET",
+   "path": "/docs",
+   "handler": "backend/src/infrastructure/app_factory.py::get_swagger_documentation",
+   "request_model": null,
+   "response_model": null
+  },
+  {
+   "method": "GET",
+   "path": "/redoc",
+   "handler": "backend/src/infrastructure/app_factory.py::get_redoc_documentation",
+   "request_model": null,
+   "response_model": null
+  },
+  {
+   "method": "GET",
+   "path": "/openapi.json",
+   "handler": "backend/src/infrastructure/app_factory.py::openapi",
+   "request_model": null,
+   "response_model": null
+  },
+  {
+   "method": "POST",
+   "path": "/api/v1/api-keys/",
+   "handler": "backend/src/modules/api_keys/routes.py::create_api_key",
+   "request_model": "backend/src/modules/api_keys/schemas.py::APIKeyCreate",
+   "response_model": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/v1/api-keys/",
+   "handler": "backend/src/modules/api_keys/routes.py::get_user_api_keys",
+   "request_model": null,
+   "response_model": "external:fastcrud.PaginatedListResponse[backend/src/modules/api_keys/schemas.py::APIKeyRead]"
+  },
+  {
+   "method": "GET",
+   "path": "/api/v1/api-keys/{key_id}",
+   "handler": "backend/src/modules/api_keys/routes.py::get_api_key",
+   "request_model": null,
+   "response_model": null
+  },
+  {
+   "method": "PATCH",
+   "path": "/api/v1/api-keys/{key_id}",
+   "handler": "backend/src/modules/api_keys/routes.py::update_api_key",
+   "request_model": "backend/src/modules/api_keys/schemas.py::APIKeyUpdate",
+   "response_model": null
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/v1/api-keys/{key_id}",
+   "handler": "backend/src/modules/api_keys/routes.py::delete_api_key",
+   "request_model": null,
+   "response_model": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/v1/api-keys/{key_id}/usage",
+   "handler": "backend/src/modules/api_keys/routes.py::get_key_usage",
+   "request_model": null,
+   "response_model": "external:fastcrud.PaginatedListResponse[backend/src/modules/api_keys/schemas.py::KeyUsageRead]"
+  },
+  {
+   "method": "GET",
+   "path": "/api/v1/api-keys/{key_id}/analytics",
+   "handler": "backend/src/modules/api_keys/routes.py::get_key_analytics",
+   "request_model": null,
+   "response_model": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/v1/api-keys/summary/user",
+   "handler": "backend/src/modules/api_keys/routes.py::get_user_summary",
+   "request_model": null,
+   "response_model": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/v1/rate-limits/",
+   "handler": "backend/src/modules/rate_limit/routes.py::get_rate_limits",
+   "request_model": null,
+   "response_model": "external:fastcrud.PaginatedListResponse[backend/src/modules/rate_limit/schemas.py::RateLimitRead]"
+  },
+  {
+   "method": "GET",
+   "path": "/api/v1/rate-limits/{name}",
+   "handler": "backend/src/modules/rate_limit/routes.py::get_rate_limit",
+   "request_model": null,
+   "response_model": "backend/src/modules/rate_limit/schemas.py::RateLimitRead"
+  },
+  {
+   "method": "PATCH",
+   "path": "/api/v1/rate-limits/{name}",
+   "handler": "backend/src/modules/rate_limit/routes.py::update_rate_limit",
+   "request_model": "backend/src/modules/rate_limit/schemas.py::RateLimitUpdate",
+   "response_model": null
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/v1/rate-limits/{name}",
+   "handler": "backend/src/modules/rate_limit/routes.py::delete_rate_limit",
+   "request_model": null,
+   "response_model": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/v1/tiers/",
+   "handler": "backend/src/modules/tier/routes.py::get_tiers",
+   "request_model": null,
+   "response_model": "external:fastcrud.PaginatedListResponse[backend/src/modules/tier/schemas.py::TierRead]"
+  },
+  {
+   "method": "GET",
+   "path": "/api/v1/tiers/{name}",
+   "handler": "backend/src/modules/tier/routes.py::get_tier_by_name",
+   "request_model": null,
+   "response_model": "backend/src/modules/tier/schemas.py::TierRead"
+  },
+  {
+   "method": "POST",
+   "path": "/api/v1/users/",
+   "handler": "backend/src/modules/user/routes.py::create_user",
+   "request_model": "backend/src/modules/user/schemas.py::UserCreate",
+   "response_model": "backend/src/modules/user/schemas.py::UserRead"
+  },
+  {
+   "method": "GET",
+   "path": "/api/v1/users/",
+   "handler": "backend/src/modules/user/routes.py::get_users",
+   "request_model": null,
+   "response_model": "external:fastcrud.PaginatedListResponse[backend/src/modules/user/schemas.py::UserRead]"
+  },
+  {
+   "method": "GET",
+   "path": "/api/v1/users/me",
+   "handler": "backend/src/modules/user/routes.py::get_current_user_profile",
+   "request_model": null,
+   "response_model": "backend/src/modules/user/schemas.py::UserRead"
+  },
+  {
+   "method": "GET",
+   "path": "/api/v1/users/{username}",
+   "handler": "backend/src/modules/user/routes.py::get_user_by_username",
+   "request_model": null,
+   "response_model": "backend/src/modules/user/schemas.py::UserProfileRead"
+  },
+  {
+   "method": "GET",
+   "path": "/api/v1/users/active-and-inactive/{username}",
+   "handler": "backend/src/modules/user/routes.py::get_active_and_inactive_user_by_username",
+   "request_model": null,
+   "response_model": "backend/src/modules/user/schemas.py::UserRead"
+  },
+  {
+   "method": "PATCH",
+   "path": "/api/v1/users/{username}",
+   "handler": "backend/src/modules/user/routes.py::update_user_profile",
+   "request_model": "backend/src/modules/user/schemas.py::UserUpdate",
+   "response_model": null
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/v1/users/{username}",
+   "handler": "backend/src/modules/user/routes.py::delete_user_account",
+   "request_model": null,
+   "response_model": null
+  },
+  {
+   "method": "DELETE",
+   "path": "/api/v1/users/db/{username}",
+   "handler": "backend/src/modules/user/routes.py::gdpr_delete_user",
+   "request_model": null,
+   "response_model": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/v1/users/{username}/rate-limits",
+   "handler": "backend/src/modules/user/routes.py::get_user_rate_limits",
+   "request_model": null,
+   "response_model": null
+  },
+  {
+   "method": "GET",
+   "path": "/api/v1/users/{username}/tier",
+   "handler": "backend/src/modules/user/routes.py::get_user_tier",
+   "request_model": null,
+   "response_model": null
+  },
+  {
+   "method": "PATCH",
+   "path": "/api/v1/users/{username}/tier",
+   "handler": "backend/src/modules/user/routes.py::update_user_tier",
+   "request_model": "backend/src/modules/user/schemas.py::UserTierUpdate",
+   "response_model": null
+  }
+ ],
+ "notes": [
+  "Response model rule: explicit response_model= wins; otherwise the return annotation. Routes with no response_model and annotation dict[...]/None/HTMLResponse have null (not a repo model).",
+  "get_rate_limit: response_model=RateLimitRead, return annotation dict|None; response_model used.",
+  "Field order follows Pydantic: reversed MRO, so for class X(TimestampSchema, Base) the Base fields come first, then TimestampSchema, then own fields. declared_in gives file::Class where the line is.",
+  "Annotated[X | None, Field(default=None)] counted as required=false. Field(default_factory=...) counted as required=false.",
+  "TierRead.name is inherited from TierBase; UserCreate.name/username/email from UserBase.",
+  "No model has an alias or alias_generator; all aliases null.",
+  "No repo model nests another repo model in these 12 models (only dict/primitive fields), so nested set is empty. APIKeyWithPermissions/UserAPIKeySummary/APIKeyResponse exist but no route uses them.",
+  "Login takes OAuth2 form data plus Form() remember_me, no Pydantic body model.",
+  "Models not listed as separate entries (parents only): APIKeyBase, TimestampSchema, RateLimitBase, TierBase, UserBase."
+ ]
+}

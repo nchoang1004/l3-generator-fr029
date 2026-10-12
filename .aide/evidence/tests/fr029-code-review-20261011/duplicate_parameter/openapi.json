@@ -1,0 +1,197 @@
+{
+  "components": {
+    "schemas": {
+      "ItemIn_31d45a92": {
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "type": "object",
+        "x-analysis": {
+          "fact_ids": [
+            "fact:31d45a9293cc95a570746f0e3511cea4c5f66ac08a03c58b652ee857e28e5df2"
+          ]
+        }
+      },
+      "ItemOut_04148e19": {
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "tags": {
+            "items": {
+              "$ref": "#/components/schemas/Tag_55d7fff8"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "tags"
+        ],
+        "type": "object",
+        "x-analysis": {
+          "fact_ids": [
+            "fact:04148e19f7b62f5fbfcdead819ebc5c36e952b797c8fe81bf409b7004cd69097"
+          ]
+        }
+      },
+      "Tag_55d7fff8": {
+        "properties": {
+          "label": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "label"
+        ],
+        "type": "object",
+        "x-analysis": {
+          "fact_ids": [
+            "fact:55d7fff832214b23e0cb240fe826d7c8d7a926e58f78a22cb8f63e093f90fc9c"
+          ]
+        }
+      }
+    }
+  },
+  "info": {
+    "title": "Mục hàng",
+    "version": "generated-v1"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/v1/items/": {
+      "post": {
+        "operationId": "op_d022884b4838b862",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ItemIn_31d45a92"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemOut_04148e19"
+                }
+              }
+            },
+            "description": "Status code lấy từ source"
+          }
+        },
+        "x-analysis": {
+          "application_id": "app:app/main.py:5",
+          "evidence_ids": [
+            "ev:05e65b02101feb87b3d212ef27fdfc2f277f7247b5bfec1e068235e60d882c5d",
+            "ev:237dceb91a0cf56208e09e7373f44c3c64eb29ae2dcc201db50817a0336d5619",
+            "ev:a2b26be30bb91223d60156a8ec7ad45e15e2200b1ab5557fccb2b886e61bc81f",
+            "ev:d68c0d166284a11f3d804be4bf50bc675ceb10070868fd738fa3ed8d1b84ab0c",
+            "ev:dcf5d39056044ee47c2e63ef2543555ad457c9f5e673b9aef4d1f202396cd9b6",
+            "ev:ea7c38e0e1a074d8731e34ada586e74eff1c26e8f7429368e013b3cc8c4fc8e3",
+            "ev:f7dcf72ff8813243f08a4632df4ad81ce492e57f1867879d72236162238b26f2"
+          ],
+          "fact_ids": [
+            "fact:d022884b4838b8625840bc176a9cae930866aad400b3c85ef4d288b66c6bfb5a"
+          ],
+          "unknowns": [
+            {
+              "field": "auth",
+              "reason": "Không thấy dependency; không kết luận route công khai"
+            }
+          ]
+        }
+      }
+    },
+    "/api/v1/items/{item_id}": {
+      "get": {
+        "operationId": "op_4bff5064c259ffa2",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "verbose",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemOut_04148e19"
+                }
+              }
+            },
+            "description": "Status code suy theo fastapi.default_status_200"
+          }
+        },
+        "x-analysis": {
+          "application_id": "app:app/main.py:5",
+          "evidence_ids": [
+            "ev:130addd378a27cd7dad0a92e64499284f6a4ec95bc64fc6329e08119918010d8",
+            "ev:237dceb91a0cf56208e09e7373f44c3c64eb29ae2dcc201db50817a0336d5619",
+            "ev:94558d859445cd1078eaffbedb42cd5347d1f2344803d096f0c2f238f5a56aa7",
+            "ev:dcf5d39056044ee47c2e63ef2543555ad457c9f5e673b9aef4d1f202396cd9b6",
+            "ev:ea7c38e0e1a074d8731e34ada586e74eff1c26e8f7429368e013b3cc8c4fc8e3",
+            "ev:f53a37be10b4079ae91c7f969d6319e17e8ab6ac3aa36b2b48d4d43dbc88ba02",
+            "ev:f7dcf72ff8813243f08a4632df4ad81ce492e57f1867879d72236162238b26f2"
+          ],
+          "fact_ids": [
+            "fact:4bff5064c259ffa29772c561c8dd63e1a55a22e1515ceb878fe584a15e9b7bdc"
+          ],
+          "unknowns": [
+            {
+              "field": "auth",
+              "reason": "Không thấy dependency; không kết luận route công khai"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "x-analysis": {
+    "omitted_operations": []
+  }
+}

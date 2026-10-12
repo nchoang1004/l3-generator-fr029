@@ -819,7 +819,7 @@ def _table_classes(r: Resolver, sql: dict):
 
 def _tables(b: _Builder, r: Resolver, files: dict) -> set[str]:
     sql = _sql_bindings(b, r, files)
-    found_tables = set()
+    found_tables, named = set(), {}
     for q, orm, base in _table_classes(r, sql):
         rec = r.classes[q]
         path, node, scope = rec.path, rec.node, r.scopes[rec.path]
@@ -827,7 +827,8 @@ def _tables(b: _Builder, r: Resolver, files: dict) -> set[str]:
         evidence, inferred = [], []
         name_stmt = next((s for s in node.body if isinstance(s, ast.Assign) and any(
             isinstance(t, ast.Name) and t.id == "__tablename__" for t in s.targets)), None)
-        attrs = {"declaration_evidence_id": known(decl_ev["id"], decl_ev["id"])}
+        attrs = {"declaration_evidence_id": known(decl_ev["id"], decl_ev["id"]),
+                 "class_name": known(node.name, decl_ev["id"])}
         if name_stmt is not None and isinstance(_literal(name_stmt.value), str):
             name_ev = b.node_evidence(path, name_stmt.value)
             evidence.append(name_ev)
@@ -842,6 +843,10 @@ def _tables(b: _Builder, r: Resolver, files: dict) -> set[str]:
             inferred.append("sqlmodel-default-tablename-v1: không khai __tablename__, SQLModel dùng tên class viết thường")
         else:
             attrs["name"] = unknown("Không có __tablename__ literal; tên bảng do code tính lúc import, không tự suy")
+        table_args = next((s.value for s in node.body if isinstance(s, ast.Assign) and any(
+            isinstance(t, ast.Name) and t.id == "__table_args__" for t in s.targets)), None)
+        if _table_constraints(table_args):  # multi-column unique / index / check written in __table_args__
+            attrs["table_constraints"] = known(_table_constraints(table_args), decl_ev["id"])
         bound = sql["bindings"].get(base, [])
         if len({d for d, _ in bound}) == 1:
             dialect = bound[0][0]
@@ -870,6 +875,12 @@ def _tables(b: _Builder, r: Resolver, files: dict) -> set[str]:
         if inferred:
             fact["confidence"], fact["confidence_reason"] = "inferred", "; ".join(sorted(set(inferred)))
         found_tables.add(q)
+        named.setdefault(attrs["name"].get("value"), []).append((q, fact))
+    for name, group in named.items():  # class TaskExtended(Task): same __tablename__ (extend_existing): one table,
+        for q, fact in group:          # described by the subclass, which already holds the base's columns
+            if name and any(o != q and r.subclass_of(o, {q}) for o, _ in group):
+                b.facts.remove(fact)
+                found_tables.discard(q)
     return found_tables
 
 
@@ -919,7 +930,8 @@ def _table_variables(b: _Builder, r: Resolver, files: dict, sql: dict, symbols: 
                                                   "symbol_kind": known("variable", ev["id"]),
                                                   "signature": not_applicable("Biến")})
             call = node.value
-            attrs = {"declaration_evidence_id": known(ev["id"], ev["id"])}
+            attrs = {"declaration_evidence_id": known(ev["id"], ev["id"]),
+                     "variable_name": known(var, ev["id"])}  # declared as `var = Table(...)`, not by a class
             evidence, inferred = [], []
             if call.args and isinstance(_literal(call.args[0]), str):
                 name_ev = b.node_evidence(path, call.args[0])
@@ -1010,11 +1022,14 @@ def _column(stmt, path, scope, r: Resolver, b: _Builder, dialect, orm, inferred)
     if target.id.startswith("__"):
         return None
     ev, name_ev = b.span(path, stmt), b.node_evidence(path, target)
+    first_rule, guessed = len(inferred), []  # rules this column adds and the fields they decide (AC-030-01)
     col = {"name": known(target.id, name_ev["id"])}
     type_node = None
     if call is not None and r.qual_node(scope, call.func) in COLUMN | MAPPED_COLUMN:
         type_node = next((a for a in call.args if not isinstance(a, ast.Constant)
                           and (dotted(a.func if isinstance(a, ast.Call) else a) or "").split(".")[-1] != "ForeignKey"), None)
+    if type_node is None and call is not None and _keyword(call, "sa_type") is not None:
+        type_node = _keyword(call, "sa_type")  # SQLModel Field(sa_type=DateTime(timezone=True)) wins over the annotation
     inner, optional = ann, False
     if isinstance(inner, ast.Subscript) and (dotted(inner.value) or "").split(".")[-1] == "Mapped":
         inner = inner.slice
@@ -1024,34 +1039,59 @@ def _column(stmt, path, scope, r: Resolver, b: _Builder, dialect, orm, inferred)
         sides = [s for s in (inner.left, inner.right) if not (isinstance(s, ast.Constant) and s.value is None)]
         optional = len(sides) == 1
         inner = sides[0] if len(sides) == 1 else inner
+    alias_calls, alias_ev = _annotated_columns(r, scope, inner)  # id: Mapped[id_key], id_key = Annotated[int, mapped_column(...)]
+    if alias_calls:
+        alias_ev = b.span(*alias_ev)
+        inner = r.assigns[r.qual_node(scope, inner)][1].slice.elts[0]
+        if type_node is None:
+            types = {ast.unparse(a) for c in alias_calls for a in c.args[:1] if not isinstance(a, ast.Constant)}
+            type_node = next(a for c in alias_calls for a in c.args[:1]) if len(types) == 1 else None
     if type_node is not None:
         type_name = (dotted(type_node.func if isinstance(type_node, ast.Call) else type_node) or "").split(".")[-1]
     else:
         type_name = (dotted(inner) or "").split(".")[-1]
     type_args = [_literal(a) for a in type_node.args] if isinstance(type_node, ast.Call) else []
     declared = ast.unparse(type_node) if type_node is not None else (ast.unparse(inner) if inner is not None else None)
+    max_length = _literal(_keyword(call, "max_length")) if call is not None else None
+    if declared and type_node is None and isinstance(max_length, int):  # SQLModel Field(max_length=255)
+        declared += f", max_length={max_length}"
     if dialect is None:
         col["type"] = unknown("Chưa xác định SQL dialect từ source" + (f"; khai trong code: {declared}" if declared else ""))
     elif type_args and type_name in PARAM_TYPES.get(dialect, {}) and all(isinstance(x, int) for x in type_args):
         col["type"] = known(f"{PARAM_TYPES[dialect][type_name]}({','.join(map(str, type_args))})", ev["id"])
         inferred.append("sqlalchemy-type-v1: kiểu SQL ánh xạ từ kiểu SQLAlchemy theo dialect")
+        guessed.append("type")
     elif isinstance(type_node, ast.Call) and (type_node.args or type_node.keywords):
         col["type"] = unknown(f"Kiểu {type_name}(...) có tham số; bảng ánh xạ sqlalchemy-type-v1 chưa giữ tham số cho {dialect}")
     elif type_name in SQL_TYPES.get(dialect, {}):
         col["type"] = known(SQL_TYPES[dialect][type_name], ev["id"])
         inferred.append("sqlalchemy-type-v1: kiểu SQL ánh xạ từ kiểu SQLAlchemy theo dialect")
+        guessed.append("type")
     else:
         col["type"] = unknown(f"Kiểu {type_name!r} chưa có trong bảng ánh xạ sqlalchemy-type-v1")
     pk = _literal(_keyword(call, "primary_key"))
-    col["primary_key"] = known(pk if isinstance(pk, bool) else False, ev["id"])
-    if not isinstance(pk, bool):
-        inferred.append("sqlalchemy-defaults-v1: không khai primary_key thì là False")
+    alias_pk = {_literal(_keyword(c, "primary_key")) for c in alias_calls}
+    if not isinstance(pk, bool) and alias_calls and len(alias_pk) == 1 and isinstance(next(iter(alias_pk)), bool):
+        col["primary_key"] = known(next(iter(alias_pk)), alias_ev["id"])  # read from the alias, every branch agrees
+    elif not isinstance(pk, bool) and alias_calls and len(alias_pk) > 1:
+        col["primary_key"] = unknown("Khóa chính khác nhau giữa các nhánh điều kiện của alias Annotated")
+    else:
+        col["primary_key"] = known(pk if isinstance(pk, bool) else False, ev["id"])
+        if not isinstance(pk, bool):
+            inferred.append("sqlalchemy-defaults-v1: không khai primary_key thì là False")
+            guessed.append("primary_key")
     nullable = _literal(_keyword(call, "nullable"))
+    alias_null = {_literal(_keyword(c, "nullable")) for c in alias_calls}
+    if not isinstance(nullable, bool) and len(alias_null) == 1 and isinstance(next(iter(alias_null)), bool):
+        nullable = next(iter(alias_null))
     if isinstance(nullable, bool):
         col["nullable"] = known(nullable, ev["id"])
+    elif col["primary_key"]["state"] != "known":
+        col["nullable"] = unknown("Phụ thuộc khóa chính, mà khóa chính chưa xác định")
     else:
         col["nullable"] = known((not col["primary_key"]["value"]) and (optional if ann is not None else True), ev["id"])
         inferred.append("sqlalchemy-defaults-v1: nullable mặc định là not primary_key; với Mapped/SQLModel theo Optional")
+        guessed.append("nullable")
     fk = next((a for a in getattr(call, "args", []) if isinstance(a, ast.Call)
                and (dotted(a.func) or "").split(".")[-1] == "ForeignKey"), None)
     fk_target = _literal(fk.args[0]) if fk is not None and fk.args else None
@@ -1061,10 +1101,56 @@ def _column(stmt, path, scope, r: Resolver, b: _Builder, dialect, orm, inferred)
         col["foreign_key"] = not_applicable("Không khai ForeignKey/foreign_key")
     elif isinstance(fk_target, str) and fk_target.count(".") == 1:
         t, c = fk_target.split(".")
-        col["foreign_key"] = known({"table": t, "column": c}, ev["id"])
+        # ForeignKey('t.c', ondelete=...) or SQLModel Field(foreign_key='t.c', ondelete=...)
+        on_delete = _literal(_keyword(fk if isinstance(fk, ast.Call) else call, "ondelete"))
+        col["foreign_key"] = known({"table": t, "column": c, **({"ondelete": on_delete} if isinstance(on_delete, str)
+                                                                 else {})}, ev["id"])
     else:
         col["foreign_key"] = unknown("Đích khóa ngoại không phải literal bảng.cột")
-    return col, [ev, name_ev]
+    flags = [k for k in ("unique", "index") if _literal(_keyword(call, k)) is True  # written as True only, here
+             or (alias_calls and all(_literal(_keyword(c, k)) is True for c in alias_calls))]  # or in every alias branch
+    if flags:
+        col["constraints"] = known(flags, ev["id"])
+    rules = sorted({x.split(":")[0] for x in inferred[first_rule:]})
+    if rules:
+        col["inferred_by"] = known(rules, ev["id"])
+    if guessed:  # which values came from a documented default, not from the code
+        col["inferred_fields"] = known(guessed, ev["id"])
+    return col, [ev, name_ev] + ([alias_ev] if alias_calls else [])
+
+
+def _table_constraints(node) -> list[str]:
+    """UniqueConstraint / Index / CheckConstraint of a __table_args__ tuple, as short text."""
+    out = []
+    for x in (node.elts if isinstance(node, (ast.Tuple, ast.List)) else []):
+        if not isinstance(x, ast.Call):
+            continue
+        kind, name = (dotted(x.func) or "").split(".")[-1], _literal(_keyword(x, "name"))
+        args = [_literal(a) for a in x.args]
+        if kind == "UniqueConstraint":
+            out.append(f"unique({', '.join(a for a in args if isinstance(a, str))})" + (f" {name}" if isinstance(name, str) else ""))
+        elif kind == "Index" and args and isinstance(args[0], str):
+            unique = "unique " if _literal(_keyword(x, "unique")) is True else ""
+            out.append(f"{unique}index({', '.join(a for a in args[1:] if isinstance(a, str))}) {args[0]}")
+        elif kind == "CheckConstraint" and x.args:
+            out.append(f"check({ast.unparse(x.args[0])})" + (f" {name}" if isinstance(name, str) else ""))
+    return out
+
+
+def _annotated_columns(r: Resolver, scope, node) -> tuple[list, tuple | None]:
+    """mapped_column(...) calls inside a type alias `X = Annotated[T, mapped_column(...)]` (also `a if cond else b`),
+    with (path, alias value node) for the evidence; ([], None) when `node` is not such an alias."""
+    q = r.qual_node(scope, node) if isinstance(node, (ast.Name, ast.Attribute)) else None
+    path, value = r.assigns.get(q, (None, None)) if q else (None, None)
+    if not (isinstance(value, ast.Subscript) and (dotted(value.value) or "").split(".")[-1] == "Annotated"
+            and isinstance(value.slice, ast.Tuple)):
+        return [], None
+    calls = []
+    for extra in value.slice.elts[1:]:
+        for x in ([extra.body, extra.orelse] if isinstance(extra, ast.IfExp) else [extra]):
+            if isinstance(x, ast.Call) and r.qual_node(r.scopes[path], x.func) in MAPPED_COLUMN:
+                calls.append(x)
+    return calls, ((path, value) if calls else None)
 
 
 # ---------------------------------------------------------------- events, http, config, libraries
@@ -1151,6 +1237,92 @@ def _events(b: _Builder, r: Resolver, files: dict):
                         _, c = brokers[dotted(dec.func.value)]
                         _event(b, path, dec, "consume" if dec.func.attr == "subscriber" else "publish", dec.args[0],
                                _kafka_broker(c), ("unknown", "FastStream chọn serializer lúc chạy"))
+
+
+CELERY_APPS = {"celery.Celery"}
+SHARED_TASKS = {"celery.shared_task"}
+BACKGROUND_TASKS = {"fastapi.BackgroundTasks", "fastapi.background.BackgroundTasks", "starlette.background.BackgroundTasks"}
+
+
+def _task_event(b, path, node, action, topic, broker, namespace, serialization, inferred=()):
+    """A Celery or BackgroundTasks point. Both ends of one channel carry the same broker, namespace and serialization
+    values (the same Celery app; the same process for BackgroundTasks), so FR-031 can pair them."""
+    ev = b.node_evidence(path, node)
+    attrs = {"action": known(action, ev["id"]), "declaration_evidence_id": known(ev["id"], ev["id"]),
+             "topic": known(topic, ev["id"]) if topic else unknown("Tên tác vụ không đọc được từ source"),
+             "payload": unknown("Đối số tác vụ không có schema đọc được")}
+    for key, (state, value) in (("broker", broker), ("namespace", namespace), ("serialization_context", serialization)):
+        attrs[key] = known(value, ev["id"]) if state == "known" else unknown(value)
+    fact = b.fact("event", ev, f"{path}:{node.lineno}:{node.col_offset}:{action}:{topic or ''}", attrs)
+    _finish(fact, inferred)
+
+
+def _task_events(b: _Builder, r: Resolver, files: dict):
+    """FR-031 Phạm vi đọc: Celery (.delay, .apply_async, send_task -> @app.task, @shared_task) and FastAPI
+    BackgroundTasks (add_task(f) -> f)."""
+    apps = {q for q, (p, v) in r.assigns.items() if isinstance(v, ast.Call) and r.qual_node(r.scopes[p], v.func) in CELERY_APPS}
+    tasks = {}  # task function qname -> (task name, app qname or None, inferred reasons)
+    for path, f in files.items():
+        for node in f.tree.body:
+            if not isinstance(node, FUNCS):
+                continue
+            for dec in node.decorator_list:
+                target = dec.func if isinstance(dec, ast.Call) else dec
+                app = r.qual_node(f.scope, target.value) if isinstance(target, ast.Attribute) and target.attr == "task" else None
+                if app not in apps and r.qual_node(f.scope, target) not in SHARED_TASKS:
+                    continue
+                named = _literal(_keyword(dec, "name")) if isinstance(dec, ast.Call) else None
+                default = f"{f.prefix}{node.name}"
+                why = () if isinstance(named, str) else (f"Celery đặt tên tác vụ mặc định <module>.<hàm> = {default} "
+                                                          "khi không khai name=",)
+                tasks[default] = (named if isinstance(named, str) else default, app if app in apps else None, why)
+                _celery_point(b, path, dec, "consume", *tasks[default])
+    for path, f in files.items():
+        parents = None
+        for node in ast.walk(f.tree):
+            if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)):
+                continue
+            owner = r.qual_node(f.scope, node.func.value)
+            if node.func.attr in ("delay", "apply_async") and owner in tasks:
+                _celery_point(b, path, node, "publish", *tasks[owner])
+            elif node.func.attr == "send_task" and owner in apps:
+                name = _literal(node.args[0]) if node.args else _literal(_keyword(node, "name"))
+                _celery_point(b, path, node, "publish", name if isinstance(name, str) else None, owner, ())
+            elif node.func.attr == "add_task" and node.args and isinstance(node.func.value, ast.Name):
+                parents = parents or _parents(f.tree)
+                func, _ = _enclosing(node, parents)
+                args = func.args.posonlyargs + func.args.args + func.args.kwonlyargs if func else []
+                if not any(a.arg == node.func.value.id and a.annotation is not None
+                           and r.qual_node(f.scope, a.annotation) in BACKGROUND_TASKS for a in args):
+                    continue
+                target = _background_target(r, f, node.args[0], parents)
+                same = (("known", "fastapi.BackgroundTasks"), ("known", "cùng tiến trình với app"),
+                        ("known", "không tuần tự hóa (gọi trong tiến trình)"))
+                _task_event(b, path, node, "publish", target.qname if target else None, *same)
+                if target is not None and target.qname not in tasks:
+                    tasks[target.qname] = None  # the receiver is written once, at its definition
+                    _task_event(b, target.path, target.node, "consume", target.qname, *same)
+
+
+def _celery_point(b, path, node, action, name, app, why):
+    if app is None:
+        unknown_app = ("unknown", "shared_task: app Celery chọn lúc chạy")
+        _task_event(b, path, node, action, name, unknown_app, unknown_app, unknown_app, why)
+    else:
+        _task_event(b, path, node, action, name, ("known", f"celery:{app}"), ("known", app),
+                    ("known", f"theo cấu hình của app {app}"), why)
+
+
+def _background_target(r: Resolver, f, arg, parents):
+    """Definition of the function handed to add_task: a name, or self.method inside a class."""
+    if isinstance(arg, ast.Attribute) and isinstance(arg.value, ast.Name) and arg.value.id == "self":
+        cur = arg
+        while cur in parents and not isinstance(cur, ast.ClassDef):
+            cur = parents[cur]
+        return r.defs.get(f"{f.prefix}{cur.name}.{arg.attr}") if isinstance(cur, ast.ClassDef) else None
+    q = r.qual_node(f.scope, arg)
+    d = r.defs.get(q) if q else None
+    return d if d is not None and d.kind in ("function", "method") else None
 
 
 def _is_test_file(path):
@@ -1321,7 +1493,7 @@ def _config(b, path, node, key, source, default=None):
 IMPORT_NAMES = {"psycopg2-binary": "psycopg2", "psycopg-binary": "psycopg", "python-jose": "jose", "pyjwt": "jwt",
                 "pyyaml": "yaml", "beautifulsoup4": "bs4", "pillow": "PIL", "python-multipart": "multipart",
                 "python-dotenv": "dotenv", "scikit-learn": "sklearn", "opencv-python": "cv2"}
-QUEUE_LIBS = {"celery", "kombu", "pika", "aio_pika", "dramatiq", "rq", "arq", "taskiq", "nats"}  # no event facts yet
+QUEUE_LIBS = {"kombu", "pika", "aio_pika", "dramatiq", "rq", "arq", "taskiq", "nats"}  # no event facts yet
 
 
 def _imports(files: dict) -> dict[str, tuple[str, ast.AST]]:
@@ -1343,10 +1515,21 @@ def _unsupported_queues(b: _Builder, files: dict):
         b.limit("QUEUE_LIBRARY_UNSUPPORTED", "Dùng thư viện hàng đợi/sự kiện chưa hỗ trợ, chưa trích bên gửi/nhận: "
                 + ", ".join(f"{m} ({p}:{n.lineno})" for m, p, n in seen),
                 sorted({b.files[p]["file_id"] for _, p, _ in seen}))
+    pubsub = []  # Redis used as a message bus (publish / pubsub), e.g. a hand-written event bus: not read yet
+    for path, f in sorted(files.items()):
+        if "redis" not in _imports({path: f}):
+            continue
+        pubsub += [(path, n.lineno) for n in ast.walk(f.tree) if isinstance(n, ast.Call)
+                   and isinstance(n.func, ast.Attribute) and n.func.attr in ("publish", "pubsub")]
+    if pubsub:
+        b.limit("QUEUE_LIBRARY_UNSUPPORTED", "Dùng Redis pub/sub làm kênh sự kiện; chưa trích bên gửi/nhận, tài liệu "
+                "không liệt kê các sự kiện này: " + ", ".join(f"{p}:{line}" for p, line in sorted(set(pubsub))),
+                sorted({b.files[p]["file_id"] for p, _ in pubsub}))
 
 
 def _libraries(b: _Builder, texts: dict[str, str], files: dict):
     imported = _imports(files)
+    declared = set()
     for path, text in texts.items():
         if path.endswith("pyproject.toml"):
             try:
@@ -1367,16 +1550,21 @@ def _libraries(b: _Builder, texts: dict[str, str], files: dict):
             entries = [ln.split("#")[0].strip() for ln in text.splitlines()]
             entries = [e for e in entries if e and not e.startswith("-")]
         lines = text.splitlines()
-        for entry in entries:
+        after = 0  # entries come in file order: each takes the next line that names it, so a package declared
+        for entry in entries:  # twice (one line per python version) keeps both lines
             m = re.match(r"^([A-Za-z0-9_.\-]+)(\[[^\]]*\])?\s*(.*)$", entry)
             if not m:
                 continue
-            line_no = next((i + 1 for i, ln in enumerate(lines) if m.group(1) in ln), 1)
+            line_no = next((i + 1 for i, ln in enumerate(lines) if i >= after and m.group(1) in ln), None) or \
+                next((i + 1 for i, ln in enumerate(lines) if m.group(1) in ln), 1)
+            after = line_no
             ev = b.evidence(path, line_no, line_no)
             dist = m.group(1).lower()
             module = IMPORT_NAMES.get(dist, dist.replace("-", "_").replace(".", "_"))
             if module not in imported and dist.startswith("python-"):  # python-slugify -> slugify
                 module = dist[len("python-"):].replace("-", "_")
+            if module not in imported and "-" in dist and dist.split("-")[0] in imported:  # tortoise-orm -> tortoise
+                module = dist.split("-")[0]
             extra = []
             if module in imported:
                 site = b.node_evidence(*imported[module])
@@ -1388,7 +1576,9 @@ def _libraries(b: _Builder, texts: dict[str, str], files: dict):
                      "version": known(m.group(3).strip(), ev["id"]) if m.group(3).strip()
                      else unknown("Không ghi ràng buộc phiên bản"),
                      "used": used}
-            _finish(b.fact("library", ev, f"{path}:{dist}", attrs, extra_evidence=extra))
+            key = f"{path}:{dist}" if f"{path}:{dist}" not in declared else f"{path}:{dist}:{line_no}"
+            declared.add(key)  # a second declaration (another python version) is its own fact
+            _finish(b.fact("library", ev, key, attrs, extra_evidence=extra))
 
 
 # ---------------------------------------------------------------- references
@@ -1543,6 +1733,7 @@ def extract(snapshot: dict, sources: dict[str, bytes], unit_id: str) -> dict:
     _table_variables(b, r, files, _sql_bindings(b, r, files), symbols)
     _migration_tables(b, r, files)
     _events(b, r, files)
+    _task_events(b, r, files)
     _http_and_config(b, r, files)
     _libraries(b, texts, files)
     _unsupported_queues(b, files)

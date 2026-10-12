@@ -1,0 +1,20 @@
+{
+  "input": "Synthetic fact at actual HTTP call line, not product output",
+  "result": {
+    "tp": 0,
+    "fp": [
+      "backend/utils/request_parse.py:49"
+    ],
+    "fn": [
+      "backend/plugin/oauth2/api/v1/github.py:21",
+      "backend/plugin/oauth2/api/v1/google.py:21",
+      "backend/utils/request_parse.py:47"
+    ]
+  },
+  "expected_under_FR029": {
+    "tp": 1,
+    "fp": 0,
+    "fn": 0
+  },
+  "scope_note": "Only 1 direct supported-library HTTP call among these 3 v1 http_api entries; 2 OAuth constructors are outside FR029 HTTP-call scope."
+}

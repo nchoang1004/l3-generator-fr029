@@ -15,8 +15,8 @@ import tokenize
 from collections import Counter
 
 from . import astscan
-from .common import compact, has_secret, known, sha, unknown
-from .source_tools import mask_text
+from .common import compact, has_secret, is_known, known, sha, unknown
+from .source_tools import MAX_LINE_CHARS, mask_text
 
 METHODS = {"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS", "TRACE"}
 PARAM_PLACES = {"path", "query", "header", "cookie"}
@@ -54,11 +54,13 @@ ROLE_SIGNALS = {
     "Route": re.compile(r"@\s*[\w.]+\.(get|post|put|patch|delete|head|options|trace|api_route|websocket)\s*\("),
     "Model bảng": re.compile(r"__tablename__|table\s*=\s*True|\bTable\s*\("),
     "Cấu hình": re.compile(r"BaseSettings|os\.environ|os\.getenv"),
-    "Schema API": re.compile(r"^\s*class\s+\w+\s*\("),
+    # a class, or a model made at run time (X = pydantic_model_creator(Y), X = create_model(...))
+    "Schema API": re.compile(r"^\s*class\s+\w+\s*\(|^\s*\w+\s*=\s*[\w.]*(pydantic_model_creator|pydantic_queryset_creator|create_model)\s*\("),
 }
 # Roles whose regex signal is reliable enough to enforce the FR-029 order: a file that shows one of these must not
 # get a later role unless the agent says why the match is not that signal (`not_signal`).
 ORDER_SIGNALS = ["Điểm vào", "Route", "Model bảng"]
+PART_CALLS = {"include_prefix": ("include_router",), "router_prefix": ("APIRouter",), "mount_prefix": ("mount",)}
 PART_SIGNALS = {"include_prefix": re.compile(r"include_router\s*\("), "router_prefix": re.compile(r"APIRouter\s*\("),
                 "mount_prefix": re.compile(r"\.mount\s*\("), "settings_default": re.compile(r"^\s*\w+\s*(:[^=]*)?="),
                 "decorator": re.compile(r"@")}
@@ -70,6 +72,9 @@ SUSPECTS = {  # lines every run must account for: a claim at that line, or a dis
 }
 LOC = re.compile(r"^(?P<path>[^:]+):(?P<start>\d+)(?:-(?P<end>\d+))?$")
 STRING = re.compile(r"(?<![\w])[rRuU]?(\"(?:[^\"\\\n]|\\.)*\"|'(?:[^'\\\n]|\\.)*')")
+# a line that can prove an auth mechanism: a dependency or a fastapi.security scheme (code only, strings removed)
+AUTH_SIGNAL = re.compile(r"\b(?:Depends|Security)\s*\(|\b(?:OAuth2\w*|HTTPBearer|HTTPBasic\w*|HTTPDigest|"
+                         r"APIKey(?:Header|Query|Cookie)|SecurityScopes|HTTPAuthorizationCredentials)\b")
 IMPORT_LINE = re.compile(r"^\s*(import|from)\s")
 
 
@@ -117,12 +122,25 @@ class Claims:
         return path, start, end
 
     def text(self, where) -> str:
+        """The cited lines as delivered: a line cut for length keeps only the part the model was sent."""
         path, start, end = where
-        return "\n".join(self.tools.lines[path][start - 1:end])
+        cut = self.tools.cut.get(path, ())
+        return "\n".join(line[:MAX_LINE_CHARS] if i in cut else line
+                         for i, line in enumerate(self.tools.lines[path][start - 1:end], start))
+
+    def _hidden(self, where, value) -> bool:
+        """`value` is in the cited lines only after the cut: the model was never sent it."""
+        path, start, end = where
+        if not isinstance(value, str) or not value or not any(i in self.tools.cut.get(path, ()) for i in range(start, end + 1)):
+            return False
+        full = "\n".join(self.tools.lines[path][start - 1:end])
+        return value in full and value not in self.text(where) and value not in self.shown(where)
 
     def shown(self, where) -> str:
         path, start, end = where
-        return "\n".join(self.tools.shown[path][start - 1:end])
+        cut = self.tools.cut.get(path, ())
+        return "\n".join(line[:MAX_LINE_CHARS] if i in cut else line
+                         for i, line in enumerate(self.tools.shown[path][start - 1:end], start))
 
     def literals(self, text: str) -> list[str]:
         out = []
@@ -220,7 +238,7 @@ class Claims:
         if not isinstance(fields, list):
             errors.append("fields: phải là danh sách (danh sách rỗng nếu model không có trường)")
             fields = []
-        parsed = []
+        parsed, unchecked = [], []
         for j, f in enumerate(fields):
             if not isinstance(f, dict):
                 errors.append(f"fields[{j}]: phải là object")
@@ -238,11 +256,55 @@ class Claims:
                            "required": self.boolean_or_unknown(f, "required", f"fields[{j}]", errors),
                            "nullable": self.boolean_or_unknown(f, "nullable", f"fields[{j}]", errors),
                            "type": self.type_or_unknown(f.get("type"), f"fields[{j}].type", errors)})
+            if fat and not self._field_check(f, fat, parsed[-1]["type"], j, errors):
+                unchecked.append(fname)
         if errors:
             return errors
-        self.models[ident] = {"id": ident, "name": name, "at": where, "fields": parsed,
+        self.models[ident] = {"id": ident, "name": name, "at": where, "fields": parsed, "unchecked": unchecked,
                               "dynamic": dynamic["reason"] if dynamic is not None else None}
         return []
+
+    def _annotation_type(self, node):
+        """Expected claim for an annotation: ('base', T) | ('array', inner) | ('class', name) | None (not decidable)."""
+        if isinstance(node, (ast.Name, ast.Attribute)):
+            name = (astscan.dotted(node) or "").split(".")[-1]
+            if name in FIELD_BASES:
+                return ("base", FIELD_BASES[name])
+            if name in FIELD_ARRAYS:
+                return ("array", None)
+            self._function_defs()
+            return ("class", name) if name in self._classes and name not in self._enum_names() else None
+        if isinstance(node, ast.Subscript):
+            name = astscan.name_of(node.value)
+            if name in FIELD_ARRAYS:
+                inner = node.slice.elts[0] if isinstance(node.slice, ast.Tuple) else node.slice
+                return ("array", self._annotation_type(_strip_optional(inner)[0]))
+            if name in ("dict", "Dict", "Mapping"):
+                return ("base", "object")
+        return None
+
+    def _field_check(self, f, fat, got, j, errors) -> bool:
+        """Compare a field claim with the annotated assignment it cites. True when type, required and nullable
+        could all be decided from the declaration (otherwise the agent's answer stands, with lower confidence)."""
+        tree = self._tree(fat[0])
+        st = next((n for n in ast.walk(tree) if isinstance(n, ast.AnnAssign) and isinstance(n.target, ast.Name)
+                   and n.target.id == f.get("name") and n.lineno <= fat[1] <= (n.end_lineno or n.lineno)),
+                  None) if tree is not None else None
+        if st is None:
+            return False
+        decl = ast.unparse(st)[:120]
+        base, optional = _strip_optional(st.annotation)
+        has_default, default_none = _default_of(st.value)
+        want_type = self._annotation_type(base)
+        # Optional without default: required differs between Pydantic v1 and v2; `x: int = None`: v1 allows None
+        want = {"required": False if has_default else (None if optional else True),
+                "nullable": True if optional else (None if default_none else False)}
+        if _type_conflict(want_type, got):
+            errors.append(f"fields[{j}].type: khai báo `{decl}` không phải kiểu {f.get('type')}")
+        for key, value in want.items():
+            if value is not None and isinstance(f.get(key), bool) and f[key] is not value:
+                errors.append(f"fields[{j}].{key}: khai báo `{decl}` cho {key} = {str(value).lower()}")
+        return want_type is not None and None not in want.values()
 
     # ---- routes
 
@@ -282,7 +344,8 @@ class Claims:
                 used_at = self.loc(part.get("used_at"), f"path_parts[{j}].used_at", errors)
                 if used_at and not re.search(r"include_router\s*\(|APIRouter\s*\(|\.mount\s*\(", self.text(used_at)):
                     errors.append(f"path_parts[{j}].used_at: phải là dòng include_router/APIRouter/mount dùng giá trị này")
-            elif where and part["kind"] != "decorator" and not PART_SIGNALS[part["kind"]].search(self.text(where)):
+            elif where and part["kind"] != "decorator" and not PART_SIGNALS[part["kind"]].search(self.text(where)) \
+                    and not self._inside_call(where, PART_CALLS.get(part["kind"], ())):  # prefix= on a later line
                 errors.append(f"path_parts[{j}]: dòng {part.get('at')} không có dạng của {part['kind']}; nếu giá trị "
                               "được truyền qua hàm/biến thì thêm used_at là dòng đăng ký")
             if "unknown" in part:
@@ -327,7 +390,8 @@ class Claims:
                     continue
                 dat = self.loc(d.get("at"), f"dependencies[{j}].at", errors)
                 if dat and not self.dependency_at(d["name"], dat):
-                    errors.append(f"dependencies[{j}].name: '{d['name']}' không có tại {d.get('at')}")
+                    errors.append(f"dependencies[{j}].name: '{d['name']}' không có tại {d.get('at')}"
+                                  + ("; Depends(f) và Depends(f(...)) ghi tên hàm f, không ghi lời gọi" if "(" in d["name"] else ""))
                 deps_v.append({"name": d["name"], "at": dat})
         else:
             errors.append("dependencies: danh sách Depends của route (rỗng nếu không có) hoặc {\"unknown\": lý do}")
@@ -337,8 +401,12 @@ class Claims:
             auth_v = {"unknown": auth["unknown"]}
         elif isinstance(auth, dict) and isinstance(auth.get("value"), str) and auth["value"]:
             auth_v = {"value": auth["value"], "at": self.loc(auth.get("at"), "auth.at", errors)}
+            if auth_v["at"] and not AUTH_SIGNAL.search(STRING.sub('""', self.text(auth_v["at"]))):
+                errors.append("auth.at: dòng không có dấu hiệu xác thực (Depends/Security, lớp của fastapi.security); "
+                              "không chứng minh được thì ghi {\"unknown\": lý do}")
         else:
             errors.append("auth: {\"unknown\": lý do} hoặc {\"value\": mô tả, \"at\": vị trí}")
+        extras = self._route_extras(item, dec, errors)
         if errors:
             return errors
         if app_where is not None and dec is not None:
@@ -360,8 +428,209 @@ class Claims:
         self.routes[key] = {"method": method, "handler": handler, "decorator": dec, "application": app_where,
                             "application_unknown": app.get("unknown") if isinstance(app, dict) else None,
                             "parts": parsed_parts, "params": params, "body": body, "response": resp,
-                            "status": status, "auth": auth_v, "dependencies": deps_v}
+                            "status": status, "auth": auth_v, "dependencies": deps_v, **extras}
         return []
+
+    # ---- optional route parts: errors, tags, deprecated, summary
+
+    def _inside_call(self, where, names) -> bool:
+        """The cited line sits inside a call to one of `names` written over several lines (include_router(\n r, prefix=...))."""
+        tree = self._tree(where[0]) if names else None
+        return tree is not None and any(isinstance(n, ast.Call) and astscan.name_of(n.func) in names
+                                        and n.lineno < where[1] <= (n.end_lineno or n.lineno) for n in ast.walk(tree))
+
+    def _handler_fn(self, dec):
+        tree = self._tree(dec[0])
+        return next((n for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+                     and n.lineno == dec[2]), None) if tree is not None else None
+
+    def _node_text(self, path, node) -> str:
+        return "\n".join(self.tools.lines[path][node.lineno - 1:node.end_lineno or node.lineno])
+
+    def _route_extras(self, item, dec, errors) -> dict:
+        """errors (what the handler can answer with besides its declared status), tags, deprecated, summary."""
+        out = {"errors": [], "tags": None, "deprecated": None, "summary": None, "examples": []}
+        fn = self._handler_fn(dec) if dec else None
+        span = (dec[1], fn.end_lineno or fn.lineno) if fn is not None else None
+        raw_ex = item.get("examples")
+        if raw_ex is not None and not isinstance(raw_ex, list):
+            errors.append("examples: danh sách [{\"at\": dòng có example=/examples=}]")
+            raw_ex = []
+        rb, resp = item.get("request_body"), item.get("response")
+        named = (rb.get("models") or [] if isinstance(rb, dict) else []) + \
+            ([resp.get("model")] + list(resp.get("args") or []) if isinstance(resp, dict) else [])
+        used = {m.split("::")[-1] for m in named if isinstance(m, str) and "::" in m}  # this route's model classes
+        for j, x in enumerate(raw_ex or []):
+            where = self.loc(x.get("at") if isinstance(x, dict) else None, f"examples[{j}].at", errors)
+            if where is None:
+                continue
+            found, value = self._example_at(where)
+            owner = self._class_at(where)
+            inside = span is not None and where[0] == dec[0] and span[0] <= where[1] <= span[1]
+            if not found:
+                errors.append(f"examples[{j}]: dòng {x.get('at')} không có example=/examples= với giá trị literal")
+            elif not (inside or (owner is not None and owner.name in used)):
+                errors.append(f"examples[{j}]: dòng phải nằm trong hàm xử lý hoặc trong model request/response của route")
+            else:
+                out["examples"].append({"value": value, "at": where})
+        raw = item.get("errors")
+        if raw is not None and not isinstance(raw, list):
+            errors.append("errors: danh sách [{status, exception, raised_at, status_at}]")
+            raw = []
+        for j, e in enumerate(raw or []):
+            if not isinstance(e, dict):
+                errors.append(f"errors[{j}]: phải là object")
+                continue
+            got = self._error_problems(e, j, dec, fn)
+            errors += got
+            if not got:
+                out["errors"].append({"status": e["status"], "exception": e["exception"],
+                                      "raised_at": self.loc(e["raised_at"], "", []),
+                                      "status_at": self.loc(e["status_at"], "", []) if e.get("status_at") else None})
+        tags = item.get("tags")
+        if tags is not None:
+            where = self.loc(tags.get("at") if isinstance(tags, dict) else None, "tags.at", errors)
+            values = tags.get("value") if isinstance(tags, dict) else None
+            if not isinstance(values, list) or not values or not all(isinstance(t, str) for t in values):
+                errors.append("tags: {\"value\": [chuỗi], \"at\": dòng có tags=[...]}")
+            elif where and ("tags" not in self.text(where) or not all(self.has_literal(where, t) for t in values)):
+                errors.append(f"tags: dòng {tags.get('at')} không khai tags={values}")
+            else:
+                out["tags"] = {"value": values, "at": where}
+        dep = item.get("deprecated")
+        if dep is not None:
+            where = self.loc(dep.get("at") if isinstance(dep, dict) else None, "deprecated.at", errors)
+            if where and not re.search(r"\bdeprecated\s*=\s*True\b", self.text(where)):
+                errors.append(f"deprecated: dòng {dep.get('at')} không có deprecated=True")
+            elif where:
+                out["deprecated"] = {"value": True, "at": where}
+        summ = item.get("summary")
+        if summ is not None:
+            where = self.loc(summ.get("at") if isinstance(summ, dict) else None, "summary.at", errors)
+            text = summ.get("text") if isinstance(summ, dict) else None
+            if not isinstance(text, str) or not text.strip() or len(text) > 300:
+                errors.append("summary: {\"text\": mô tả ngắn ≤300 ký tự, \"at\": dòng trong decorator hoặc thân handler}")
+            elif where and (span is None or where[0] != dec[0] or not span[0] <= where[1] <= span[1]):
+                errors.append("summary.at: phải nằm trong decorator hoặc thân hàm xử lý của route")
+            elif where:
+                out["summary"] = {"value": mask_text(text.strip()), "at": where}
+        return out
+
+    def _example_at(self, where) -> tuple[bool, object]:
+        """(found, value) of an example=/examples=/openapi_examples= keyword or "example(s)" dict key on the cited
+        lines whose value is a Python literal."""
+        tree = self._tree(where[0])
+        for n in ast.walk(tree) if tree is not None else ():
+            if not where[1] <= getattr(n, "lineno", 0) <= where[2]:
+                continue
+            pairs = [(k.arg, k.value) for k in n.keywords] if isinstance(n, ast.Call) else \
+                [(k.value if isinstance(k, ast.Constant) else None, v) for k, v in zip(n.keys, n.values)] \
+                if isinstance(n, ast.Dict) else []
+            for name, value in pairs:
+                if name in ("example", "examples", "openapi_examples"):
+                    try:
+                        return True, ast.literal_eval(value)
+                    except (ValueError, SyntaxError, TypeError):
+                        continue
+        return False, None
+
+    def _error_problems(self, e, j, dec, fn) -> list:
+        f, out = f"errors[{j}]", []
+        status, exc = e.get("status"), e.get("exception")
+        if not isinstance(status, int) or isinstance(status, bool) or not 400 <= status <= 599:
+            out.append(f"{f}.status: mã HTTP 400–599")
+        if not isinstance(exc, str) or not re.fullmatch(r"[A-Za-z_][\w.]*", exc):
+            return out + [f"{f}.exception: tên lớp lỗi như trong code"]
+        short = exc.rsplit(".", 1)[-1]
+        raised = self.loc(e.get("raised_at"), f"{f}.raised_at", out)
+        if raised is None:
+            return out
+        code = STRING.sub('""', self.text(raised))
+        if not (re.search(r"\braise\b", code) and re.search(rf"\b{re.escape(short)}\b", code)):
+            return out + [f"{f}.raised_at: dòng {e.get('raised_at')} không ném {exc}"]
+        if fn is not None and not self._reaches(STRING.sub('""', self._node_text(dec[0], fn)), self._step_names(raised)):
+            out.append(f"{f}.raised_at: hàm xử lý của route không gọi tới hàm chứa {e.get('raised_at')} qua tối đa "
+                       f"{CALL_DEPTH} lời gọi")
+        if short.endswith("HTTPException"):
+            if isinstance(status, int) and not re.search(rf"\b{status}\b|HTTP_{status}_", self.text(raised)):
+                out.append(f"{f}.status: dòng ném không ghi mã {status}")
+            return out
+        at = self.loc(e.get("status_at"), f"{f}.status_at", out)
+        if at is None:
+            return out
+        chain = self._exception_chain(short)
+        owner = self._class_at(at)
+        m = re.match(r"\s*(\w+)\s*(?::[^=]*)?=\s*(\d{3})\b", self.text(at))
+        given = m and (m.group(1), int(m.group(2)))  # `code = 404` in the class body
+        if not given:  # or super().__init__(..., status_code=404) inside the class
+            given = next(((kw.arg, kw.value.value) for kw in self._init_keywords(at)
+                          if isinstance(kw.value, ast.Constant) and isinstance(kw.value.value, int)
+                          and 100 <= kw.value.value <= 599), None)
+        if owner is None or owner.name not in chain:
+            out.append(f"{f}.status_at: {e.get('status_at')} không nằm trong lớp {short} hay lớp cha của nó")
+        elif not given or given[1] != status:
+            out.append(f"{f}.status_at: dòng không gán mã {status} (dạng `code = {status}` trong lớp, hoặc "
+                       f"`super().__init__(..., status_code={status})`)")
+        else:
+            attr = given[0]
+            for name in chain[:chain.index(owner.name)]:  # a subclass between the raised class and `owner` overrides it
+                body = [(p, x) for p, c in self._classes.get(name, []) for x in c.body]
+                if any(isinstance(x, (ast.Assign, ast.AnnAssign))
+                       and re.match(rf"\s*{attr}\s*(?::[^=]*)?=", self.tools.lines[p][x.lineno - 1]) for p, x in body) \
+                        or any(kw.arg == attr for p, x in body for n in ast.walk(x)
+                               for kw in (n.keywords if isinstance(n, ast.Call) and _is_init_call(n) else [])):
+                    out.append(f"{f}.status_at: lớp {name} ghi đè {attr}; mã lấy từ lớp gần nhất")
+                    break
+            handlers = [h for name in chain for h in self._exception_handlers().get(name, [])]
+            if not handlers:
+                out.append(f"{f}: không có exception_handler cho {short} hay lớp cha; FastAPI trả 500, không phải {status}")
+            elif not any(re.search(rf"\.{attr}\b", self._node_text(p, h)) for p, h in handlers):
+                out.append(f"{f}: exception_handler của {short} không dùng thuộc tính {attr} làm status")
+        return out
+
+    def _init_keywords(self, where) -> list:
+        """Keywords of super().__init__(...) / Base.__init__(...) calls on the cited lines."""
+        tree = self._tree(where[0])
+        return [kw for n in (ast.walk(tree) if tree is not None else ()) if isinstance(n, ast.Call) and _is_init_call(n)
+                and where[1] <= n.lineno <= where[2] for kw in n.keywords if kw.arg]
+
+    def _exception_chain(self, name: str) -> list[str]:
+        """The class and its repository base classes, nearest first (by class name)."""
+        self._function_defs()
+        chain, todo = [], [name]
+        while todo and len(chain) < 12:
+            n = todo.pop(0)
+            if n in chain:
+                continue
+            chain.append(n)
+            todo += [astscan.name_of(b) for _, c in self._classes.get(n, []) for b in c.bases if astscan.name_of(b)]
+        return chain
+
+    def _class_at(self, where):
+        tree = self._tree(where[0])
+        found = [n for n in ast.walk(tree) if isinstance(n, ast.ClassDef)
+                 and n.lineno <= where[1] <= (n.end_lineno or n.lineno)] if tree is not None else []
+        return max(found, key=lambda n: n.lineno) if found else None
+
+    def _exception_handlers(self) -> dict:
+        """exception class name -> [(path, handler function)] from @x.exception_handler(E) and add_exception_handler(E, f)."""
+        if getattr(self, "_exc_handlers", None) is None:
+            self._exc_handlers = {}
+            for path, tree in self._trees_all().items():
+                for node in ast.walk(tree):
+                    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                        for d in node.decorator_list:
+                            if isinstance(d, ast.Call) and astscan.name_of(d.func) == "exception_handler" and d.args:
+                                self._exc_handlers.setdefault(astscan.name_of(d.args[0]), []).append((path, node))
+                    elif isinstance(node, ast.Call) and astscan.name_of(node.func) == "add_exception_handler" \
+                            and len(node.args) >= 2:
+                        for p, fn in self._function_defs().get(astscan.name_of(node.args[1]), []):
+                            self._exc_handlers.setdefault(astscan.name_of(node.args[0]), []).append((p, fn))
+        return self._exc_handlers
+
+    def _trees_all(self) -> dict:
+        self._function_defs()
+        return self._trees
 
     def dependency_at(self, name: str, where) -> bool:
         """The cited lines name the Depends function (B.inject must keep its class), directly or through an
@@ -392,7 +661,7 @@ class Claims:
             if isinstance(n, ast.Call) and astscan.name_of(n.func) in ("Depends", "Security") and (n.args or kw_dep) \
                     and n.lineno <= end and (n.end_lineno or n.lineno) >= start:
                 t = n.args[0] if n.args else kw_dep
-                out.append(astscan.dotted(t.func if isinstance(t, ast.Call) else t) or "")
+                out.append(_dep_target(t))
             elif isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):  # f: Filters = Depends()
                 a = n.args
                 pos = a.posonlyargs + a.args
@@ -948,6 +1217,9 @@ class Claims:
                 errors.append(f"params[{j}].name: '{p['name']}' không có tại {p.get('at')}")
             if place == "path" and p.get("required") is not True:
                 errors.append(f"params[{j}].required: tham số path luôn bắt buộc")
+            if isinstance(place, str) and any(o["in"] == place and _param_key(place, o["name"]) == _param_key(place, p["name"])
+                                              for o in out):  # OpenAPI: (name, in) is unique per operation
+                errors.append(f"params[{j}]: trùng tham số {place} '{p['name']}' đã khai ở trên")
             out.append({"name": p["name"], "in": place, "at": where,
                         "type": self.type_or_unknown(p.get("type"), f"params[{j}].type", errors),
                         "required": self.boolean_or_unknown(p, "required", f"params[{j}]", errors),
@@ -982,8 +1254,15 @@ class Claims:
         needs_fields = media in FORM_MEDIA or embedded
         if media in FORM_MEDIA and embedded:
             errors.append("request_body.embedded: chỉ dùng cho body JSON; Form/File ghi các trường ở fields")
-        if not value["models"] and media not in FORM_MEDIA:
-            errors.append("request_body.models: rỗng chỉ dùng cho Form/File")
+        body_type = None
+        if not value["models"] and media not in FORM_MEDIA and not embedded:
+            if value.get("type") is None:  # payload: dict = Body(...), items: list[int]: the declared type is the body
+                errors.append("request_body: body JSON không có model cần \"type\": kiểu đã khai (dict -> object, "
+                              "list[int] -> array[integer]); models rỗng chỉ dùng cho Form/File")
+            else:
+                body_type = self.type_or_unknown(value["type"], "request_body.type", errors)
+        elif not value["models"] and media not in FORM_MEDIA:
+            errors.append("request_body.models: rỗng chỉ dùng cho Form/File hoặc body JSON có \"type\"")
         if needs_fields:
             raw = value.get("fields")
             if not isinstance(raw, list) or not raw:
@@ -1003,6 +1282,7 @@ class Claims:
         if param is not None and (not isinstance(param, str) or (where and not re.search(rf"\b{re.escape(param)}\b", self.text(where)))):
             errors.append("request_body.param: tên tham số body phải có tại vị trí đã dẫn")
         return {"models": value["models"], "fields": fields, "media_type": media, "required": req, "at": where,
+                "type": body_type,
                 "param": param if isinstance(param, str) else None,
                 "embedded": embedded, "rule": self.rule(value.get("rule"), "request_body.rule", errors)}
 
@@ -1149,6 +1429,8 @@ class Claims:
             elif verb not in ("request", "stream") and verb != method.lower():
                 errors.append(f"method: lời gọi là .{verb}(, không phải {method}")
         target = item.get("target")
+        if where and isinstance(target, dict) and self._hidden(where, target.get("value")):
+            errors.append("target.value: giá trị nằm ở phần dòng bị cắt, model chưa được gửi; ghi kind unknown kèm lý do")
         config_at = None
         kind = target.get("kind") if isinstance(target, dict) else None
         if kind in ("literal", "config") and has_secret(target.get("value")):
@@ -1454,12 +1736,58 @@ class Claims:
                 call_path = [self.loc(x, f"call_path[{j}]", errors) for j, x in enumerate(cp)]
                 if all(call_path) and not any(w[0] == path for w in call_path):
                     errors.append("call_path: phải đi qua chính file này")
+                for j in range(len(call_path) - 1) if all(call_path) else ():  # each step reaches the next one
+                    names = self._step_names(call_path[j + 1])
+                    if not names:
+                        errors.append(f"call_path[{j + 1}]: {cp[j + 1]} không nằm trong hàm nào; dẫn dòng trong thân hàm")
+                    elif not self._reaches(STRING.sub('""', self.text(call_path[j])), names):
+                        errors.append(f"call_path[{j}]: từ dòng {cp[j]} không tới được {'/'.join(names)} (hàm chứa "
+                                      f"{cp[j + 1]}) qua tối đa {CALL_DEPTH} lời gọi; dẫn dòng gọi ở mỗi bước")
         if errors:
             return errors
         self.roles[path] = {"file": path, "role": role, "at": where, "call_path": call_path,
                             "reason": item.get("reason") if isinstance(item.get("reason"), str) else None,
                             "not_signal": item.get("not_signal") if isinstance(item.get("not_signal"), str) else None}
         return []
+
+    def _step_names(self, where) -> list[str]:
+        """What a call path step is reached through: the functions holding the line (a closure and the factory
+        around it), or the names a module-level line assigns (engine = create_engine(...))."""
+        tree = self._tree(where[0])
+        if tree is None:
+            return []
+        fns = [n.name for n in ast.walk(tree) if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+               and n.lineno <= where[1] <= (n.end_lineno or n.lineno)]  # a method is also reached through its class:
+        return fns or [t.id for n in tree.body if isinstance(n, (ast.Assign, ast.AnnAssign))  # Cls(...), Depends(Cls())
+                       and n.lineno <= where[1] <= (n.end_lineno or n.lineno)
+                       for t in (n.targets if isinstance(n, ast.Assign) else [n.target]) if isinstance(t, ast.Name)]
+
+    def _reaches(self, code: str, targets: list[str]) -> bool:
+        """A name on the cited line is one of `targets`, or calls into one within CALL_DEPTH calls. Calls are
+        matched by name only (any function of that name), so this refuses unrelated steps, it does not prove a path."""
+        want = set(targets)
+        seen = frontier = set(re.findall(r"\w+", code))
+        for _ in range(CALL_DEPTH + 1):
+            if frontier & want:
+                return True
+            frontier = {c for n in frontier for c in self._call_graph().get(n, ())} - seen
+            seen = seen | frontier
+        return False
+
+    def _call_graph(self) -> dict:
+        """function name -> names it calls or hands to Depends/Security, over every function of that name."""
+        if getattr(self, "_calls", None) is None:
+            self._calls = {}
+            for name, defs in self._function_defs().items():
+                out = self._calls.setdefault(name, set())
+                for _, fn in defs:
+                    for n in ast.walk(fn):
+                        if isinstance(n, ast.Call):
+                            out.add(astscan.name_of(n.func))
+                            if astscan.name_of(n.func) in ("Depends", "Security"):
+                                out.update(astscan.name_of(a) for a in n.args)
+                out.discard(None)
+        return self._calls
 
     def add_limit(self, item) -> list:
         errors = []
@@ -1546,8 +1874,8 @@ class Claims:
                 out += [f"Model {m['id']}.{f['name']}: model lồng {x} chưa được nộp" for x in _model_refs(f["type"])
                         if x not in known_models]
         listed = {p for c in components if c.get("kind", "normal") == "normal" for p in c["files"]}
-        out += [f"Chưa có vai trò cho file {p}" for p in self.tools.readable
-                if p in listed and p.endswith(".py") and p not in self.roles]
+        out += [f"Chưa có vai trò cho file {p}" for p in self.tools.readable  # an empty file takes no role (add_role)
+                if p in listed and p.endswith(".py") and p not in self.roles and self.tools.lines[p]]
         route_files = {r["decorator"][0] for r in self.routes.values()}
         data_files = {p for p, x in self.roles.items() if x["role"] in ("Truy cập dữ liệu", "Hạ tầng")}
         for x in self.roles.values():
@@ -1885,12 +2213,81 @@ def _scalar_list(ann, enums) -> bool:
     return False
 
 
+FIELD_BASES = {"str": "string", "int": "integer", "float": "number", "Decimal": "number", "bool": "boolean",
+               "bytes": "binary", "UUID": "uuid", "datetime": "datetime", "date": "date", "EmailStr": "email",
+               "dict": "object", "Dict": "object", "Mapping": "object", "Any": "any"}
+CALL_DEPTH = 3  # calls a Service call path step may skip
+FIELD_ARRAYS = {"list", "List", "Sequence", "set", "Set", "frozenset", "FrozenSet", "Iterable"}
+
+
+def _strip_optional(node) -> tuple:
+    """(annotation without None, whether None is allowed); a union of two real types gives (None, ...)."""
+    if isinstance(node, ast.Subscript) and astscan.name_of(node.value) == "Annotated" and isinstance(node.slice, ast.Tuple):
+        return _strip_optional(node.slice.elts[0])
+    if isinstance(node, ast.Subscript) and astscan.name_of(node.value) == "Optional":
+        inner, _ = _strip_optional(node.slice)
+        return inner, True
+    parts = None
+    if isinstance(node, ast.Subscript) and astscan.name_of(node.value) == "Union":
+        parts = list(node.slice.elts) if isinstance(node.slice, ast.Tuple) else [node.slice]
+    elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.BitOr):
+        parts, todo = [], [node]
+        while todo:
+            x = todo.pop()
+            if isinstance(x, ast.BinOp) and isinstance(x.op, ast.BitOr):
+                todo += [x.right, x.left]
+            else:
+                parts.append(x)
+    if parts is None:
+        return node, False
+    real = [p for p in parts if not (isinstance(p, ast.Constant) and p.value is None)]
+    return (_strip_optional(real[0])[0] if len(real) == 1 else None), len(real) < len(parts)
+
+
+def _default_of(value) -> tuple:
+    """(has a default, the default is None) of a field assignment; `= Field(...)` and `= ...` mean no default."""
+    if value is None or (isinstance(value, ast.Constant) and value.value is Ellipsis):
+        return False, False
+    if isinstance(value, ast.Call) and astscan.name_of(value.func) == "Field":
+        if any(k.arg == "default_factory" for k in value.keywords):
+            return True, False
+        d = value.args[0] if value.args else next((k.value for k in value.keywords if k.arg == "default"), None)
+        if d is None or (isinstance(d, ast.Constant) and d.value is Ellipsis):
+            return False, False
+        return True, isinstance(d, ast.Constant) and d.value is None
+    return True, isinstance(value, ast.Constant) and value.value is None
+
+
+def _type_conflict(want, got) -> bool:
+    """`want` read from the annotation (None: not decidable), `got` the parsed claim; True when they disagree."""
+    if want is None or not isinstance(got, tuple):  # {"unknown": ...} is the agent's own answer
+        return False
+    if want[0] == "class":  # a model class of the snapshot: a model of another name, a scalar or a list is wrong
+        return (got[0] == "model" and got[1].split("::")[1] != want[1]) or got[0] == "array" or \
+            (got[0] == "base" and got[1] not in ("object", "any"))
+    if want[0] == "array":
+        return got[0] != "array" or _type_conflict(want[1], got[1])
+    return got != want
+
+
+def _is_init_call(node) -> bool:
+    """super().__init__(...) or Base.__init__(self, ...)."""
+    return isinstance(node.func, ast.Attribute) and node.func.attr == "__init__"
+
+
+def _dep_target(node) -> str:
+    """Name of a Depends target: f for f and f(...); a subscript as written (Provide[Container.svc], dependency-injector)."""
+    if isinstance(node, ast.Subscript):
+        return ast.unparse(node)
+    return astscan.dotted(node.func if isinstance(node, ast.Call) else node) or ""
+
+
 def _depends_of(exprs, path) -> list:
     """(target, path:line) of the Depends(f) / Depends(f(...)) calls among expressions."""
     out = []
     for e in exprs:
         if isinstance(e, ast.Call) and astscan.name_of(e.func) == "Depends" and e.args:
-            t = astscan.dotted(e.args[0].func if isinstance(e.args[0], ast.Call) else e.args[0])
+            t = _dep_target(e.args[0])
             if t:
                 out.append((t, f"{path}:{e.lineno}"))
     return out
@@ -2078,6 +2475,10 @@ def build_facts(claims: Claims, snapshot: dict, unit_id: str) -> list[dict]:
         attrs = {"name": known(m["name"], main["id"]), "declared_in": known(m["at"][0], main["id"]),
                  "fields": unknown("Model sinh lúc chạy: " + m["dynamic"]) if m.get("dynamic") else known(fields, main["id"])}
         fact = b.fact("model", main, mid, attrs, extra, inferred)
+        if m.get("unchecked"):  # the agent's answer stands where the declaration could not be read
+            note = "Bộ kiểm chưa đối chiếu được kiểu/required/nullable với khai báo của: " + ", ".join(m["unchecked"])
+            fact["confidence"] = "inferred"
+            fact["confidence_reason"] = "; ".join(x for x in (fact.get("confidence_reason"), note) if x)
         fact["id"] = model_ids[mid]
         facts.append(fact)
     for key in sorted(claims.routes, key=str):
@@ -2203,6 +2604,15 @@ def _route_fact(b: FactBuilder, r: dict, model_ids: dict) -> dict:
                 bodies.append({"direction": "request", "model_id": model_ids[mid], "status": None,
                                "media_type": body["media_type"],
                                "required": body["required"] if isinstance(body["required"], bool) else None})
+            if body.get("type") is not None:  # JSON body without a model: its declared type is the schema
+                t = body["type"]
+                if isinstance(t, dict):
+                    attrs["request_type"] = unknown(t["unknown"])
+                else:
+                    ts = _schema(t, model_ids, be["id"])
+                    attrs["request_type"] = known({"schema": ts["value"], "media_type": body["media_type"],
+                                                   "required": body["required"] if isinstance(body["required"], bool)
+                                                   else None}, be["id"]) if is_known(ts) else ts
             if body["embedded"]:
                 attrs["request_body_embedded"] = known(True, be["id"])
             if body["param"]:
@@ -2273,6 +2683,25 @@ def _route_fact(b: FactBuilder, r: dict, model_ids: dict) -> dict:
         ae = b.ev(a["at"])
         extra.append(ae)
         attrs["auth"] = known(a["value"], ae["id"])
+    if r.get("errors"):  # statuses the handler can answer with besides the declared ones (raise + handler)
+        vals, ids = [], []
+        for e in r["errors"]:
+            evs = [b.ev(e["raised_at"])] + ([b.ev(e["status_at"])] if e["status_at"] else [])
+            extra += evs
+            ids += [x["id"] for x in evs]
+            vals.append({"status": e["status"], "exception": e["exception"],
+                         "raised_at": f"{e['raised_at'][0]}:{e['raised_at'][1]}",
+                         "status_at": f"{e['status_at'][0]}:{e['status_at'][1]}" if e["status_at"] else None})
+        attrs["errors"] = known(sorted(vals, key=lambda v: (v["status"], v["exception"])), *ids)
+    if r.get("examples"):  # literal example=/examples= values read from the cited lines
+        evs = [b.ev(x["at"]) for x in r["examples"]]
+        extra += evs
+        attrs["examples"] = known([x["value"] for x in r["examples"]], *(e["id"] for e in evs))
+    for name in ("tags", "deprecated", "summary"):  # summary: written by the model, shown as "AI viết"
+        if r.get(name):
+            ev = b.ev(r[name]["at"])
+            extra.append(ev)
+            attrs[name] = known(r[name]["value"], ev["id"])
     key = [r["handler"], r["method"], list(r["application"]) if r["application"] else None,
            [[p["kind"], list(p["at"]), p["value"]] for p in r["parts"]]]
     return b.fact("route", dec, key, attrs, extra, inferred)

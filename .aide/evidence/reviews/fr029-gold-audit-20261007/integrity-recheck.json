@@ -1,0 +1,6 @@
+{
+  "checked_gold_and_referenced_source_entries": 401,
+  "changed": [],
+  "kibo_oracle_exists": false,
+  "limits": "Only inventoried golden and referenced source files, not a hash of every repository file."
+}

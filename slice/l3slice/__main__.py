@@ -146,6 +146,9 @@ def _document(argv) -> int:
     p.add_argument("--max-context-chars", type=int, default=400_000, help="Rút gọn tin cũ khi lịch sử vượt mức này")
     p.add_argument("--max-output-tokens", type=int, help="Trần token mỗi câu trả lời của model")
     p.add_argument("--reasoning-effort", choices=["low", "medium", "high"])
+    p.add_argument("--mode", choices=["agent", "oneshot"], default="agent",
+                   help="agent: model đọc qua công cụ; oneshot: gửi toàn bộ source một lần (repo nhỏ, ít request hơn)")
+    p.add_argument("--checkpoint", type=Path, help="oneshot: file lưu tiến độ sau mỗi request; chạy lại thì làm tiếp")
     p.add_argument("--json", action="store_true")
     a = p.parse_args(argv)
     source, output = a.source.resolve(), a.output.resolve()
@@ -176,7 +179,8 @@ def _document(argv) -> int:
         bundle = run_documents(source, output, a.membership.resolve(), a.name or source.name, provider,
                                a.archdia.resolve() if a.archdia else None, a.diagram.resolve() if a.diagram else None,
                                Budget(max_turns=a.max_turns, max_tokens=a.max_tokens,
-                                      max_context_chars=a.max_context_chars), run_id)
+                                      max_context_chars=a.max_context_chars), run_id, a.mode,
+                               a.checkpoint.resolve() if a.checkpoint else None)
     except KeyboardInterrupt:
         return fail(130, "interrupted", "Người dùng dừng lần chạy; không có kết quả được publish", "Chạy lại khi sẵn sàng")
     except (InputError, IntakeError, OSError, json.JSONDecodeError) as exc:

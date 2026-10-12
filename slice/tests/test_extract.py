@@ -320,11 +320,11 @@ class LibrariesAndQueues(unittest.TestCase):
         self.assertIn("Không thấy import", got["asyncpg"]["reason"])
 
     def test_unsupported_queue_library_is_a_limitation(self):
-        # teamhide: `from celery import Celery` in celery_task/__init__.py
-        fs = facts_of({"celery_task/__init__.py": "from celery import Celery\ncelery_app = Celery('worker')\n"})
+        # Celery is read since 11/10/2026 (FR-031); dramatiq still has no event rule
+        fs = facts_of({"jobs/__init__.py": "import dramatiq\nbroker = dramatiq.get_broker()\n"})
         [lim] = [x for x in fs["limitations"] if x["code"] == "QUEUE_LIBRARY_UNSUPPORTED"]
-        self.assertIn("celery", lim["message"])
-        self.assertIn("celery_task/__init__.py", lim["message"])
+        self.assertIn("dramatiq", lim["message"])
+        self.assertIn("jobs/__init__.py", lim["message"])
 
 
 class NestedModels(unittest.TestCase):

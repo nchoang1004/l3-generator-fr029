@@ -218,7 +218,9 @@ class AgentLoopTest(unittest.TestCase):
 class EndToEnd(unittest.TestCase):
     def test_first_case(self):
         boom = mock.Mock(side_effect=AssertionError("luồng FR-029 không được gọi bước này"))
-        with mock.patch("l3slice.extract.extract", boom), mock.patch("l3slice.model.build", boom), \
+        # extract.extract is called since 11/10/2026, only for tables, events, libraries and config (docstatic);
+        # that no route comes from it is guarded by test_static_parts.test_api_facts_come_only_from_the_agent
+        with mock.patch("l3slice.model.build", boom), \
                 mock.patch("l3slice.annotate.annotate", boom), mock.patch("l3slice.render.mermaid", boom), \
                 mock.patch("l3slice.render.svg", boom):
             t, out, bundle = run(ScriptedProvider(script()))
@@ -1125,6 +1127,109 @@ class EmbeddedBody(unittest.TestCase):
         self.assertIn("$ref", put["properties"]["tag"])
         form = doc["paths"]["/login"]["post"]["requestBody"]["content"]["application/x-www-form-urlencoded"]["schema"]
         self.assertEqual(form["required"], ["pw", "user"])
+
+
+class OneShot(unittest.TestCase):
+    """Chế độ đọc một lần: toàn bộ source trong request đầu, các request sau chỉ mang lỗi; checkpoint để chạy tiếp."""
+
+    def setUp(self):
+        from l3slice.docagent import run_oneshot
+        self.run_oneshot = run_oneshot
+        self.components = json.loads(MEMBERSHIP.read_text(encoding="utf-8"))["components"]
+        snap, sources = snapshot.take(FIX)
+        self.tools = SourceTools(snap, sources)
+        self.claims = Claims(self.tools)
+
+    def test_whole_source_once_then_only_the_refusals(self):
+        provider = ScriptedProvider([[("submit_findings", BAD)], [("submit_findings", FINDINGS)]])
+        run = self.run_oneshot(self.tools, self.claims, self.components, provider)
+        self.assertEqual((run.status, run.mode, len(run.requests)), ("completed", "oneshot", 2))
+        first = provider.seen[0]["content"]
+        for p in READABLE:
+            self.assertIn(f"=== {p} (", first)
+        self.assertIn("    9| @router.post(", first)
+        self.assertTrue(self.tools.coverage()["complete"])
+        self.assertIn("FILES THAT NEED A ROLE (4):\napp/api/__init__.py\napp/api/items.py\napp/main.py\napp/schemas.py", first)
+        repair = json.loads(provider.seen[1]["content"])  # the second request adds only the note after the refusal
+        self.assertEqual(repair["refused"], 1)
+        self.assertIn("note", repair)
+        self.assertEqual([r["refused"] for r in run.requests], [1, 0])
+
+    def test_repair_rounds_are_capped(self):
+        seen = []
+        provider = ScriptedProvider([[("submit_findings", BAD)],
+                                     lambda msgs: (seen.append(json.loads(msgs[-2]["content"])), [("submit_findings", BAD)])[1]])
+        run = self.run_oneshot(self.tools, self.claims, self.components, provider, Budget(max_repair_rounds=1))
+        self.assertEqual(seen[0]["errors"][0]["what"], "POST app/api/items.py::create_item")
+        self.assertIn("app/main.py:6-6", seen[0]["errors"][0]["source"])  # the cited prefix line, as the model saw it
+        self.assertEqual(run.status, "partial")
+        self.assertIn("REPAIR_ROUNDS", run.reason)
+        self.assertEqual(len(provider.seen), 2)
+        self.assertTrue(run.open_problems)
+
+    def test_too_large_source_sends_nothing(self):
+        provider = ScriptedProvider([[("submit_findings", FINDINGS)]])
+        run = self.run_oneshot(self.tools, self.claims, self.components, provider, Budget(max_context_chars=100))
+        self.assertEqual(run.status, "failed")
+        self.assertIn("SOURCE_TOO_LARGE", run.reason)
+        self.assertEqual(provider.seen, [])
+
+    def test_checkpoint_resumes_and_rechecks_saved_items(self):
+        t = tempfile.TemporaryDirectory()
+        self.addCleanup(t.cleanup)
+        ck = Path(t.name) / "checkpoint.json"
+        part = dict(FINDINGS, routes=[CREATE])  # READ is missing: its decorator is an open problem
+        run = self.run_oneshot(self.tools, self.claims, self.components,
+                               ScriptedProvider([[("submit_findings", part)], ProviderError("HTTP 500", False)]),
+                               checkpoint=ck)
+        self.assertEqual(run.status, "partial")
+        self.assertEqual(json.loads(ck.read_text(encoding="utf-8"))["requests"][0]["accepted"], 10)
+        snap, sources = snapshot.take(FIX)
+        tools = SourceTools(snap, sources)
+        claims = Claims(tools)
+        provider = ScriptedProvider([[("submit_findings", {"routes": [READ]})]])
+        run = self.run_oneshot(tools, claims, self.components, provider, checkpoint=ck)
+        self.assertEqual((run.status, len(run.requests), len(provider.seen)), ("completed", 2, 1))
+        self.assertEqual((len(claims.routes), len(claims.models)), (2, 3))  # saved items went through the checker again
+        self.assertEqual(claims.rejected, [])
+
+    def test_pipeline_records_mode_and_requests(self):
+        t = tempfile.TemporaryDirectory()
+        self.addCleanup(t.cleanup)
+        bundle = docpipeline.run_documents(FIX, Path(t.name) / "out", MEMBERSHIP, "fr029-e2e",
+                                           ScriptedProvider([[("submit_findings", FINDINGS)]]), mode="oneshot")
+        self.assertEqual((bundle["agent"]["mode"], bundle["agent"]["status"]), ("oneshot", "completed"))
+        self.assertEqual(bundle["provenance"]["prompt_version"], "fr029-oneshot-prompt-v6")
+        self.assertEqual(len(bundle["agent"]["requests"]), 1)
+
+    def test_forced_tool_and_cached_tokens_on_the_wire(self):
+        import os
+        from l3slice.docagent import SUBMIT_SPEC, OpenAICompatProvider
+        os.environ["FR029_TEST_KEY"] = "x"
+        self.addCleanup(os.environ.pop, "FR029_TEST_KEY")
+        p = OpenAICompatProvider("https://api.openai.com/v1", "m", "FR029_TEST_KEY", prices=(1.0, 0.1, 2.0))
+        sent = []
+
+        class Resp:
+            def __init__(self, req):
+                sent.append(json.loads(req.data))
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+            def read(self):
+                return json.dumps({"choices": [{"message": {"tool_calls": [{"id": "c1", "function": {
+                    "name": "submit_findings", "arguments": "{}"}}]}, "finish_reason": "tool_calls"}],
+                    "usage": {"prompt_tokens": 100, "prompt_tokens_details": {"cached_tokens": 40},
+                              "completion_tokens": 10}}).encode()
+        with mock.patch("urllib.request.urlopen", lambda req, timeout=None: Resp(req)):
+            r = p.chat([{"role": "user", "content": "U"}], [SUBMIT_SPEC], tool_choice="submit_findings")
+        self.assertEqual(sent[0]["tool_choice"], {"type": "function", "function": {"name": "submit_findings"}})
+        self.assertEqual(r["usage"], {"input": 100, "output": 10, "cached": 40})
+        self.assertAlmostEqual(p.cost_usd, (60 * 1.0 + 40 * 0.1 + 10 * 2.0) / 1e6)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,108 @@
+type: review
+group: evidence
+scope: lifecycle
+status: completed
+change_set: CHG-L3GEN-2026-002
+change_request: CR-L3GEN-2026-008
+written_late: true
+evidence_mode: agent_review
+author: Phiên Claude chính (Opus 5.5), theo yêu cầu của Hoàng
+key: REVIEW-CODE-L3GEN-2026-012
+gate: GATE-MERGE
+review_class: adversarial
+review_kind: re-review
+round: 9
+subject: Bộ kiểm bằng chứng FR-029 và công cụ đo
+reviewer: Agent Claude general-purpose (Opus 5.5), cùng đề bài với Codex; dùng thay Codex khi Codex hết lượt
+receipt:
+  prompt: .aide/evidence/reviews/fr029-checker-20261007-09/codex/codex_fairness9.md
+  partial_output: .aide/evidence/reviews/fr029-checker-20261007-09/claude-agents/audit9/notes.md
+  measurement_referenced: ket-qua-chay/fr029-checkaudit-20261008-r35
+decision: changes_needed
+note: 'Agent bị dừng giữa chừng (giới hạn phiên Claude, 08/10) trước khi nộp kết luận. Phát hiện lấy từ file phép thử/ghi
+  chú agent để lại; phiên chính chạy lại từng phép thử, chỉ giữ ca tái hiện được, viết test đỏ rồi sửa. fixed_by_test: test
+  của ca đó đỏ trước khi sửa và qua sau khi sửa; chưa có giám khảo xác nhận riêng.'
+findings:
+- id: FIND-L3GEN-121
+  test: slice/tests/test_checker_counterexamples.py::RoundNine::test_router_module_imported_relatively
+  summary: '`from . import items` rồi include_router(items.router): thiếu prefix vẫn được nhận'
+  severity: medium
+  target: bộ kiểm
+  route: patch
+  disposition: ACCEPTED
+  resolution:
+    status: fixed_by_test
+- id: FIND-L3GEN-122
+  test: slice/tests/test_checker_counterexamples.py::RoundNine::test_routers_included_in_a_loop
+  summary: 'include_router trong vòng `for r in (a, b)`: thiếu prefix vẫn được nhận'
+  severity: medium
+  target: bộ kiểm
+  route: patch
+  disposition: ACCEPTED
+  resolution:
+    status: fixed_by_test
+- id: FIND-L3GEN-123
+  test: slice/tests/test_checker_counterexamples.py::RoundNine::test_router_level_dependency_not_declared
+  summary: 'Dependency khai ở APIRouter(dependencies=...) mà agent không nộp: không có lời nhắc'
+  severity: low
+  target: bộ kiểm
+  route: patch
+  disposition: ACCEPTED
+  resolution:
+    status: fixed_by_test
+- id: FIND-L3GEN-124
+  test: slice/tests/test_checker_counterexamples.py::RoundNine::test_alias_dependency_not_declared
+  summary: 'Dependency qua alias Annotated mà agent không nộp: không có lời nhắc'
+  severity: low
+  target: bộ kiểm
+  route: patch
+  disposition: ACCEPTED
+  resolution:
+    status: fixed_by_test
+- id: FIND-L3GEN-125
+  test: slice/tests/test_checker_counterexamples.py::RoundNine::test_client_from_app_state_through_an_untyped_provider
+  summary: Client lấy từ request.app.state qua provider không annotation bị sót
+  severity: low
+  target: bộ kiểm
+  route: patch
+  disposition: ACCEPTED
+  resolution:
+    status: fixed_by_test
+- id: FIND-L3GEN-126
+  test: slice/tests/test_checker_counterexamples.py::RoundNine::test_same_name_bound_to_another_client_kind_in_another_function
+  summary: 'Tên client là httpx ở hàm này, redis ở hàm khác: claim HTTP trên redis vẫn được nhận'
+  severity: medium
+  target: bộ kiểm
+  route: patch
+  disposition: ACCEPTED
+  resolution:
+    status: fixed_by_test
+- id: FIND-L3GEN-127
+  test: slice/tests/test_checker_counterexamples.py::RoundNine::test_client_attribute_set_by_a_base_class_of_another_file
+  summary: self._client do lớp cha ở file khác tạo bị sót
+  severity: low
+  target: bộ kiểm
+  route: patch
+  disposition: ACCEPTED
+  resolution:
+    status: fixed_by_test
+- id: FIND-L3GEN-128
+  test: slice/tests/test_checker_counterexamples.py::RoundNine::test_dotted_dependency_defined_in_two_modules
+  summary: 'Depends(deps.common) khi common có ở 2 module: không nhắc tham số'
+  severity: low
+  target: bộ kiểm
+  route: patch
+  disposition: ACCEPTED
+  resolution:
+    status: fixed_by_test
+self_found_while_fixing:
+- id: FIND-L3GEN-129
+  test: slice/tests/test_checker_counterexamples.py::RoundNine::test_project_module_named_like_an_http_library
+  summary: 'Bản sửa R2 làm `from . import requests` (module dự án) bị coi là thư viện HTTP: PrintStash thêm nhiễu'
+  severity: low
+  target: bộ kiểm
+  route: patch
+  disposition: ACCEPTED
+  resolution:
+    status: fixed_by_test
+  source: phiên chính tự tìm khi sửa (không phải phát hiện của agent)

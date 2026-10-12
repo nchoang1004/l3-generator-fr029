@@ -1,0 +1,46 @@
+key: CR-L3GEN-2026-008
+type: change-request
+group: evidence
+scope: lifecycle
+captured_at_date: "2026-10-07"
+captured_late: true
+captured_late_note: "Ghi muộn: EXEC §B.3 yêu cầu ghi nguyên văn yêu cầu TRƯỚC khi phân tích và triển khai. Phiên 07/10/2026 đã triển khai luồng agent FR-029 trước khi tạo CR này; CR được tạo khi người dùng yêu cầu làm theo Quy_tac."
+source: "Tin nhắn của Hoàng (NguyenCanhHoang) trong phiên làm việc 07/10/2026 với Claude Code; giữ nguyên chữ, kể cả lỗi gõ. Câu trả lời cho câu hỏi chọn phương án ghi ở decisions_verbatim. Nội dung dán kèm (pasted) ghi ở attachments_verbatim."
+touches: [FR-L3GEN-029]
+attachments_verbatim:
+  - "A. [FR-029 — Tài liệu L3 API và cấu trúc component (line 107)](D:/VSF/l3-generator-l3/.aide/requirements/fr/FR-L3GEN-029.md:107) có 8 yêu cầu nghiệm thu:\n1. Sinh tài liệu API: method, path đầy đủ, handler và bằng chứng.\n2. Ghi tham số, request/response model, kiểu, required, nullable, status.\n3. Ghi rõ trường chưa biết hoặc suy ra từ mặc định.\n4. Đối chiếu API với dữ liệu kiến trúc.\n5. Loại route test; báo giới hạn với route không khai bằng decorator.\n6. Sinh README: mục lục, cấu trúc, HTTP ra ngoài, contract chưa gán và giới hạn.\n7. Liệt kê package/module và vai trò từng file.\n8. Ghi các lời gọi HTTP ra ngoài cùng bằng chứng.\nđây"
+requests_verbatim:
+  - "hãy tham khảo các github liên quan đến cái này và viết cho tôi 1 kế hoạch chi tiết để thực hiện cái trên và cái của tôi phải chính xác cao , có thể áp dụng nhiều agent vào"
+  - "bạn hãy thử so với kế hoạch từ codex astra này Đã hoàn thiện kế hoạch triển khai đúng 8 AC của FR-029, sau khi đọc các phần mã liên quan của 4 repo và đối chiếu với code hiện tại. [...phần còn lại là bản tóm tắt kế hoạch của Codex, xem docs/L3-ke-hoach-agent-sinh-tai-lieu.md]"
+  - "tôi nghĩ là agent thuần. 2. có 3. có"
+  - "triển khai và kiểm chéo với codex sao cho nó hoạt động đúng ý đi"
+  - "test với groq đi và kiểm thử với nhiều agent và không nói dối kết quả , lúc nào kết quả đủ tốt thì coi như xong  còn tôi cho phép tất cả, cách nào bạn thấy phù hợp"
+  - "có thể dùng model gpt astra high dùng để chuẩn xác nhé"
+  - "model này có đủ mạnh để bạn dùng không , vì tôi có thể cung cấp model khác như openAI API"
+  - "đây là dùng API key , khác codex astra nên có thể dùng đc"
+  - "chạy luna hay terra thôi"
+  - "và tôi lưu api key vào đâu để bạn nhận ra"
+  - "tôi chưa điền API key mà bạn đã chạy đc model r à"
+  - "à thế chạy tiếp đi và hoàn thành tất cả cho tôi"
+  - "viết để tôi đọc hiểu các thứ bạn đang làm thật dễ hiểu , mọi thứ để tôi có thể trình bày được với mentor trong lúc đợi bạn chạy"
+  - "viết để tôi đọc hiểu các thứ bạn đang làm thật dễ hiểu , mọi thứ để tôi có thể trình bày được với mentor trong lúc đợi bạn chạy viết vào 1 file md ấy , rồi chạy tiếp đi"
+  - "cái bộ 4 golden test mà tôi vừa đẩy lên git gần đây thì có đủ chất lượng để kiểm cái của tôi không ?"
+  - "có thể dùng đa dạng model session , model codex để chấm và kiểm thử công bằng với cái mình đang làm nhé , bạn có thể làm bổ sung kiểm thử với 4 cái trên"
+  - "cứ chạy hết với cái mình đang làm trước và với 4 cái sau thì kiểm sau đó"
+  - "codex đã khôi phục rồi tiếp tục hoàn thiện đi"
+  - "viết lại cái báo cáo giải thích cho mentor nói kĩ càng hơn về mọi kĩ thuật ,cơ chế diễn ra như nào để tôi còn hiểu nữa chứ"
+  - "đây là đã đã test với đủ các yêu cầu hya chỉ là mỗi route ?"
+  - "hãy mở thêm 1 sesion codex astra high và cho nó kiểm thật kĩ mọi thứ rồi bạn tự kiểm xem nó đã đủ, đúng với tất cả yêu cầu đề ra chưa"
+  - "tiếp tục đi"
+  - "giờ chạy với luna và terra thôi, , hãy list ra một bản quy tắc mà bộ này sử dụng để tôi đọc và tiếp tục triển khai đi"
+  - "chỉ luna thôi"
+  - "mà đọc kĩ phần quy tắc và làm theo các phần trong quy tắc nhé"
+decisions_verbatim:
+  - { question: "Giữ hướng agent thuần (agent đọc source) hay chuyển sang kết hợp đọc tĩnh với agent?", answer: "tôi nghĩ là agent thuần" }
+  - { question: "Có cho chạy app.openapi() trong sandbox để dựng gold không?", answer: "có" }
+  - { question: "Có ghi 5 điểm bổ sung vào file kế hoạch của Codex không?", answer: "có" }
+  - { question: "Mình lấy khóa Groq từ đâu để chạy pilot?", answer: "File .env quote-evidence" }
+  - { question: "Mình lấy OpenAI API key từ đâu?", answer: "Biến open_ai trong .env" }
+  - { question: "Trần chi phí cho đợt thử này là bao nhiêu?", answer: "2 USD" }
+  - { question: "Chọn model thế nào?", answer: "Bạn chọn (Recommended)" }
+  - { question: "Đo nghiệm thu bằng luna, terra hay cả hai; nâng trần bao nhiêu?", answer: "chỉ luna thôi", note: "Claude hiểu là chấp nhận mức ước tính 1,2 USD đã báo; không có câu trả lời riêng về số tiền" }

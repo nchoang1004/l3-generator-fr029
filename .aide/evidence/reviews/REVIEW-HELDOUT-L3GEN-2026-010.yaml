@@ -1,0 +1,76 @@
+type: review
+group: evidence
+scope: lifecycle
+status: completed
+change_set: CHG-L3GEN-2026-002
+change_request: CR-L3GEN-2026-009
+written_late: true
+evidence_mode: agent_review
+author: Phiên Claude chính (Opus 5.5), theo yêu cầu của Hoàng
+key: REVIEW-HELDOUT-L3GEN-2026-010
+gate: GATE-MERGE
+review_class: adversarial
+review_kind: re-review
+batch: 10
+subject: Phần bảng CSDL (FR-030), vòng 2 sau khi sửa vòng 1
+reviewer: Agent Claude Sonnet mới, không xem báo cáo vòng 1
+repositories:
+- fastapi-practices/fastapi_best_architecture
+- AlexGoster/orderflow-services
+- fastapi/full-stack-fastapi-template
+- tdd-docker (Tortoise)
+receipt:
+  brief: ket-qua-chay/db-check-20261012/judge-brief.md
+  frozen: ket-qua-chay/db-check-20261012/hashes.txt
+  outputs:
+  - ket-qua-chay/db-check-20261012/judge-round2/report.md
+  - ket-qua-chay/db-check-20261012/judge-round2/summary.json
+decision: changes_needed
+results:
+  tables: 29/29
+  columns: 285/287
+  evidence_lines: 287/287 trỏ đúng
+  readability: 3/5
+note: 'Vòng 2 xác nhận 4 finding ACCEPTED của REVIEW-HELDOUT-L3GEN-2026-009 đã sửa. Hai bản sửa cuối (sa_type/max_length,
+  khóa chính ghép) làm sau vòng 2, chưa qua giám khảo. Disposition theo EXEC §D.3: ACCEPTED = lỗi thật; REJECTED = không phải
+  lỗi của công cụ (lý do kèm); NOT_APPLICABLE = ngoài FR hiện tại; NEEDS_MORE_EVIDENCE = cần người quyết. fixed_by_test: test
+  đỏ trước khi sửa, qua sau khi sửa; chưa có giám khảo xác nhận riêng.'
+findings:
+- id: FIND-L3GEN-190
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location: backend/app/models.py:55,93 (full-stack)
+  summary: created_at ghi 'datetime' thay DateTime(timezone=True) khai qua sa_type
+  resolution:
+    status: fixed_by_test
+    tests:
+    - slice/tests/test_tables_db.py::test_sa_type_and_max_length_are_the_declared_type
+- id: FIND-L3GEN-191
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location: backend/app/models.py:15,18,75,76 (full-stack)
+  summary: max_length=255 của SQLModel Field bị bỏ
+  resolution:
+    status: fixed_by_test
+    tests:
+    - slice/tests/test_tables_db.py::test_sa_type_and_max_length_are_the_declared_type
+- id: FIND-L3GEN-192
+  severity: low
+  route: spec
+  disposition: NEEDS_MORE_EVIDENCE
+  location: file TBL
+  summary: TBL không có unique/index/ondelete (chỉ TAI-LIEU.md có)
+  resolution:
+    status: open
+    note: Chờ OQ-L3GEN-022.
+- id: FIND-L3GEN-193
+  severity: medium
+  route: spec
+  disposition: NEEDS_MORE_EVIDENCE
+  location: backend/app/core/config.py:37 (full-stack)
+  summary: Dialect PostgreSQL xác định được từ scheme nhưng công cụ ghi 'chưa rõ', không có DDL
+  resolution:
+    status: open
+    note: Chờ OQ-L3GEN-022.

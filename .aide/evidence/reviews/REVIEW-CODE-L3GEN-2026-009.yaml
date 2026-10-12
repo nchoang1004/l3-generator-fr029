@@ -1,0 +1,218 @@
+key: REVIEW-CODE-L3GEN-2026-009
+type: review
+group: evidence
+scope: lifecycle
+status: completed
+gate: GATE-MERGE
+review_class: adversarial
+review_kind: re-review
+round: 9
+change_set: CHG-L3GEN-2026-002
+change_request: CR-L3GEN-2026-008
+subject: Bộ kiểm bằng chứng FR-029 (slice/l3slice/docfacts.py, astscan.py) và công cụ đo slice/tools/fr029_checkaudit.py
+reviewer: Codex gpt-6-astra, model_reasoning_effort=high, sandbox read-only, phiên mới mỗi vòng. Được dặn không đọc docs/,
+  HANDOFF, .aide/evidence/reviews/.
+author: Phiên Claude chính (Opus 5.5), theo yêu cầu của Hoàng
+receipt:
+  prompt: .aide/evidence/reviews/fr029-checker-20261007-09/codex/codex_fairness9.md
+  prompt_file_last_modified: 2026-10-08T15:46Z
+  output: .aide/evidence/reviews/fr029-checker-20261007-09/codex/codex_fairness9_out.md
+  output_written: 2026-10-08T20:30Z
+  measurement_referenced: ket-qua-chay/fr029-checkaudit-20261008-r35
+decision: changes_needed
+reviewer_trust_assessment:
+  route: vua
+  http_claim: thap
+  http_suspects: thap
+  dependency_params: vua
+evidence_mode: agent_review
+written_late: true
+note: 'Sinh ngày 09/10/2026 bằng script từ JSON Codex trả về (không chép tay). severity do phiên chính gán theo luật: hậu
+  quả là nhận sai hoặc từ chối nhầm thì medium, bỏ sót hoặc nhiễu thì low; Codex không chấm mức độ (trừ vòng 2 có trường muc_do).
+  resolution.status lấy từ phán quyết của các vòng sau: fixed_confirmed (da_xu_ly), fixed_partial (mot_phan), open (chua),
+  fixed_unconfirmed (chưa có vòng sau). Lệch EXEC §B.17: vượt trần 2 vòng của review adversarial theo yêu cầu người dùng;
+  đề bài từ vòng 6 có ghi chú của tác giả.'
+findings:
+- id: FIND-L3GEN-099
+  codex_label: route_nhan_dang_ky_trong_nhanh_da_tat
+  target: bộ kiểm
+  severity: medium
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:640
+  - slice/l3slice/docfacts.py:646
+  summary: Nhận claim GET /x thuộc app mặc dù nhánh đăng ký không chạy. Bộ dựng cạnh đi qua mọi Call bằng ast.walk, không
+    xét điều kiện bao quanh. slice/l3slice/docfacts.py:640; slice/l3slice/docfacts.py:646.
+  frequency_estimate_by_codex: vua
+  reproduction: "from fastapi import FastAPI,APIRouter\napp=FastAPI()\nr=APIRouter()\n@r.get('/x')\ndef e(): return {}\nENABLE_API=False\n\
+    if ENABLE_API:\n    app.include_router(r)\n"
+  resolution:
+    status: fixed_confirmed
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::RoundNineCodex
+- id: FIND-L3GEN-100
+  codex_label: http_bien_co_annotation_mat_nguon_thu_vien
+  target: bộ kiểm
+  severity: medium
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/astscan.py:372
+  - slice/l3slice/astscan.py:380
+  - slice/l3slice/docfacts.py:1245
+  summary: Nhận claim library=requests cho lời gọi thực tế dùng httpx. Nhánh AnnAssign thêm tên client nhưng không truyền
+    nguồn vào add(), làm mất client_lib. slice/l3slice/astscan.py:372; slice/l3slice/astscan.py:380; slice/l3slice/docfacts.py:1245.
+  frequency_estimate_by_codex: vua
+  reproduction: 'import httpx,requests
+
+    wire: httpx.Client=httpx.Client()
+
+    def e(): return wire.get(''https://example.org/x'')
+
+    '
+  resolution:
+    status: fixed_confirmed
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::RoundNineCodex
+- id: FIND-L3GEN-101
+  codex_label: http_dependency_keyword_bo_mat_client
+  target: bộ kiểm
+  severity: medium
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/astscan.py:398
+  - slice/l3slice/astscan.py:399
+  summary: Không flag lời gọi HTTP ở dòng 7; claim đúng không kèm client_at bị từ chối dù provider tạo client ngay trong file.
+    Resolver HTTP chỉ đọc e.args[0], chưa đọc keyword dependency. Đây là đường nhận diện client, khác ca nhắc tham số dependency
+    đã sửa ở vòng 8. slice/l3slice/astscan.py:398; slice/l3slice/astscan.py:399.
+  frequency_estimate_by_codex: vua
+  reproduction: "import httpx\nfrom fastapi import FastAPI,Depends\ndef provide(): return httpx.Client()\napp=FastAPI()\n\
+    @app.get('/x')\ndef e(wire=Depends(dependency=provide)):\n    return wire.get('https://example.org/x').json()\n"
+  resolution:
+    status: fixed_confirmed
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::RoundNineCodex
+- id: FIND-L3GEN-102
+  codex_label: http_client_lay_tu_dict_bi_bo_sot
+  target: bộ kiểm
+  severity: medium
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/astscan.py:489
+  - slice/l3slice/astscan.py:505
+  - slice/l3slice/astscan.py:547
+  summary: Mất suspect và từ chối claim đúng không kèm client_at khi truy cập client qua dict. Đây là lấy client ra khỏi container,
+    khác dict.get không phải HTTP của vòng 8. Nhánh receiver không theo Subscript tới giá trị container. slice/l3slice/astscan.py:489;
+    slice/l3slice/astscan.py:505; slice/l3slice/astscan.py:547.
+  frequency_estimate_by_codex: vua
+  reproduction: 'import httpx
+
+    clients={''primary'':httpx.Client()}
+
+    def e(): return clients[''primary''].get(''https://example.org/x'')
+
+    '
+  resolution:
+    status: fixed_confirmed
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::RoundNineCodex
+- id: FIND-L3GEN-103
+  codex_label: http_partial_chua_goi_bi_nhan_la_request
+  target: bộ kiểm
+  severity: medium
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/astscan.py:515
+  - slice/l3slice/astscan.py:519
+  - slice/l3slice/astscan.py:541
+  summary: Nhận claim GET tại dòng chỉ tạo callable, chưa thực hiện request. virtual_calls chuyển mọi đối số dạng client.get
+    thành lời gọi ảo mà không xác định hàm nhận đối số có thực thi callback hay không. slice/l3slice/astscan.py:515; slice/l3slice/astscan.py:519;
+    slice/l3slice/astscan.py:541.
+  frequency_estimate_by_codex: vua
+  reproduction: 'from functools import partial
+
+    import httpx
+
+    wire=httpx.Client()
+
+    def e(): return partial(wire.get,''https://example.org/x'')
+
+    '
+  resolution:
+    status: fixed_partial
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::RoundNineCodex
+    reviewer_note: Claim tại partial(wire.get, url) đã bị từ chối, test chạy qua. Tuy nhiên tự chạy lại vẫn nhận suspects=[{'at':'h.py:4','looks_like':'http'}]
+      ở dòng chỉ tạo partial. virtual_calls loại partial nhưng http_lines vẫn tính đối số wire.get như một lời gọi. slice/tests/test_checker_counterexamples.py:1063;
+      slice/l3slice/astscan.py:532; slice/l3slice/astscan.py:558.
+    follow_up: 'Sửa nốt sau vòng 10 (09/10/2026): dòng chỉ tạo partial(...) không còn bị đánh dấu nghi ngờ. Test: slice/tests/test_checker_counterexamples.py::RoundTen::test_partial_line_is_not_a_suspect.
+      Chưa có vòng review xác nhận.'
+- id: FIND-L3GEN-104
+  codex_label: dependency_alias_kieu_scalar_khong_duoc_mo_rong
+  target: bộ kiểm
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:1664
+  - slice/l3slice/astscan.py:671
+  summary: Không nhắc query user_id dù dependency đã được khai trong claim. scalar() so tên annotation với tập kiểu cố định,
+    không giải alias kiểu. Biến thể Page=Annotated[int,Field(ge=1)] cũng bỏ query page. slice/l3slice/docfacts.py:1664; slice/l3slice/astscan.py:671.
+  frequency_estimate_by_codex: vua
+  reproduction: 'from uuid import UUID
+
+    from fastapi import FastAPI,Depends
+
+    UserId=UUID
+
+    def dep(user_id: UserId): return user_id
+
+    app=FastAPI()
+
+    @app.get(''/x'')
+
+    def e(v=Depends(dep)): return {}
+
+    '
+  resolution:
+    status: fixed_confirmed
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::RoundNineCodex
+- id: FIND-L3GEN-105
+  codex_label: dependency_path_converter_bi_nhac_thanh_query
+  target: bộ kiểm
+  severity: medium
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:1555
+  - slice/l3slice/docfacts.py:1556
+  summary: Nhắc query item_id thay vì path item_id. Kiểm vị trí chỉ tìm chuỗi {item_id}, không nhận {item_id:int}. slice/l3slice/docfacts.py:1555;
+    slice/l3slice/docfacts.py:1556.
+  frequency_estimate_by_codex: vua
+  reproduction: 'from fastapi import FastAPI,Depends
+
+    def dep(item_id: int): return item_id
+
+    app=FastAPI()
+
+    @app.get(''/items/{item_id:int}'')
+
+    def e(v=Depends(dep)): return {}
+
+    '
+  resolution:
+    status: fixed_confirmed
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-010
+    tests:
+    - slice/tests/test_checker_counterexamples.py::RoundNineCodex

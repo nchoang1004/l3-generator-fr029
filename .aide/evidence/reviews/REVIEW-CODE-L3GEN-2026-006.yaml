@@ -1,0 +1,259 @@
+key: REVIEW-CODE-L3GEN-2026-006
+type: review
+group: evidence
+scope: lifecycle
+status: completed
+gate: GATE-MERGE
+review_class: adversarial
+review_kind: re-review
+round: 6
+change_set: CHG-L3GEN-2026-002
+change_request: CR-L3GEN-2026-008
+subject: Bộ kiểm bằng chứng FR-029 (slice/l3slice/docfacts.py, astscan.py) và công cụ đo slice/tools/fr029_checkaudit.py
+reviewer: Codex gpt-6-astra, model_reasoning_effort=high, sandbox read-only, phiên mới mỗi vòng. Được dặn không đọc docs/,
+  HANDOFF, .aide/evidence/reviews/.
+author: Phiên Claude chính (Opus 5.5), theo yêu cầu của Hoàng
+receipt:
+  prompt: .aide/evidence/reviews/fr029-checker-20261007-09/codex/codex_fairness6.md
+  prompt_file_last_modified: 2026-10-08T08:55Z
+  output: .aide/evidence/reviews/fr029-checker-20261007-09/codex/codex_fairness6_out.md
+  output_written: 2026-10-08T09:05Z
+  measurement_referenced: ket-qua-chay/fr029-checkaudit-20261008-r26
+decision: changes_needed
+reviewer_trust_assessment:
+  route: vua
+  http_claim: thap
+  http_suspects: thap
+  dependency_params: vua
+evidence_mode: agent_review
+written_late: true
+note: 'Sinh ngày 09/10/2026 bằng script từ JSON Codex trả về (không chép tay). severity do phiên chính gán theo luật: hậu
+  quả là nhận sai hoặc từ chối nhầm thì medium, bỏ sót hoặc nhiễu thì low; Codex không chấm mức độ (trừ vòng 2 có trường muc_do).
+  resolution.status lấy từ phán quyết của các vòng sau: fixed_confirmed (da_xu_ly), fixed_partial (mot_phan), open (chua),
+  fixed_unconfirmed (chưa có vòng sau). Lệch EXEC §B.17: vượt trần 2 vòng của review adversarial theo yêu cầu người dùng;
+  đề bài từ vòng 6 có ghi chú của tác giả.'
+findings:
+- id: FIND-L3GEN-076
+  codex_label: route_nhan_thu_tu_prefix_sai
+  target: bộ kiểm
+  severity: medium
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:598
+  - slice/l3slice/docfacts.py:618
+  summary: Nhận path /v1/api/x dù route thật là /api/v1/x. Kiểm đăng ký gom vị trí thành tập hợp, không kiểm thứ tự prefix.
+    slice/l3slice/docfacts.py:598; slice/l3slice/docfacts.py:618.
+  frequency_estimate_by_codex: cao
+  reproduction: 'from fastapi import FastAPI, APIRouter
+
+    app=FastAPI()
+
+    r=APIRouter(prefix=''/v1'')
+
+    @r.get(''/x'')
+
+    def e(): return {}
+
+    app.include_router(r,prefix=''/api'')
+
+    '
+  resolution:
+    status: fixed_confirmed
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-007
+    tests:
+    - slice/tests/test_checker_counterexamples.py::RoundSix
+- id: FIND-L3GEN-077
+  codex_label: helper_dang_ky_khong_lien_quan_vo_hieu_kiem_prefix
+  target: bộ kiểm
+  severity: medium
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:555
+  - slice/l3slice/docfacts.py:618
+  summary: Chỉ cần tồn tại helper chưa được gọi, checker nhận claim thiếu /api trên chuỗi đăng ký vốn đã xác định đầy đủ.
+    _edges_open là cờ toàn snapshot và làm bỏ qua yêu cầu prefix. slice/l3slice/docfacts.py:555; slice/l3slice/docfacts.py:618.
+  frequency_estimate_by_codex: vua
+  reproduction: "from fastapi import FastAPI, APIRouter\napp=FastAPI()\nr=APIRouter()\n@r.get('/x')\ndef e(): return {}\n\
+    app.include_router(r,prefix='/api')\ndef attach(target,router):\n    target.include_router(router)\n"
+  resolution:
+    status: fixed_confirmed
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-007
+    tests:
+    - slice/tests/test_checker_counterexamples.py::RoundSix
+- id: FIND-L3GEN-078
+  codex_label: config_base_url_duoc_nhan_du_url_tuyet_doi_ghi_de
+  target: bộ kiểm
+  severity: medium
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:941
+  - slice/l3slice/docfacts.py:1045
+  summary: Nhận settings.URL là đích cấu hình dù lời gọi dùng URL tuyệt đối khác. config_at đúng client vẫn không chứng minh
+    base_url quyết định đích của lời gọi. slice/l3slice/docfacts.py:941; slice/l3slice/docfacts.py:1045.
+  frequency_estimate_by_codex: vua
+  reproduction: 'import httpx
+
+    from types import SimpleNamespace
+
+    settings=SimpleNamespace(URL=''https://base.example'')
+
+    c=httpx.Client(base_url=settings.URL)
+
+    def e(): return c.get(''https://other.example/x'')
+
+    '
+  resolution:
+    status: fixed_confirmed
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-007
+    tests:
+    - slice/tests/test_checker_counterexamples.py::RoundSix
+- id: FIND-L3GEN-079
+  codex_label: thuoc_tinh_client_trung_ten_giua_hai_class
+  target: bộ kiểm
+  severity: medium
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/astscan.py:305
+  - slice/l3slice/astscan.py:413
+  - slice/l3slice/astscan.py:438
+  summary: Flag dict.get như HTTP và nhận cả claim HTTP sai. client_attrs chỉ giữ tên thuộc tính, không giữ class/receiver
+    sở hữu. slice/l3slice/astscan.py:305; slice/l3slice/astscan.py:413; slice/l3slice/astscan.py:438.
+  frequency_estimate_by_codex: vua
+  reproduction: "import httpx\nclass Remote:\n    def __init__(self): self.client=httpx.Client()\nclass Cache:\n    def __init__(self):\
+    \ self.client={'id':1}\n    def e(self): return self.client.get('id')\n"
+  resolution:
+    status: fixed_confirmed
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-007
+    tests:
+    - slice/tests/test_checker_counterexamples.py::RoundSix
+- id: FIND-L3GEN-080
+  codex_label: client_xuat_lai_qua_package_init_bi_bo_sot
+  target: bộ kiểm
+  severity: medium
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:1078
+  - slice/l3slice/docfacts.py:1115
+  summary: Không có HTTP suspect và claim đúng bị từ chối nếu không thêm client_at. _exports không theo chuỗi xuất lại; module
+    trung gian không chứa tên thư viện bị trả export rỗng. slice/l3slice/docfacts.py:1078; slice/l3slice/docfacts.py:1115.
+  frequency_estimate_by_codex: cao
+  reproduction: '# FILE infra/transport.py
+
+    import httpx
+
+    wire=httpx.Client()
+
+
+    # FILE infra/__init__.py
+
+    from .transport import wire
+
+
+    # FILE routes.py
+
+    from infra import wire
+
+    def e(): return wire.get(''https://real.example'')
+
+    '
+  resolution:
+    status: fixed_confirmed
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-007
+    tests:
+    - slice/tests/test_checker_counterexamples.py::RoundSix
+- id: FIND-L3GEN-081
+  codex_label: dependency_class_ke_thua_init_mat_header
+  target: bộ kiểm
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:1323
+  - slice/l3slice/docfacts.py:1326
+  summary: Không nhắc header x-tenant của constructor kế thừa. Resolver chỉ tìm __init__ trong thân class hiện tại; nhánh
+    kế tiếp xử lý trường model, không theo constructor lớp cha. slice/l3slice/docfacts.py:1323; slice/l3slice/docfacts.py:1326.
+  frequency_estimate_by_codex: vua
+  reproduction: "from fastapi import FastAPI, Depends, Header\nclass Base:\n    def __init__(self,x_tenant: str=Header()):\
+    \ self.x_tenant=x_tenant\nclass Tenant(Base): pass\napp=FastAPI()\n@app.get('/x')\ndef e(v=Depends(Tenant)): return {}\n"
+  resolution:
+    status: fixed_confirmed
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-007
+    tests:
+    - slice/tests/test_checker_counterexamples.py::RoundSix
+- id: FIND-L3GEN-082
+  codex_label: dependency_pydantic_field_alias_nhac_sai_query
+  target: bộ kiểm
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:1328
+  - slice/l3slice/docfacts.py:1445
+  summary: Nhắc query sort_by và bỏ query thật sortBy. _model_fields chỉ lưu tên Python, annotation và dòng; bỏ Field(alias=...).
+    slice/l3slice/docfacts.py:1328; slice/l3slice/docfacts.py:1445.
+  frequency_estimate_by_codex: cao
+  reproduction: "from fastapi import FastAPI, Depends\nfrom pydantic import BaseModel, Field\nclass Filters(BaseModel):\n\
+    \    sort_by: str=Field('name',alias='sortBy')\napp=FastAPI()\n@app.get('/x')\ndef e(v=Depends(Filters)): return {}\n"
+  resolution:
+    status: fixed_confirmed
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-007
+    tests:
+    - slice/tests/test_checker_counterexamples.py::RoundSix
+- id: FIND-L3GEN-083
+  codex_label: partial_keyword_bi_coi_la_tham_so_khong_the_ghi_de
+  target: bộ kiểm
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location:
+  - slice/l3slice/docfacts.py:1347
+  - slice/l3slice/docfacts.py:1389
+  summary: Bỏ query limit mặc dù keyword đã gán trong partial vẫn là default có thể ghi đè. Bản sửa gom cả keyword vào bound
+    rồi loại khỏi reminder. slice/l3slice/docfacts.py:1347; slice/l3slice/docfacts.py:1389.
+  frequency_estimate_by_codex: thap
+  reproduction: 'from fastapi import FastAPI, Depends
+
+    from functools import partial
+
+    def filters(limit: int=10): return limit
+
+    tenant=partial(filters,limit=20)
+
+    app=FastAPI()
+
+    @app.get(''/x'')
+
+    def e(v=Depends(tenant)): return v
+
+    '
+  resolution:
+    status: fixed_confirmed
+    confirmed_in_review: REVIEW-CODE-L3GEN-2026-007
+    tests:
+    - slice/tests/test_checker_counterexamples.py::RoundSix
+self_found_while_fixing:
+- id: FIND-L3GEN-162
+  test: slice/tests/test_checker_counterexamples.py::RoundSix::test_include_on_an_attribute_is_not_read_as_missing
+  summary: 'self.app.include_router(r) bị bỏ qua nên router bị coi là chưa đăng ký: có thể từ chối nhầm'
+  severity: medium
+  target: bộ kiểm
+  route: patch
+  disposition: ACCEPTED
+  source: phiên chính tự tìm khi sửa
+  resolution:
+    status: fixed_by_test
+- id: FIND-L3GEN-163
+  test: slice/tests/test_checker_counterexamples.py::RoundSix::test_attribute_claim_in_a_file_without_http_library
+  summary: Bản sửa self.client theo class làm crash ở file không có thư viện HTTP
+  severity: medium
+  target: bộ kiểm
+  route: patch
+  disposition: ACCEPTED
+  source: gold audit (token-proxy báo lỗi)
+  resolution:
+    status: fixed_by_test

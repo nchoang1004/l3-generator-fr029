@@ -5,13 +5,14 @@
 change_request: CR-L3GEN-2026-002
 flow: new-system
 tier: T1
-baseline_analyzed: BL-r10.yaml
+baseline_analyzed: BL-r11.yaml
 
 touches:
   - ADR-2026-001
   - ADR-2026-003
   - ADR-2026-004
   - ADR-2026-005
+  - ADR-2026-006
   - CAP-L3GEN-007
   - CAP-L3GEN-008
   - CAP-L3GEN-009
@@ -43,7 +44,15 @@ touches:
   - PRD-L3GEN-2609-001
   - TM-SYS-L3GEN
 
-stale_artifacts: []
+stale_artifacts:
+  - API-L3GEN-001-v1
+  - API-L3GEN-002-v1
+  - API-L3GEN-003-v1
+  - API-L3GEN-004-v1
+  - API-L3GEN-005-v1
+  - API-L3GEN-006-v1
+  - API-L3GEN-007-v1
+  - API-L3GEN-008-v1
 
 affected_teams:
   - TEAM-L3GEN
@@ -65,6 +74,7 @@ path_signals:
   - "tests/**"
 
 blocked_by_open_questions:
+  - { artifact: ADR-2026-006, blocked_by: ["OQ-L3GEN-018"] }
 
 skipped_with_reason:
   - { area: "external_consumers", reason: "Không có metadata graph tập trung nên không thấy hệ thống ngoài repo. Chưa kiểm chứng consumer bên ngoài; danh sách rỗng không chứng minh không có consumer." }
@@ -76,7 +86,7 @@ confidence:
   graph_coverage: local-frontmatter-only
   level: low
   basis: >-
-    Tính từ 80 artifact có frontmatter trong .aide/. Quan hệ đọc từ trường relations, không qua graph tập trung.
+    Tính từ 112 artifact có frontmatter trong .aide/. Quan hệ đọc từ trường relations, không qua graph tập trung.
   not_established: >-
     Tính đủ của bộ yêu cầu so với đề bài; ảnh hưởng tới hệ thống ngoài; ảnh hưởng tới code.
 

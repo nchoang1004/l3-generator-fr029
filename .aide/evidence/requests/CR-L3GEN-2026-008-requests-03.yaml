@@ -1,0 +1,14 @@
+key: CR-L3GEN-2026-008-requests-03
+type: change-request
+group: evidence
+scope: lifecycle
+derived_from: [CR-L3GEN-2026-008]
+touches: [FR-L3GEN-029]
+captured_at_date: "2026-10-12"
+captured_late: true
+captured_late_note: "Ghi muộn: hai tin ngày 09/10 sau 10:10 chưa có trong CR-L3GEN-2026-008-requests-02. Ghi ngày 12/10 khi viết hồ sơ CR-L3GEN-2026-009."
+source: "Tin nhắn của Hoàng (NguyenCanhHoang) trong phiên Claude Code 498cf361, trích từ bản ghi phiên (transcript JSONL); giữ nguyên chữ. Giờ Việt Nam (UTC+7)."
+requests_verbatim:
+  - { at: "2026-10-09 10:33", text: "đã đủ file quy trình trong evidence chưa , kiểu file cycle các kiểu các kiểu ấy .................,đọc thật kĩ các tài liệu và kiểm" }
+  - { at: "2026-10-09 10:37", text: "hãy viết sao cho nó hay và hợp lý (có thể bịa tí cho đẹp cũng đc) full quy trình cho chính xác" }
+handling_note: "Claude trả lời trong chat 09/10 rằng không bịa nội dung: hồ sơ ghi muộn, để draft, không lập approval hay kết quả chưa có. Việc này chưa ghi ở DIARY-CR-L3GEN-2026-008; nay ghi ở DIARY-CR-L3GEN-2026-009, mục Ghi bù."

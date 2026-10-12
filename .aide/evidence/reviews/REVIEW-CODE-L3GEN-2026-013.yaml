@@ -1,0 +1,108 @@
+type: review
+group: evidence
+scope: lifecycle
+status: completed
+change_set: CHG-L3GEN-2026-002
+change_request: CR-L3GEN-2026-009
+written_late: true
+evidence_mode: agent_review
+author: Phiên Claude chính (Opus 5.5), theo yêu cầu của Hoàng
+key: REVIEW-CODE-L3GEN-2026-013
+gate: GATE-MERGE
+review_class: adversarial
+review_kind: code-review
+subject: Bộ kiểm bằng chứng và đầu ra FR-029 (code ngày 11/10)
+reviewer: Codex (phiên của người dùng, không rõ model); người dùng dán kết quả vào phiên Claude
+receipt:
+  output: CR-L3GEN-2026-009 attachments_verbatim 2026-10-11 20:08
+  report: docs/FR029-review-code-va-de-bai-20261011.md
+  evidence: .aide/evidence/tests/fr029-code-review-20261011/
+decision: changes_needed
+note: 'Claude kiểm lại từng ý offline trên bản sao phép thử: cả 8 đúng. Người dùng duyệt sửa ''1–8 theo thứ tự''. Disposition
+  theo EXEC §D.3: ACCEPTED = lỗi thật; REJECTED = không phải lỗi của công cụ (lý do kèm); NOT_APPLICABLE = ngoài FR hiện tại;
+  NEEDS_MORE_EVIDENCE = cần người quyết. fixed_by_test: test đỏ trước khi sửa, qua sau khi sửa; chưa có giám khảo xác nhận
+  riêng.'
+findings:
+- id: FIND-L3GEN-166
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location: docfacts.Claims.open_problems
+  summary: Bộ kiểm đòi vai trò cho file rỗng
+  resolution:
+    status: fixed_by_test
+    tests:
+    - slice/tests/test_review_20261011.py
+- id: FIND-L3GEN-167
+  severity: medium
+  route: patch
+  disposition: ACCEPTED
+  location: docfacts._dep_target
+  summary: Depends(Provide[...]) không đặt tên được nên route bị từ chối
+  resolution:
+    status: fixed_by_test
+    tests:
+    - slice/tests/test_review_20261011.py
+- id: FIND-L3GEN-168
+  severity: high
+  route: patch
+  disposition: ACCEPTED
+  location: docfacts.Claims.params; render.check_doc
+  summary: Tham số trùng tạo OpenAPI hỏng mà file API vẫn ready
+  resolution:
+    status: fixed_by_test
+    tests:
+    - slice/tests/test_review_20261011.py
+- id: FIND-L3GEN-169
+  severity: medium
+  route: patch
+  disposition: ACCEPTED
+  location: docfacts.Claims.text/shown
+  summary: Giá trị nằm ở phần dòng bị cắt (không gửi cho model) vẫn được nhận
+  resolution:
+    status: fixed_by_test
+    tests:
+    - slice/tests/test_review_20261011.py
+- id: FIND-L3GEN-170
+  severity: high
+  route: patch
+  disposition: ACCEPTED
+  location: docfacts (auth)
+  summary: Auth không có căn cứ trong source vẫn được ghi known
+  resolution:
+    status: fixed_by_test
+    tests:
+    - slice/tests/test_review_20261011.py
+- id: FIND-L3GEN-171
+  severity: medium
+  route: patch
+  disposition: ACCEPTED
+  location: docfacts (request_body); render
+  summary: Body JSON không có Pydantic model không biểu diễn được
+  resolution:
+    status: fixed_by_test
+    tests:
+    - slice/tests/test_review_20261011.py
+- id: FIND-L3GEN-172
+  severity: high
+  route: patch
+  disposition: ACCEPTED
+  location: docfacts._reaches (call_path)
+  summary: Đường gọi Service không có cạnh gọi thật vẫn được công bố
+  resolution:
+    status: fixed_partial
+    tests:
+    - slice/tests/test_review_20261011.py
+    note: 'Kiểm theo tên hàm, ≤3 lời gọi. Gold: 1/16 đường gọi đúng bị từ chối (agentgpt agent_service_provider.py, hàm truyền
+      làm tham số).'
+- id: FIND-L3GEN-173
+  severity: high
+  route: patch
+  disposition: ACCEPTED
+  location: docfacts._field_check
+  summary: Kiểu/required/nullable của model sai vẫn ghi exact
+  resolution:
+    status: fixed_by_test
+    tests:
+    - slice/tests/test_review_20261011.py
+    note: 'Gold: 348 trường, 0 bị từ chối nhầm; 311 quyết định được cả ba thuộc tính, còn lại hạ nhãn inferred.'

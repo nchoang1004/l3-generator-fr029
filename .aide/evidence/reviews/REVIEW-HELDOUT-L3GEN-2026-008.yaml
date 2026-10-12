@@ -1,0 +1,138 @@
+type: review
+group: evidence
+scope: lifecycle
+status: completed
+change_set: CHG-L3GEN-2026-002
+change_request: CR-L3GEN-2026-009
+written_late: true
+evidence_mode: agent_review
+author: Phiên Claude chính (Opus 5.5), theo yêu cầu của Hoàng
+key: REVIEW-HELDOUT-L3GEN-2026-008
+gate: GATE-MERGE
+review_class: adversarial
+review_kind: held-out
+batch: 8
+subject: Đầu ra FR-029/030/031 (TAI-LIEU.md, API, TBL) trên repo chưa dùng để chỉnh
+reviewer: Agent Claude Sonnet (model khác agent đóng vai model). Codex không dùng được (401)
+repositories:
+- AlexGoster/orderflow-services
+receipt:
+  packet: ket-qua-chay/heldout-orderflow-20261012
+  brief: ket-qua-chay/heldout-orderflow-20261012/judge-brief.md (viết trước khi có đầu ra)
+  frozen: ket-qua-chay/heldout-orderflow-20261012/hashes.txt
+  outputs:
+  - ket-qua-chay/heldout-orderflow-20261012/judge/report.md
+  report: docs/FR029-danh-gia-heldout-orderflow-20261012.md
+decision: changes_needed
+results:
+  gold: route 23/23, model 9/9, HTTP 2/2
+  judge: 202/213 mục đúng, 9 sai, 2 không kiểm được; dễ dùng 3/5 (trước sửa)
+note: 'Model là agent Claude đóng vai (đọc một lần, prompt v6), không phải model thật. Chưa chấm lại bằng giám khảo sau khi
+  sửa. Disposition theo EXEC §D.3: ACCEPTED = lỗi thật; REJECTED = không phải lỗi của công cụ (lý do kèm); NOT_APPLICABLE
+  = ngoài FR hiện tại; NEEDS_MORE_EVIDENCE = cần người quyết. fixed_by_test: test đỏ trước khi sửa, qua sau khi sửa; chưa
+  có giám khảo xác nhận riêng.'
+findings:
+- id: FIND-L3GEN-174
+  severity: high
+  route: patch
+  disposition: ACCEPTED
+  location: docfacts._error_problems
+  summary: Từ chối nhầm mã lỗi truyền qua super().__init__(status_code=N); 15 route mất lỗi 404/409/503 (Claude tìm khi phát
+    lại, không phải giám khảo)
+  resolution:
+    status: fixed_by_test
+    tests:
+    - slice/tests/test_route_extras.py::StatusThroughInit
+- id: FIND-L3GEN-175
+  severity: high
+  route: patch
+  disposition: ACCEPTED
+  location: shared/events.py:63 (repo)
+  summary: Sự kiện Redis pub/sub bị bỏ sót mà không cảnh báo; tài liệu ghi 0 điểm gửi/nhận
+  resolution:
+    status: fixed_partial
+    tests:
+    - slice/tests/test_events_tasks.py::UnsupportedBus
+    note: Nay cảnh báo QUEUE_LIBRARY_UNSUPPORTED kèm file:dòng; vẫn chưa đọc được bên gửi/nhận.
+- id: FIND-L3GEN-176
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location: tailieu.py (khóa ngoại)
+  summary: Khóa ngoại in dạng dict
+  resolution:
+    status: fixed_by_test
+    tests:
+    - slice/tests/test_tai_lieu.py::test_foreign_key_reads_as_table_dot_column
+- id: FIND-L3GEN-177
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location: tailieu.py (thư viện)
+  summary: Thư viện khai ở hai file hiện hai dòng
+  resolution:
+    status: fixed_unconfirmed
+    note: Đã sửa, chưa có test riêng.
+- id: FIND-L3GEN-178
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location: tailieu.py (bảng CSDL)
+  summary: '''(chưa quy ra kiểu SQL)'' lặp ở 27 cột'
+  resolution:
+    status: fixed_by_test
+    tests:
+    - slice/tests/test_tables_db.py::test_tai_lieu_says_the_dialect_once_and_shows_constraints
+    note: Sửa trong đợt kiểm CSDL 12/10.
+- id: FIND-L3GEN-179
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location: tailieu.py (thư viện)
+  summary: Ký tự '>' in thành '&gt;' trong mục thư viện
+  resolution:
+    status: open
+    note: Còn trong đầu ra 12/10 (db-check final/orderflow).
+- id: FIND-L3GEN-180
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location: tailieu.py
+  summary: '''Auth: chưa rõ'' lặp ở 23 route; thuật ngữ nội bộ (bộ kiểm, lần nộp bị từ chối) trong TAI-LIEU.md'
+  resolution:
+    status: open
+- id: FIND-L3GEN-181
+  severity: medium
+  route: spec
+  disposition: NEEDS_MORE_EVIDENCE
+  location: FR-029 bảng vai trò file
+  summary: 8 vai trò file giám khảo cho là sai (router tổng, middleware, xử lý lỗi ghi 'Khác')
+  resolution:
+    status: open
+    note: 'Claude kiểm lại: công cụ đúng bảng vai trò hiện tại của FR-029; bảng thiếu loại. Cần CR nếu muốn đổi.'
+- id: FIND-L3GEN-182
+  severity: medium
+  route: spec
+  disposition: NOT_APPLICABLE
+  location: FR-029 khuôn model
+  summary: Thiếu ràng buộc trường (Field ge/le/max_length), enum, dạng thân lỗi
+  resolution:
+    status: open
+    note: FR-029 hiện không đòi.
+- id: FIND-L3GEN-183
+  severity: medium
+  route: patch
+  disposition: ACCEPTED
+  location: gateway_app/core/proxy.py:13-25 (repo)
+  summary: 'Route gateway chuyển tiếp query/body nhưng ghi ''Tham số: không có'''
+  resolution:
+    status: open
+- id: FIND-L3GEN-184
+  severity: high
+  route: input
+  disposition: NOT_APPLICABLE
+  location: membership (đầu vào FR-028)
+  summary: Membership gộp 4 service thành 1 component nên không có quan hệ component, không tách route theo service
+  resolution:
+    status: open
+    note: Lỗi đầu vào, không phải của công cụ FR-029. Đề xuất cảnh báo khi 1 component chứa nhiều app FastAPI (chưa làm).

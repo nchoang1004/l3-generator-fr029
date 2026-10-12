@@ -6,11 +6,11 @@ group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
 status: "draft"
-revision: 4
+revision: 5
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"architect","affected_teams":[]}
-relations: {"implements":["CAP-L3GEN-009"],"governed_by":["ADR-2026-003","ADR-2026-004","ADR-2026-005"],"constrained_by":["TM-SYS-L3GEN"],"depends_on":["CMP-L3GEN-002","CMP-L3GEN-003"]}
-verified_at: 2026-10-02
-verified_against: [{"key":"CAP-L3GEN-009","revision":2},{"key":"ADR-2026-003","revision":4},{"key":"ADR-2026-004","revision":2},{"key":"ADR-2026-005","revision":1},{"key":"FR-L3GEN-028","revision":3},{"key":"FR-L3GEN-029","revision":3},{"key":"FR-L3GEN-030","revision":2},{"key":"FR-L3GEN-031","revision":2},{"key":"NFR-L3GEN-SEC-002","revision":6},{"key":"NFR-L3GEN-OPS-001","revision":3},{"key":"GLOSS-L3GEN-001","revision":10}]
+relations: {"implements":["CAP-L3GEN-009"],"governed_by":["ADR-2026-003","ADR-2026-004","ADR-2026-005","ADR-2026-006"],"constrained_by":["TM-SYS-L3GEN"],"depends_on":["CMP-L3GEN-002","CMP-L3GEN-003"]}
+verified_at: 2026-10-09
+verified_against: [{"key":"CAP-L3GEN-009","revision":2},{"key":"ADR-2026-003","revision":4},{"key":"ADR-2026-004","revision":2},{"key":"ADR-2026-005","revision":1},{"key":"FR-L3GEN-028","revision":3},{"key":"FR-L3GEN-029","revision":3},{"key":"FR-L3GEN-030","revision":2},{"key":"FR-L3GEN-031","revision":2},{"key":"NFR-L3GEN-SEC-002","revision":6},{"key":"NFR-L3GEN-OPS-001","revision":3},{"key":"GLOSS-L3GEN-001","revision":10},{"key":"ADR-2026-006","revision":1}]
 classification: "internal"
 ai_assisted: true
 ---
@@ -20,6 +20,9 @@ ai_assisted: true
 **Revision 3 (02/10/2026):** viết lại theo code thật và FR-L3GEN-028 đến 031. Thêm phân giải tên bằng Pyright, dữ kiện lần theo cho việc chia component ([ADR-2026-004](../adr/ADR-2026-004.md)) và dấu hiệu vai trò file. Code ở `experiments/quote-evidence/`.
 
 **Revision 4 (02/10/2026):** sửa theo review REVIEW-ARCH-L3GEN-2026-001 (A3, A5, A9, A10, A16) và rà soát của phiên chính: một nguồn duy nhất cho tập contract (Khiêm quyết A5 ngày 02/10/2026, theo cách so hai engine ngày 02/10); Pyright theo [ADR-2026-005](../adr/ADR-2026-005.md); ai che bí mật ở đâu; thêm 6 lệch.
+
+**Revision 5 (09/10/2026):** theo ADR-2026-006, dữ kiện contract của FR-029 do model đề xuất và CMP-007 kiểm; nhóm "Dữ kiện contract" ở mục 1 không còn là nguồn cho FR-029. Bản nháp theo [ADR-2026-006](../adr/ADR-2026-006.md) (draft, chờ Architecture Gate và OQ-L3GEN-018). Ghi muộn: code đã có từ 07–09/10/2026.
+
 
 ## 1. Trách nhiệm
 
@@ -112,6 +115,7 @@ Chạy tuần tự. Pyright chạy một tiến trình con; thời gian và bộ
 | 004-10 | Hệ thống ngoài nhận bằng bảng đóng `IO_LIBS`; thư viện I/O không có trong bảng bị bỏ im lặng, không ghi ở phần giới hạn | FR-L3GEN-028 "Phạm vi đọc", AC-L3GEN-028-09 |
 | 004-11 | Cách gọi "chỉ truyền session" nhận theo tên tham số (`SESSION_NAMES` trong `calls.py`), trái câu "không suy từ tên" ở mục 1 | FR-L3GEN-028 "Mũi tên nào được vẽ" |
 | 004-12 | Tám lỗi đọc import và thuộc tính tìm thấy ngày 01/10/2026 trên repository giả (ví dụ `from m import *`, `self.repo = repo or Repo()`) chưa đo lại sau khi có Pyright | AC-L3GEN-028-06 |
+| 004-13 | Luồng FR-029 không dùng `l3slice/extract.py`; phân tích tĩnh của bộ kiểm nằm ở `slice/l3slice/astscan.py` (CMP-007). Hai bộ đọc cây cú pháp tồn tại song song | ADR-2026-006 |
 
 ## Liên quan
 

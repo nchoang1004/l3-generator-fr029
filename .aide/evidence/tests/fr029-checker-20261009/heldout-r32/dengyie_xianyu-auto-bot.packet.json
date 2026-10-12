@@ -1,0 +1,456 @@
+{
+  "repository": "D:\\VSF\\l3-heldout-repos4\\dengyie_xianyu-auto-bot",
+  "files": 99,
+  "route_decorators": 274,
+  "decorators_refused": [],
+  "dependencies": [
+    {
+      "name": "require_captcha_control_key",
+      "called": false,
+      "first_use": "api_captcha_remote.py:285",
+      "params": []
+    },
+    {
+      "name": "reply_server.get_current_user",
+      "called": false,
+      "first_use": "app/api/routers/accountlogin.py:28",
+      "params": []
+    },
+    {
+      "name": "reply_server.require_admin",
+      "called": false,
+      "first_use": "app/api/routers/adminops.py:545",
+      "params": []
+    },
+    {
+      "name": "verify_dependency",
+      "called": false,
+      "first_use": "app/api/routers/auth.py:22",
+      "params": []
+    },
+    {
+      "name": "security",
+      "called": false,
+      "first_use": "app/api/routers/auth.py:23",
+      "params": []
+    },
+    {
+      "name": "reply_server.get_current_user_optional",
+      "called": false,
+      "first_use": "app/api/routers/cookies.py:830",
+      "params": []
+    },
+    {
+      "name": "reply_server.verify_admin_token",
+      "called": false,
+      "first_use": "app/api/routers/login.py:827",
+      "params": []
+    },
+    {
+      "name": "reply_server.require_xianyu_reply_api_key",
+      "called": false,
+      "first_use": "app/api/routers/orderschat.py:148",
+      "params": [
+        {
+          "in": "header",
+          "name": "X-Internal-API-Key",
+          "at": "reply_server.py:1236"
+        }
+      ]
+    },
+    {
+      "name": "reply_server.verify_token",
+      "called": false,
+      "first_use": "app/api/routers/settings.py:254",
+      "params": []
+    }
+  ],
+  "suspects": [
+    {
+      "at": "XianyuAutoAsync.py:2270",
+      "looks_like": "http",
+      "text": "async with self.session.post("
+    },
+    {
+      "at": "XianyuAutoAsync.py:3989",
+      "looks_like": "http",
+      "text": "async with self.session.post("
+    },
+    {
+      "at": "ai_reply_engine.py:174",
+      "looks_like": "http",
+      "text": "response = requests.post(url, headers=headers, json=data, timeout=AI_PROVIDER_TIMEOUT)"
+    },
+    {
+      "at": "ai_reply_engine.py:245",
+      "looks_like": "http",
+      "text": "response = requests.post(url, headers=headers, json=payload, timeout=AI_PROVIDER_TIMEOUT)"
+    },
+    {
+      "at": "ai_reply_engine.py:285",
+      "looks_like": "http",
+      "text": "response = requests.post(url, headers=headers, json=data, timeout=AI_PROVIDER_TIMEOUT)"
+    },
+    {
+      "at": "ai_reply_engine.py:323",
+      "looks_like": "http",
+      "text": "response = requests.post(url, headers=headers, json=data, timeout=AI_PROVIDER_TIMEOUT)"
+    },
+    {
+      "at": "ai_reply_engine.py:374",
+      "looks_like": "http",
+      "text": "response = requests.post(url, headers=headers, json=data, timeout=AI_PROVIDER_TIMEOUT)"
+    },
+    {
+      "at": "ai_reply_engine.py:408",
+      "looks_like": "http",
+      "text": "response = requests.post(url, headers=headers, json=data, timeout=AI_PROVIDER_TIMEOUT)"
+    },
+    {
+      "at": "api_captcha_remote.py:158",
+      "looks_like": "route",
+      "text": "@router.websocket(\"/ws/{session_id}\")"
+    },
+    {
+      "at": "app/api/routers/notifications.py:329",
+      "looks_like": "http",
+      "text": "async with session.post(webhook_url, json=payload) as resp:"
+    },
+    {
+      "at": "app/api/routers/notifications.py:357",
+      "looks_like": "http",
+      "text": "async with session.post(webhook_url, json=payload) as resp:"
+    },
+    {
+      "at": "app/api/routers/notifications.py:374",
+      "looks_like": "http",
+      "text": "async with session.get(url) as resp:"
+    },
+    {
+      "at": "app/api/routers/notifications.py:391",
+      "looks_like": "http",
+      "text": "async with session.post(url, json=payload) as resp:"
+    },
+    {
+      "at": "app/api/routers/notifications.py:407",
+      "looks_like": "http",
+      "text": "async with session.post(webhook_url, json=payload) as resp:"
+    },
+    {
+      "at": "auto_updater.py:326",
+      "looks_like": "http",
+      "text": "async with session.get("
+    },
+    {
+      "at": "auto_updater.py:348",
+      "looks_like": "http",
+      "text": "async with session.get("
+    },
+    {
+      "at": "auto_updater.py:496",
+      "looks_like": "http",
+      "text": "async with session.get(file_update.download_url, timeout=aiohttp.ClientTimeout(total=60)) as response:"
+    },
+    {
+      "at": "db_manager/users.py:689",
+      "looks_like": "http",
+      "text": "async with session.get(api_url, params=params, timeout=15) as response:"
+    },
+    {
+      "at": "generate_update_manifest.py:216",
+      "looks_like": "other_http",
+      "text": "with request.urlopen(req, timeout=30) as response:"
+    },
+    {
+      "at": "reply_server.py:374",
+      "looks_like": "other_http",
+      "text": "with urllib_request.urlopen(request, timeout=8) as response:"
+    },
+    {
+      "at": "reply_server.py:1093",
+      "looks_like": "route",
+      "text": "@app.websocket('/websockify')"
+    },
+    {
+      "at": "secure_confirm_decrypted.py:204",
+      "looks_like": "http",
+      "text": "async with session.post("
+    },
+    {
+      "at": "secure_freeshipping_decrypted.py:147",
+      "looks_like": "http",
+      "text": "async with self.session.post("
+    },
+    {
+      "at": "utils/build_cookies.py:64",
+      "looks_like": "http",
+      "text": "s.get('https://log.mmstat.com/eg.js', timeout=10)"
+    },
+    {
+      "at": "utils/build_cookies.py:72",
+      "looks_like": "http",
+      "text": "s.post("
+    },
+    {
+      "at": "utils/image_uploader.py:150",
+      "looks_like": "http",
+      "text": "async with self.session.post(self.upload_url, data=data, headers=headers, proxy=get_global_proxy_url()) as response:"
+    },
+    {
+      "at": "utils/item_publisher.py:464",
+      "looks_like": "http",
+      "text": "async with self.session.post("
+    },
+    {
+      "at": "utils/item_publisher.py:777",
+      "looks_like": "http",
+      "text": "async with self.session.post("
+    },
+    {
+      "at": "utils/notification_dispatcher.py:243",
+      "looks_like": "http",
+      "text": "async with session.get(api_url, params=params, timeout=10) as response:"
+    },
+    {
+      "at": "utils/notification_dispatcher.py:274",
+      "looks_like": "http",
+      "text": "async with session.post(webhook_url, json=data, timeout=10) as response:"
+    },
+    {
+      "at": "utils/notification_dispatcher.py:301",
+      "looks_like": "http",
+      "text": "async with session.post(webhook_url, json=data, timeout=10) as response:"
+    },
+    {
+      "at": "utils/notification_dispatcher.py:337",
+      "looks_like": "http",
+      "text": "async with session.post(f'{server_url}/push', json=data, timeout=10) as response:"
+    },
+    {
+      "at": "utils/notification_dispatcher.py:454",
+      "looks_like": "http",
+      "text": "async with request(webhook_url, json=data, headers=headers, timeout=10) as response:"
+    },
+    {
+      "at": "utils/notification_dispatcher.py:470",
+      "looks_like": "http",
+      "text": "async with session.post(webhook_url, json=data, timeout=10) as response:"
+    },
+    {
+      "at": "utils/notification_dispatcher.py:488",
+      "looks_like": "http",
+      "text": "async with session.post(api_url, json=data, timeout=10) as response:"
+    },
+    {
+      "at": "utils/order_history_sync.py:328",
+      "looks_like": "http",
+      "text": "async with self.session.post("
+    },
+    {
+      "at": "utils/qr_login.py:383",
+      "looks_like": "http",
+      "text": "resp = await client.post("
+    },
+    {
+      "at": "utils/qr_login.py:394",
+      "looks_like": "http",
+      "text": "nav_resp = await client.post("
+    },
+    {
+      "at": "utils/qr_login.py:422",
+      "looks_like": "http",
+      "text": "im_resp = await client.get("
+    },
+    {
+      "at": "utils/qr_login.py:1173",
+      "looks_like": "http",
+      "text": "nav_resp = await client.post("
+    },
+    {
+      "at": "utils/qr_login.py:1200",
+      "looks_like": "http",
+      "text": "im_resp = await client.get("
+    },
+    {
+      "at": "utils/qr_login.py:1633",
+      "looks_like": "http",
+      "text": "resp = await client.get(self.api_h5_tk, headers=self.headers)"
+    },
+    {
+      "at": "utils/qr_login.py:1659",
+      "looks_like": "http",
+      "text": "await client.post(self.api_h5_tk, params=params, headers=self.headers, cookies=session.cookies)"
+    },
+    {
+      "at": "utils/qr_login.py:1690",
+      "looks_like": "http",
+      "text": "resp = await client.get("
+    },
+    {
+      "at": "utils/qr_login.py:1739",
+      "looks_like": "http",
+      "text": "resp = await client.get("
+    },
+    {
+      "at": "utils/qr_login.py:1818",
+      "looks_like": "http",
+      "text": "resp = await client.post("
+    },
+    {
+      "at": "utils/qr_login_lite.py:134",
+      "looks_like": "http",
+      "text": "s.get("
+    },
+    {
+      "at": "utils/qr_login_lite.py:178",
+      "looks_like": "http",
+      "text": "gen_resp_raw = s.get("
+    },
+    {
+      "at": "utils/qr_login_lite.py:240",
+      "looks_like": "http",
+      "text": "resp = s.post("
+    },
+    {
+      "at": "utils/qr_login_lite.py:281",
+      "looks_like": "http",
+      "text": "login_resp = s.post("
+    },
+    {
+      "at": "utils/qr_login_lite.py:302",
+      "looks_like": "http",
+      "text": "s.post("
+    },
+    {
+      "at": "utils/rate_service.py:179",
+      "looks_like": "http",
+      "text": "async with session.post(RATE_API_URL, params=params, headers=headers, data={\"data\": data_val}, proxy=get_global_proxy_url()) as response:"
+    },
+    {
+      "at": "utils/rate_service.py:302",
+      "looks_like": "http",
+      "text": "async with session.post("
+    },
+    {
+      "at": "utils/refresh_util.py:1926",
+      "looks_like": "http",
+      "text": "response = self.session.post(url, params=params, data=data, timeout=(10, 30))"
+    },
+    {
+      "at": "utils/refresh_util.py:1981",
+      "looks_like": "http",
+      "text": "response = self.session.post('https://h5api.m.goofish.com/h5/mtop.taobao.idlemessage.pc.login.token/1.0/', params=params, data=data, timeout=(10, 30))"
+    },
+    {
+      "at": "utils/refresh_util.py:2051",
+      "looks_like": "http",
+      "text": "response = self.session.post("
+    },
+    {
+      "at": "utils/slider_orchestrator.py:160",
+      "looks_like": "http",
+      "text": "response = requests.post("
+    },
+    {
+      "at": "utils/xianyu_slider_stealth.py:223",
+      "looks_like": "http",
+      "text": "response = session.post("
+    },
+    {
+      "at": "utils/xianyu_slider_stealth.py:3191",
+      "looks_like": "http",
+      "text": "session.send(\"Network.enable\")"
+    },
+    {
+      "at": "utils/xianyu_slider_stealth.py:3192",
+      "looks_like": "http",
+      "text": "session.send("
+    },
+    {
+      "at": "xianyu_cookie_mixin.py:634",
+      "looks_like": "http",
+      "text": "async with self.session.get("
+    },
+    {
+      "at": "xianyu_delivery_mixin.py:1944",
+      "looks_like": "http",
+      "text": "async with self.session.get(url, headers=headers, params=params, timeout=timeout_obj) as response:"
+    },
+    {
+      "at": "xianyu_delivery_mixin.py:1948",
+      "looks_like": "http",
+      "text": "async with self.session.post(url, headers=headers, json=params, timeout=timeout_obj) as response:"
+    },
+    {
+      "at": "xianyu_delivery_mixin.py:2086",
+      "looks_like": "http",
+      "text": "async with self.session.post(api_url, data=params, timeout=timeout_obj) as response:"
+    },
+    {
+      "at": "xianyu_delivery_mixin.py:2225",
+      "looks_like": "http",
+      "text": "async with self.session.post(api_url, data=params, timeout=timeout_obj) as response:"
+    },
+    {
+      "at": "xianyu_messaging_mixins.py:158",
+      "looks_like": "http",
+      "text": "async with session.get(api_url, params=params, timeout=10) as response:"
+    },
+    {
+      "at": "xianyu_messaging_mixins.py:218",
+      "looks_like": "http",
+      "text": "async with session.post(webhook_url, json=data, timeout=10) as response:"
+    },
+    {
+      "at": "xianyu_messaging_mixins.py:282",
+      "looks_like": "http",
+      "text": "async with session.post(webhook_url, json=data, timeout=10) as response:"
+    },
+    {
+      "at": "xianyu_messaging_mixins.py:360",
+      "looks_like": "http",
+      "text": "async with session.post(api_url, json=data, timeout=10) as response:"
+    },
+    {
+      "at": "xianyu_messaging_mixins.py:560",
+      "looks_like": "http",
+      "text": "async with session.post(webhook_url, json=data, headers=headers, timeout=10) as response:"
+    },
+    {
+      "at": "xianyu_messaging_mixins.py:568",
+      "looks_like": "http",
+      "text": "async with session.put(webhook_url, json=data, headers=headers, timeout=10) as response:"
+    },
+    {
+      "at": "xianyu_messaging_mixins.py:603",
+      "looks_like": "http",
+      "text": "async with session.post(webhook_url, json=data, timeout=10) as response:"
+    },
+    {
+      "at": "xianyu_messaging_mixins.py:637",
+      "looks_like": "http",
+      "text": "async with session.post(api_url, json=data, timeout=10) as response:"
+    },
+    {
+      "at": "xianyu_messaging_mixins.py:4012",
+      "looks_like": "http",
+      "text": "async with self.session.post("
+    },
+    {
+      "at": "xianyu_token_mixins.py:222",
+      "looks_like": "http",
+      "text": "async with self.session.post("
+    },
+    {
+      "at": "xianyu_trading_mixins.py:1862",
+      "looks_like": "http",
+      "text": "async with self.session.post("
+    },
+    {
+      "at": "xianyu_trading_mixins.py:2130",
+      "looks_like": "http",
+      "text": "async with self.session.post("
+    }
+  ],
+  "seconds": 24.54
+}

@@ -1,0 +1,106 @@
+type: review
+group: evidence
+scope: lifecycle
+status: completed
+change_set: CHG-L3GEN-2026-002
+change_request: CR-L3GEN-2026-008
+written_late: true
+evidence_mode: agent_review
+author: Phiên Claude chính (Opus 5.5), theo yêu cầu của Hoàng
+key: REVIEW-CODE-L3GEN-2026-011
+gate: GATE-MERGE
+review_class: adversarial
+review_kind: re-review
+round: 7
+subject: Bộ kiểm bằng chứng FR-029 và công cụ đo
+reviewer: Agent Claude general-purpose (Opus 5.5), cùng đề bài với Codex; dùng thay Codex khi Codex hết lượt
+receipt:
+  prompt: .aide/evidence/reviews/fr029-checker-20261007-09/codex/codex_fairness7.md
+  partial_output: .aide/evidence/reviews/fr029-checker-20261007-09/claude-agents/audit7/new7.py
+  measurement_referenced: ket-qua-chay/fr029-checkaudit-20261008-r30
+decision: changes_needed
+note: 'Agent bị dừng giữa chừng (giới hạn phiên Claude, 08/10) trước khi nộp kết luận. Phát hiện lấy từ file phép thử/ghi
+  chú agent để lại; phiên chính chạy lại từng phép thử, chỉ giữ ca tái hiện được, viết test đỏ rồi sửa. fixed_by_test: test
+  của ca đó đỏ trước khi sửa và qua sau khi sửa; chưa có giám khảo xác nhận riêng.'
+findings:
+- id: FIND-L3GEN-112
+  test: slice/tests/test_checker_counterexamples.py::RoundSeven::test_called_helper_including_another_router_keeps_the_prefix_check
+  summary: 'Hàm register(app) được gọi và include router khác làm tắt kiểm prefix: route thiếu /api vẫn được nhận'
+  severity: medium
+  target: bộ kiểm
+  route: patch
+  disposition: ACCEPTED
+  resolution:
+    status: fixed_by_test
+- id: FIND-L3GEN-113
+  test: slice/tests/test_checker_counterexamples.py::RoundSeven::test_prefix_parts_must_be_the_ones_on_the_way
+  summary: Phần prefix của router khác, hoặc lặp /api, vẫn được nhận
+  severity: medium
+  target: bộ kiểm
+  route: patch
+  disposition: ACCEPTED
+  resolution:
+    status: fixed_by_test
+- id: FIND-L3GEN-114
+  test: slice/tests/test_checker_counterexamples.py::RoundSeven::test_prefix_value_must_be_the_literal_given
+  summary: Giá trị prefix lấy từ tags ('v1', 'authentication') vẫn được nhận
+  severity: medium
+  target: bộ kiểm
+  route: patch
+  disposition: ACCEPTED
+  resolution:
+    status: fixed_by_test
+- id: FIND-L3GEN-115
+  test: slice/tests/test_checker_counterexamples.py::RoundSeven::test_router_subclass_and_renamed_import_are_routers
+  summary: 'Lớp con APIRouter và `import APIRouter as Router` bị từ chối nhầm: route thật không nộp được'
+  severity: medium
+  target: bộ kiểm
+  route: patch
+  disposition: ACCEPTED
+  resolution:
+    status: fixed_by_test
+- id: FIND-L3GEN-116
+  test: slice/tests/test_checker_counterexamples.py::RoundSeven::test_dependency_used_by_the_handler_but_not_declared
+  summary: 'Handler dùng Depends(verify) mà agent nộp dependencies rỗng: không có lời nhắc'
+  severity: low
+  target: bộ kiểm
+  route: patch
+  disposition: ACCEPTED
+  resolution:
+    status: fixed_by_test
+- id: FIND-L3GEN-117
+  test: slice/tests/test_checker_counterexamples.py::RoundSeven::test_dependency_name_must_be_the_depends_target
+  summary: Dependency nộp bằng tên tham số (db) hoặc tên kiểu (Session) vẫn được nhận
+  severity: medium
+  target: bộ kiểm
+  route: patch
+  disposition: ACCEPTED
+  resolution:
+    status: fixed_by_test
+- id: FIND-L3GEN-118
+  test: slice/tests/test_checker_counterexamples.py::RoundSeven::test_config_key_must_be_a_whole_name_of_the_url
+  summary: Khóa cấu hình chỉ cần là chuỗi con của đối số URL (settings, e, API_URL) vẫn được nhận
+  severity: medium
+  target: bộ kiểm
+  route: patch
+  disposition: ACCEPTED
+  resolution:
+    status: fixed_by_test
+- id: FIND-L3GEN-119
+  test: slice/tests/test_checker_counterexamples.py::RoundSeven::test_config_at_of_the_same_attribute_in_another_class
+  summary: config_at trỏ self.client của class khác cùng tên thuộc tính vẫn được nhận
+  severity: medium
+  target: bộ kiểm
+  route: patch
+  disposition: ACCEPTED
+  resolution:
+    status: fixed_by_test
+- id: FIND-L3GEN-120
+  test: slice/tests/test_checker_counterexamples.py::RoundSeven::test_client_returned_by_a_method_and_used_in_place
+  summary: self._client().get(...) với _client trả client bị sót
+  severity: low
+  target: bộ kiểm
+  route: patch
+  disposition: ACCEPTED
+  resolution:
+    status: fixed_by_test

@@ -1,0 +1,82 @@
+{
+  "key": "CTX-TASK-L3GEN-029-10",
+  "objective": "TASK-L3GEN-029-10",
+  "compiled_at": "2026-10-12",
+  "compiled_late": true,
+  "compiled_late_note": "Lập sau khi code đã viết; ghi nguồn chuẩn tắc việc này dựa vào, hash lấy ngày 12/10/2026. Không tuyên bố aide context compile đã chạy.",
+  "requirements": [
+    "FR-L3GEN-029"
+  ],
+  "design": [
+    "CMP-L3GEN-006",
+    "CMP-L3GEN-001"
+  ],
+  "decisions": [
+    "ADR-2026-006"
+  ],
+  "contracts": [],
+  "constraints": [
+    "NFR-L3GEN-SEC-002",
+    "NFR-L3GEN-AI-002"
+  ],
+  "open_questions": [
+    "OQ-L3GEN-020",
+    "OQ-L3GEN-021"
+  ],
+  "previous_findings": "Chưa có review riêng cho task này.",
+  "inputs": {
+    ".aide/requirements/fr/FR-L3GEN-029.md": {
+      "revision": 3,
+      "sha256": "6996ad38a106aeb38ee97826ba14cd9d0404188f2bfbd80fcaf623090793a847"
+    },
+    ".aide/architecture/l2/CMP-L3GEN-006.md": {
+      "revision": 5,
+      "sha256": "ff1925ab3f93b34c8b797e539cab6c519533645c689ac1fd756fc0241bb9c157"
+    },
+    ".aide/architecture/l2/CMP-L3GEN-001.md": {
+      "revision": 4,
+      "sha256": "bbbdf43162e73de909dd9adb7a3109f6942ca2b96416bd7e59cfc9cbf094436c"
+    },
+    ".aide/architecture/adr/ADR-2026-006.md": {
+      "revision": 1,
+      "sha256": "5167ba771fb2f13c0e0186947238a8d8c536346ae72c3b75df82dd0e6a4596fe"
+    },
+    ".aide/requirements/nfr/NFR-L3GEN-SEC-002.md": {
+      "revision": 6,
+      "sha256": "0602984693938e706c9f8af5320d74e0dfbabca7b3172197b5f642ce3274d5af"
+    },
+    ".aide/requirements/nfr/NFR-L3GEN-AI-002.md": {
+      "revision": 6,
+      "sha256": "5fa8afd22df52b42f8d8c97e8abd18a465c6c58c5847e87378c968b634f2e30a"
+    }
+  },
+  "code_inputs": {
+    "slice/l3slice/docagent.py": {
+      "sha256": "2f2847940042dfcee9bf9ad2a17eb78156303cb1ed64132c33f9084c655b8a7c"
+    },
+    "slice/l3slice/docpipeline.py": {
+      "sha256": "9726cfc21f2c39124cd66600824ca217e146289a29446cf2893e8c4245dc449a"
+    },
+    "slice/l3slice/__main__.py": {
+      "sha256": "6738e1819c1d6a45c04216f8cc4e8811d7b4a342c2f37c7801d8c167725c48fe"
+    },
+    "slice/tests/test_docagent.py": {
+      "sha256": "d3875a19d3f87f0592d339af03213ebdea9d5a30467c8ea591554a49e562acd3"
+    },
+    "ket-qua-chay/run_oneshot_20261011.py": {
+      "sha256": "71fe940713f5a64e6fc8503279d85072f5e8d38939e8c4bab8728df249456bc8"
+    }
+  },
+  "authority": {
+    "baseline": "BL-CHG-L3GEN-2026-002-r11",
+    "status": "candidate, chưa ký",
+    "note": "ADR-2026-006 và CMP revision 5 là draft; OQ-L3GEN-019..022 mở."
+  },
+  "code_scope": [
+    "slice/l3slice/docagent.py",
+    "slice/l3slice/docpipeline.py",
+    "slice/l3slice/__main__.py",
+    "slice/tests/test_docagent.py",
+    "ket-qua-chay/run_oneshot_20261011.py"
+  ]
+}

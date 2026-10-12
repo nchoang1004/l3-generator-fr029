@@ -1,0 +1,59 @@
+type: review
+group: evidence
+scope: lifecycle
+status: completed
+change_set: CHG-L3GEN-2026-002
+change_request: CR-L3GEN-2026-008
+written_late: true
+evidence_mode: agent_review
+author: Phiên Claude chính (Opus 5.5), theo yêu cầu của Hoàng
+key: REVIEW-HELDOUT-L3GEN-2026-003
+gate: GATE-MERGE
+review_class: adversarial
+review_kind: held-out
+batch: 3
+subject: Gói bộ kiểm FR-029 xuất trên repo chưa dùng để chỉnh
+reviewer: Codex gpt-6-astra high
+repositories:
+- Caoyongqi912/case_auto_hub
+receipt:
+  packet: ket-qua-chay/fr029-heldout-20261008-r9
+  outputs:
+  - .aide/evidence/reviews/fr029-checker-20261007-09/codex/codex_heldout3_out.md
+  output_written: 2026-10-07T23:57Z
+decision: changes_needed
+results:
+  dependency_params: 1 đúng, 0 sai, 1 thiếu; 3 dependency bị sót
+  suspects: 2 HTTP thật, 0 nhiễu
+note: 'Giám khảo đọc gói và source repo, không đọc code bộ kiểm. Disposition theo EXEC §D.3: ACCEPTED = lỗi thật của bộ kiểm;
+  REJECTED = không phải lỗi bộ kiểm (lý do ghi kèm); NOT_APPLICABLE = ngoài định nghĩa hiện tại; NEEDS_MORE_EVIDENCE = cần
+  quyết định phạm vi.'
+findings:
+- id: FIND-L3GEN-136
+  severity: medium
+  route: patch
+  disposition: ACCEPTED
+  location: app/controller/__init__.py:24
+  summary: 'Thiếu header Authorization: Depends(Authentication()) là instance, FastAPI đọc __call__, bộ kiểm đọc __init__'
+  resolution:
+    status: fixed_by_test
+    tests:
+    - slice/tests/test_checker_counterexamples.py::HeldOutFindings::test_instance_of_a_class_uses_call_not_init
+- id: FIND-L3GEN-137
+  severity: low
+  route: patch
+  disposition: ACCEPTED
+  location: app/schema/base/env.py:6
+  summary: 'Thiếu query của model Pydantic dùng làm dependency (Depends() không đối số): caseId, 6 trường EnvField'
+  resolution:
+    status: fixed_by_test
+    tests:
+    - slice/tests/test_checker_counterexamples.py::HeldOutFindings::test_pydantic_model_as_dependency_gives_its_scalar_fields
+- id: FIND-L3GEN-138
+  severity: low
+  disposition: NOT_APPLICABLE
+  summary: 3 lời gọi qua lớp HttpxClient
+  resolution:
+    status: not_a_defect
+  reason: 'Lời gọi qua lớp/hàm bọc của dự án, không phải lời gọi trực tiếp httpx/requests/aiohttp; ngoài định nghĩa hiện tại
+    (câu hỏi mở: hàm bọc có tính là HTTP không).'

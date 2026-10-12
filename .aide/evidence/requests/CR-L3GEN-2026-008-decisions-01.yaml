@@ -1,0 +1,20 @@
+key: CR-L3GEN-2026-008-decisions-01
+type: change-request
+group: evidence
+scope: lifecycle
+captured_at_date: "2026-10-07"
+derived_from: [CR-L3GEN-2026-008]
+source: "Tin nhắn của Hoàng trong phiên 07/10/2026, trả lời OQ-L3GEN-012; giữ nguyên chữ."
+decisions_verbatim:
+  - question: "OQ-L3GEN-012: luồng agent trái NFR-SEC-002 (gửi nguyên file), NFR-AI-002 (OpenRouter, tối đa 4 request), OQ-L3GEN-009 (trần 0,20 USD / 300.000 token mỗi lần chạy)"
+    answer: "3 quy tắc này bỏ qua hết"
+    date: "2026-10-07"
+waiver:
+  kind: "waiver (EXEC §D.4)"
+  scope: "Luồng agent FR-029 trong CHG-L3GEN-2026-002, các lần chạy thử và đo ngày 07/10/2026"
+  rules_waived: [NFR-L3GEN-SEC-002 (không gửi nguyên file), NFR-L3GEN-AI-002 (provider OpenRouter; tối đa 4 request), OQ-L3GEN-009 (trần 0,20 USD / 300.000 token mỗi lần chạy)]
+  granted_by: "Hoàng"
+  reason: "Người dùng không nêu lý do riêng ngoài câu trả lời trên. EXEC §D.4 yêu cầu lý do khác rỗng; cần bổ sung."
+  rule_owner_confirmation: "Chưa có. NFR-SEC-002 và NFR-AI-002 đã duyệt ở Scope Gate; EXEC §D.4 chỉ cho cấp waiver ở tầng sở hữu rule. Cần Khiêm xác nhận nếu Hoàng không phải người sở hữu hai NFR này."
+  spec_changed: false
+  note: "Text của NFR và OQ-009 không đổi. Waiver không phải change request; muốn hướng agent thành chuẩn thì phải sửa NFR qua Product."

@@ -6,11 +6,11 @@ group: "normative"
 scope: "system"
 system: "SYS-L3GEN"
 status: "draft"
-revision: 4
+revision: 5
 ownership: {"accountable_team":"TEAM-L3GEN","accountable_role":"architect","affected_teams":[]}
-relations: {"implements":["CAP-L3GEN-010"],"governed_by":["ADR-2026-003","ADR-2026-004","ADR-2026-005"],"constrained_by":["TM-SYS-L3GEN"],"depends_on":["CMP-L3GEN-004"]}
-verified_at: 2026-10-02
-verified_against: [{"key":"CAP-L3GEN-010","revision":2},{"key":"ADR-2026-003","revision":4},{"key":"ADR-2026-004","revision":2},{"key":"ADR-2026-005","revision":1},{"key":"NFR-L3GEN-AI-002","revision":6},{"key":"NFR-L3GEN-SEC-002","revision":6},{"key":"GLOSS-L3GEN-001","revision":10}]
+relations: {"implements":["CAP-L3GEN-010"],"governed_by":["ADR-2026-003","ADR-2026-004","ADR-2026-005","ADR-2026-006"],"constrained_by":["TM-SYS-L3GEN"],"depends_on":["CMP-L3GEN-004"]}
+verified_at: 2026-10-09
+verified_against: [{"key":"CAP-L3GEN-010","revision":2},{"key":"ADR-2026-003","revision":4},{"key":"ADR-2026-004","revision":2},{"key":"ADR-2026-005","revision":1},{"key":"NFR-L3GEN-AI-002","revision":6},{"key":"NFR-L3GEN-SEC-002","revision":6},{"key":"GLOSS-L3GEN-001","revision":10},{"key":"ADR-2026-006","revision":1}]
 classification: "internal"
 ai_assisted: true
 ---
@@ -20,6 +20,9 @@ ai_assisted: true
 **Revision 3 (02/10/2026):** viết lại theo [NFR-L3GEN-AI-002](../../requirements/nfr/NFR-L3GEN-AI-002.md) revision 6 và code thật. Một provider (OpenRouter), một model, trả phí, có trần mỗi lần chạy. Bỏ Groq, Google, chính sách miễn phí và công cụ đọc code của revision 2. Code ở `experiments/quote-evidence/`.
 
 **Revision 4 (02/10/2026):** sửa theo review REVIEW-ARCH-L3GEN-2026-001 (A2, A16): bỏ cache và sổ chi phí dùng chung khỏi đường chạy sản phẩm, chi phí ghi vào provenance trong output (Khiêm quyết A2 ngày 02/10/2026); provenance ghi phiên bản Pyright.
+
+**Revision 5 (09/10/2026):** ghi vòng agent của FR-029 và các chỗ lệch với mục 1. Bản nháp theo [ADR-2026-006](../adr/ADR-2026-006.md) (draft, chờ Architecture Gate và OQ-L3GEN-018). Ghi muộn: code đã có từ 07–09/10/2026.
+
 
 ## 1. Trách nhiệm
 
@@ -46,6 +49,7 @@ Không làm: không quyết đề xuất nào đúng về nội dung (việc c�
 | Kiểm schema | JSON schema của từng việc | `llm.py` (`json`), schema ở `contract_llm.py` |
 | Provider giả | Thay provider trong test | `FakeLLM` trong `test_ai7.py`; chưa dùng cho `contract_llm.py` (lệch 005-7) |
 | Cổng của nhánh Hoàng | Groq, Google, chính sách miễn phí | `l3slice/gateway.py`; không nằm trên đường chạy của `l3gen` |
+| Vòng agent FR-029 (revision 5) | Nhiều lượt; model gọi công cụ `read_file`, `list_files`, `search_text`, `submit_findings`, `finish`; ngân sách lượt, token, thời gian, USD; dừng `partial` khi chạm trần | `slice/l3slice/docagent.py` (`run_agent`, `ResponsesProvider`, `OpenAICompatProvider`) |
 
 ## 3. Sequence
 
@@ -99,6 +103,7 @@ Gửi tuần tự, mỗi lần chạy một việc. Bộ đếm trần tính ri�
 | 006-4 | Provenance thiếu phiên bản prompt, phiên bản công cụ, phiên bản Pyright và Node, mã snapshot; `archdia.llm.json` có prompt và câu trả lời, sổ có model, token, USD | NFR-L3GEN-AI-002 "Tái lập", ADR-2026-005 |
 | 006-5 | Hai cổng: `llm.py` (dùng) và `l3slice/gateway.py` (không dùng) | ADR-2026-003 (một chỗ gửi ra ngoài) |
 | 006-6 | Cache câu trả lời (kèm văn bản suy luận) và sổ chi phí bật mặc định, nằm ở `evaluation/quote-evidence/` của công cụ, ngoài thư mục output, không bị xóa. Cần tách cache sang công cụ đo và ghi chi phí vào provenance | NFR-L3GEN-SEC-002 "Vòng đời" |
+| 006-7 | Luồng FR-029 gọi OpenAI trực tiếp (Responses API, `gpt-6-luna`), nhiều lượt, gửi nguyên nội dung file đã che bí mật, model có công cụ đọc file; trái mục 1 (OpenRouter, ≤ 4 request, không công cụ, trần 0,20 USD). Hoàng cho bỏ qua (waiver `CR-L3GEN-2026-008-decisions-01`, còn thiếu lý do và xác nhận người sở hữu rule) | ADR-2026-006, NFR-L3GEN-AI-002, NFR-L3GEN-SEC-002, OQ-L3GEN-009 |
 
 ## Liên quan
 
