@@ -18,7 +18,7 @@ Yêu cầu: "viết đầy đủ theo cái bạn đã triển khai và sửa l�
 
 **Lỗi còn mở thấy khi viết hồ sơ:** `TAI-LIEU.md` in `>` thành `&gt;` ở mục thư viện (FIND-L3GEN-179).
 
-**Git:** commit gồm `slice/`, `docs/`, `.aide/` của đợt 07–12/10. Không đưa `ket-qua-chay/` (465 MB kết quả chạy), không đưa 2 file `contract-checks` đã stage từ trước (ngoài phạm vi). Kết quả push: xem nhật ký mục 14.
+**Git:** commit gồm `slice/`, `docs/`, `.aide/` của đợt 07–12/10. Không đưa `ket-qua-chay/` (465 MB kết quả chạy), không đưa 2 file `contract-checks` đã stage từ trước (ngoài phạm vi). Commit `3cbe2d8` (300 file). **Push thất bại** (12/10): GitLab trả HTTP 403, nguyên văn `Your top-level group is over the user limit and has been placed in a read-only state.` Giống lần 11/10; chủ group cần gỡ trạng thái chỉ đọc, rồi chạy lại `git push -u origin feature/l3-fr029`.
 
 ## Bổ sung tài liệu sinh theo 5 đợt — 11–12/10/2026
 
@@ -870,7 +870,7 @@ Các dòng chi tiết của 28/09 nằm trong [HANDOFF-luu-tru-28-09-phien-2.md]
 
 | Ngày | Việc | Kiểm chứng |
 |---|---|---|
-| 12/10/2026 | Hồ sơ quy trình đợt 11–12/10 (CR-009, OQ-019…022, Epic/Story/Task, CTX/PLAN/DIARY, 4 REVIEW), `HUONG-DAN-DEMO.md`, SDLC log 25–29; commit và push | Chỉ tài liệu/hồ sơ. Suite 520/521. UI chưa sửa: thiếu `taste-skill` |
+| 12/10/2026 | Hồ sơ quy trình đợt 11–12/10 (CR-009, OQ-019…022, Epic/Story/Task, CTX/PLAN/DIARY, 4 REVIEW), `HUONG-DAN-DEMO.md`, SDLC log 25–29; commit `3cbe2d8` | Chỉ tài liệu/hồ sơ. Suite 520/521. UI chưa sửa: thiếu `taste-skill`. Push lỗi 403 (group GitLab chỉ đọc) |
 | 12/10/2026 | Viết `docs/L3-Generator-chuong-trinh-hien-tai.md`: chương trình hiện tại, đầu vào, luồng 12 bước, hai chế độ model, ai đề xuất/ai kiểm, đầu ra, cách chạy, module, số đo, giới hạn | Chỉ sửa tài liệu; số liệu lấy từ các lần đo 11–12/10 đã ghi |
 | 12/10/2026 | Kiểm kỹ phần bảng CSDL (FR-030): đo gold 4 repo, đối chiếu chuẩn, 2 vòng giám khảo độc lập (Sonnet, đề cố định, đầu ra đóng băng). Sửa 8 nhóm lỗi: crash `IDENTITY_COLLISION`, khóa chính qua alias Annotated, bảng `extend_existing`, AC-04 (`TABLES_NOT_READ`), TBL thiếu lớp/bằng chứng/nhãn từng cột, ràng buộc, `sa_type`/`max_length`, trình bày. Báo cáo `FR030-kiem-csdl-20261012.md`; bằng chứng `ket-qua-chay/db-check-20261012/` | Gold: bảng 32/32, cột/khóa chính/khóa ngoại 341/341. Giám khảo vòng 2: 285/287 cột (2 sai đã sửa sau). Suite 520/521; checkaudit không đổi. Chưa commit |
 | 12/10/2026 | Đánh giá trên repo held-out orderflow-services: agent Claude đóng vai model (đọc một lần), đóng băng đầu ra (hash), chấm gold + giám khảo độc lập (Sonnet; Codex 401). Sửa 4 lỗi tìm được: mã lỗi qua `super().__init__(status_code=)`, cảnh báo Redis pub/sub, khóa ngoại, thư viện lặp. Báo cáo `FR029-danh-gia-heldout-orderflow-20261012.md` | Gold: route 23/23, model 9/9, HTTP 2/2. Giám khảo 202/213 đúng, dễ dùng 3/5 (trước sửa). Suite 500/501; checkaudit không đổi. Chưa chấm lại bằng giám khảo sau sửa. Chưa commit |
