@@ -169,6 +169,18 @@ class DocumentWebTest(unittest.TestCase):
         self.assertNotEqual(seen["checkpoint"].parent, seen["output"])  # outside the fresh output directory
         self.assertEqual(seen["checkpoint"].parent, Path(self.tmp.name).resolve())
 
+    def test_cost_cap_needs_prices_and_reaches_the_budget(self):
+        from l3slice import docweb
+        with self.assertRaises(SystemExit):
+            docweb.main(["--workdir", self.tmp.name, "--script", str(FIX / "x"), "--max-cost-usd", "0.3"])
+        with mock.patch.object(docweb, "make_server", side_effect=RuntimeError("stop")) as made,                 mock.patch.dict("os.environ", {"K": "x"}):
+            with self.assertRaises(RuntimeError):
+                docweb.main(["--workdir", self.tmp.name, "--base-url", "https://api.example/v1", "--model", "m",
+                             "--key-env", "K", "--prices", "1.25,0.125,10", "--max-cost-usd", "0.35"])
+            service = made.call_args.args[0]
+            self.assertEqual(service.budget.max_cost_usd, 0.35)
+            self.assertEqual(service.factory().prices, (1.25, 0.125, 10.0))
+
     def start_with(self, **fields):
         status, _, raw = self.request("/api/runs", "POST", dict(self.body, **fields))
         self.assertEqual(status, 202, raw)

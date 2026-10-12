@@ -184,7 +184,18 @@ def main(argv=None):
     p.add_argument("--max-tokens", type=int, default=2_000_000)
     p.add_argument("--max-seconds", type=int, default=1800)
     p.add_argument("--max-output-tokens", type=int)
+    p.add_argument("--reasoning-effort", help="Mức suy luận của model (ví dụ low); bỏ trống thì theo mặc định của model")
+    p.add_argument("--prices", help="USD mỗi 1 triệu token: đầu vào,đầu vào từ bộ đệm,đầu ra (ví dụ 1.25,0.125,10)")
+    p.add_argument("--max-cost-usd", type=float, help="Dừng trước request kế tiếp khi chi phí đã đạt mức này; cần --prices")
     a = p.parse_args(argv)
+    try:
+        prices = tuple(float(x) for x in a.prices.split(",")) if a.prices else None
+        if prices is not None and len(prices) != 3:
+            raise ValueError
+    except ValueError:
+        p.error("--prices cần đúng 3 số, cách nhau bằng dấu phẩy")
+    if a.max_cost_usd is not None and (a.max_cost_usd <= 0 or not prices):
+        p.error("--max-cost-usd cần số dương và --prices")
     if min(a.max_turns, a.max_tokens, a.max_seconds) <= 0:
         p.error("Ngân sách phải lớn hơn 0")
     if a.script and any((a.base_url, a.model, a.key_env)):
@@ -202,14 +213,15 @@ def main(argv=None):
         endpoint = urlsplit(a.base_url)
         if endpoint.scheme not in ("http", "https") or not endpoint.hostname or endpoint.username or endpoint.password or endpoint.query or endpoint.fragment:
             p.error("--base-url cần HTTP(S) URL không chứa credential, query hoặc fragment")
-        factory = lambda: OpenAICompatProvider(a.base_url, a.model, a.key_env, max_output_tokens=a.max_output_tokens)
+        factory = lambda: OpenAICompatProvider(a.base_url, a.model, a.key_env, max_output_tokens=a.max_output_tokens, prices=prices,
+                                            reasoning_effort=a.reasoning_effort)
         try:
             factory()  # Validate credentials before opening the UI; no network call.
         except ProviderError as exc:
             p.error(str(exc))
     service = DocumentService(a.workdir, factory, model=a.model or "Kịch bản offline", offline=bool(a.script), endpoint=a.base_url,
                               defaults={k: str(v.resolve()) for k, v in (("source", a.source), ("membership", a.membership)) if v},
-                              budget=Budget(max_turns=a.max_turns, max_tokens=a.max_tokens, max_seconds=a.max_seconds))
+                              budget=Budget(max_turns=a.max_turns, max_tokens=a.max_tokens, max_seconds=a.max_seconds, max_cost_usd=a.max_cost_usd))
     server = make_server(service, a.port)
     print(f"FR-029: http://127.0.0.1:{server.server_port}/", flush=True)
     try:
